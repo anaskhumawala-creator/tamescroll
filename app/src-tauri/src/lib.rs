@@ -367,17 +367,30 @@ fn universal_injection_script() -> String {
         ));
     }
 
+    // Debug builds carry boundary markers so `adb logcat` (Tauri/Console)
+    // shows exactly how far the injection pipeline got on-device:
+    // enter -> host -> matched/no-match -> applied. Compiled out of
+    // release builds.
+    let trace = if cfg!(debug_assertions) {
+        r#"var TS_LOG = function (m) { try { console.log("TS_UNIVERSAL " + m); } catch (e) {} };"#
+    } else {
+        r#"var TS_LOG = function () {};"#
+    };
+
     format!(
         r#"
 (function () {{
-  if (window.__TS_UNIVERSAL__) return;
+  {trace}
+  if (window.__TS_UNIVERSAL__) {{ TS_LOG("skip: already ran"); return; }}
   window.__TS_UNIVERSAL__ = 1;
 
   var h = location.host;
+  TS_LOG("enter host=" + h);
   var CSS = (function () {{
 {branches}    return "";
   }})();
-  if (!CSS) return;
+  if (!CSS) {{ TS_LOG("no-match host=" + h); return; }}
+  TS_LOG("matched host=" + h + " css_len=" + CSS.length);
 
   var STYLE_ID = "tamescroll-rules";
 
@@ -406,6 +419,13 @@ fn universal_injection_script() -> String {
 
   new MutationObserver(function () {{ apply(); }})
     .observe(document.documentElement, {{ childList: true, subtree: false }});
+
+  setTimeout(function () {{
+    TS_LOG(
+      "t+5s style_present=" + !!document.getElementById(STYLE_ID) +
+      " readyState=" + document.readyState
+    );
+  }}, 5000);
 }})();
 "#
     )

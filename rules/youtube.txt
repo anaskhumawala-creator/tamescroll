@@ -218,17 +218,27 @@ m.youtube.com##ytm-promoted-video-renderer
 ! trusting them. See docs/android-research.md.
 
 ! Mobile home feed, scoped to the home browse page like the desktop rule.
-! [unverified]
+! [live] ytm-browse and ytm-rich-grid-renderer both present (1 each) on
+! the emulator home page 2026-08-18; with hiding active the feed body
+! rendered blank as intended. CAUTION [unverified]: whether mobile
+! search results render inside ytm-browse too — verify search still
+! works before trusting this beyond the home page.
 ! test: on m.youtube.com home in the Android app ->
 !   the feed grid is empty; search and subscriptions still render
 m.youtube.com##ytm-browse ytm-rich-grid-renderer
 m.youtube.com##ytm-single-column-browse-results-renderer ytm-rich-section-renderer
 
-! Shorts: bottom-navigation tab (anchored on its link), shelves in feeds,
-! and Shorts results in search.
-! [unverified]
+! Shorts: bottom-navigation tab, shelves in feeds, and Shorts results
+! in search. The tab is NOT a link — emulator DOM probe (2026-08-18,
+! spikes/logcat-evidence3.log) shows each ytm-pivot-bar-item-renderer
+! wraps a div.pivot-bar-item-tab with a per-tab class: pivot-w2w /
+! pivot-shorts / pivot-you. Anchor on that class; the original
+! a[href^="/shorts"] guess matched 0 tabs (8 feed links instead).
+! [live] tab selector verified on emulator-5556: 3 pivot items, one
+! with class pivot-shorts. Shelf/search rules still [unverified]
+! (logged-out empty feed rendered neither).
 ! test: no Shorts tab in the pivot bar; no Shorts shelf in search
-m.youtube.com##ytm-pivot-bar-item-renderer:has(a[href^="/shorts"])
+m.youtube.com##ytm-pivot-bar-item-renderer:has(> .pivot-shorts)
 m.youtube.com##ytm-reel-shelf-renderer
 m.youtube.com##ytm-rich-section-renderer:has(a[href^="/shorts/"])
 m.youtube.com##ytm-video-with-context-renderer:has(a[href^="/shorts/"])
