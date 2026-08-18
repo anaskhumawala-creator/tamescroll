@@ -211,15 +211,30 @@ What changed and why:
 - **First browser:** moot — no extension is being built. Brave remains the
   recommended pairing for users' general browsing in the playbook.
 
-### Still OPEN — ask the owner, do not decide alone
-1. **Project name.** Folder says `Disconnect`, but that name is
-   abstinence-shaped and the product is about staying on your own terms.
-   Also collides with an existing privacy extension.
-2. **Licence.** GPL (keeps derivatives open, matches HaramBlur lineage) vs
-   MIT (maximises adoption). Blocks the first code commit.
-3. **Whether TikTok ships at all.**
+### Decided (Phase 0 complete)
+- **Name: `tamescroll`.** Clear on `.com`, `.app`, `.org`, GitHub org and
+  App Store. Names the behaviour people recognise in themselves, not the
+  mechanism. Working directory is still `Z:\Apps\Disconnect` — the folder
+  has not been renamed.
+- **Licence: MPL-2.0 for code, CC0 for `rules/` data.** MPL matches
+  `adblock-rust`, keeps our files open, and — unlike GPL/AGPL — does not
+  conflict with App Store terms. CC0 on rules lets Brave, uBlock and
+  AdGuard absorb them.
+- **Contributor agreement live** in `CONTRIBUTING.md` from the first
+  outside contribution, preserving the right to relicense later.
+- **HaramBlur code must never be copied in.** It is AGPL-3.0; taking its
+  code would make the whole project AGPL and end iOS distribution. Build
+  the gaze module on `Human` and `nsfwjs` (both MIT) directly, which is
+  what HaramBlur itself is built on. Recorded in `NOTICE` and
+  `CONTRIBUTING.md`.
+
+### Still OPEN
+1. **Whether TikTok ships at all** — TikTok *is* the For You feed; there
+   may be no coherent cleaned version.
+2. **Domain not registered.** `tamescroll.com` was free as of 2026-08-18.
+   Costs money — owner's call, do not buy.
 
 ### Next action
-Phase 0 in `docs/plan.md`: name, licence, repo layout. Then Phase 1 — the
-YouTube rules list in EasyList syntax, hosted at a stable raw URL, usable
-in Brave and uBlock with no app installed.
+Phase 1 in `docs/plan.md`: the YouTube rules block in EasyList syntax at
+`rules/youtube.txt`, hosted at a stable redirectable URL, usable in Brave
+and uBlock with no app installed. Every rule needs a stated test.

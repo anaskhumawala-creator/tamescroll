@@ -204,6 +204,13 @@ Public repo, the AI watcher live against the rules list, community fixes into
 the same review queue, the playbook, home-screen icons, optional soft-pause
 friction (§6's one-sec science).
 
+**Localisation belongs here and is not cosmetic.** The playbook translated
+into Urdu, Arabic, Hindi, Indonesian, Spanish and French reaches far more
+people than any feature will, and translations are the contribution most
+easily accepted from the community. App stores also allow a localised
+display name and subtitle per region, so local-language framing ships
+without touching the brand.
+
 ---
 
 ## Risks that could kill this, and when each gets tested
@@ -232,22 +239,55 @@ the repo is the second layer.
 
 ---
 
-## Open decisions
+## Decisions made
 
-**The name.** The folder says `Disconnect`, but that name is
-abstinence-shaped — it describes leaving, and the whole product is about
-staying on your own terms. It also collides with an existing privacy
-extension. Something that says ownership or clarity rather than deprivation
-would fit both the product and the audience better. Owner's call.
+**Name: `tamescroll`.** Verified clear on every channel that matters —
+`.com`, `.app`, `.org`, GitHub organisation, and no exact-name app in the
+App Store. Chosen over `tamefeed` because it names the behaviour people
+actually recognise in themselves ("doom scrolling" is the culture's own
+phrase, and §1 opens with it) rather than the mechanism. "Feed" is fading
+as everyday language; under-20s say scrolling. Grammatically the object of
+"tame" is the scroll, not the person, so it does not read as a parental
+control.
 
-**The licence.** §1 promises free and open forever. GPL keeps derivatives
-open, which matches the intent and matches HaramBlur's lineage if we build on
-it; MIT maximises adoption. Must be decided before the first code commit,
-because it constrains what we can build on.
+Not a globally translatable name, and that is accepted: Brave, Signal,
+Proton and Telegram are all English words with global reach, because a
+brand is learned as a token rather than parsed. The globalisation effort
+belongs in the playbook translations and UI strings, not the name.
+
+**Licence: MPL-2.0 for code, CC0 for rules data.** MPL is file-level
+copyleft — our files stay open even if someone builds a product around
+them — and it is the same licence as `adblock-rust`, so embedding is
+frictionless. Critically it does *not* conflict with App Store terms the
+way GPL and AGPL do; that conflict pulled VLC from the store in 2011 and
+would foreclose iOS. Rules data is CC0 so Brave, uBlock Origin and AdGuard
+can absorb it freely, which spreads the mission further than our own app
+can.
+
+A contributor agreement is in place from the first outside contribution
+(`CONTRIBUTING.md`), preserving the ability to relicense later. Without it
+a single un-relicensable patch could permanently block a change the
+project's survival depends on.
+
+### Keeping the name reversible
+
+The name is cheap to change everywhere except two places, so both are
+designed around it now:
+
+- **App bundle identifier** is permanent once published to either store —
+  changing it means a new listing and every user reinstalling. It is
+  invisible to users, so it is treated as permanent infrastructure rather
+  than branding, and the display name is free to change on top of it.
+- **The rules list URL** is cached by everyone subscribed to it in Brave.
+  It is served from a path we control that can redirect indefinitely.
+
+Everywhere else the name lives in a single configuration constant and is
+never hardcoded. Practical effect: renaming is free until first store
+submission (Phase 5), and even then only the hidden identifier locks.
+
+## Still open
 
 **Whether TikTok ships at all.** See platform order.
-
----
 
 ## What this plan deliberately does not do
 
