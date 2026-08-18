@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en" id="top">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tamescroll — your feeds, nothing else</title>
+<meta name="description" content="One free, open-source app that opens YouTube, Reddit and X as cleaned versions of themselves: no ads, no Shorts, no algorithmic feeds. Desktop and mobile.">
+<style>
+  :root {
+    --bg: #0b0d11; --bg-raise: #10131a; --surface: #151922; --surface-2: #1a1f2a;
+    --line: #232936; --line-soft: #1c212c;
+    --ink: #eef1f6; --muted: #8b94a7; --faint: #5d6678;
+    --accent: #6fd3b4; --accent-dim: #3e8a73; --accent-ink: #0a1512;
+    --yt: #FF0033; --rd: #FF4500; --xx: #71767B; --ig: #E1306C;
+    --radius: 18px; --radius-sm: 12px;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 16px 40px -18px rgba(0,0,0,.65);
+    --ease: cubic-bezier(.22,.9,.24,1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { color-scheme: dark; scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--font);
+    -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  ::selection { background: rgba(111,211,180,.25); }
+
+  /* ---------- ambient light ---------- */
+  .glow { position: fixed; inset: -30% -20% auto -20%; height: 80vh; pointer-events: none; z-index: 0;
+    background: radial-gradient(ellipse 60% 55% at 50% 0%, rgba(111,211,180,.11), transparent 70%);
+    transition: transform .6s var(--ease); will-change: transform; }
+  .grain { position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .5;
+    background-image: radial-gradient(rgba(255,255,255,.014) 1px, transparent 1px);
+    background-size: 3px 3px; }
+
+  .wrap { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- header ---------- */
+  header { position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    background: rgba(11,13,17,.72); border-bottom: 1px solid transparent;
+    transition: border-color .3s ease; }
+  header.scrolled { border-bottom-color: var(--line-soft); }
+  .bar { max-width: 900px; margin: 0 auto; padding: 16px 28px;
+    display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 15px; letter-spacing: -.01em; }
+  .mark { width: 22px; height: 22px; border-radius: 8px; flex: none;
+    background: linear-gradient(135deg, var(--accent), #4b9dd8);
+    box-shadow: 0 0 0 1px rgba(111,211,180,.35), 0 4px 14px -4px rgba(111,211,180,.55); }
+  nav { display: flex; align-items: center; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 13.5px; margin-left: 24px;
+    white-space: nowrap; transition: color .2s ease; }
+  @media (max-width: 560px) {
+    nav a:not(.pill) { display: none; }
+    nav a.pill { margin-left: 0; }
+  }
+  nav a:hover { color: var(--ink); }
+  nav a.pill { border: 1px solid var(--line); border-radius: 999px; padding: 7px 16px; color: var(--ink); }
+  nav a.pill:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ---------- hero ---------- */
+  .hero { padding: 96px 0 70px; }
+  .hero h1 { font-size: clamp(40px, 7.4vw, 68px); font-weight: 720; letter-spacing: -.032em; line-height: 1.03; }
+  .hero h1 em { font-style: normal; color: var(--accent); position: relative; white-space: nowrap; }
+  .hero h1 em::after { content: ""; position: absolute; left: 0; right: 0; bottom: .04em; height: .08em;
+    background: linear-gradient(90deg, var(--accent), transparent); border-radius: 2px;
+    transform: scaleX(0); transform-origin: left; animation: underline 1s .9s var(--ease) forwards; }
+  @keyframes underline { to { transform: scaleX(1); } }
+  .hero p.lead { margin-top: 22px; color: var(--muted); font-size: 17.5px; line-height: 1.65; max-width: 54ch; }
+  .cta { margin-top: 36px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 24px; border-radius: 999px;
+    font-size: 14.5px; font-weight: 620; text-decoration: none; cursor: pointer; border: 0; font-family: inherit;
+    transition: transform .18s var(--ease), box-shadow .18s var(--ease), border-color .2s ease, color .2s ease; }
+  .btn-primary { background: var(--accent); color: var(--accent-ink);
+    box-shadow: 0 8px 26px -8px rgba(111,211,180,.55); }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 34px -10px rgba(111,211,180,.6); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-ghost { border: 1px solid var(--line); color: var(--ink); background: transparent; }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .note { margin-top: 16px; font-size: 12.5px; color: var(--faint); }
+
+  /* staggered entrance */
+  .enter { opacity: 0; transform: translateY(18px); animation: enter .8s var(--ease) forwards; }
+  .enter.d1 { animation-delay: .08s; } .enter.d2 { animation-delay: .2s; }
+  .enter.d3 { animation-delay: .34s; } .enter.d4 { animation-delay: .48s; }
+  @keyframes enter { to { opacity: 1; transform: none; } }
+
+  /* ---------- sections & reveal-on-scroll ---------- */
+  section { padding: 64px 0; border-top: 1px solid var(--line-soft); }
+  .label { font-size: 11.5px; font-weight: 680; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--faint); margin-bottom: 8px; }
+  .section-title { font-size: clamp(22px, 3.4vw, 30px); font-weight: 680; letter-spacing: -.022em; margin-bottom: 10px; }
+  .section-sub { color: var(--muted); font-size: 15px; line-height: 1.6; max-width: 56ch; margin-bottom: 30px; }
+  .reveal { opacity: 0; transform: translateY(26px); transition: opacity .7s var(--ease), transform .7s var(--ease); }
+  .reveal.in { opacity: 1; transform: none; }
+  .reveal.lag1 { transition-delay: .08s; } .reveal.lag2 { transition-delay: .16s; }
+  .reveal.lag3 { transition-delay: .24s; } .reveal.lag4 { transition-delay: .32s; }
+
+  /* ---------- demo ---------- */
+  .demo { background: var(--bg-raise); border: 1px solid var(--line-soft); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden; }
+  .demo-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+    padding: 16px 18px; border-bottom: 1px solid var(--line-soft); }
+  .tabs { display: inline-flex; padding: 3px; border: 1px solid var(--line-soft); border-radius: 999px;
+    background: var(--bg); }
+  .tab { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12.5px;
+    font-weight: 620; padding: 7px 15px; border-radius: 999px; cursor: pointer;
+    transition: background .2s ease, color .2s ease; }
+  .tab:hover { color: var(--ink); }
+  .tab.active { background: var(--surface-2); color: var(--ink); }
+  .demo-controls { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .switch { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; user-select: none;
+    font-size: 13px; font-weight: 600; color: var(--muted); }
+  .switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .track { width: 40px; height: 22px; border-radius: 999px; background: var(--surface-2);
+    border: 1px solid var(--line); position: relative; transition: background .25s ease, border-color .25s ease; flex: none; }
+  .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--faint); transition: transform .25s var(--ease), background .25s ease; }
+  .switch input:checked + .track { background: var(--accent); border-color: var(--accent); }
+  .switch input:checked + .track::after { transform: translateX(18px); background: var(--accent-ink); }
+  .switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .switch .on-label { color: var(--ink); }
+
+  .feed { padding: 18px; display: grid; gap: 12px; min-height: 380px; }
+  .post { display: flex; gap: 14px; background: var(--surface); border: 1px solid var(--line-soft);
+    border-radius: var(--radius-sm); padding: 12px; align-items: center;
+    transition: opacity .5s var(--ease), transform .5s var(--ease), max-height .5s var(--ease),
+      padding .5s var(--ease), margin .5s var(--ease), border-color .3s ease;
+    max-height: 120px; overflow: hidden; }
+  .thumb { width: 118px; height: 66px; border-radius: 9px; flex: none; position: relative; overflow: hidden; }
+  .thumb .img { position: absolute; inset: 0; transition: filter .45s ease; }
+  /* texture so the demo blur is visibly doing something on mock art */
+  .thumb .img::after { content: ""; position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 28% 38%, rgba(255,255,255,.55), transparent 26%),
+      radial-gradient(circle at 72% 70%, rgba(0,0,0,.35), transparent 40%),
+      repeating-linear-gradient(115deg, rgba(255,255,255,.16) 0 3px, transparent 3px 11px); }
+  .thumb .dur { position: absolute; right: 5px; bottom: 5px; z-index: 1;
+    font-size: 10px; font-weight: 700; letter-spacing: .02em; color: #fff;
+    background: rgba(0,0,0,.72); border-radius: 4px; padding: 1.5px 5px;
+    transition: filter .45s ease, opacity .45s ease; }
+  .post .txt { min-width: 0; }
+  .post .t1 { font-size: 13.5px; font-weight: 620; letter-spacing: -.005em; }
+  .post .t2 { margin-top: 5px; font-size: 12px; color: var(--muted); }
+  .badge { display: inline-block; margin-top: 7px; font-size: 10px; font-weight: 700; letter-spacing: .07em;
+    text-transform: uppercase; border-radius: 5px; padding: 2.5px 7px; }
+  .badge.ad { background: rgba(255,196,0,.13); color: #e8c76a; }
+  .badge.algo { background: rgba(255,0,51,.12); color: #ff7d95; }
+  .badge.keep { background: rgba(111,211,180,.13); color: var(--accent); }
+  .feed.cleaned .post.junk { opacity: 0; transform: translateX(26px) scale(.98); max-height: 0;
+    padding-top: 0; padding-bottom: 0; margin: -6px 0; border-color: transparent; pointer-events: none; }
+  .feed.blurred .post.keep .thumb .img { filter: blur(13px) saturate(.8); }
+  .feed.blurred .post.keep .thumb .dur { filter: blur(6px); opacity: .55; }
+  .demo-foot { padding: 13px 18px; border-top: 1px solid var(--line-soft); font-size: 12.5px;
+    color: var(--faint); display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .demo-foot .stat b { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* ---------- platforms ---------- */
+  .plats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .plat { display: flex; align-items: center; gap: 12px; background: var(--surface);
+    border: 1px solid var(--line-soft); border-radius: var(--radius-sm); padding: 15px 16px;
+    font-size: 14.5px; font-weight: 620; transition: transform .2s var(--ease), border-color .2s ease, box-shadow .2s ease; }
+  .plat:hover { transform: translateY(-3px); border-color: var(--line); box-shadow: var(--shadow); }
+  .dot { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center;
+    color: #fff; font-weight: 700; font-size: 14px; flex: none;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.25); }
+  .soon { color: var(--faint); font-weight: 500; font-size: 11.5px; }
+
+  /* ---------- cards ---------- */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--radius);
+    padding: 22px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+    transition: transform .22s var(--ease), border-color .22s ease; }
+  .card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(111,211,180,.35), transparent);
+    opacity: 0; transition: opacity .3s ease; }
+  .card:hover { transform: translateY(-3px); border-color: var(--line); }
+  .card:hover::before { opacity: 1; }
+  .card .ico { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+    background: rgba(111,211,180,.1); color: var(--accent); margin-bottom: 14px; font-size: 16px; }
+  .card h3 { font-size: 15.5px; font-weight: 640; letter-spacing: -.01em; }
+  .card p { margin-top: 9px; color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+
+  /* ---------- faq ---------- */
+  .faq details { border: 1px solid var(--line-soft); border-radius: var(--radius-sm); background: var(--surface);
+    margin-bottom: 10px; overflow: hidden; }
+  .faq summary { list-style: none; cursor: pointer; padding: 16px 18px; font-size: 14.5px; font-weight: 620;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    transition: background .2s ease; }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after { content: ""; width: 8px; height: 8px; flex: none;
+    border-right: 1.5px solid var(--faint); border-bottom: 1.5px solid var(--faint);
+    transform: rotate(45deg); transition: transform .25s var(--ease); margin-right: 3px; }
+  .faq details[open] summary::after { transform: rotate(-135deg); }
+  .faq summary:hover { background: var(--surface-2); }
+  .faq .a { padding: 0 18px 16px; color: var(--muted); font-size: 13.5px; line-height: 1.65; max-width: 64ch; }
+
+  /* ---------- footer ---------- */
+  footer { padding: 44px 0 54px; border-top: 1px solid var(--line-soft);
+    display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+    color: var(--faint); font-size: 12.5px; }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--ink); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .enter, .reveal { opacity: 1 !important; transform: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="glow" id="glow" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<header id="hdr">
+  <div class="bar">
+    <div class="brand"><span class="mark" aria-hidden="true"></span> tamescroll</div>
+    <nav aria-label="Site">
+      <a href="#demo">See it work</a>
+      <a href="#how">How</a>
+      <a href="#promise">Promise</a>
+      <a class="pill" href="#download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="hero" style="border-top:none">
+    <h1><span class="enter">Your feeds.</span><br><em class="enter d1">Nothing else.</em></h1>
+    <p class="lead enter d2">One free, open-source app that opens YouTube, Reddit and X as cleaned
+       versions of themselves — no ads, no Shorts, no endless recommendations, no
+       algorithm deciding your evening. Everything you actually came for is still there.</p>
+    <div class="cta enter d3">
+      <a class="btn btn-primary" href="#download">Download free</a>
+      <a class="btn btn-ghost" href="#demo">See it work ↓</a>
+    </div>
+    <p class="note enter d4" id="download">Desktop &amp; Android today, iOS on the way · no account · no subscription · no data collection</p>
+  </section>
+
+  <section id="demo">
+    <h2 class="label reveal">Live demo</h2>
+    <p class="section-title reveal lag1">Flip the switch. Watch the junk leave.</p>
+    <p class="section-sub reveal lag2">This is a mock feed — but it behaves exactly like the app:
+       the algorithmic inserts collapse away, and the optional blur keeps thumbnails from
+       grabbing your eyes while titles stay readable.</p>
+    <div class="demo reveal lag2" id="demo-box">
+      <div class="demo-head">
+        <div class="tabs" role="tablist" aria-label="Platform">
+          <button class="tab active" data-plat="youtube" role="tab">YouTube</button>
+          <button class="tab" data-plat="reddit" role="tab">Reddit</button>
+          <button class="tab" data-plat="x" role="tab">X</button>
+        </div>
+        <div class="demo-controls">
+          <label class="switch"><input type="checkbox" id="sw-clean" checked><span class="track" aria-hidden="true"></span><span class="on-label">tamescroll</span></label>
+          <label class="switch"><input type="checkbox" id="sw-blur"><span class="track" aria-hidden="true"></span><span>blur</span></label>
+        </div>
+      </div>
+      <div class="feed cleaned" id="feed" aria-live="polite"></div>
+      <div class="demo-foot">
+        <span class="stat"><b id="stat-hidden">0</b> distractions hidden on this screen</span>
+        <span>what you choose to open always plays normally</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="label reveal">Platforms</h2>
+    <p class="section-title reveal lag1">One app. Every feed.</p>
+    <p class="section-sub reveal lag1">Instead of hunting down a different extension for every
+       site and every device, install one thing. Each platform can even get its own icon on
+       your home screen.</p>
+    <div class="plats">
+      <span class="plat reveal"><span class="dot" style="background:var(--yt)">Y</span> YouTube</span>
+      <span class="plat reveal lag1"><span class="dot" style="background:var(--rd)">R</span> Reddit</span>
+      <span class="plat reveal lag2"><span class="dot" style="background:var(--xx)">X</span> X</span>
+      <span class="plat reveal lag3"><span class="dot" style="background:var(--ig)">I</span> Instagram&nbsp;<span class="soon">soon</span></span>
+    </div>
+  </section>
+
+  <section id="how">
+    <h2 class="label reveal">How it works</h2>
+    <p class="section-title reveal lag1">The quiet version, by default.</p>
+    <div class="grid">
+      <div class="card reveal"><div class="ico">◈</div>
+        <h3>Opens the real sites</h3>
+        <p>No fake app, no repackaging, no login tricks. tamescroll opens the platform's own
+           website and hides what preys on you: ads, Shorts, the home feed, "people also watched".</p></div>
+      <div class="card reveal lag1"><div class="ico">↯</div>
+        <h3>Instant, always</h3>
+        <p>Cleaning happens before the page paints. Nothing flashes, nothing loads-then-vanishes.
+           It looks like the platform shipped a calmer version of itself.</p></div>
+      <div class="card reveal lag2"><div class="ico">◐</div>
+        <h3>Blur what pulls at you</h3>
+        <p>Optional image blur keeps thumbnails from hijacking your attention — titles stay
+           readable, and what you open plays normally. Smart mode runs entirely on your device.
+           Nothing is ever uploaded, anywhere.</p></div>
+      <div class="card reveal lag3"><div class="ico">✳</div>
+        <h3>You decide what returns</h3>
+        <p>Everything starts hidden. Want sidebars or channel pages back? Every surface is a
+           toggle in the app. Ads and nags stay gone — that part isn't negotiable.</p></div>
+    </div>
+  </section>
+
+  <section id="promise">
+    <h2 class="label reveal">Our promise</h2>
+    <p class="section-title reveal lag1">Fewer hooks in you. Not new ones.</p>
+    <div class="grid">
+      <div class="card reveal"><h3>Free &amp; open, forever</h3>
+        <p>MPL-2.0 code, CC0 rules. No premium tier, no trial, no telemetry. You can read every
+           line of what runs on your machine.</p></div>
+      <div class="card reveal lag1"><h3>Never a nag</h3>
+        <p>No streaks, no guilt screens, no "are you sure?". It doesn't lecture you — the quiet
+           version is simply the default.</p></div>
+      <div class="card reveal lag2"><h3>Block-only</h3>
+        <p>We hide and blur on pages you view. We never unlock paid features, never impersonate
+           the platforms, never touch your account.</p></div>
+    </div>
+  </section>
+
+  <section class="faq">
+    <h2 class="label reveal">Questions</h2>
+    <p class="section-title reveal lag1">The honest answers.</p>
+    <details class="reveal">
+      <summary>Is this a parental-control app?</summary>
+      <div class="a">No. Nothing is locked, nothing reports to anyone, and you can bring any
+        surface back with one toggle. It's for people who choose a calmer internet for
+        themselves.</div>
+    </details>
+    <details class="reveal lag1">
+      <summary>Do I need an account?</summary>
+      <div class="a">No account with us, ever. You can sign in to the platforms themselves inside
+        the app if you want your subscriptions — that's between you and them; we never see it.</div>
+    </details>
+    <details class="reveal lag2">
+      <summary>Does the blur upload my screen somewhere?</summary>
+      <div class="a">Never. Blur is plain CSS, and smart mode's detection runs entirely on your
+        device with a bundled model. The app makes no network requests of its own.</div>
+    </details>
+    <details class="reveal lag3">
+      <summary>How is this free?</summary>
+      <div class="a">It's open source under MPL-2.0, built to be finished software — not a
+        business. There is nothing to upsell because there is nothing collected.</div>
+    </details>
+  </section>
+
+  <footer>
+    <span>tamescroll — free &amp; open source · MPL-2.0</span>
+    <span><a href="#top">Back to top ↑</a></span>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* header hairline on scroll + gentle glow parallax */
+  var hdr = document.getElementById("hdr");
+  var glow = document.getElementById("glow");
+  addEventListener("scroll", function () {
+    hdr.classList.toggle("scrolled", scrollY > 8);
+    if (glow) glow.style.transform = "translateY(" + Math.min(scrollY * -0.06, 0) + "px)";
+  }, { passive: true });
+
+  /* reveal on scroll */
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll(".reveal").forEach(function (el) { io.observe(el); });
+
+  /* ---------- demo ---------- */
+  var G = function (a, b) { return "linear-gradient(135deg," + a + "," + b + ")"; };
+  var FEEDS = {
+    youtube: [
+      { keep: 1, t1: "How to sharpen a chisel properly", t2: "Fine Woodcraft", dur: "12:40", g: G("#3a5a40","#588157"), badge: "" },
+      { keep: 0, t1: "Sponsored — This gadget will change your life", t2: "Ad · promoted", g: G("#7a5c00","#b08900"), badge: "ad" },
+      { keep: 0, t1: "Shorts shelf — 30 clips you didn't ask for", t2: "Autoplay carousel", g: G("#7d1128","#b3324f"), badge: "algo" },
+      { keep: 1, t1: "Lecture 4 — Linear Algebra, full course", t2: "MIT OpenCourseWare", dur: "49:02", g: G("#1d3557","#457b9d"), badge: "keep" },
+      { keep: 0, t1: "People also watched — rabbit hole starts here", t2: "Recommended for you", g: G("#5c164e","#8e2f7c"), badge: "algo" },
+      { keep: 1, t1: "Repairing a 40-year-old bicycle hub", t2: "Shop Talk", dur: "18:11", g: G("#432818","#99582a"), badge: "" }
+    ],
+    reddit: [
+      { keep: 1, t1: "r/woodworking — First dovetail, be honest", t2: "324 comments", g: G("#3a5a40","#588157"), badge: "" },
+      { keep: 0, t1: "Promoted — crypto exchange you can trust™", t2: "u/advertiser", g: G("#7a5c00","#b08900"), badge: "ad" },
+      { keep: 0, t1: "Popular near you — outrage thread of the day", t2: "r/all · trending", g: G("#7d1128","#b3324f"), badge: "algo" },
+      { keep: 1, t1: "r/askscience — Why is the sky darker at altitude?", t2: "861 comments", g: G("#1d3557","#457b9d"), badge: "keep" },
+      { keep: 0, t1: "Communities you might like — 12 suggestions", t2: "Discovery carousel", g: G("#5c164e","#8e2f7c"), badge: "algo" },
+      { keep: 1, t1: "r/buyitforlife — Boots after 9 years of daily wear", t2: "402 comments", g: G("#432818","#99582a"), badge: "" }
+    ],
+    x: [
+      { keep: 1, t1: "Colleague — Slides from today's talk are up", t2: "Following · 2h", g: G("#3a5a40","#588157"), badge: "" },
+      { keep: 0, t1: "Promoted — You won't believe this thread", t2: "Ad", g: G("#7a5c00","#b08900"), badge: "ad" },
+      { keep: 0, t1: "For you — someone is wrong on the internet", t2: "Trending · 41k posts", g: G("#7d1128","#b3324f"), badge: "algo" },
+      { keep: 1, t1: "Research lab — New paper: attention and habit loops", t2: "Following · 5h", g: G("#1d3557","#457b9d"), badge: "keep" },
+      { keep: 0, t1: "Who to follow — 8 accounts chosen by the algorithm", t2: "Suggested", g: G("#5c164e","#8e2f7c"), badge: "algo" },
+      { keep: 1, t1: "Friend — Sunday ride photos, no filter", t2: "Following · 8h", g: G("#432818","#99582a"), badge: "" }
+    ]
+  };
+
+  var feed = document.getElementById("feed");
+  var swClean = document.getElementById("sw-clean");
+  var swBlur = document.getElementById("sw-blur");
+  var statEl = document.getElementById("stat-hidden");
+  var current = "youtube";
+
+  function render(plat) {
+    current = plat;
+    feed.innerHTML = "";
+    FEEDS[plat].forEach(function (p) {
+      var el = document.createElement("div");
+      el.className = "post " + (p.keep ? "keep" : "junk");
+      var badge = p.badge === "ad" ? '<span class="badge ad">ad</span>'
+        : p.badge === "algo" ? '<span class="badge algo">algorithm</span>'
+        : p.badge === "keep" ? '<span class="badge keep">yours</span>' : "";
+      el.innerHTML =
+        '<div class="thumb"><div class="img" style="background:' + p.g + '"></div><span class="dur">' + (p.dur || '') + '</span></div>' +
+        '<div class="txt"><div class="t1"></div><div class="t2"></div>' + badge + "</div>";
+      el.querySelector(".t1").textContent = p.t1;
+      el.querySelector(".t2").textContent = p.t2;
+      feed.appendChild(el);
+    });
+    apply(false);
+  }
+
+  function countUp(to) {
+    var from = parseInt(statEl.textContent, 10) || 0;
+    if (from === to) return;
+    var start = performance.now();
+    (function tick(now) {
+      var k = Math.min((now - start) / 350, 1);
+      statEl.textContent = Math.round(from + (to - from) * k);
+      if (k < 1) requestAnimationFrame(tick);
+    })(start);
+  }
+
+  function apply(animate) {
+    feed.classList.toggle("cleaned", swClean.checked);
+    feed.classList.toggle("blurred", swBlur.checked);
+    var junk = FEEDS[current].filter(function (p) { return !p.keep; }).length;
+    countUp(swClean.checked ? junk : 0);
+  }
+
+  swClean.addEventListener("change", function () { apply(true); });
+  swBlur.addEventListener("change", function () { apply(true); });
+
+  document.querySelectorAll(".tab").forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      document.querySelectorAll(".tab").forEach(function (t) { t.classList.remove("active"); });
+      tab.classList.add("active");
+      render(tab.dataset.plat);
+    });
+  });
+
+  render("youtube");
+
+  /* replay the collapse once when the demo scrolls into view */
+  var replayed = false;
+  new IntersectionObserver(function (entries, obs) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting && !replayed) {
+        replayed = true;
+        swClean.checked = false; apply(false);
+        setTimeout(function () { swClean.checked = true; apply(true); }, 700);
+        obs.disconnect();
+      }
+    });
+  }, { threshold: 0.45 }).observe(document.getElementById("demo-box"));
+})();
+</script>
+</body>
+</html>
