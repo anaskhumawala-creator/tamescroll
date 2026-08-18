@@ -168,6 +168,17 @@ player filter:none held, row hides on Off. Also probe20: 6/6 cold
 starts clean with the invokeStartup retry; probe21 desktop smoke
 green (101 rules active, engine warm 1.89s).
 
+**Shadow DOM pierced** (612bb04, probe25-27): smart mode was blind to
+Reddit video (shreddit player = open shadow root; light-DOM discovery
+only) AND document-level gaze styles were inert inside roots (pending
+class, filter none). Now: 3-leg discovery (scan descends, boot
+deep-scan, attachShadow wrap), per-root observer + per-root stylesheet
+copy. Verified: shadow videos pending at blur(24px), 532/532 roots
+styled, giveUp() tainted-canvas fail-open FIRED live once
+(packaged-media.redd.it) — last unverified review path closed.
+Image CORS fail-closed also observed live (cors-denied avatars stay
+blurred, by design).
+
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
 (rules would be [unverified] — site blocked in India); Instagram
