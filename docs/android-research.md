@@ -60,3 +60,43 @@ Play ([v2.tauri.app/distribute/google-play](https://v2.tauri.app/distribute/goog
 - Verbatim primary-source CookieManager persistence text.
 - Real `ytm-*` markup from a live UA-spoofed fetch (inferred from filter lists only).
 - Google Play's current mandatory target-API-level policy for new submissions.
+
+
+## First build + run — verified findings (2026-08-18, emulator-5556, x86_64)
+
+Evidence: spikes/android-first-run.png, spikes/android-yt.png,
+spikes/android-build.log, spikes/gradle-build2.log.
+
+**Build path that works on this machine (no Developer Mode):**
+1. `npx tauri android init` — clean.
+2. `npx tauri android build --debug --target x86_64` — Rust
+   cross-compile succeeds (~2 min), then FAILS at the symlink step
+   (Windows refuses symlinks without Developer Mode).
+3. Workaround: `Copy-Item` the built
+   `target/x86_64-linux-android/debug/libapp_lib.so` into
+   `gen/android/app/src/main/jniLibs/x86_64/`, then
+   `.\gradlew.bat assembleX86_64Debug -x :app:rustBuildX86_64Debug`
+   (the excluded task only re-invokes the tauri CLI / symlink).
+   BUILD SUCCESSFUL ~1 min. APK ~150MB debug.
+   Every future build needs this until Developer Mode (owner call) or
+   upstream fix. Frontend is embedded in the Rust binary — the empty
+   gen/android assets dir is normal.
+
+**Runtime findings:**
+- Launcher renders 1:1 with desktop; engine warms in 3.6s on-device.
+- NO multi-window: tapping a tile navigates the single WebView
+  in place (numActivities=1). Desktop's window-per-platform model has
+  no Android equivalent here — Android UX needs an in-app back path to
+  the launcher (system Back may suffice; unverified).
+- UA redirect www.youtube.com -> m.youtube.com happens AFTER injection;
+  the injected CSS must carry the ytm-* rules regardless of host
+  (fixed in lib.rs surfaces_css, test-pinned).
+- Injection race is REAL on Android: repeated
+  `Cannot redefine property: __TAURI_*` logcat errors confirm init
+  scripts re-inject unreliably on remote URLs. Cosmetic hiding did not
+  visibly apply on m.youtube.com (Shorts tab survived — partly the
+  host-filter bug above, partly this race). NEXT: reliable Android
+  injection (onPageStarted-style или runtime re-injection via
+  MutationObserver-boot script) before calling Android "cleaned".
+- Sign-in and video playback untested; player script threw an internal
+  error once (undiagnosed).

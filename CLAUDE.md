@@ -80,8 +80,16 @@ r/all redirects to /hot when logged in). m.youtube.com rules written
 [unverified until emulator]. rules/instagram.txt DRAFT committed.
 Android machine prep done (JDK 17, NDK, 4 rustup targets).
 
-In flight at session end: first Android debug build (x86_64, agent
-bg-building; gen/android untracked until it lands).
+**Android first run DONE** (emulator-5556): APK builds via the
+symlink workaround (copy .so + gradlew -x :app:rustBuildX86_64Debug —
+see docs/android-research.md), launcher renders 1:1, engine warms
+3.6s. Found + fixed: mobile rules were host-filtered out of the
+injected CSS (UA redirect happens after injection). Still open on
+Android: injection race (__TAURI_* redefine errors — hiding not
+applied on m.youtube yet), no multi-window (tiles navigate in place).
+**Settings pane DONE**: !surface: markers in rules files, our rules
+now a toggleable CSS layer outside the engine, Bring back section
+with Hidden/Shown pills; ads/promoted/nags always-on. 14/14 tests.
 
 Rules-change gotcha: rules/*.txt are include_str'd — the dev watcher
 does NOT watch rules/, so touch a src-tauri file to force the rebuild,
