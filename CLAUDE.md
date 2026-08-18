@@ -166,59 +166,60 @@ the owner should SEE YouTube get cleaner step by step.
 
 ## 10. Session state (maintained by Claude Code — update every session)
 
-**Last updated:** 2026-08-18 · workspace bootstrap · no code written yet.
+**Last updated:** 2026-08-18 · scoping corrected · no code written yet.
 
-### Where we are
-Phase 0/1 boundary. Repo initialised, handoff + system map committed.
-No extension scaffold yet — the two OPEN questions below gate it.
-Nothing has been forked or reviewed yet (Phase 0 not run).
+### IMPORTANT — §8 and part of §3 above are superseded
+A scoping conversation on 2026-08-18 corrected the build order and the
+product shape. **Read `docs/plan.md` before acting on §3 or §8.**
+Mission (§1) and hard rules (§2) are unchanged and still govern.
 
-### Answered since the handoff
-- **Machine OS:** Windows 11 Home, remote/cloud desktop. Project drive `Z:`,
-  workspace at `Z:\Apps\Disconnect`. (Was OPEN in §7 — now closed.)
+What changed and why:
+- **No desktop browser extension.** §8's "Phase 1: YouTube desktop
+  extension" is dropped. The owner does not want an extension experiment;
+  the product is the cross-platform app from the start.
+- **We embed an engine instead of writing one.** Brave's `adblock-rust` is
+  a standalone Rust library; Tauri is Rust. Ads, trackers and the
+  anti-adblock arms race are inherited from funded teams, not maintained
+  by us. Ad blocking is no longer a thing we implement.
+- **Shell is Tauri v2** — one codebase to Windows, macOS, Linux, Android,
+  iOS, each on the OS's own webview. Satisfies §3a's "never fork an
+  engine" exactly.
+- **The framing is harm reduction, not abstinence.** People cannot leave
+  these platforms; we keep the access and remove the manipulation. The
+  launcher (home-screen icons that redirect the existing tap reflex) is
+  the core behavioural mechanism, not a nicety.
+- **Platforms are not equal.** YouTube, Reddit, X are coherent cleaned.
+  Instagram is partial (Meta cripples mobile web). TikTok *is* the For You
+  feed and may never ship.
+- **Rules format is EasyList syntax**, reversing an earlier
+  recommendation of bespoke JSON — embedding `adblock-rust` means the
+  syntax is parsed for us and the same file works in Brave and uBlock.
+
+### Documents
+- `docs/plan.md` — the plan. Phases, platform order, risks, open
+  decisions. This is the forward document.
+- `docs/technical-findings.md` — verified facts with sources checked
+  (MV3, `adblock-rust`, Tauri injection timing, Apple 2.5.2 and minimum
+  functionality, Brave filter subscriptions, HaramBlur). Facts only.
+- `docs/system-map-v3.html` — the original planning-session visual.
+  Still accurate on mission; its "desktop extension sibling" panel is
+  superseded.
+
+### Answered
+- **Machine OS:** Windows 11 Home, remote/cloud desktop, workspace at
+  `Z:\Apps\Disconnect`. (Was OPEN in §7.)
+- **First browser:** moot — no extension is being built. Brave remains the
+  recommended pairing for users' general browsing in the playbook.
 
 ### Still OPEN — ask the owner, do not decide alone
-1. **First test browser:** Chrome vs Brave vs Firefox. Identical MV3 code for
-   Chrome/Brave; Firefox costs a small manifest fork now but buys Android
-   (Phase 2) earlier.
-2. **Project name:** folder is `Disconnect`; candidates were The Way Out,
-   Tenblock, Reclaim. Note an unrelated privacy extension already ships as
-   "Disconnect", so the store name may need to differ from the folder name.
+1. **Project name.** Folder says `Disconnect`, but that name is
+   abstinence-shaped and the product is about staying on your own terms.
+   Also collides with an existing privacy extension.
+2. **Licence.** GPL (keeps derivatives open, matches HaramBlur lineage) vs
+   MIT (maximises adoption). Blocks the first code commit.
+3. **Whether TikTok ships at all.**
 
-### Analysis (2026-08-18) — see docs/setup-analysis.md
-Flags below were investigated and verified. Full reasoning and the
-recommended resolutions live in `docs/setup-analysis.md`. Headline: MV3
-bans remotely hosted code but permits remote JSON data, which splits the
-rules core into a data lane (remotely updatable) and a code lane (store
-review). Recommendation on the table: drop ad blocking from v1. Owner has
-NOT ruled on any of it.
-
-### Technical flags raised in analysis (owner has NOT ruled on these)
-These are corrections/risks against §4 and §8, not new scope.
-
-1. **MV3 cannot network-block YouTube ads.** Same root cause the handoff
-   already documents for iOS content blockers (§6): ads are served
-   same-origin from youtube.com/googlevideo, so `declarativeNetRequest`
-   never sees a blockable third-party request. Desktop ad removal is
-   script + DOM work (auto-skip, ad-slot CSS, player state), not filter
-   rules. Consequence for §4: the rules core needs **two lanes from day one**
-   — a static lane (CSS hide + DNR) and a small scripted lane — or the ad
-   work gets retrofitted into a format that cannot hold it. Feeds, Shorts
-   and nags are pure static lane and unaffected.
-
-2. **Blur-all thumbnails needs a reveal gesture.** With every thumbnail
-   blurred, the user cannot find the video they deliberately came for, and
-   search becomes unusable. Needs hover-to-reveal or click-to-reveal from
-   the start. Cheap now; painful once the rules file has shipped.
-
-3. **Ring 1 is weak on desktop.** §2/ring 1 claims "nothing to disable in
-   two taps" — true in the mobile shell, false for a browser extension,
-   which is two clicks away from disabled in `chrome://extensions`. Not
-   fixable inside the extension; it is an OS-lock/playbook item. Should not
-   be claimed as desktop bypass resistance.
-
-### Next action when work resumes
-Answer the two OPEN questions, then run Phase 0 (30 min: curate the
-open-source base to fork — No Distractions / ShortShield lineage, plus
-uBlock Origin's YouTube filters as a rules reference), then scaffold
-Phase 1 per §9.
+### Next action
+Phase 0 in `docs/plan.md`: name, licence, repo layout. Then Phase 1 — the
+YouTube rules list in EasyList syntax, hosted at a stable raw URL, usable
+in Brave and uBlock with no app installed.
