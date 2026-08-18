@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- tamescroll: per-platform home-screen entry points. Long-press the
+     app icon to reveal these; each can be dragged to the home screen as
+     its own icon, giving "one app per platform" without shipping
+     separate APKs. Icons are our own letter-glyph tiles (generated,
+     drawable-nodpi) — NEVER platform logos; impersonating platform
+     apps is the hard line that gets store listings removed. The intent
+     carries the platform id as a query param the launcher frontend
+     reads (see main.ts start()). -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+  <shortcut
+    android:shortcutId="youtube"
+    android:enabled="true"
+    android:icon="@drawable/shortcut_youtube"
+    android:shortcutShortLabel="@string/shortcut_youtube_short"
+    android:shortcutLongLabel="@string/shortcut_youtube_long">
+    <intent
+      android:action="android.intent.action.VIEW"
+      android:targetPackage="app.tamescroll.client"
+      android:targetClass="app.tamescroll.client.MainActivity">
+      <extra android:name="ts_platform" android:value="youtube" />
+    </intent>
+  </shortcut>
+  <shortcut
+    android:shortcutId="reddit"
+    android:enabled="true"
+    android:icon="@drawable/shortcut_reddit"
+    android:shortcutShortLabel="@string/shortcut_reddit_short"
+    android:shortcutLongLabel="@string/shortcut_reddit_long">
+    <intent
+      android:action="android.intent.action.VIEW"
+      android:targetPackage="app.tamescroll.client"
+      android:targetClass="app.tamescroll.client.MainActivity">
+      <extra android:name="ts_platform" android:value="reddit" />
+    </intent>
+  </shortcut>
+  <shortcut
+    android:shortcutId="x"
+    android:enabled="true"
+    android:icon="@drawable/shortcut_x"
+    android:shortcutShortLabel="@string/shortcut_x_short"
+    android:shortcutLongLabel="@string/shortcut_x_long">
+    <intent
+      android:action="android.intent.action.VIEW"
+      android:targetPackage="app.tamescroll.client"
+      android:targetClass="app.tamescroll.client.MainActivity">
+      <extra android:name="ts_platform" android:value="x" />
+    </intent>
+  </shortcut>
+</shortcuts>

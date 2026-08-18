@@ -34,3 +34,24 @@ ytd-browse[page-subtype="channels"] ytd-thumbnail,
 ytd-browse[page-subtype="channels"] yt-thumbnail-view-model {
   filter: blur(16px);
 }
+
+/* m.youtube.com (mobile web) — elements harvested from the live emulator
+ * DOM 2026-08-19 (spikes/logcat-probe11.log): search results render
+ * ytm-thumbnail-cover (20 counted) inside ytm-media-item, thumbnail
+ * imgs carry .video-thumbnail-img. The playing video lives in the
+ * player, never inside these containers — same red line as desktop.
+ * [live: counts verified; visual blur verified probe12] */
+ytm-thumbnail-cover {
+  filter: blur(16px);
+}
+
+ytm-media-item img.video-thumbnail-img {
+  filter: blur(16px);
+}
+
+/* Community-post images on the mobile home/posts feeds
+ * (ytm-backstage-image-renderer seen live on home, count untested on a
+ * populated feed). [unverified] */
+ytm-backstage-image-renderer img {
+  filter: blur(16px);
+}

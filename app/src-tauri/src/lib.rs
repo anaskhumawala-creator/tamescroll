@@ -5,7 +5,7 @@
 //! to hide for a given URL. See NOTICE.
 
 use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 use adblock::cosmetic_filter_cache::ProceduralOrActionFilter;
 use adblock::Engine;
@@ -50,6 +50,70 @@ fn gaze_mode(mode: &str) -> &'static str {
         "blur" => "blur",
         _ => "off",
     }
+}
+
+/// The gaze mode the launcher last told us about. Desktop windows bake
+/// the mode into their creation-time script; Android navigates one
+/// long-lived webview, so page loads must read the CURRENT mode from
+/// somewhere Rust-side — this. Updated by `open_platform` and the
+/// `set_gaze_mode` command.
+static GAZE_STATE: Mutex<&'static str> = Mutex::new("off");
+
+fn set_gaze_state(mode: &str) {
+    *GAZE_STATE.lock().unwrap() = gaze_mode(mode);
+}
+
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+fn gaze_state() -> &'static str {
+    *GAZE_STATE.lock().unwrap()
+}
+
+/// Which platform a live page host belongs to, if any. Hosts arrive
+/// with mobile/www prefixes (m.youtube.com after the UA redirect —
+/// the lesson behind dropping per-window host filters), so match on
+/// the platform's root domain.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+fn platform_for_host(host: &str) -> Option<&'static Platform> {
+    let h = host.strip_prefix("www.").unwrap_or(host);
+    let h = h.strip_prefix("m.").unwrap_or(h);
+    PLATFORMS.iter().find(|p| platform_root(p.url) == h)
+}
+
+/// The script a page load must evaluate to honour the current gaze
+/// mode: blur CSS for "blur" and "smart", plus the Stage B runtime for
+/// "smart". None when the mode is off, the host is not a platform, or
+/// the platform has no blur sheet yet (Instagram). Idempotent — the
+/// style-id guard lets callers eval it at both Started and Finished
+/// page events so blur lands as early as the document exists.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+fn page_load_gaze_script(url: &str, mode: &str) -> Option<String> {
+    let mode = gaze_mode(mode);
+    if mode == "off" {
+        return None;
+    }
+    let platform = platform_for_host(platform_root(url))?;
+    let css = blur_css(platform.id);
+    if css.is_empty() {
+        return None;
+    }
+    let css_json = serde_json::to_string(css).ok()?;
+    let mut js = format!(
+        r#"
+(function () {{
+  try {{
+    if (document.getElementById("ts-gaze-blur")) return;
+    var s = document.createElement("style");
+    s.id = "ts-gaze-blur";
+    s.textContent = {css_json};
+    (document.head || document.documentElement).appendChild(s);
+  }} catch (e) {{}}
+}})();
+"#
+    );
+    if mode == "smart" && !js.is_empty() {
+        js.push_str(&gaze_script("smart"));
+    }
+    Some(js)
 }
 
 /// Script that boots gaze Stage B, or nothing outside "smart" mode.
@@ -181,6 +245,15 @@ const PLATFORMS: &[Platform] = &[
 #[tauri::command]
 fn platforms() -> Vec<Platform> {
     PLATFORMS.to_vec()
+}
+
+/// Launcher toggle changed: platform pages opened AFTER this pick up
+/// the new mode (Android especially — its one webview re-reads the
+/// state on every page load). Already-open pages keep their mode until
+/// they navigate; live re-blur is a deliberate non-goal for now.
+#[tauri::command]
+fn set_gaze_mode(mode: String) {
+    set_gaze_state(&mode);
 }
 
 /// Build the CSS the engine says applies to this URL.
@@ -439,6 +512,16 @@ fn universal_injection_script() -> String {
 fn injection_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("ts-inject")
         .js_init_script(universal_injection_script())
+        // Gaze rides page-load events because the mode is runtime state:
+        // eval at Started so blur-first holds (the document exists but
+        // nothing has painted), again at Finished as the fallback when
+        // Started raced document creation — the style-id guard makes the
+        // second eval a no-op.
+        .on_page_load(|webview, payload| {
+            if let Some(js) = page_load_gaze_script(payload.url().as_str(), gaze_state()) {
+                let _ = webview.eval(&js);
+            }
+        })
         .build()
 }
 
@@ -459,6 +542,10 @@ async fn open_platform(
 
     #[cfg(debug_assertions)]
     eprintln!("open_platform id={id}");
+
+    // Keep the Rust-side gaze state current: Android page loads read it
+    // (see injection_plugin), and it costs nothing on desktop.
+    set_gaze_state(&mode);
 
     let url: tauri::Url = platform
         .url
@@ -540,7 +627,8 @@ pub fn run() {
             platforms,
             open_platform,
             rules_summary,
-            surfaces
+            surfaces,
+            set_gaze_mode
         ])
         .run(tauri::generate_context!())
         .expect("error while running tamescroll");
@@ -668,6 +756,49 @@ mod tests {
             css.contains("ytd-ad-slot-renderer"),
             "the always-on ads surface must stay hidden even when 'shown' asks for it"
         );
+    }
+
+    /// Android gaze delivery (plugin on_page_load): the page-load script
+    /// must exist exactly when a platform page meets an active mode, carry
+    /// the right payload per mode, and map mobile hosts to their platform.
+    #[test]
+    fn page_load_gaze_script_dispatches_on_mode_and_host() {
+        // Off, or a non-platform host, or a platform without a blur
+        // sheet: nothing to eval.
+        assert!(page_load_gaze_script("https://m.youtube.com/", "off").is_none());
+        assert!(page_load_gaze_script("https://accounts.google.com/", "blur").is_none());
+        assert!(page_load_gaze_script("https://www.instagram.com/", "blur").is_none());
+        assert!(page_load_gaze_script("http://tauri.localhost/", "smart").is_none());
+
+        // Blur mode injects the guarded style and nothing else; the
+        // mobile host maps to the same platform as the desktop one.
+        for url in ["https://www.youtube.com/", "https://m.youtube.com/"] {
+            let js = page_load_gaze_script(url, "blur").expect("blur script for youtube");
+            assert!(js.contains("ts-gaze-blur"), "style-id guard missing");
+            assert!(js.contains("blur("), "blur css payload missing");
+            assert!(!js.contains("__TS_GAZE_MODE"), "blur mode must not boot Stage B");
+        }
+
+        // Smart mode adds the Stage B runtime on top of the blur css.
+        let js = page_load_gaze_script("https://www.reddit.com/", "smart").expect("smart script");
+        assert!(js.contains("ts-gaze-blur"));
+        assert!(js.contains("__TS_GAZE_MODE"), "smart mode must boot Stage B");
+
+        // Unknown modes normalise to off (gaze_mode contract).
+        assert!(page_load_gaze_script("https://x.com/home", "nonsense").is_none());
+    }
+
+    /// The Rust-side mode mirror the Android page loads read.
+    #[test]
+    fn gaze_state_round_trips_and_normalises() {
+        set_gaze_state("smart");
+        assert_eq!(gaze_state(), "smart");
+        set_gaze_state("garbage");
+        assert_eq!(gaze_state(), "off");
+        set_gaze_state("blur");
+        assert_eq!(gaze_state(), "blur");
+        set_gaze_state("off");
+        assert_eq!(gaze_state(), "off");
     }
 
     /// Stage A blur CSS (docs/plan.md Phase 4) must actually blur something

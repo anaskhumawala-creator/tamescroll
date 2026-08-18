@@ -117,9 +117,25 @@ saga + probe-run lessons in docs/android-research.md §re-tap. Debug
 probes stripped; two cfg(debug_assertions) eprintlns remain in
 open_platform.
 
-Next: gaze Stage B smart-mode visual check; nsfwjs budget call
+**Overnight session 2026-08-19:** Gaze delivery on Android SHIPPED —
+Rust-held mode (set_gaze_mode cmd + open_platform), ts-inject plugin
+on_page_load evals blur CSS (Started+Finished, id-guarded) + Stage B
+in smart mode; m.youtube blur selectors harvested live via CDP
+(ytm-thumbnail-cover etc.) and VERIFIED visually (probe12: thumbnails
+blurred, titles sharp; smart boots __TS_GAZE_MODE). Home-screen
+shortcuts SHIPPED: shortcuts.xml + own letter-glyph icons (never
+platform logos), cold start via one-shot ShortcutBridge JS interface
+(URL race with wry made loadUrl unreliable — probe12 fail, probe13
+3/3 pass: cold/warm/plain). Landing page web/index.html committed,
+Chrome-verified (interactive demo, blur texture fix, mobile nav).
+Desktop regression: launcher renders identical on new build.
+Emulator gotchas: Hijri First app steals foreground + ANR loops —
+force-stop com.hijrifirst.app before evidence runs.
+
+Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
-(rules would be [unverified] — site blocked in India).
+(rules would be [unverified] — site blocked in India); Instagram
+rules verify (needs sign-in); iOS prep (cousin window).
 docs/rules-updates.md = Phase 6 OTA design note (committed).
 
 Owner decisions 2026-08-18 (evening): domain — owner will purchase

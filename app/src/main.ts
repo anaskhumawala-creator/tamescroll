@@ -41,6 +41,10 @@ function getMode(): GazeMode {
 
 function setMode(value: GazeMode) {
   localStorage.setItem(BLUR_KEY, value);
+  // Mirror into Rust: Android's single webview reads the mode from
+  // there on every platform page load (the launcher's localStorage is
+  // origin-locked and unreadable from platform pages).
+  void invoke("set_gaze_mode", { mode: value }).catch(() => {});
   renderBlurToggle();
 }
 
@@ -59,6 +63,9 @@ blurToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
 });
 
 renderBlurToggle();
+// Sync the stored mode into Rust at startup too, not just on change —
+// otherwise a relaunch would leave Rust at "off" until the first toggle.
+void invoke("set_gaze_mode", { mode: getMode() }).catch(() => {});
 
 // Phase 3 (docs/plan.md): per-platform "bring back" toggles — surfaces we
 // hide by default, that the user can choose to show again. Defaults stay
@@ -209,6 +216,29 @@ async function start() {
     const active = Object.values(counts).reduce((sum, n) => sum + n, 0);
     restingStatus = `${active} rules active`;
     status.textContent = restingStatus;
+
+    // Home-screen shortcut launch (Android). Cold start: MainActivity
+    // can't win the URL race against wry's initial load, so the pending
+    // platform is PULLED from a one-shot JavascriptInterface bridge.
+    // Warm start (onNewIntent) navigates here with ?open=<id> instead.
+    // Either way this page's mode/prefs sync ran first, so a shortcut
+    // behaves exactly like a tile tap.
+    const bridge = (window as unknown as { TsShortcuts?: { consume(): string } })
+      .TsShortcuts;
+    let requested = "";
+    try {
+      requested = bridge?.consume() ?? "";
+    } catch {
+      // bridge absent (desktop) or blocked — fall through to the param
+    }
+    if (!requested) {
+      requested = new URLSearchParams(location.search).get("open") ?? "";
+    }
+    if (requested) {
+      history.replaceState(null, "", location.pathname);
+      const target = platforms.find((p) => p.id === requested && p.ready);
+      if (target) void open(target);
+    }
   } catch (error) {
     status.textContent = `Failed to load: ${String(error)}`;
   }
