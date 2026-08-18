@@ -2,9 +2,10 @@
  *
  * WHAT THIS BLURS
  * Thumbnail imagery on the surfaces you reach on purpose: search results,
- * subscriptions, and channel pages. Ported from rules/youtube-blur.txt's
- * `:style()` filters into plain CSS so it can be appended directly to the
- * injected stylesheet instead of going through the cosmetic-filter engine.
+ * subscriptions, and channel pages. Ported from the retired
+ * rules/youtube-blur.txt (deleted 2026-08-19): its `:style()` filters
+ * became plain CSS so they append directly to the injected stylesheet
+ * instead of going through the cosmetic-filter engine.
  *
  * WHAT THIS DELIBERATELY LEAVES
  * - Titles, channel names, view counts, timestamps: all text stays fully
