@@ -304,15 +304,54 @@ import * as detector from './detector.js';
   }
 
   // ---- discovery: MutationObserver + initial sweep --------------------
+  // Discovery has to pierce shadow DOM: Reddit's player custom element
+  // keeps its <video> inside an open shadow root, invisible to both
+  // querySelectorAll and a document-level MutationObserver (probe25
+  // 2026-08-19: feed videos played with zero gaze classes — the whole
+  // video pipeline was unreachable on Reddit). Three legs: the light-DOM
+  // scan below descends into any open roots it passes, boot() deep-scans
+  // roots that existed before us, and attachShadow is wrapped so roots
+  // created after us register the moment they exist.
+  var OBSERVER_CONFIG = {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['src'],
+  };
+
+  var observedRoots = typeof WeakSet !== 'undefined' ? new WeakSet() : null;
+
+  function observeRoot(root) {
+    if (failed || !root) return;
+    if (observedRoots) {
+      if (observedRoots.has(root)) return;
+      observedRoots.add(root);
+    }
+    try {
+      observer.observe(root, OBSERVER_CONFIG);
+    } catch (e) {
+      /* not a valid observe target — nothing to watch */
+    }
+    // Document styles stop at the shadow boundary; without this the
+    // pending/flagged classes inside the root are inert (probe26).
+    dom.injectStyleInto(root);
+    scanAdded(root);
+  }
+
   function scanAdded(node) {
-    if (!node || node.nodeType !== 1) return;
+    // 1 = element, 11 = shadow root (DocumentFragment) — both scannable.
+    if (!node || (node.nodeType !== 1 && node.nodeType !== 11)) return;
     if (node.tagName === 'IMG') tagImage(node);
     else if (node.tagName === 'VIDEO') attachVideo(node);
-    if (node.querySelectorAll) {
-      var imgs = node.querySelectorAll('img');
-      for (var i = 0; i < imgs.length; i++) tagImage(imgs[i]);
-      var vids = node.querySelectorAll('video');
-      for (var j = 0; j < vids.length; j++) attachVideo(vids[j]);
+    if (node.nodeType === 1 && node.shadowRoot) observeRoot(node.shadowRoot);
+    if (!node.querySelectorAll) return;
+    var imgs = node.querySelectorAll('img');
+    for (var i = 0; i < imgs.length; i++) tagImage(imgs[i]);
+    var vids = node.querySelectorAll('video');
+    for (var j = 0; j < vids.length; j++) attachVideo(vids[j]);
+    var all = node.querySelectorAll('*');
+    for (var k = 0; k < all.length; k++) {
+      if (all[k].shadowRoot) observeRoot(all[k].shadowRoot);
     }
   }
 
@@ -329,16 +368,22 @@ import * as detector from './detector.js';
   });
 
   function startObserving() {
-    observer.observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['src'],
-    });
-    var imgs = document.querySelectorAll('img');
-    for (var i = 0; i < imgs.length; i++) tagImage(imgs[i]);
-    var vids = document.querySelectorAll('video');
-    for (var j = 0; j < vids.length; j++) attachVideo(vids[j]);
+    observer.observe(document.documentElement, OBSERVER_CONFIG);
+    // scanAdded also deep-scans: it descends into every open shadow
+    // root already in the tree and registers it with the observer.
+    scanAdded(document.documentElement);
+  }
+
+  // Roots created after boot: wrap attachShadow so they register at
+  // creation. Pure pass-through otherwise — same return value, and a
+  // failure in our side never reaches the page (observeRoot guards).
+  var origAttachShadow = Element.prototype.attachShadow;
+  if (typeof origAttachShadow === 'function') {
+    Element.prototype.attachShadow = function (init) {
+      var root = origAttachShadow.call(this, init);
+      observeRoot(root);
+      return root;
+    };
   }
 
   function boot() {

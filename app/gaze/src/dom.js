@@ -29,6 +29,20 @@ export function injectStyle() {
   head.appendChild(el);
 }
 
+// Document-level styles do not reach into shadow roots: a video inside
+// Reddit's player shadow root wore ts-gaze-pending with a computed
+// filter of NONE (probe26, 2026-08-19) — class applied, blur absent,
+// blur-first silently broken. Every shadow root the runtime registers
+// gets its own copy of the class styles.
+export function injectStyleInto(root) {
+  if (!root || !root.appendChild) return;
+  if (root.querySelector && root.querySelector('#' + STYLE_ID)) return;
+  var el = document.createElement('style');
+  el.id = STYLE_ID;
+  el.textContent = STYLE_CSS;
+  root.appendChild(el);
+}
+
 // Player red line (VISION.md: block-only, never touch what the user is
 // actually watching): gaze must never add a class to anything inside
 // YouTube's #movie_player.
