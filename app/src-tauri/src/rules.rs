@@ -13,13 +13,24 @@
 //! repo's licence rule (see NOTICE) and poison App Store distribution.
 //! The filter LISTS below reference scriptlets by name; our resources
 //! answer to those names.
+//!
+//! Our own three cosmetic files (youtube/reddit/x) are NOT fed into the
+//! `FilterSet` below (Phase 3, docs/plan.md settings pane) — per-surface
+//! "bring back" toggles need to turn individual selectors on and off,
+//! which the engine's opaque cosmetic-filter cache does not support.
+//! Instead `parse_surfaces` below reads the same files' `!surface: <id>
+//! <Label>` markers and groups their rules by surface; lib.rs assembles
+//! the CSS itself. Vendor lists and blur CSS are untouched by this split.
+
+use std::sync::OnceLock;
 
 use adblock::lists::{FilterSet, ParseOptions};
 use adblock::resources::{MimeType, PermissionMask, Resource, ResourceType};
 use adblock::Engine;
 
 /// Our own cosmetic rules — algorithmic-surface removal, not ad blocking.
-/// Each file's header carries the design rules that govern it.
+/// Each file's header carries the design rules that govern it. No longer
+/// fed into the engine (see module doc); parsed into surfaces instead.
 const YOUTUBE_RULES: &str = include_str!("../../../rules/youtube.txt");
 const REDDIT_RULES: &str = include_str!("../../../rules/reddit.txt");
 const X_RULES: &str = include_str!("../../../rules/x.txt");
@@ -89,9 +100,6 @@ const SCRIPTLETS: &[(&str, &[&str], &str)] = &[
 pub fn build_engine() -> Engine {
     let mut set = FilterSet::new(false);
     for list in [
-        YOUTUBE_RULES,
-        REDDIT_RULES,
-        X_RULES,
         EASYLIST,
         EASYPRIVACY,
         UBO_FILTERS,
@@ -156,4 +164,132 @@ fn base64_encode(data: &[u8]) -> String {
         });
     }
     out
+}
+
+/// One toggleable "bring back" surface (docs/plan.md Phase 3 settings
+/// pane): a named group of cosmetic rules from one of our own rule files,
+/// delimited by a `!surface: <id> <Human label>` marker line. `always_on`
+/// surfaces are ad/promo surfaces the settings pane never offers a toggle
+/// for — VISION.md: ad-hiding is never user-toggleable.
+pub struct Surface {
+    pub id: &'static str,
+    pub label: &'static str,
+    pub always_on: bool,
+    pub rules: Vec<(&'static str, &'static str)>,
+}
+
+/// Ad/promo surface ids across all three files. Kept as one list rather
+/// than per-file because the marker convention and the rule this encodes
+/// (ads are never user-toggleable) are the same everywhere.
+fn is_always_on(id: &str) -> bool {
+    matches!(id, "ads" | "mobile_nags" | "promoted")
+}
+
+/// Parses one of our `!surface:`-annotated rule files into its surfaces.
+/// Line-based on purpose — these are three small, well-controlled files,
+/// not worth a regex crate for. A `!surface:` marker starts a surface;
+/// every rule line (`domain##selector`) belongs to the most recent marker
+/// until the next one. Comment and blank lines are otherwise ignored, and
+/// a rule line before any marker is dropped rather than guessed at.
+fn parse_surfaces(text: &'static str) -> Vec<Surface> {
+    let mut surfaces: Vec<Surface> = Vec::new();
+    for line in text.lines() {
+        let line = line.trim();
+        if let Some(rest) = line.strip_prefix("!surface:") {
+            let rest = rest.trim();
+            let (id, label) = rest.split_once(' ').unwrap_or((rest, ""));
+            surfaces.push(Surface {
+                id,
+                label,
+                always_on: is_always_on(id),
+                rules: Vec::new(),
+            });
+            continue;
+        }
+        if line.is_empty() || line.starts_with('!') {
+            continue;
+        }
+        if let Some((domain, selector)) = line.split_once("##") {
+            if let Some(surface) = surfaces.last_mut() {
+                surface.rules.push((domain.trim(), selector.trim()));
+            }
+        }
+    }
+    surfaces
+}
+
+/// Parsed once and cached — same rationale as `ENGINE` in lib.rs, just for
+/// much smaller inputs.
+static SURFACES: OnceLock<Vec<(&'static str, Vec<Surface>)>> = OnceLock::new();
+
+fn all_surfaces() -> &'static Vec<(&'static str, Vec<Surface>)> {
+    SURFACES.get_or_init(|| {
+        vec![
+            ("youtube", parse_surfaces(YOUTUBE_RULES)),
+            ("reddit", parse_surfaces(REDDIT_RULES)),
+            ("x", parse_surfaces(X_RULES)),
+        ]
+    })
+}
+
+/// The toggleable surfaces for one platform id, or `None` for a platform
+/// with no surface-annotated rule file (Instagram, TikTok).
+pub fn platform_surfaces(platform_id: &str) -> Option<&'static Vec<Surface>> {
+    all_surfaces()
+        .iter()
+        .find(|(id, _)| *id == platform_id)
+        .map(|(_, surfaces)| surfaces)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The parser must actually find the sections youtube.txt declares,
+    /// including one it must never let the settings pane toggle off.
+    #[test]
+    fn youtube_surfaces_parse_with_an_always_on_ads_surface() {
+        let surfaces = platform_surfaces("youtube").expect("youtube should have surfaces");
+        assert!(
+            surfaces.len() >= 3,
+            "expected at least 3 youtube surfaces, got {}",
+            surfaces.len()
+        );
+
+        let ads = surfaces
+            .iter()
+            .find(|s| s.id == "ads")
+            .expect("youtube should have an 'ads' surface");
+        assert!(ads.always_on, "the youtube ads surface must be always_on");
+        assert!(
+            !ads.rules.is_empty(),
+            "the ads surface should have parsed at least one rule"
+        );
+
+        let home = surfaces
+            .iter()
+            .find(|s| s.id == "home")
+            .expect("youtube should have a 'home' surface");
+        assert!(!home.always_on, "the home surface must be toggleable");
+        assert!(!home.rules.is_empty(), "home surface should have rules");
+    }
+
+    /// reddit.txt and x.txt must parse too, and their ad/promo surfaces
+    /// must come out always_on under the shared naming convention.
+    #[test]
+    fn reddit_and_x_surfaces_mark_ads_and_promoted_always_on() {
+        let reddit = platform_surfaces("reddit").expect("reddit should have surfaces");
+        let reddit_ads = reddit
+            .iter()
+            .find(|s| s.id == "ads")
+            .expect("reddit should have an 'ads' surface");
+        assert!(reddit_ads.always_on);
+
+        let x = platform_surfaces("x").expect("x should have surfaces");
+        let promoted = x
+            .iter()
+            .find(|s| s.id == "promoted")
+            .expect("x should have a 'promoted' surface");
+        assert!(promoted.always_on);
+    }
 }

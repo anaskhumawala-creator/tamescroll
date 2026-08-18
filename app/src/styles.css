@@ -195,6 +195,55 @@ body {
   max-width: 46ch;
 }
 
+/* Phase 3 (docs/plan.md): "bring back" settings, one <details> per
+   platform. Calm and collapsed by default — this is a drawer to open on
+   purpose, not a list of warnings on the main screen. */
+.bring-back {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.platform-settings {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 4px 16px;
+}
+
+.platform-settings > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 12px 0;
+  font-size: 15px;
+  font-weight: 560;
+}
+
+.platform-settings > summary::-webkit-details-marker {
+  display: none;
+}
+
+.platform-settings > summary::after {
+  content: "";
+  float: right;
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform 0.14s ease;
+}
+
+.platform-settings[open] > summary::after {
+  transform: rotate(45deg);
+}
+
+.platform-settings > .setting-row {
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
 .foot {
   margin-top: auto;
   padding-top: 24px;

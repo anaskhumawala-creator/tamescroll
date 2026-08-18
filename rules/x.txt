@@ -27,6 +27,8 @@
 ! THE FOR-YOU FEED — tab removed
 ! ============================================================
 
+!surface: for_you For you tab
+
 ! First tab in the home timeline's tablist ("For you"). Structural, not
 ! text-based. Following becomes the only tab.
 ! [live] tablist children observed: [0]="For you" [1]="Following", chain
@@ -40,6 +42,8 @@ x.com##[data-testid="primaryColumn"] [role="tablist"] > div[role="presentation"]
 ! ============================================================
 ! PROMOTED TWEETS
 ! ============================================================
+
+!surface: promoted Promoted tweets
 
 ! A promoted cell is one whose placementTracking wrapper CONTAINS the
 ! tweet article. Do not simplify this to bare placementTracking — that
@@ -55,6 +59,9 @@ x.com##[data-testid="cellInnerDiv"]:has([data-testid="placementTracking"] articl
 ! ============================================================
 ! SIDEBAR BAIT — trends, who to follow
 ! ============================================================
+
+!surface: sidebar Sidebar suggestions
+
 ! English aria-labels; other locales need additional rules.
 
 ! Trending module in the right sidebar.
@@ -81,6 +88,8 @@ x.com##[data-testid="cellInnerDiv"]:has([data-testid="UserCell"])
 ! ============================================================
 ! EXPLORE PAGE — trends firehose
 ! ============================================================
+
+!surface: explore Explore trends
 
 ! The explore/trending timeline. Search stays usable: the search box is
 ! [data-testid="SearchBox_Search_Input"], not a trend cell, so it is

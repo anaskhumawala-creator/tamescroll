@@ -73,11 +73,59 @@ fn gaze_script(mode: &str) -> String {
     )
 }
 
+/// Host of a URL we control (always `https://host/...`), used only to
+/// scope our own surface rules by domain. Not a general URL parser — the
+/// engine's own `url_cosmetic_resources` does its own parsing for
+/// everything ad/vendor-related; this just needs the bit between `://`
+/// and the next `/`.
+fn host_of(url: &str) -> &str {
+    let without_scheme = url.split("://").nth(1).unwrap_or(url);
+    without_scheme.split('/').next().unwrap_or(without_scheme)
+}
+
+/// True when a rule's `domain` (from `rules/*.txt`, e.g. `youtube.com` or
+/// `m.youtube.com`) applies to `host` — exact match or `host` is a
+/// subdomain of `domain`. Keeps `m.youtube.com`-scoped mobile surfaces
+/// from ever firing against `www.youtube.com` and vice versa.
+fn domain_matches(host: &str, domain: &str) -> bool {
+    host == domain || host.ends_with(&format!(".{domain}"))
+}
+
+/// Our own surfaces' CSS (docs/plan.md Phase 3 settings pane): one rule
+/// per selector, same hard-won-lesson formatting as `cosmetic_css` below,
+/// for every surface not in `shown` — always_on surfaces (ads) are never
+/// skipped, no matter what `shown` contains, because ad-hiding is not
+/// user-toggleable (VISION.md). `shown` entries that don't name a real
+/// surface for this platform are simply never matched, i.e. ignored.
+fn surfaces_css(platform_id: &str, platform_url: &str, shown: &[String]) -> String {
+    let Some(surfaces) = rules::platform_surfaces(platform_id) else {
+        return String::new();
+    };
+    let host = host_of(platform_url);
+
+    let mut css = String::new();
+    for surface in surfaces {
+        let is_shown = !surface.always_on && shown.iter().any(|id| id == surface.id);
+        if is_shown {
+            continue;
+        }
+        for (domain, selector) in &surface.rules {
+            if domain_matches(host, domain) {
+                css.push_str(selector);
+                css.push_str(" { display: none !important; }\n");
+            }
+        }
+    }
+    css
+}
+
 /// The full stylesheet injected into a platform window: cosmetic hiding
-/// always, Stage A blur appended (same stylesheet, no separate style
+/// always, our own surfaces next (minus whatever the user chose to show),
+/// Stage A blur appended last (same stylesheet, no separate style
 /// element) only when the launcher toggle is on.
-fn page_css(url: &str, platform_id: &str, blur: bool) -> String {
+fn page_css(url: &str, platform_id: &str, blur: bool, shown: &[String]) -> String {
     let mut css = cosmetic_css(url);
+    css.push_str(&surfaces_css(platform_id, url, shown));
     if blur {
         css.push_str(blur_css(platform_id));
     }
@@ -189,12 +237,51 @@ fn cosmetic_css(url: &str) -> String {
     css
 }
 
+/// Surface info the settings pane renders from, not a hardcoded copy of
+/// `rules/*.txt`'s ids and labels. Always-on surfaces (ads) are excluded —
+/// there is nothing to toggle, per VISION.md.
+#[derive(Serialize, Clone)]
+pub struct SurfaceInfo {
+    id: String,
+    label: String,
+}
+
+#[tauri::command]
+fn surfaces(id: String) -> Vec<SurfaceInfo> {
+    rules::platform_surfaces(&id)
+        .map(|surfaces| {
+            surfaces
+                .iter()
+                .filter(|s| !s.always_on)
+                .map(|s| SurfaceInfo {
+                    id: s.id.to_string(),
+                    label: s.label.to_string(),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// "N rules active" for the launcher status line: the engine's own
+/// vendor-list hide selectors plus our own surface rules (default state —
+/// nothing shown — matches the fully-cleaned experience every install
+/// starts with).
 #[tauri::command]
 fn rules_summary() -> HashMap<String, usize> {
     let mut out = HashMap::new();
     for p in PLATFORMS {
-        let count = engine().url_cosmetic_resources(p.url).hide_selectors.len();
-        out.insert(p.id.to_string(), count);
+        let engine_count = engine().url_cosmetic_resources(p.url).hide_selectors.len();
+        let surface_count = rules::platform_surfaces(p.id)
+            .map(|surfaces| {
+                let host = host_of(p.url);
+                surfaces
+                    .iter()
+                    .flat_map(|s| &s.rules)
+                    .filter(|(domain, _)| domain_matches(host, domain))
+                    .count()
+            })
+            .unwrap_or(0);
+        out.insert(p.id.to_string(), engine_count + surface_count);
     }
     out
 }
@@ -260,7 +347,12 @@ fn injection_script(css: &str, scriptlets: &str) -> String {
 }
 
 #[tauri::command]
-async fn open_platform(app: tauri::AppHandle, id: String, mode: String) -> Result<(), String> {
+async fn open_platform(
+    app: tauri::AppHandle,
+    id: String,
+    mode: String,
+    shown: Vec<String>,
+) -> Result<(), String> {
     let platform = PLATFORMS
         .iter()
         .find(|p| p.id == id)
@@ -279,7 +371,7 @@ async fn open_platform(app: tauri::AppHandle, id: String, mode: String) -> Resul
     let mode = gaze_mode(&mode);
     let resources = engine().url_cosmetic_resources(platform.url);
     let mut script = injection_script(
-        &page_css(platform.url, platform.id, mode == "blur"),
+        &page_css(platform.url, platform.id, mode == "blur", &shown),
         &resources.injected_script,
     );
     script.push_str(&gaze_script(mode));
@@ -312,7 +404,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             platforms,
             open_platform,
-            rules_summary
+            rules_summary,
+            surfaces
         ])
         .run(tauri::generate_context!())
         .expect("error while running tamescroll");
@@ -350,28 +443,36 @@ mod tests {
             );
         }
 
-        let resources = engine().url_cosmetic_resources("https://www.youtube.com/");
+        // Home-page hide selectors used to come only from youtube.txt's
+        // own rules inside the engine; Phase 3 moved those out into our
+        // own surfaces (see rules.rs), so this now goes through the same
+        // page_css() path the app actually injects — the assertion (some
+        // hide selectors reach a YouTube home page) is unchanged.
+        let css = page_css("https://www.youtube.com/", "youtube", false, &[]);
         assert!(
-            !resources.hide_selectors.is_empty(),
+            css.contains("display: none !important;"),
             "expected cosmetic hide selectors for the YouTube home page"
         );
     }
 
-    /// Our own platform rules must survive the trip through the engine —
-    /// a selector that fails to parse is silently dropped, and this is
-    /// where that would surface.
+    /// Our own platform rules must survive the trip through the parser
+    /// and into the assembled page CSS — a selector that fails to parse
+    /// is silently dropped, and this is where that would surface. Moved
+    /// off the raw engine call in Phase 3 (docs/plan.md settings pane):
+    /// these rules no longer live in the engine's FilterSet, they live in
+    /// rules.rs's surface parser and get assembled by page_css().
     #[test]
     fn reddit_and_x_rules_survive_parsing() {
-        let reddit = engine().url_cosmetic_resources("https://www.reddit.com/");
+        let reddit_css = page_css("https://www.reddit.com/", "reddit", false, &[]);
         assert!(
-            reddit.hide_selectors.iter().any(|s| s.contains("shreddit-ad-post")),
+            reddit_css.contains("shreddit-ad-post"),
             "reddit.txt's ad rules should be present for reddit.com"
         );
 
-        let x = engine().url_cosmetic_resources("https://x.com/home");
+        let x_css = page_css("https://x.com/home", "x", false, &[]);
         assert!(
-            !x.hide_selectors.is_empty() || !x.procedural_actions.is_empty(),
-            "x.txt rules should produce hide selectors or procedural actions for x.com"
+            !x_css.is_empty(),
+            "x.txt rules should produce CSS for x.com"
         );
     }
 
@@ -379,10 +480,59 @@ mod tests {
     /// this is the wire between the UI and the page.
     #[test]
     fn blur_toggle_reaches_the_injected_stylesheet() {
-        let off = page_css("https://www.youtube.com/", "youtube", false);
-        let on = page_css("https://www.youtube.com/", "youtube", true);
+        let off = page_css("https://www.youtube.com/", "youtube", false, &[]);
+        let on = page_css("https://www.youtube.com/", "youtube", true, &[]);
         assert!(!off.contains("blur("), "blur css must be absent when off");
         assert!(on.contains("blur("), "blur css must be present when on");
+    }
+
+    /// Bring-back settings (docs/plan.md Phase 3): showing one surface
+    /// must remove only that surface's selectors from the injected CSS —
+    /// other surfaces (here: home) must be untouched.
+    #[test]
+    fn showing_one_surface_hides_only_that_surface() {
+        let default_css = page_css("https://www.youtube.com/", "youtube", false, &[]);
+        assert!(
+            default_css.contains("ytd-reel-shelf-renderer"),
+            "shorts selectors should be present by default"
+        );
+        assert!(
+            default_css.contains("ytd-rich-grid-renderer"),
+            "home selectors should be present by default"
+        );
+
+        let shorts_shown = page_css(
+            "https://www.youtube.com/",
+            "youtube",
+            false,
+            &["shorts".to_string()],
+        );
+        assert!(
+            !shorts_shown.contains("ytd-reel-shelf-renderer"),
+            "shorts selectors must be absent once shorts is shown"
+        );
+        assert!(
+            shorts_shown.contains("ytd-rich-grid-renderer"),
+            "home selectors must remain when only shorts is shown"
+        );
+    }
+
+    /// VISION.md: ad-hiding is never user-toggleable. Even if the
+    /// frontend somehow sent "ads" in `shown` (it never offers the
+    /// option — see the `surfaces` command), the always_on surface must
+    /// stay hidden.
+    #[test]
+    fn always_on_ads_surface_cannot_be_shown() {
+        let css = page_css(
+            "https://www.youtube.com/",
+            "youtube",
+            false,
+            &["ads".to_string()],
+        );
+        assert!(
+            css.contains("ytd-ad-slot-renderer"),
+            "the always-on ads surface must stay hidden even when 'shown' asks for it"
+        );
     }
 
     /// Stage A blur CSS (docs/plan.md Phase 4) must actually blur something
@@ -408,10 +558,18 @@ mod tests {
     /// Owner report 2026-08-18: search results were still full of
     /// "People also search for" / "Channels new to you" wedges. The
     /// fix lives in rules/youtube.txt — this pins those selectors all
-    /// the way through the engine into the CSS a search page receives.
+    /// the way through to the CSS a search page receives. Goes through
+    /// page_css() rather than the bare engine call since Phase 3 moved
+    /// these selectors out of the engine and into our own surface rules
+    /// (rules.rs) — same assertions, different plumbing.
     #[test]
     fn youtube_search_inserts_are_hidden_in_the_injected_css() {
-        let css = cosmetic_css("https://www.youtube.com/results?search_query=minecraft");
+        let css = page_css(
+            "https://www.youtube.com/results?search_query=minecraft",
+            "youtube",
+            false,
+            &[],
+        );
         for sel in [
             "ytd-search-pyv-renderer",
             "ytd-search ytd-shelf-renderer",

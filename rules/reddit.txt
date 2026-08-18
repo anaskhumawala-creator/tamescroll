@@ -25,6 +25,8 @@
 ! ALGORITHMIC DISCOVERY — removed
 ! ============================================================
 
+!surface: discovery Discovery feeds
+
 ! r/popular and r/all feeds: the anonymous algorithmic firehose. The
 ! pages stay reachable but render no feed.
 ! [live] pagetype="popular" observed with 1 shreddit-feed (2026-08-18).
@@ -61,6 +63,8 @@ reddit.com##recent-posts
 ! ============================================================
 ! ADS — belt and braces (engine's EasyList does the heavy lifting)
 ! ============================================================
+
+!surface: ads Ads
 
 ! Promoted posts in feeds.
 ! [live] shreddit-ad-post counted 1 on the home feed
