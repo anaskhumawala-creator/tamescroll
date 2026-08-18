@@ -37,6 +37,7 @@ Users install this one app and nothing else.
 - `docs/gaze-research.md` — gaze Stage B delivery architecture (CSP per
   site; models must be inlined base64; Worker + Reddit fallback).
 - `docs/android-research.md` — Android build path (when present).
+- `docs/rules-updates.md` — hosted rules OTA design note (Phase 6 prep).
 - `docs/handoff-original.md` — archived original planning handoff.
 - `rules/` — our filter rules (EasyList syntax, CC0). Every rule carries
   a `! test:` line and a `[live]`/`[unverified]` tag. `rules/vendor/` —
