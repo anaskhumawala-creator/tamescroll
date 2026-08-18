@@ -159,6 +159,15 @@ log path never fired on-device (player filter:none verified
 regardless); rules/youtube-blur.txt deleted 25d1f37; x.txt tablist
 rule leaks to profile pages (pre-existing).
 
+**Blur strength presets SHIPPED** (7318da9, probe22/23): Light/Medium/
+Strong pills under the blur picker (hidden on Off), radii via
+--ts-blur / --ts-blur-strong CSS vars set at injection (Rust-held px
+next to GAZE_STATE, mirrored set_blur_strength cmd + open_platform
+strength param). Device-verified 28px/8px computed on m.youtube,
+player filter:none held, row hides on Off. Also probe20: 6/6 cold
+starts clean with the invokeStartup retry; probe21 desktop smoke
+green (101 rules active, engine warm 1.89s).
+
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
 (rules would be [unverified] — site blocked in India); Instagram
