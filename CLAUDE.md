@@ -71,13 +71,31 @@ Shorts/home feed gone in-app; Google sign-in page loads fine in WebView2
 contrary to research warnings — untested past email field, untested on
 Android).
 
-In flight (agents): Phase 2.5 in-app ad blocking (vendor lists +
-scriptlet injection wiring); Android build-path research.
+Phase 2.5 (in-app ad blocking) DONE and verified visually: vendored
+EasyList/EasyPrivacy/uBO lists + Brave resources compiled in; scriptlets
+are OUR clean-room MPL implementations in app/src-tauri/scriptlets/
+(set-constant, json-prune, json-prune-fetch-response,
+trusted-replace-fetch/xhr-response) — the agent-vendored GPL uBO
+scriptlet file was rejected and deleted (GPL in the MPL binary = licence
+poison; the repo rule held). Video plays with no pre-roll, no sidebar,
+comments intact; engine warms 1.6s on a background thread; unit tests
+assert our scriptlet names resolve in the real YouTube injection.
 
-Next after that: verify ads actually gone by playing a video; gaze
-Stage A (CSS blur modes); Reddit + X rules; Android build; gaze Stage B
-spike per docs/gaze-research.md (inline BlazeFace on reddit.com, the
-worst-case CSP).
+Reddit + X rules written from live DOM (rules/reddit.txt, rules/x.txt),
+tiles live in the launcher. Reddit shows its one-time CAPTCHA to a
+fresh profile; X wants one-time sign-in — cookie persistence handles
+both after the user does them once.
+
+**Hard-won lesson encoded in lib.rs: ONE CSS RULE PER SELECTOR.** A
+single invalid selector in a comma-joined list silently disabled ALL
+hiding once EasyList's thousands of selectors joined ours (Shorts came
+back; caught by screenshot). Never re-join them.
+
+Next: gaze Stage A (CSS blur modes); gaze Stage B spike per
+docs/gaze-research.md (inline BlazeFace on reddit.com, worst-case CSP);
+Android build per docs/android-research.md (gaps: JDK 17, NDK_HOME,
+rustup android targets); owner signs in once on each platform to test
+session persistence.
 
 Open questions for owner: TikTok ships at all? Domain purchase
 (tamescroll.com free as of 2026-08-18). GitHub repo push (needs owner OK —

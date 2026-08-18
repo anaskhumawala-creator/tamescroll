@@ -8,24 +8,22 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use adblock::cosmetic_filter_cache::ProceduralOrActionFilter;
-use adblock::lists::{FilterSet, ParseOptions};
 use adblock::Engine;
 use serde::Serialize;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
+mod rules;
+
 /// Rules are compiled in for now. Phase 6 replaces this with a cached
 /// fetch of the hosted list so fixes ship without an app update — the
-/// engine stays put, only the data moves.
-const YOUTUBE_RULES: &str = include_str!("../../../rules/youtube.txt");
-
+/// engine stays put, only the data moves. Building it from the full
+/// vendored list set (EasyList, EasyPrivacy, uBO filters, scriptlet
+/// resources) takes on the order of a second, so `run()` warms it on a
+/// background thread instead of paying that cost on the first tile click.
 static ENGINE: OnceLock<Engine> = OnceLock::new();
 
 fn engine() -> &'static Engine {
-    ENGINE.get_or_init(|| {
-        let mut set = FilterSet::new(false);
-        set.add_filter_list(YOUTUBE_RULES.to_string(), ParseOptions::default());
-        Engine::new_with_filter_set(set)
-    })
+    ENGINE.get_or_init(rules::build_engine)
 }
 
 #[derive(Serialize, Clone)]
@@ -54,14 +52,16 @@ const PLATFORMS: &[Platform] = &[
         name: "Reddit",
         url: "https://www.reddit.com/",
         tint: "#FF4500",
-        ready: false,
+        ready: true,
     },
     Platform {
         id: "x",
         name: "X",
-        url: "https://x.com/",
+        // /home lands on the timeline; our rules remove the For-you tab
+        // there, leaving Following as the only one.
+        url: "https://x.com/home",
         tint: "#71767B",
-        ready: false,
+        ready: true,
     },
     Platform {
         id: "instagram",
@@ -88,11 +88,16 @@ fn cosmetic_css(url: &str) -> String {
         // Deterministic output keeps the injected script stable between
         // runs, which makes debugging a broken rule far easier.
         selectors.sort();
-        let joined: Vec<&str> = selectors.iter().map(|s| s.as_str()).collect();
-        css.push_str(&format!(
-            "{} {{ display: none !important; }}\n",
-            joined.join(",\n")
-        ));
+        // ONE RULE PER SELECTOR — never join them. In a comma-separated
+        // selector list, a single invalid selector invalidates the whole
+        // rule, and with thousands of upstream EasyList selectors in play
+        // one bad apple silently turned off ALL hiding (Shorts came back;
+        // caught by screenshot 2026-08-18). Per-selector rules contain
+        // the damage to the one selector that is broken.
+        for selector in selectors {
+            css.push_str(selector);
+            css.push_str(" { display: none !important; }\n");
+        }
     }
 
     // `:style()` rules and other actioned filters arrive JSON-encoded.
@@ -126,14 +131,28 @@ fn rules_summary() -> HashMap<String, usize> {
 
 /// The script injected into every platform webview.
 ///
-/// It re-applies on SPA navigation because these sites rewrite their own
-/// DOM without a page load, and Tauri's initialisation script is not
-/// guaranteed to run before the site's own JavaScript on remote URLs.
+/// `scriptlets` is the engine's `injected_script` for this URL — the
+/// scriptlets that strip ad data out of the page before its own scripts
+/// read it (YouTube's player response, mainly; see VISION.md). It runs
+/// first, and is wrapped in its own `try`/`catch` on top of the one each
+/// individual scriptlet already gets from adblock-rust: a vendored
+/// scriptlet that fails to parse must not be able to take the CSS
+/// injection down with it.
+///
+/// The CSS block re-applies on SPA navigation because these sites rewrite
+/// their own DOM without a page load, and Tauri's initialisation script is
+/// not guaranteed to run before the site's own JavaScript on remote URLs.
 /// Re-applying is cheap; missing a navigation is not.
-fn injection_script(css: &str) -> String {
+fn injection_script(css: &str, scriptlets: &str) -> String {
     let escaped = css.replace('\\', "\\\\").replace('`', "\\`");
     format!(
         r#"
+(function () {{
+  try {{
+{scriptlets}
+  }} catch (e) {{}}
+}})();
+
 (function () {{
   var CSS = `{escaped}`;
   var STYLE_ID = "tamescroll-rules";
@@ -187,7 +206,8 @@ async fn open_platform(app: tauri::AppHandle, id: String) -> Result<(), String> 
         .parse()
         .map_err(|_| format!("bad platform url: {}", platform.url))?;
 
-    let script = injection_script(&cosmetic_css(platform.url));
+    let resources = engine().url_cosmetic_resources(platform.url);
+    let script = injection_script(&cosmetic_css(platform.url), &resources.injected_script);
 
     WebviewWindowBuilder::new(&app, platform.id, WebviewUrl::External(url))
         .title(platform.name)
@@ -201,6 +221,17 @@ async fn open_platform(app: tauri::AppHandle, id: String) -> Result<(), String> 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Warm the engine off the critical path: building it from the full
+    // vendored list set takes on the order of a second, and nothing about
+    // startup needs it until the first `open_platform` call.
+    std::thread::spawn(|| {
+        #[cfg(debug_assertions)]
+        let started = std::time::Instant::now();
+        engine();
+        #[cfg(debug_assertions)]
+        eprintln!("adblock engine warmed in {:?}", started.elapsed());
+    });
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
@@ -210,4 +241,62 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tamescroll");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Proves the two halves of in-app ad blocking VISION.md describes are
+    /// actually wired: cosmetic hiding (already worked) and scriptlet
+    /// injection (the point of this change). A regression here means
+    /// either the vendored lists didn't load or the scriptlet resources
+    /// didn't — see rules.rs and rules/vendor/README.md.
+    #[test]
+    fn youtube_gets_hide_selectors_and_a_scriptlet_injection() {
+        let resources =
+            engine().url_cosmetic_resources("https://www.youtube.com/watch?v=aqz-KE-bpKQ");
+        assert!(
+            !resources.injected_script.is_empty(),
+            "expected a non-empty scriptlet injection for a YouTube watch page — \
+             this is what strips ad data out of the player response"
+        );
+        // Our clean-room scriptlets, resolved by name from the filter
+        // lists: the initial-load pin and the SPA-navigation strippers.
+        for needle in [
+            "setConstant(",
+            "trustedReplaceFetchResponse(",
+            "trustedReplaceXhrResponse(",
+        ] {
+            assert!(
+                resources.injected_script.contains(needle),
+                "expected {needle:?} in the YouTube injection — a scriptlet \
+                 name stopped resolving (see rules.rs SCRIPTLETS)"
+            );
+        }
+
+        let resources = engine().url_cosmetic_resources("https://www.youtube.com/");
+        assert!(
+            !resources.hide_selectors.is_empty(),
+            "expected cosmetic hide selectors for the YouTube home page"
+        );
+    }
+
+    /// Our own platform rules must survive the trip through the engine —
+    /// a selector that fails to parse is silently dropped, and this is
+    /// where that would surface.
+    #[test]
+    fn reddit_and_x_rules_survive_parsing() {
+        let reddit = engine().url_cosmetic_resources("https://www.reddit.com/");
+        assert!(
+            reddit.hide_selectors.iter().any(|s| s.contains("shreddit-ad-post")),
+            "reddit.txt's ad rules should be present for reddit.com"
+        );
+
+        let x = engine().url_cosmetic_resources("https://x.com/home");
+        assert!(
+            !x.hide_selectors.is_empty() || !x.procedural_actions.is_empty(),
+            "x.txt rules should produce hide selectors or procedural actions for x.com"
+        );
+    }
 }
