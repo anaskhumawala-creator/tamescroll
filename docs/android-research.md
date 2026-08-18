@@ -96,7 +96,7 @@ spikes/android-build.log, spikes/gradle-build2.log.
   scripts re-inject unreliably on remote URLs. Cosmetic hiding did not
   visibly apply on m.youtube.com (Shorts tab survived — partly the
   host-filter bug above, partly this race). NEXT: reliable Android
-  injection (onPageStarted-style или runtime re-injection via
+  injection (onPageStarted-style or runtime re-injection via
   MutationObserver-boot script) before calling Android "cleaned".
 - Sign-in and video playback untested; player script threw an internal
   error once (undiagnosed).
