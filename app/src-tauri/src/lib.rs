@@ -442,6 +442,9 @@ fn injection_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+// Android: everything after the navigate-and-return block is
+// desktop-only builder code the compiler sees as unreachable there.
+#[cfg_attr(target_os = "android", allow(unreachable_code, unused_variables))]
 #[tauri::command]
 async fn open_platform(
     app: tauri::AppHandle,
@@ -454,33 +457,38 @@ async fn open_platform(
         .find(|p| p.id == id)
         .ok_or_else(|| format!("unknown platform: {id}"))?;
 
-    if let Some(existing) = app.get_webview_window(platform.id) {
-        existing.set_focus().map_err(|e| e.to_string())?;
-        return Ok(());
-    }
+    #[cfg(debug_assertions)]
+    eprintln!("open_platform id={id}");
 
-    let url = platform
+    let url: tauri::Url = platform
         .url
         .parse()
         .map_err(|_| format!("bad platform url: {}", platform.url))?;
 
-    // A platform window may already exist under this label: on Android
-    // always (the single webview never dies — a second Builder::build
-    // would error on the taken label, seen on the emulator 2026-08-18 as
-    // a tile tap that silently did nothing), on desktop when the user
-    // re-opens a platform whose window is still open. Navigate or focus
-    // instead of failing.
-    if let Some(existing) = app.get_webview_window(&id) {
-        #[cfg(target_os = "android")]
-        {
-            existing.navigate(url).map_err(|e| e.to_string())?;
-            return Ok(());
-        }
-        #[cfg(not(target_os = "android"))]
-        {
-            let _ = existing.set_focus();
-            return Ok(());
-        }
+    // Android is a single-webview platform: never create or focus a
+    // second window. The old label-reuse guard called set_focus() and
+    // returned Ok — visually a no-op, so every tile tap after the first
+    // "succeeded" silently (probe evidence 2026-08-18, spikes/
+    // logcat-probe7.log: JS "open ok" with no visible effect). Navigate
+    // the main webview in place instead; cosmetic injection rides the
+    // ts-inject plugin script, which fires on every page load.
+    #[cfg(target_os = "android")]
+    {
+        let main = app
+            .get_webview_window("main")
+            .ok_or_else(|| "no main webview".to_string())?;
+        let nav = main.navigate(url);
+        #[cfg(debug_assertions)]
+        eprintln!("open_platform navigate main -> {nav:?}");
+        return nav.map_err(|e| e.to_string());
+    }
+
+    // Desktop: re-opening a platform whose window is still open just
+    // focuses it — a second Builder::build on a taken label would error.
+    #[cfg(not(target_os = "android"))]
+    if let Some(existing) = app.get_webview_window(platform.id) {
+        existing.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
     }
 
     let mode = gaze_mode(&mode);
@@ -491,12 +499,18 @@ async fn open_platform(
     );
     script.push_str(&gaze_script(mode));
 
-    WebviewWindowBuilder::new(&app, platform.id, WebviewUrl::External(url))
+    let built = WebviewWindowBuilder::new(&app, platform.id, WebviewUrl::External(url))
         .title(platform.name)
         .inner_size(1200.0, 860.0)
         .initialization_script(&script)
-        .build()
-        .map_err(|e| e.to_string())?;
+        .build();
+    #[cfg(debug_assertions)]
+    eprintln!(
+        "open_platform build id={} -> {:?}",
+        platform.id,
+        built.as_ref().map(|_| ()).map_err(|e| e.to_string())
+    );
+    built.map_err(|e| e.to_string())?;
 
     Ok(())
 }

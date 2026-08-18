@@ -37,7 +37,14 @@ class MainActivity : TauriActivity() {
           // the relaunch renders permanently blank (emulator evidence
           // 2026-08-18, new Task with zero webview activity).
           onLauncher -> moveTaskToBack(true)
-          webView.canGoBack() -> webView.goBack()
+          // Never history-restore INTO the launcher: goBack() onto the
+          // custom-protocol page revives a back/forward-cache zombie
+          // document that stays visible but detached — taps land in it
+          // and its invokes never reach Rust (CDP evidence 2026-08-18,
+          // spikes/logcat-probe6.log: two tauri.localhost targets, the
+          // visible one attached:false). A fresh loadUrl creates one
+          // live document instead.
+          webView.canGoBack() && !backEntryIsLauncher() -> webView.goBack()
           else -> webView.loadUrl("http://tauri.localhost/")
         }
       }
@@ -45,5 +52,12 @@ class MainActivity : TauriActivity() {
     onBackPressedDispatcher.addCallback(this, callback)
 
     super.onWebViewCreate(webView)
+  }
+
+  private fun backEntryIsLauncher(): Boolean {
+    val list = webView.copyBackForwardList()
+    if (list.currentIndex <= 0) return false
+    val prev = list.getItemAtIndex(list.currentIndex - 1).url ?: return false
+    return prev.contains("tauri.localhost")
   }
 }

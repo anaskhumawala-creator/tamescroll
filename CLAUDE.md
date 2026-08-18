@@ -105,10 +105,26 @@ Rules-change gotcha: rules/*.txt are include_str'd — the dev watcher
 does NOT watch rules/, so touch a src-tauri file to force the rebuild,
 then REOPEN the platform window (injection happens at window creation).
 
-Next: Android build result -> verify m.youtube rules on emulator; gaze
-Stage B build per spike verdict (budget call before adding nsfwjs's
-2.7MB); settings pane (plan.md Phase 3); owner one-time sign-ins.
+**Android re-tap bug FIXED + VERIFIED** (probe8: 6/6 taps incl.
+re-taps and cross-platform). Root cause was NOT IPC: an early
+label-reuse guard in open_platform (set_focus + Ok) silently
+"succeeded" on every re-tap — set_focus is a visual no-op on Android.
+Real model fix: Android never builds platform windows; open_platform
+navigates the single "main" webview in place (desktop unchanged:
+focus-if-open + builder). Kotlin: Back never history-restores into the
+launcher (BFCache zombie — CDP evidence) — fresh loadUrl instead. Full
+saga + probe-run lessons in docs/android-research.md §re-tap. Debug
+probes stripped; two cfg(debug_assertions) eprintlns remain in
+open_platform.
 
-Open questions for owner: TikTok ships at all? Domain purchase
-(tamescroll.com free as of 2026-08-18). GitHub push deferred by owner
-2026-08-18 ("without GitHub at the initial stage").
+Next: gaze Stage B smart-mode visual check; nsfwjs budget call
+(owner); owner one-time sign-ins; TikTok draft awaiting owner go
+(rules would be [unverified] — site blocked in India).
+docs/rules-updates.md = Phase 6 OTA design note (committed).
+
+Owner decisions 2026-08-18 (evening): domain — owner will purchase
+tamescroll.com soon. TikTok — yes in principle ("a lot of user base"),
+BUT owner is in India where TikTok is banned: no live DOM access from
+this machine, so rules can only ship [unverified] until someone outside
+India verifies (Phase 6 community, or owner VPN — owner-gated). GitHub
+push still deferred ("without GitHub at the initial stage").

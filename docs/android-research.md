@@ -148,3 +148,41 @@ camera; relevance unknown). Smells like a wry Android surface
 re-attach problem after activity recreate. NOT yet investigated —
 next systematic pass. Repro used `monkey` LAUNCHER intent; user-path
 recents-tap unverified.
+
+## Re-tap bug — root cause + single-webview model (2026-08-18, probe runs 1-9)
+
+Symptom: after tile -> platform -> Back, tapping any tile did nothing.
+Six instrumented device runs (spikes/logcat-probe*.log) chased it:
+
+- IPC bridge was NEVER the problem: a debug ts_ping command
+  round-tripped from the restored launcher every time.
+- The false lead: the click resolved "open ok" in JS with zero Rust
+  log lines. Cause of the silence: an early label-reuse guard at the
+  TOP of open_platform (set_focus + return Ok) sat ABOVE the debug
+  eprintln, so re-tap invokes reached Rust all along and "succeeded" —
+  set_focus is visually a no-op on Android. Lesson: instrument at
+  function ENTRY, above every early return.
+- Real defect: window-per-platform is a desktop model. On Android the
+  first tap built a second webview ("youtube" label); every later tap
+  focused a window that cannot come forward. CDP inspection
+  (logcat-probe6, /json/list) showed the split brain: two
+  tauri.localhost page targets, the visible one attached:false.
+
+Fix (verified probe8: 6/6 taps incl. re-taps + cross-platform
+Reddit/X): Android never builds or focuses platform windows —
+open_platform navigates the single "main" webview in place; cosmetic
+injection rides the ts-inject plugin script which fires on every page
+load. Desktop keeps window-per-platform (focus if open).
+
+Companion Kotlin fix (MainActivity): Back never history-restores INTO
+the launcher — goBack() onto the custom-protocol page can revive a
+back/forward-cache zombie document (visible but detached; taps land in
+it) — when the back entry is tauri.localhost we loadUrl a fresh
+launcher instead. History grows a couple of entries per cycle; WebView
+caps the list, acceptable.
+
+Shared-emulator gotcha for future probe runs: dev.mobile.maestro and
+com.hijrifirst.app (other projects) sometimes inject input or steal
+foreground. Always env-check (ps + dumpsys window) before trusting a
+failed-input repro, and re-locate tiles fresh from a screencap before
+every tap.
