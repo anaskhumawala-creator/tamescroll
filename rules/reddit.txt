@@ -1,0 +1,79 @@
+! Title: tamescroll — Reddit
+! Description: Removes Reddit's algorithmic bait surfaces while leaving
+!              the subscribed home feed, communities, posts and comments
+!              untouched. Ads hidden belt-and-braces (engine lists do the
+!              bulk of it).
+! Version: 1
+! Expires: 1 day
+! License: CC0-1.0 (see rules/LICENSE)
+!
+! DESIGN NOTE — why the home feed STAYS on Reddit
+! Unlike YouTube's home grid, Reddit's logged-in home feed is the user's
+! own subscriptions — that is "what is yours" and the mission keeps it.
+! The algorithmic surfaces here are r/popular, r/all, trending searches
+! and recommendation carousels, not the home feed itself.
+!
+! Scope page-specific rules with Reddit's own `pagetype` attribute on
+! `shreddit-app` (observed live: pagetype="home", pagetype="post_detail").
+!
+! VERIFICATION STATUS (2026-08-18, www.reddit.com desktop, logged in)
+! [live] = counted in the real DOM this session. [unverified] = believed
+! correct, surface did not render during the session.
+
+
+! ============================================================
+! ALGORITHMIC DISCOVERY — removed
+! ============================================================
+
+! r/popular and r/all feeds: the anonymous algorithmic firehose. The
+! pages stay reachable but render no feed.
+! [unverified] pagetype value for popular/all not observed this session
+! test: on https://www.reddit.com/r/popular/ ->
+!   document.querySelector('shreddit-app').getAttribute('pagetype') and
+!   the feed element must be hidden
+reddit.com##shreddit-app[pagetype="popular"] shreddit-feed
+reddit.com##shreddit-app[pagetype="all"] shreddit-feed
+
+! Trending searches shown when the search box is focused.
+! [unverified] renders only on search focus
+! test: focus the search box on any page ->
+!   document.querySelectorAll('shreddit-trending-searches').length >= 1
+reddit.com##shreddit-trending-searches
+
+! Community recommendation carousels injected between feed posts.
+! [unverified] not present on test session's home feed
+! test: scroll the home feed until a "Popular communities" style
+!   carousel appears -> document.querySelectorAll('community-highlight-carousel').length >= 1
+reddit.com##community-highlight-carousel
+
+! "Recent pages" rail block (recently visited communities bait).
+! [unverified]
+! test: document.querySelectorAll('shreddit-recent-pages').length >= 1
+reddit.com##shreddit-recent-pages
+
+
+! ============================================================
+! ADS — belt and braces (engine's EasyList does the heavy lifting)
+! ============================================================
+
+! Promoted posts in feeds.
+! [live] shreddit-ad-post counted 1 on the home feed
+! test: on https://www.reddit.com/ scrolled a few screens ->
+!   document.querySelectorAll('shreddit-ad-post').length >= 1
+reddit.com##shreddit-ad-post
+
+! Sidebar ad units.
+! [live] shreddit-sidebar-ad counted 2 on home and 2 on a post page
+! test: document.querySelectorAll('shreddit-sidebar-ad').length >= 1
+reddit.com##shreddit-sidebar-ad
+
+! Ad units inside comment pages.
+! [live] shreddit-comments-page-ad counted 2 on a post page
+! test: on any /comments/ page ->
+!   document.querySelectorAll('shreddit-comments-page-ad').length >= 1
+reddit.com##shreddit-comments-page-ad
+
+! Dynamic ad links (promoted links rendered as ordinary anchors).
+! [live] shreddit-dynamic-ad-link counted 8 on the home feed
+! test: document.querySelectorAll('shreddit-dynamic-ad-link').length >= 1
+reddit.com##shreddit-dynamic-ad-link

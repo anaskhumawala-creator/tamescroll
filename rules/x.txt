@@ -1,0 +1,89 @@
+! Title: tamescroll — X
+! Description: Removes X's algorithmic surfaces — the For-you tab,
+!              trends, who-to-follow — and promoted tweets, while leaving
+!              the Following timeline, notifications, DMs and profiles
+!              untouched.
+! Version: 1
+! Expires: 1 day
+! License: CC0-1.0 (see rules/LICENSE)
+!
+! DESIGN NOTES
+! - The Following timeline is chronological and chosen — it stays. The
+!   For-you tab is the algorithmic feed — its TAB is removed
+!   structurally (first tab in the home tablist), which is
+!   language-independent where text matching would not be.
+! - X wraps ORGANIC videos in [data-testid="placementTracking"] too
+!   (verified live: 13 organic vs 5 promoted on one screen), so that
+!   testid must NEVER be hidden wholesale. Promoted tweets are the cells
+!   where the placementTracking wrapper CONTAINS the article; organic is
+!   the reverse nesting. The :has() selector below encodes exactly that.
+! - aria-label based rules are English-locale only for v1. Noted per rule.
+!
+! VERIFICATION STATUS (2026-08-18, x.com desktop, logged in, narrow
+! window — the right sidebar did not render; those rules are tagged
+! [unverified]).
+
+
+! ============================================================
+! THE FOR-YOU FEED — tab removed
+! ============================================================
+
+! First tab in the home timeline's tablist ("For you"). Structural, not
+! text-based. Following becomes the only tab.
+! [live] tablist children observed: [0]="For you" [1]="Following", chain
+! div[role=presentation] > div[role=tab]
+! test: on https://x.com/home ->
+!   the tablist's first child must be hidden and the visible tab count
+!   must be 1 (document.querySelectorAll('[data-testid="primaryColumn"] [role="tablist"] > div[role="presentation"]').length >= 2 in the DOM)
+x.com##[data-testid="primaryColumn"] [role="tablist"] > div[role="presentation"]:first-child
+
+
+! ============================================================
+! PROMOTED TWEETS
+! ============================================================
+
+! A promoted cell is one whose placementTracking wrapper CONTAINS the
+! tweet article. Do not simplify this to bare placementTracking — that
+! hides organic videos (see DESIGN NOTES).
+! [live] matched exactly 5 cells, equal to the 5 "Ad"-labelled articles,
+! with 13 organic video cells unmatched
+! test: on https://x.com/home ->
+!   document.querySelectorAll('[data-testid="cellInnerDiv"]:has([data-testid="placementTracking"] article)').length
+!   === number of articles containing a span with exact text "Ad"
+x.com##[data-testid="cellInnerDiv"]:has([data-testid="placementTracking"] article)
+
+
+! ============================================================
+! SIDEBAR BAIT — trends, who to follow
+! ============================================================
+! English aria-labels; other locales need additional rules.
+
+! Trending module in the right sidebar.
+! [unverified] sidebar did not render at test viewport width
+! test: widen the window on https://x.com/home ->
+!   document.querySelectorAll('[data-testid="sidebarColumn"] [data-testid="trend"]').length >= 1
+!   and the module must be hidden
+x.com##[data-testid="sidebarColumn"] section:has([data-testid="trend"])
+
+! Who-to-follow module in the right sidebar.
+! [unverified]
+! test: document.querySelectorAll('[data-testid="sidebarColumn"] aside [data-testid="UserCell"]').length >= 1
+x.com##[data-testid="sidebarColumn"] aside:has([data-testid="UserCell"])
+
+! Who-to-follow cells injected inline into timelines.
+! [unverified]
+! test: scroll the Following timeline until follow suggestions appear ->
+!   document.querySelectorAll('[data-testid="cellInnerDiv"]:has(> div > div > [data-testid="UserCell"])').length >= 1
+x.com##[data-testid="cellInnerDiv"]:has([data-testid="UserCell"])
+
+
+! ============================================================
+! EXPLORE PAGE — trends firehose
+! ============================================================
+
+! The explore/trending timeline. Search stays usable (the search box is
+! outside the timeline).
+! [unverified]
+! test: on https://x.com/explore ->
+!   trend cells hidden, search box still visible
+x.com##[data-testid="primaryColumn"] [data-testid="trend"]
