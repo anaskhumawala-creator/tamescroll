@@ -405,6 +405,26 @@ mod tests {
         );
     }
 
+    /// Owner report 2026-08-18: search results were still full of
+    /// "People also search for" / "Channels new to you" wedges. The
+    /// fix lives in rules/youtube.txt — this pins those selectors all
+    /// the way through the engine into the CSS a search page receives.
+    #[test]
+    fn youtube_search_inserts_are_hidden_in_the_injected_css() {
+        let css = cosmetic_css("https://www.youtube.com/results?search_query=minecraft");
+        for sel in [
+            "ytd-search-pyv-renderer",
+            "ytd-search ytd-shelf-renderer",
+            "ytd-search ytd-horizontal-card-list-renderer",
+            "ytd-universal-watch-card-renderer",
+        ] {
+            assert!(
+                css.contains(sel),
+                "expected search-insert selector {sel:?} in the injected CSS"
+            );
+        }
+    }
+
     /// Stage B (gaze-research.md): the generated runtime must actually be
     /// present in the binary and non-trivial — an empty or missing bundle
     /// would mean "smart" silently degrades to doing nothing.
