@@ -74,9 +74,15 @@ fn gaze_state() -> &'static str {
 /// the platform's root domain.
 #[cfg_attr(not(target_os = "android"), allow(dead_code))]
 fn platform_for_host(host: &str) -> Option<&'static Platform> {
-    let h = host.strip_prefix("www.").unwrap_or(host);
-    let h = h.strip_prefix("m.").unwrap_or(h);
-    PLATFORMS.iter().find(|p| platform_root(p.url) == h)
+    // Same suffix semantics as universal_injection_script's JS matcher
+    // (root or ".root" suffix) — the two matchers diverging meant
+    // old.reddit.com got hide-CSS but no blur (review 2026-08-19).
+    // Ports stripped for the same reason.
+    let h = host.split(':').next().unwrap_or(host);
+    PLATFORMS.iter().find(|p| {
+        let root = platform_root(p.url);
+        h == root || h.ends_with(&format!(".{root}"))
+    })
 }
 
 /// The script a page load must evaluate to honour the current gaze
@@ -85,6 +91,12 @@ fn platform_for_host(host: &str) -> Option<&'static Platform> {
 /// the platform has no blur sheet yet (Instagram). Idempotent — the
 /// style-id guard lets callers eval it at both Started and Finished
 /// page events so blur lands as early as the document exists.
+///
+/// Smart mode deliberately ships NO Stage A sheet: those selectors have
+/// no class hook, so Stage B's class-removal unblur could never win
+/// against them — the whole mode would collapse into blur-all (review
+/// finding, 2026-08-19). Desktop draws the same line in open_platform
+/// (`page_css(.., mode == "blur", ..)`); Stage B blurs-first itself.
 #[cfg_attr(not(target_os = "android"), allow(dead_code))]
 fn page_load_gaze_script(url: &str, mode: &str) -> Option<String> {
     let mode = gaze_mode(mode);
@@ -92,12 +104,14 @@ fn page_load_gaze_script(url: &str, mode: &str) -> Option<String> {
         return None;
     }
     let platform = platform_for_host(platform_root(url))?;
-    let css = blur_css(platform.id);
-    if css.is_empty() {
+    if blur_css(platform.id).is_empty() {
         return None;
     }
-    let css_json = serde_json::to_string(css).ok()?;
-    let mut js = format!(
+    if mode == "smart" {
+        return Some(gaze_script("smart"));
+    }
+    let css_json = serde_json::to_string(blur_css(platform.id)).ok()?;
+    Some(format!(
         r#"
 (function () {{
   try {{
@@ -109,11 +123,7 @@ fn page_load_gaze_script(url: &str, mode: &str) -> Option<String> {
   }} catch (e) {{}}
 }})();
 "#
-    );
-    if mode == "smart" && !js.is_empty() {
-        js.push_str(&gaze_script("smart"));
-    }
-    Some(js)
+    ))
 }
 
 /// Script that boots gaze Stage B, or nothing outside "smart" mode.
@@ -129,6 +139,7 @@ fn gaze_script(mode: &str) -> String {
         r#"
 (function () {{
   try {{
+    if (window.__TS_GAZE_BUNDLE__) return;
     window.__TS_GAZE_MODE = "smart";
 {GAZE_INIT_JS}
   }} catch (e) {{}}
@@ -163,6 +174,14 @@ fn surfaces_css(platform_id: &str, shown: &[String]) -> String {
         if is_shown {
             continue;
         }
+        // The `domain##` column is NOT enforced here — every selector in
+        // a platform's file ships to every host the universal script
+        // matches for that platform (m./www./subdomains). That is
+        // deliberate for ytm-*/ytd-* (disjoint namespaces, and the UA
+        // redirect happens after injection), but it means a
+        // non-namespaced selector under `m.youtube.com##` ALSO applies
+        // on www/music/studio. Write selectors accordingly; do not
+        // trust the domain column to scope them (review 2026-08-19).
         for (_domain, selector) in &surface.rules {
             css.push_str(selector);
             css.push_str(" { display: none !important; }\n");
@@ -779,10 +798,26 @@ mod tests {
             assert!(!js.contains("__TS_GAZE_MODE"), "blur mode must not boot Stage B");
         }
 
-        // Smart mode adds the Stage B runtime on top of the blur css.
+        // Smart mode boots Stage B and ships NO Stage A sheet — those
+        // selectors have no class hook, so Stage B's unblur could never
+        // win against them (the mode would collapse into blur-all).
         let js = page_load_gaze_script("https://www.reddit.com/", "smart").expect("smart script");
-        assert!(js.contains("ts-gaze-blur"));
         assert!(js.contains("__TS_GAZE_MODE"), "smart mode must boot Stage B");
+        assert!(
+            !js.contains("ts-gaze-blur"),
+            "smart mode must not ship the Stage A sheet"
+        );
+        assert!(
+            js.contains("__TS_GAZE_BUNDLE__"),
+            "the bundle wrapper must be re-entry guarded"
+        );
+
+        // Subdomain hosts the universal script matches must blur too —
+        // the two matchers agreeing is the contract (old.reddit.com had
+        // hide-CSS but sharp images before this).
+        assert!(page_load_gaze_script("https://old.reddit.com/", "blur").is_some());
+        assert!(page_load_gaze_script("https://m.youtube.com:443/", "blur").is_some());
+        assert!(page_load_gaze_script("https://notyoutube.com/", "blur").is_none());
 
         // Unknown modes normalise to off (gaze_mode contract).
         assert!(page_load_gaze_script("https://x.com/home", "nonsense").is_none());

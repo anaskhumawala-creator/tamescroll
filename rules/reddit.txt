@@ -87,3 +87,29 @@ reddit.com##shreddit-comments-page-ad
 ! [live] shreddit-dynamic-ad-link counted 8 on the home feed
 ! test: document.querySelectorAll('shreddit-dynamic-ad-link').length >= 1
 reddit.com##shreddit-dynamic-ad-link
+
+
+! ============================================================
+! MOBILE WEB — "open in app" nags
+! ============================================================
+
+!surface: mobile_nags App install nags
+
+! Any intent:// link is an open-in-native-app punt. Inside our app the
+! WebView has no handler for the scheme, so an un-hidden one navigates
+! the single webview to a Chromium error page that replaces the whole
+! app UI (review 2026-08-19) — hiding them is both the no-nags rule
+! and a crash-page guard. Scheme-based, so no DOM drift.
+! [unverified] on reddit specifically; the same selector is
+! device-verified on m.youtube (probe17)
+! test: on www.reddit.com in the Android app ->
+!   no "Use the app"/"Continue in app" pill; if an intent:// anchor
+!   exists it is display:none
+reddit.com##a[href^="intent://"]
+
+! Reddit's own app-upsell banner element names, belt-and-braces.
+! [unverified] not present on the logged-out emulator DOM (probe10)
+! test: load www.reddit.com logged out on mobile ->
+!   no app-download banner
+reddit.com##shreddit-experience-tree
+reddit.com##xpromo-app-selector

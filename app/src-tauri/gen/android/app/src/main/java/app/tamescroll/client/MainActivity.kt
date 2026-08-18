@@ -11,7 +11,12 @@ class MainActivity : TauriActivity() {
   private lateinit var webView: WebView
 
   // Platform requested by a home-screen shortcut before the webview
-  // exists (cold start): consumed in onWebViewCreate.
+  // exists (cold start): consumed by ShortcutBridge. @Volatile because
+  // @JavascriptInterface methods run on the WebView's JavaBridge
+  // thread while onCreate/onNewIntent write from the UI thread — a
+  // plain var has no happens-before edge and a cold-start consume()
+  // could legally read a stale null on weaker ARM memory models.
+  @Volatile
   private var pendingPlatform: String? = null
 
   // Only ids our shortcuts.xml can send; anything else is dropped so an
@@ -37,6 +42,11 @@ class MainActivity : TauriActivity() {
 
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
+    // Without this, getIntent() keeps returning the ORIGINAL launching
+    // intent forever — an activity recreation (font-scale change,
+    // process death restore) would then replay a stale shortcut extra
+    // and the app would yank itself to that platform out of nowhere.
+    setIntent(intent)
     // Warm shortcut tap (singleTask): the activity already runs, so
     // navigate the live webview straight to the launcher+param.
     platformFromIntent(intent)?.let { id ->
@@ -59,6 +69,19 @@ class MainActivity : TauriActivity() {
     fun consume(): String {
       val p = pendingPlatform
       pendingPlatform = null
+      // The bridge exists for one moment: the launcher's first read on
+      // a cold start. Every page in this webview — including remote
+      // platform pages and their ad iframes — can see the interface
+      // while registered, and `!!window.TsShortcuts` is a free
+      // tamescroll fingerprint for the platforms. Warm shortcuts use
+      // the ?open= URL param instead, so after the first consume the
+      // interface is dead weight: remove it (on the UI thread; this
+      // method runs on the JavaBridge thread).
+      runOnUiThread {
+        if (this@MainActivity::webView.isInitialized) {
+          webView.removeJavascriptInterface("TsShortcuts")
+        }
+      }
       return p ?: ""
     }
   }

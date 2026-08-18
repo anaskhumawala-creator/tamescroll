@@ -273,11 +273,9 @@ m.youtube.com##ytm-reel-shelf-renderer
 m.youtube.com##ytm-rich-section-renderer:has(a[href^="/shorts/"])
 m.youtube.com##ytm-video-with-context-renderer:has(a[href^="/shorts/"])
 
-! Watch page: related videos below the player (mobile has no sidebar).
-! CAUTION: scope carefully when verifying — the player and description
-! share ancestors with related items on mobile. Anchor used here is the
-! dedicated related-items section renderer only.
-! [unverified]
-! test: on a mobile watch page -> description and comments visible,
-!   related list absent, player intact
-m.youtube.com##ytm-item-section-renderer[section-identifier="related-items"]
+! Watch-page related videos moved to the watch_recs surface (scoped
+! ytm-video-with-context-renderer rule, device-verified) — the old
+! [unverified] related-items rule here duplicated it one level up,
+! which made "Recommendations -> Shown" a dead toggle on mobile: this
+! surface kept the section hidden after watch_recs released it
+! (review 2026-08-19).

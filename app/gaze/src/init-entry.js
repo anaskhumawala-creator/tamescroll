@@ -30,17 +30,32 @@ import * as detector from './detector.js';
 
   var failed = false;
   var model = null;
-  var blurredEls = []; // everything currently wearing pending/flagged, for fail-open cleanup
+  // Everything that ever wore pending/flagged, for the fail-open sweep.
+  // WeakRefs + a per-element tracked flag: virtualised feeds detach
+  // thousands of media nodes per long scroll, and strong refs here would
+  // pin every one of them for the life of the page (review 2026-08-19).
+  var hasWeakRef = typeof WeakRef === 'function';
+  var blurredEls = [];
+
+  function track(el) {
+    if (el.__tsGazeTracked) return;
+    el.__tsGazeTracked = true;
+    blurredEls.push(hasWeakRef ? new WeakRef(el) : el);
+  }
+
+  function trackedEl(entry) {
+    return hasWeakRef && entry instanceof WeakRef ? entry.deref() : entry;
+  }
 
   function markPending(el) {
     el.classList.add(dom.PENDING_CLASS);
-    blurredEls.push(el);
+    track(el);
   }
 
   function markFlagged(el) {
     el.classList.remove(dom.PENDING_CLASS);
     el.classList.add(dom.FLAGGED_CLASS);
-    blurredEls.push(el);
+    track(el);
   }
 
   function clearEl(el) {
@@ -55,7 +70,10 @@ import * as detector from './detector.js';
     } catch (e) {
       /* best-effort */
     }
-    for (var i = 0; i < blurredEls.length; i++) clearEl(blurredEls[i]);
+    for (var i = 0; i < blurredEls.length; i++) {
+      var el = trackedEl(blurredEls[i]);
+      if (el) clearEl(el);
+    }
     blurredEls.length = 0;
     // eslint-disable-next-line no-console
     console.warn('tamescroll gaze: disabled after ' + reason, err);
@@ -105,7 +123,12 @@ import * as detector from './detector.js';
         return;
       }
       if (!model) {
-        if (imageQueue.length) drainImages();
+        // Model still loading: back off instead of re-arming the idle
+        // callback immediately — the immediate re-arm was a tight loop
+        // eating every idle slice for the whole model-load window,
+        // exactly the INSTANT-rule violation Stage B must never commit
+        // (review 2026-08-19).
+        if (imageQueue.length) setTimeout(drainImages, 250);
         return;
       }
       var batch = [];
@@ -179,10 +202,28 @@ import * as detector from './detector.js';
     var cleanStreak = 0;
     var sampling = false;
     var intervalId = null;
+    var rvfcArmed = false;
+    var dead = false;
     var hasRvfc = typeof video.requestVideoFrameCallback === 'function';
 
+    // Cross-origin video with no CORS taints the canvas: getImageData
+    // throws SecurityError on EVERY frame, forever — no header we can
+    // set from this side changes that (Reddit v.redd.it, X twimg). A
+    // video we can never analyse must fail OPEN, not stay blurred: the
+    // user chose to play it, and "the post you chose to open plays
+    // normally" is the Stage A contract Stage B may not break
+    // (review 2026-08-19).
+    function giveUp(reason, err) {
+      if (dead) return;
+      dead = true;
+      stop();
+      clearEl(video);
+      // eslint-disable-next-line no-console
+      console.warn('tamescroll gaze: video unreadable, failing open (' + reason + ')', err);
+    }
+
     function sampleOnce() {
-      if (failed || !model || video.paused || document.hidden) return;
+      if (failed || dead || !model || video.paused || document.hidden) return;
       var now = performance.now();
       if (now - lastSample < VIDEO_SAMPLE_INTERVAL_MS) return;
       if (sampling) return;
@@ -215,26 +256,31 @@ import * as detector from './detector.js';
             sampling = false;
           });
       } catch (e) {
-        // Tainted canvas (cross-origin video, no CORS) or similar: treat
-        // like a failed sample rather than crash the sampling loop.
-        cleanStreak = 0;
+        // A sync throw from drawImage/getImageData is the tainted-canvas
+        // case: permanent for this element, so stop burning frames and
+        // fail open (see giveUp above).
         sampling = false;
-        // eslint-disable-next-line no-console
-        console.warn('tamescroll gaze: video frame read failed', e);
+        giveUp('tainted canvas', e);
       }
     }
 
     function rvfcLoop() {
-      if (failed) return;
+      if (failed || dead || rvfcArmed) return;
+      rvfcArmed = true;
       video.requestVideoFrameCallback(function () {
+        rvfcArmed = false;
         sampleOnce();
         if (!video.paused) rvfcLoop();
       });
     }
 
     function start() {
-      if (failed) return;
+      if (failed || dead) return;
       if (hasRvfc) {
+        // rvfcLoop's armed-flag makes the play/playing double-fire (and a
+        // parked callback surviving a pause) collapse into one loop —
+        // without it every play/pause cycle stacked another loop
+        // (review 2026-08-19).
         rvfcLoop();
       } else if (!intervalId) {
         intervalId = setInterval(sampleOnce, VIDEO_SAMPLE_INTERVAL_MS);

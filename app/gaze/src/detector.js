@@ -58,7 +58,10 @@ var ioHandler = {
 /** Picks WebGL, falls back to CPU. Throws if both fail. */
 async function initBackend() {
   try {
-    await tf.setBackend('webgl');
+    // setBackend reports failure BOTH ways: rejecting, or resolving
+    // false — a webgl init that fails politely must still fall back.
+    var ok = await tf.setBackend('webgl');
+    if (!ok) throw new Error('webgl backend unavailable');
     await tf.ready();
   } catch (e) {
     await tf.setBackend('cpu');
@@ -91,8 +94,14 @@ export async function detectFaces(model, pixelSource) {
   });
   var scoresA = outputs[0];
   var scoresB = outputs[1];
-  var pair = await Promise.all([scoresA.data(), scoresB.data()]);
-  tf.dispose(outputs);
+  var pair;
+  try {
+    pair = await Promise.all([scoresA.data(), scoresB.data()]);
+  } finally {
+    // dispose even when .data() rejects, or every failed inference
+    // leaks a WebGL tensor pair (review 2026-08-19)
+    tf.dispose(outputs);
+  }
   var dataA = pair[0];
   var dataB = pair[1];
   for (var i = 0; i < dataA.length; i++) if (dataA[i] > 0) return true;
