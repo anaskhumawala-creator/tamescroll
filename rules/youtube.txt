@@ -141,3 +141,40 @@ m.youtube.com##ytm-app-promo-banner
 m.youtube.com##.mobile-topbar-header-app-promo
 m.youtube.com##ytm-companion-slot
 m.youtube.com##ytm-promoted-video-renderer
+
+
+! ============================================================
+! MOBILE WEB — algorithmic surfaces (Android app serves m.youtube.com)
+! ============================================================
+! The Android WebView presents a mobile UA, so www.youtube.com redirects
+! to m.youtube.com, whose elements are ytm-*, not ytd-* — every desktop
+! rule above misses there. m.youtube.com is client-rendered, so these
+! could not be read from served HTML; selectors anchor on hrefs (stable)
+! and the historically-stable ytm renderer names. ALL [unverified] —
+! verify in the running Android app (adb + screenshot) and retag before
+! trusting them. See docs/android-research.md.
+
+! Mobile home feed, scoped to the home browse page like the desktop rule.
+! [unverified]
+! test: on m.youtube.com home in the Android app ->
+!   the feed grid is empty; search and subscriptions still render
+m.youtube.com##ytm-browse ytm-rich-grid-renderer
+m.youtube.com##ytm-single-column-browse-results-renderer ytm-rich-section-renderer
+
+! Shorts: bottom-navigation tab (anchored on its link), shelves in feeds,
+! and Shorts results in search.
+! [unverified]
+! test: no Shorts tab in the pivot bar; no Shorts shelf in search
+m.youtube.com##ytm-pivot-bar-item-renderer:has(a[href^="/shorts"])
+m.youtube.com##ytm-reel-shelf-renderer
+m.youtube.com##ytm-rich-section-renderer:has(a[href^="/shorts/"])
+m.youtube.com##ytm-video-with-context-renderer:has(a[href^="/shorts/"])
+
+! Watch page: related videos below the player (mobile has no sidebar).
+! CAUTION: scope carefully when verifying — the player and description
+! share ancestors with related items on mobile. Anchor used here is the
+! dedicated related-items section renderer only.
+! [unverified]
+! test: on a mobile watch page -> description and comments visible,
+!   related list absent, player intact
+m.youtube.com##ytm-item-section-renderer[section-identifier="related-items"]

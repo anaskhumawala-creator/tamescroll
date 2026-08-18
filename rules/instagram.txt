@@ -1,0 +1,62 @@
+! Title: tamescroll — Instagram (DRAFT)
+! Description: Removes Instagram's algorithmic surfaces — Reels and
+!              Explore — while leaving the followed-accounts feed, DMs,
+!              profiles and stories untouched.
+! Version: 0 (draft)
+! Expires: 1 day
+! License: CC0-1.0 (see rules/LICENSE)
+!
+! STATUS: DRAFT — EVERY RULE UNVERIFIED.
+! Instagram's logged-in web DOM could not be read this session (no
+! logged-in profile available; the logged-out page is a login wall).
+! Meta ships obfuscated, frequently-rotated class names, so
+! class-based selectors are useless — everything below anchors on
+! hrefs and ARIA labels, which survive rotation. Verify each rule on a
+! logged-in session and add [live] tags before flipping the Instagram
+! tile to ready in the app (docs/plan.md: Instagram is "partial and
+! honest about it").
+!
+! DESIGN
+! The followed feed stays (it is the user's own choices — same call as
+! Reddit's home feed). Reels and Explore are the algorithmic traps and
+! go entirely. Suggested-for-you units inside the feed go when a
+! reliable anchor is found — not expressible without the live DOM.
+
+
+! ============================================================
+! REELS — every entry point
+! ============================================================
+
+! Reels tab in the left/bottom navigation.
+! [unverified]
+! test: on a logged-in https://www.instagram.com/ ->
+!   the nav link to /reels/ must be hidden
+instagram.com##a[href^="/reels/"]
+
+! Reels items surfacing inside other feeds (anchored on link).
+! [unverified]
+! test: scroll the home feed until a Reel unit appears ->
+!   article :has(a[href^="/reel/"]) hidden while normal posts remain
+instagram.com##article:has(> div a[href^="/reel/"])
+
+
+! ============================================================
+! EXPLORE — the algorithmic grid
+! ============================================================
+
+! Explore tab in the navigation. Search stays reachable via the search
+! icon, which is a separate control.
+! [unverified]
+! test: nav link to /explore/ hidden; search still opens
+instagram.com##a[href="/explore/"]
+
+
+! ============================================================
+! NAGS
+! ============================================================
+
+! "Use the app" / app-install banners on mobile web.
+! [unverified] — anchor on the App Store / Play Store outlinks
+! test: load on a phone-sized viewport logged in ->
+!   app-install banner absent
+instagram.com##div:has(> a[href*="app.appsflyer.com"])
