@@ -100,3 +100,27 @@ spikes/android-build.log, spikes/gradle-build2.log.
   MutationObserver-boot script) before calling Android "cleaned".
 - Sign-in and video playback untested; player script threw an internal
   error once (undiagnosed).
+
+
+## Cleaning verified working on Android (2026-08-18, evidence runs 1-4)
+
+Systematic-debugging outcome, evidence in spikes/logcat-evidence*.log:
+
+1. Injection delivery was never the blocker in current Tauri (2.11.5):
+   the plugin `js_init_script` runs on every page load including remote
+   hosts — TS_UNIVERSAL debug markers (debug builds only) show
+   enter -> matched -> style_present=true on m.youtube.com. Upstream
+   issue tauri#7863 (init scripts skipped on Android remote URLs)
+   evidently no longer applies. The `runCallback` TypeError seen at
+   navigation is launcher-teardown noise, not the cause.
+2. The real blocker was selector drift: the mobile Shorts tab is
+   `div.pivot-bar-item-tab.pivot-shorts` inside
+   `ytm-pivot-bar-item-renderer` — NOT a link, so the guessed
+   `:has(a[href^="/shorts"])` matched 0 tabs. Fixed + [live]-tagged in
+   rules/youtube.txt; android-yt-fixed.png shows the nav with only
+   Home and You. Home-grid rule also live (blank body when logged out).
+3. Back key: wry's own callback does canGoBack->goBack, but the
+   back-stack is empty after the tile navigation, so Back fell through
+   to the task beneath in recents. MainActivity.kt now overrides
+   onWebViewCreate to register a callback that returns to
+   http://tauri.localhost/ before allowing the app to background.
