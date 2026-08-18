@@ -40,10 +40,10 @@ the manipulation. Nobody has built this.
 ## What we actually build — three artifacts, not a product suite
 
 **1. The rules list.** A plain text file in EasyList syntax. It removes
-feeds, Shorts, recommendation walls and nags across the platforms. It is the
-shared artifact §4 describes, and it works two ways: our app consumes it,
-*and* anyone can subscribe to it directly in Brave, uBlock Origin or AdGuard
-without installing anything of ours. It ships value before the app exists.
+feeds, Shorts, recommendation walls and nags across the platforms. It is
+the shared artifact §4 describes and exists to feed the app's embedded
+engine. (Because the format is standard, other blockers can also consume
+it — a free side-effect, not a strategy. See docs/VISION.md.)
 
 **2. The app.** A thin shell over the OS webview, one codebase for Windows,
 macOS, Linux, Android and iOS. It is a launcher plus cleaned web views. It
@@ -82,9 +82,15 @@ On those platforms we point at it rather than rebuild it. We build gaze
 protection *inside our app*, where the gap is real — especially iOS, where
 HaramBlur's own modes are limited (§6).
 
-**Ads: not our problem.** The embedded engine handles them with the same
-lists Brave uses. No scriptlet maintenance, no anti-adblock arms race, no
-code of ours near the video player.
+**Ads: handled inside the app by the embedded engine.** Network-level
+blocking is not reachable through Tauri's public API, but that does not
+matter for YouTube: its ads are defeated by scriptlet injection (the
+engine's `injected_script` output, sourced from uBlock-compatible
+resources), which strips ad data before the player reads it. Display ads
+elsewhere fall to cosmetic hiding plus the standard EasyList lists. We
+maintain none of these scriptlets ourselves — they ship with the lists
+the engine consumes. The app must block ads on its own; pointing users
+at any external tool is out (docs/VISION.md).
 
 ---
 
