@@ -31,11 +31,12 @@ class MainActivity : TauriActivity() {
         // (observed on the emulator 2026-08-18, press-2 anomaly).
         val onLauncher = webView.url?.contains("tauri.localhost") == true
         when {
-          onLauncher -> {
-            isEnabled = false
-            onBackPressedDispatcher.onBackPressed()
-            isEnabled = true
-          }
+          // moveTaskToBack, never finish(): finishing destroys the
+          // Activity while the Rust process lives on, and Tauri cannot
+          // attach a fresh Activity to an already-initialized process —
+          // the relaunch renders permanently blank (emulator evidence
+          // 2026-08-18, new Task with zero webview activity).
+          onLauncher -> moveTaskToBack(true)
           webView.canGoBack() -> webView.goBack()
           else -> webView.loadUrl("http://tauri.localhost/")
         }

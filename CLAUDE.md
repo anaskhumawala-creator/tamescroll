@@ -90,8 +90,12 @@ injection delivery works (plugin js_init_script; tauri#7863 no longer
 applies); real blocker was selector drift — mobile Shorts tab is
 div.pivot-bar-item-tab.pivot-shorts, fixed + [live]. Back key fixed
 launcher-first in MainActivity.kt (press1 launcher, press2
-background, verified). Known issue: relaunch after backgrounding
-renders blank (docs/android-research.md) — next investigation.
+background, verified). Relaunch-blank RESOLVED same day
+(root cause: Back was finishing the activity under a live Rust
+process; moveTaskToBack(true) fixed, verified 2 cycles). Tile re-tap
+after Back also fixed (window-label reuse -> navigate/focus).
+Android milestone COMPLETE: cleaned YouTube + working launcher
+round-trip on the emulator.
 **Settings pane DONE**: !surface: markers in rules files, our rules
 now a toggleable CSS layer outside the engine, Bring back section
 with Hidden/Shown pills; ads/promoted/nags always-on. 14/14 tests.

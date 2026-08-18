@@ -464,6 +464,25 @@ async fn open_platform(
         .parse()
         .map_err(|_| format!("bad platform url: {}", platform.url))?;
 
+    // A platform window may already exist under this label: on Android
+    // always (the single webview never dies — a second Builder::build
+    // would error on the taken label, seen on the emulator 2026-08-18 as
+    // a tile tap that silently did nothing), on desktop when the user
+    // re-opens a platform whose window is still open. Navigate or focus
+    // instead of failing.
+    if let Some(existing) = app.get_webview_window(&id) {
+        #[cfg(target_os = "android")]
+        {
+            existing.navigate(url).map_err(|e| e.to_string())?;
+            return Ok(());
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            let _ = existing.set_focus();
+            return Ok(());
+        }
+    }
+
     let mode = gaze_mode(&mode);
     let resources = engine().url_cosmetic_resources(platform.url);
     let mut script = injection_script(

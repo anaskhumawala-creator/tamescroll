@@ -127,7 +127,19 @@ Systematic-debugging outcome, evidence in spikes/logcat-evidence*.log:
    backgrounds the app. Verified on-device 2026-08-18: press 1 lands
    on the launcher, press 2 backgrounds (android-back2-press*.png).
 
-KNOWN ISSUE — relaunch after backgrounding renders blank: process
+RESOLVED (same day) — relaunch-blank root cause found by task-lifecycle
+evidence (logcat-relaunch-repro.log): the launcher-Back fallback used
+the default dispatcher, which FINISHES the activity while the Rust
+process lives; Android then created a fresh task whose new activity
+Tauri cannot attach a webview to (one Start proc, new Task, zero
+TS_UNIVERSAL). Fix: moveTaskToBack(true) — verified across two
+background/relaunch cycles (mtb-relaunch*.png): one process, same
+task resumes, launcher renders. Follow-up fixed the same run's other
+find: a second tile tap silently failed because the "youtube" window
+label already exists on Android — open_platform now navigates the
+existing window (desktop: focuses it).
+
+ORIGINAL ISSUE TEXT (for the record) — relaunch after backgrounding renders blank: process
 alive, activity RESUMED, WebView navigates to tauri.localhost
 (TS_UNIVERSAL marker fires) but the surface stays white for 18s+
 (android-back2-relaunch*.png, logcat-back2-relaunch.log; also a burst
