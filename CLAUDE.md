@@ -185,6 +185,14 @@ Nothing has been forked or reviewed yet (Phase 0 not run).
    Tenblock, Reclaim. Note an unrelated privacy extension already ships as
    "Disconnect", so the store name may need to differ from the folder name.
 
+### Analysis (2026-08-18) — see docs/setup-analysis.md
+Flags below were investigated and verified. Full reasoning and the
+recommended resolutions live in `docs/setup-analysis.md`. Headline: MV3
+bans remotely hosted code but permits remote JSON data, which splits the
+rules core into a data lane (remotely updatable) and a code lane (store
+review). Recommendation on the table: drop ad blocking from v1. Owner has
+NOT ruled on any of it.
+
 ### Technical flags raised in analysis (owner has NOT ruled on these)
 These are corrections/risks against §4 and §8, not new scope.
 
