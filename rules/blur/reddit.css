@@ -17,6 +17,13 @@
  *
  * NO hover-to-reveal — a reveal gesture trains the un-blur reflex
  * (docs/plan.md Phase 4).
+ *
+ * VERIFIED LIVE 2026-08-18 (www.reddit.com, logged in): home feed
+ * matched 20 shreddit-post imgs, 2 gallery-carousels (16 imgs),
+ * 1 shreddit-player; on a post_detail page the scoped selectors
+ * matched 0 of 9 post imgs — the opened post stays sharp as designed.
+ * shreddit-post video matched 0 (Reddit renders video via
+ * shreddit-player); rule kept as belt-and-braces.
  */
 
 /* Scoped away from post_detail (pagetype verified [live] in
