@@ -166,6 +166,12 @@ the owner should SEE YouTube get cleaner step by step.
 
 ## 10. Session state (maintained by Claude Code — update every session)
 
+**READ `docs/VISION.md` FIRST.** It is the settled product definition and
+overrides any conflicting statement in this file's §3/§8 or in docs/plan.md.
+The owner has had to correct drift three times (extension-first, Brave
+pairing, "app can't block ads"). Do not make it a fourth.
+
+
 **Last updated:** 2026-08-18 · scoping corrected · no code written yet.
 
 ### IMPORTANT — §8 and part of §3 above are superseded
