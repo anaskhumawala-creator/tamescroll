@@ -88,10 +88,14 @@ function tile(platform: Platform): HTMLButtonElement {
   return el;
 }
 
+// The status line's resting text ("N rules active") — kept so opening a
+// platform can clear an error without wiping the rules count for good.
+let restingStatus = "";
+
 async function open(platform: Platform) {
   try {
     await invoke("open_platform", { id: platform.id, mode: getMode() });
-    status.textContent = "";
+    status.textContent = restingStatus;
   } catch (error) {
     status.textContent = `Could not open ${platform.name}: ${String(error)}`;
   }
@@ -104,7 +108,8 @@ async function start() {
 
     const counts = await invoke<Record<string, number>>("rules_summary");
     const active = Object.values(counts).reduce((sum, n) => sum + n, 0);
-    status.textContent = `${active} rules active`;
+    restingStatus = `${active} rules active`;
+    status.textContent = restingStatus;
   } catch (error) {
     status.textContent = `Failed to load: ${String(error)}`;
   }
