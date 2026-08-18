@@ -1,0 +1,30 @@
+/* tamescroll — X gaze blur (Stage A, CSS-only, opt-in)
+ *
+ * WHAT THIS BLURS
+ * Photo and video media inside tweets, and link-card preview images.
+ *
+ * WHAT THIS DELIBERATELY LEAVES
+ * - Tweet text, display names, handles, timestamps, reply/like/repost
+ *   counts: all untouched and fully readable.
+ * - Profile avatars are small wayfinding UI, not feed bait, left alone.
+ * - The For-you tab is removed structurally by rules/x.txt, not blurred
+ *   here — removed beats blurred.
+ *
+ * NO hover-to-reveal — a reveal gesture trains the un-blur reflex
+ * (docs/plan.md Phase 4).
+ */
+
+[data-testid="tweetPhoto"] img {
+  filter: blur(16px);
+}
+
+[data-testid="videoPlayer"] video {
+  filter: blur(16px);
+}
+
+/* Link-card preview image (article/summary cards render it as a CSS
+ * background-image on a div rather than an <img>).
+ * unverified 2026-08-18 */
+[data-testid="card.wrapper"] div[style*="background-image"] {
+  filter: blur(16px);
+}

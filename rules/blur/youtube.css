@@ -1,0 +1,36 @@
+/* tamescroll — YouTube gaze blur (Stage A, CSS-only, opt-in)
+ *
+ * WHAT THIS BLURS
+ * Thumbnail imagery on the surfaces you reach on purpose: search results,
+ * subscriptions, and channel pages. Ported from rules/youtube-blur.txt's
+ * `:style()` filters into plain CSS so it can be appended directly to the
+ * injected stylesheet instead of going through the cosmetic-filter engine.
+ *
+ * WHAT THIS DELIBERATELY LEAVES
+ * - Titles, channel names, view counts, timestamps: all text stays fully
+ *   readable. Text is how you find the video you chose; it is not bait.
+ * - The algorithmic surfaces (home, Shorts, sidebar, end screens) are not
+ *   touched here because rules/youtube.txt already removes them outright.
+ *   Removed beats blurred — nothing left to invite a look.
+ * - The watch-page player and everything inside it is NEVER a blur
+ *   target. The video you are actually watching is the one surface this
+ *   file must never touch.
+ *
+ * NO hover-to-reveal — a reveal gesture trains the un-blur reflex
+ * (docs/plan.md Phase 4).
+ */
+
+ytd-search ytd-thumbnail,
+ytd-search yt-thumbnail-view-model {
+  filter: blur(16px);
+}
+
+ytd-browse[page-subtype="subscriptions"] ytd-thumbnail,
+ytd-browse[page-subtype="subscriptions"] yt-thumbnail-view-model {
+  filter: blur(16px);
+}
+
+ytd-browse[page-subtype="channels"] ytd-thumbnail,
+ytd-browse[page-subtype="channels"] yt-thumbnail-view-model {
+  filter: blur(16px);
+}

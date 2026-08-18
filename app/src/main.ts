@@ -10,6 +10,35 @@ type Platform = {
 
 const tiles = document.querySelector<HTMLElement>("#tiles")!;
 const status = document.querySelector<HTMLElement>("#status")!;
+const blurToggle = document.querySelector<HTMLElement>("#blur-toggle")!;
+
+// Stage A store (docs/plan.md Phase 4 Stage A): localStorage is enough for
+// a single on/off setting. Stage B's three-mode picker replaces this key.
+const BLUR_KEY = "tamescroll.blur";
+
+function getBlur(): boolean {
+  return localStorage.getItem(BLUR_KEY) === "1";
+}
+
+function setBlur(value: boolean) {
+  localStorage.setItem(BLUR_KEY, value ? "1" : "0");
+  renderBlurToggle();
+}
+
+function renderBlurToggle() {
+  const on = getBlur();
+  blurToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
+    const active = btn.dataset.value === (on ? "1" : "0");
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-checked", String(active));
+  });
+}
+
+blurToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
+  btn.addEventListener("click", () => setBlur(btn.dataset.value === "1"));
+});
+
+renderBlurToggle();
 
 function tile(platform: Platform): HTMLButtonElement {
   const el = document.createElement("button");
@@ -42,7 +71,7 @@ function tile(platform: Platform): HTMLButtonElement {
 
 async function open(platform: Platform) {
   try {
-    await invoke("open_platform", { id: platform.id });
+    await invoke("open_platform", { id: platform.id, blur: getBlur() });
     status.textContent = "";
   } catch (error) {
     status.textContent = `Could not open ${platform.name}: ${String(error)}`;

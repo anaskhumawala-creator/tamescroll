@@ -1,0 +1,37 @@
+/* tamescroll — Reddit gaze blur (Stage A, CSS-only, opt-in)
+ *
+ * WHAT THIS BLURS
+ * Post media only: images and video embedded inside a post
+ * (shreddit-post), gallery carousel slides, and the video player element.
+ * This is the imagery a feed teaches you to scan for, not the text you
+ * came to read.
+ *
+ * WHAT THIS DELIBERATELY LEAVES
+ * - Titles, post text/selftext, flair, comments, usernames, vote counts:
+ *   all untouched and fully readable.
+ * - Avatars and subreddit icons are small wayfinding UI, not feed bait,
+ *   and are left alone.
+ * - The home feed itself is not removed by rules/reddit.txt (it is your
+ *   own subscriptions), so this file blurs the media inside it rather
+ *   than the feed structure.
+ *
+ * NO hover-to-reveal — a reveal gesture trains the un-blur reflex
+ * (docs/plan.md Phase 4).
+ */
+
+/* Scoped away from post_detail (pagetype verified [live] in
+ * rules/reddit.txt): the post you chose to open plays normally —
+ * matching the launcher caption. Feed pages stay blurred. */
+shreddit-app:not([pagetype="post_detail"]) shreddit-post img,
+shreddit-app:not([pagetype="post_detail"]) shreddit-post video {
+  filter: blur(16px);
+}
+
+shreddit-app:not([pagetype="post_detail"]) gallery-carousel img,
+shreddit-app:not([pagetype="post_detail"]) gallery-carousel video {
+  filter: blur(16px);
+}
+
+shreddit-app:not([pagetype="post_detail"]) shreddit-player {
+  filter: blur(16px);
+}

@@ -187,6 +187,13 @@ do not fight the reflex, we redirect it.
 **Done when:** installed on the owner's Android phone, on the home screen,
 used as the daily way into all three platforms for a week.
 
+Also in this phase: a settings pane (owner request, 2026-08-18). Users
+tweak what they keep — per-platform toggles for the major surfaces (home
+feed, Shorts/Reels, recommendations, comments) plus the gaze mode picker
+when Stage B lands. Defaults stay the cleaned experience; settings widen,
+never narrow, what the user chose. Stage A's single blur toggle is the
+seed of this pane, not a separate thing.
+
 ### Phase 4 — The gaze module (owner: mandatory)
 Two stages, shipped in order.
 

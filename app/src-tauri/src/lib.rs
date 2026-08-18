@@ -14,6 +14,37 @@ use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 mod rules;
 
+/// Stage A gaze blur (docs/plan.md Phase 4): plain CSS, opt-in, appended to
+/// the injected stylesheet only when the launcher's blur toggle is on. Not
+/// EasyList syntax and not run through the cosmetic-filter engine — these
+/// files are `filter: blur(...)` rules on chosen media selectors, kept
+/// separate from rules/*.txt because blurring is a personal choice and the
+/// mechanism (plain CSS) differs from cosmetic hiding.
+const BLUR_CSS: &[(&str, &str)] = &[
+    ("youtube", include_str!("../../../rules/blur/youtube.css")),
+    ("reddit", include_str!("../../../rules/blur/reddit.css")),
+    ("x", include_str!("../../../rules/blur/x.css")),
+];
+
+fn blur_css(platform_id: &str) -> &'static str {
+    BLUR_CSS
+        .iter()
+        .find(|(id, _)| *id == platform_id)
+        .map(|(_, css)| *css)
+        .unwrap_or("")
+}
+
+/// The full stylesheet injected into a platform window: cosmetic hiding
+/// always, Stage A blur appended (same stylesheet, no separate style
+/// element) only when the launcher toggle is on.
+fn page_css(url: &str, platform_id: &str, blur: bool) -> String {
+    let mut css = cosmetic_css(url);
+    if blur {
+        css.push_str(blur_css(platform_id));
+    }
+    css
+}
+
 /// Rules are compiled in for now. Phase 6 replaces this with a cached
 /// fetch of the hosted list so fixes ship without an app update — the
 /// engine stays put, only the data moves. Building it from the full
@@ -190,7 +221,7 @@ fn injection_script(css: &str, scriptlets: &str) -> String {
 }
 
 #[tauri::command]
-async fn open_platform(app: tauri::AppHandle, id: String) -> Result<(), String> {
+async fn open_platform(app: tauri::AppHandle, id: String, blur: bool) -> Result<(), String> {
     let platform = PLATFORMS
         .iter()
         .find(|p| p.id == id)
@@ -207,7 +238,10 @@ async fn open_platform(app: tauri::AppHandle, id: String) -> Result<(), String> 
         .map_err(|_| format!("bad platform url: {}", platform.url))?;
 
     let resources = engine().url_cosmetic_resources(platform.url);
-    let script = injection_script(&cosmetic_css(platform.url), &resources.injected_script);
+    let script = injection_script(
+        &page_css(platform.url, platform.id, blur),
+        &resources.injected_script,
+    );
 
     WebviewWindowBuilder::new(&app, platform.id, WebviewUrl::External(url))
         .title(platform.name)
@@ -297,6 +331,36 @@ mod tests {
         assert!(
             !x.hide_selectors.is_empty() || !x.procedural_actions.is_empty(),
             "x.txt rules should produce hide selectors or procedural actions for x.com"
+        );
+    }
+
+    /// The launcher toggle must actually change what gets injected —
+    /// this is the wire between the UI and the page.
+    #[test]
+    fn blur_toggle_reaches_the_injected_stylesheet() {
+        let off = page_css("https://www.youtube.com/", "youtube", false);
+        let on = page_css("https://www.youtube.com/", "youtube", true);
+        assert!(!off.contains("blur("), "blur css must be absent when off");
+        assert!(on.contains("blur("), "blur css must be present when on");
+    }
+
+    /// Stage A blur CSS (docs/plan.md Phase 4) must actually blur something
+    /// on every platform, and must never list the watch-page player as a
+    /// target — that is the one surface the module exists to leave alone.
+    #[test]
+    fn blur_css_is_present_and_never_targets_the_player() {
+        for (id, css) in BLUR_CSS {
+            assert!(!css.is_empty(), "blur css for {id} must not be empty");
+            assert!(
+                css.contains("blur("),
+                "blur css for {id} should contain a blur() filter"
+            );
+        }
+
+        assert!(
+            !blur_css("youtube").contains("#movie_player video"),
+            "the YouTube blur css must never target #movie_player video — \
+             the video the user is watching must never blur"
         );
     }
 }
