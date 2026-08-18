@@ -327,6 +327,101 @@ fn injection_script(css: &str, scriptlets: &str) -> String {
     )
 }
 
+/// Root domain a platform's rules key on: the platform URL's host minus
+/// a leading `www.` — `youtube.com`, `reddit.com`, `x.com`.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+fn platform_root(url: &str) -> &str {
+    let host = url
+        .split("://")
+        .nth(1)
+        .unwrap_or(url)
+        .split('/')
+        .next()
+        .unwrap_or(url);
+    host.strip_prefix("www.").unwrap_or(host)
+}
+
+/// Android-only injection (docs/android-research.md, emulator findings
+/// 2026-08-18): tapping a tile there does NOT create a new window — it
+/// navigates the launcher's own single WebView, so a per-window
+/// `initialization_script` never reaches the platform page at all (this
+/// is how the Shorts tab survived two builds). A Tauri *plugin* script
+/// applies to every webview and re-runs on every page load, so this one
+/// dispatches on `location.host` at runtime: our surface rules for the
+/// matching platform, defaults only (everything hidden, no blur, no
+/// gaze — Android settings/mode plumbing is a follow-up, as are the
+/// vendor cosmetic lists and scriptlets, which need the warmed engine
+/// and can't block app startup).
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+fn universal_injection_script() -> String {
+    let mut branches = String::new();
+    for p in PLATFORMS {
+        if rules::platform_surfaces(p.id).is_none() {
+            continue;
+        }
+        let css = surfaces_css(p.id, &[]);
+        let escaped = css.replace('\\', "\\\\").replace('`', "\\`");
+        let root = platform_root(p.url);
+        branches.push_str(&format!(
+            "    if (h === \"{root}\" || h.endsWith(\".{root}\")) return `{escaped}`;\n"
+        ));
+    }
+
+    format!(
+        r#"
+(function () {{
+  if (window.__TS_UNIVERSAL__) return;
+  window.__TS_UNIVERSAL__ = 1;
+
+  var h = location.host;
+  var CSS = (function () {{
+{branches}    return "";
+  }})();
+  if (!CSS) return;
+
+  var STYLE_ID = "tamescroll-rules";
+
+  function apply() {{
+    if (document.getElementById(STYLE_ID)) return;
+    var head = document.head || document.documentElement;
+    if (!head) return;
+    var el = document.createElement("style");
+    el.id = STYLE_ID;
+    el.textContent = CSS;
+    head.appendChild(el);
+  }}
+
+  apply();
+  document.addEventListener("DOMContentLoaded", apply);
+
+  ["pushState", "replaceState"].forEach(function (name) {{
+    var original = history[name];
+    history[name] = function () {{
+      var result = original.apply(this, arguments);
+      setTimeout(apply, 0);
+      return result;
+    }};
+  }});
+  window.addEventListener("popstate", function () {{ setTimeout(apply, 0); }});
+
+  new MutationObserver(function () {{ apply(); }})
+    .observe(document.documentElement, {{ childList: true, subtree: false }});
+}})();
+"#
+    )
+}
+
+/// The plugin carrying `universal_injection_script` into every webview.
+/// Android-only: on desktop each platform window gets its own richer
+/// script (vendor cosmetics, scriptlets, mode and shown prefs) and this
+/// would only double up.
+#[cfg(target_os = "android")]
+fn injection_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    tauri::plugin::Builder::new("ts-inject")
+        .js_init_script(universal_injection_script())
+        .build()
+}
+
 #[tauri::command]
 async fn open_platform(
     app: tauri::AppHandle,
@@ -380,8 +475,14 @@ pub fn run() {
         eprintln!("adblock engine warmed in {:?}", started.elapsed());
     });
 
-    tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
+    let builder = tauri::Builder::default().plugin(tauri_plugin_opener::init());
+
+    // Android: the single-WebView model means per-window injection never
+    // fires — the plugin script is the only reliable delivery there.
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(injection_plugin());
+
+    builder
         .invoke_handler(tauri::generate_handler![
             platforms,
             open_platform,
@@ -561,6 +662,28 @@ mod tests {
                 css.contains(sel),
                 "expected search-insert selector {sel:?} in the injected CSS"
             );
+        }
+    }
+
+    /// The Android delivery path (single WebView, plugin script) must
+    /// carry every platform's rules and dispatch on host — including the
+    /// m.youtube.com rules that the emulator proved are the ones Android
+    /// actually needs.
+    #[test]
+    fn universal_script_carries_all_platforms_and_dispatches_on_host() {
+        let script = universal_injection_script();
+        for marker in [
+            "\"youtube.com\"",
+            "\"reddit.com\"",
+            "\"x.com\"",
+            "ytm-pivot-bar-item-renderer",
+            "ytd-browse[page-subtype=\\\"home\\\"]",
+            "shreddit-app",
+            "__TS_UNIVERSAL__",
+        ] {
+            let found = script.contains(marker)
+                || script.contains(&marker.replace("\\\"", "\""));
+            assert!(found, "expected {marker:?} in the universal script");
         }
     }
 
