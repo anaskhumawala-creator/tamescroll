@@ -12,6 +12,10 @@
  *
  * NO hover-to-reveal — a reveal gesture trains the un-blur reflex
  * (docs/plan.md Phase 4).
+ *
+ * VERIFIED LIVE 2026-08-18 (x.com/home, logged in): 12 tweetPhoto
+ * imgs, 12 videoPlayer videos matched; profile avatars matched 0
+ * (left sharp as designed).
  */
 
 [data-testid="tweetPhoto"] img {
@@ -22,9 +26,16 @@
   filter: blur(16px);
 }
 
-/* Link-card preview image (article/summary cards render it as a CSS
- * background-image on a div rather than an <img>).
- * unverified 2026-08-18 */
-[data-testid="card.wrapper"] div[style*="background-image"] {
+/* Link-card preview media. Cards render their media in a dedicated
+ * container (card.layoutLarge.media counted 9 live on /home
+ * 2026-08-18; the old div[style*="background-image"] guess matched 0
+ * and was replaced). Blurring the container covers whatever it lazy
+ * loads inside. layoutSmall variant kept as belt-and-braces
+ * [unverified]. */
+[data-testid="card.layoutLarge.media"] {
+  filter: blur(16px);
+}
+
+[data-testid="card.layoutSmall.media"] {
   filter: blur(16px);
 }
