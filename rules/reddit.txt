@@ -27,7 +27,10 @@
 
 ! r/popular and r/all feeds: the anonymous algorithmic firehose. The
 ! pages stay reachable but render no feed.
-! [unverified] pagetype value for popular/all not observed this session
+! [live] pagetype="popular" observed with 1 shreddit-feed (2026-08-18).
+! [unverified] pagetype="all" — /r/all redirected to /hot/ with
+! pagetype="home" on the logged-in test account, so the value never
+! rendered; rule kept in case other accounts still get it.
 ! test: on https://www.reddit.com/r/popular/ ->
 !   document.querySelector('shreddit-app').getAttribute('pagetype') and
 !   the feed element must be hidden
@@ -46,10 +49,13 @@ reddit.com##shreddit-trending-searches
 !   carousel appears -> document.querySelectorAll('community-highlight-carousel').length >= 1
 reddit.com##community-highlight-carousel
 
-! "Recent pages" rail block (recently visited communities bait).
-! [unverified]
-! test: document.querySelectorAll('shreddit-recent-pages').length >= 1
-reddit.com##shreddit-recent-pages
+! "Recent posts" right-rail block (recently visited posts — the
+! re-engagement trail that pulls you back into threads).
+! [live] <recent-posts> counted 1 on the home feed (2026-08-18); the
+! previously guessed name shreddit-recent-pages does not exist in the
+! DOM and was replaced.
+! test: document.querySelectorAll('recent-posts').length >= 1
+reddit.com##recent-posts
 
 
 ! ============================================================

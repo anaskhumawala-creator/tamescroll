@@ -19,9 +19,8 @@
 !   the reverse nesting. The :has() selector below encodes exactly that.
 ! - aria-label based rules are English-locale only for v1. Noted per rule.
 !
-! VERIFICATION STATUS (2026-08-18, x.com desktop, logged in, narrow
-! window — the right sidebar did not render; those rules are tagged
-! [unverified]).
+! VERIFICATION STATUS (2026-08-18, x.com desktop, logged in; second
+! pass at 1257px viewport verified the sidebar + explore rules).
 
 
 ! ============================================================
@@ -59,14 +58,16 @@ x.com##[data-testid="cellInnerDiv"]:has([data-testid="placementTracking"] articl
 ! English aria-labels; other locales need additional rules.
 
 ! Trending module in the right sidebar.
-! [unverified] sidebar did not render at test viewport width
+! [live] 1 matching section with 4 trend cells at 1257px viewport
+! (2026-08-18); search box unaffected
 ! test: widen the window on https://x.com/home ->
 !   document.querySelectorAll('[data-testid="sidebarColumn"] [data-testid="trend"]').length >= 1
 !   and the module must be hidden
 x.com##[data-testid="sidebarColumn"] section:has([data-testid="trend"])
 
 ! Who-to-follow module in the right sidebar.
-! [unverified]
+! [live] 3 UserCells inside 1 of 2 asides — only the who-to-follow
+! aside matches :has(UserCell) (2026-08-18)
 ! test: document.querySelectorAll('[data-testid="sidebarColumn"] aside [data-testid="UserCell"]').length >= 1
 x.com##[data-testid="sidebarColumn"] aside:has([data-testid="UserCell"])
 
@@ -81,9 +82,10 @@ x.com##[data-testid="cellInnerDiv"]:has([data-testid="UserCell"])
 ! EXPLORE PAGE — trends firehose
 ! ============================================================
 
-! The explore/trending timeline. Search stays usable (the search box is
-! outside the timeline).
-! [unverified]
+! The explore/trending timeline. Search stays usable: the search box is
+! [data-testid="SearchBox_Search_Input"], not a trend cell, so it is
+! untouched even though it sits inside primaryColumn.
+! [live] 9 trend cells on /explore, search box present (2026-08-18)
 ! test: on https://x.com/explore ->
 !   trend cells hidden, search box still visible
 x.com##[data-testid="primaryColumn"] [data-testid="trend"]
