@@ -63,7 +63,6 @@ fn set_gaze_state(mode: &str) {
     *GAZE_STATE.lock().unwrap() = gaze_mode(mode);
 }
 
-#[cfg_attr(not(target_os = "android"), allow(dead_code))]
 fn gaze_state() -> &'static str {
     *GAZE_STATE.lock().unwrap()
 }
@@ -134,7 +133,6 @@ fn platform_for_host(host: &str) -> Option<&'static Platform> {
 /// against them — the whole mode would collapse into blur-all (review
 /// finding, 2026-08-19). Desktop draws the same line in open_platform
 /// (`page_css(.., mode == "blur", ..)`); Stage B blurs-first itself.
-#[cfg_attr(not(target_os = "android"), allow(dead_code))]
 fn page_load_gaze_script(url: &str, mode: &str) -> Option<String> {
     let mode = gaze_mode(mode);
     if mode == "off" {
@@ -660,16 +658,30 @@ async fn open_platform(
 
     let mode = gaze_mode(&mode);
     let resources = engine().url_cosmetic_resources(platform.url);
-    let mut script = injection_script(
+    let script = injection_script(
         &page_css(platform.url, platform.id, mode == "blur", &shown),
         &resources.injected_script,
     );
-    script.push_str(&gaze_script(mode));
 
+    // The gaze bundle does NOT ride initialization_script here: on
+    // Windows the >1MB combined script silently loses its tail — the
+    // early CSS IIFE of the very same string ran while the appended
+    // bundle left no trace (probe28/29, 2026-08-19; composed script
+    // node --check clean, so not a syntax break). Smart mode instead
+    // evals per page load, the exact delivery already proven on
+    // Android with this same 1.6MB payload. Side effect, and a
+    // deliberate one: desktop navigations now read the CURRENT gaze
+    // state like Android does, instead of the mode baked at window
+    // creation.
     let built = WebviewWindowBuilder::new(&app, platform.id, WebviewUrl::External(url))
         .title(platform.name)
         .inner_size(1200.0, 860.0)
         .initialization_script(&script)
+        .on_page_load(|webview, payload| {
+            if let Some(js) = page_load_gaze_script(payload.url().as_str(), gaze_state()) {
+                let _ = webview.eval(&js);
+            }
+        })
         .build();
     #[cfg(debug_assertions)]
     eprintln!(
