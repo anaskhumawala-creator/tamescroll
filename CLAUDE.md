@@ -63,7 +63,7 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-18 (Fable session 2 — gaze A, spike, search junk).
+**Last updated:** 2026-08-19 03:45 (overnight — review-fix batch verified).
 
 Done: Phase 0-2.5 as before (see git log). This session: **Gaze Stage A
 shipped** — rules/blur/{youtube,reddit,x}.css, launcher Off/On toggle
@@ -138,6 +138,20 @@ verified (r/EarthPorn 8/8 imgs blur(16px)); player video filter:none
 in blur-all — red line holds.
 Emulator gotchas: Hijri First app steals foreground + ANR loops —
 force-stop com.hijrifirst.app before evidence runs.
+
+**Adversarial review (Opus) → 13 findings, all fixed + device-verified**
+(commit 5e1bf59, probe18 evidence in spikes/). Critical three: smart
+mode shipped Stage A CSS (class-less → unblur impossible), bundle
+booted 2-4x/navigation (no re-entry guard), cross-origin video taint
+→ permanent blur + 2Hz spam (now giveUp() fail-open). Probe18: blur-all
+OK, smart boots once w/o static sheet (__TS_GAZE_BUNDLE__="v1"), watch
+video filter:none, cold shortcut OK after bridge self-removal. Open
+observations: smart mode showed 0 .ts-gaze-pending/.ts-gaze-flagged on
+m.youtube search (bundle boots but flags nothing — BlazeFace
+any-logit>0 threshold needs empirical image-set check before smart is
+more than experimental); giveUp() log path never fired in probe18
+(player behavior verified regardless); rules/youtube-blur.txt dead
+file; x.txt tablist rule leaks to profile pages (pre-existing).
 
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
