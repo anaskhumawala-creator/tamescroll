@@ -1,29 +1,47 @@
 /* tamescroll launcher.
    Design rule from docs/plan.md: this must not look like a parental
-   control app. Calm, warm, chosen — never punitive, never a lecture. */
+   control app. Calm, warm, chosen — never punitive, never a lecture.
+   Visual register: deep quiet dark, soft elevated cards, one warm
+   green accent, generous radii. (Reference tier: Opal-class wellness
+   apps — glassy calm, not dashboard chrome.) */
 
 :root {
-  --bg: #0e1014;
-  --surface: #171a20;
-  --surface-hover: #1e222a;
-  --line: #262b34;
-  --ink: #eceff4;
-  --muted: #8d97a6;
-  --accent: #7fd1b9;
-  --radius: 14px;
-  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+  --bg: #0b0d11;
+  --bg-raise: #10131a;
+  --surface: #151922;
+  --surface-hover: #1a1f2a;
+  --surface-inset: #0e1117;
+  --line: #232936;
+  --line-soft: #1c212c;
+  --ink: #eef1f6;
+  --muted: #8b94a7;
+  --faint: #5d6678;
+  --accent: #6fd3b4;
+  --accent-ink: #0a1512;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px -16px rgba(0, 0, 0, 0.6);
+  --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.35), 0 20px 44px -18px rgba(0, 0, 0, 0.65);
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI Variable Display",
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #f7f8fa;
+    --bg: #f6f7f9;
+    --bg-raise: #ffffff;
     --surface: #ffffff;
-    --surface-hover: #f0f2f6;
-    --line: #e2e6ec;
-    --ink: #161a20;
-    --muted: #626b7a;
-    --accent: #2f8f76;
+    --surface-hover: #f4f6f9;
+    --surface-inset: #eef0f4;
+    --line: #e3e7ee;
+    --line-soft: #ebeef3;
+    --ink: #14181f;
+    --muted: #5f6879;
+    --faint: #98a0b0;
+    --accent: #1f8a6d;
+    --accent-ink: #ffffff;
+    --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 10px 28px -14px rgba(16, 24, 40, 0.12);
+    --shadow-lift: 0 2px 4px rgba(16, 24, 40, 0.06), 0 18px 40px -16px rgba(16, 24, 40, 0.16);
   }
 }
 
@@ -33,38 +51,107 @@
   padding: 0;
 }
 
+html {
+  color-scheme: dark light;
+}
+
 body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* One quiet source of light behind the header — atmosphere, not chrome. */
+.glow {
+  position: fixed;
+  inset: -30% -20% auto -20%;
+  height: 70vh;
+  background: radial-gradient(
+    ellipse 60% 55% at 50% 0%,
+    color-mix(in srgb, var(--accent) 9%, transparent),
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 0;
 }
 
 .shell {
-  max-width: 720px;
+  position: relative;
+  z-index: 1;
+  max-width: 680px;
   margin: 0 auto;
-  padding: 64px 28px 40px;
+  padding: 40px 28px 36px;
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 36px;
   min-height: 100vh;
 }
 
+/* ---- brand ---- */
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 45%, #3b82f6));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent),
+    0 4px 14px -4px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.wordmark {
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+
+/* ---- headline ---- */
+
 .head h1 {
-  font-size: clamp(26px, 5vw, 36px);
-  font-weight: 620;
-  letter-spacing: -0.02em;
-  line-height: 1.12;
+  font-size: clamp(30px, 5.4vw, 42px);
+  font-weight: 680;
+  letter-spacing: -0.028em;
+  line-height: 1.08;
 }
 
 .head .sub {
-  margin-top: 12px;
+  margin-top: 14px;
   color: var(--muted);
-  font-size: 15px;
-  line-height: 1.5;
-  max-width: 46ch;
+  font-size: 15.5px;
+  line-height: 1.55;
+  max-width: 44ch;
 }
+
+/* ---- sections ---- */
+
+.section-label {
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 14px;
+}
+
+.section-hint {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: -6px 0 14px;
+  max-width: 52ch;
+}
+
+/* ---- platform tiles ---- */
 
 .tiles {
   display: grid;
@@ -74,35 +161,40 @@ body {
 
 .tile {
   appearance: none;
-  border: 1px solid var(--line);
-  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, var(--surface), color-mix(in srgb, var(--surface) 88%, #000));
   color: var(--ink);
   border-radius: var(--radius);
-  padding: 20px 18px;
+  padding: 18px 16px 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   align-items: flex-start;
   cursor: pointer;
   font: inherit;
   text-align: left;
-  transition: background 0.14s ease, transform 0.14s ease,
-    border-color 0.14s ease;
+  box-shadow: var(--shadow);
+  transition: background 0.16s ease, transform 0.16s ease,
+    border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .tile:hover:not(:disabled) {
   background: var(--surface-hover);
-  border-color: color-mix(in srgb, var(--tint) 45%, var(--line));
+  border-color: color-mix(in srgb, var(--tint) 50%, var(--line));
   transform: translateY(-2px);
+  box-shadow: var(--shadow-lift),
+    0 0 0 1px color-mix(in srgb, var(--tint) 20%, transparent);
 }
 
 .tile:active:not(:disabled) {
   transform: translateY(0);
+  transition-duration: 0.06s;
 }
 
 .tile:disabled {
   cursor: default;
-  opacity: 0.42;
+  opacity: 0.4;
+  box-shadow: none;
 }
 
 .tile:focus-visible {
@@ -111,32 +203,46 @@ body {
 }
 
 .dot {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  background: var(--tint);
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--tint) 92%, #fff), var(--tint));
   display: grid;
   place-items: center;
   color: #fff;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
   flex: none;
+  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--tint) 70%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .tile .name {
   font-size: 15.5px;
-  font-weight: 560;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .tile .note {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--muted);
+  margin-top: -8px;
+}
+
+/* ---- cards & settings ---- */
+
+.card {
+  border: 1px solid var(--line-soft);
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 18px 18px 16px;
+  box-shadow: var(--shadow);
 }
 
 .setting {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .setting-row {
@@ -147,16 +253,30 @@ body {
 }
 
 .setting-label {
-  font-size: 15px;
-  font-weight: 560;
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
 }
+
+.setting-caption {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.55;
+  max-width: 48ch;
+}
+
+.setting-caption:empty {
+  display: none;
+}
+
+/* ---- segmented toggle ---- */
 
 .toggle {
   display: inline-flex;
   padding: 3px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-soft);
   border-radius: 999px;
-  background: var(--surface);
+  background: var(--surface-inset);
   flex: none;
 }
 
@@ -166,12 +286,12 @@ body {
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 13px;
-  font-weight: 560;
-  padding: 6px 16px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 14px;
   border-radius: 999px;
   cursor: pointer;
-  transition: background 0.14s ease, color 0.14s ease;
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .toggle-opt:hover {
@@ -180,7 +300,8 @@ body {
 
 .toggle-opt.active {
   background: var(--accent);
-  color: #0e1014;
+  color: var(--accent-ink);
+  box-shadow: 0 2px 8px -2px color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
 .toggle-opt:focus-visible {
@@ -188,69 +309,101 @@ body {
   outline-offset: 2px;
 }
 
-.setting-caption {
-  font-size: 12.5px;
-  color: var(--muted);
-  line-height: 1.5;
-  max-width: 46ch;
-}
+/* ---- bring back ---- */
 
-/* Phase 3 (docs/plan.md): "bring back" settings, one <details> per
-   platform. Calm and collapsed by default — this is a drawer to open on
-   purpose, not a list of warnings on the main screen. */
 .bring-back {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .platform-settings {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border: 1px solid var(--line-soft);
   background: var(--surface);
-  padding: 4px 16px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
-.platform-settings > summary {
-  cursor: pointer;
+.platform-settings summary {
   list-style: none;
-  padding: 12px 0;
-  font-size: 15px;
-  font-weight: 560;
+  cursor: pointer;
+  padding: 15px 18px;
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.16s ease;
 }
 
-.platform-settings > summary::-webkit-details-marker {
+.platform-settings summary::-webkit-details-marker {
   display: none;
 }
 
-.platform-settings > summary::after {
+.platform-settings summary::after {
   content: "";
-  float: right;
   width: 8px;
   height: 8px;
-  margin-top: 5px;
-  border-right: 1.5px solid var(--muted);
-  border-bottom: 1.5px solid var(--muted);
+  border-right: 1.5px solid var(--faint);
+  border-bottom: 1.5px solid var(--faint);
   transform: rotate(-45deg);
-  transition: transform 0.14s ease;
+  transition: transform 0.18s ease;
+  margin-right: 2px;
 }
 
-.platform-settings[open] > summary::after {
+.platform-settings[open] summary::after {
   transform: rotate(45deg);
 }
 
-.platform-settings > .setting-row {
-  padding: 10px 0;
-  border-top: 1px solid var(--line);
+.platform-settings summary:hover {
+  background: var(--surface-hover);
 }
+
+.platform-settings summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.platform-settings .setting-row {
+  padding: 12px 18px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.platform-settings .setting-row .setting-label {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.platform-settings .setting-row .toggle-opt {
+  font-size: 12px;
+  padding: 5px 12px;
+}
+
+/* ---- footer ---- */
 
 .foot {
   margin-top: auto;
-  padding-top: 24px;
-  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  border-top: 1px solid var(--line-soft);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.status {
-  font-size: 12.5px;
-  color: var(--muted);
+.status,
+.foot-meta {
+  font-size: 12px;
+  color: var(--faint);
+}
+
+/* ---- restraint ---- */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
 }

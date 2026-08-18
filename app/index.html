@@ -7,17 +7,26 @@
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
+    <div class="glow" aria-hidden="true"></div>
     <main class="shell">
-      <header class="head">
-        <h1>Your feeds. Nothing else.</h1>
-        <p class="sub">No home feed, no Shorts, no recommendations. Everything you actually came for is still here.</p>
+      <header class="brand">
+        <span class="mark" aria-hidden="true"></span>
+        <span class="wordmark">tamescroll</span>
       </header>
 
-      <section class="tiles" id="tiles" aria-label="Platforms"></section>
+      <section class="head">
+        <h1>Your feeds. Nothing&nbsp;else.</h1>
+        <p class="sub">No home feed, no Shorts, no recommendations. Everything you actually came for is still here.</p>
+      </section>
+
+      <section aria-label="Platforms">
+        <h2 class="section-label">Platforms</h2>
+        <div class="tiles" id="tiles"></div>
+      </section>
 
       <!-- Stage B (docs/plan.md Phase 4): three-mode picker. Caption text
            is set per-mode by main.ts (see CAPTIONS). -->
-      <section class="setting" aria-label="Gaze settings">
+      <section class="setting card" aria-label="Gaze settings">
         <div class="setting-row">
           <span class="setting-label">Blur imagery</span>
           <div class="toggle" id="blur-toggle" role="radiogroup" aria-label="Blur imagery">
@@ -32,10 +41,15 @@
       <!-- Phase 3 (docs/plan.md): per-platform "bring back" toggles.
            Populated by main.ts from the `surfaces` command — no
            hardcoded copy of rules/*.txt's surface ids here. -->
-      <section class="bring-back" id="bring-back" aria-label="Bring back settings"></section>
+      <section aria-label="Bring back settings">
+        <h2 class="section-label">Bring back</h2>
+        <p class="section-hint">Everything starts hidden. Show a surface again any time — it's your call.</p>
+        <div class="bring-back" id="bring-back"></div>
+      </section>
 
       <footer class="foot">
         <span id="status" class="status"></span>
+        <span class="foot-meta">free &amp; open source · MPL-2.0</span>
       </footer>
     </main>
     <script type="module" src="/src/main.ts"></script>
