@@ -120,6 +120,19 @@ youtube.com##.ytp-endscreen-content
 !   document.querySelectorAll('.ytp-ce-element').length >= 1
 youtube.com##.ytp-ce-element
 
+! MOBILE watch page: related videos live under the watch-next column as
+! ytm-video-with-context-renderer. That element is ALSO the search
+! result item (19 counted on /results), so the rule MUST stay scoped to
+! the watch-next container or it kills search. Comments live in a
+! separate ytm-item-section-renderer and survive.
+! [live] 12 counted inside the watch-next column on /watch, all
+! display:none under this rule; /results search items stayed visible
+! (22 counted, display:block) — emulator 2026-08-19, probe14+15
+! test: on m.youtube.com /watch ->
+!   document.querySelectorAll('ytm-single-column-watch-next-results-renderer ytm-video-with-context-renderer').length >= 1
+!   and /results search items stay visible
+m.youtube.com##ytm-single-column-watch-next-results-renderer ytm-video-with-context-renderer
+
 
 ! ============================================================
 ! IN-FEED ADS — belt and braces only
