@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+build/
+*.zip
+*.crx
+*.xpi
+
+# os / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# local secrets & keys — never commit
+.env
+.env.*
+*.pem
+*.p12
+*.mobileprovision
+
+# logs / scratch
+*.log
+.tmp/

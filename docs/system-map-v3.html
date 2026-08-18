@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Way Out — System Map v3 (Final Plan)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0D12; --panel:#121822; --panel2:#18202C; --line:#26303E; --wire:#33404F;
+    --ink:#E8EDF4; --muted:#8B98A9; --dim:#5B6879;
+    --teal:#4FD1C5; --amber:#F2B45C; --clay:#EA8067; --violet:#9E8CFF; --green:#7ED9A0;
+    --display:'Space Grotesk',sans-serif; --body:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.5;-webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(circle at 1px 1px,rgba(51,64,79,.25) 1px,transparent 0);background-size:26px 26px}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 22px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--dim)}
+
+  header.hero{padding:64px 0 40px;border-bottom:1px solid var(--line)}
+  .pill{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);border:1px solid var(--line);border-radius:100px;padding:6px 13px;margin-bottom:22px}
+  .pill .d{width:6px;height:6px;border-radius:50%;background:var(--teal);box-shadow:0 0 10px var(--teal)}
+  h1{font-family:var(--display);font-weight:700;font-size:clamp(33px,5.8vw,60px);line-height:1.03;letter-spacing:-.02em}
+  h1 em{color:var(--teal);font-style:normal}
+  .lede{margin-top:18px;max-width:700px;font-size:clamp(14.5px,1.9vw,17px);color:var(--muted)}
+  .lede b{color:var(--ink);font-weight:600}
+
+  section{padding:50px 0;border-bottom:1px solid var(--line)}
+  .sec-num{font-family:var(--mono);font-size:12px;color:var(--amber);letter-spacing:.1em}
+  .sec-head{display:flex;align-items:baseline;gap:15px;margin-bottom:6px;flex-wrap:wrap}
+  .sec-head h2{font-family:var(--display);font-weight:600;font-size:clamp(20px,3.2vw,29px);letter-spacing:-.01em}
+  .sec-sub{color:var(--muted);max-width:680px;margin-bottom:24px;font-size:14.5px}
+
+  .mission{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .mcell{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 15px;text-align:center}
+  .mcell .g{font-size:22px;display:block;margin-bottom:8px}
+  .mcell h4{font-family:var(--display);font-size:13.5px;font-weight:600;margin-bottom:3px}
+  .mcell p{font-size:11.5px;color:var(--muted)}
+
+  /* product trio */
+  .trio{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:14px}
+  .prod{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:19px;display:flex;flex-direction:column;gap:8px}
+  .prod.flag{border:1.5px solid var(--teal);background:linear-gradient(165deg,rgba(79,209,197,.12),rgba(79,209,197,.02))}
+  .prod .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--pc,var(--dim))}
+  .prod h3{font-family:var(--display);font-size:17px;font-weight:700}
+  .prod p{font-size:12.5px;color:var(--muted)}
+  .prod ul{list-style:none;display:flex;flex-direction:column;gap:6px;margin-top:4px}
+  .prod li{font-size:12px;display:flex;gap:8px;align-items:flex-start;color:var(--ink)}
+  .prod li::before{content:"·";color:var(--pc,var(--teal));font-weight:700;flex:none}
+
+  /* core band */
+  .coreband{margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:13px}
+  .mod{border-radius:11px;padding:15px 16px;display:flex;gap:12px;align-items:flex-start}
+  .mod .g{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;font-size:16px;flex:none;background:var(--bg);border:1px solid var(--wire)}
+  .mod h4{font-family:var(--display);font-size:13.5px;font-weight:600}
+  .mod p{font-size:12px;color:var(--muted)}
+  .mod .t{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:2px}
+  .mod.rules{border:1px solid var(--line);background:var(--panel)}
+  .mod.rules .t{color:var(--teal)}
+  .mod.ai{border:1.5px dashed var(--violet);background:rgba(158,140,255,.06)}
+  .mod.ai .t{color:var(--violet)}
+
+  /* defense rings */
+  .rings{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}
+  .ring{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:17px;border-top:3px solid var(--rc)}
+  .ring .n{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--rc);margin-bottom:6px}
+  .ring h4{font-family:var(--display);font-size:15px;font-weight:600;margin-bottom:4px}
+  .ring p{font-size:12.5px;color:var(--muted)}
+
+  /* maintenance loop */
+  .loop{display:grid;grid-template-columns:repeat(5,1fr);gap:0;align-items:stretch;position:relative}
+  .lstep{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:15px 13px;text-align:center;margin:0 7px;position:relative}
+  .lstep .g{font-size:20px;display:block;margin-bottom:7px}
+  .lstep h4{font-family:var(--display);font-size:12.5px;font-weight:600;margin-bottom:3px}
+  .lstep p{font-size:10.5px;color:var(--muted)}
+  .lstep::after{content:"→";position:absolute;right:-13px;top:50%;transform:translateY(-50%);color:var(--wire);font-family:var(--mono);font-size:15px;z-index:2}
+  .lstep:last-child::after{display:none}
+  .lstep.gate{border:1.5px solid var(--amber);background:linear-gradient(180deg,rgba(242,180,92,.10),transparent)}
+  .loopnote{margin-top:14px;font-size:12.5px;color:var(--muted);text-align:center}
+  .loopnote b{color:var(--amber)}
+
+  /* roadmap */
+  .phases{display:flex;flex-direction:column}
+  .pn2{display:grid;grid-template-columns:52px 1fr auto;gap:15px;align-items:center;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--pc);border-radius:11px;padding:14px 16px}
+  .pn2 .n{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--pc);line-height:1}
+  .pn2 h4{font-family:var(--display);font-size:15px;font-weight:600;margin-bottom:2px}
+  .pn2 p{font-size:12px;color:var(--muted)}
+  .pn2 .when{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--pc);border:1px solid var(--line);border-radius:100px;padding:5px 10px;white-space:nowrap}
+  .pn2.hot{background:linear-gradient(90deg,rgba(79,209,197,.10),transparent 55%)}
+  .vlink{width:2px;height:14px;background:var(--wire);margin:0 auto}
+
+  .thesis{text-align:center;padding:58px 0;border-bottom:none}
+  .thesis .big{font-family:var(--display);font-weight:600;font-size:clamp(22px,3.6vw,36px);line-height:1.12;letter-spacing:-.015em;max-width:860px;margin:12px auto 0}
+  .thesis .big em{color:var(--teal);font-style:normal}
+  .thesis .sub{max-width:640px;margin:16px auto 0;color:var(--muted);font-size:14.5px}
+  .thesis .foot{margin-top:22px;font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+
+  @media(max-width:900px){
+    .mission{grid-template-columns:1fr 1fr}
+    .trio{grid-template-columns:1fr}
+    .coreband{grid-template-columns:1fr}
+    .rings{grid-template-columns:1fr}
+    .loop{grid-template-columns:1fr}
+    .lstep{margin:7px 0}
+    .lstep::after{content:"↓";right:auto;left:50%;top:auto;bottom:-16px;transform:translateX(-50%)}
+  }
+  @media(prefers-reduced-motion:no-preference){
+    .reveal{opacity:0;transform:translateY(12px);transition:.55s ease}
+    .reveal.in{opacity:1;transform:none}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="pill"><span class="d"></span>system map · v3 · final plan — handoff edition</div>
+    <h1>Not a browser.<br><em>A clean door to the feeds.</em></h1>
+    <p class="lede">A free, open-source <b>clean feeds app</b> — YouTube, Instagram, TikTok, X, Reddit, and nothing else — with <b>ads, Shorts, algorithmic bait and nags removed</b> and the <b>gaze guarded in both directions</b> by choice. Plus a desktop extension sibling and the plain-language escape playbook. Built block-only, instant, and maintained by an AI watcher with a human gate.</p>
+  </div>
+</header>
+
+<!-- 00 MISSION -->
+<section>
+  <div class="wrap reveal">
+    <div class="sec-head"><span class="sec-num">00</span><h2>Mission, fixed</h2></div>
+    <div class="mission" style="margin-top:16px">
+      <div class="mcell"><span class="g">🧭</span><h4>A way out, not a tweak</h4><p>For the addicted, especially youth — structural removal of temptation. Willpower is not the plan.</p></div>
+      <div class="mcell"><span class="g">🌐</span><h4>All five feeds</h4><p>YT · IG · TikTok · X · Reddit. Escaping one must not drop you into another.</p></div>
+      <div class="mcell"><span class="g">🆓</span><h4>Free & open, forever</h4><p>No price, no subscription, open-source, community-outlived. Cost never blocks escape.</p></div>
+      <div class="mcell"><span class="g">👁️</span><h4>Guards the gaze — both ways</h4><p>Ghad al-basar: haram/NSFW blurred, and configurable opposite-gender blur — men from women, women from men, equally. On-device, private.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 01 PRODUCT -->
+<section>
+  <div class="wrap reveal">
+    <div class="sec-head"><span class="sec-num">01</span><h2>The product — three pieces, one core</h2></div>
+    <p class="sec-sub">Deliberately narrow: the app is not a general browser and never competes with Chrome or Brave. General browsing stays in the user's own browser, covered by extensions.</p>
+    <div class="trio">
+      <div class="prod flag" style="--pc:var(--teal)">
+        <span class="k">★ flagship · mobile</span>
+        <h3>Clean Feeds App</h3>
+        <p>Opens only the five platforms in cleaned web views. No address bar. Nowhere to wander.</p>
+        <ul>
+          <li>Thin shell on the OS engine (WebView / WKWebView) — no engine fork, no Kiwi trap</li>
+          <li>Script injection cleans what iOS content blockers can't (same-origin YouTube ads)</li>
+          <li>Native autofill: Keychain / Google PM / passkeys — sign-in once, gracefully (no microG-style jank)</li>
+          <li>No in-app kill switch — blocking can't be toggled off in two taps at 1am</li>
+        </ul>
+      </div>
+      <div class="prod" style="--pc:var(--violet)">
+        <span class="k">sibling · desktop</span>
+        <h3>Extension</h3>
+        <p>Standard Web Extension, one codebase.</p>
+        <ul>
+          <li>Chrome · Brave · Edge · Firefox</li>
+          <li>Firefox on Android accepts it near-free</li>
+          <li>Apple's converter → Safari/iOS version</li>
+          <li>Pairs with existing tools (HaramBlur, uBlock) for general browsing</li>
+        </ul>
+      </div>
+      <div class="prod" style="--pc:var(--amber)">
+        <span class="k">first-class · paper</span>
+        <h3>The Playbook</h3>
+        <p>The missing manual nobody has written.</p>
+        <ul>
+          <li>Plain language a parent can follow</li>
+          <li>Install → lock → hand the passcode to someone who loves you</li>
+          <li>Home-screen icons that look like the real apps</li>
+        </ul>
+      </div>
+    </div>
+    <div class="coreband">
+      <div class="mod rules"><span class="g">📄</span><div><span class="t">core · instant · always on</span><h4>Block rules + CSS (EasyList model)</h4><p>Ads, Shorts/feeds, thumbnail blur-all, nag-strip. Plain text, decoupled from the shells — fixes reach everyone with no app update. Zero lag.</p></div></div>
+      <div class="mod ai"><span class="g">🧠</span><div><span class="t">module · on-device · phase 2</span><h4>AI gaze protection</h4><p>Frame-by-frame blur inside videos (HaramBlur lineage, open bases). Three modes set once: explicit only · + opposite gender (either direction) · strictest (all people). Never in the critical path.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 02 DEFENSE RINGS -->
+<section>
+  <div class="wrap reveal">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Bypass resistance — three rings</h2></div>
+    <p class="sec-sub">Designed for the 1am relapse, not the motivated Monday morning. Each ring costs more to break than the last.</p>
+    <div class="rings">
+      <div class="ring" style="--rc:var(--teal)">
+        <div class="n">ring 1 · inside the app</div>
+        <h4>Clean by construction</h4>
+        <p>The rules are baked in. There is no settings toggle staring at the user, nothing to disable in two taps.</p>
+      </div>
+      <div class="ring" style="--rc:var(--violet)">
+        <div class="n">ring 2 · on the phone</div>
+        <h4>OS lock pairing</h4>
+        <p>Screen Time / Digital Wellbeing blocks the official apps and stray browsers, leaving the clean app as the only door. Setup step in onboarding + playbook page — zero custom code.</p>
+      </div>
+      <div class="ring" style="--rc:var(--amber)">
+        <div class="n">ring 3 · human</div>
+        <h4>Accountability passcode</h4>
+        <p>The OS-lock passcode is held by a trusted person — parent, spouse, friend. The structure serious recovery uses.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 03 MAINTENANCE LOOP -->
+<section>
+  <div class="wrap reveal">
+    <div class="sec-head"><span class="sec-num">03</span><h2>How it stays alive — the watcher loop</h2></div>
+    <p class="sec-sub">Platforms rewrite their pages constantly; this is the treadmill that kills solo projects. Answer: AI runs the treadmill, a human holds the gate, the community amplifies. Owner approved; modest hosting/API cost accepted.</p>
+    <div class="loop">
+      <div class="lstep"><span class="g">⏰</span><h4>Scheduled check</h4><p>Weekly/daily job loads each platform</p></div>
+      <div class="lstep"><span class="g">🔍</span><h4>Detect breakage</h4><p>Tests every rule against the live page</p></div>
+      <div class="lstep"><span class="g">✍️</span><h4>AI drafts fix</h4><p>New selector from the changed HTML</p></div>
+      <div class="lstep gate"><span class="g">👤</span><h4>Human gate</h4><p>One-tap approve by the owner — never auto-ship</p></div>
+      <div class="lstep"><span class="g">🚀</span><h4>Rules ship</h4><p>Everyone updated, no app release</p></div>
+    </div>
+    <p class="loopnote">Community fixes later merge into the <b>same review queue</b>. A wrong selector that hides the player is worse than a missed Shorts shelf — hence the gate.</p>
+  </div>
+</section>
+
+<!-- 04 ROADMAP -->
+<section>
+  <div class="wrap reveal">
+    <div class="sec-head"><span class="sec-num">04</span><h2>The road</h2></div>
+    <div class="phases" style="margin-top:16px">
+      <div class="pn2 hot" style="--pc:var(--teal)"><div class="n">1</div><div><h4>Seed — YouTube desktop extension</h4><p>Ads, Shorts, home feed, thumbnails (blur-all CSS), nags — gone. The shared rules file is born. Fork the best open base, don't reinvent.</p></div><div class="when">first session</div></div>
+      <div class="vlink"></div>
+      <div class="pn2" style="--pc:var(--teal)"><div class="n">2</div><div><h4>Gaze module + the other feeds + Android</h4><p>Wire the blur with its three modes; add IG / TikTok / X / Reddit rule blocks; ship via Firefox on Android.</p></div><div class="when">weeks 1–3</div></div>
+      <div class="vlink"></div>
+      <div class="pn2" style="--pc:var(--amber)"><div class="n">3</div><div><h4>iOS — Clean Feeds App</h4><p>WKWebView + script injection + autofill; Apple converter for the Safari extension; test on the cousin's iPad; publish with the owner's $99 account (users need nothing).</p></div><div class="when">cousin window</div></div>
+      <div class="vlink"></div>
+      <div class="pn2" style="--pc:var(--violet)"><div class="n">4</div><div><h4>Open it up</h4><p>Public repo, AI watcher live, home-screen icons, optional soft-pause friction (one-sec science: ~57% reduction; pause feels chosen), and the playbook.</p></div><div class="when">ongoing</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="thesis wrap reveal">
+  <span class="eyebrow">north star</span>
+  <p class="big">Everyone tells the youth to stop scrolling.<br>Nobody hands them <em>the exit</em>.</p>
+  <p class="sub">One clean door to the feeds, guarded gaze, three rings of defense, kept alive by a watcher and a community — free, forever.</p>
+  <p class="foot">handoff ready · CLAUDE.md carries the full brief · phase 1 starts in Claude Code</p>
+</div>
+
+<script>
+  const io=new IntersectionObserver(e=>e.forEach(x=>{if(x.isIntersecting){x.target.classList.add('in');io.unobserve(x.target)}}),{threshold:.1});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>
