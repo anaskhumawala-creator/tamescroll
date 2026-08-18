@@ -122,5 +122,17 @@ Systematic-debugging outcome, evidence in spikes/logcat-evidence*.log:
 3. Back key: wry's own callback does canGoBack->goBack, but the
    back-stack is empty after the tile navigation, so Back fell through
    to the task beneath in recents. MainActivity.kt now overrides
-   onWebViewCreate to register a callback that returns to
-   http://tauri.localhost/ before allowing the app to background.
+   onWebViewCreate with a launcher-first callback: on a platform page
+   Back walks history (or loads the launcher), on the launcher Back
+   backgrounds the app. Verified on-device 2026-08-18: press 1 lands
+   on the launcher, press 2 backgrounds (android-back2-press*.png).
+
+KNOWN ISSUE — relaunch after backgrounding renders blank: process
+alive, activity RESUMED, WebView navigates to tauri.localhost
+(TS_UNIVERSAL marker fires) but the surface stays white for 18s+
+(android-back2-relaunch*.png, logcat-back2-relaunch.log; also a burst
+of cr_VideoCapture getCameraCharacteristics errors — emulator has no
+camera; relevance unknown). Smells like a wry Android surface
+re-attach problem after activity recreate. NOT yet investigated —
+next systematic pass. Repro used `monkey` LAUNCHER intent; user-path
+recents-tap unverified.

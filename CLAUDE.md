@@ -84,9 +84,14 @@ Android machine prep done (JDK 17, NDK, 4 rustup targets).
 symlink workaround (copy .so + gradlew -x :app:rustBuildX86_64Debug —
 see docs/android-research.md), launcher renders 1:1, engine warms
 3.6s. Found + fixed: mobile rules were host-filtered out of the
-injected CSS (UA redirect happens after injection). Still open on
-Android: injection race (__TAURI_* redefine errors — hiding not
-applied on m.youtube yet), no multi-window (tiles navigate in place).
+injected CSS (UA redirect happens after injection). **Android cleaning
+VERIFIED on-device** (evidence runs 1-4, spikes/logcat-evidence*):
+injection delivery works (plugin js_init_script; tauri#7863 no longer
+applies); real blocker was selector drift — mobile Shorts tab is
+div.pivot-bar-item-tab.pivot-shorts, fixed + [live]. Back key fixed
+launcher-first in MainActivity.kt (press1 launcher, press2
+background, verified). Known issue: relaunch after backgrounding
+renders blank (docs/android-research.md) — next investigation.
 **Settings pane DONE**: !surface: markers in rules files, our rules
 now a toggleable CSS layer outside the engine, Bring back section
 with Hidden/Shown pills; ads/promoted/nags always-on. 14/14 tests.

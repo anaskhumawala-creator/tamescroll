@@ -24,15 +24,20 @@ class MainActivity : TauriActivity() {
     // callback, so this one wins the dispatch.
     val callback = object : OnBackPressedCallback(true) {
       override fun handleOnBackPressed() {
+        // Launcher first: it is the app's home screen, so Back there
+        // always backgrounds the app — even though history may still
+        // hold platform entries (loadUrl below pushes one), walking
+        // back into a feed from home would turn Back into a toggle
+        // (observed on the emulator 2026-08-18, press-2 anomaly).
         val onLauncher = webView.url?.contains("tauri.localhost") == true
         when {
-          webView.canGoBack() -> webView.goBack()
-          !onLauncher -> webView.loadUrl("http://tauri.localhost/")
-          else -> {
+          onLauncher -> {
             isEnabled = false
             onBackPressedDispatcher.onBackPressed()
             isEnabled = true
           }
+          webView.canGoBack() -> webView.goBack()
+          else -> webView.loadUrl("http://tauri.localhost/")
         }
       }
     }
