@@ -73,35 +73,25 @@ fn gaze_script(mode: &str) -> String {
     )
 }
 
-/// Host of a URL we control (always `https://host/...`), used only to
-/// scope our own surface rules by domain. Not a general URL parser — the
-/// engine's own `url_cosmetic_resources` does its own parsing for
-/// everything ad/vendor-related; this just needs the bit between `://`
-/// and the next `/`.
-fn host_of(url: &str) -> &str {
-    let without_scheme = url.split("://").nth(1).unwrap_or(url);
-    without_scheme.split('/').next().unwrap_or(without_scheme)
-}
-
-/// True when a rule's `domain` (from `rules/*.txt`, e.g. `youtube.com` or
-/// `m.youtube.com`) applies to `host` — exact match or `host` is a
-/// subdomain of `domain`. Keeps `m.youtube.com`-scoped mobile surfaces
-/// from ever firing against `www.youtube.com` and vice versa.
-fn domain_matches(host: &str, domain: &str) -> bool {
-    host == domain || host.ends_with(&format!(".{domain}"))
-}
-
 /// Our own surfaces' CSS (docs/plan.md Phase 3 settings pane): one rule
 /// per selector, same hard-won-lesson formatting as `cosmetic_css` below,
 /// for every surface not in `shown` — always_on surfaces (ads) are never
 /// skipped, no matter what `shown` contains, because ad-hiding is not
 /// user-toggleable (VISION.md). `shown` entries that don't name a real
 /// surface for this platform are simply never matched, i.e. ignored.
-fn surfaces_css(platform_id: &str, platform_url: &str, shown: &[String]) -> String {
+///
+/// Every rule of the platform ships regardless of its `domain` column:
+/// the injected CSS is built ONCE per window, but Android's UA redirect
+/// moves that same window from www.youtube.com to m.youtube.com (seen on
+/// the emulator 2026-08-18 — the Shorts tab survived precisely because
+/// the m.youtube rules were host-filtered out at injection time).
+/// Desktop and mobile selectors target disjoint element sets (ytd-* vs
+/// ytm-*), so cross-shipping is harmless where filtering was actively
+/// wrong.
+fn surfaces_css(platform_id: &str, shown: &[String]) -> String {
     let Some(surfaces) = rules::platform_surfaces(platform_id) else {
         return String::new();
     };
-    let host = host_of(platform_url);
 
     let mut css = String::new();
     for surface in surfaces {
@@ -109,11 +99,9 @@ fn surfaces_css(platform_id: &str, platform_url: &str, shown: &[String]) -> Stri
         if is_shown {
             continue;
         }
-        for (domain, selector) in &surface.rules {
-            if domain_matches(host, domain) {
-                css.push_str(selector);
-                css.push_str(" { display: none !important; }\n");
-            }
+        for (_domain, selector) in &surface.rules {
+            css.push_str(selector);
+            css.push_str(" { display: none !important; }\n");
         }
     }
     css
@@ -125,7 +113,7 @@ fn surfaces_css(platform_id: &str, platform_url: &str, shown: &[String]) -> Stri
 /// element) only when the launcher toggle is on.
 fn page_css(url: &str, platform_id: &str, blur: bool, shown: &[String]) -> String {
     let mut css = cosmetic_css(url);
-    css.push_str(&surfaces_css(platform_id, url, shown));
+    css.push_str(&surfaces_css(platform_id, shown));
     if blur {
         css.push_str(blur_css(platform_id));
     }
@@ -272,14 +260,7 @@ fn rules_summary() -> HashMap<String, usize> {
     for p in PLATFORMS {
         let engine_count = engine().url_cosmetic_resources(p.url).hide_selectors.len();
         let surface_count = rules::platform_surfaces(p.id)
-            .map(|surfaces| {
-                let host = host_of(p.url);
-                surfaces
-                    .iter()
-                    .flat_map(|s| &s.rules)
-                    .filter(|(domain, _)| domain_matches(host, domain))
-                    .count()
-            })
+            .map(|surfaces| surfaces.iter().map(|s| s.rules.len()).sum())
             .unwrap_or(0);
         out.insert(p.id.to_string(), engine_count + surface_count);
     }
@@ -581,6 +562,24 @@ mod tests {
                 "expected search-insert selector {sel:?} in the injected CSS"
             );
         }
+    }
+
+    /// Emulator lesson 2026-08-18: Android's UA redirect moves the
+    /// YouTube window to m.youtube.com AFTER injection, so the mobile
+    /// (ytm-*) rules must ship in the window's CSS even though the
+    /// platform URL says www.youtube.com — host-filtering them out is
+    /// how the Shorts tab survived on the first Android run.
+    #[test]
+    fn mobile_youtube_rules_ship_in_the_desktop_window_css() {
+        let css = page_css("https://www.youtube.com/", "youtube", false, &[]);
+        assert!(
+            css.contains("ytm-pivot-bar-item-renderer"),
+            "m.youtube.com Shorts-tab rule must be in the injected CSS"
+        );
+        assert!(
+            css.contains("ytm-reel-shelf-renderer"),
+            "m.youtube.com Shorts-shelf rule must be in the injected CSS"
+        );
     }
 
     /// Stage B (gaze-research.md): the generated runtime must actually be
