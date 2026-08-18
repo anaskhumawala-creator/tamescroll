@@ -256,8 +256,34 @@ Also note the test account's home feed returns no items at all, so home
 and Shorts-shelf rules could not be verified live. Needs an account with
 watch history on.
 
+### Phase 2 complete — the shell spike works (2026-08-18)
+
+`app/` is a Tauri v2 project. Launcher window lists the platforms; clicking
+YouTube opens a second webview window with the rules applied. Verified by
+screenshot: **Shorts is gone from the sidebar and the home grid is empty
+inside our own app.** 16 rules active.
+
+Architecture confirmed working:
+- `adblock` crate v0.13.2 embedded, `Engine::new_with_filter_set`, fed
+  `rules/youtube.txt` via `include_str!`.
+- Cosmetic CSS built in Rust from `url_cosmetic_resources`, injected via
+  `initialization_script`, re-applied on SPA navigation by patching
+  `pushState`/`replaceState` in the injected JS.
+- Bundle identifier `app.tamescroll.client` — PERMANENT once published.
+  Do not change it. Rename the display name instead.
+
+Two research findings corrected by testing:
+1. **Google sign-in is NOT blocked on desktop.** Research said embedded
+   webviews get `disallowed_useragent`; the real Google sign-in page
+   serves normally in WebView2. Untested past the email field (entering
+   credentials is off-limits) and untested on Android, where the `; wv)`
+   user-agent marker is the likely trigger — `WebviewWindowBuilder::
+   user_agent()` is the lever if it bites.
+2. **Network blocking is not reachable through Tauri's public API** —
+   cosmetic filtering only, cross-platform. Costs us little because ads
+   were already delegated, but the app cannot block ads itself yet.
+
 ### Next action
-Verify the `[unverified]` rules on an account with a populated home feed,
-check the watch rule against a playlist URL (the recommendation column is
-a sibling of the playlist panel, so playlists should survive — confirm),
-then host the list at a stable redirectable URL and subscribe in Brave.
+Reddit and X rule blocks (both are `ready: false` in `PLATFORMS`), then
+Android — the SDK and an emulator are already installed on this machine.
+Before Android, test Google sign-in there.

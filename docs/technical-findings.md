@@ -130,3 +130,124 @@ it, since it constrains our own licence choice.
 - Apple minimum-functionality risk, properly, before the iOS window.
 - Whether `adblock-rust`'s cosmetic filtering can be driven from Tauri's
   webviews on each platform, or whether per-platform interception is needed.
+
+---
+
+# Round 2 — pre-build research (2026-08-18)
+
+Three parallel research passes run before writing the app. Sources checked
+against Tauri v2 docs, wry/Tauri issue trackers, the `adblock` crate
+source at v0.13.2, Apple's review guidelines and live App Store listings.
+
+## Network blocking is not reachable through Tauri's public API
+
+`WebviewBuilder::on_web_resource_request` only fires for the `tauri`
+protocol, not remote `https://` navigations. `on_navigation` can cancel a
+top-level navigation but never sees sub-resources, so it cannot do
+per-request filtering. wry issue #1087 (open since Nov 2023) confirms no
+general request-interception API exists.
+
+Every platform *can* do it natively — Windows via WebView2's
+`WebResourceRequested` COM event, Apple via `WKContentRuleList`, Android
+via `WebViewClient.shouldInterceptRequest` — but each needs native code
+below Tauri. `Bushido` (a Tauri v2 browser) does exactly this via WebView2
+COM and is Windows-only as a result.
+
+**Consequence: cosmetic filtering is the only cross-platform mechanism we
+get for free.** This costs us almost nothing, because the plan already
+delegates ads and trackers and keeps our own scope to feeds, Shorts and
+recommendation surfaces — all of which are cosmetic. It does mean the app
+cannot block ads itself on day one. Users who want ads gone use Brave or
+uBlock for general browsing, exactly as the playbook already says.
+
+The `adblock` crate does expose `FilterSet::into_content_blocking`, which
+emits Safari content-blocker JSON — the path to real network blocking on
+iOS and macOS later. Output fidelity unverified; WKContentRuleList caps
+around 150k rules and supports a much smaller grammar than EasyList.
+
+## The `adblock` crate API, as actually built against
+
+Constructor is `Engine::new_with_filter_set(FilterSet)`; `FilterSet::
+add_filter_list` takes an owned `String`. Cosmetic results come from
+`engine.url_cosmetic_resources(url)` returning `UrlSpecificResources`.
+
+There is no `style_selectors` field. `:style()` rules arrive inside
+`procedural_actions` as JSON-encoded `ProceduralOrActionFilter`, and
+`ProceduralOrActionFilter::as_css()` converts the ones expressible in
+plain CSS into a `(selector, style)` pair. Filters needing real procedural
+evaluation return `None` and must be skipped unless a JS-side evaluator
+exists.
+
+`:style()` is supported. `:has()` is passed through as native CSS, which
+modern engines implement, so our `:has()` rules work. `:has-text()` and
+`:matches-path()` are supported as procedural operators, though Brave has
+a reported `:matches-path` divergence from uBlock Origin — avoid it.
+
+## SPA navigation must be handled in JavaScript, not Rust
+
+`on_page_load` does not reliably fire for remote pages (tauri #4037, open)
+and neither it nor `on_navigation` fires on `history.pushState`. YouTube
+navigates that way constantly. Re-application therefore has to live in the
+injected script, patching `pushState`/`replaceState` and listening for
+`popstate`. This is what the app does.
+
+`initialization_script` gives `document_start` timing on desktop. On
+Android, timing is explicitly not guaranteed to precede page scripts.
+
+## Google sign-in in embedded webviews — needs testing, not assumption
+
+Google returns `disallowed_useragent` for sign-in attempts from user
+agents it identifies as embedded webviews, enforced since 2021 and
+tightened in 2023. A Tauri project (Pake) reports exactly this failure.
+
+**This is reported as a blocker but has not been tested for our case, and
+the detail matters.** Detection is largely user-agent based, and the
+giveaway markers differ per platform — Android WebView appends `; wv)` to
+its UA, while Windows WebView2 presents an Edge-like UA that is difficult
+to distinguish from the real browser. So desktop may well pass untouched
+while Android needs a user-agent override, which
+`WebviewWindowBuilder::user_agent()` supports.
+
+Test this empirically before redesigning around it. If sign-in genuinely
+cannot work, the fallback options are, in order of preference: override
+the user agent; accept that Google sign-in escapes to the system browser
+once per session; or ship logged-out YouTube, which loses subscriptions
+and therefore most of the "keep what is yours" promise.
+
+Reddit and X are not subject to Google's policy and were not tested.
+
+## Store distribution — precedent exists, one clause is the risk
+
+Apple's minimum-functionality rule (4.2) rejects bare website wrappers,
+but **talavo, SwizzTube and CleanTube are live today** doing precisely
+what we do: WKWebView plus CSS rules stripping ads and Shorts. They ship
+under Utilities, not a browser category, and lead with native features.
+Covering four platforms rather than one strengthens the case.
+
+The real exposure is **guideline 5.2.2**: if an app displays content from
+a third-party service, the developer must be "specifically permitted" to
+do so and must provide authorisation on request. No such permission exists
+from YouTube. General browsers escape this in practice because they render
+the open web generically rather than targeting a named service — a
+distinction Apple applies but has never written down.
+
+ProTube was pulled in 2017 after direct complaints from Google, over
+background playback and audio-only mode. Those are paid-feature unlocks,
+which §2 already forbids us from building. Staying inside that rule is
+what keeps us unlike ProTube.
+
+Ad blocking itself: VPN and root-certificate blockers were banned in 2017;
+Safari content-blocker extensions are explicitly fine; in-app webview CSS
+injection is a third lane with no guideline either way, currently
+tolerated. Legally, the German Federal Supreme Court settled in 2018 that
+ad blocking is not unfair competition, but a separate copyright theory
+about DOM modification was revived in July 2025 and is unresolved. No US
+case law found.
+
+## Still to verify
+
+- Whether Google sign-in actually works in our webviews, per platform.
+- Whether Tauri v2's Android runtime allows wrapping the `WebViewClient`
+  wry installs, which would unlock network blocking there.
+- `FilterSet::into_content_blocking` output quality for iOS.
+- Google Play's stance on multi-site wrapper apps — no precedent found.

@@ -1,0 +1,145 @@
+/* tamescroll launcher.
+   Design rule from docs/plan.md: this must not look like a parental
+   control app. Calm, warm, chosen — never punitive, never a lecture. */
+
+:root {
+  --bg: #0e1014;
+  --surface: #171a20;
+  --surface-hover: #1e222a;
+  --line: #262b34;
+  --ink: #eceff4;
+  --muted: #8d97a6;
+  --accent: #7fd1b9;
+  --radius: 14px;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f7f8fa;
+    --surface: #ffffff;
+    --surface-hover: #f0f2f6;
+    --line: #e2e6ec;
+    --ink: #161a20;
+    --muted: #626b7a;
+    --accent: #2f8f76;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+.shell {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 64px 28px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  min-height: 100vh;
+}
+
+.head h1 {
+  font-size: clamp(26px, 5vw, 36px);
+  font-weight: 620;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+}
+
+.head .sub {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+  max-width: 46ch;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.tile {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--radius);
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: background 0.14s ease, transform 0.14s ease,
+    border-color 0.14s ease;
+}
+
+.tile:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: color-mix(in srgb, var(--tint) 45%, var(--line));
+  transform: translateY(-2px);
+}
+
+.tile:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.tile:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.tile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--tint);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  flex: none;
+}
+
+.tile .name {
+  font-size: 15.5px;
+  font-weight: 560;
+}
+
+.tile .note {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.foot {
+  margin-top: auto;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.status {
+  font-size: 12.5px;
+  color: var(--muted);
+}
