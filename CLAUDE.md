@@ -234,7 +234,30 @@ What changed and why:
 2. **Domain not registered.** `tamescroll.com` was free as of 2026-08-18.
    Costs money — owner's call, do not buy.
 
+### Phase 1 in progress
+`rules/youtube.txt` (core) and `rules/youtube-blur.txt` (optional blur)
+are written. Selectors were read from the live DOM, not guessed. Every
+rule carries a `! test:` line; rules are tagged `[live]` (counted in the
+real DOM) or `[unverified]` (surface did not render on the test account).
+
+Verified 2026-08-18 by injecting the rules as CSS on a real watch page:
+recommendation sidebar and end screen went to zero height, player height
+unchanged at 556.45px before and after, video element still present,
+comments and description intact.
+
+**Test-environment gotcha for future sessions:** the owner's Chrome runs
+an Unhook-style extension with everything enabled — it sets `hide_feed`,
+`hide_shorts`, `hide_search` and ~23 more `hide_*` attributes on `<html>`
+and YouTube looks empty as a result. To read the real DOM, strip them
+first (page-local, resets on reload, does not touch their settings):
+`[...document.documentElement.attributes].forEach(a=>{if(a.name.startsWith('hide_'))document.documentElement.removeAttribute(a.name)})`
+
+Also note the test account's home feed returns no items at all, so home
+and Shorts-shelf rules could not be verified live. Needs an account with
+watch history on.
+
 ### Next action
-Phase 1 in `docs/plan.md`: the YouTube rules block in EasyList syntax at
-`rules/youtube.txt`, hosted at a stable redirectable URL, usable in Brave
-and uBlock with no app installed. Every rule needs a stated test.
+Verify the `[unverified]` rules on an account with a populated home feed,
+check the watch rule against a playlist URL (the recommendation column is
+a sibling of the playlist panel, so playlists should survive — confirm),
+then host the list at a stable redirectable URL and subscribe in Brave.

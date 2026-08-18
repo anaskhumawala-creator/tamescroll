@@ -1,0 +1,143 @@
+! Title: tamescroll — YouTube
+! Description: Removes YouTube's algorithmic surfaces — home feed, Shorts,
+!              recommendation sidebar, end-screen wall — while leaving
+!              search, subscriptions, playlists and the player untouched.
+! Version: 1
+! Expires: 1 day
+! License: CC0-1.0 (see rules/LICENSE)
+! Homepage: https://github.com/tamescroll
+!
+! DESIGN RULES FOR THIS FILE — read before editing
+!
+! 1. A wrong selector that hides the video player is far worse than a
+!    missed Shorts shelf. Prefer scoped, conservative selectors.
+! 2. Every rule carries a `! test:` line saying how to tell it still
+!    works. A rule with no stated test cannot be checked by the watcher
+!    and must not be merged.
+! 3. Scope page-specific rules with YouTube's own `page-subtype`
+!    attribute on `ytd-browse`, never by guessing at paths.
+! 4. Ads are NOT this file's job. The embedded engine (adblock-rust)
+!    handles them via EasyList. The few ad rules below are belt-and-
+!    braces for in-feed ad units that survive network blocking.
+! 5. Comments are deliberately NOT hidden. They are not an algorithmic
+!    trap and hiding them is a personal preference, not the mission.
+!
+! VERIFICATION STATUS (2026-08-18, youtube.com desktop, Chrome)
+! Selectors marked [live] were counted in the real DOM this session.
+! Selectors marked [unverified] are believed correct but the surface
+! did not render on the test account (empty home feed, no Shorts shelf).
+! Verify before relying on them.
+
+
+! ============================================================
+! HOME — the algorithmic feed, removed entirely
+! ============================================================
+
+! The home video grid. Scoped to page-subtype="home" so subscriptions,
+! channel pages and search keep their grids.
+! [live] ytd-rich-grid-renderer counted 1 on youtube.com/
+! test: on https://www.youtube.com/ ->
+!   document.querySelectorAll('ytd-browse[page-subtype="home"] ytd-rich-grid-renderer').length >= 1
+youtube.com##ytd-browse[page-subtype="home"] ytd-rich-grid-renderer
+
+! The topic filter chips above the home feed ("All", "Music", "Gaming").
+! Pointless once the grid is gone, and they re-bait on click.
+! [unverified] did not render on test account
+! test: on https://www.youtube.com/ ->
+!   document.querySelectorAll('ytd-browse[page-subtype="home"] ytd-feed-filter-chip-bar-renderer').length >= 1
+youtube.com##ytd-browse[page-subtype="home"] ytd-feed-filter-chip-bar-renderer
+
+
+! ============================================================
+! SHORTS — every entry point
+! ============================================================
+
+! Sidebar navigation entry. Matched on the link title because the entry
+! carries no href (it is a JS navigation).
+! [live] a[title="Shorts"] confirmed inside ytd-guide-entry-renderer
+! test: on https://www.youtube.com/ ->
+!   document.querySelectorAll('ytd-guide-entry-renderer a[title="Shorts"]').length === 1
+youtube.com##ytd-guide-entry-renderer:has(a[title="Shorts"])
+
+! Same entry in the collapsed mini sidebar.
+! [unverified] mini guide not rendered at test viewport width
+! test: collapse the sidebar on https://www.youtube.com/ ->
+!   document.querySelectorAll('ytd-mini-guide-entry-renderer a[title="Shorts"]').length === 1
+youtube.com##ytd-mini-guide-entry-renderer:has(a[title="Shorts"])
+
+! Shorts shelves embedded in feeds. YouTube has used several container
+! elements for these over time; all current forms are covered.
+! [unverified] no Shorts shelf rendered on test account
+! test: on a search with Shorts results ->
+!   document.querySelectorAll('ytd-rich-shelf-renderer[is-shorts], ytd-reel-shelf-renderer, grid-shelf-view-model').length >= 1
+youtube.com##ytd-rich-shelf-renderer[is-shorts]
+youtube.com##ytd-reel-shelf-renderer
+youtube.com##grid-shelf-view-model
+
+! Individual Shorts lockups that appear inline among normal results.
+! [unverified] none present in test search
+! test: search a term with Shorts results ->
+!   document.querySelectorAll('ytm-shorts-lockup-view-model').length >= 1
+youtube.com##ytm-shorts-lockup-view-model
+
+! Search results that are Shorts. Matched by their /shorts/ link so a
+! renamed container element does not break this.
+! [unverified] no Shorts in test search results
+! test: search a term with Shorts results ->
+!   document.querySelectorAll('ytd-video-renderer:has(a[href^="/shorts/"])').length >= 1
+youtube.com##ytd-video-renderer:has(a[href^="/shorts/"])
+youtube.com##yt-lockup-view-model:has(a[href^="/shorts/"])
+
+
+! ============================================================
+! WATCH PAGE — recommendations, not the video
+! ============================================================
+
+! The whole right-hand recommendation column. This is a sibling of the
+! playlist panel, so playlists keep working — CONFIRM on a playlist URL
+! before trusting that.
+! [live] ytd-watch-next-secondary-results-renderer counted 1 on /watch
+! test: on any /watch page ->
+!   document.querySelectorAll('ytd-watch-next-secondary-results-renderer').length === 1
+youtube.com##ytd-watch-next-secondary-results-renderer
+
+! The end-screen wall of suggested videos that covers the frame when a
+! video finishes. This is the single strongest "next video" bait.
+! [live] .ytp-endscreen-content counted 1, .ytp-suggestion-set counted 12
+! test: on any /watch page ->
+!   document.querySelectorAll('.ytp-endscreen-content').length === 1
+youtube.com##.ytp-endscreen-content
+
+! Suggestion cards overlaid on the video during playback.
+! [unverified] not present on the test video
+! test: play a video with end cards ->
+!   document.querySelectorAll('.ytp-ce-element').length >= 1
+youtube.com##.ytp-ce-element
+
+
+! ============================================================
+! IN-FEED ADS — belt and braces only
+! ============================================================
+! Network blocking by the engine handles most ads. These catch the
+! in-feed ad units that render as ordinary page elements.
+
+! [live] ytd-ad-slot-renderer counted 2, ytd-in-feed-ad-layout-renderer
+! counted 2 on a search results page
+! test: on a search results page ->
+!   document.querySelectorAll('ytd-ad-slot-renderer, ytd-in-feed-ad-layout-renderer').length >= 1
+youtube.com##ytd-ad-slot-renderer
+youtube.com##ytd-in-feed-ad-layout-renderer
+youtube.com##ytd-promoted-video-renderer
+
+
+! ============================================================
+! MOBILE WEB — "open in app" nags
+! ============================================================
+! [unverified] all of the following need checking on m.youtube.com.
+! Hard rule §2: the product never nags, and it strips platform nags.
+! test: load m.youtube.com logged out ->
+!   the app-install banner and interstitial must not appear
+m.youtube.com##ytm-app-promo-banner
+m.youtube.com##.mobile-topbar-header-app-promo
+m.youtube.com##ytm-companion-slot
+m.youtube.com##ytm-promoted-video-renderer
