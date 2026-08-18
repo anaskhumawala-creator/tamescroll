@@ -1,0 +1,13 @@
+[package]
+name = "gaze-inline-spike"
+version = "0.0.0"
+description = "Throwaway spike: inline base64 model delivery + tfjs inference on reddit.com"
+authors = ["spike"]
+edition = "2021"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }

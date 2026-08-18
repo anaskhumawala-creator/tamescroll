@@ -47,3 +47,26 @@ Source ([observers.js](https://github.com/alganzory/HaramBlur/blob/main/src/modu
 **Inline-first, fetch-opportunistic.** Base64-embed BlazeFace (~600 KB) + nsfwjs mobilenet_v2 (~2.7 MB) directly in the Windows `initialization_script`, since Reddit's CSP proves `fetch()` can't be relied on cross-site — inlining is the only path that works unconditionally on all three sites, needing neither `connect-src` cooperation nor a custom-protocol round trip. Run inference in a Web Worker (blocked only on Reddit — add a same-thread fallback there) on `cpu`/`webgl` backend (`wasm` fails on Reddit). Blur-first via injected CSS (already Phase 4's design) so a slow worker never flashes content. Skip Tauri IPC-to-remote-origin (§3b) — security cost unjustified. Android/iOS extension path: same inline-script + Worker approach (WKWebView/Android WebView both support pre-injection and Workers); re-verify §2's UNVERIFIED per-platform origin/CSP behavior before Phase 5.
 
 **First step**: a throwaway Tauri v2 desktop spike that base64-embeds BlazeFace only into `initialization_script`, loads `https://www.reddit.com/` (worst-case CSP), and confirms in-worker tfjs-cpu inference runs end-to-end against a real DOM image — validates or kills inline delivery before nsfwjs or UI work is built on it.
+
+
+## Spike result — inline BlazeFace vs Reddit CSP (2026-08-18, verified live)
+
+Spike app in `spikes/gaze-inline/` (build scripts + src committed; dist/
+node_modules ignored). Ran against live reddit.com in WebView2. Verdict:
+**SPIKE_OK** — the full pipeline (base64-embedded model -> custom
+IOHandler decode -> tfjs graph load -> WebGL inference) completed with
+zero network calls under `default-src 'none'`.
+
+- Payload: `dist/init.js` 1,641,496 bytes (tfjs core+cpu+webgl+converter
+  ~860KB min + BlazeFace 702KB base64-inflated). nsfwjs (~2.7MB) would
+  bring the bundle to ~4.3MB — set a budget before adding it.
+- Timings: backend ready 107ms, embedded-model decode 8ms, FIRST
+  inference 595ms (WebGL shader compile dominates; one-time per
+  navigation). Total 720ms script-start -> result.
+- Backend: WebGL directly; no CPU fallback needed.
+- **Surprise vs §1:** blob Workers were NOT blocked on live reddit.com
+  in WebView2 — a full `postMessage` ping/ok round-trip succeeded
+  despite `default-src 'none'` with no `worker-src`. Treat as
+  engine-specific: unconfirmed for WKWebView/WebKitGTK, so the
+  same-thread fallback stays in the design; re-verify per engine.
+- Reddit's live CSP matched §1 exactly (curl-verified same day).
