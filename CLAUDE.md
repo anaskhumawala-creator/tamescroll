@@ -179,6 +179,16 @@ styled, giveUp() tainted-canvas fail-open FIRED live once
 Image CORS fail-closed also observed live (cors-denied avatars stay
 blurred, by design).
 
+**Desktop smart mode never worked — found + fixed** (1de9fa0,
+probe28-30): WebView2 loses the tail of a >1MB initialization_script
+(early CSS IIFE of the same string ran, appended 1.6MB bundle left no
+trace, node --check clean). Fix: desktop platform windows eval
+page_load_gaze_script via .on_page_load — same delivery as Android.
+Side effect (deliberate): desktop navigations follow CURRENT gaze
+state, not window-creation mode. Verified: smart boots on desktop
+www.youtube (2 pending + 4 flagged), player filter:none. NOTE for
+future: never put big payloads in initialization_script on Windows.
+
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
 (rules would be [unverified] — site blocked in India); Instagram
