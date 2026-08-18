@@ -13,6 +13,8 @@ const status = document.querySelector<HTMLElement>("#status")!;
 const blurToggle = document.querySelector<HTMLElement>("#blur-toggle")!;
 const blurCaption = document.querySelector<HTMLElement>("#blur-caption")!;
 const bringBack = document.querySelector<HTMLElement>("#bring-back")!;
+const strengthRow = document.querySelector<HTMLElement>("#blur-strength-row")!;
+const strengthToggle = document.querySelector<HTMLElement>("#blur-strength")!;
 
 // Stage B store (docs/plan.md Phase 4): three modes. Stage A only ever
 // wrote "1"/"0"; migrate those forward so existing installs keep their
@@ -48,6 +50,23 @@ function setMode(value: GazeMode) {
   renderBlurToggle();
 }
 
+// Blur strength presets, px. Mirrors the mode's localStorage + Rust
+// dance: pages read the value from Rust at injection time, so the pick
+// applies to the next page load, never retroactively.
+const STRENGTH_KEY = "tamescroll.blurpx";
+const STRENGTHS = [8, 16, 28] as const;
+
+function getStrength(): number {
+  const px = Number(localStorage.getItem(STRENGTH_KEY));
+  return (STRENGTHS as readonly number[]).includes(px) ? px : 16;
+}
+
+function setStrength(px: number) {
+  localStorage.setItem(STRENGTH_KEY, String(px));
+  void invoke("set_blur_strength", { px }).catch(() => {});
+  renderBlurToggle();
+}
+
 function renderBlurToggle() {
   const mode = getMode();
   blurToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
@@ -56,16 +75,28 @@ function renderBlurToggle() {
     btn.setAttribute("aria-checked", String(active));
   });
   blurCaption.textContent = CAPTIONS[mode];
+  const px = getStrength();
+  strengthRow.hidden = mode === "off";
+  strengthToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
+    const active = Number(btn.dataset.value) === px;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-checked", String(active));
+  });
 }
 
 blurToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
   btn.addEventListener("click", () => setMode(btn.dataset.value as GazeMode));
 });
 
+strengthToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
+  btn.addEventListener("click", () => setStrength(Number(btn.dataset.value)));
+});
+
 renderBlurToggle();
 // Sync the stored mode into Rust at startup too, not just on change —
 // otherwise a relaunch would leave Rust at "off" until the first toggle.
 void invoke("set_gaze_mode", { mode: getMode() }).catch(() => {});
+void invoke("set_blur_strength", { px: getStrength() }).catch(() => {});
 
 // Phase 3 (docs/plan.md): per-platform "bring back" toggles — surfaces we
 // hide by default, that the user can choose to show again. Defaults stay
@@ -196,6 +227,7 @@ let restingStatus = "";
 async function open(platform: Platform) {
   try {
     await invoke("open_platform", {
+      strength: getStrength(),
       id: platform.id,
       mode: getMode(),
       shown: getShown(platform.id),

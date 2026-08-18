@@ -12,9 +12,12 @@ var STYLE_ID = 'tamescroll-gaze-style';
 // for why: a single invalid selector in a comma-joined list can silently
 // disable the whole rule. Both selectors here are ours and trivial, but
 // the convention stays consistent everywhere blur CSS gets injected.
+// Radius resolves through --ts-blur-strong so the launcher's strength
+// preset reaches Stage B too (the injection wrapper sets the variable
+// inline on <html>; 24px is the standalone fallback).
 var STYLE_CSS =
-  '.' + PENDING_CLASS + ' { filter: blur(24px) !important; }\n' +
-  '.' + FLAGGED_CLASS + ' { filter: blur(24px) !important; }\n';
+  '.' + PENDING_CLASS + ' { filter: blur(var(--ts-blur-strong, 24px)) !important; }\n' +
+  '.' + FLAGGED_CLASS + ' { filter: blur(var(--ts-blur-strong, 24px)) !important; }\n';
 
 export function injectStyle() {
   if (document.getElementById(STYLE_ID)) return;

@@ -31,14 +31,14 @@
  * matching the launcher caption. Feed pages stay blurred. */
 shreddit-app:not([pagetype="post_detail"]) shreddit-post img,
 shreddit-app:not([pagetype="post_detail"]) shreddit-post video {
-  filter: blur(16px);
+  filter: blur(var(--ts-blur, 16px));
 }
 
 shreddit-app:not([pagetype="post_detail"]) gallery-carousel img,
 shreddit-app:not([pagetype="post_detail"]) gallery-carousel video {
-  filter: blur(16px);
+  filter: blur(var(--ts-blur, 16px));
 }
 
 shreddit-app:not([pagetype="post_detail"]) shreddit-player {
-  filter: blur(16px);
+  filter: blur(var(--ts-blur, 16px));
 }

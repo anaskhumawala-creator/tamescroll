@@ -19,11 +19,11 @@
  */
 
 [data-testid="tweetPhoto"] img {
-  filter: blur(16px);
+  filter: blur(var(--ts-blur, 16px));
 }
 
 [data-testid="videoPlayer"] video {
-  filter: blur(16px);
+  filter: blur(var(--ts-blur, 16px));
 }
 
 /* Link-card preview media. Cards render their media in a dedicated
@@ -33,9 +33,9 @@
  * loads inside. layoutSmall variant kept as belt-and-braces
  * [unverified]. */
 [data-testid="card.layoutLarge.media"] {
-  filter: blur(16px);
+  filter: blur(var(--ts-blur, 16px));
 }
 
 [data-testid="card.layoutSmall.media"] {
-  filter: blur(16px);
+  filter: blur(var(--ts-blur, 16px));
 }

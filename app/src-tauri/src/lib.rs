@@ -68,6 +68,43 @@ fn gaze_state() -> &'static str {
     *GAZE_STATE.lock().unwrap()
 }
 
+/// Blur radius presets the launcher can pick (px). Anything else
+/// normalises to the medium default so a bad invoke can never produce a
+/// 0px "blur" that reports itself active while doing nothing.
+fn blur_strength_px(px: u32) -> u32 {
+    match px {
+        8 | 16 | 28 => px,
+        _ => 16,
+    }
+}
+
+/// Launcher-chosen blur strength, same lifecycle as GAZE_STATE: desktop
+/// windows bake it into their creation-time script, Android's single
+/// webview re-reads it on every page load. Updated by `open_platform`
+/// and the `set_blur_strength` command.
+static BLUR_PX: Mutex<u32> = Mutex::new(16);
+
+fn set_blur_px(px: u32) {
+    *BLUR_PX.lock().unwrap() = blur_strength_px(px);
+}
+
+fn blur_px() -> u32 {
+    *BLUR_PX.lock().unwrap()
+}
+
+/// The CSS variables every blur consumer resolves against: Stage A
+/// sheets use `var(--ts-blur, 16px)`, Stage B's class styles use
+/// `var(--ts-blur-strong, 24px)` — positively detected content earns
+/// the heavier blur. Ships ahead of the blur CSS, so the fallbacks only
+/// apply if this rule is missing entirely (e.g. an old injected sheet).
+fn blur_vars_css(px: u32) -> String {
+    let px = blur_strength_px(px);
+    format!(
+        ":root {{ --ts-blur: {px}px; --ts-blur-strong: {strong}px; }}\n",
+        strong = px * 3 / 2
+    )
+}
+
 /// Which platform a live page host belongs to, if any. Hosts arrive
 /// with mobile/www prefixes (m.youtube.com after the UA redirect —
 /// the lesson behind dropping per-window host filters), so match on
@@ -110,7 +147,9 @@ fn page_load_gaze_script(url: &str, mode: &str) -> Option<String> {
     if mode == "smart" {
         return Some(gaze_script("smart"));
     }
-    let css_json = serde_json::to_string(blur_css(platform.id)).ok()?;
+    let css_json =
+        serde_json::to_string(&format!("{}{}", blur_vars_css(blur_px()), blur_css(platform.id)))
+            .ok()?;
     Some(format!(
         r#"
 (function () {{
@@ -135,12 +174,22 @@ fn gaze_script(mode: &str) -> String {
     if gaze_mode(mode) != "smart" {
         return String::new();
     }
+    // Stage B's class styles blur through var(--ts-blur-strong); the
+    // launcher's strength choice has to reach the page inline because
+    // smart mode ships no stylesheet of its own to carry a :root rule.
+    let px = blur_px();
+    let strong = px * 3 / 2;
     format!(
         r#"
 (function () {{
   try {{
     if (window.__TS_GAZE_BUNDLE__) return;
     window.__TS_GAZE_MODE = "smart";
+    var tsRoot = document.documentElement;
+    if (tsRoot) {{
+      tsRoot.style.setProperty("--ts-blur", "{px}px");
+      tsRoot.style.setProperty("--ts-blur-strong", "{strong}px");
+    }}
 {GAZE_INIT_JS}
   }} catch (e) {{}}
 }})();
@@ -198,6 +247,7 @@ fn page_css(url: &str, platform_id: &str, blur: bool, shown: &[String]) -> Strin
     let mut css = cosmetic_css(url);
     css.push_str(&surfaces_css(platform_id, shown));
     if blur {
+        css.push_str(&blur_vars_css(blur_px()));
         css.push_str(blur_css(platform_id));
     }
     css
@@ -273,6 +323,13 @@ fn platforms() -> Vec<Platform> {
 #[tauri::command]
 fn set_gaze_mode(mode: String) {
     set_gaze_state(&mode);
+}
+
+/// Same contract as `set_gaze_mode`, for the blur-strength picker:
+/// already-open pages keep their radius until they navigate.
+#[tauri::command]
+fn set_blur_strength(px: u32) {
+    set_blur_px(px);
 }
 
 /// Build the CSS the engine says applies to this URL.
@@ -552,6 +609,7 @@ async fn open_platform(
     app: tauri::AppHandle,
     id: String,
     mode: String,
+    strength: u32,
     shown: Vec<String>,
 ) -> Result<(), String> {
     let platform = PLATFORMS
@@ -563,8 +621,11 @@ async fn open_platform(
     eprintln!("open_platform id={id}");
 
     // Keep the Rust-side gaze state current: Android page loads read it
-    // (see injection_plugin), and it costs nothing on desktop.
+    // (see injection_plugin), and it costs nothing on desktop. Strength
+    // rides along for the same reason (and dodges the same fire-and-
+    // forget race the mode parameter exists for).
     set_gaze_state(&mode);
+    set_blur_px(strength);
 
     let url: tauri::Url = platform
         .url
@@ -647,7 +708,8 @@ pub fn run() {
             open_platform,
             rules_summary,
             surfaces,
-            set_gaze_mode
+            set_gaze_mode,
+            set_blur_strength
         ])
         .run(tauri::generate_context!())
         .expect("error while running tamescroll");
@@ -796,6 +858,10 @@ mod tests {
             assert!(js.contains("ts-gaze-blur"), "style-id guard missing");
             assert!(js.contains("blur("), "blur css payload missing");
             assert!(!js.contains("__TS_GAZE_MODE"), "blur mode must not boot Stage B");
+            assert!(
+                js.contains("--ts-blur:"),
+                "blur payload must define the strength variable"
+            );
         }
 
         // Smart mode boots Stage B and ships NO Stage A sheet — those
@@ -834,6 +900,42 @@ mod tests {
         assert_eq!(gaze_state(), "blur");
         set_gaze_state("off");
         assert_eq!(gaze_state(), "off");
+    }
+
+    /// The strength preset follows the same lifecycle as the mode:
+    /// launcher picks, Rust holds, injection reads. Unknown values must
+    /// land on the medium default, never 0px.
+    #[test]
+    fn blur_strength_round_trips_and_reaches_every_blur_consumer() {
+        set_blur_px(28);
+        assert_eq!(blur_px(), 28);
+        set_blur_px(999);
+        assert_eq!(blur_px(), 16, "unknown strength must normalise to medium");
+        set_blur_px(8);
+        assert_eq!(blur_px(), 8);
+
+        // The vars rule carries both radii (Stage A + Stage B's heavier one).
+        let vars = blur_vars_css(8);
+        assert!(vars.contains("--ts-blur: 8px"));
+        assert!(vars.contains("--ts-blur-strong: 12px"));
+
+        // Stage A sheets resolve through the variable...
+        for (id, css) in BLUR_CSS {
+            assert!(
+                css.contains("var(--ts-blur"),
+                "blur css for {id} should resolve its radius via --ts-blur"
+            );
+        }
+        // ...and the page-level CSS ships the definition alongside them.
+        let css = page_css("https://www.youtube.com/", "youtube", true, &[]);
+        assert!(css.contains("--ts-blur:"), "page_css(blur) must define --ts-blur");
+
+        // Smart mode has no stylesheet of its own, so its wrapper sets
+        // the variables inline for Stage B's class styles.
+        let smart = gaze_script("smart");
+        assert!(smart.contains("--ts-blur-strong"));
+
+        set_blur_px(16);
     }
 
     /// Stage A blur CSS (docs/plan.md Phase 4) must actually blur something

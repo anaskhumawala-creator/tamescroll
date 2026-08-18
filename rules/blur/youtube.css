@@ -23,17 +23,17 @@
 
 ytd-search ytd-thumbnail,
 ytd-search yt-thumbnail-view-model {
-  filter: blur(16px);
+  filter: blur(var(--ts-blur, 16px));
 }
 
 ytd-browse[page-subtype="subscriptions"] ytd-thumbnail,
 ytd-browse[page-subtype="subscriptions"] yt-thumbnail-view-model {
-  filter: blur(16px);
+  filter: blur(var(--ts-blur, 16px));
 }
 
 ytd-browse[page-subtype="channels"] ytd-thumbnail,
 ytd-browse[page-subtype="channels"] yt-thumbnail-view-model {
-  filter: blur(16px);
+  filter: blur(var(--ts-blur, 16px));
 }
 
 /* m.youtube.com (mobile web) — elements harvested from the live emulator
@@ -43,16 +43,16 @@ ytd-browse[page-subtype="channels"] yt-thumbnail-view-model {
  * player, never inside these containers — same red line as desktop.
  * [live: counts verified; visual blur verified probe12] */
 ytm-thumbnail-cover {
-  filter: blur(16px);
+  filter: blur(var(--ts-blur, 16px));
 }
 
 ytm-media-item img.video-thumbnail-img {
-  filter: blur(16px);
+  filter: blur(var(--ts-blur, 16px));
 }
 
 /* Community-post images on the mobile home/posts feeds
  * (ytm-backstage-image-renderer seen live on home, count untested on a
  * populated feed). [unverified] */
 ytm-backstage-image-renderer img {
-  filter: blur(16px);
+  filter: blur(var(--ts-blur, 16px));
 }
