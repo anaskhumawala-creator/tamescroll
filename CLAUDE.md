@@ -62,41 +62,35 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-18 (Fable session — ads + gaze push).
+**Last updated:** 2026-08-18 (Fable session 2 — gaze A, spike, search junk).
 
-Done: Phase 0 (name tamescroll, MPL-2.0/CC0, contributor agreement),
-Phase 1 (rules/youtube.txt + youtube-blur.txt, verified on live DOM),
-Phase 2 (Tauri shell runs on Windows; launcher → cleaned YouTube window;
-Shorts/home feed gone in-app; Google sign-in page loads fine in WebView2
-contrary to research warnings — untested past email field, untested on
-Android).
+Done: Phase 0-2.5 as before (see git log). This session: **Gaze Stage A
+shipped** — rules/blur/{youtube,reddit,x}.css, launcher Off/On toggle
+(localStorage tamescroll.blur), page_css() in lib.rs unit-tests the
+toggle wire; Reddit blur scoped off post_detail so opened posts play
+normally. **Gaze Stage B spike: SPIKE_OK** — inline base64 BlazeFace ran
+on live reddit.com under default-src 'none' (720ms first inference,
+1.57MiB bundle, zero network; Workers surprisingly unblocked in WebView2
+— engine-specific, fallback stays; docs/gaze-research.md updated).
+**YouTube search inserts removed** (owner report): promoted block,
+shelf inserts, "People also search for", topic watch card — verified
+live, 46/49 organic videos + both channel results survived. Reddit/X
+rules live-verified second pass (recent-posts replaced a guessed name;
+r/all redirects to /hot when logged in). m.youtube.com rules written
+[unverified until emulator]. rules/instagram.txt DRAFT committed.
+Android machine prep done (JDK 17, NDK, 4 rustup targets).
 
-Phase 2.5 (in-app ad blocking) DONE and verified visually: vendored
-EasyList/EasyPrivacy/uBO lists + Brave resources compiled in; scriptlets
-are OUR clean-room MPL implementations in app/src-tauri/scriptlets/
-(set-constant, json-prune, json-prune-fetch-response,
-trusted-replace-fetch/xhr-response) — the agent-vendored GPL uBO
-scriptlet file was rejected and deleted (GPL in the MPL binary = licence
-poison; the repo rule held). Video plays with no pre-roll, no sidebar,
-comments intact; engine warms 1.6s on a background thread; unit tests
-assert our scriptlet names resolve in the real YouTube injection.
+In flight at session end: first Android debug build (x86_64, agent
+bg-building; gen/android untracked until it lands).
 
-Reddit + X rules written from live DOM (rules/reddit.txt, rules/x.txt),
-tiles live in the launcher. Reddit shows its one-time CAPTCHA to a
-fresh profile; X wants one-time sign-in — cookie persistence handles
-both after the user does them once.
+Rules-change gotcha: rules/*.txt are include_str'd — the dev watcher
+does NOT watch rules/, so touch a src-tauri file to force the rebuild,
+then REOPEN the platform window (injection happens at window creation).
 
-**Hard-won lesson encoded in lib.rs: ONE CSS RULE PER SELECTOR.** A
-single invalid selector in a comma-joined list silently disabled ALL
-hiding once EasyList's thousands of selectors joined ours (Shorts came
-back; caught by screenshot). Never re-join them.
-
-Next: gaze Stage A (CSS blur modes); gaze Stage B spike per
-docs/gaze-research.md (inline BlazeFace on reddit.com, worst-case CSP);
-Android build per docs/android-research.md (gaps: JDK 17, NDK_HOME,
-rustup android targets); owner signs in once on each platform to test
-session persistence.
+Next: Android build result -> verify m.youtube rules on emulator; gaze
+Stage B build per spike verdict (budget call before adding nsfwjs's
+2.7MB); settings pane (plan.md Phase 3); owner one-time sign-ins.
 
 Open questions for owner: TikTok ships at all? Domain purchase
-(tamescroll.com free as of 2026-08-18). GitHub repo push (needs owner OK —
-outward-facing).
+(tamescroll.com free as of 2026-08-18). GitHub push deferred by owner
+2026-08-18 ("without GitHub at the initial stage").
