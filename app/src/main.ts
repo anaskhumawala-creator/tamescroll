@@ -206,9 +206,28 @@ async function open(platform: Platform) {
   }
 }
 
+// On Android cold start this module can run before the Rust side has
+// finished registering the webview, and the first invoke dies with an
+// ACL error ("platforms not allowed. Plugin not found") — seen
+// intermittently on emulator cold boots (probe19, 2026-08-19). The
+// window is tens of milliseconds wide, so a short bounded retry rides
+// it out; a real failure still surfaces after the last attempt.
+async function invokeStartup<T>(cmd: string): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      return await invoke<T>(cmd);
+    } catch (error) {
+      lastError = error;
+      await new Promise((r) => setTimeout(r, 150 * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
+
 async function start() {
   try {
-    const platforms = await invoke<Platform[]>("platforms");
+    const platforms = await invokeStartup<Platform[]>("platforms");
     platforms.forEach((platform) => tiles.append(tile(platform)));
     void renderBringBack(platforms.filter((p) => p.ready));
 

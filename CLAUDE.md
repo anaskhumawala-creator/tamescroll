@@ -145,13 +145,19 @@ mode shipped Stage A CSS (class-less → unblur impossible), bundle
 booted 2-4x/navigation (no re-entry guard), cross-origin video taint
 → permanent blur + 2Hz spam (now giveUp() fail-open). Probe18: blur-all
 OK, smart boots once w/o static sheet (__TS_GAZE_BUNDLE__="v1"), watch
-video filter:none, cold shortcut OK after bridge self-removal. Open
-observations: smart mode showed 0 .ts-gaze-pending/.ts-gaze-flagged on
-m.youtube search (bundle boots but flags nothing — BlazeFace
-any-logit>0 threshold needs empirical image-set check before smart is
-more than experimental); giveUp() log path never fired in probe18
-(player behavior verified regardless); rules/youtube-blur.txt dead
-file; x.txt tablist rule leaks to profile pages (pre-existing).
+video filter:none, cold shortcut OK after bridge self-removal. **Probe19 positive control: smart mode WORKS** — "podcast interview
+face" search flagged 5/8 big thumbnails (people visibly blurred, titles
+sharp); probe18's 0-flag was a correct negative (searched "nature").
+Threshold behaves both directions on real thumbnails; remaining smart
+question is runtime feel (owner eyes). Probe19 also caught an
+intermittent cold-start launcher failure: invoke("platforms") dies
+with "platforms not allowed. Plugin not found" (~1 in 3 cold boots,
+page JS races Rust webview registration) — mitigated with bounded
+retry in main.ts (invokeStartup, 5 attempts); root cause is Tauri-side
+registration timing, not fixable from JS. Other open notes: giveUp()
+log path never fired on-device (player filter:none verified
+regardless); rules/youtube-blur.txt deleted 25d1f37; x.txt tablist
+rule leaks to profile pages (pre-existing).
 
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
