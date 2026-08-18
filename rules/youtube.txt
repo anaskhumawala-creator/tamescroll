@@ -206,14 +206,31 @@ youtube.com##ytd-search ytd-radio-renderer
 
 !surface: mobile_nags App install nags
 
-! [unverified] all of the following need checking on m.youtube.com.
-! Hard rule §2: the product never nags, and it strips platform nags.
+! The topbar "Open App" pill is an <a href="intent://..."> into the
+! native app with only generic button-shape classes — the intent:
+! scheme is the one stable hook, and inside our app ANY intent:// link
+! on m.youtube is by definition an open-in-app nag.
+! [live] 1 counted in the watch-page topbar, generic classes confirmed
+! (ytSpecButtonShapeNext*, no promo class) — emulator 2026-08-19,
+! probe16 harvest
+! test: on m.youtube.com /watch ->
+!   document.querySelectorAll('a[href^="intent://"]').length >= 1
+!   and the header pill labeled "Open App" is gone
+m.youtube.com##a[href^="intent://"]
+
+! Belt-and-braces for DOM states we have not seen yet (logged-in,
+! other locales, promo campaigns). All counted 0 on the current
+! emulator DOM (2026-08-19, probe16) — harmless when absent, kept in
+! case they render elsewhere; ytm-companion-slot DID exist (empty ad
+! companion) and stays hidden.
 ! test: load m.youtube.com logged out ->
 !   the app-install banner and interstitial must not appear
 m.youtube.com##ytm-app-promo-banner
 m.youtube.com##.mobile-topbar-header-app-promo
 m.youtube.com##ytm-companion-slot
 m.youtube.com##ytm-promoted-video-renderer
+m.youtube.com##ytm-mealbar-promo-renderer
+m.youtube.com##ytm-upsell-dialog-renderer
 
 
 ! ============================================================
