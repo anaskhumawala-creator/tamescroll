@@ -11,31 +11,50 @@ type Platform = {
 const tiles = document.querySelector<HTMLElement>("#tiles")!;
 const status = document.querySelector<HTMLElement>("#status")!;
 const blurToggle = document.querySelector<HTMLElement>("#blur-toggle")!;
+const blurCaption = document.querySelector<HTMLElement>("#blur-caption")!;
 
-// Stage A store (docs/plan.md Phase 4 Stage A): localStorage is enough for
-// a single on/off setting. Stage B's three-mode picker replaces this key.
+// Stage B store (docs/plan.md Phase 4): three modes. Stage A only ever
+// wrote "1"/"0"; migrate those forward so existing installs keep their
+// choice instead of silently reverting to "off".
+type GazeMode = "off" | "blur" | "smart";
 const BLUR_KEY = "tamescroll.blur";
 
-function getBlur(): boolean {
-  return localStorage.getItem(BLUR_KEY) === "1";
+const CAPTIONS: Record<GazeMode, string> = {
+  off: "",
+  blur: "Blurs pictures on the pages you browse. What you open plays normally.",
+  smart: "Blurs faces and keeps the rest sharp. Runs on your device — nothing leaves it.",
+};
+
+function migrate(raw: string | null): GazeMode {
+  if (raw === "off" || raw === "blur" || raw === "smart") return raw;
+  if (raw === "1") return "blur";
+  return "off"; // "0", absent, or unrecognised
 }
 
-function setBlur(value: boolean) {
-  localStorage.setItem(BLUR_KEY, value ? "1" : "0");
+// Migrate once at startup so every later read is already canonical.
+localStorage.setItem(BLUR_KEY, migrate(localStorage.getItem(BLUR_KEY)));
+
+function getMode(): GazeMode {
+  return migrate(localStorage.getItem(BLUR_KEY));
+}
+
+function setMode(value: GazeMode) {
+  localStorage.setItem(BLUR_KEY, value);
   renderBlurToggle();
 }
 
 function renderBlurToggle() {
-  const on = getBlur();
+  const mode = getMode();
   blurToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
-    const active = btn.dataset.value === (on ? "1" : "0");
+    const active = btn.dataset.value === mode;
     btn.classList.toggle("active", active);
     btn.setAttribute("aria-checked", String(active));
   });
+  blurCaption.textContent = CAPTIONS[mode];
 }
 
 blurToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
-  btn.addEventListener("click", () => setBlur(btn.dataset.value === "1"));
+  btn.addEventListener("click", () => setMode(btn.dataset.value as GazeMode));
 });
 
 renderBlurToggle();
@@ -71,7 +90,7 @@ function tile(platform: Platform): HTMLButtonElement {
 
 async function open(platform: Platform) {
   try {
-    await invoke("open_platform", { id: platform.id, blur: getBlur() });
+    await invoke("open_platform", { id: platform.id, mode: getMode() });
     status.textContent = "";
   } catch (error) {
     status.textContent = `Could not open ${platform.name}: ${String(error)}`;

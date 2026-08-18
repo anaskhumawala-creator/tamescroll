@@ -1,0 +1,15 @@
+{
+  "name": "tamescroll-gaze",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Gaze Stage B runtime: on-device face detection, base64-embedded BlazeFace, built into a self-contained IIFE for app/src-tauri/gaze-init.js. See docs/gaze-research.md.",
+  "type": "commonjs",
+  "license": "MPL-2.0",
+  "devDependencies": {
+    "@tensorflow/tfjs-core": "^4.22.0",
+    "@tensorflow/tfjs-backend-cpu": "^4.22.0",
+    "@tensorflow/tfjs-backend-webgl": "^4.22.0",
+    "@tensorflow/tfjs-converter": "^4.22.0",
+    "esbuild": "^0.28.2"
+  }
+}

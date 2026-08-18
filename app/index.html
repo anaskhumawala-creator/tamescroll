@@ -15,17 +15,18 @@
 
       <section class="tiles" id="tiles" aria-label="Platforms"></section>
 
-      <!-- Stage A only: a single on/off toggle. Stage B (docs/plan.md
-           Phase 4) replaces this row with the three-mode picker. -->
+      <!-- Stage B (docs/plan.md Phase 4): three-mode picker. Caption text
+           is set per-mode by main.ts (see CAPTIONS). -->
       <section class="setting" aria-label="Gaze settings">
         <div class="setting-row">
           <span class="setting-label">Blur imagery</span>
           <div class="toggle" id="blur-toggle" role="radiogroup" aria-label="Blur imagery">
-            <button type="button" class="toggle-opt" role="radio" data-value="0">Off</button>
-            <button type="button" class="toggle-opt" role="radio" data-value="1">On</button>
+            <button type="button" class="toggle-opt" role="radio" data-value="off">Off</button>
+            <button type="button" class="toggle-opt" role="radio" data-value="blur">Blur all</button>
+            <button type="button" class="toggle-opt" role="radio" data-value="smart">Smart</button>
           </div>
         </div>
-        <p class="setting-caption">Blurs pictures on the pages you browse. What you open plays normally.</p>
+        <p class="setting-caption" id="blur-caption"></p>
       </section>
 
       <footer class="foot">

@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "build:gaze": "node gaze/build/gen-embed.js && node gaze/build/build.js"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
