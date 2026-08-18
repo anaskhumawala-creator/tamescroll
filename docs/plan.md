@@ -165,6 +165,17 @@ architecture, before anything is built on top of it:
 **Done when:** a Tauri window shows a clean, signed-in YouTube. If this
 fails, we learn it in week one with nothing invested.
 
+### Phase 2.5 — In-app ad blocking (owner: mandatory, pulled forward)
+Wire the engine's full output: vendor EasyList/EasyPrivacy/uBlock lists
+plus Brave's scriptlet resources into the FilterSet, and inject the
+engine's `injected_script` (this is what kills YouTube ads — scriptlets
+that strip ad data before the player reads it). Engine init moves off the
+first-click path. Unit test: non-empty injected_script for a YouTube
+watch URL.
+
+**Done when:** a video plays in the app with no pre-roll and no in-feed
+ads, verified by watching, and the test passes.
+
 ### Phase 3 — The launcher and the real app
 The home screen: platform icons, tap to open, no address bar, nowhere to
 wander. Add Reddit and X. Ship desktop and Android.
@@ -176,8 +187,20 @@ do not fight the reflex, we redirect it.
 **Done when:** installed on the owner's Android phone, on the home screen,
 used as the daily way into all three platforms for a week.
 
-### Phase 4 — The gaze module
-On-device detection inside the app, three modes chosen once (§5). Fail-safe
+### Phase 4 — The gaze module (owner: mandatory)
+Two stages, shipped in order.
+
+**Stage A — CSS blur modes, no AI.** The three modes from §5 expressed as
+pure CSS over the surfaces that remain after cleaning: mode 1 nothing
+extra (AI-dependent), mode 2/3 approximated by blurring media on chosen
+surfaces (thumbnails, avatars, inline images) with titles readable.
+Instant, cannot flash content, ships while Stage B is built.
+
+**Stage B — on-device detection.** Human + nsfwjs (both MIT — the same
+foundations HaramBlur uses; HaramBlur's own code is AGPL and must never
+be copied, see NOTICE). Model/library delivery into remote pages is the
+hard problem; docs/gaze-research.md holds the findings and the chosen
+architecture. Three modes chosen once (§5). Fail-safe
 ordering is mandatory: blur every image by default via injected CSS at the
 earliest possible moment, then reveal what detection clears. Tauri's
 initialisation scripts on remote sites are not guaranteed to run before the
