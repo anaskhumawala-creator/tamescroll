@@ -129,6 +129,13 @@ platform logos), cold start via one-shot ShortcutBridge JS interface
 3/3 pass: cold/warm/plain). Landing page web/index.html committed,
 Chrome-verified (interactive demo, blur texture fix, mobile nav).
 Desktop regression: launcher renders identical on new build.
+m.youtube watch-page related videos hidden (scoped off search — same
+element ytm-video-with-context-renderer, verified both ways). Open App
+topbar nag killed via a[href^="intent://"] (only stable hook — generic
+button-shape classes; verified gone). Old promo nag selectors matched
+0 on live DOM, annotated + kept belt-and-braces. Reddit mobile blur
+verified (r/EarthPorn 8/8 imgs blur(16px)); player video filter:none
+in blur-all — red line holds.
 Emulator gotchas: Hijri First app steals foreground + ANR loops —
 force-stop com.hijrifirst.app before evidence runs.
 
