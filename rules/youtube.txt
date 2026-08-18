@@ -131,6 +131,52 @@ youtube.com##ytd-promoted-video-renderer
 
 
 ! ============================================================
+! SEARCH — algorithmic inserts between the results you asked for
+! ============================================================
+! Search results themselves stay. These remove what YouTube wedges
+! BETWEEN them: promoted videos, "People also search for", shelf
+! inserts ("Channels new to you", "People also watched", "For you",
+! "Previously watched" — all ytd-shelf-renderer), and the topic/game
+! watch card with its algorithmic picks. Organic channel results are
+! ytd-channel-renderer at the section top level and are NOT touched.
+! Verified live 2026-08-18 on /results?search_query=minecraft:
+! after hiding, 46 of 49 videos and both channel results remained —
+! the 3 hidden videos were inside the inserts.
+
+! Promoted-video block at the top of search results.
+! [live] counted 2
+! test: on a search results page ->
+!   document.querySelectorAll('ytd-search-pyv-renderer').length >= 1
+youtube.com##ytd-search-pyv-renderer
+
+! Every shelf insert in search. Organic results never render inside a
+! shelf here — shelves are exclusively the recommendation wedges.
+! [live] counted 1 ("Channels new to you")
+! test: scroll a search deep enough to load inserts ->
+!   document.querySelectorAll('ytd-search ytd-shelf-renderer').length >= 1
+youtube.com##ytd-search ytd-shelf-renderer
+
+! "People also search for" refinement card strip.
+! [live] counted 1 with 10 cards
+! test: scroll a search deep enough ->
+!   document.querySelectorAll('ytd-search ytd-horizontal-card-list-renderer').length >= 1
+youtube.com##ytd-search ytd-horizontal-card-list-renderer
+
+! Topic/game/film watch card in the right column ("Minecraft — Video
+! game", then a feed of algorithmic picks for it).
+! [live] counted 1
+! test: search a game or film title ->
+!   document.querySelectorAll('ytd-universal-watch-card-renderer').length === 1
+youtube.com##ytd-universal-watch-card-renderer
+
+! Mix/radio playlist inserts ("My Mix", "Minecraft Mix").
+! [unverified] none rendered on the test query
+! test: search an artist name ->
+!   document.querySelectorAll('ytd-search ytd-radio-renderer').length >= 1
+youtube.com##ytd-search ytd-radio-renderer
+
+
+! ============================================================
 ! MOBILE WEB — "open in app" nags
 ! ============================================================
 ! [unverified] all of the following need checking on m.youtube.com.
