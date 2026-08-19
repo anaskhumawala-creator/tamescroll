@@ -31,10 +31,15 @@ Order per item: **text signal → (compulsory) NSFW → face → gender.**
   whole-word. Cheap pre-filter BEFORE models; a hit skips inference.
 - **Compulsory tier (next):** NSFW hit ⇒ REMOVED from view (not blurred),
   every mode, no setting. Runs regardless of the gaze toggle.
-- **Gender stage (the smart-mode fix):** per-face gender via Human (MIT).
-  Opposite gender (from onboarding answer) → filtered; same gender →
-  UNBLURRED. This is what turns smart mode from "every face stays
-  blurred forever" into HaramBlur-parity behavior.
+- **Gender stage (BUILT 2026-08-19, device verification pending):**
+  per-face boxes (full BlazeFace decode, adapted from Human, MIT) →
+  SSR-Net gender per face (model from human-models, MIT, 64×64, ~161KB).
+  Opposite gender or low-confidence → covered; ALL faces confidently
+  same-gender → unblurred (then NSFW still checks the image). No
+  declared gender → old presence behavior. This turns smart mode from
+  "every face stays blurred forever" into HaramBlur-parity behavior.
+  Declared via the launcher's "You are" row (provisional home until
+  onboarding); stored on-device only.
 
 ## 3. Why smart mode feels broken today (owner report 2026-08-19)
 
@@ -61,7 +66,10 @@ conservative, never tuned against evidence.
 | Video sample | 500ms | ≤2 inferences/s/video | guess |
 | Clean streak | 4 samples | consecutive clean frames to unblur (~2s) | guess |
 | Blur radius | 8/16/28px (Light/Med/Strong), 24px fallback | strength presets | owner-chosen |
-| Gender threshold | — (stage not built) | per-face gender confidence | TBD — must be calibrated before ship |
+| Gender min score | 0.6 (GENDER_MIN_SCORE) | below ⇒ face treated unknown, stays covered | guess |
+| Face min confidence | 0.2 | NMS score floor for a box to count | guess |
+| Face NMS IoU | 0.1 | box de-duplication overlap | guess (Human-family default) |
+| Face crop enlarge | 1.4× | context around face for gender crop | guess (Human-family default) |
 
 ## 5. Calibration protocol (the rule for changing any number)
 

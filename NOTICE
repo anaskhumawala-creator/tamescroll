@@ -52,6 +52,14 @@ obscenity — MIT License
   Text-matching engine (evasion normalization: leetspeak, confusables,
   repeated characters) used by the protection engine's text signals.
 
+vladmandic/human and human-models — MIT License
+  https://github.com/vladmandic/human
+  The gaze module's BlazeFace box decode + anchor generation are
+  adapted from Human's implementation (see app/gaze/src/detector.js),
+  and the gender classifier (SSR-Net architecture) is the converted
+  model distributed in vladmandic/human-models, embedded (base64) like
+  the other models.
+
 EasyList / EasyPrivacy — dual-licensed GPLv3 / CC BY-SA 3.0
   https://easylist.to/
   Consumed as upstream filter data by the embedded engine. Snapshots

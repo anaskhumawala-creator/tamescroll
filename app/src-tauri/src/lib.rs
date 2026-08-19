@@ -92,6 +92,29 @@ fn blur_px() -> u32 {
     *BLUR_PX.lock().unwrap()
 }
 
+/// Declared user gender for the protection engine's gender stage
+/// (docs/handoff-protection-engine.md decision #3). Same lifecycle as
+/// GAZE_STATE: launcher-set, desktop windows read it per page load,
+/// Android's single webview re-reads on navigation. "unset" = no
+/// declaration; the bundle then covers any face (fail-safe).
+static GENDER_STATE: Mutex<&'static str> = Mutex::new("unset");
+
+fn user_gender_norm(g: &str) -> &'static str {
+    match g {
+        "man" => "man",
+        "woman" => "woman",
+        _ => "unset",
+    }
+}
+
+fn set_user_gender_state(g: &str) {
+    *GENDER_STATE.lock().unwrap() = user_gender_norm(g);
+}
+
+fn user_gender() -> &'static str {
+    *GENDER_STATE.lock().unwrap()
+}
+
 /// The CSS variables every blur consumer resolves against: Stage A
 /// sheets use `var(--ts-blur, 16px)`, Stage B's class styles use
 /// `var(--ts-blur-strong, 24px)` — positively detected content earns
@@ -178,12 +201,14 @@ fn gaze_script(mode: &str) -> String {
     // smart mode ships no stylesheet of its own to carry a :root rule.
     let px = blur_px();
     let strong = px * 3 / 2;
+    let gender = user_gender();
     format!(
         r#"
 (function () {{
   try {{
     if (window.__TS_GAZE_BUNDLE__) return;
     window.__TS_GAZE_MODE = "smart";
+    window.__TS_GAZE_GENDER = "{gender}";
     var tsRoot = document.documentElement;
     if (tsRoot) {{
       tsRoot.style.setProperty("--ts-blur", "{px}px");
@@ -340,6 +365,13 @@ fn set_gaze_mode(mode: String) {
 #[tauri::command]
 fn set_blur_strength(px: u32) {
     set_blur_px(px);
+}
+
+/// Same contract again, for the launcher's gender declaration:
+/// already-open pages keep their verdicts until they navigate.
+#[tauri::command]
+fn set_user_gender(gender: String) {
+    set_user_gender_state(&gender);
 }
 
 /// Build the CSS the engine says applies to this URL.
@@ -620,6 +652,7 @@ async fn open_platform(
     id: String,
     mode: String,
     strength: u32,
+    gender: String,
     shown: Vec<String>,
 ) -> Result<(), String> {
     let platform = PLATFORMS
@@ -636,6 +669,7 @@ async fn open_platform(
     // forget race the mode parameter exists for).
     set_gaze_state(&mode);
     set_blur_px(strength);
+    set_user_gender_state(&gender);
 
     let url: tauri::Url = platform
         .url
@@ -733,7 +767,8 @@ pub fn run() {
             rules_summary,
             surfaces,
             set_gaze_mode,
-            set_blur_strength
+            set_blur_strength,
+            set_user_gender
         ])
         .run(tauri::generate_context!())
         .expect("error while running tamescroll");
@@ -926,6 +961,29 @@ mod tests {
         assert_eq!(gaze_state(), "blur");
         set_gaze_state("off");
         assert_eq!(gaze_state(), "off");
+    }
+
+    /// The gender declaration follows the same lifecycle as mode and
+    /// strength: launcher sets, Rust holds, the smart boot script bakes
+    /// it in as __TS_GAZE_GENDER. Unknown values must land on "unset"
+    /// (bundle then covers any face — fail-safe), never leak through.
+    #[test]
+    fn user_gender_round_trips_and_reaches_the_smart_boot_script() {
+        set_user_gender_state("man");
+        assert_eq!(user_gender(), "man");
+        let js = gaze_script("smart");
+        assert!(js.contains("__TS_GAZE_GENDER = \"man\""));
+
+        set_user_gender_state("woman");
+        let js = gaze_script("smart");
+        assert!(js.contains("__TS_GAZE_GENDER = \"woman\""));
+
+        set_user_gender_state("attack-string\" ;alert(1);");
+        assert_eq!(user_gender(), "unset");
+        let js = gaze_script("smart");
+        assert!(js.contains("__TS_GAZE_GENDER = \"unset\""));
+
+        set_user_gender_state("unset");
     }
 
     /// The strength preset follows the same lifecycle as the mode:

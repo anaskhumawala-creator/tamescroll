@@ -15,6 +15,8 @@ const blurCaption = document.querySelector<HTMLElement>("#blur-caption")!;
 const bringBack = document.querySelector<HTMLElement>("#bring-back")!;
 const strengthRow = document.querySelector<HTMLElement>("#blur-strength-row")!;
 const strengthToggle = document.querySelector<HTMLElement>("#blur-strength")!;
+const genderRow = document.querySelector<HTMLElement>("#gender-row")!;
+const genderToggle = document.querySelector<HTMLElement>("#gender-toggle")!;
 
 // Stage B store (docs/plan.md Phase 4): three modes. Stage A only ever
 // wrote "1"/"0"; migrate those forward so existing installs keep their
@@ -67,6 +69,24 @@ function setStrength(px: number) {
   renderBlurToggle();
 }
 
+// Gender declaration for smart mode's gender stage. Same localStorage +
+// Rust mirror dance as mode/strength. "unset" is honest and allowed:
+// smart mode then covers every face instead of filtering one gender.
+// Provisional launcher placement — the designed home is onboarding.
+const GENDER_KEY = "tamescroll.gender";
+type UserGender = "man" | "woman" | "unset";
+
+function getGender(): UserGender {
+  const g = localStorage.getItem(GENDER_KEY);
+  return g === "man" || g === "woman" ? g : "unset";
+}
+
+function setGender(g: UserGender) {
+  localStorage.setItem(GENDER_KEY, g);
+  void invoke("set_user_gender", { gender: g }).catch(() => {});
+  renderBlurToggle();
+}
+
 function renderBlurToggle() {
   const mode = getMode();
   blurToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
@@ -82,6 +102,13 @@ function renderBlurToggle() {
     btn.classList.toggle("active", active);
     btn.setAttribute("aria-checked", String(active));
   });
+  const gender = getGender();
+  genderRow.hidden = mode !== "smart";
+  genderToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
+    const active = btn.dataset.value === gender;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-checked", String(active));
+  });
 }
 
 blurToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
@@ -92,11 +119,16 @@ strengthToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) 
   btn.addEventListener("click", () => setStrength(Number(btn.dataset.value)));
 });
 
+genderToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
+  btn.addEventListener("click", () => setGender(btn.dataset.value as UserGender));
+});
+
 renderBlurToggle();
 // Sync the stored mode into Rust at startup too, not just on change —
 // otherwise a relaunch would leave Rust at "off" until the first toggle.
 void invoke("set_gaze_mode", { mode: getMode() }).catch(() => {});
 void invoke("set_blur_strength", { px: getStrength() }).catch(() => {});
+void invoke("set_user_gender", { gender: getGender() }).catch(() => {});
 
 // Phase 3 (docs/plan.md): per-platform "bring back" toggles — surfaces we
 // hide by default, that the user can choose to show again. Defaults stay
@@ -255,6 +287,7 @@ async function open(platform: Platform) {
       strength: getStrength(),
       id: platform.id,
       mode: getMode(),
+      gender: getGender(),
       shown: getShown(platform.id),
     });
     status.textContent = restingStatus;

@@ -47,6 +47,18 @@
             <button type="button" class="toggle-opt" role="radio" data-value="28">Strong</button>
           </div>
         </div>
+        <!-- Protection engine gender stage (docs/handoff-protection-engine.md
+             decision #2/#3): honest wording — we filter the other gender by
+             default. Provisional placement; the real home is the compulsory
+             onboarding step, which is a separate deferred design pass. -->
+        <div class="setting-row" id="gender-row" hidden>
+          <span class="setting-label">You are</span>
+          <div class="toggle" id="gender-toggle" role="radiogroup" aria-label="Your gender">
+            <button type="button" class="toggle-opt" role="radio" data-value="man">A man</button>
+            <button type="button" class="toggle-opt" role="radio" data-value="woman">A woman</button>
+            <button type="button" class="toggle-opt" role="radio" data-value="unset">Not saying</button>
+          </div>
+        </div>
         <p class="setting-caption" id="blur-caption"></p>
       </section>
 

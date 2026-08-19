@@ -14,6 +14,7 @@
 // sampling — never its AGPL-3.0 source; see NOTICE / VISION.md).
 import * as dom from './dom.js';
 import * as detector from './detector.js';
+import { faceVerdict } from './gender-verdict.mjs';
 
 (function () {
   // Distinctive, minification-proof marker (property assignment with a
@@ -23,6 +24,14 @@ import * as detector from './detector.js';
 
   if (window.__TS_GAZE_MODE !== 'smart') return;
 
+  // Declared user gender (protection engine): set by the Rust boot
+  // script from launcher state. "man"/"woman" filters the opposite
+  // gender; anything else means undeclared — any face stays covered.
+  var userGender =
+    window.__TS_GAZE_GENDER === 'man' || window.__TS_GAZE_GENDER === 'woman'
+      ? window.__TS_GAZE_GENDER
+      : 'unset';
+
   var IMAGE_MIN_SIZE = 64;
   var IMAGE_BATCH_MAX = 4;
   var VIDEO_SAMPLE_INTERVAL_MS = 500; // caps inference at ~2/s per video
@@ -31,6 +40,7 @@ import * as detector from './detector.js';
   var failed = false;
   var model = null;
   var nsfwModel = null;
+  var genderModel = null;
   // Everything that ever wore pending/flagged, for the fail-open sweep.
   // WeakRefs + a per-element tracked flag: virtualised feeds detach
   // thousands of media nodes per long scroll, and strong refs here would
@@ -96,15 +106,33 @@ import * as detector from './detector.js';
           }, 200);
         };
 
+  // Shared face verdict for a pixel source: boxes -> per-face gender ->
+  // faceVerdict. Without the gender model (still loading, or failed) any
+  // face covers — the old presence behavior, which is also the fail-safe.
+  function faceCheck(el) {
+    return detector.detectFaceBoxes(model, el).then(function (faces) {
+      if (!faces.length) return 'clear';
+      if (!genderModel) return 'flag';
+      return Promise.all(
+        faces.map(function (box) {
+          return detector.classifyFaceGender(genderModel, el, box);
+        })
+      ).then(function (genders) {
+        return faceVerdict(userGender, genders);
+      });
+    });
+  }
+
   function detectImage(img) {
     return dom
       .loadDetectable(img)
       .then(function (el) {
-        // Face first (cheaper, most common hit). NSFW classifier only
-        // consulted when no face flagged and the model actually loaded
-        // (its failure degrades to face-only, never breaks the page).
-        return detector.detectFaces(model, el).then(function (hasFace) {
-          if (hasFace || !nsfwModel) return hasFace;
+        // Faces first (cheaper, most common hit). NSFW runs even when
+        // the faces cleared: a gender-cleared image can still be
+        // suggestive, and the compulsory tier owns that call. NSFW
+        // model missing degrades to face-only, never breaks the page.
+        return faceCheck(el).then(function (verdict) {
+          if (verdict === 'flag' || !nsfwModel) return verdict === 'flag';
           return detector.isNsfw(nsfwModel, el);
         });
       })
@@ -242,10 +270,22 @@ import * as detector from './detector.js';
         ctx2d.drawImage(video, 0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
         var pixels = ctx2d.getImageData(0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
         detector
-          .detectFaces(model, pixels)
-          .then(function (hasFace) {
+          .detectFaceBoxes(model, pixels)
+          .then(function (faces) {
+            if (!faces.length || !genderModel) {
+              return faces.length ? 'flag' : 'clear';
+            }
+            return Promise.all(
+              faces.map(function (box) {
+                return detector.classifyFaceGender(genderModel, pixels, box);
+              })
+            ).then(function (genders) {
+              return faceVerdict(userGender, genders);
+            });
+          })
+          .then(function (verdict) {
             if (failed) return;
-            if (hasFace) {
+            if (verdict === 'flag') {
               cleanStreak = 0;
               markFlagged(video); // re-flag instantly
             } else {
@@ -415,16 +455,31 @@ import * as detector from './detector.js';
       // model. Images verified face-clean before it arrives were
       // cleared under face-only rules — acceptable: blur-first already
       // held while they were pending, and the next src swap re-checks.
-      return detector.loadNsfwModel().then(
-        function (nsfw) {
-          nsfwModel = nsfw;
-        },
-        function (e) {
-          // Degrade to face-only, loudly but harmlessly.
-          // eslint-disable-next-line no-console
-          console.warn('tamescroll gaze: nsfw model unavailable, face-only', e);
-        }
-      );
+      return detector
+        .loadNsfwModel()
+        .then(
+          function (nsfw) {
+            nsfwModel = nsfw;
+          },
+          function (e) {
+            // Degrade to face-only, loudly but harmlessly.
+            // eslint-disable-next-line no-console
+            console.warn('tamescroll gaze: nsfw model unavailable, face-only', e);
+          }
+        )
+        .then(function () {
+          // Gender last — it only ever REMOVES blur (same-gender clears),
+          // so nothing waits on it. Failure degrades to presence-only.
+          return detector.loadGenderModel().then(
+            function (gender) {
+              genderModel = gender;
+            },
+            function (e) {
+              // eslint-disable-next-line no-console
+              console.warn('tamescroll gaze: gender model unavailable, presence-only', e);
+            }
+          );
+        });
     })
     .catch(function (e) {
       failOpen('detector init error', e);
