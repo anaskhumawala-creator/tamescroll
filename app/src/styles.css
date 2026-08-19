@@ -159,6 +159,25 @@ body {
   gap: 12px;
 }
 
+/* Onboarding picker states — same tiles, tap selects instead of opens. */
+.tile.selected {
+  border-color: var(--tint);
+  box-shadow: 0 0 0 1px var(--tint) inset;
+}
+
+.onboard-cta {
+  appearance: none;
+  margin-top: 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--surface);
+  font: inherit;
+  font-weight: 600;
+  padding: 10px 26px;
+  cursor: pointer;
+}
+
 .tile {
   appearance: none;
   border: 1px solid var(--line-soft);

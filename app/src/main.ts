@@ -191,6 +191,31 @@ async function renderBringBack(readyPlatforms: Platform[]) {
   }
 }
 
+// Chosen platforms (owner decision 2026-08-19): a launcher that shows
+// every platform is itself a temptation surface — a hub. So the grid
+// only ever shows platforms the user explicitly brought in. Key absent
+// = first run → onboarding picker. Adding later is an explicit act in
+// "Manage platforms", the same philosophy as Bring back: defaults
+// minimal, loosening deliberate. A home-screen shortcut for an
+// un-chosen platform counts as its own explicit choice (the user
+// created that icon) and adds the platform.
+const CHOSEN_KEY = "tamescroll.chosen";
+
+function readChosen(): string[] | null {
+  const raw = localStorage.getItem(CHOSEN_KEY);
+  if (raw === null) return null; // onboarding not done yet
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeChosen(ids: string[]) {
+  localStorage.setItem(CHOSEN_KEY, JSON.stringify(ids));
+}
+
 function tile(platform: Platform): HTMLButtonElement {
   const el = document.createElement("button");
   el.className = "tile";
@@ -257,11 +282,124 @@ async function invokeStartup<T>(cmd: string): Promise<T> {
   throw lastError;
 }
 
+function renderTiles(platforms: Platform[], chosen: string[]) {
+  tiles.textContent = "";
+  platforms
+    .filter((p) => chosen.includes(p.id))
+    .forEach((platform) => tiles.append(tile(platform)));
+  if (!tiles.childElementCount) {
+    const empty = document.createElement("p");
+    empty.className = "section-hint";
+    empty.textContent = "No platforms added. Bring one in below when you need it.";
+    tiles.append(empty);
+  }
+}
+
+// "Manage platforms": every platform as an In/Out row. Out is the
+// default state of the world; In is the explicit act.
+function renderManage(platforms: Platform[], onChange: (chosen: string[]) => void) {
+  const host = document.querySelector<HTMLElement>("#manage-platforms")!;
+  host.textContent = "";
+  const details = document.createElement("details");
+  details.className = "platform-settings";
+  const summary = document.createElement("summary");
+  summary.textContent = "Manage platforms";
+  details.append(summary);
+
+  platforms.forEach((platform) => {
+    const row = document.createElement("div");
+    row.className = "setting-row";
+    const label = document.createElement("span");
+    label.className = "setting-label";
+    label.textContent = platform.ready ? platform.name : `${platform.name} (not ready yet)`;
+    const toggle = document.createElement("div");
+    toggle.className = "toggle";
+    const paint = () => {
+      const inNow = (readChosen() ?? []).includes(platform.id);
+      toggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
+        btn.classList.toggle("active", (btn.dataset.value === "in") === inNow);
+      });
+    };
+    (["out", "in"] as const).forEach((value) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "toggle-opt";
+      btn.dataset.value = value;
+      btn.textContent = value === "in" ? "In" : "Out";
+      btn.disabled = !platform.ready;
+      btn.addEventListener("click", () => {
+        const current = (readChosen() ?? []).filter((id) => id !== platform.id);
+        const next = value === "in" ? [...current, platform.id] : current;
+        writeChosen(next);
+        paint();
+        onChange(next);
+      });
+      toggle.append(btn);
+    });
+    paint();
+    row.append(label, toggle);
+    details.append(row);
+  });
+  host.append(details);
+}
+
+// First-run picker: same tiles, but a tap selects instead of opening.
+// Skippable — an empty launcher is a valid, honest starting point.
+function renderOnboarding(platforms: Platform[], done: (chosen: string[]) => void) {
+  tiles.textContent = "";
+  const prompt = document.createElement("p");
+  prompt.className = "section-hint";
+  prompt.textContent =
+    "Which of these do you already use? Only what you pick shows up here — you can change it any time.";
+  tiles.append(prompt);
+
+  const selection = new Set<string>();
+  const grid = document.createElement("div");
+  grid.className = "tiles";
+  platforms
+    .filter((p) => p.ready)
+    .forEach((platform) => {
+      const el = tile(platform);
+      const fresh = el.cloneNode(true) as HTMLButtonElement; // drop open() listener
+      fresh.addEventListener("click", () => {
+        const on = selection.has(platform.id);
+        if (on) selection.delete(platform.id);
+        else selection.add(platform.id);
+        fresh.classList.toggle("selected", !on);
+      });
+      grid.append(fresh);
+    });
+  tiles.append(grid);
+
+  const cta = document.createElement("button");
+  cta.type = "button";
+  cta.className = "onboard-cta";
+  cta.textContent = "Start";
+  cta.addEventListener("click", () => {
+    const chosen = Array.from(selection);
+    writeChosen(chosen);
+    done(chosen);
+  });
+  tiles.append(cta);
+}
+
 async function start() {
   try {
     const platforms = await invokeStartup<Platform[]>("platforms");
-    platforms.forEach((platform) => tiles.append(tile(platform)));
-    void renderBringBack(platforms.filter((p) => p.ready));
+
+    const refresh = (chosen: string[]) => {
+      renderTiles(platforms, chosen);
+      bringBack.textContent = "";
+      void renderBringBack(platforms.filter((p) => p.ready && chosen.includes(p.id)));
+    };
+
+    const chosen = readChosen();
+    renderManage(platforms, refresh);
+    if (chosen === null) {
+      renderOnboarding(platforms, refresh);
+    } else {
+      refresh(chosen);
+    }
 
     const counts = await invoke<Record<string, number>>("rules_summary");
     const active = Object.values(counts).reduce((sum, n) => sum + n, 0);
@@ -288,7 +426,16 @@ async function start() {
     if (requested) {
       history.replaceState(null, "", location.pathname);
       const target = platforms.find((p) => p.id === requested && p.ready);
-      if (target) void open(target);
+      if (target) {
+        // The user created this platform's home-screen icon — that is
+        // an explicit choice, so it also brings the platform in.
+        const current = readChosen() ?? [];
+        if (!current.includes(target.id)) {
+          writeChosen([...current, target.id]);
+          refresh(readChosen() ?? []);
+        }
+        void open(target);
+      }
     }
   } catch (error) {
     status.textContent = `Failed to load: ${String(error)}`;
