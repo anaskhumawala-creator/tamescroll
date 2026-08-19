@@ -15,6 +15,13 @@
 import * as dom from './dom.js';
 import * as detector from './detector.js';
 import { faceVerdict } from './gender-verdict.mjs';
+import {
+  supportsRegionBlur,
+  initRegionBlur,
+  applyRegionBlur,
+  clearRegionBlur,
+  clearAllRegionBlur,
+} from './region-blur.mjs';
 
 (function () {
   // Distinctive, minification-proof marker (property assignment with a
@@ -71,6 +78,7 @@ import { faceVerdict } from './gender-verdict.mjs';
 
   function clearEl(el) {
     el.classList.remove(dom.PENDING_CLASS, dom.FLAGGED_CLASS);
+    if (regionBlur) clearRegionBlur(el);
   }
 
   function failOpen(reason, err) {
@@ -86,11 +94,19 @@ import { faceVerdict } from './gender-verdict.mjs';
       if (el) clearEl(el);
     }
     blurredEls.length = 0;
+    if (regionBlur) clearAllRegionBlur();
     // eslint-disable-next-line no-console
     console.warn('tamescroll gaze: disabled after ' + reason, err);
   }
 
   dom.injectStyle();
+
+  // Face-region blur (owner ask 2026-08-19): flagged-by-gender images
+  // blur just the face rects, rest stays visible. Whole-element blur
+  // remains the fallback (no backdrop-filter, videos, NSFW flags) and
+  // the snap-back state whenever the viewport moves.
+  var regionBlur = supportsRegionBlur();
+  if (regionBlur) initRegionBlur(dom.FLAGGED_CLASS);
 
   // ---- image pipeline -----------------------------------------------
   var imageSeen = typeof WeakSet !== 'undefined' ? new WeakSet() : null;
@@ -111,14 +127,14 @@ import { faceVerdict } from './gender-verdict.mjs';
   // face covers — the old presence behavior, which is also the fail-safe.
   function faceCheck(el) {
     return detector.detectFaceBoxes(model, el).then(function (faces) {
-      if (!faces.length) return 'clear';
-      if (!genderModel) return 'flag';
+      if (!faces.length) return { verdict: 'clear', faces: faces };
+      if (!genderModel) return { verdict: 'flag', faces: faces };
       return Promise.all(
         faces.map(function (box) {
           return detector.classifyFaceGender(genderModel, el, box);
         })
       ).then(function (genders) {
-        return faceVerdict(userGender, genders);
+        return { verdict: faceVerdict(userGender, genders), faces: faces };
       });
     });
   }
@@ -131,15 +147,27 @@ import { faceVerdict } from './gender-verdict.mjs';
         // the faces cleared: a gender-cleared image can still be
         // suggestive, and the compulsory tier owns that call. NSFW
         // model missing degrades to face-only, never breaks the page.
-        return faceCheck(el).then(function (verdict) {
-          if (verdict === 'flag' || !nsfwModel) return verdict === 'flag';
-          return detector.isNsfw(nsfwModel, el);
+        return faceCheck(el).then(function (face) {
+          if (face.verdict === 'flag' || !nsfwModel) {
+            return { flag: face.verdict === 'flag', faces: face.faces };
+          }
+          return detector.isNsfw(nsfwModel, el).then(function (nsfw) {
+            // NSFW flags are whole-image by nature — no face boxes.
+            return { flag: nsfw, faces: [] };
+          });
         });
       })
-      .then(function (flag) {
+      .then(function (result) {
         if (failed) return;
-        if (flag) markFlagged(img);
-        else clearEl(img);
+        if (result.flag) {
+          markFlagged(img);
+          // Face-caused flags narrow to face-region overlays (the
+          // whole-blur class stays on until the first successful
+          // overlay positioning — blur-first holds throughout).
+          if (regionBlur && result.faces.length) applyRegionBlur(img, result.faces);
+        } else {
+          clearEl(img);
+        }
       })
       .catch(function (e) {
         // Fail-closed for imagery: could not verify, stays blurred.
@@ -207,6 +235,7 @@ import { faceVerdict } from './gender-verdict.mjs';
   function retagImage(img) {
     if (failed || dom.hasPlayerAncestor(img)) return;
     if (imageSeen) imageSeen.delete(img);
+    if (regionBlur) clearRegionBlur(img); // stale overlays die with the old src
     markPending(img);
     tagImage(img);
   }
