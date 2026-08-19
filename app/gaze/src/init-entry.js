@@ -22,6 +22,7 @@ import {
   clearRegionBlur,
   clearAllRegionBlur,
 } from './region-blur.mjs';
+import { createTextMatcher } from './text-signals.mjs';
 
 (function () {
   // Distinctive, minification-proof marker (property assignment with a
@@ -108,6 +109,62 @@ import {
   var regionBlur = supportsRegionBlur();
   if (regionBlur) initRegionBlur(dom.FLAGGED_CLASS);
 
+  // Text signals (handoff decision #5): the cheap pre-filter that runs
+  // BEFORE any model. Seed list is embedded; user terms arrive from the
+  // Rust boot script. A matcher construction failure must never take
+  // the visual pipeline down — text signal simply switches off.
+  var textMatcher = null;
+  try {
+    textMatcher = createTextMatcher(window.__TS_USER_TERMS);
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('tamescroll gaze: text matcher unavailable', e);
+  }
+
+  // Per-host feed-item containers, live-DOM-verified only (project rule:
+  // selectors are read from the live DOM, never guessed). The whole
+  // item's textContent is the haystack — title + channel + captions in
+  // one read, no per-field selectors to drift.
+  //   ytd-video-renderer          www.youtube search results (verified
+  //                               live 2026-08-19; thumbnails carry NO
+  //                               alt/aria-label — alt="true").
+  //   ytm-video-with-context-renderer  m.youtube feed/related items
+  //                               (live-verified 2026-08-19 session).
+  // Other platforms join as their containers get live-verified.
+  var TEXT_ITEMS = [
+    { suffix: 'youtube.com', item: 'ytd-video-renderer, ytm-video-with-context-renderer' },
+  ];
+
+  var textItemSelector = (function () {
+    var host = (location.hostname || '').replace(/^www\./, '');
+    for (var i = 0; i < TEXT_ITEMS.length; i++) {
+      var c = TEXT_ITEMS[i];
+      if (host === c.suffix || host.slice(-c.suffix.length - 1) === '.' + c.suffix) {
+        return c.item;
+      }
+    }
+    return null;
+  })();
+
+  // Text for a media element: generic attributes (alt/aria-label, nearest
+  // labelled link) plus, where a verified container exists, the whole
+  // feed item's text. Capped — matching cost is linear in haystack size.
+  function mediaText(el) {
+    var parts = [];
+    if (el.alt && el.alt.length > 4) parts.push(el.alt);
+    var own = el.getAttribute && el.getAttribute('aria-label');
+    if (own) parts.push(own);
+    if (el.closest) {
+      var link = el.closest('a[aria-label], a[title]');
+      if (link) parts.push(link.getAttribute('aria-label') || link.getAttribute('title'));
+      if (textItemSelector) {
+        var item = el.closest(textItemSelector);
+        if (item) parts.push((item.textContent || '').slice(0, 500));
+      }
+    }
+    return parts.join(' ');
+  }
+
   // ---- image pipeline -----------------------------------------------
   var imageSeen = typeof WeakSet !== 'undefined' ? new WeakSet() : null;
   var imageQueue = [];
@@ -140,6 +197,19 @@ import {
   }
 
   function detectImage(img) {
+    // Text pre-filter: a hit keeps the element covered without spending
+    // any inference on it. Whole-element blur (no face boxes to narrow
+    // to — the signal is about the item, not a region).
+    if (textMatcher) {
+      try {
+        if (textMatcher.test(mediaText(img))) {
+          markFlagged(img);
+          return Promise.resolve();
+        }
+      } catch (e) {
+        /* matcher error: fall through to the visual pipeline */
+      }
+    }
     return dom
       .loadDetectable(img)
       .then(function (el) {

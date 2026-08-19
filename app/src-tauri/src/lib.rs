@@ -115,6 +115,26 @@ fn user_gender() -> &'static str {
     *GENDER_STATE.lock().unwrap()
 }
 
+/// User-added filter terms (Settings -> Filters). Seed list ships inside
+/// the gaze bundle; these ride the smart boot script as a JSON array so
+/// the matcher can extend itself. Same launcher-set lifecycle as the
+/// rest of the gaze state.
+static USER_TERMS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+fn set_user_terms_state(terms: Vec<String>) {
+    let mut cleaned: Vec<String> = terms
+        .into_iter()
+        .map(|t| t.trim().to_string())
+        .filter(|t| !t.is_empty() && t.len() <= 100)
+        .collect();
+    cleaned.truncate(200);
+    *USER_TERMS.lock().unwrap() = cleaned;
+}
+
+fn user_terms_json() -> String {
+    serde_json::to_string(&*USER_TERMS.lock().unwrap()).unwrap_or_else(|_| "[]".into())
+}
+
 /// The CSS variables every blur consumer resolves against: Stage A
 /// sheets use `var(--ts-blur, 16px)`, Stage B's class styles use
 /// `var(--ts-blur-strong, 24px)` — positively detected content earns
@@ -202,6 +222,7 @@ fn gaze_script(mode: &str) -> String {
     let px = blur_px();
     let strong = px * 3 / 2;
     let gender = user_gender();
+    let terms = user_terms_json();
     format!(
         r#"
 (function () {{
@@ -209,6 +230,7 @@ fn gaze_script(mode: &str) -> String {
     if (window.__TS_GAZE_BUNDLE__) return;
     window.__TS_GAZE_MODE = "smart";
     window.__TS_GAZE_GENDER = "{gender}";
+    window.__TS_USER_TERMS = {terms};
     var tsRoot = document.documentElement;
     if (tsRoot) {{
       tsRoot.style.setProperty("--ts-blur", "{px}px");
@@ -372,6 +394,13 @@ fn set_blur_strength(px: u32) {
 #[tauri::command]
 fn set_user_gender(gender: String) {
     set_user_gender_state(&gender);
+}
+
+/// Settings -> Filters user terms. Applies to pages opened after the
+/// change, like every other gaze setting.
+#[tauri::command]
+fn set_user_terms(terms: Vec<String>) {
+    set_user_terms_state(terms);
 }
 
 /// Build the CSS the engine says applies to this URL.
@@ -768,7 +797,8 @@ pub fn run() {
             surfaces,
             set_gaze_mode,
             set_blur_strength,
-            set_user_gender
+            set_user_gender,
+            set_user_terms
         ])
         .run(tauri::generate_context!())
         .expect("error while running tamescroll");
@@ -984,6 +1014,19 @@ mod tests {
         assert!(js.contains("__TS_GAZE_GENDER = \"unset\""));
 
         set_user_gender_state("unset");
+    }
+
+    /// User filter terms reach the smart boot script as a JSON array,
+    /// sanitised (trimmed, bounded) so a hostile term can't break out
+    /// of the script string.
+    #[test]
+    fn user_terms_reach_the_smart_boot_script_sanitised() {
+        set_user_terms_state(vec!["  crypto  ".into(), "".into(), "a\"b".into()]);
+        let js = gaze_script("smart");
+        assert!(js.contains("__TS_USER_TERMS"));
+        assert!(js.contains("[\"crypto\",\"a\\\"b\"]"), "json: {}", user_terms_json());
+        set_user_terms_state(Vec::new());
+        assert!(gaze_script("smart").contains("__TS_USER_TERMS = []"));
     }
 
     /// The strength preset follows the same lifecycle as the mode:
