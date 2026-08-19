@@ -189,6 +189,14 @@ state, not window-creation mode. Verified: smart boots on desktop
 www.youtube (2 pending + 4 flagged), player filter:none. NOTE for
 future: never put big payloads in initialization_script on Windows.
 
+**Protection engine grilled 2026-08-19 (day session):** gender filter +
+compulsory suggestive removal + text signals. All decisions in
+docs/handoff-protection-engine.md + CONTEXT.md; research in
+docs/keyword-research.md. Spec NOT written — next step is to-spec in a
+fresh session. TikTok blur rewritten blanket (all img+video, player
+exempt) after two owner reports — fbd885e. Desktop dev relaunch with CDP
+9223 verified 37/37 blurred in-app.
+
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
 (rules would be [unverified] — site blocked in India); Instagram
