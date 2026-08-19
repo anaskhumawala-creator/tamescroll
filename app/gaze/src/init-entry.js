@@ -131,8 +131,14 @@ import { createTextMatcher } from './text-signals.mjs';
   //   ytm-video-with-context-renderer  m.youtube feed/related items
   //                               (live-verified 2026-08-19 session).
   // Other platforms join as their containers get live-verified.
+  //   shreddit-post               www.reddit.com feed posts (verified
+  //                               live 2026-08-19: thumbnails sit in
+  //                               its LIGHT DOM so closest() reaches
+  //                               it; title lands in the first ~60
+  //                               chars of textContent).
   var TEXT_ITEMS = [
     { suffix: 'youtube.com', item: 'ytd-video-renderer, ytm-video-with-context-renderer' },
+    { suffix: 'reddit.com', item: 'shreddit-post' },
   ];
 
   var textItemSelector = (function () {
