@@ -4,78 +4,218 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>tamescroll</title>
-    <link rel="stylesheet" href="/src/styles.css" />
+    <script type="module" src="/src/main.ts" defer></script>
   </head>
   <body>
-    <div class="glow" aria-hidden="true"></div>
-    <main class="shell">
-      <header class="brand">
-        <span class="mark" aria-hidden="true"></span>
-        <span class="wordmark">tamescroll</span>
-      </header>
+    <!-- Design source: owner's Claude Design canvas boards 1A-1E (2026-08-19).
+         Three views, toggled by main.ts: launcher, settings, onboarding. -->
+    <main id="app">
 
-      <section class="head">
-        <h1>Your feeds. Nothing&nbsp;else.</h1>
-        <p class="sub">No home feed, no Shorts, no recommendations. Everything you actually came for is still here.</p>
+      <!-- ================= Launcher (board 1A) ================= -->
+      <section id="view-launcher" hidden>
+        <header class="home-head">
+          <span class="head-spacer" aria-hidden="true"></span>
+          <button type="button" id="open-settings" class="icon-btn" aria-label="Settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16" opacity="0" />
+              <path d="M4 8h10M18 8h2M4 16h4M12 16h8" />
+              <circle cx="15.5" cy="8" r="1.8" />
+              <circle cx="9.5" cy="16" r="1.8" />
+            </svg>
+          </button>
+        </header>
+
+        <div class="home-brand">
+          <svg class="glyph" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 9.5a2.5 2.5 0 0 0-5 0a5 5 0 0 0 10 0a7.5 7.5 0 0 0-15 0a10 10 0 0 0 10 10h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <h1>tamescroll</h1>
+          <p class="tagline">Your platforms, without the machinery.</p>
+        </div>
+
+        <div id="tiles" class="tiles" aria-label="Your platforms"></div>
+
+        <section class="card blur-card" aria-label="Image blur">
+          <div class="setting-row">
+            <span class="setting-label caps">Image blur</span>
+            <div class="toggle" id="blur-toggle" role="radiogroup" aria-label="Image blur">
+              <button type="button" class="toggle-opt" role="radio" data-value="off">Off</button>
+              <button type="button" class="toggle-opt" role="radio" data-value="blur">Blur all</button>
+              <button type="button" class="toggle-opt" role="radio" data-value="smart">Smart</button>
+            </div>
+          </div>
+          <div class="setting-row" id="blur-strength-row" hidden>
+            <span class="setting-label">Strength</span>
+            <div class="toggle" id="blur-strength" role="radiogroup" aria-label="Blur strength">
+              <button type="button" class="toggle-opt swatched" role="radio" data-value="8"><span class="swatch s8" aria-hidden="true"></span>Light</button>
+              <button type="button" class="toggle-opt swatched" role="radio" data-value="16"><span class="swatch s16" aria-hidden="true"></span>Medium</button>
+              <button type="button" class="toggle-opt swatched" role="radio" data-value="28"><span class="swatch s28" aria-hidden="true"></span>Strong</button>
+            </div>
+          </div>
+          <p class="setting-caption" id="blur-caption"></p>
+        </section>
+
+        <p id="status" role="status"></p>
       </section>
 
-      <section aria-label="Platforms">
-        <h2 class="section-label">Platforms</h2>
-        <div class="tiles" id="tiles"></div>
-        <!-- Owner decision 2026-08-19: the launcher must never be a hub
-             of every platform — only explicitly chosen ones get tiles.
-             This panel is where platforms come in and go out. -->
-        <div id="manage-platforms"></div>
-      </section>
+      <!-- ================= Settings (boards 1B/1C/1E) ================= -->
+      <section id="view-settings" hidden>
+        <header class="settings-head">
+          <button type="button" id="settings-back" class="link-btn">&#8249; Home</button>
+        </header>
+        <div class="settings-body">
+          <nav class="settings-nav" aria-label="Settings sections">
+            <button type="button" class="nav-item" data-pane="bringback">Bring back</button>
+            <button type="button" class="nav-item" data-pane="filters">Filters</button>
+            <button type="button" class="nav-item" data-pane="blur">Blur</button>
+            <button type="button" class="nav-item" data-pane="protection">Protection level</button>
+            <button type="button" class="nav-item" data-pane="about">About</button>
+          </nav>
 
-      <!-- Stage B (docs/plan.md Phase 4): three-mode picker. Caption text
-           is set per-mode by main.ts (see CAPTIONS). -->
-      <section class="setting card" aria-label="Gaze settings">
-        <div class="setting-row">
-          <span class="setting-label">Blur imagery</span>
-          <div class="toggle" id="blur-toggle" role="radiogroup" aria-label="Blur imagery">
-            <button type="button" class="toggle-opt" role="radio" data-value="off">Off</button>
-            <button type="button" class="toggle-opt" role="radio" data-value="blur">Blur all</button>
-            <button type="button" class="toggle-opt" role="radio" data-value="smart">Smart</button>
+          <div class="panes">
+            <section class="pane" id="pane-bringback" hidden>
+              <h2>Bring back</h2>
+              <p class="pane-sub">Everything starts hidden. Bring back only what you choose.</p>
+              <div id="bring-back"></div>
+              <section class="card always-card" aria-label="Always hidden">
+                <div class="caps card-label">Always hidden</div>
+                <div class="always-row">Ads <span class="caps faint">Always on</span></div>
+                <div class="always-row">Promoted and sponsored posts <span class="caps faint">Always on</span></div>
+                <div class="always-row">Sign-in and app-install nags <span class="caps faint">Always on</span></div>
+                <p class="setting-caption">These never come back. There is no setting for them.</p>
+              </section>
+              <div id="manage-platforms"></div>
+            </section>
+
+            <section class="pane" id="pane-filters" hidden>
+              <h2>Filters</h2>
+              <p class="pane-sub">Posts and videos whose titles or captions match these terms stay covered, on every platform.</p>
+              <section class="card">
+                <div class="card-title">Built-in list</div>
+                <p class="card-body">460+ terms &mdash; sexualized-content bait and its evasion spellings. Ships with the app and updates with it.</p>
+                <p class="setting-caption">Matching happens on this device. Nothing is sent anywhere.</p>
+              </section>
+              <div class="caps card-label" style="margin:18px 0 10px">Your terms</div>
+              <div id="term-chips" class="chips"></div>
+              <form id="term-form" class="term-form">
+                <input id="term-input" type="text" placeholder="Add a word or phrase..." autocomplete="off" maxlength="100" />
+                <button type="submit" class="btn-solid">Add</button>
+              </form>
+              <p class="setting-caption">Phrases match whole words, case-insensitive. Remove a term any time &mdash; nothing is decided for you.</p>
+            </section>
+
+            <section class="pane" id="pane-blur" hidden>
+              <h2>Blur</h2>
+              <p class="pane-sub">Runs on this device &mdash; nothing you view leaves it.</p>
+              <div class="setting-row" id="gender-row">
+                <span class="setting-label">You are</span>
+                <div class="toggle" id="gender-toggle" role="radiogroup" aria-label="Your gender">
+                  <button type="button" class="toggle-opt" role="radio" data-value="man">Male</button>
+                  <button type="button" class="toggle-opt" role="radio" data-value="woman">Female</button>
+                  <button type="button" class="toggle-opt" role="radio" data-value="unset">Not set</button>
+                </div>
+              </div>
+              <p class="setting-caption">Smart blur clears faces of your own gender and keeps the other covered. Stored only on this device.</p>
+            </section>
+
+            <section class="pane" id="pane-protection" hidden>
+              <h2>Protection level</h2>
+              <p class="pane-sub">One choice that sets how much of each platform comes back. You can still adjust everything by hand.</p>
+              <div class="levels">
+                <div class="card level-card">
+                  <span class="tbd-pill">Name undecided</span>
+                  <div class="card-title">Level one</div>
+                  <p class="card-body">The lightest level. Which surfaces it brings back is still being decided.</p>
+                </div>
+                <div class="card level-card">
+                  <span class="tbd-pill">Name undecided</span>
+                  <div class="card-title">Level two</div>
+                  <p class="card-body">The middle level, likely the default. Rules still being decided.</p>
+                </div>
+                <div class="card level-card">
+                  <span class="tbd-pill">Name undecided</span>
+                  <div class="card-title">Level three</div>
+                  <p class="card-body">The strictest level. Rules still being decided.</p>
+                </div>
+              </div>
+              <p class="setting-caption">Levels are not wired up yet &mdash; names and rules are still being decided.</p>
+            </section>
+
+            <section class="pane" id="pane-about" hidden>
+              <h2>About</h2>
+              <p class="pane-sub">tamescroll opens the platforms you already use as cleaned versions of themselves.</p>
+              <section class="card">
+                <p class="card-body">Free and open source, MPL-2.0. No account, no telemetry, no server in the middle. Image blur and keyword filters run on your device.</p>
+              </section>
+            </section>
           </div>
         </div>
-        <div class="setting-row" id="blur-strength-row" hidden>
-          <span class="setting-label">Strength</span>
-          <div class="toggle" id="blur-strength" role="radiogroup" aria-label="Blur strength">
-            <button type="button" class="toggle-opt" role="radio" data-value="8">Light</button>
-            <button type="button" class="toggle-opt" role="radio" data-value="16">Medium</button>
-            <button type="button" class="toggle-opt" role="radio" data-value="28">Strong</button>
-          </div>
-        </div>
-        <!-- Protection engine gender stage (docs/handoff-protection-engine.md
-             decision #2/#3): honest wording — we filter the other gender by
-             default. Provisional placement; the real home is the compulsory
-             onboarding step, which is a separate deferred design pass. -->
-        <div class="setting-row" id="gender-row" hidden>
-          <span class="setting-label">You are</span>
-          <div class="toggle" id="gender-toggle" role="radiogroup" aria-label="Your gender">
-            <button type="button" class="toggle-opt" role="radio" data-value="man">A man</button>
-            <button type="button" class="toggle-opt" role="radio" data-value="woman">A woman</button>
-            <button type="button" class="toggle-opt" role="radio" data-value="unset">Not saying</button>
-          </div>
-        </div>
-        <p class="setting-caption" id="blur-caption"></p>
       </section>
 
-      <!-- Phase 3 (docs/plan.md): per-platform "bring back" toggles.
-           Populated by main.ts from the `surfaces` command — no
-           hardcoded copy of rules/*.txt's surface ids here. -->
-      <section aria-label="Bring back settings">
-        <h2 class="section-label">Bring back</h2>
-        <p class="section-hint">Everything starts hidden. Show a surface again any time — it's your call.</p>
-        <div class="bring-back" id="bring-back"></div>
+      <!-- ================= Onboarding (board 1D) ================= -->
+      <section id="view-onboard" hidden>
+        <div class="ob-step" data-step="1">
+          <div class="ob-center">
+            <svg class="glyph big" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 9.5a2.5 2.5 0 0 0-5 0a5 5 0 0 0 10 0a7.5 7.5 0 0 0-15 0a10 10 0 0 0 10 10h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <h1 class="ob-wordmark">tamescroll</h1>
+            <p class="ob-copy">Opens the platforms you already use as cleaned versions of themselves. No ads, no Shorts, no algorithmic feeds.</p>
+            <button type="button" class="btn-solid" id="ob-start">Get started</button>
+          </div>
+        </div>
+
+        <div class="ob-step" data-step="2" hidden>
+          <div class="ob-center">
+            <h2>Add the platforms you use</h2>
+            <p class="ob-copy">Type a name. We match only what you type &mdash; tamescroll never lists or suggests platforms.</p>
+            <div id="ob-chips" class="chips center"></div>
+            <input id="ob-input" type="text" class="ob-input" placeholder="Type a platform name..." autocomplete="off" />
+            <div id="ob-match"></div>
+            <p class="setting-caption">If we don't support what you typed, we say so &mdash; and that's all.</p>
+            <button type="button" class="btn-solid" id="ob-continue">Continue</button>
+          </div>
+        </div>
+
+        <div class="ob-step" data-step="3" hidden>
+          <div class="ob-center">
+            <h2>Are you male or female?</h2>
+            <p class="ob-copy">We blur faces of the other gender by default. Stored only on this device.</p>
+            <div class="ob-cards">
+              <button type="button" class="ob-card" data-gender="man">Male</button>
+              <button type="button" class="ob-card" data-gender="woman">Female</button>
+            </div>
+            <button type="button" class="link-btn" id="ob-skip-gender">Skip &mdash; decide later in Settings</button>
+          </div>
+        </div>
+
+        <div class="ob-step" data-step="4" hidden>
+          <div class="ob-center">
+            <h2>How should images look?</h2>
+            <div class="ob-cards col" id="ob-blur-cards">
+              <button type="button" class="ob-card wide" data-mode="smart"><b>Smart</b><span>Blurs faces by your choice on the last step. Runs on this device.</span></button>
+              <button type="button" class="ob-card wide" data-mode="blur"><b>Blur all</b><span>Every picture blurred. What you open plays normally.</span></button>
+              <button type="button" class="ob-card wide" data-mode="off"><b>Off</b><span>No blur. Feeds are still cleaned.</span></button>
+            </div>
+            <p class="setting-caption">You can change this from the home screen any time.</p>
+          </div>
+        </div>
+
+        <div class="ob-step" data-step="5" hidden>
+          <div class="ob-center">
+            <h2 class="ob-done">That's it.</h2>
+            <p class="ob-copy" id="ob-summary"></p>
+            <div id="ob-glyphs" class="ob-glyphs"></div>
+            <button type="button" class="btn-solid" id="ob-open">Open tamescroll</button>
+            <p class="setting-caption">Add another platform any time. tamescroll never suggests one.</p>
+          </div>
+        </div>
+
+        <div class="ob-dots" aria-hidden="true">
+          <i data-dot="1"></i><i data-dot="2"></i><i data-dot="3"></i><i data-dot="4"></i><i data-dot="5"></i>
+        </div>
       </section>
 
-      <footer class="foot">
-        <span id="status" class="status"></span>
-        <span class="foot-meta">free &amp; open source · MPL-2.0</span>
-      </footer>
     </main>
-    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
