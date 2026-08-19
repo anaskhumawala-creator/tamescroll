@@ -1,56 +1,22 @@
 /* tamescroll — TikTok gaze blur (Stage A, CSS-only, opt-in)
  *
- * WHAT THIS BLURS
- * Thumbnail imagery on the surfaces you reach on purpose: search
- * results and profile video grids. Explore's grid is covered too for
- * the case where the user brought that surface back.
+ * OWNER CALL 2026-08-19: blur EVERYTHING on TikTok. Most feed-bait
+ * platform of the set — every surface is imagery, so no per-surface
+ * selector list: all img + video site-wide. Only exemption is the
+ * video the user opened (PLAYER RED LINE).
  *
- * WHAT THIS DELIBERATELY LEAVES
- * - The video you opened (feed-video/video detail) — PLAYER RED LINE.
- * - All text: descriptions, usernames, counts.
- *
- * NO hover-to-reveal — a reveal gesture trains the un-blur reflex
+ * Cost accepted: small UI imagery (logo img, emoji) blurs too.
+ * NO hover-to-reveal — reveal gesture trains the un-blur reflex
  * (docs/plan.md Phase 4).
- *
- * VERIFIED LIVE 2026-08-19 (www.tiktok.com desktop, logged out, owner
- * VPN): search grid renders [data-e2e="search_top-item"] with an <img>
- * thumbnail (12 imgs on one query); profile grids render 21 imgs under
- * main-content-others_homepage. data-e2e hooks, never obfuscated class
- * names.
  */
 
-[data-e2e="search_top-item"] img {
+img,
+video {
   filter: blur(var(--ts-blur, 16px));
 }
 
-/* Profile video grid (includes the avatar — acceptable: everything in
- * the profile main column is imagery by construction). */
-[id^="main-content-others_homepage"] img {
-  filter: blur(var(--ts-blur, 16px));
-}
-
-/* Explore grid, only relevant if the user brought Explore back.
- * [unverified: grid virtualizes; structure spot-checked only] */
-[data-e2e="explore-item-list"] img {
-  filter: blur(var(--ts-blur, 16px));
-}
-
-/* Following / For You homepage container — the front door (/following
- * lands here: id is main-content-homepage_follow). Covers BOTH the
- * logged-out suggestion grid (recommend-card: poster img + autoplaying
- * card-background video) and the logged-in feed (feed-video items).
- * Everything in this container is feed imagery by construction, so
- * blur all media wholesale — the gap that shipped 2026-08-19 morning
- * (only search/profile/explore were covered; owner opened /following,
- * 0 selectors matched). VERIFIED LIVE 2026-08-19 (logged out, owner
- * VPN): 18 recommend-cards, 36 imgs, 1 card-background video. */
-[id^="main-content-homepage"] img,
-[id^="main-content-homepage"] video {
-  filter: blur(var(--ts-blur, 16px));
-}
-
-/* PLAYER RED LINE, belt-and-braces: the video the user opened
- * (video-detail page) must never blur, whatever rule lands above. */
+/* PLAYER RED LINE: the video the user opened (video-detail page)
+ * must never blur, whatever rule lands above. */
 [id^="main-content-video_detail"] video {
   filter: none !important;
 }

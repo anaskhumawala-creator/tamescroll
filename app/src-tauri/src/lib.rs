@@ -983,14 +983,14 @@ mod tests {
              the video the user is watching must never blur"
         );
 
-        // Owner report 2026-08-19: TikTok blur did nothing — /following
-        // (the front door) wasn't covered at all. Pin the homepage-feed
-        // coverage and the video-detail red-line guard.
+        // Owner call 2026-08-19: TikTok blurs EVERYTHING — all img +
+        // video site-wide (first report: /following uncovered; second:
+        // profile still partial). Pin the blanket coverage and the
+        // video-detail red-line guard.
         let tiktok = blur_css("tiktok");
         assert!(
-            tiktok.contains(r#"[id^="main-content-homepage"] img"#)
-                && tiktok.contains(r#"[id^="main-content-homepage"] video"#),
-            "TikTok blur css must cover the /following homepage feed"
+            tiktok.contains("img,\nvideo {"),
+            "TikTok blur css must blur all media site-wide"
         );
         assert!(
             tiktok.contains(r#"[id^="main-content-video_detail"] video"#)
