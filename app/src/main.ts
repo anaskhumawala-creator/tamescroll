@@ -366,6 +366,7 @@ function renderOnboarding(platforms: Platform[], done: (chosen: string[]) => voi
         if (on) selection.delete(platform.id);
         else selection.add(platform.id);
         fresh.classList.toggle("selected", !on);
+        paintCta();
       });
       grid.append(fresh);
     });
@@ -374,7 +375,14 @@ function renderOnboarding(platforms: Platform[], done: (chosen: string[]) => voi
   const cta = document.createElement("button");
   cta.type = "button";
   cta.className = "onboard-cta";
-  cta.textContent = "Start";
+  // Say what the button will do — "Start" over an empty selection
+  // silently produced an empty launcher (probe33 finding).
+  const paintCta = () => {
+    cta.textContent = selection.size
+      ? `Start with ${selection.size} platform${selection.size === 1 ? "" : "s"}`
+      : "Start with none — add later";
+  };
+  paintCta();
   cta.addEventListener("click", () => {
     const chosen = Array.from(selection);
     writeChosen(chosen);

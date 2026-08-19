@@ -30,6 +30,7 @@ import * as detector from './detector.js';
 
   var failed = false;
   var model = null;
+  var nsfwModel = null;
   // Everything that ever wore pending/flagged, for the fail-open sweep.
   // WeakRefs + a per-element tracked flag: virtualised feeds detach
   // thousands of media nodes per long scroll, and strong refs here would
@@ -99,11 +100,17 @@ import * as detector from './detector.js';
     return dom
       .loadDetectable(img)
       .then(function (el) {
-        return detector.detectFaces(model, el);
+        // Face first (cheaper, most common hit). NSFW classifier only
+        // consulted when no face flagged and the model actually loaded
+        // (its failure degrades to face-only, never breaks the page).
+        return detector.detectFaces(model, el).then(function (hasFace) {
+          if (hasFace || !nsfwModel) return hasFace;
+          return detector.isNsfw(nsfwModel, el);
+        });
       })
-      .then(function (hasFace) {
+      .then(function (flag) {
         if (failed) return;
-        if (hasFace) markFlagged(img);
+        if (flag) markFlagged(img);
         else clearEl(img);
       })
       .catch(function (e) {
@@ -403,6 +410,21 @@ import * as detector from './detector.js';
       if (failed) return;
       model = loaded;
       if (imageQueue.length) drainImages();
+      // NSFW classifier loads after the face model so the first unblur
+      // is never delayed by the bigger download-free-but-parse-heavy
+      // model. Images verified face-clean before it arrives were
+      // cleared under face-only rules — acceptable: blur-first already
+      // held while they were pending, and the next src swap re-checks.
+      return detector.loadNsfwModel().then(
+        function (nsfw) {
+          nsfwModel = nsfw;
+        },
+        function (e) {
+          // Degrade to face-only, loudly but harmlessly.
+          // eslint-disable-next-line no-console
+          console.warn('tamescroll gaze: nsfw model unavailable, face-only', e);
+        }
+      );
     })
     .catch(function (e) {
       failOpen('detector init error', e);

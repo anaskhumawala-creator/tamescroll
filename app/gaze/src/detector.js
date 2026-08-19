@@ -21,8 +21,10 @@ import '@tensorflow/tfjs-backend-cpu';
 import '@tensorflow/tfjs-backend-webgl';
 import * as tfconv from '@tensorflow/tfjs-converter';
 import { MODEL_JSON, MODEL_WEIGHTS_B64 } from './model-embed.js';
+import { NSFW_MODEL_JSON, NSFW_WEIGHTS_B64 } from './nsfw-model-embed.js';
 
 export var INPUT_SIZE = 256; // matches the embedded model's fixed input shape
+export var NSFW_INPUT_SIZE = 224; // MobileNetV2Mid fixed input shape
 
 function b64ToBuffer(b64) {
   var binStr = atob(b64);
@@ -32,28 +34,32 @@ function b64ToBuffer(b64) {
   return bytes.buffer;
 }
 
-var ioHandler = {
-  // tf.io.IOHandler.load() must return ModelArtifacts — NOT the raw
-  // model.json shape: weightSpecs (flattened, no `paths`) rather than
-  // weightsManifest, plus format/signature so GraphModel can resolve
-  // default outputs.
-  load: function () {
-    var weightSpecs = [];
-    for (var g = 0; g < MODEL_JSON.weightsManifest.length; g++) {
-      var group = MODEL_JSON.weightsManifest[g];
-      for (var w = 0; w < group.weights.length; w++) weightSpecs.push(group.weights[w]);
-    }
-    return Promise.resolve({
-      modelTopology: MODEL_JSON.modelTopology,
-      weightSpecs: weightSpecs,
-      weightData: b64ToBuffer(MODEL_WEIGHTS_B64),
-      format: MODEL_JSON.format,
-      generatedBy: MODEL_JSON.generatedBy,
-      convertedBy: MODEL_JSON.convertedBy,
-      userDefinedMetadata: MODEL_JSON.userDefinedMetadata,
-    });
-  },
-};
+// tf.io.IOHandler.load() must return ModelArtifacts — NOT the raw
+// model.json shape: weightSpecs (flattened, no `paths`) rather than
+// weightsManifest, plus format/signature so GraphModel can resolve
+// default outputs.
+function embeddedIoHandler(modelJson, weightsB64) {
+  return {
+    load: function () {
+      var weightSpecs = [];
+      for (var g = 0; g < modelJson.weightsManifest.length; g++) {
+        var group = modelJson.weightsManifest[g];
+        for (var w = 0; w < group.weights.length; w++) weightSpecs.push(group.weights[w]);
+      }
+      return Promise.resolve({
+        modelTopology: modelJson.modelTopology,
+        weightSpecs: weightSpecs,
+        weightData: b64ToBuffer(weightsB64),
+        format: modelJson.format,
+        generatedBy: modelJson.generatedBy,
+        convertedBy: modelJson.convertedBy,
+        userDefinedMetadata: modelJson.userDefinedMetadata,
+      });
+    },
+  };
+}
+
+var ioHandler = embeddedIoHandler(MODEL_JSON, MODEL_WEIGHTS_B64);
 
 /** Picks WebGL, falls back to CPU. Throws if both fail. */
 async function initBackend() {
@@ -73,6 +79,45 @@ async function initBackend() {
 export async function loadModel() {
   await initBackend();
   return tfconv.loadGraphModel(ioHandler);
+}
+
+/**
+ * Loads the NSFW classifier (nsfwjs MobileNetV2Mid, MIT — see NOTICE).
+ * Loaded separately from the face model so a failure here degrades to
+ * face-only detection instead of taking the whole pipeline down.
+ * Assumes initBackend() already ran (loadModel() first).
+ */
+export async function loadNsfwModel() {
+  return tfconv.loadGraphModel(embeddedIoHandler(NSFW_MODEL_JSON, NSFW_WEIGHTS_B64));
+}
+
+/**
+ * NSFW classification against a pixel source. Returns true when the
+ * image should stay covered. The graph ends in a Softmax, so the five
+ * outputs (Drawing, Hentai, Neutral, Porn, Sexy — nsfwjs class order)
+ * are already probabilities. Thresholds: explicit (Porn+Hentai) > 0.5,
+ * or Sexy > 0.8 — conservative start, calibration pass pending.
+ * MobileNetV2 wants [0,1] input, unlike BlazeFace's [-1,1].
+ */
+export async function isNsfw(model, pixelSource) {
+  var scores = tf.tidy(function () {
+    var img = tf.browser.fromPixels(pixelSource);
+    img = tf.image.resizeBilinear(img, [NSFW_INPUT_SIZE, NSFW_INPUT_SIZE]);
+    img = tf.cast(img, 'float32');
+    img = tf.div(img, 255);
+    img = tf.expandDims(img, 0);
+    return model.execute(img, 'Identity:0');
+  });
+  var data;
+  try {
+    data = await scores.data();
+  } finally {
+    tf.dispose(scores);
+  }
+  var hentai = data[1];
+  var porn = data[3];
+  var sexy = data[4];
+  return porn + hentai > 0.5 || sexy > 0.8;
 }
 
 /**
