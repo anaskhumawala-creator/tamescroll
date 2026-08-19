@@ -271,9 +271,10 @@ pub struct Platform {
     url: &'static str,
     /// Brand colour, used by the launcher tile.
     tint: &'static str,
-    /// Whether this platform is coherent once cleaned. See docs/plan.md —
-    /// TikTok is deliberately absent because removing the For You feed
-    /// leaves nothing to open.
+    /// Whether this platform is coherent once cleaned (its "cleaned
+    /// core" — CONTEXT.md — survives). TikTok cleared that bar
+    /// 2026-08-19 with Following + search + profiles as its core;
+    /// Instagram stays not-ready until its rules are verified.
     ready: bool,
 }
 
