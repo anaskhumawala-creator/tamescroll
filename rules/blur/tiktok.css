@@ -34,3 +34,23 @@
 [data-e2e="explore-item-list"] img {
   filter: blur(var(--ts-blur, 16px));
 }
+
+/* Following / For You homepage container — the front door (/following
+ * lands here: id is main-content-homepage_follow). Covers BOTH the
+ * logged-out suggestion grid (recommend-card: poster img + autoplaying
+ * card-background video) and the logged-in feed (feed-video items).
+ * Everything in this container is feed imagery by construction, so
+ * blur all media wholesale — the gap that shipped 2026-08-19 morning
+ * (only search/profile/explore were covered; owner opened /following,
+ * 0 selectors matched). VERIFIED LIVE 2026-08-19 (logged out, owner
+ * VPN): 18 recommend-cards, 36 imgs, 1 card-background video. */
+[id^="main-content-homepage"] img,
+[id^="main-content-homepage"] video {
+  filter: blur(var(--ts-blur, 16px));
+}
+
+/* PLAYER RED LINE, belt-and-braces: the video the user opened
+ * (video-detail page) must never blur, whatever rule lands above. */
+[id^="main-content-video_detail"] video {
+  filter: none !important;
+}

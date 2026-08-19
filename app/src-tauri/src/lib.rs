@@ -982,6 +982,21 @@ mod tests {
             "the YouTube blur css must never target #movie_player video — \
              the video the user is watching must never blur"
         );
+
+        // Owner report 2026-08-19: TikTok blur did nothing — /following
+        // (the front door) wasn't covered at all. Pin the homepage-feed
+        // coverage and the video-detail red-line guard.
+        let tiktok = blur_css("tiktok");
+        assert!(
+            tiktok.contains(r#"[id^="main-content-homepage"] img"#)
+                && tiktok.contains(r#"[id^="main-content-homepage"] video"#),
+            "TikTok blur css must cover the /following homepage feed"
+        );
+        assert!(
+            tiktok.contains(r#"[id^="main-content-video_detail"] video"#)
+                && tiktok.contains("filter: none !important"),
+            "TikTok blur css must keep the opened video sharp (red line)"
+        );
     }
 
     /// Owner report 2026-08-18: search results were still full of
