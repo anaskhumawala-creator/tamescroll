@@ -3,12 +3,14 @@
 // rest of the image visible — instead of the whole-element blur. Pure CSS
 // overlays (backdrop-filter) so no pixels are copied and no CSP is hit.
 //
-// INSTANT rule under scroll: overlays are viewport-positioned, so any
-// scroll/resize could let a face peek out from under a stale overlay.
-// The contract here is snap-back-first: the moment anything moves, the
-// whole-element blur class returns instantly (cheap, synchronous), and
-// region overlays only come back after the viewport settles. A face may
-// end up over-blurred during movement, never under-blurred.
+// INSTANT rule under scroll (owner report 2026-08-19: fixed-position
+// overlays lag composited scrolling — the page moves before any scroll
+// event runs, exposing the face for a beat): overlays are DOCUMENT-
+// anchored (absolute at the document origin), so scrolling moves them
+// with the content and the blur stays pinned to the thumbnail. Only
+// layout changes (virtualized feeds moving nodes, resize) can misplace
+// them — those snap the whole-element blur back until a settle pass
+// repositions. Over-blur, never under-blur.
 //
 // Videos deliberately keep whole-element blur: their content moves under
 // a static overlay between samples, which is exactly the flash this
@@ -65,7 +67,7 @@ function ensureContainer() {
     // stack; children position themselves. pointer-events must never
     // eat a click meant for the page.
     container.style.cssText =
-      'position:fixed;inset:0;pointer-events:none;z-index:2147483646;';
+      'position:absolute;left:0;top:0;width:0;height:0;pointer-events:none;z-index:2147483646;';
     (document.body || document.documentElement).appendChild(container);
   }
   return container;
@@ -74,7 +76,7 @@ function ensureContainer() {
 function makeOverlay(rect) {
   var d = document.createElement('div');
   d.style.cssText =
-    'position:fixed;pointer-events:none;' +
+    'position:absolute;pointer-events:none;' +
     'backdrop-filter:blur(var(--ts-blur-strong,24px));' +
     '-webkit-backdrop-filter:blur(var(--ts-blur-strong,24px));' +
     'border-radius:30%;';
@@ -83,8 +85,8 @@ function makeOverlay(rect) {
 }
 
 function positionOverlay(d, rect) {
-  d.style.left = rect.left + 'px';
-  d.style.top = rect.top + 'px';
+  d.style.left = rect.left + window.scrollX + 'px';
+  d.style.top = rect.top + window.scrollY + 'px';
   d.style.width = rect.width + 'px';
   d.style.height = rect.height + 'px';
 }
@@ -130,9 +132,9 @@ function repositionAll() {
   }
 }
 
+// Layout genuinely changed (resize, orientation): overlays are stale in
+// document space too — whole blur back on synchronously until settle.
 function snap() {
-  // Movement: whole blur back on synchronously, overlays go stale ->
-  // hide them until settle. Over-blur, never under-blur.
   if (!snapped) {
     snapped = true;
     for (var i = 0; i < entries.length; i++) {
@@ -142,6 +144,13 @@ function snap() {
       }
     }
   }
+  scheduleSettle();
+}
+
+// Scroll: document-anchored overlays already move with the content, so
+// nothing hides — the settle pass just re-verifies positions in case a
+// virtualized feed moved nodes while scrolling.
+function scheduleSettle() {
   if (settleTimer) clearTimeout(settleTimer);
   settleTimer = setTimeout(function () {
     snapped = false;
@@ -165,7 +174,7 @@ export function initRegionBlur(flaggedClass) {
   started = true;
   // capture:true catches nested scrollers (feeds inside panels), not
   // just the window scroll.
-  window.addEventListener('scroll', snap, { capture: true, passive: true });
+  window.addEventListener('scroll', scheduleSettle, { capture: true, passive: true });
   window.addEventListener('resize', snap, { passive: true });
 }
 
