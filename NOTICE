@@ -26,18 +26,35 @@ Tauri — Apache License 2.0 / MIT
   Application shell across desktop and mobile, running on each
   platform's own webview.
 
-Human — MIT License
-  https://github.com/vladmandic/human
-  On-device face and body detection, used by the gaze protection
-  module.
+TensorFlow.js — Apache License 2.0
+  https://github.com/tensorflow/tfjs
+  On-device inference runtime (tfjs-core, tfjs-converter, and the CPU
+  and WebGL backends) powering the gaze protection module.
+
+BlazeFace model — Apache License 2.0
+  https://github.com/tensorflow/tfjs-models (Google / MediaPipe)
+  Face-presence detection model, embedded (base64) in the gaze
+  module's bundle so no network fetch is ever needed.
 
 nsfwjs — MIT License
   https://github.com/infinitered/nsfwjs
-  On-device NSFW classification, used by the gaze protection module.
+  On-device NSFW classification; the MobileNetV2 model files shipped
+  in the nsfwjs package are embedded the same way as BlazeFace.
 
-EasyList and related filter lists
+EasyList / EasyPrivacy — dual-licensed GPLv3 / CC BY-SA 3.0
   https://easylist.to/
-  Consumed as upstream filter data by the embedded engine.
+  Consumed as upstream filter data by the embedded engine. Snapshots
+  live under rules/vendor/ and keep their own licences (they are NOT
+  covered by rules/'s CC0 dedication).
+
+uBlock Origin filter lists — GNU GPLv3
+  https://github.com/uBlockOrigin/uAssets
+  Same treatment: vendored data snapshots under rules/vendor/, their
+  licence intact.
+
+Brave adblock resources (resources.json) — Mozilla Public License 2.0
+  https://github.com/brave/adblock-resources
+  Scriptlet/redirect resource definitions consumed by the engine.
 
 --------------------------------------------------------------------
 Acknowledgement — inspiration, not code
@@ -54,8 +71,9 @@ HaramBlur — GNU Affero General Public License v3.0
   ADDED. HaramBlur is AGPL-3.0; incorporating its code would place
   this entire project under AGPL-3.0, which conflicts with App Store
   distribution terms and would foreclose iOS entirely. Our gaze module
-  is built directly on the same MIT-licensed foundations HaramBlur
-  itself uses (Human and nsfwjs).
+  is built directly on permissively-licensed foundations from the same
+  ecosystem HaramBlur draws on: TensorFlow.js and the BlazeFace model
+  (Apache-2.0) and nsfwjs (MIT).
 
   Contributors: do not copy code from HaramBlur, and do not accept
   patches derived from it.
