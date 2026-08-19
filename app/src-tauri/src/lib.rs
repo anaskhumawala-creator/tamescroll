@@ -24,6 +24,7 @@ const BLUR_CSS: &[(&str, &str)] = &[
     ("youtube", include_str!("../../../rules/blur/youtube.css")),
     ("reddit", include_str!("../../../rules/blur/reddit.css")),
     ("x", include_str!("../../../rules/blur/x.css")),
+    ("tiktok", include_str!("../../../rules/blur/tiktok.css")),
 ];
 
 fn blur_css(platform_id: &str) -> &'static str {
@@ -298,6 +299,16 @@ const PLATFORMS: &[Platform] = &[
         // there, leaving Following as the only one.
         url: "https://x.com/home",
         tint: "#71767B",
+        ready: true,
+    },
+    Platform {
+        id: "tiktok",
+        name: "TikTok",
+        // The cleaned core's front door: with For You hidden, "/" is an
+        // intentionally empty room — Following is where a cleaned
+        // TikTok session starts (owner decision 2026-08-19).
+        url: "https://www.tiktok.com/following",
+        tint: "#FE2C55",
         ready: true,
     },
     Platform {
@@ -896,6 +907,8 @@ mod tests {
         assert!(page_load_gaze_script("https://old.reddit.com/", "blur").is_some());
         assert!(page_load_gaze_script("https://m.youtube.com:443/", "blur").is_some());
         assert!(page_load_gaze_script("https://notyoutube.com/", "blur").is_none());
+        assert!(page_load_gaze_script("https://www.tiktok.com/following", "blur").is_some());
+        assert!(page_load_gaze_script("https://www.tiktok.com/", "smart").is_some());
 
         // Unknown modes normalise to off (gaze_mode contract).
         assert!(page_load_gaze_script("https://x.com/home", "nonsense").is_none());

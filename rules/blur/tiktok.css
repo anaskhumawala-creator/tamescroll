@@ -1,0 +1,36 @@
+/* tamescroll — TikTok gaze blur (Stage A, CSS-only, opt-in)
+ *
+ * WHAT THIS BLURS
+ * Thumbnail imagery on the surfaces you reach on purpose: search
+ * results and profile video grids. Explore's grid is covered too for
+ * the case where the user brought that surface back.
+ *
+ * WHAT THIS DELIBERATELY LEAVES
+ * - The video you opened (feed-video/video detail) — PLAYER RED LINE.
+ * - All text: descriptions, usernames, counts.
+ *
+ * NO hover-to-reveal — a reveal gesture trains the un-blur reflex
+ * (docs/plan.md Phase 4).
+ *
+ * VERIFIED LIVE 2026-08-19 (www.tiktok.com desktop, logged out, owner
+ * VPN): search grid renders [data-e2e="search_top-item"] with an <img>
+ * thumbnail (12 imgs on one query); profile grids render 21 imgs under
+ * main-content-others_homepage. data-e2e hooks, never obfuscated class
+ * names.
+ */
+
+[data-e2e="search_top-item"] img {
+  filter: blur(var(--ts-blur, 16px));
+}
+
+/* Profile video grid (includes the avatar — acceptable: everything in
+ * the profile main column is imagery by construction). */
+[id^="main-content-others_homepage"] img {
+  filter: blur(var(--ts-blur, 16px));
+}
+
+/* Explore grid, only relevant if the user brought Explore back.
+ * [unverified: grid virtualizes; structure spot-checked only] */
+[data-e2e="explore-item-list"] img {
+  filter: blur(var(--ts-blur, 16px));
+}

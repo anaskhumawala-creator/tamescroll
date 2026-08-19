@@ -34,6 +34,7 @@ use adblock::Engine;
 const YOUTUBE_RULES: &str = include_str!("../../../rules/youtube.txt");
 const REDDIT_RULES: &str = include_str!("../../../rules/reddit.txt");
 const X_RULES: &str = include_str!("../../../rules/x.txt");
+const TIKTOK_RULES: &str = include_str!("../../../rules/tiktok.txt");
 
 /// Upstream filter lists. These block ads and trackers by network pattern
 /// and cosmetic selector; the scriptlet resources below are what actually
@@ -228,6 +229,7 @@ fn all_surfaces() -> &'static Vec<(&'static str, Vec<Surface>)> {
             ("youtube", parse_surfaces(YOUTUBE_RULES)),
             ("reddit", parse_surfaces(REDDIT_RULES)),
             ("x", parse_surfaces(X_RULES)),
+            ("tiktok", parse_surfaces(TIKTOK_RULES)),
         ]
     })
 }
@@ -291,5 +293,38 @@ mod tests {
             .find(|s| s.id == "promoted")
             .expect("x should have a 'promoted' surface");
         assert!(promoted.always_on);
+
+        let tiktok = platform_surfaces("tiktok").expect("tiktok should have surfaces");
+        for id in ["foryou", "explore", "swipe", "suggested"] {
+            let s = tiktok
+                .iter()
+                .find(|s| s.id == id)
+                .unwrap_or_else(|| panic!("tiktok should have a '{id}' surface"));
+            assert!(!s.always_on, "'{id}' must be user-toggleable");
+            assert!(!s.rules.is_empty(), "'{id}' must carry rules");
+        }
+        let tt_promoted = tiktok
+            .iter()
+            .find(|s| s.id == "promoted")
+            .expect("tiktok should have a 'promoted' surface");
+        assert!(tt_promoted.always_on);
+        // The m.youtube lesson, pinned: the feed-item element is shared
+        // with the opened-video page, so the For You rule must stay
+        // scoped to the homepage container and never hide the testid
+        // bare.
+        let foryou = tiktok.iter().find(|s| s.id == "foryou").unwrap();
+        assert!(
+            foryou.rules.iter().any(|(_, sel)| sel
+                .contains(r#"[id^="main-content-homepage"] [data-e2e="recommend-list-item-container"]"#)),
+            "For You feed rule must be scoped to the homepage container"
+        );
+        assert!(
+            !tiktok.iter().any(|s| s
+                .rules
+                .iter()
+                .any(|(_, sel)| sel.trim() == r#"[data-e2e="recommend-list-item-container"]"#)),
+            "recommend-list-item-container must never be hidden unscoped — \
+             it is also the video the user opened"
+        );
     }
 }

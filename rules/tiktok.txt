@@ -1,0 +1,126 @@
+! Title: tamescroll — TikTok
+! Description: Removes TikTok's algorithmic surfaces — the For You feed,
+!              Explore, Short dramas, LIVE, the endless swipe on opened
+!              videos — and monetization chrome, while leaving Following,
+!              search, profiles and the video you chose to open untouched.
+! Version: 1
+! Expires: 1 day
+! License: CC0-1.0 (see rules/LICENSE)
+!
+! DESIGN NOTES
+! - Cleaned core (owner decision 2026-08-19): Following + search +
+!   profiles. The launcher opens tiktok.com/following, never the
+!   homepage — with For You hidden, "/" is an intentionally empty room.
+! - SAME-ELEMENT-TWO-CONTEXTS (the m.youtube watch-recs lesson): the
+!   video detail page reuses [data-e2e="recommend-list-item-container"]
+!   and feed-video for the video YOU OPENED plus its endless-swipe
+!   queue. Never hide that testid wholesale — the For You rule is scoped
+!   to the homepage container id, and the swipe surface hides only the
+!   navigation arrows so item 1 (the chosen video) always survives.
+!   Scoping ids verified live: main-content-homepage* (For You),
+!   main-content-video_detail (opened video),
+!   main-content-others_homepage (profiles).
+! - Wheel/keyboard swipe on an opened video still advances past the
+!   hidden arrows — killing that needs a scriptlet, deferred (noted, not
+!   silent).
+! - The login modal (data-e2e="login-modal") is deliberately NOT hidden:
+!   the same modal serves deliberate sign-in from the Log in button;
+!   hiding it would break intentional login. It has its own close
+!   button.
+!
+! VERIFICATION STATUS (2026-08-19, www.tiktok.com desktop, logged out,
+! via owner VPN — India blocks TikTok. data-e2e attributes are TikTok's
+! own stable test hooks, used everywhere in preference to obfuscated
+! class names like "expowci2".)
+
+
+! ============================================================
+! THE FOR YOU FEED
+! ============================================================
+
+!surface: foryou For You feed
+
+! Feed items, scoped to the homepage main container so the identical
+! element on an opened video's page is never touched.
+! [live] 3 feed videos on "/", container id main-content-homepage*
+! test: on https://www.tiktok.com/ -> feed items hidden, page body calm
+tiktok.com##[id^="main-content-homepage"] [data-e2e="recommend-list-item-container"]
+
+! The For You nav entry points at the now-empty page — remove the door.
+! [live]
+! test: left nav shows no "For You" entry
+tiktok.com##[data-e2e="nav-foryou"]
+
+
+! ============================================================
+! EXPLORE
+! ============================================================
+
+!surface: explore Explore
+
+! [live] grid container + category chips on /explore
+! test: on https://www.tiktok.com/explore -> grid + chips hidden
+tiktok.com##[data-e2e="explore-item-list"]
+tiktok.com##[data-e2e="explore-category-chip"]
+tiktok.com##[data-e2e="nav-explore"]
+
+
+! ============================================================
+! SHORT DRAMAS / LIVE — algorithmic doors, nav entries removed
+! ============================================================
+
+!surface: short_drama Short dramas
+
+! [live] nav entry; the /short-drama page itself is behind the same
+! element pattern and unreachable once the door is gone. [unverified:
+! page-level container, revisit if deep links surface]
+! test: left nav shows no "Short dramas" entry
+tiktok.com##[data-e2e="nav-short-drama"]
+
+!surface: live LIVE
+
+! [live] test: left nav shows no "LIVE" entry
+tiktok.com##[data-e2e="nav-live"]
+
+
+! ============================================================
+! ENDLESS SWIPE ON OPENED VIDEOS
+! ============================================================
+
+!surface: swipe Endless swipe on opened videos
+
+! The opened-video page preloads a 17-item algorithmic queue (counted
+! live) and offers prev/next arrows — one video becomes an infinite
+! session. Arrows hidden; the chosen video (queue item 1) is untouched.
+! [live]
+! test: on any /@user/video/<id> page -> no up/down arrows; the video
+!   itself plays normally (PLAYER RED LINE)
+tiktok.com##[data-e2e="feed-navigation-next"]
+tiktok.com##[data-e2e="feed-navigation-prev"]
+
+
+! ============================================================
+! SUGGESTED ACCOUNTS
+! ============================================================
+
+!surface: suggested Suggested accounts
+
+! [live] "Suggested accounts" expander on profile pages. The
+! /following logged-out recommend-card grid is NOT hidden — logged out,
+! those cards are that page's only content.
+! test: on a profile page -> no suggested-accounts section
+tiktok.com##[data-e2e="show-suggested-accounts"]
+
+
+! ============================================================
+! MONETIZATION CHROME — always-on (never user-toggleable)
+! ============================================================
+
+!surface: promoted Promoted and monetization chrome
+
+! [live] CapCut promo tag under video descriptions; Get-Coins button in
+! the header. Feed-ad testids are unknowable logged-out — network-level
+! blocking (EasyList) carries ads until a logged-in pass adds them here.
+! test: no CapCut pill under descriptions, no coin button top-right
+tiktok.com##[data-e2e="capcut-tag"]
+tiktok.com##[data-e2e="top-right-action-bar-get-coin"]

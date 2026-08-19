@@ -23,7 +23,7 @@ class MainActivity : TauriActivity() {
   // arbitrary external intent can't steer the launcher.
   private fun platformFromIntent(intent: Intent?): String? {
     val id = intent?.getStringExtra("ts_platform") ?: return null
-    return if (id in setOf("youtube", "reddit", "x")) id else null
+    return if (id in setOf("youtube", "reddit", "x", "tiktok")) id else null
   }
 
   // The shortcut lands on the LAUNCHER with ?open=<id>, not directly on
