@@ -64,18 +64,28 @@ function embeddedIoHandler(modelJson, weightsB64) {
 
 var ioHandler = embeddedIoHandler(MODEL_JSON, MODEL_WEIGHTS_B64);
 
-/** Picks WebGL, falls back to CPU. Throws if both fail. */
-async function initBackend() {
-  try {
-    // setBackend reports failure BOTH ways: rejecting, or resolving
-    // false — a webgl init that fails politely must still fall back.
-    var ok = await tf.setBackend('webgl');
-    if (!ok) throw new Error('webgl backend unavailable');
-    await tf.ready();
-  } catch (e) {
-    await tf.setBackend('cpu');
-    await tf.ready();
+/** Picks WebGL, falls back to CPU. Throws if both fail. Idempotent:
+ * every model loader awaits this, because NSFW-only modes (compulsory
+ * tier in off/blur-all) load the classifier WITHOUT loadModel() —
+ * leaving backend choice to tfjs auto-init there meant an unchosen,
+ * possibly-CPU backend. One shared promise, first caller wins. */
+var backendReady = null;
+function initBackend() {
+  if (!backendReady) {
+    backendReady = (async function () {
+      try {
+        // setBackend reports failure BOTH ways: rejecting, or resolving
+        // false — a webgl init that fails politely must still fall back.
+        var ok = await tf.setBackend('webgl');
+        if (!ok) throw new Error('webgl backend unavailable');
+        await tf.ready();
+      } catch (e) {
+        await tf.setBackend('cpu');
+        await tf.ready();
+      }
+    })();
   }
+  return backendReady;
 }
 
 /** Loads backend + model. Throws on total failure — caller fails open. */
@@ -88,9 +98,9 @@ export async function loadModel() {
  * Loads the NSFW classifier (nsfwjs MobileNetV2Mid, MIT — see NOTICE).
  * Loaded separately from the face model so a failure here degrades to
  * face-only detection instead of taking the whole pipeline down.
- * Assumes initBackend() already ran (loadModel() first).
  */
 export async function loadNsfwModel() {
+  await initBackend();
   return tfconv.loadGraphModel(embeddedIoHandler(NSFW_MODEL_JSON, NSFW_WEIGHTS_B64));
 }
 
@@ -100,6 +110,7 @@ export async function loadNsfwModel() {
  * to presence-only flagging (any face stays covered), never a break.
  */
 export async function loadGenderModel() {
+  await initBackend();
   return tfconv.loadGraphModel(embeddedIoHandler(GENDER_MODEL_JSON, GENDER_WEIGHTS_B64));
 }
 
