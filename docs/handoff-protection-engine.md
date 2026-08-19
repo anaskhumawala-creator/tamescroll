@@ -97,3 +97,18 @@ channel + title, seed + user-editable). Sources inline.
   framed symmetric; edge cases like lecture channels came up but were
   not decided).
 - User-pinned launcher destinations (parked, block-only-compatible).
+
+## Addendum 2026-08-19 (owner, mid-build): no circumvention, ever
+
+Owner: the app must never be how someone gets AROUND a block on TikTok
+(or any platform) — "very crucial". Implications, to carry into the spec:
+
+- The app opens the real site in a WebView with no proxy/VPN/mirror/cache;
+  a platform blocked at ISP/DNS/network level stays blocked inside
+  tamescroll. This is already true and must STAY true — no feature may
+  add an alternate route to a platform (no readers, no embeds, no
+  third-party mirrors).
+- Softer exposure: the launcher advertises platforms a user may have
+  deliberately removed from their life. Open question for the spec:
+  per-platform hide on the launcher (user chooses which platforms exist
+  in their app) — fits the protection dial, block-only compatible.
