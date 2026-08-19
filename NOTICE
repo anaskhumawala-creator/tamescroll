@@ -41,6 +41,17 @@ nsfwjs — MIT License
   On-device NSFW classification; the MobileNetV2 model files shipped
   in the nsfwjs package are embedded the same way as BlazeFace.
 
+dsojevic/profanity-list — MIT License
+  https://github.com/dsojevic/profanity-list
+  Seed keyword list for the protection engine's text signals. A
+  snapshot lives at app/gaze/vendor/profanity-en.json; only the
+  sexual/shock-tagged entries are embedded in the gaze bundle.
+
+obscenity — MIT License
+  https://github.com/jo3-l/obscenity
+  Text-matching engine (evasion normalization: leetspeak, confusables,
+  repeated characters) used by the protection engine's text signals.
+
 EasyList / EasyPrivacy — dual-licensed GPLv3 / CC BY-SA 3.0
   https://easylist.to/
   Consumed as upstream filter data by the embedded engine. Snapshots

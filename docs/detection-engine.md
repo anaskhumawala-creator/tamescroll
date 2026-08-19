@@ -1,0 +1,97 @@
+# Detection engine — system, thresholds, calibration
+
+**Why this doc (owner, 2026-08-19):** "it needs to work well or people
+just won't use it." Detection quality is an adoption feature. This doc is
+the single place that says what the pipeline does, every tunable number
+it contains, and the protocol for changing one. If a threshold is not in
+this doc, it is not allowed to exist in code.
+
+## 1. Pipeline (current, shipped)
+
+Discovery (MutationObserver + shadow-DOM piercing, all platforms) →
+blur-first (`ts-gaze-pending` before any inference) → per-media verdict:
+
+- **Images:** face presence (BlazeFace) → if no face and the NSFW model
+  loaded, NSFW classify (nsfwjs MobileNetV2Mid). Face or NSFW hit →
+  stays blurred (`ts-gaze-flagged`); clean → unblur. Unverifiable
+  (CORS-denied) → stays blurred (fail-closed).
+- **Videos:** sampled frames, face presence only. Flag re-blurs
+  instantly; a clean streak unblurs. Unreadable pixels (tainted canvas)
+  → fail-open, plays normally. Player red line: anything inside the
+  platform player is never touched.
+- Total failure of the detector → fail-open sweep, page works untouched.
+
+## 2. Pipeline (planned, protection engine — docs/handoff-protection-engine.md)
+
+Order per item: **text signal → (compulsory) NSFW → face → gender.**
+
+- **Text signal (BUILT, not yet wired):** `app/gaze/src/text-signals.mjs`
+  — seed 467 terms (dsojevic sexual/shock subset, MIT) + algospeak
+  supplement + user terms, obscenity-normalised (leetspeak/confusables),
+  whole-word. Cheap pre-filter BEFORE models; a hit skips inference.
+- **Compulsory tier (next):** NSFW hit ⇒ REMOVED from view (not blurred),
+  every mode, no setting. Runs regardless of the gaze toggle.
+- **Gender stage (the smart-mode fix):** per-face gender via Human (MIT).
+  Opposite gender (from onboarding answer) → filtered; same gender →
+  UNBLURRED. This is what turns smart mode from "every face stays
+  blurred forever" into HaramBlur-parity behavior.
+
+## 3. Why smart mode feels broken today (owner report 2026-08-19)
+
+Working as built, but the build is v1-blunt: the detector is
+**presence-only** — any face ⇒ permanently blurred, no gender, no
+unblur path for safe faces. A tech channel where every thumbnail has a
+face reads as "blur all". HaramBlur feels better because its detector
+(Human — MIT, the same library we planned) classifies each face's
+gender and only blurs what settings say; ordinary same-gender content
+clears. Same architecture, one missing stage — not a redesign.
+
+## 4. Threshold registry
+
+Every knob, its value, and its calibration status. "guess" = shipped
+conservative, never tuned against evidence.
+
+| Knob | Value | Meaning | Status |
+|---|---|---|---|
+| Face logit | > 0 (= sigmoid 0.5) | any anchor ⇒ face present | guess |
+| NSFW explicit | Porn + Hentai > 0.5 | stays covered / (soon) removed | guess |
+| NSFW sexy | Sexy > 0.8 | same | guess (probe19: sane both directions on real thumbnails) |
+| Image min size | 64px | below = decorative, skip | guess |
+| Image batch | 4 / idle slice | inference batching | ok (probe-verified no jank) |
+| Video sample | 500ms | ≤2 inferences/s/video | guess |
+| Clean streak | 4 samples | consecutive clean frames to unblur (~2s) | guess |
+| Blur radius | 8/16/28px (Light/Med/Strong), 24px fallback | strength presets | owner-chosen |
+| Gender threshold | — (stage not built) | per-face gender confidence | TBD — must be calibrated before ship |
+
+## 5. Calibration protocol (the rule for changing any number)
+
+A threshold change ships only with a before/after evidence run, saved in
+`spikes/`, covering all four controls:
+
+1. **Positive control** — content that MUST flag (probe19 pattern:
+   "podcast interview face" search ⇒ people blurred).
+2. **Negative control** — content that must NOT flag (probe18 pattern:
+   "nature" search ⇒ zero flags, thumbnails clear).
+3. **Player red line** — chosen media plays with `filter: none`.
+4. **Cold boot** — launcher round-trip still clean.
+
+Run on at least m.youtube (Android emulator) + one desktop platform.
+Record the number changed, both runs, and the verdict in this doc's
+registry (status column moves guess → calibrated + date).
+
+## 6. Budgets
+
+- Bundle: 7.16MB today; both delivery channels verified to carry it.
+  Gender model rides only after measuring added size + per-face ms
+  (embed pattern: app/gaze/build/embed-nsfw.js). Budget call is
+  owner-gated.
+- First inference: ~600-720ms after navigation (shader compile,
+  one-time). Blur-first covers the gap; INSTANT rule holds.
+- Text matcher: pure JS, no model, no budget concern; runs first so a
+  hit costs zero inference.
+
+## 7. Standing rules (restated, non-negotiable)
+
+Blur-first, nothing flashes. AI never in the critical path. Fail-open
+video / fail-closed image. Player red line. Compulsory tier has no off
+switch. No GPL/AGPL code, ever (HaramBlur = behavior reference only).
