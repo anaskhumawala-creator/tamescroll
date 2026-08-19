@@ -7,4 +7,6 @@
     <string name="shortcut_reddit_long">Reddit, cleaned</string>
     <string name="shortcut_x_short">X</string>
     <string name="shortcut_x_long">X, cleaned</string>
+    <string name="shortcut_tiktok_short">TikTok</string>
+    <string name="shortcut_tiktok_long">TikTok, cleaned</string>
 </resources>

@@ -47,4 +47,17 @@
       <extra android:name="ts_platform" android:value="x" />
     </intent>
   </shortcut>
+  <shortcut
+    android:shortcutId="tiktok"
+    android:enabled="true"
+    android:icon="@drawable/shortcut_tiktok"
+    android:shortcutShortLabel="@string/shortcut_tiktok_short"
+    android:shortcutLongLabel="@string/shortcut_tiktok_long">
+    <intent
+      android:action="android.intent.action.VIEW"
+      android:targetPackage="app.tamescroll.client"
+      android:targetClass="app.tamescroll.client.MainActivity">
+      <extra android:name="ts_platform" android:value="tiktok" />
+    </intent>
+  </shortcut>
 </shortcuts>
