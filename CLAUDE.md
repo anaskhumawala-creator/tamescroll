@@ -221,6 +221,31 @@ Verification probes must select by item container, not bare img
 clean. Not yet built: compulsory NSFW-remove tier, strictness levels
 (pane is placeholder), Android re-verify of gender/terms/region-blur.
 
+**Day-2 continued (evening):** Text-filter "misses" root-caused as a
+MEASUREMENT ARTIFACT (probe35): below-fold lazy imgs have no src, fail
+tagImage's naturalWidth gate, never process — class-absence probes
+counted them "cleared". Filter was correct all along; two speculative
+re-check passes reverted; probe36 6/6 flagged. Reddit text container
+shipped: shreddit-post (light-DOM thumbnails, closest() works) —
+probe37 verified in-app (608ccf3). **Compulsory NSFW-remove tier
+SHIPPED (3e91c27, probe38):** bundle boots in ALL modes;
+pipeline-plan.mjs = unit-tested per-mode policy (off: pre-blur + text
++ NSFW-remove + reveal, no gender; blur-all: NSFW-remove only; smart:
+full). ts-gaze-removed hides the whole feed item; removals survive
+fail-open. Live-verified: off mode removed a suggestive search row
+outright (sexy>0.8 fired), blur mode removed same row, smart
+regression clean. Known gap: no NSFW on videos yet. **Android APKs
+built** (arm64 first ever): owner phone (Redmi, MIUI blocked USB
+install) got APK pushed to /sdcard/Download/tamescroll-debug.apk —
+owner installs from Files. JAVA_HOME env var is STALE
+(HijriToolchain) — set 'C:\Program Files\Eclipse
+Adoptium\jdk-17.0.20.8-hotspot' before gradlew. Emulator re-verify of
+gender/terms/region/compulsory in progress (x86_64 inference is
+minutes-slow on emulated GPU — real hw much faster; off-mode CPU cost
+on low-end phones = open perf question). GitHub: owner asked "do we
+need it" — advised private repo for backup (repo exists only on this
+machine); owner-gated.
+
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
 (rules would be [unverified] — site blocked in India); Instagram
