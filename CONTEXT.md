@@ -35,3 +35,26 @@
   blurred.
 - **Player red line** — the media the user explicitly chose to play is
   never blurred, hidden, or degraded. Overrides everything.
+
+## Protection engine (grilled 2026-08-19, spec pending)
+
+- **Compulsory tier** — suggestive content (nsfw model flags: Porn,
+  Hentai, Sexy) is removed outright on every flag, at any confidence,
+  with no setting to show it. Same non-negotiable tier as ads.
+  (Owner: "anything suggestive is an outright no for this app.")
+- **Strictness mode** — a user-selected level deciding what the
+  non-compulsory signals do (blur vs remove). Structure and count
+  deliberately undecided; only the compulsory tier is fixed.
+- **Gender filter** — on-device face-gender classification; the app
+  filters the opposite gender by default. The gender question is a
+  compulsory onboarding step, worded honestly ("we filter the other
+  gender by default"). Grounded in Qur'an 24:30-31 — symmetric by
+  design, chosen by the user, never inferred.
+- **Text signals** — keyword matching (MIT-licensed seed list +
+  user-added terms, evasion-normalised) over creator name, title,
+  profile bio, and post text/hashtags. A cheap pre-filter that runs
+  before any model.
+- **No reranking** — the app never reorders a feed or promotes
+  content. Killing algorithmic surfaces so the user lands on chosen
+  content IS the redirect mechanism; building our own recommender
+  would recreate the disease.
