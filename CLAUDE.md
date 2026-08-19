@@ -63,7 +63,7 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-19 03:45 (overnight — review-fix batch verified).
+**Last updated:** 2026-08-19 14:40 (day 2 — smart-mode gender parity + UI rebuild + text filter).
 
 Done: Phase 0-2.5 as before (see git log). This session: **Gaze Stage A
 shipped** — rules/blur/{youtube,reddit,x}.css, launcher Off/On toggle
@@ -196,6 +196,30 @@ docs/keyword-research.md. Spec NOT written — next step is to-spec in a
 fresh session. TikTok blur rewritten blanket (all img+video, player
 exempt) after two owner reports — fbd885e. Desktop dev relaunch with CDP
 9223 verified 37/37 blurred in-app.
+
+**Day-2 session 2026-08-19 (afternoon):** Smart mode now HaramBlur-
+parity gender-aware — BlazeFace full box decode + SSR-Net gender
+(both MIT, from vladmandic/human; NOTICE updated), faceVerdict clears
+own-gender faces, opposite/low-score stay covered (probe31 both
+directions). Face-REGION blur: backdrop-filter overlays, document-
+anchored so scroll never exposes (owner report fixed, probe32/33);
+videos/NSFW keep whole blur. Thresholds + calibration protocol now in
+docs/detection-engine.md (owner "systemize" ask). UI rebuilt to
+owner's Claude Design boards (ff2be57): launcher/settings/onboarding,
+type-to-match platform add (no-circumvention: never list platforms),
+Filters pane. web/index.html rebuilt to board 1F. Text signals
+SHIPPED (ade2925): dsojevic seed + algospeak + user terms via
+obscenity, Rust USER_TERMS -> __TS_USER_TERMS, pre-model text filter
+on per-host item containers (TEXT_ITEMS — ytd-video-renderer +
+ytm-video-with-context-renderer, both live-verified). probe36: 6/6
+crypto-term items flagged, non-matching cleared. DEBUG LESSON:
+below-fold lazy imgs have no src -> never tagged (naturalWidth gate);
+class-absence probes count them as "cleared" — always filter probes
+to imgs with a real src (probe35 artifact cost half a session).
+Verification probes must select by item container, not bare img
+(avatars/decoys skew counts). Tests: gaze 20/20, cargo 20/20, tsc
+clean. Not yet built: compulsory NSFW-remove tier, strictness levels
+(pane is placeholder), Android re-verify of gender/terms/region-blur.
 
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
