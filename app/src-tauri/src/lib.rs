@@ -179,15 +179,16 @@ fn platform_for_host(host: &str) -> Option<&'static Platform> {
 /// (`page_css(.., mode == "blur", ..)`); Stage B blurs-first itself.
 fn page_load_gaze_script(url: &str, mode: &str) -> Option<String> {
     let mode = gaze_mode(mode);
-    if mode == "off" {
-        return None;
-    }
     let platform = platform_for_host(platform_root(url))?;
     if blur_css(platform.id).is_empty() {
         return None;
     }
-    if mode == "smart" {
-        return Some(gaze_script("smart"));
+    // The compulsory NSFW-removal tier (handoff decision #1) means the
+    // Stage B bundle boots in EVERY mode — pipeline-plan.mjs inside the
+    // bundle decides what actually runs. Only blur-all adds the Stage A
+    // sheet on top.
+    if mode != "blur" {
+        return Some(gaze_script(mode));
     }
     let css_json =
         serde_json::to_string(&format!("{}{}", blur_vars_css(blur_px()), blur_css(platform.id)))
@@ -203,19 +204,19 @@ fn page_load_gaze_script(url: &str, mode: &str) -> Option<String> {
     (document.head || document.documentElement).appendChild(s);
   }} catch (e) {{}}
 }})();
-"#
+{boot}"#,
+        boot = gaze_script("blur")
     ))
 }
 
-/// Script that boots gaze Stage B, or nothing outside "smart" mode.
+/// Script that boots gaze Stage B in every normalised mode (compulsory
+/// NSFW-removal tier — the in-page plan gates what actually runs).
 /// Wrapped in its own try/catch on top of the bundle's internal
 /// fail-open handling — a syntax-level break in the generated bundle
 /// must not be able to take the rest of the injected script down with
 /// it, matching the pattern already used for scriptlets below.
 fn gaze_script(mode: &str) -> String {
-    if gaze_mode(mode) != "smart" {
-        return String::new();
-    }
+    let mode = gaze_mode(mode);
     // Stage B's class styles blur through var(--ts-blur-strong); the
     // launcher's strength choice has to reach the page inline because
     // smart mode ships no stylesheet of its own to carry a :root rule.
@@ -228,7 +229,7 @@ fn gaze_script(mode: &str) -> String {
 (function () {{
   try {{
     if (window.__TS_GAZE_BUNDLE__) return;
-    window.__TS_GAZE_MODE = "smart";
+    window.__TS_GAZE_MODE = "{mode}";
     window.__TS_GAZE_GENDER = "{gender}";
     window.__TS_USER_TERMS = {terms};
     var tsRoot = document.documentElement;
@@ -933,20 +934,30 @@ mod tests {
     /// the right payload per mode, and map mobile hosts to their platform.
     #[test]
     fn page_load_gaze_script_dispatches_on_mode_and_host() {
-        // Off, or a non-platform host, or a platform without a blur
-        // sheet: nothing to eval.
-        assert!(page_load_gaze_script("https://m.youtube.com/", "off").is_none());
+        // A non-platform host, or a platform without a blur sheet:
+        // nothing to eval, in any mode.
         assert!(page_load_gaze_script("https://accounts.google.com/", "blur").is_none());
         assert!(page_load_gaze_script("https://www.instagram.com/", "blur").is_none());
+        assert!(page_load_gaze_script("https://www.instagram.com/", "off").is_none());
         assert!(page_load_gaze_script("http://tauri.localhost/", "smart").is_none());
 
-        // Blur mode injects the guarded style and nothing else; the
-        // mobile host maps to the same platform as the desktop one.
+        // Off still boots Stage B for the compulsory NSFW-removal tier
+        // (handoff decision #1) — mode "off" baked in, no Stage A sheet.
+        let js = page_load_gaze_script("https://m.youtube.com/", "off").expect("off script");
+        assert!(js.contains("__TS_GAZE_MODE = \"off\""), "off must boot the compulsory tier");
+        assert!(!js.contains("ts-gaze-blur"), "off must not ship the Stage A sheet");
+
+        // Blur mode injects the guarded style AND the Stage B boot (the
+        // bundle only runs NSFW removal in blur mode); the mobile host
+        // maps to the same platform as the desktop one.
         for url in ["https://www.youtube.com/", "https://m.youtube.com/"] {
             let js = page_load_gaze_script(url, "blur").expect("blur script for youtube");
             assert!(js.contains("ts-gaze-blur"), "style-id guard missing");
             assert!(js.contains("blur("), "blur css payload missing");
-            assert!(!js.contains("__TS_GAZE_MODE"), "blur mode must not boot Stage B");
+            assert!(
+                js.contains("__TS_GAZE_MODE = \"blur\""),
+                "blur mode must boot the compulsory tier"
+            );
             assert!(
                 js.contains("--ts-blur:"),
                 "blur payload must define the strength variable"
@@ -976,8 +987,10 @@ mod tests {
         assert!(page_load_gaze_script("https://www.tiktok.com/following", "blur").is_some());
         assert!(page_load_gaze_script("https://www.tiktok.com/", "smart").is_some());
 
-        // Unknown modes normalise to off (gaze_mode contract).
-        assert!(page_load_gaze_script("https://x.com/home", "nonsense").is_none());
+        // Unknown modes normalise to off (gaze_mode contract) — which
+        // now still means the compulsory tier boots on platform hosts.
+        let js = page_load_gaze_script("https://x.com/home", "nonsense").expect("normalised off");
+        assert!(js.contains("__TS_GAZE_MODE = \"off\""));
     }
 
     /// The Rust-side mode mirror the Android page loads read.
@@ -1201,18 +1214,19 @@ mod tests {
         );
     }
 
-    /// "off" (and any unrecognised mode) must never inject the gaze
-    /// bundle — a stray gaze script running while the user picked "off"
-    /// would mean spending CPU/battery on inference nobody asked for.
+    /// Compulsory tier (handoff decision #1): the bundle boots in every
+    /// mode, with the NORMALISED mode baked in so the in-page plan
+    /// (pipeline-plan.mjs) can gate what actually runs. Unrecognised
+    /// modes must land on "off", never leak through as-is.
     #[test]
-    fn gaze_never_injects_outside_smart_mode() {
-        for mode in ["off", "blur", "", "bogus"] {
+    fn gaze_injects_in_every_mode_with_normalised_mode_string() {
+        for (mode, baked) in [("off", "off"), ("blur", "blur"), ("smart", "smart"), ("", "off"), ("bogus", "off")] {
             let script = gaze_script(mode);
             assert!(
-                script.is_empty(),
-                "mode {mode:?} must not inject the gaze bundle, got {} bytes",
-                script.len()
+                script.contains(&format!("window.__TS_GAZE_MODE = \"{baked}\";")),
+                "mode {mode:?} must bake __TS_GAZE_MODE {baked:?}"
             );
+            assert!(script.contains("__TS_GAZE_BUNDLE__"), "mode {mode:?} must carry the bundle");
         }
     }
 

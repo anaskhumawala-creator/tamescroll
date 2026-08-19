@@ -25,12 +25,24 @@ blur-first (`ts-gaze-pending` before any inference) → per-media verdict:
 
 Order per item: **text signal → (compulsory) NSFW → face → gender.**
 
-- **Text signal (BUILT, not yet wired):** `app/gaze/src/text-signals.mjs`
+- **Text signal (BUILT + WIRED 2026-08-19):** `app/gaze/src/text-signals.mjs`
   — seed 467 terms (dsojevic sexual/shock subset, MIT) + algospeak
   supplement + user terms, obscenity-normalised (leetspeak/confusables),
   whole-word. Cheap pre-filter BEFORE models; a hit skips inference.
-- **Compulsory tier (next):** NSFW hit ⇒ REMOVED from view (not blurred),
-  every mode, no setting. Runs regardless of the gaze toggle.
+  Haystack: per-host feed-item container textContent (TEXT_ITEMS —
+  youtube renderers + shreddit-post, all live-verified).
+- **Compulsory tier (BUILT 2026-08-19, probe38):** NSFW hit ⇒ REMOVED
+  from view (`ts-gaze-removed`, whole feed item when the container is
+  known), every mode, no setting. The bundle now boots in ALL modes;
+  `app/gaze/src/pipeline-plan.mjs` is the per-mode policy (unit-tested):
+  off = pre-blur + text + NSFW-remove + reveal (no gender); blur-all =
+  NSFW-remove only on top of the Stage A sheet; smart = everything.
+  Judgment call: the owner's "any confidence" means NO gradation UI —
+  internally the calibrated thresholds below still gate the classifier
+  (a literal zero threshold would remove every image). Removals are
+  deliberately NOT reverted by the fail-open sweep. Known gap: videos
+  get no NSFW sampling yet (smart's face loop only; off/blur rely on
+  Stage A / platform rules) — for the strictness spec pass.
 - **Gender stage (BUILT 2026-08-19, device verification pending):**
   per-face boxes (full BlazeFace decode, adapted from Human, MIT) →
   SSR-Net gender per face (model from human-models, MIT, 64×64, ~161KB).
@@ -59,8 +71,8 @@ conservative, never tuned against evidence.
 | Knob | Value | Meaning | Status |
 |---|---|---|---|
 | Face logit | > 0 (= sigmoid 0.5) | any anchor ⇒ face present | guess |
-| NSFW explicit | Porn + Hentai > 0.5 | stays covered / (soon) removed | guess |
-| NSFW sexy | Sexy > 0.8 | same | guess (probe19: sane both directions on real thumbnails) |
+| NSFW explicit | Porn + Hentai > 0.5 | REMOVED (compulsory, every mode) | guess |
+| NSFW sexy | Sexy > 0.8 | same | probe38: fired on a live suggestive thumbnail, clean results untouched |
 | Image min size | 64px | below = decorative, skip | guess |
 | Image batch | 4 / idle slice | inference batching | ok (probe-verified no jank) |
 | Video sample | 500ms | ≤2 inferences/s/video | guess |

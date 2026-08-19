@@ -1,8 +1,9 @@
-// tamescroll gaze Stage B ("smart" mode) runtime. Injected as a Tauri v2
-// initialization_script only when the launcher's blur picker is set to
-// "smart" (see app/src-tauri/src/lib.rs gaze_script()). Never breaks the
-// page: every fallible step is wrapped so a failure disables gaze and
-// leaves the site working, exactly like "off" mode.
+// tamescroll gaze Stage B runtime. Injected on every platform page in
+// every launcher mode (see app/src-tauri/src/lib.rs gaze_script()); what
+// actually runs per mode is pipeline-plan.mjs — smart is the full
+// face/gender pipeline, off and blur-all run only the compulsory NSFW
+// removal tier. Never breaks the page: every fallible step is wrapped so
+// a failure disables gaze and leaves the site working.
 //
 // Blur-first, always: every <img>/<video> gets .ts-gaze-pending the
 // instant we know it's real content-sized media, before any inference —
@@ -23,6 +24,7 @@ import {
   clearAllRegionBlur,
 } from './region-blur.mjs';
 import { createTextMatcher } from './text-signals.mjs';
+import { planForMode } from './pipeline-plan.mjs';
 
 (function () {
   // Distinctive, minification-proof marker (property assignment with a
@@ -30,7 +32,11 @@ import { createTextMatcher } from './text-signals.mjs';
   // this exact bundle is what got injected. See lib.rs gaze tests.
   window.__TS_GAZE_BUNDLE__ = 'v1';
 
-  if (window.__TS_GAZE_MODE !== 'smart') return;
+  // Compulsory tier (handoff decision #1): the pipeline boots in every
+  // launcher mode so NSFW media can be removed outright; what else runs
+  // is the plan's call (pipeline-plan.mjs, unit-tested policy).
+  var plan = planForMode(window.__TS_GAZE_MODE);
+  if (!plan.boot) return;
 
   // Declared user gender (protection engine): set by the Rust boot
   // script from launcher state. "man"/"woman" filters the opposite
@@ -80,6 +86,18 @@ import { createTextMatcher } from './text-signals.mjs';
   function clearEl(el) {
     el.classList.remove(dom.PENDING_CLASS, dom.FLAGGED_CLASS);
     if (regionBlur) clearRegionBlur(el);
+  }
+
+  // Compulsory tier: the element leaves the page. The whole feed item
+  // goes when we know its container (no blurred hole in the layout);
+  // deliberately NOT tracked in blurredEls — a removal survives the
+  // fail-open sweep, because "pipeline died" must never mean "the one
+  // thing we positively identified comes back".
+  function markRemoved(el) {
+    el.classList.remove(dom.PENDING_CLASS, dom.FLAGGED_CLASS);
+    if (regionBlur) clearRegionBlur(el);
+    var item = textItemSelector && el.closest ? el.closest(textItemSelector) : null;
+    (item || el).classList.add(dom.REMOVED_CLASS);
   }
 
   function failOpen(reason, err) {
@@ -206,7 +224,7 @@ import { createTextMatcher } from './text-signals.mjs';
     // Text pre-filter: a hit keeps the element covered without spending
     // any inference on it. Whole-element blur (no face boxes to narrow
     // to — the signal is about the item, not a region).
-    if (textMatcher) {
+    if (plan.textFilter && textMatcher) {
       try {
         if (textMatcher.test(mediaText(img))) {
           markFlagged(img);
@@ -219,29 +237,41 @@ import { createTextMatcher } from './text-signals.mjs';
     return dom
       .loadDetectable(img)
       .then(function (el) {
-        // Faces first (cheaper, most common hit). NSFW runs even when
-        // the faces cleared: a gender-cleared image can still be
-        // suggestive, and the compulsory tier owns that call. NSFW
-        // model missing degrades to face-only, never breaks the page.
+        // Faces first (cheaper, most common hit) — smart mode only.
+        // NSFW runs when the faces cleared: a gender-cleared image can
+        // still be suggestive, and the compulsory tier owns that call.
+        // A face-FLAGGED image skips NSFW — it stays covered by blur
+        // either way, and the spared inference keeps the batch moving
+        // (revisit when strictness modes map face flags to reveal).
+        // NSFW model missing degrades to face-only, never breaks page.
+        if (!plan.faceGender) {
+          if (!nsfwModel) return { face: false, faces: [], nsfw: false };
+          return detector.isNsfw(nsfwModel, el).then(function (nsfw) {
+            return { face: false, faces: [], nsfw: nsfw };
+          });
+        }
         return faceCheck(el).then(function (face) {
           if (face.verdict === 'flag' || !nsfwModel) {
-            return { flag: face.verdict === 'flag', faces: face.faces };
+            return { face: face.verdict === 'flag', faces: face.faces, nsfw: false };
           }
           return detector.isNsfw(nsfwModel, el).then(function (nsfw) {
             // NSFW flags are whole-image by nature — no face boxes.
-            return { flag: nsfw, faces: [] };
+            return { face: false, faces: [], nsfw: nsfw };
           });
         });
       })
       .then(function (result) {
         if (failed) return;
-        if (result.flag) {
+        if (result.nsfw) {
+          // Compulsory tier: removed outright, every mode, no setting.
+          markRemoved(img);
+        } else if (result.face) {
           markFlagged(img);
           // Face-caused flags narrow to face-region overlays (the
           // whole-blur class stays on until the first successful
           // overlay positioning — blur-first holds throughout).
           if (regionBlur && result.faces.length) applyRegionBlur(img, result.faces);
-        } else {
+        } else if (plan.revealClears) {
           clearEl(img);
         }
       })
@@ -261,7 +291,9 @@ import { createTextMatcher } from './text-signals.mjs';
         imageQueue.length = 0;
         return;
       }
-      if (!model) {
+      // Readiness depends on the plan: face modes wait on BlazeFace,
+      // NSFW-only modes (off / blur-all) wait on the NSFW classifier.
+      if (plan.faceGender ? !model : !nsfwModel) {
         // Model still loading: back off instead of re-arming the idle
         // callback immediately — the immediate re-arm was a tight loop
         // eating every idle slice for the whole model-load window,
@@ -293,7 +325,9 @@ import { createTextMatcher } from './text-signals.mjs';
       if (imageSeen && imageSeen.has(img)) return;
       if (img.naturalWidth >= IMAGE_MIN_SIZE && img.naturalHeight >= IMAGE_MIN_SIZE) {
         if (imageSeen) imageSeen.add(img);
-        markPending(img);
+        // blur-all: the Stage A sheet already blankets the image — no
+        // pending class, the queue exists only for NSFW removal.
+        if (plan.preBlur) markPending(img);
         imageQueue.push(img);
         drainImages();
       }
@@ -312,7 +346,7 @@ import { createTextMatcher } from './text-signals.mjs';
     if (failed || dom.hasPlayerAncestor(img)) return;
     if (imageSeen) imageSeen.delete(img);
     if (regionBlur) clearRegionBlur(img); // stale overlays die with the old src
-    markPending(img);
+    if (plan.preBlur) markPending(img);
     tagImage(img);
   }
 
@@ -333,6 +367,11 @@ import { createTextMatcher } from './text-signals.mjs';
   }
 
   function attachVideo(video) {
+    // Video sampling is face/gender-driven — smart mode only. In
+    // blur-all the Stage A sheet covers feed videos; in off, videos are
+    // a known compulsory-tier gap (no NSFW sampling yet — noted for the
+    // strictness spec pass).
+    if (!plan.faceGender) return;
     if (dom.hasPlayerAncestor(video)) return; // player red line
     if (video.__tsGazeAttached) return;
     video.__tsGazeAttached = true;
@@ -544,6 +583,24 @@ import { createTextMatcher } from './text-signals.mjs';
   }
 
   boot();
+
+  // NSFW-only modes (off / blur-all): the face and gender models never
+  // load — only the classifier the compulsory tier needs. If it cannot
+  // load, fail open: in "off", pre-blurred media would otherwise stay
+  // covered forever on a page the user asked to see unblurred.
+  if (!plan.faceGender) {
+    detector
+      .loadNsfwModel()
+      .then(function (nsfw) {
+        if (failed) return;
+        nsfwModel = nsfw;
+        if (imageQueue.length) drainImages();
+      })
+      .catch(function (e) {
+        failOpen('nsfw model unavailable', e);
+      });
+    return;
+  }
 
   // Blur-first is already live via boot(); load the detector in parallel
   // and only start draining once it's ready. A failure here is exactly

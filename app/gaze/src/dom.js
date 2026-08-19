@@ -5,6 +5,10 @@
 
 export var PENDING_CLASS = 'ts-gaze-pending';
 export var FLAGGED_CLASS = 'ts-gaze-flagged';
+// Compulsory tier: NSFW-flagged media leaves the page outright, in
+// every mode. Applied to the feed-item container when one is known so
+// the row collapses instead of leaving a blurred hole.
+export var REMOVED_CLASS = 'ts-gaze-removed';
 
 var STYLE_ID = 'tamescroll-gaze-style';
 
@@ -17,7 +21,8 @@ var STYLE_ID = 'tamescroll-gaze-style';
 // inline on <html>; 24px is the standalone fallback).
 var STYLE_CSS =
   '.' + PENDING_CLASS + ' { filter: blur(var(--ts-blur-strong, 24px)) !important; }\n' +
-  '.' + FLAGGED_CLASS + ' { filter: blur(var(--ts-blur-strong, 24px)) !important; }\n';
+  '.' + FLAGGED_CLASS + ' { filter: blur(var(--ts-blur-strong, 24px)) !important; }\n' +
+  '.' + REMOVED_CLASS + ' { display: none !important; }\n';
 
 export function injectStyle() {
   if (document.getElementById(STYLE_ID)) return;
