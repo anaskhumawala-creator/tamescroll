@@ -121,6 +121,20 @@ fn user_gender() -> &'static str {
 /// rest of the gaze state.
 static USER_TERMS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
+/// The launcher's bring-back prefs, Rust-held for the same reason as
+/// GAZE_STATE: Android's single webview injects per page load, so page
+/// loads must read the CURRENT prefs, not ones baked at window creation.
+static SHOWN_STATE: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+fn set_shown_state(shown: Vec<String>) {
+    *SHOWN_STATE.lock().unwrap() = shown;
+}
+
+#[cfg_attr(not(target_os = "android"), allow(dead_code))] // android page loads
+fn shown_state() -> Vec<String> {
+    SHOWN_STATE.lock().unwrap().clone()
+}
+
 fn set_user_terms_state(terms: Vec<String>) {
     let mut cleaned: Vec<String> = terms
         .into_iter()
@@ -177,6 +191,33 @@ fn platform_for_host(host: &str) -> Option<&'static Platform> {
 /// against them — the whole mode would collapse into blur-all (review
 /// finding, 2026-08-19). Desktop draws the same line in open_platform
 /// (`page_css(.., mode == "blur", ..)`); Stage B blurs-first itself.
+/// The full rules payload for one page load: engine cosmetics +
+/// scriptlets + our surfaces at the CURRENT shown prefs. Android's only
+/// full-rules delivery (the universal plugin script carries surfaces
+/// only — owner-reported 2026-08-20 as "ad blocking does not work at
+/// all" on the phone). Guarded so Started + Finished double-eval is a
+/// no-op: scriptlets are not all idempotent.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))] // android page loads
+fn page_load_rules_script(url: &str) -> Option<String> {
+    let platform = platform_for_host(platform_root(url))?;
+    let resources = engine().url_cosmetic_resources(url);
+    let script = injection_script(
+        // Blur is deliberately NOT part of this payload: the gaze
+        // page-load script owns the Stage A sheet and the Stage B boot.
+        &page_css(url, platform.id, false, &shown_state()),
+        &resources.injected_script,
+    );
+    Some(format!(
+        r#"
+(function () {{
+  if (window.__TS_RULES__) return;
+  window.__TS_RULES__ = 1;
+{script}
+}})();
+"#
+    ))
+}
+
 fn page_load_gaze_script(url: &str, mode: &str) -> Option<String> {
     let mode = gaze_mode(mode);
     let platform = platform_for_host(platform_root(url))?;
@@ -666,6 +707,11 @@ fn injection_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         // Started raced document creation — the style-id guard makes the
         // second eval a no-op.
         .on_page_load(|webview, payload| {
+            // Rules first (scriptlets want to beat page scripts), gaze
+            // second. Both guarded, both eval at Started and Finished.
+            if let Some(js) = page_load_rules_script(payload.url().as_str()) {
+                let _ = webview.eval(&js);
+            }
             if let Some(js) = page_load_gaze_script(payload.url().as_str(), gaze_state()) {
                 let _ = webview.eval(&js);
             }
@@ -700,6 +746,7 @@ async fn open_platform(
     set_gaze_state(&mode);
     set_blur_px(strength);
     set_user_gender_state(&gender);
+    set_shown_state(shown.clone());
 
     let url: tauri::Url = platform
         .url
@@ -808,6 +855,42 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Owner report 2026-08-20 (first real-phone test): "ad blocking does
+    /// not work at all in the mobile app." Root cause: Android's only
+    /// injection was the universal plugin script, which carries ONLY our
+    /// surfaces CSS — never the engine's cosmetic ad-hiding, never the
+    /// scriptlets. This pins the fix: every platform page load must get
+    /// the full rules payload, current `shown` prefs included, and it
+    /// must be safe to eval twice (Started + Finished).
+    #[test]
+    fn page_load_rules_script_carries_full_ad_blocking() {
+        set_shown_state(Vec::new());
+        let js = page_load_rules_script("https://m.youtube.com/").expect("rules for m.youtube");
+        assert!(js.contains("tamescroll-rules"), "cosmetic style id missing");
+        assert!(
+            js.len() > surfaces_css("youtube", &[]).len() + 1000,
+            "must carry engine cosmetics beyond our surfaces ({} bytes)",
+            js.len()
+        );
+        assert!(js.contains("__TS_RULES__"), "needs a re-entry guard for double eval");
+
+        // Desktop-host URL must work the same way (pre-redirect load).
+        assert!(page_load_rules_script("https://www.youtube.com/").is_some());
+
+        // The current bring-back prefs must reach the payload: a shown
+        // surface's selectors disappear from it.
+        set_shown_state(vec!["shorts".into()]);
+        let js_shown = page_load_rules_script("https://www.youtube.com/").expect("rules");
+        assert!(
+            !js_shown.contains("ytd-reel-shelf-renderer"),
+            "shown surface must not be hidden by the page-load payload"
+        );
+        set_shown_state(Vec::new());
+
+        // Non-platform hosts get nothing.
+        assert!(page_load_rules_script("https://accounts.google.com/").is_none());
+    }
 
     /// Proves the two halves of in-app ad blocking VISION.md describes are
     /// actually wired: cosmetic hiding (already worked) and scriptlet

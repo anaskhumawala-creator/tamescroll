@@ -1,11 +1,16 @@
 package app.tamescroll.client
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
+import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 class MainActivity : TauriActivity() {
   private lateinit var webView: WebView
@@ -35,9 +40,27 @@ class MainActivity : TauriActivity() {
     else "http://tauri.localhost/?open=$platform"
 
   override fun onCreate(savedInstanceState: Bundle?) {
-    enableEdgeToEdge()
+    // Edge-to-edge is enforced anyway at targetSdk 35+; dark() forces
+    // light status-bar icons so they stay readable on our dark strip.
+    enableEdgeToEdge(
+      statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+      navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+    )
     pendingPlatform = platformFromIntent(intent)
     super.onCreate(savedInstanceState)
+    // Owner report 2026-08-20 (Redmi test): page content drew under the
+    // phone's status bar — the template's edge-to-edge ships no inset
+    // handling. Pad the content view by the system bars and paint the
+    // exposed strips launcher-dark so every page sits below the clock.
+    window.decorView.setBackgroundColor(0xFF141414.toInt())
+    val content = findViewById<ViewGroup>(android.R.id.content)
+    ViewCompat.setOnApplyWindowInsetsListener(content) { v, insets ->
+      val bars = insets.getInsets(
+        WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+      )
+      v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+      WindowInsetsCompat.CONSUMED
+    }
   }
 
   override fun onNewIntent(intent: Intent) {
