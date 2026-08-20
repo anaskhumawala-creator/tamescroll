@@ -273,4 +273,5 @@ tamescroll.com soon. TikTok — yes in principle ("a lot of user base"),
 BUT owner is in India where TikTok is banned: no live DOM access from
 this machine, so rules can only ship [unverified] until someone outside
 India verifies (Phase 6 community, or owner VPN — owner-gated). GitHub
-push still deferred ("without GitHub at the initial stage").
+LIVE 2026-08-20 (owner approved): github.com/anaskhumawala-creator/
+tamescroll, PUBLIC, origin=main. Rules-OTA raw URL base now exists.
