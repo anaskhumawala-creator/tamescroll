@@ -212,6 +212,15 @@ fn page_load_rules_script(url: &str) -> Option<String> {
 (function () {{
   if (window.__TS_RULES__) return;
   window.__TS_RULES__ = 1;
+  // The universal plugin script already planted a surfaces-only sheet
+  // under the SAME id at document start (its job: instant hiding before
+  // first paint). Drop it so the full payload's apply() isn't a no-op —
+  // emulator evidence 2026-08-20: cssLen stayed 2332 (surfaces-only)
+  // with the guard set, ads CSS never landed.
+  try {{
+    var ts_u = document.getElementById("tamescroll-rules");
+    if (ts_u && ts_u.parentNode) ts_u.parentNode.removeChild(ts_u);
+  }} catch (e) {{}}
 {script}
 }})();
 "#
@@ -874,6 +883,10 @@ mod tests {
             js.len()
         );
         assert!(js.contains("__TS_RULES__"), "needs a re-entry guard for double eval");
+        assert!(
+            js.contains("removeChild(ts_u)"),
+            "must replace the universal surfaces-only sheet (same style id) or the full CSS never lands"
+        );
 
         // Desktop-host URL must work the same way (pre-redirect load).
         assert!(page_load_rules_script("https://www.youtube.com/").is_some());
