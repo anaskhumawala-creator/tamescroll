@@ -246,6 +246,22 @@ on low-end phones = open perf question). GitHub: owner asked "do we
 need it" — advised private repo for backup (repo exists only on this
 machine); owner-gated.
 
+**Owner phone test round 1 (2026-08-20):** two reports, both fixed +
+emulator-verified (probe40, commits 0ed7405 + 06fc819): (1) status-bar
+overlap -- template enableEdgeToEdge() had no inset handling; content
+view now pads by system bars, strips painted launcher-dark. (2) "ad
+blocking does not work at all" -- Android's only rules delivery was the
+universal script = surfaces CSS ONLY; engine ad cosmetics + scriptlets
+NEVER shipped on Android (emulator never got served ads, so invisible).
+Now page_load_rules_script evals full payload per page load (engine
+cosmetics for actual URL + scriptlets + surfaces at current SHOWN_STATE,
+guarded), and it must REMOVE the universal sheet first (same style id --
+apply() no-oped, cssLen stuck 2332; now 35484 on m.youtube). Owner
+priority saved to global CLAUDE.md: execute, don't editorialize.
+Phone APK re-pushed w/ all fixes (Download/tamescroll-debug.apk).
+Video PRE-ROLL ads on Android = scriptlet timing at onPageStarted,
+unverified vs real ads -- owner retest decides.
+
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
 (rules would be [unverified] — site blocked in India); Instagram
