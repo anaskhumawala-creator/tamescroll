@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "files": {
+    "youtube.txt": {
+      "sha256": "9342b2ac5f0d76f1e47a5a0b4c03de612f6b6cea3a8ed42aa432de19fee29f8b"
+    },
+    "reddit.txt": {
+      "sha256": "c5faab3a8bf8ef56ba2a2ac900306c8214db798882b49177949529fa9bdc3d2f"
+    },
+    "x.txt": {
+      "sha256": "98fadf60738d267179754970bf23948331b77dfd7926e7f30e92992e5dbe514a"
+    },
+    "tiktok.txt": {
+      "sha256": "15484d53d0d29762afe2c409545fee535dac2574f3eaa4c6c2a9e07b3ddf7d21"
+    },
+    "blur/youtube.css": {
+      "sha256": "5ab5f1246de4ef2a9393214002f630f403712867999c92ee93158c7439c28d84"
+    },
+    "blur/reddit.css": {
+      "sha256": "3279bd1b167a40f0dc800b96afa0ea271e0bfc1f32acad513bc015b32a9834f3"
+    },
+    "blur/x.css": {
+      "sha256": "57b39e9944a08f386fd70c30ccc77a15c781b539cdcf0b156d4a0b138e33f290"
+    },
+    "blur/tiktok.css": {
+      "sha256": "58ec367e2693dad624e1588b784f93aebec6705c1218de79af365cb192c37a11"
+    },
+    "vendor/easylist.txt": {
+      "sha256": "c8092c3b4fa718a72fea8dac1102edb58a77f7ff237f916ee67e999318f39900"
+    },
+    "vendor/easyprivacy.txt": {
+      "sha256": "63cef3776741f8f4b80fbf40ffdfe6730944b7046827647e38b3470a3219d47c"
+    },
+    "vendor/ubo-filters.txt": {
+      "sha256": "1773fa0938245e81f21260742187d9b4e6a3158cd7727068402a7aec7ee802a4"
+    },
+    "vendor/ubo-quick-fixes.txt": {
+      "sha256": "b99c8bc2271c08c6a6583d57f7911cdd4a9b3b0c228f397f419c7dd4e34a078f"
+    },
+    "vendor/ubo-unbreak.txt": {
+      "sha256": "087e87be1ac43b0a075ebc46064dd89ee41c00fc17359ad40c50497ba886ec25"
+    }
+  }
+}

@@ -5,13 +5,14 @@
 //! to hide for a given URL. See NOTICE.
 
 use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, RwLock};
 
 use adblock::cosmetic_filter_cache::ProceduralOrActionFilter;
 use adblock::Engine;
 use serde::Serialize;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
+mod ota;
 mod rules;
 
 /// Stage A gaze blur (docs/plan.md Phase 4): plain CSS, opt-in, appended to
@@ -20,19 +21,13 @@ mod rules;
 /// files are `filter: blur(...)` rules on chosen media selectors, kept
 /// separate from rules/*.txt because blurring is a personal choice and the
 /// mechanism (plain CSS) differs from cosmetic hiding.
-const BLUR_CSS: &[(&str, &str)] = &[
-    ("youtube", include_str!("../../../rules/blur/youtube.css")),
-    ("reddit", include_str!("../../../rules/blur/reddit.css")),
-    ("x", include_str!("../../../rules/blur/x.css")),
-    ("tiktok", include_str!("../../../rules/blur/tiktok.css")),
-];
+const BLUR_PLATFORMS: &[&str] = &["youtube", "reddit", "x", "tiktok"];
 
-fn blur_css(platform_id: &str) -> &'static str {
-    BLUR_CSS
-        .iter()
-        .find(|(id, _)| *id == platform_id)
-        .map(|(_, css)| *css)
-        .unwrap_or("")
+fn blur_css(platform_id: &str) -> String {
+    if !BLUR_PLATFORMS.contains(&platform_id) {
+        return String::new();
+    }
+    ota::rules_text(&format!("blur/{platform_id}.css"))
 }
 
 /// Stage B gaze bundle (docs/gaze-research.md): the built JS runtime that
@@ -345,21 +340,38 @@ fn page_css(url: &str, platform_id: &str, blur: bool, shown: &[String]) -> Strin
     css.push_str(&surfaces_css(platform_id, shown));
     if blur {
         css.push_str(&blur_vars_css(blur_px()));
-        css.push_str(blur_css(platform_id));
+        css.push_str(&blur_css(platform_id));
     }
     css
 }
 
-/// Rules are compiled in for now. Phase 6 replaces this with a cached
-/// fetch of the hosted list so fixes ship without an app update — the
-/// engine stays put, only the data moves. Building it from the full
-/// vendored list set (EasyList, EasyPrivacy, uBO filters, scriptlet
-/// resources) takes on the order of a second, so `run()` warms it on a
-/// background thread instead of paying that cost on the first tile click.
-static ENGINE: OnceLock<Engine> = OnceLock::new();
+/// The engine, swappable at runtime: a rules OTA refresh (ota.rs) builds
+/// a replacement from the updated lists and drops it in — the engine
+/// stays put architecturally, only the data moves. Arc because a page
+/// injection may be reading the old engine while a refresh installs the
+/// new one. Building from the full vendored set takes on the order of a
+/// second, so `run()` warms it on a background thread instead of paying
+/// that cost on the first tile click.
+static ENGINE: RwLock<Option<Arc<Engine>>> = RwLock::new(None);
 
-fn engine() -> &'static Engine {
-    ENGINE.get_or_init(rules::build_engine)
+fn engine() -> Arc<Engine> {
+    if let Some(e) = ENGINE.read().unwrap().as_ref() {
+        return e.clone();
+    }
+    let built = Arc::new(rules::build_engine());
+    let mut w = ENGINE.write().unwrap();
+    // A racing warm-up thread may have won; keep whichever landed first.
+    w.get_or_insert(built).clone()
+}
+
+/// Rebuilds engine + surfaces from the current rule set (embedded +
+/// OTA overrides). Called by ota.rs after a verified refresh; new page
+/// loads pick the new data up immediately, already-rendered pages keep
+/// their injected CSS until the next navigation.
+pub(crate) fn rebuild_rules() {
+    let built = Arc::new(rules::build_engine());
+    *ENGINE.write().unwrap() = Some(built);
+    rules::rebuild_surfaces();
 }
 
 #[derive(Serialize, Clone)]
@@ -431,6 +443,17 @@ fn platforms() -> Vec<Platform> {
 #[tauri::command]
 fn set_gaze_mode(mode: String) {
     set_gaze_state(&mode);
+}
+
+/// Manual "check for rule updates now" from the launcher. Blocking
+/// network work, so it runs off the main thread; returns a short status
+/// line ("rules up to date" / "updated N rule file(s)") the launcher may
+/// show inline — never as a nag.
+#[tauri::command]
+async fn refresh_rules() -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(ota::refresh)
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// Same contract as `set_gaze_mode`, for the blur-strength picker:
@@ -847,6 +870,20 @@ pub fn run() {
     let builder = builder.plugin(injection_plugin());
 
     builder
+        .setup(|app| {
+            // Rules OTA: restore the cached rule set, then keep it fresh
+            // (launch + every 24h, silent). Off the main thread — init
+            // does disk IO and its loop does network.
+            let cache_dir = app
+                .path()
+                .app_data_dir()
+                .map(|d| d.join("rules-cache"))
+                .ok();
+            if let Some(dir) = cache_dir {
+                std::thread::spawn(move || ota::init(dir));
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             platforms,
             open_platform,
@@ -855,7 +892,8 @@ pub fn run() {
             set_gaze_mode,
             set_blur_strength,
             set_user_gender,
-            set_user_terms
+            set_user_terms,
+            refresh_rules
         ])
         .run(tauri::generate_context!())
         .expect("error while running tamescroll");
@@ -1156,7 +1194,8 @@ mod tests {
         assert!(vars.contains("--ts-blur-strong: 12px"));
 
         // Stage A sheets resolve through the variable...
-        for (id, css) in BLUR_CSS {
+        for id in BLUR_PLATFORMS {
+            let css = blur_css(id);
             assert!(
                 css.contains("var(--ts-blur"),
                 "blur css for {id} should resolve its radius via --ts-blur"
@@ -1179,7 +1218,8 @@ mod tests {
     /// target — that is the one surface the module exists to leave alone.
     #[test]
     fn blur_css_is_present_and_never_targets_the_player() {
-        for (id, css) in BLUR_CSS {
+        for id in BLUR_PLATFORMS {
+            let css = blur_css(id);
             assert!(!css.is_empty(), "blur css for {id} must not be empty");
             assert!(
                 css.contains("blur("),

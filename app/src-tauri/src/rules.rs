@@ -22,7 +22,7 @@
 //! <Label>` markers and groups their rules by surface; lib.rs assembles
 //! the CSS itself. Vendor lists and blur CSS are untouched by this split.
 
-use std::sync::OnceLock;
+use std::sync::RwLock;
 
 use adblock::lists::{FilterSet, ParseOptions};
 use adblock::resources::{MimeType, PermissionMask, Resource, ResourceType};
@@ -50,6 +50,38 @@ const UBO_UNBREAK: &str = include_str!("../../../rules/vendor/ubo-unbreak.txt");
 /// Carries Brave's additions (de-amp, playback fixes, etc.) — not the
 /// generic uBO scriptlet names; ours below cover those.
 const BRAVE_RESOURCES_JSON: &str = include_str!("../../../rules/vendor/resources.json");
+
+/// Stage A blur CSS (owned by lib.rs conceptually, embedded here so all
+/// OTA-able rule files live in one lookup). resources.json and the
+/// scriptlets are deliberately ABSENT from this map: they are CODE, and
+/// code ships in the binary only (docs/rules-updates.md, store policy).
+const BLUR_YOUTUBE: &str = include_str!("../../../rules/blur/youtube.css");
+const BLUR_REDDIT: &str = include_str!("../../../rules/blur/reddit.css");
+const BLUR_X: &str = include_str!("../../../rules/blur/x.css");
+const BLUR_TIKTOK: &str = include_str!("../../../rules/blur/tiktok.css");
+
+/// Every rules file the OTA layer may override, keyed by its
+/// repo-relative name under `rules/` — the same names
+/// `rules/manifest.json` uses. `None` for anything else, which is how
+/// ota.rs knows a manifest entry is not for this build.
+pub fn embedded(name: &str) -> Option<&'static str> {
+    match name {
+        "youtube.txt" => Some(YOUTUBE_RULES),
+        "reddit.txt" => Some(REDDIT_RULES),
+        "x.txt" => Some(X_RULES),
+        "tiktok.txt" => Some(TIKTOK_RULES),
+        "blur/youtube.css" => Some(BLUR_YOUTUBE),
+        "blur/reddit.css" => Some(BLUR_REDDIT),
+        "blur/x.css" => Some(BLUR_X),
+        "blur/tiktok.css" => Some(BLUR_TIKTOK),
+        "vendor/easylist.txt" => Some(EASYLIST),
+        "vendor/easyprivacy.txt" => Some(EASYPRIVACY),
+        "vendor/ubo-filters.txt" => Some(UBO_FILTERS),
+        "vendor/ubo-quick-fixes.txt" => Some(UBO_QUICK_FIXES),
+        "vendor/ubo-unbreak.txt" => Some(UBO_UNBREAK),
+        _ => None,
+    }
+}
 
 /// Our clean-room scriptlets. Function-style: the body starts with
 /// `function name(` so adblock-rust injects the body once as a dependency
@@ -101,13 +133,15 @@ const SCRIPTLETS: &[(&str, &[&str], &str)] = &[
 pub fn build_engine() -> Engine {
     let mut set = FilterSet::new(false);
     for list in [
-        EASYLIST,
-        EASYPRIVACY,
-        UBO_FILTERS,
-        UBO_QUICK_FIXES,
-        UBO_UNBREAK,
+        "vendor/easylist.txt",
+        "vendor/easyprivacy.txt",
+        "vendor/ubo-filters.txt",
+        "vendor/ubo-quick-fixes.txt",
+        "vendor/ubo-unbreak.txt",
     ] {
-        set.add_filter_list(list.to_string(), ParseOptions::default());
+        // Through the OTA layer: an updated list snapshot wins over the
+        // embedded one on the next rebuild.
+        set.add_filter_list(crate::ota::rules_text(list), ParseOptions::default());
     }
 
     let mut engine = Engine::new_with_filter_set(set);
@@ -219,19 +253,44 @@ fn parse_surfaces(text: &'static str) -> Vec<Surface> {
     surfaces
 }
 
-/// Parsed once and cached — same rationale as `ENGINE` in lib.rs, just for
-/// much smaller inputs.
-static SURFACES: OnceLock<Vec<(&'static str, Vec<Surface>)>> = OnceLock::new();
+/// Parsed once and cached, but REPLACEABLE: a rules OTA refresh calls
+/// `rebuild_surfaces` to re-parse from the updated files. `Surface`
+/// borrows `&'static str` throughout (call sites all over lib.rs rely on
+/// it), so each rebuild leaks its parsed set via `Box::leak` — bounded
+/// by design: at most one leak per refresh, refreshes happen at most a
+/// few times a day, and each set is a few KB.
+static SURFACES: RwLock<Option<&'static Vec<(&'static str, Vec<Surface>)>>> = RwLock::new(None);
+
+fn build_surfaces() -> &'static Vec<(&'static str, Vec<Surface>)> {
+    fn leaked(name: &str) -> &'static str {
+        Box::leak(crate::ota::rules_text(name).into_boxed_str())
+    }
+    Box::leak(Box::new(vec![
+        ("youtube", parse_surfaces(leaked("youtube.txt"))),
+        ("reddit", parse_surfaces(leaked("reddit.txt"))),
+        ("x", parse_surfaces(leaked("x.txt"))),
+        ("tiktok", parse_surfaces(leaked("tiktok.txt"))),
+    ]))
+}
 
 fn all_surfaces() -> &'static Vec<(&'static str, Vec<Surface>)> {
-    SURFACES.get_or_init(|| {
-        vec![
-            ("youtube", parse_surfaces(YOUTUBE_RULES)),
-            ("reddit", parse_surfaces(REDDIT_RULES)),
-            ("x", parse_surfaces(X_RULES)),
-            ("tiktok", parse_surfaces(TIKTOK_RULES)),
-        ]
-    })
+    if let Some(s) = *SURFACES.read().unwrap() {
+        return s;
+    }
+    let built = build_surfaces();
+    let mut w = SURFACES.write().unwrap();
+    // A racing first caller may have won; keep theirs (ours leaks once).
+    if w.is_none() {
+        *w = Some(built);
+    }
+    w.unwrap()
+}
+
+/// Re-parses surfaces from the current (possibly OTA-overridden) rule
+/// files. Called by the OTA layer after a successful refresh.
+pub fn rebuild_surfaces() {
+    let built = build_surfaces();
+    *SURFACES.write().unwrap() = Some(built);
 }
 
 /// The toggleable surfaces for one platform id, or `None` for a platform

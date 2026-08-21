@@ -218,6 +218,32 @@ document.querySelector<HTMLFormElement>("#term-form")!.addEventListener("submit"
 renderTermChips();
 void invoke("set_user_terms", { terms: readTerms() }).catch(() => {});
 
+// ---------- rules refresh (Settings -> About) ----------
+// Rules also refresh silently on launch + every 24h (Rust side); this
+// button is the owner-visible "do it now" for when a platform breaks
+// something and a fix just landed.
+
+const refreshForm = document.querySelector<HTMLFormElement>("#rules-refresh-form")!;
+const refreshBtn = document.querySelector<HTMLButtonElement>("#rules-refresh")!;
+const refreshStatus = document.querySelector<HTMLElement>("#rules-refresh-status")!;
+
+refreshForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  refreshBtn.disabled = true;
+  refreshStatus.textContent = "Checking…";
+  invoke<string>("refresh_rules")
+    .then((msg) => {
+      refreshStatus.textContent =
+        msg === "rules up to date" ? "Already up to date." : `${msg}. Reopen a platform to apply.`;
+    })
+    .catch(() => {
+      refreshStatus.textContent = "Couldn't reach the update server. Current rules stay active.";
+    })
+    .finally(() => {
+      refreshBtn.disabled = false;
+    });
+});
+
 // ---------- bring back (surfaces) ----------
 
 type SurfaceInfo = { id: string; label: string };
