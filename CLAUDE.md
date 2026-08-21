@@ -262,6 +262,19 @@ Phone APK re-pushed w/ all fixes (Download/tamescroll-debug.apk).
 Video PRE-ROLL ads on Android = scriptlet timing at onPageStarted,
 unverified vs real ads -- owner retest decides.
 
+**Rules OTA SHIPPED** (c804cbc, 2026-08-22): rules/manifest.json
+(sha256 per file, gen by scripts/gen-rules-manifest.mjs — RERUN + commit
+after ANY rules/ edit or shipped apps never see it) fetched from raw
+GitHub main on launch + 24h + About-pane Check-for-updates button
+(refresh_rules cmd). ota.rs: hash-verify + HTML/empty sanity gate,
+all-or-nothing apply, app-data cache restored on boot, silent failures
+(NO NAGS). ENGINE now RwLock<Arc<Engine>>, surfaces rebuild via bounded
+Box::leak, blur CSS same override layer. Scriptlets/resources.json
+binary-only (store rule). Hashes LF-normalized (autocrlf). 26/26 tests
+incl. e2e local-HTTP refresh test; live raw hash verified matching.
+Test gotcha: OVERRIDES is process-global — mutation tests use ADDITIVE
+overrides + TEST_LOCK or parallel readers flake.
+
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
 (rules would be [unverified] — site blocked in India); Instagram
