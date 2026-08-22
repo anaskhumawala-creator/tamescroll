@@ -1,16 +1,29 @@
 package app.tamescroll.client
 
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.graphics.Color
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
+import android.webkit.ConsoleMessage
+import android.webkit.GeolocationPermissions
 import android.webkit.JavascriptInterface
+import android.webkit.JsPromptResult
+import android.webkit.JsResult
+import android.webkit.PermissionRequest
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 
 class MainActivity : TauriActivity() {
   private lateinit var webView: WebView
@@ -109,9 +122,114 @@ class MainActivity : TauriActivity() {
     }
   }
 
+  // ---- fullscreen video (owner report 2026-08-22: "full screen doesn't
+  // actually full screen"). wry's generated RustWebChromeClient rejects
+  // the Fullscreen API outright — its onShowCustomView immediately calls
+  // callback.onCustomViewHidden(), so m.youtube falls back to an in-page
+  // pseudo-fullscreen with the system bars still up. Real browsers
+  // (Brave/Chrome) accept the custom view, float it over everything, and
+  // go immersive; this replicates that.
+
+  private var fullscreenView: View? = null
+  private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
+
+  private fun enterFullscreen(view: View, callback: WebChromeClient.CustomViewCallback) {
+    if (fullscreenView != null) {
+      callback.onCustomViewHidden()
+      return
+    }
+    fullscreenView = view
+    fullscreenCallback = callback
+    view.setBackgroundColor(Color.BLACK)
+    // Onto the decor view, NOT the padded content view — fullscreen must
+    // cover the inset strips the normal UI deliberately avoids.
+    (window.decorView as ViewGroup).addView(
+      view,
+      ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
+    )
+    val controller = WindowInsetsControllerCompat(window, window.decorView)
+    controller.systemBarsBehavior =
+      WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    controller.hide(WindowInsetsCompat.Type.systemBars())
+    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    // WebView never implements screen.orientation.lock, so the page can't
+    // rotate itself the way it does in Chrome — rotate for it, the way
+    // video fullscreen is expected to behave. USER_LANDSCAPE still honors
+    // both landscape directions. (Trade-off: portrait videos also go
+    // landscape; the user's sensor rotation is respected on exit.)
+    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE
+  }
+
+  private fun exitFullscreen() {
+    val view = fullscreenView ?: return
+    fullscreenView = null
+    (window.decorView as ViewGroup).removeView(view)
+    val callback = fullscreenCallback
+    fullscreenCallback = null
+    WindowInsetsControllerCompat(window, window.decorView)
+      .show(WindowInsetsCompat.Type.systemBars())
+    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    callback?.onCustomViewHidden()
+  }
+
+  /// wry's RustWebChromeClient is final and attached from Rust AFTER
+  /// onWebViewCreate returns (main_pipe.rs: setWebView -> ... ->
+  /// setWebChromeClient in one main-thread block), so this runs via
+  /// webView.post: by then wry's client is in place and can be wrapped.
+  /// The wrapper delegates every behavior wry implements (dialogs,
+  /// permissions, file chooser, console, title -> Rust) and replaces only
+  /// the fullscreen pair. Needs the webChromeClient getter (API 26+);
+  /// below that the old no-fullscreen behavior remains.
+  private fun installFullscreenClient() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+    val wry = webView.webChromeClient ?: return
+    webView.webChromeClient = object : WebChromeClient() {
+      override fun onShowCustomView(view: View, callback: CustomViewCallback) =
+        enterFullscreen(view, callback)
+
+      override fun onHideCustomView() = exitFullscreen()
+
+      override fun onPermissionRequest(request: PermissionRequest) =
+        wry.onPermissionRequest(request)
+
+      override fun onJsAlert(view: WebView, url: String, message: String, result: JsResult) =
+        wry.onJsAlert(view, url, message, result)
+
+      override fun onJsConfirm(view: WebView, url: String, message: String, result: JsResult) =
+        wry.onJsConfirm(view, url, message, result)
+
+      override fun onJsPrompt(
+        view: WebView,
+        url: String,
+        message: String,
+        defaultValue: String?,
+        result: JsPromptResult,
+      ) = wry.onJsPrompt(view, url, message, defaultValue, result)
+
+      override fun onGeolocationPermissionsShowPrompt(
+        origin: String,
+        callback: GeolocationPermissions.Callback,
+      ) = wry.onGeolocationPermissionsShowPrompt(origin, callback)
+
+      override fun onShowFileChooser(
+        view: WebView,
+        filePathCallback: ValueCallback<Array<Uri>>,
+        fileChooserParams: FileChooserParams,
+      ) = wry.onShowFileChooser(view, filePathCallback, fileChooserParams)
+
+      override fun onConsoleMessage(consoleMessage: ConsoleMessage) =
+        wry.onConsoleMessage(consoleMessage)
+
+      override fun onReceivedTitle(view: WebView, title: String) =
+        wry.onReceivedTitle(view, title)
+    }
+  }
+
   override fun onWebViewCreate(webView: WebView) {
     this.webView = webView
     webView.addJavascriptInterface(ShortcutBridge(), "TsShortcuts")
+    webView.post { installFullscreenClient() }
 
     // tamescroll: on Android everything runs in this one WebView, so the
     // system Back key must always land on our launcher before it is
@@ -128,6 +246,9 @@ class MainActivity : TauriActivity() {
         // (observed on the emulator 2026-08-18, press-2 anomaly).
         val onLauncher = webView.url?.contains("tauri.localhost") == true
         when {
+          // Fullscreen video first: Back exits fullscreen, not the page —
+          // the same contract every browser honors.
+          fullscreenView != null -> exitFullscreen()
           // moveTaskToBack, never finish(): finishing destroys the
           // Activity while the Rust process lives on, and Tauri cannot
           // attach a fresh Activity to an already-initialized process —
