@@ -288,6 +288,24 @@ ways. API 26+ only. Owner report "lot of loading" UNDIAGNOSED —
 suspects: 1.6MB bundle eval/parse per page load + NSFW inference on
 Helio G88 + debug build; needs owner mode + evidence run.
 
+**Phone round 3 fixes** (2026-08-23, probe42): (1) both-genders-
+blurred = gender model loaded LAST + no re-verdict -> permanent
+presence-only flags on slow devices; drain now waits genderSettled
+(loaded OR failed), gender loads 2nd, NSFW last. (2) region overlays at
+stale coords after thumbnail tap = SPA nav fires no scroll/resize;
+250ms heartbeat repositionAll while entries exist (verified 18->1
+overlays 2s after SPA home nav; faces pinned correctly on search).
+(3) pinch-to-zoom fullscreen video: ScaleGestureDetector at
+dispatchTouchEvent (never consumed), scales view 1-3x, reset on
+enter/exit — UNVERIFIED on device (no touch sim for pinch; owner
+retest). Owner asks OPEN: live blur INSIDE playing video (player is
+exempt BY DESIGN — red line; reversing = protection-engine spec work +
+perf question on low-end hw) + in-player blur toggle. Owner arch
+question answered: Tauri stays. Probe gotcha: region-blur removes
+FLAGGED_CLASS once overlays active — class-based probes count
+region-blurred imgs as cleared; count #tamescroll-gaze-regions
+children instead.
+
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
 (rules would be [unverified] — site blocked in India); Instagram
