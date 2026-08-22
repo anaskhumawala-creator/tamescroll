@@ -55,6 +55,11 @@ import { planForMode } from './pipeline-plan.mjs';
   var model = null;
   var nsfwModel = null;
   var genderModel = null;
+  // True once the NSFW model load has SETTLED (loaded or failed). The
+  // smart-mode drain must wait for it: images drained into the
+  // !nsfwModel branch were revealed WITHOUT the compulsory NSFW check
+  // and nothing ever re-checked them (review 2026-08-23 #2).
+  var nsfwSettled = false;
   // True once the gender model load has SETTLED (loaded or failed).
   // Owner phone bug 2026-08-22: gender loaded last and nothing
   // re-verdicts, so every image drained before it arrived was flagged
@@ -300,9 +305,10 @@ import { planForMode } from './pipeline-plan.mjs';
       }
       // Readiness depends on the plan: face modes wait on BlazeFace,
       // NSFW-only modes (off / blur-all) wait on the NSFW classifier.
-      // Face modes wait for BlazeFace AND the gender load to settle —
-      // draining earlier hands out irreversible presence-only flags.
-      if (plan.faceGender ? !model || !genderSettled : !nsfwModel) {
+      // Face modes wait for BlazeFace AND the gender AND NSFW loads to
+      // settle — draining earlier hands out irreversible presence-only
+      // flags (gender) or irreversible unchecked reveals (NSFW).
+      if (plan.faceGender ? !model || !genderSettled || !nsfwSettled : !nsfwModel) {
         // Model still loading: back off instead of re-arming the idle
         // callback immediately — the immediate re-arm was a tight loop
         // eating every idle slice for the whole model-load window,
@@ -400,6 +406,11 @@ import { planForMode } from './pipeline-plan.mjs';
     var rvfcArmed = false;
     var dead = false;
     var hasRvfc = typeof video.requestVideoFrameCallback === 'function';
+    var pill = null;
+    // The player unblurs faster than feed videos: 2s of guaranteed
+    // blackout on a video the user deliberately opened was the review's
+    // #13 — one clean second is enough to trust a face-free frame.
+    var unblurStreak = isPlayer ? 2 : VIDEO_CLEAN_STREAK_TO_UNBLUR;
 
     // Cross-origin video with no CORS taints the canvas: getImageData
     // throws SecurityError on EVERY frame, forever — no header we can
@@ -420,6 +431,11 @@ import { planForMode } from './pipeline-plan.mjs';
     function sampleOnce() {
       if (failed || dead || !model || video.paused || document.hidden) return;
       if (isPlayer && !playerBlurOn) return;
+      // Same rule as the image drain: verdicts handed out before the
+      // gender load settles are presence-only — for video that is a
+      // few wrongly-blurred seconds rather than a permanent flag, but
+      // the pending blur already covers the wait, so just wait.
+      if (!genderSettled) return;
       var now = performance.now();
       if (now - lastSample < VIDEO_SAMPLE_INTERVAL_MS) return;
       if (sampling) return;
@@ -451,7 +467,7 @@ import { planForMode } from './pipeline-plan.mjs';
               markFlagged(video); // re-flag instantly
             } else {
               cleanStreak++;
-              if (cleanStreak >= VIDEO_CLEAN_STREAK_TO_UNBLUR) clearEl(video);
+              if (cleanStreak >= unblurStreak) clearEl(video);
             }
           })
           .catch(function (e) {
@@ -473,7 +489,9 @@ import { planForMode } from './pipeline-plan.mjs';
     }
 
     function rvfcLoop() {
-      if (failed || dead || rvfcArmed) return;
+      // Toggled-off players must not keep burning a callback per frame
+      // (review 2026-08-23 #9) — the pill's re-enable path calls start().
+      if (failed || dead || rvfcArmed || (isPlayer && !playerBlurOn)) return;
       rvfcArmed = true;
       video.requestVideoFrameCallback(function () {
         rvfcArmed = false;
@@ -508,13 +526,32 @@ import { planForMode } from './pipeline-plan.mjs';
     video.addEventListener('pause', stop);
     video.addEventListener('ended', stop);
 
-    if (isPlayer) {
+    // A reused element is a NEW video (YouTube SPA watch->watch keeps
+    // the same <video> and just swaps the stream — review 2026-08-23
+    // #5): every per-video decision is stale the moment loadstart
+    // fires. Reset them all — a tainted giveUp on the previous stream,
+    // the user's toggle, the clean streak — and blur-first the new one.
+    video.addEventListener('loadstart', function () {
+      if (failed) return;
+      dead = false;
+      cleanStreak = 0;
+      if (!playerBlurOn) {
+        playerBlurOn = true;
+        if (pill) pill.textContent = 'Blur on';
+      }
+      markPending(video);
+      if (!video.paused) start();
+    });
+
+    var pillHost = isPlayer ? (video.closest && video.closest('#movie_player')) || null : null;
+    if (pillHost) {
       // In-player toggle (owner ask): a wrong live verdict must be one
       // tap from gone. Lives INSIDE the player container so element
       // fullscreen keeps it visible (fixed-position elements outside
-      // the fullscreen element are not rendered). Deliberately small
-      // and translucent — our UI, still bound by NO NAGS.
-      var pill = document.createElement('button');
+      // the fullscreen element are not rendered). NO NAGS: visible only
+      // while the player is actually covered — or toggled off, since
+      // the user needs the way back (review 2026-08-23 #9).
+      pill = document.createElement('button');
       pill.type = 'button';
       pill.textContent = 'Blur on';
       pill.style.cssText =
@@ -534,15 +571,17 @@ import { planForMode } from './pipeline-plan.mjs';
           clearEl(video);
         }
       });
-      var pillHost = (video.closest && video.closest('#movie_player')) || null;
-      if (pillHost) pillHost.appendChild(pill);
-      // The pill dies with its video: SPA navigation away, fail-open,
-      // or a tainted-canvas giveUp all end with no orphaned button.
+      pillHost.appendChild(pill);
       var pillWatch = setInterval(function () {
-        if (!video.isConnected || dead || failed) {
+        if (!video.isConnected || failed) {
           clearInterval(pillWatch);
           if (pill.parentNode) pill.parentNode.removeChild(pill);
+          return;
         }
+        var covered =
+          video.classList.contains(dom.PENDING_CLASS) ||
+          video.classList.contains(dom.FLAGGED_CLASS);
+        pill.style.display = covered || !playerBlurOn ? '' : 'none';
       }, 1000);
     }
 
@@ -666,8 +705,14 @@ import { planForMode } from './pipeline-plan.mjs';
   // load — only the classifier the compulsory tier needs. If it cannot
   // load, fail open: in "off", pre-blurred media would otherwise stay
   // covered forever on a page the user asked to see unblurred.
+  //
+  // Off mode may NOT defer the load (review 2026-08-23 #8): its
+  // pre-blur holds the whole feed hostage until the classifier clears
+  // it — a user who chose "Off" staring at seconds of blur is the
+  // deferral backfiring. Blur-all defers: its blur IS the intended
+  // visual, NSFW removal timing is not user-visible.
   if (!plan.faceGender) {
-    whenSettled(function () {
+    var kickNsfw = function () {
       detector
         .loadNsfwModel()
         .then(function (nsfw) {
@@ -678,7 +723,9 @@ import { planForMode } from './pipeline-plan.mjs';
         .catch(function (e) {
           failOpen('nsfw model unavailable', e);
         });
-    });
+    };
+    if (plan.preBlur) kickNsfw();
+    else whenSettled(kickNsfw);
     return;
   }
 
@@ -722,16 +769,22 @@ import { planForMode } from './pipeline-plan.mjs';
           // cleared under face-only rules — acceptable: blur-first
           // already held while they were pending, and the next src swap
           // re-checks.
-          return detector.loadNsfwModel().then(
-            function (nsfw) {
-              nsfwModel = nsfw;
-            },
-            function (e) {
-              // Degrade to face-only, loudly but harmlessly.
-              // eslint-disable-next-line no-console
-              console.warn('tamescroll gaze: nsfw model unavailable, face-only', e);
-            }
-          );
+          return detector
+            .loadNsfwModel()
+            .then(
+              function (nsfw) {
+                nsfwModel = nsfw;
+              },
+              function (e) {
+                // Degrade to face-only, loudly but harmlessly.
+                // eslint-disable-next-line no-console
+                console.warn('tamescroll gaze: nsfw model unavailable, face-only', e);
+              }
+            )
+            .then(function () {
+              nsfwSettled = true;
+              if (imageQueue.length) drainImages();
+            });
         });
     })
     .catch(function (e) {

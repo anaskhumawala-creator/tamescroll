@@ -101,14 +101,27 @@ function dropEntry(entry) {
 }
 
 function repositionAll() {
+  // Never run while snap() has the overlays display:none — stripping the
+  // whole-blur class here would leave flagged faces fully exposed until
+  // the settle timer re-shows the overlays (review 2026-08-23 #3: mobile
+  // URL-bar collapse fires resize mid-scroll while new flags arrive).
+  if (snapped) return;
+  // Read phase first, then write: interleaving getBoundingClientRect
+  // with style writes forces a synchronous layout per entry — at 4Hz
+  // over a long-scroll entry list that is jank, not hygiene
+  // (review 2026-08-23 #4).
+  var rects = [];
+  for (var r = 0; r < entries.length; r++) {
+    rects.push(entries[r].el.isConnected ? entries[r].el.getBoundingClientRect() : null);
+  }
   for (var i = entries.length - 1; i >= 0; i--) {
     var entry = entries[i];
-    if (!entry.el.isConnected) {
+    var rect = rects[i];
+    if (!rect) {
       dropEntry(entry);
       entries.splice(i, 1);
       continue;
     }
-    var rect = entry.el.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) {
       // Hidden (virtualized away): keep whole blur, park overlays.
       entry.el.classList.add(wholeBlurClass);

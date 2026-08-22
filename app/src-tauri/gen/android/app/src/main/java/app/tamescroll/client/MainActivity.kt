@@ -70,8 +70,14 @@ class MainActivity : TauriActivity() {
     window.decorView.setBackgroundColor(0xFF141414.toInt())
     val content = findViewById<ViewGroup>(android.R.id.content)
     ViewCompat.setOnApplyWindowInsetsListener(content) { v, insets ->
+      // ime() included: with edge-to-edge enforced (targetSdk 35+) the
+      // window no longer resizes for the keyboard, and this listener
+      // consumes the insets — without ime() the keyboard would overlap
+      // focused inputs (review 2026-08-23 #14).
       val bars = insets.getInsets(
-        WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+        WindowInsetsCompat.Type.systemBars()
+          or WindowInsetsCompat.Type.displayCutout()
+          or WindowInsetsCompat.Type.ime()
       )
       v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
       WindowInsetsCompat.CONSUMED

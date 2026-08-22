@@ -83,7 +83,12 @@ pub fn parse_manifest(json: &str) -> Result<HashMap<String, String>, String> {
 /// only has to reject obvious garbage (GitHub HTML error bodies, empty
 /// truncations) so a bad fetch can never blank the blocking.
 pub fn validate_payload(text: &str, expected_sha256: &str) -> Result<(), String> {
-    if sha256_hex(text.as_bytes()) != expected_sha256.to_lowercase() {
+    // LF-normalized like the manifest generator and plan_updates: if a
+    // future commit lands CRLF in the git index (contributor without
+    // autocrlf, community PR), raw bytes would never hash to the LF
+    // manifest and that file's updates would be dead forever
+    // (review 2026-08-23 #6).
+    if sha256_hex(text.replace("\r\n", "\n").as_bytes()) != expected_sha256.to_lowercase() {
         return Err("hash mismatch".into());
     }
     let head = text.trim_start();
@@ -131,6 +136,16 @@ fn cache_file_path(dir: &Path, name: &str) -> PathBuf {
 /// file against the cached manifest before trusting it. Corrupt or
 /// missing entries silently fall back to the embedded snapshot.
 pub fn load_cache(dir: &Path) {
+    // A cache written by an OLDER app build can be staler than this
+    // build's embedded snapshot — after an app update the embedded rules
+    // are the newest thing on the device until a refresh succeeds
+    // (review 2026-08-23 #11). Version-stamped: mismatch = ignore cache.
+    let version_ok = std::fs::read_to_string(dir.join("app-version"))
+        .map(|v| v.trim() == env!("CARGO_PKG_VERSION"))
+        .unwrap_or(false);
+    if !version_ok {
+        return;
+    }
     let manifest_path = dir.join("manifest.json");
     let Ok(json) = std::fs::read_to_string(&manifest_path) else {
         return;
@@ -178,11 +193,27 @@ pub fn refresh() -> Result<String, String> {
         return Ok("rules up to date".into());
     }
 
+    // Per-file isolation (review 2026-08-23 #6): one unfetchable or
+    // corrupt file must not block every other file's update — skip it,
+    // apply the rest, and let the next refresh retry it.
     let mut fetched: HashMap<String, String> = HashMap::new();
+    let mut skipped = 0usize;
     for name in &todo {
-        let text = http_get(&format!("{base}{name}"))?;
-        validate_payload(&text, &manifest[name])?;
-        fetched.insert(name.clone(), text);
+        let ok = http_get(&format!("{base}{name}"))
+            .and_then(|text| validate_payload(&text, &manifest[name]).map(|()| text));
+        match ok {
+            Ok(text) => {
+                fetched.insert(name.clone(), text);
+            }
+            Err(_e) => {
+                skipped += 1;
+                #[cfg(debug_assertions)]
+                eprintln!("rules ota: skipping {name}: {_e}");
+            }
+        }
+    }
+    if fetched.is_empty() {
+        return Err(format!("all {skipped} changed file(s) failed to fetch/verify"));
     }
 
     // All-or-nothing from here: only after every download verified do we
@@ -194,8 +225,10 @@ pub fn refresh() -> Result<String, String> {
             let _ = std::fs::write(cache_file_path(dir, name), text);
         }
         let _ = std::fs::write(dir.join("manifest.json"), &manifest_json);
+        let _ = std::fs::write(dir.join("app-version"), env!("CARGO_PKG_VERSION"));
     }
 
+    let applied = fetched.len();
     let mut merged = OVERRIDES.read().unwrap().clone().unwrap_or_default();
     for (name, text) in fetched {
         merged.insert(name, text);
@@ -203,7 +236,11 @@ pub fn refresh() -> Result<String, String> {
     set_overrides(merged);
     crate::rebuild_rules();
 
-    Ok(format!("updated {} rule file(s)", todo.len()))
+    Ok(if skipped == 0 {
+        format!("updated {applied} rule file(s)")
+    } else {
+        format!("updated {applied} rule file(s), {skipped} retrying later")
+    })
 }
 
 /// Call once at app setup: remembers the cache dir, restores the last
@@ -217,17 +254,22 @@ pub fn init(cache_dir: PathBuf) {
         crate::rebuild_rules();
     }
     std::thread::spawn(|| loop {
-        match refresh() {
-            #[cfg(debug_assertions)]
-            Ok(msg) => eprintln!("rules ota: {msg}"),
-            #[cfg(not(debug_assertions))]
-            Ok(_) => {}
+        // A failed refresh retries in 15 minutes, not 24 hours — the
+        // launch-time attempt very often races the network coming up
+        // (review 2026-08-23 #10).
+        let sleep_secs = match refresh() {
+            Ok(_msg) => {
+                #[cfg(debug_assertions)]
+                eprintln!("rules ota: {_msg}");
+                24 * 60 * 60
+            }
             Err(_e) => {
                 #[cfg(debug_assertions)]
                 eprintln!("rules ota: fetch failed (keeping current rules): {_e}");
+                15 * 60
             }
-        }
-        std::thread::sleep(std::time::Duration::from_secs(24 * 60 * 60));
+        };
+        std::thread::sleep(std::time::Duration::from_secs(sleep_secs));
     });
 }
 
@@ -324,6 +366,10 @@ mod tests {
         assert!(validate_payload(text, &good).is_ok());
         assert!(validate_payload(text, &good.to_uppercase()).is_ok());
         assert!(validate_payload("tampered", &good).is_err());
+        // CRLF payload must verify against the LF manifest hash — a
+        // CRLF blob in the repo must degrade to nothing worse than a
+        // working download (review 2026-08-23 #6).
+        assert!(validate_payload(&text.replace('\n', "\r\n"), &good).is_ok());
         let html = "<html><body>404</body></html>";
         let html_hash = sha256_hex(html.as_bytes());
         assert!(validate_payload(html, &html_hash).is_err(), "error pages must be rejected");

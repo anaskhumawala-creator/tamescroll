@@ -254,22 +254,15 @@ fn page_load_gaze_script(url: &str, mode: &str) -> Option<String> {
     ))
 }
 
-/// The SECOND page-load eval (Finished) goes through this instead of
-/// re-shipping the bundle as code. WebView has no code cache for eval'd
-/// strings, so every eval of the ~7.5MB gaze script is a full
-/// main-thread parse — doing it at Started AND Finished doubled the
-/// per-navigation parse cost that read as "lot of loading" on low-end
-/// phones (owner report 2026-08-22). Here the bundle rides as a STRING
-/// LITERAL (scanned, not compiled) and only reaches eval() when the
-/// Started injection actually lost the document-creation race it exists
-/// to cover.
-fn page_load_gaze_fallback_script(url: &str, mode: &str) -> Option<String> {
-    let full = page_load_gaze_script(url, mode)?;
-    let payload = serde_json::to_string(&full).ok()?;
-    Some(format!(
-        r#"(function () {{ try {{ if (window.__TS_GAZE_BUNDLE__) return; (0, eval)({payload}); }} catch (e) {{}} }})();"#
-    ))
-}
+// NOTE (review 2026-08-23 #1): a string-literal + page-side eval()
+// fallback for the Finished event was tried here to halve the 7.5MB
+// parse cost — and reverted. webview.eval bypasses page CSP for the
+// injected string itself, but eval() INSIDE it runs under the page's
+// code-generation policy: Reddit/X ship CSPs without unsafe-eval and
+// YouTube enforces trusted-types, so the fallback silently did nothing
+// on exactly the race it existed to cover. Until a Rust-side signal
+// exists for "Started raced", both events eval the full bundle; the
+// __TS_GAZE_BUNDLE__ guard keeps execution single-shot.
 
 /// Script that boots gaze Stage B in every normalised mode (compulsory
 /// NSFW-removal tier — the in-page plan gates what actually runs).
@@ -593,7 +586,11 @@ fn rules_summary() -> HashMap<String, usize> {
 /// not guaranteed to run before the site's own JavaScript on remote URLs.
 /// Re-applying is cheap; missing a navigation is not.
 fn injection_script(css: &str, scriptlets: &str) -> String {
-    let escaped = css.replace('\\', "\\\\").replace('`', "\\`");
+    // JSON string, not a template literal: manual escaping missed `${`,
+    // and one `${` in an OTA'd rule file would have been a SyntaxError
+    // killing cosmetics AND scriptlets in one shot (review 2026-08-23
+    // #7) — remotely triggerable once vendor lists update over the air.
+    let escaped = serde_json::to_string(css).unwrap_or_else(|_| "\"\"".to_string());
     format!(
         r#"
 (function () {{
@@ -603,7 +600,7 @@ fn injection_script(css: &str, scriptlets: &str) -> String {
 }})();
 
 (function () {{
-  var CSS = `{escaped}`;
+  var CSS = {escaped};
   var STYLE_ID = "tamescroll-rules";
 
   function apply() {{
@@ -671,10 +668,12 @@ fn universal_injection_script() -> String {
             continue;
         }
         let css = surfaces_css(p.id, &[]);
-        let escaped = css.replace('\\', "\\\\").replace('`', "\\`");
+        // JSON string, not a template literal — same `${` hazard as
+        // injection_script (review 2026-08-23 #7).
+        let escaped = serde_json::to_string(&css).unwrap_or_else(|_| "\"\"".to_string());
         let root = platform_root(p.url);
         branches.push_str(&format!(
-            "    if (h === \"{root}\" || h.endsWith(\".{root}\")) return `{escaped}`;\n"
+            "    if (h === \"{root}\" || h.endsWith(\".{root}\")) return {escaped};\n"
         ));
     }
 
@@ -757,21 +756,13 @@ fn injection_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         // second eval a no-op.
         .on_page_load(|webview, payload| {
             // Rules first (scriptlets want to beat page scripts), gaze
-            // second. Rules are small and eval at both events; the gaze
-            // bundle parses in full at Started only — Finished gets the
-            // string-literal fallback (see page_load_gaze_fallback_script).
+            // second. Both guarded, both eval at Started and Finished —
+            // see the CSP note above page_load_gaze_script for why the
+            // Finished eval cannot be a cheap string fallback.
             if let Some(js) = page_load_rules_script(payload.url().as_str()) {
                 let _ = webview.eval(&js);
             }
-            let gaze = match payload.event() {
-                tauri::webview::PageLoadEvent::Started => {
-                    page_load_gaze_script(payload.url().as_str(), gaze_state())
-                }
-                tauri::webview::PageLoadEvent::Finished => {
-                    page_load_gaze_fallback_script(payload.url().as_str(), gaze_state())
-                }
-            };
-            if let Some(js) = gaze {
+            if let Some(js) = page_load_gaze_script(payload.url().as_str(), gaze_state()) {
                 let _ = webview.eval(&js);
             }
         })
@@ -860,17 +851,7 @@ async fn open_platform(
         .inner_size(1200.0, 860.0)
         .initialization_script(&script)
         .on_page_load(|webview, payload| {
-            // Same Started/Finished split as the Android plugin: full
-            // parse once, cheap guarded fallback for the race case.
-            let gaze = match payload.event() {
-                tauri::webview::PageLoadEvent::Started => {
-                    page_load_gaze_script(payload.url().as_str(), gaze_state())
-                }
-                tauri::webview::PageLoadEvent::Finished => {
-                    page_load_gaze_fallback_script(payload.url().as_str(), gaze_state())
-                }
-            };
-            if let Some(js) = gaze {
+            if let Some(js) = page_load_gaze_script(payload.url().as_str(), gaze_state()) {
                 let _ = webview.eval(&js);
             }
         })
@@ -1385,30 +1366,6 @@ mod tests {
             script.contains("window.__TS_GAZE_MODE = \"smart\";"),
             "smart mode must set window.__TS_GAZE_MODE before the bundle runs"
         );
-    }
-
-    /// The Finished-event fallback must never re-parse the bundle as
-    /// code: the bundle rides as an escaped string literal behind the
-    /// __TS_GAZE_BUNDLE__ guard, reaching eval() only when Started lost
-    /// the document race (owner "lot of loading" fix, 2026-08-22).
-    #[test]
-    fn gaze_fallback_carries_the_bundle_as_string_not_code() {
-        set_gaze_state("smart");
-        let fallback = page_load_gaze_fallback_script("https://m.youtube.com/", "smart")
-            .expect("fallback for m.youtube");
-        assert!(fallback.starts_with("(function () { try { if (window.__TS_GAZE_BUNDLE__) return;"));
-        assert!(fallback.contains("(0, eval)("));
-        // Raw (unescaped) bundle code must be absent — its presence
-        // would mean the full parse happens on every Finished event.
-        assert!(
-            !fallback.contains("window.__TS_GAZE_MODE = \"smart\";"),
-            "bundle leaked into the fallback as code, not string"
-        );
-        assert!(
-            fallback.contains("window.__TS_GAZE_MODE = \\\"smart\\\";"),
-            "escaped bundle string missing from the fallback"
-        );
-        set_gaze_state("off");
     }
 
     /// Compulsory tier (handoff decision #1): the bundle boots in every
