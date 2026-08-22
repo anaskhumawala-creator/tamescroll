@@ -381,9 +381,16 @@ import { planForMode } from './pipeline-plan.mjs';
     // a known compulsory-tier gap (no NSFW sampling yet — noted for the
     // strictness spec pass).
     if (!plan.faceGender) return;
-    if (dom.hasPlayerAncestor(video)) return; // player red line
+    // The WATCH PLAYER samples live too (owner decision 2026-08-23,
+    // HaramBlur-parity: the old player exemption is reversed for smart
+    // mode). Player videos get an in-player toggle so a wrong verdict
+    // is one tap from gone; feed videos keep the plain pipeline.
+    var isPlayer = dom.hasPlayerAncestor(video);
     if (video.__tsGazeAttached) return;
     video.__tsGazeAttached = true;
+    // One tap off, one tap back on — per player video. While off, the
+    // video is cleared and sampling halts entirely (no spent frames).
+    var playerBlurOn = true;
     markPending(video);
 
     var lastSample = 0;
@@ -412,6 +419,7 @@ import { planForMode } from './pipeline-plan.mjs';
 
     function sampleOnce() {
       if (failed || dead || !model || video.paused || document.hidden) return;
+      if (isPlayer && !playerBlurOn) return;
       var now = performance.now();
       if (now - lastSample < VIDEO_SAMPLE_INTERVAL_MS) return;
       if (sampling) return;
@@ -499,6 +507,44 @@ import { planForMode } from './pipeline-plan.mjs';
     video.addEventListener('playing', start);
     video.addEventListener('pause', stop);
     video.addEventListener('ended', stop);
+
+    if (isPlayer) {
+      // In-player toggle (owner ask): a wrong live verdict must be one
+      // tap from gone. Lives INSIDE the player container so element
+      // fullscreen keeps it visible (fixed-position elements outside
+      // the fullscreen element are not rendered). Deliberately small
+      // and translucent — our UI, still bound by NO NAGS.
+      var pill = document.createElement('button');
+      pill.type = 'button';
+      pill.textContent = 'Blur on';
+      pill.style.cssText =
+        'position:absolute;top:48px;right:8px;z-index:2147483645;' +
+        'background:rgba(0,0,0,.55);color:#fff;font:500 12px system-ui;' +
+        'padding:6px 10px;border:none;border-radius:999px;opacity:.75;' +
+        'cursor:pointer;pointer-events:auto;';
+      pill.addEventListener('click', function (e) {
+        e.stopPropagation();
+        playerBlurOn = !playerBlurOn;
+        pill.textContent = playerBlurOn ? 'Blur on' : 'Blur off';
+        if (playerBlurOn) {
+          cleanStreak = 0;
+          markPending(video);
+          if (!video.paused) start();
+        } else {
+          clearEl(video);
+        }
+      });
+      var pillHost = (video.closest && video.closest('#movie_player')) || null;
+      if (pillHost) pillHost.appendChild(pill);
+      // The pill dies with its video: SPA navigation away, fail-open,
+      // or a tainted-canvas giveUp all end with no orphaned button.
+      var pillWatch = setInterval(function () {
+        if (!video.isConnected || dead || failed) {
+          clearInterval(pillWatch);
+          if (pill.parentNode) pill.parentNode.removeChild(pill);
+        }
+      }, 1000);
+    }
 
     if (!video.paused) start();
   }
@@ -593,28 +639,60 @@ import { planForMode } from './pipeline-plan.mjs';
 
   boot();
 
+  // Model loading is deferred to POST-LOAD IDLE (owner report
+  // 2026-08-22, "lot of loading": tf's webgl backend init compiles
+  // shaders on the main thread and the model parses are heavy — doing
+  // that while the page is still fetching and painting is exactly the
+  // jank a low-end phone can't hide). Blur-first is already live via
+  // boot(), so everything sits safely pending until the models arrive;
+  // deferral only ever delays UNBLURRING, never exposure. The 5s timer
+  // is the fallback for documents whose load event already fired or
+  // never fires.
+  function whenSettled(fn) {
+    var fired = false;
+    var go = function () {
+      if (fired) return;
+      fired = true;
+      idle(fn);
+    };
+    if (document.readyState === 'complete') setTimeout(go, 250);
+    else {
+      window.addEventListener('load', function () { setTimeout(go, 250); }, { once: true });
+      setTimeout(go, 5000);
+    }
+  }
+
   // NSFW-only modes (off / blur-all): the face and gender models never
   // load — only the classifier the compulsory tier needs. If it cannot
   // load, fail open: in "off", pre-blurred media would otherwise stay
   // covered forever on a page the user asked to see unblurred.
   if (!plan.faceGender) {
-    detector
-      .loadNsfwModel()
-      .then(function (nsfw) {
-        if (failed) return;
-        nsfwModel = nsfw;
-        if (imageQueue.length) drainImages();
-      })
-      .catch(function (e) {
-        failOpen('nsfw model unavailable', e);
-      });
+    whenSettled(function () {
+      detector
+        .loadNsfwModel()
+        .then(function (nsfw) {
+          if (failed) return;
+          nsfwModel = nsfw;
+          if (imageQueue.length) drainImages();
+        })
+        .catch(function (e) {
+          failOpen('nsfw model unavailable', e);
+        });
+    });
     return;
   }
 
-  // Blur-first is already live via boot(); load the detector in parallel
-  // and only start draining once it's ready. A failure here is exactly
-  // the "AI never in the critical path" rule from VISION.md applied to
-  // failure, not just latency: if it can't run, don't punish the page.
+  // Blur-first is already live via boot(); load the detector once the
+  // page settles and only start draining once it's ready. A failure
+  // here is exactly the "AI never in the critical path" rule from
+  // VISION.md applied to failure, not just latency: if it can't run,
+  // don't punish the page.
+  whenSettled(function () {
+    if (failed) return;
+    loadFaceModels();
+  });
+
+  function loadFaceModels() {
   detector
     .loadModel()
     .then(function (loaded) {
@@ -659,4 +737,5 @@ import { planForMode } from './pipeline-plan.mjs';
     .catch(function (e) {
       failOpen('detector init error', e);
     });
+  }
 })();
