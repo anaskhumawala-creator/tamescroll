@@ -279,3 +279,5 @@ m.youtube.com##ytm-video-with-context-renderer:has(a[href^="/shorts/"])
 ! which made "Recommendations -> Shown" a dead toggle on mobile: this
 ! surface kept the section hidden after watch_recs released it
 ! (review 2026-08-19).
+
+! ota-roundtrip-check 2026-08-23 (harmless comment, proves live update path)
