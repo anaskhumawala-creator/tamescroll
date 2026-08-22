@@ -275,6 +275,19 @@ incl. e2e local-HTTP refresh test; live raw hash verified matching.
 Test gotcha: OVERRIDES is process-global — mutation tests use ADDITIVE
 overrides + TEST_LOCK or parallel readers flake.
 
+**Fullscreen video FIXED** (phone round 2, probe41): wry generated
+RustWebChromeClient REJECTS Fullscreen API (onShowCustomView calls
+onCustomViewHidden immediately) -> m.youtube pseudo-fullscreen w/ bars.
+Fix in MainActivity.kt: delegating WebChromeClient wrapper (installed
+webView.post AFTER wry attaches; class is final, attach order
+setWebView->onWebViewCreate->setWebChromeClient) forwards all wry
+behavior, owns fullscreen pair: view onto decorView, immersive bars,
+forced USER_LANDSCAPE (WebView has no screen.orientation.lock),
+KEEP_SCREEN_ON, Back exits fullscreen first. Emulator-verified both
+ways. API 26+ only. Owner report "lot of loading" UNDIAGNOSED —
+suspects: 1.6MB bundle eval/parse per page load + NSFW inference on
+Helio G88 + debug build; needs owner mode + evidence run.
+
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
 (rules would be [unverified] — site blocked in India); Instagram
