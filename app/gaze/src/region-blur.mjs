@@ -176,6 +176,17 @@ export function initRegionBlur(flaggedClass) {
   // just the window scroll.
   window.addEventListener('scroll', scheduleSettle, { capture: true, passive: true });
   window.addEventListener('resize', snap, { passive: true });
+  // Owner report 2026-08-22 (phone): "blur boxes around where they
+  // don't even belong" after tapping a thumbnail. m.youtube is an SPA —
+  // in-page navigation and slow-load layout shifts fire neither scroll
+  // nor resize, so overlays sat at stale document coords over the new
+  // page forever. A cheap heartbeat reposition (getBoundingClientRect
+  // per flagged entry, only while entries exist) prunes disconnected
+  // elements and re-pins the rest; 250ms keeps any misplacement within
+  // one glance, and the whole-blur snap still guards real layout jumps.
+  setInterval(function () {
+    if (entries.length && !snapped) repositionAll();
+  }, 250);
 }
 
 /**

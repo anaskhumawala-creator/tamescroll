@@ -6,6 +6,8 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -133,6 +135,32 @@ class MainActivity : TauriActivity() {
   private var fullscreenView: View? = null
   private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
 
+  // Pinch-to-zoom in fullscreen (owner ask 2026-08-22: the YouTube app
+  // zooms the video closer when you spread two fingers). The gesture is
+  // observed at dispatch level and never consumed, so the player's own
+  // taps/controls keep working; the fullscreen view just scales. Reset
+  // on every enter/exit.
+  private var fullscreenScale = 1f
+  private val scaleDetector by lazy {
+    ScaleGestureDetector(
+      this,
+      object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+        override fun onScale(detector: ScaleGestureDetector): Boolean {
+          val view = fullscreenView ?: return false
+          fullscreenScale = (fullscreenScale * detector.scaleFactor).coerceIn(1f, 3f)
+          view.scaleX = fullscreenScale
+          view.scaleY = fullscreenScale
+          return true
+        }
+      },
+    )
+  }
+
+  override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+    if (fullscreenView != null) scaleDetector.onTouchEvent(ev)
+    return super.dispatchTouchEvent(ev)
+  }
+
   private fun enterFullscreen(view: View, callback: WebChromeClient.CustomViewCallback) {
     if (fullscreenView != null) {
       callback.onCustomViewHidden()
@@ -140,6 +168,7 @@ class MainActivity : TauriActivity() {
     }
     fullscreenView = view
     fullscreenCallback = callback
+    fullscreenScale = 1f
     view.setBackgroundColor(Color.BLACK)
     // Onto the decor view, NOT the padded content view — fullscreen must
     // cover the inset strips the normal UI deliberately avoids.
@@ -163,6 +192,9 @@ class MainActivity : TauriActivity() {
   private fun exitFullscreen() {
     val view = fullscreenView ?: return
     fullscreenView = null
+    view.scaleX = 1f
+    view.scaleY = 1f
+    fullscreenScale = 1f
     (window.decorView as ViewGroup).removeView(view)
     val callback = fullscreenCallback
     fullscreenCallback = null

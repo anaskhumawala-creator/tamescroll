@@ -55,6 +55,13 @@ import { planForMode } from './pipeline-plan.mjs';
   var model = null;
   var nsfwModel = null;
   var genderModel = null;
+  // True once the gender model load has SETTLED (loaded or failed).
+  // Owner phone bug 2026-08-22: gender loaded last and nothing
+  // re-verdicts, so every image drained before it arrived was flagged
+  // presence-only — both genders blurred on any slow device. The drain
+  // now waits for settlement instead; on failure this still flips true
+  // and the presence-only degradation applies to everything equally.
+  var genderSettled = false;
   // Everything that ever wore pending/flagged, for the fail-open sweep.
   // WeakRefs + a per-element tracked flag: virtualised feeds detach
   // thousands of media nodes per long scroll, and strong refs here would
@@ -293,7 +300,9 @@ import { planForMode } from './pipeline-plan.mjs';
       }
       // Readiness depends on the plan: face modes wait on BlazeFace,
       // NSFW-only modes (off / blur-all) wait on the NSFW classifier.
-      if (plan.faceGender ? !model : !nsfwModel) {
+      // Face modes wait for BlazeFace AND the gender load to settle —
+      // draining earlier hands out irreversible presence-only flags.
+      if (plan.faceGender ? !model || !genderSettled : !nsfwModel) {
         // Model still loading: back off instead of re-arming the idle
         // callback immediately — the immediate re-arm was a tight loop
         // eating every idle slice for the whole model-load window,
@@ -611,34 +620,38 @@ import { planForMode } from './pipeline-plan.mjs';
     .then(function (loaded) {
       if (failed) return;
       model = loaded;
-      if (imageQueue.length) drainImages();
-      // NSFW classifier loads after the face model so the first unblur
-      // is never delayed by the bigger download-free-but-parse-heavy
-      // model. Images verified face-clean before it arrives were
-      // cleared under face-only rules — acceptable: blur-first already
-      // held while they were pending, and the next src swap re-checks.
+      // Gender loads SECOND, before NSFW: the drain waits for it to
+      // settle (flags handed out without it are permanent — the
+      // both-genders-blurred phone bug), so it is on the unblur
+      // critical path. Failure degrades to presence-only for every
+      // image equally.
       return detector
-        .loadNsfwModel()
+        .loadGenderModel()
         .then(
-          function (nsfw) {
-            nsfwModel = nsfw;
+          function (gender) {
+            genderModel = gender;
           },
           function (e) {
-            // Degrade to face-only, loudly but harmlessly.
             // eslint-disable-next-line no-console
-            console.warn('tamescroll gaze: nsfw model unavailable, face-only', e);
+            console.warn('tamescroll gaze: gender model unavailable, presence-only', e);
           }
         )
         .then(function () {
-          // Gender last — it only ever REMOVES blur (same-gender clears),
-          // so nothing waits on it. Failure degrades to presence-only.
-          return detector.loadGenderModel().then(
-            function (gender) {
-              genderModel = gender;
+          genderSettled = true;
+          if (imageQueue.length) drainImages();
+          // NSFW last — it only ever ADDS removals on top of face
+          // verdicts. Images verified face-clean before it arrives were
+          // cleared under face-only rules — acceptable: blur-first
+          // already held while they were pending, and the next src swap
+          // re-checks.
+          return detector.loadNsfwModel().then(
+            function (nsfw) {
+              nsfwModel = nsfw;
             },
             function (e) {
+              // Degrade to face-only, loudly but harmlessly.
               // eslint-disable-next-line no-console
-              console.warn('tamescroll gaze: gender model unavailable, presence-only', e);
+              console.warn('tamescroll gaze: nsfw model unavailable, face-only', e);
             }
           );
         });
