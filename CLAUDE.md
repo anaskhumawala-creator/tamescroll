@@ -306,6 +306,29 @@ FLAGGED_CLASS once overlays active — class-based probes count
 region-blurred imgs as cleared; count #tamescroll-gaze-regions
 children instead.
 
+**Overnight run 2026-08-23:** in-player live blur SHIPPED (owner
+reversed player red line, HaramBlur parity — smart mode only): player
+video samples live, whole-video blur, 1s clean-unblur, in-player pill
+toggle (visible only while covered or toggled off; resets per video via
+loadstart). Model loads deferred to post-load idle EXCEPT off mode
+(review #8). OTA round-trip PROVEN live on emulator (pushed rule ->
+"updated 1 rule file(s)"; CDN lag ~2min). Opus adversarial review: 14
+findings, all addressed — CRITICAL: page-side eval() fallback is
+CSP-dead on Reddit/X/YT (trusted-types), REVERTED to dual full eval
+(perf idea needs a Rust-side race signal; do NOT retry page eval);
+nsfwSettled drain gate (unchecked reveals); region snap guard +
+read/write batching; video-element reuse reset (loadstart); JSON-escape
+injection CSS (${ was remotely lethal via OTA vendor lists);
+validate_payload LF-norm + per-file skip; 15min fail retry; cache
+app-version stamp; IME insets. Emulator re-verified post-fix (rules
+35484B, shorts hidden, player pending+pill). Phone APK pushed w/
+everything. tfjs research memo in session transcript: WASM backend
+spike = candidate for low-end perf (no official inline-binary API,
+needs blob-shim spike); eval'd strings never byte-cached in WebView.
+Loading complaint root causes addressed (dedup parse was reverted —
+remaining lever = deferred models, shipped); owner answer pending on
+whole-time vs first-seconds.
+
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
 (rules would be [unverified] — site blocked in India); Instagram
