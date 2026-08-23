@@ -369,6 +369,21 @@ attempts, redirect log never written) — gender fix stands on bench proof
 + tsc/tests. cdp.py needs suppress_origin=True (WebView2 403s cross-origin
 WS) + websocket-client pip pkg.
 
+**Loop ticks 2026-08-23 (post-gender-fix):** region-blur heartbeat
+thrash FIXED (6dfb7ec) — probe-guard reads 1 rect/tick when static +
+skips when hidden (was N reads 4Hz = 146ms/15s forced layout); gaze
+32/32. Both APKs rebuilt; arm64 pushed to phone (gender+region-blur+
+polish together), x86_64 reinstalled on emulator-5556. **Gender fix
+VERIFIED in-app (probe44, #7 -> FIXED-verified):** emulator man mode,
+Trump (clear male) rendered SHARP/cleared, obscured/low-conf faces
+region-blurred by 0.85 fail-safe — differentiated verdicts the old
+broken model never produced (it whole-blurred every thumbnail). Logcat
+clean of gaze model errors. Real-hw timing still owner-phone. Known:
+0.85 over-blurs obscured male faces by design. Emulator/launcher share
+one webview on Android (re-tap fix) so gender flip needs back->relaunch.
+Blocked this session: WEBGL_USE_SHAPES_UNIFORMS bench (Chrome ext
+disconnected), desktop dev-app CDP (flaky launch).
+
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
 (rules would be [unverified] — site blocked in India); Instagram
