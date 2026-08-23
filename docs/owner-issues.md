@@ -6,6 +6,7 @@ IN-PROGRESS / FIXED-verified / FIXED-unverified / ANSWERED.
 
 | # | Reported | Issue (owner's words, compressed) | Status | Evidence / next step |
 |---|----------|-----------------------------------|--------|----------------------|
+| 13 | 08-23 | Stop re-sending APK via WhatsApp — better delivery to remote phone | BUILT, 2 gates | In-app updater shipped (f8aa177): checks signed manifest, Android downloads+installs in place (user-confirmed). Bootstrap = install current APK once from Files. GATES: (a) owner OK to publish GitHub Releases so updater has an APK to fetch; (b) strip 329MB debug APK -> ~50MB (in-app download must not be 329MB). |
 | 12 | 08-23 | "why did ad come up" (desktop watch) | GRILL-READY | Root cause + 3 options written to docs/scriptlet-gap.md (recommend request-shaper-only). Player-red-line work -> owner-grill, not autonomous. Same root as #9. |
 | 11 | 08-23 | Sign into YouTube with device accounts instantly | ANSWERED | Not feasible: WebView sandboxed from device Google accounts; cookies persist so sign-in is once per device. Optional: verify Android password autofill in WebView. |
 | 10 | 08-23 | Blue selection box on search click + general unpolish | FIXED-unverified | styles.css: tap-highlight, focus ring (:focus-visible gold), user-select, autofill tint, overscroll, drag ghosts. Needs visual verify + ship in next APK. |

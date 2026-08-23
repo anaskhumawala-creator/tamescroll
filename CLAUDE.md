@@ -384,6 +384,24 @@ one webview on Android (re-tap fix) so gender flip needs back->relaunch.
 Blocked this session: WEBGL_USE_SHAPES_UNIFORMS bench (Chrome ext
 disconnected), desktop dev-app CDP (flaky launch).
 
+**In-app updater SHIPPED (f8aa177, owner ask — stop WhatsApp-ing APKs to
+remote phone):** appupdate.rs = cross-platform CHECK only (fetch signed
+manifest, compare versionCode, never installs; evaluate() 4 tests, cargo
+30/30), app_update_check cmd degrades to up-to-date on any failure (no
+nag). MainActivity UpdateBridge (Android) install() takes NO url from JS
+— re-fetches the fixed manifest itself, hash-pins APK to manifest
+sha256, FileProvider -> system installer (user-confirmed);
+REQUEST_INSTALL_PACKAGES added. About 'App update' card hidden unless
+newer build exists. updates/app-manifest.json (resting 1000/empty ->
+available:false) + scripts/gen-app-manifest.mjs. probe45: bridge
+registered, card hidden at rest, install() round-trips JS->Kotlin->
+network->JS. TWO GATES before updates actually flow: (a) owner OK to
+publish GitHub Releases (host the APK); (b) STRIP the 329MB debug APK to
+~50MB (llvm-strip libapp_lib.so — in-app download can't be 329MB).
+Bootstrap: phone must install current arm64 (has updater) once from
+Files; pushed to Download/tamescroll-debug.apk. Manifest URL hardcoded
+in BOTH appupdate.rs and MainActivity.kt — keep in lockstep.
+
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
 (rules would be [unverified] — site blocked in India); Instagram
