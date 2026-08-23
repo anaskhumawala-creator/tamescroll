@@ -244,6 +244,59 @@ refreshForm.addEventListener("submit", (e) => {
     });
 });
 
+// ---------- app update (Settings -> About) ----------
+// Checks a signed manifest on launch; only reveals the card when a newer
+// build exists (no nag when up to date). The actual download + install is
+// Android-native (MainActivity TsUpdater bridge, user-confirmed by the
+// system installer). Desktop has no in-app install — the card stays
+// hidden there and the check is a harmless no-op.
+
+type UpdateStatus = {
+  available: boolean;
+  versionName: string;
+  notes: string;
+  apkUrl: string;
+};
+
+const updateCard = document.querySelector<HTMLElement>("#app-update-card")!;
+const updateNotes = document.querySelector<HTMLElement>("#app-update-notes")!;
+const updateBtn = document.querySelector<HTMLButtonElement>("#app-update-btn")!;
+const updateStatus = document.querySelector<HTMLElement>("#app-update-status")!;
+
+// Android bridge pushes progress here (see MainActivity UpdateBridge.report).
+(window as unknown as { __tsUpdateStatus?: (m: string) => void }).__tsUpdateStatus = (
+  m: string,
+) => {
+  updateStatus.textContent = m;
+};
+
+const hasInstaller = typeof (window as unknown as { TsUpdater?: unknown }).TsUpdater !== "undefined";
+
+updateBtn.addEventListener("click", () => {
+  const u = window as unknown as { TsUpdater?: { install: () => void } };
+  if (u.TsUpdater) {
+    updateStatus.textContent = "Checking…";
+    u.TsUpdater.install();
+  }
+});
+
+invoke<UpdateStatus>("app_update_check")
+  .then((s) => {
+    if (!s.available) return;
+    updateNotes.textContent = s.notes
+      ? `Version ${s.versionName} is available. ${s.notes}`
+      : `Version ${s.versionName} is available.`;
+    // Only Android can install in place; desktop just gets told it exists.
+    updateBtn.hidden = !hasInstaller;
+    if (!hasInstaller) {
+      updateStatus.textContent = "Get the new build from the releases page.";
+    }
+    updateCard.hidden = false;
+  })
+  .catch(() => {
+    /* offline / no manifest: stay hidden, never nag */
+  });
+
 // ---------- bring back (surfaces) ----------
 
 type SurfaceInfo = { id: string; label: string };

@@ -170,7 +170,7 @@ pub fn load_cache(dir: &Path) {
     }
 }
 
-fn http_get(url: &str) -> Result<String, String> {
+pub(crate) fn http_get(url: &str) -> Result<String, String> {
     ureq::get(url)
         .timeout(std::time::Duration::from_secs(30))
         .call()

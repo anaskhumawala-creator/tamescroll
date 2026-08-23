@@ -1,6 +1,12 @@
 package app.tamescroll.client
 
 import android.content.Intent
+import androidx.core.content.FileProvider
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
+import java.security.MessageDigest
+import org.json.JSONObject
 import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.net.Uri
@@ -29,6 +35,13 @@ import androidx.core.view.WindowInsetsControllerCompat
 
 class MainActivity : TauriActivity() {
   private lateinit var webView: WebView
+
+  companion object {
+    // Kept in lockstep with appupdate.rs DEFAULT_MANIFEST_URL. Fixed so
+    // no page-supplied URL is ever fetched by the installer.
+    private const val UPDATE_MANIFEST_URL =
+      "https://raw.githubusercontent.com/anaskhumawala-creator/tamescroll/main/updates/app-manifest.json"
+  }
 
   // Platform requested by a home-screen shortcut before the webview
   // exists (cold start): consumed by ShortcutBridge. @Volatile because
@@ -128,6 +141,114 @@ class MainActivity : TauriActivity() {
       }
       return p ?: ""
     }
+  }
+
+  // ---- in-app updater (owner ask 2026-08-23: stop re-sending the APK
+  // over WhatsApp). install() downloads the latest build and hands it to
+  // the system package installer, which ALWAYS asks the user to confirm.
+  //
+  // Security: the manifest URL is hardcoded (same GitHub raw host as the
+  // rules OTA), the APK URL + sha256 come only from that manifest, and
+  // the downloaded file is rejected unless its hash matches. No value
+  // from page JavaScript is trusted, so the interface being visible to
+  // remote platform pages cannot be turned into an arbitrary-APK install.
+  @Volatile
+  private var updating = false
+
+  inner class UpdateBridge {
+    @JavascriptInterface
+    fun install() {
+      if (updating) return
+      updating = true
+      Thread {
+        try {
+          val manifest = JSONObject(httpGet(UPDATE_MANIFEST_URL))
+          val versionCode = manifest.optLong("versionCode", 0)
+          val apkUrl = manifest.optString("apkUrl", "")
+          val sha256 = manifest.optString("sha256", "").lowercase()
+          if (versionCode <= BuildConfig.VERSION_CODE || apkUrl.isEmpty() || sha256.isEmpty()) {
+            report("No installable update.")
+            return@Thread
+          }
+          report("Downloading update…")
+          val apk = File(externalCacheDir, "tamescroll-update.apk")
+          val got = download(apkUrl, apk)
+          if (got != sha256) {
+            apk.delete()
+            report("Update failed a security check. Not installed.")
+            return@Thread
+          }
+          report("Starting install…")
+          runOnUiThread { launchInstall(apk) }
+        } catch (e: Exception) {
+          report("Couldn't reach the update server.")
+        } finally {
+          updating = false
+        }
+      }.start()
+    }
+
+    // Push a one-line status back to the launcher without a nag surface.
+    private fun report(msg: String) {
+      runOnUiThread {
+        if (this@MainActivity::webView.isInitialized) {
+          val safe = msg.replace("\\", "\\\\").replace("'", "\\'")
+          webView.evaluateJavascript(
+            "window.__tsUpdateStatus && window.__tsUpdateStatus('" + safe + "')",
+            null,
+          )
+        }
+      }
+    }
+  }
+
+  private fun httpGet(spec: String): String {
+    val conn = URL(spec).openConnection() as HttpURLConnection
+    conn.connectTimeout = 15000
+    conn.readTimeout = 30000
+    conn.instanceFollowRedirects = true
+    try {
+      return conn.inputStream.bufferedReader().use { it.readText() }
+    } finally {
+      conn.disconnect()
+    }
+  }
+
+  // Streams url -> file, returning the lowercase sha256 hex of the bytes
+  // written so the caller can verify against the manifest before ever
+  // handing the file to the installer.
+  private fun download(spec: String, dest: File): String {
+    val conn = URL(spec).openConnection() as HttpURLConnection
+    conn.connectTimeout = 15000
+    conn.readTimeout = 60000
+    conn.instanceFollowRedirects = true
+    val digest = MessageDigest.getInstance("SHA-256")
+    try {
+      conn.inputStream.use { input ->
+        dest.outputStream().use { output ->
+          val buf = ByteArray(64 * 1024)
+          while (true) {
+            val n = input.read(buf)
+            if (n < 0) break
+            digest.update(buf, 0, n)
+            output.write(buf, 0, n)
+          }
+        }
+      }
+    } finally {
+      conn.disconnect()
+    }
+    return digest.digest().joinToString("") { "%02x".format(it) }
+  }
+
+  private fun launchInstall(apk: File) {
+    val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", apk)
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+      setDataAndType(uri, "application/vnd.android.package-archive")
+      addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+      addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    startActivity(intent)
   }
 
   // ---- fullscreen video (owner report 2026-08-22: "full screen doesn't
@@ -267,6 +388,12 @@ class MainActivity : TauriActivity() {
   override fun onWebViewCreate(webView: WebView) {
     this.webView = webView
     webView.addJavascriptInterface(ShortcutBridge(), "TsShortcuts")
+    // Updater bridge: only ever reachable from the launcher's About
+    // pane. It takes NO url from JS — it re-fetches the fixed manifest
+    // itself and hash-pins the download, so a hostile platform page
+    // poking it can at most trigger a user-confirmed install of the
+    // real app (see UpdateBridge).
+    webView.addJavascriptInterface(UpdateBridge(), "TsUpdater")
     webView.post { installFullscreenClient() }
 
     // tamescroll: on Android everything runs in this one WebView, so the

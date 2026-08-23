@@ -12,6 +12,7 @@ use adblock::Engine;
 use serde::Serialize;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
+mod appupdate;
 mod ota;
 mod rules;
 
@@ -466,6 +467,18 @@ async fn refresh_rules() -> Result<String, String> {
         .map_err(|e| e.to_string())?
 }
 
+/// In-app update check (owner ask 2026-08-23). Reads the signed app
+/// manifest and reports whether a newer build exists; never installs.
+/// The Android install path (MainActivity UpdateBridge) is what acts on
+/// the returned apkUrl/sha256. Never errors to the UI — degrades to
+/// "up to date" so the About pane can't nag.
+#[tauri::command]
+async fn app_update_check() -> appupdate::UpdateStatus {
+    tauri::async_runtime::spawn_blocking(appupdate::check)
+        .await
+        .unwrap_or_else(|_| appupdate::check())
+}
+
 /// Same contract as `set_gaze_mode`, for the blur-strength picker:
 /// already-open pages keep their radius until they navigate.
 #[tauri::command]
@@ -911,7 +924,8 @@ pub fn run() {
             set_blur_strength,
             set_user_gender,
             set_user_terms,
-            refresh_rules
+            refresh_rules,
+            app_update_check
         ])
         .run(tauri::generate_context!())
         .expect("error while running tamescroll");
