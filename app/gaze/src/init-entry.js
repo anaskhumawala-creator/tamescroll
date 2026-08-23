@@ -73,6 +73,10 @@ import { planForMode } from './pipeline-plan.mjs';
   var model = null;
   var nsfwModel = null;
   var genderModel = null;
+  // Guards the face-model load so it runs exactly once whether it is the
+  // post-load-idle deferral OR a played player video that kicks it early
+  // (see ensureFaceModels).
+  var faceModelsKicked = false;
   // True once the NSFW model load has SETTLED (loaded or failed). The
   // smart-mode drain must wait for it: images drained into the
   // !nsfwModel branch were revealed WITHOUT the compulsory NSFW check
@@ -522,6 +526,10 @@ import { planForMode } from './pipeline-plan.mjs';
 
     function start() {
       if (failed || dead) return;
+      // A played player video can't wait for post-load idle to bring the
+      // models — the deferral would hold it blur-first forever on a busy
+      // watch page. Kick the load now (idempotent).
+      if (isPlayer) ensureFaceModels();
       if (hasRvfc) {
         // rvfcLoop's armed-flag makes the play/playing double-fire (and a
         // parked callback surviving a pause) collapse into one loop —
@@ -756,8 +764,22 @@ import { planForMode } from './pipeline-plan.mjs';
   // don't punish the page.
   whenSettled(function () {
     if (failed) return;
-    loadFaceModels();
+    ensureFaceModels();
   });
+
+  // Load the face models at most once. Called from the post-load-idle
+  // deferral above AND, crucially, the moment a player video actually
+  // starts playing (setupVideo): a watched video is held blur-first
+  // pending until `model`+`genderSettled` arrive, so if the page never
+  // reaches idle (a busy watch page: buffering stream + slow below-fold)
+  // the deferral leaves the player permanently blurred — the same
+  // "deferral holds it hostage" failure that off mode is exempted from.
+  // A user watching a video justifies the load cost then and there.
+  function ensureFaceModels() {
+    if (faceModelsKicked || failed) return;
+    faceModelsKicked = true;
+    loadFaceModels();
+  }
 
   function loadFaceModels() {
   detector
