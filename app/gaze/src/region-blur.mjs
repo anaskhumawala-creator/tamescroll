@@ -37,6 +37,22 @@ export function mapBoxToRect(imgRect, box) {
   };
 }
 
+/**
+ * Sub-pixel-tolerant rect equality — the heartbeat's cheap change guard.
+ * Compositor scroll leaves fractional jitter in getBoundingClientRect
+ * that must not read as movement, so compare with a <1px epsilon. Null
+ * (disconnected element) is never equal to anything. Exported for tests.
+ */
+export function sameRect(a, b) {
+  if (!a || !b) return false;
+  return (
+    Math.abs(a.left - b.left) < 1 &&
+    Math.abs(a.top - b.top) < 1 &&
+    Math.abs(a.width - b.width) < 1 &&
+    Math.abs(a.height - b.height) < 1
+  );
+}
+
 /** backdrop-filter support check — without it, callers keep whole blur. */
 export function supportsRegionBlur() {
   return (
@@ -56,6 +72,14 @@ var settleTimer = null;
 var snapped = false;
 var wholeBlurClass = null;
 var started = false;
+// Last rect of the probe entry (entries[0]), so the idle heartbeat can
+// detect "nothing moved" with ONE getBoundingClientRect instead of N
+// (review 2026-08-23: the 4Hz N-read pass was 146ms/15s of forced
+// layout during playback). Any real reflow moves the whole page, so the
+// probe moves too; per-entry drift is still caught by scroll/resize/
+// mutation observers.
+var probeRect = null;
+var lastCount = -1;
 
 function ensureContainer() {
   if (container && container.isConnected) return container;
@@ -143,6 +167,14 @@ function repositionAll() {
     }
     entry.el.classList.remove(wholeBlurClass);
   }
+  // Refresh the heartbeat probe from the CURRENT first entry (splices
+  // above shift indices, so rects[0] no longer maps to entries[0]). One
+  // extra read, only on a full reposition — steady state skips this
+  // whole function and pays just the guard read.
+  probeRect =
+    entries.length && entries[0].el.isConnected
+      ? entries[0].el.getBoundingClientRect()
+      : null;
 }
 
 // Layout genuinely changed (resize, orientation): overlays are stale in
@@ -198,7 +230,15 @@ export function initRegionBlur(flaggedClass) {
   // elements and re-pins the rest; 250ms keeps any misplacement within
   // one glance, and the whole-blur snap still guards real layout jumps.
   setInterval(function () {
-    if (entries.length && !snapped) repositionAll();
+    if (!entries.length || snapped || document.hidden) return;
+    // Cheap guard: read only the probe entry. If it hasn't moved and the
+    // entry count is unchanged, the page is static — skip the N-read
+    // reposition entirely. A reflow (SPA nav, URL-bar collapse) shifts
+    // the probe, falling through to the full pass that re-pins all.
+    var probe = entries[0].el.isConnected ? entries[0].el.getBoundingClientRect() : null;
+    if (probe && entries.length === lastCount && sameRect(probe, probeRect)) return;
+    lastCount = entries.length;
+    repositionAll();
   }, 250);
 }
 
