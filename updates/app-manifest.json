@@ -1,7 +1,7 @@
 {
-  "versionCode": 1003,
-  "versionName": "0.1.3",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/v0.1.3/app-arm64-debug.apk",
-  "sha256": "0a516228f521866b3d6d1a61cc9b4cd78b82e9e929fec13f0fb4ff8c64b7857a",
-  "notes": "Fix: face-blur no longer paints over the top menu/search bar."
+  "versionCode": 1004,
+  "versionName": "0.1.4",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/v0.1.4/app-arm64-debug.apk",
+  "sha256": "c376367fd245b31229931eeb44181d692930a0ba5a672e5a9f2fbb57209fa03e",
+  "notes": "YouTube ad-free stream + no watch-click stall (experimental request-editor)."
 }
