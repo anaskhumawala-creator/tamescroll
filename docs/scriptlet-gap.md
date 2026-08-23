@@ -146,3 +146,67 @@ stall-timing; the phone proves no-ads.
 
 **Red line unchanged:** a broken/blank player is worse than an ad. Every
 step gates on "video still plays" before "ad gone."
+
+---
+
+## UPDATE 2026-08-23 (2) — web research: the fix may be ONE public flag
+
+Research agent (web) findings, provenance clean-room-safe:
+
+**Legal:** confirmed. GPL/AGPL cannot ship in an App Store binary (VLC/GNU
+FSF precedent — Apple's DRM/ToS are "further restrictions" §6 forbids).
+No permissively-licensed real YouTube video-ad blocker exists (uBO +
+AdGuard scriptlets both GPL-3.0; the MIT "youtube adblock" repos are
+hosts-lists or nag-dismissers, not ad strippers). Clean-room from public
+behavioral specs is the accepted, mandatory path.
+
+**iOS:** our own WKWebView injection is NOT the Safari-content-blocker
+declarative limitation — that only binds Safari extensions. Brave/Firefox
+iOS inject arbitrary JS into their own WebViews and strip YouTube ads;
+same category as us. Apple's ad-blocker rejections target VPN/root-cert
+apps that modify OTHER apps' traffic — not a self-contained browser
+cleaning content it renders itself. Our BLOCK-ONLY/own-webview shape is
+safe.
+
+**Mechanism (source: https://iter.ca/post/yt-adblock/ — independent blog,
+protobuf reverse-engineering of Google's own public API, NO uBO code):**
+- The 4.4s stall is a **SABR server "backoff"** instruction baked into the
+  granted stream when the outbound `/player` request implies an ad slot.
+  Response-side `json-prune` of `adPlacements` hides the ad UI but never
+  removes the already-granted backoff → the freeze. Corroborates our own
+  scriptlet-gap finding independently.
+- **Named request-side fix:** set
+  `playbackContext.contentPlaybackContext.isInlinePlaybackNoAd: true`
+  on the `POST /youtubei/v1/player` request body → InnerTube serves an
+  ad-free stream with NO backoff. One field. No serverContract reload
+  ladder needed if it holds. This is the clean, minimal version of the
+  request-shaper (old doc option B), discovered from YouTube's public
+  protobuf surface (req2proto), not from uBO/AdGuard source.
+
+**Revised build plan (supersedes the step 0-3 plan above):**
+- **Step 1:** clean-room a small request-editor scriptlet that adds
+  `isInlinePlaybackNoAd:true` to outbound `/youtubei/v1/player` request
+  bodies (wrap fetch + XHR send; JSON-parse body, set field, re-serialize).
+  Keep our existing response-strip as belt-and-braces OR remove it if the
+  flag alone clears ads (owner phone-test decides — the flag may make the
+  response-strip's stall moot).
+- **Step 2 (only if Step 1 stream still buffers):** the serverContract
+  recovery ladder. Likely unnecessary if the flag grants a clean stream
+  directly — defer until proven needed.
+- **prevent-dom-bypass:** may be unnecessary for us — we inject Rust-side
+  at on_page_load, BEFORE YouTube's locker script, which a browser
+  extension can't guarantee. Confirm our injection beats their locker
+  empirically; only clean-room prevent-dom-bypass if they out-race us.
+
+**MUST verify before betting on it:**
+1. `isInlinePlaybackNoAd` is from a SINGLE source (iter.ca). Independently
+   confirm the field exists (own req2proto pass / second writeup) before
+   shipping.
+2. SSAI (server-stitched ads) rollout ~6-12mo from mid-2026 defeats ALL
+   client request/response tricks. Instrument graceful degradation
+   (detect ad-shaped stream → fall back to today's UX, never worse).
+
+**Provenance discipline (lightweight SFLC clean-room):** implement from
+the public field name + public behavioral description only; do not read
+uBO/AdGuard scriptlet source while writing; keep source URLs + extraction
+method in the commit message.
