@@ -97,22 +97,99 @@ function ensureContainer() {
   return container;
 }
 
-function makeOverlay(rect) {
+// Clamp a viewport-space overlay rect to a top inset (the fixed header
+// band). Overlays are document-anchored at a very high z-index, so a
+// thumbnail scrolled up behind a position:fixed top bar would paint its
+// blur OVER the bar (owner report 2026-08-23: "blur shows above the menu
+// or a title"). Clipping the overlay's top to the header line removes the
+// punch-through while keeping the still-visible part of the face covered
+// (over-blur preserved — the part behind the header is hidden by the
+// header itself, never exposed). Pure + exported for tests.
+export function clampToInset(rect, inset) {
+  var bottom = rect.top + rect.height;
+  if (bottom <= inset) {
+    // Entirely behind the header — the header already covers it.
+    return { left: rect.left, top: rect.top, width: rect.width, height: rect.height, hidden: true };
+  }
+  var top = Math.max(rect.top, inset);
+  return {
+    left: rect.left,
+    top: top,
+    width: rect.width,
+    height: bottom - top,
+    hidden: false,
+  };
+}
+
+// Bottom Y of the page's fixed/sticky top bar, or 0 if none. Cheap
+// elementsFromPoint probe near the top-center; recomputed per reposition
+// pass (one call) rather than cached, so it stays correct across SPA
+// layout changes without a separate invalidation path.
+// Pure inset finder: given the elementsFromPoint hits at the top-center,
+// walk EACH hit's ancestor chain looking for a top-anchored fixed/sticky
+// bar and return the greatest such bottom. Walking ancestors (not just the
+// direct hits) is load-bearing: on m.youtube the hit at (cx,2) is a STATIC
+// <button> nested inside the position:fixed topbar, so a direct-hit-only
+// scan finds inset 0 and the overlay punches over the menu. `top<=2` keeps
+// it to bars actually pinned at the top; `bottom < viewportH/2` rejects
+// full-height fixed overlays (search sheets, modals). Exported for tests.
+export function insetFromChain(topEls, style, rect, viewportH) {
+  var inset = 0;
+  for (var i = 0; i < topEls.length; i++) {
+    var n = topEls[i];
+    var d = 0;
+    while (n && d < 8) {
+      var pos = style(n);
+      if (pos === 'fixed' || pos === 'sticky') {
+        var r = rect(n);
+        if (r.top <= 2 && r.bottom < viewportH / 2 && r.bottom > inset) {
+          inset = r.bottom;
+        }
+      }
+      n = n.parentElement;
+      d++;
+    }
+  }
+  return inset;
+}
+
+function topInset() {
+  try {
+    var cx = Math.floor(window.innerWidth / 2);
+    var els = document.elementsFromPoint(cx, 2);
+    return insetFromChain(
+      els,
+      function (n) { return window.getComputedStyle(n).position; },
+      function (n) { return n.getBoundingClientRect(); },
+      window.innerHeight
+    );
+  } catch (e) {
+    return 0;
+  }
+}
+
+function makeOverlay(rect, inset) {
   var d = document.createElement('div');
   d.style.cssText =
     'position:absolute;pointer-events:none;' +
     'backdrop-filter:blur(var(--ts-blur-strong,24px));' +
     '-webkit-backdrop-filter:blur(var(--ts-blur-strong,24px));' +
     'border-radius:30%;';
-  positionOverlay(d, rect);
+  positionOverlay(d, rect, inset);
   return d;
 }
 
-function positionOverlay(d, rect) {
-  d.style.left = rect.left + window.scrollX + 'px';
-  d.style.top = rect.top + window.scrollY + 'px';
-  d.style.width = rect.width + 'px';
-  d.style.height = rect.height + 'px';
+function positionOverlay(d, rect, inset) {
+  var c = clampToInset(rect, inset || 0);
+  if (c.hidden) {
+    d.style.display = 'none';
+    return;
+  }
+  d.style.display = '';
+  d.style.left = c.left + window.scrollX + 'px';
+  d.style.top = c.top + window.scrollY + 'px';
+  d.style.width = c.width + 'px';
+  d.style.height = c.height + 'px';
 }
 
 function dropEntry(entry) {
@@ -138,6 +215,7 @@ function repositionAll() {
   for (var r = 0; r < entries.length; r++) {
     rects.push(entries[r].el.isConnected ? entries[r].el.getBoundingClientRect() : null);
   }
+  var inset = topInset();
   for (var i = entries.length - 1; i >= 0; i--) {
     var entry = entries[i];
     var rect = rects[i];
@@ -156,13 +234,13 @@ function repositionAll() {
       dropEntry(entry);
       var c = ensureContainer();
       for (var b = 0; b < entry.boxes.length; b++) {
-        var o = makeOverlay(mapBoxToRect(rect, entry.boxes[b]));
+        var o = makeOverlay(mapBoxToRect(rect, entry.boxes[b]), inset);
         entry.overlays.push(o);
         c.appendChild(o);
       }
     } else {
       for (var j = 0; j < entry.boxes.length; j++) {
-        positionOverlay(entry.overlays[j], mapBoxToRect(rect, entry.boxes[j]));
+        positionOverlay(entry.overlays[j], mapBoxToRect(rect, entry.boxes[j]), inset);
       }
     }
     entry.el.classList.remove(wholeBlurClass);
