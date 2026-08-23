@@ -1,7 +1,7 @@
 {
-  "versionCode": 1002,
-  "versionName": "0.1.2",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.2/app-arm64-debug.apk",
-  "sha256": "ed8c5e1d51f018fde7d54bf77086efbda1a1294952c5305d94fc3d1edafb59a8",
-  "notes": "Faster blur (fewer shader recompiles + lighter region-blur), gender fix, polish."
+  "versionCode": 1003,
+  "versionName": "0.1.3",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/v0.1.3/app-arm64-debug.apk",
+  "sha256": "0a516228f521866b3d6d1a61cc9b4cd78b82e9e929fec13f0fb4ff8c64b7857a",
+  "notes": "Fix: face-blur no longer paints over the top menu/search bar."
 }
