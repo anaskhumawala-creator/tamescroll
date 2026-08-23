@@ -329,6 +329,46 @@ Loading complaint root causes addressed (dedup parse was reverted —
 remaining lever = deferred models, shipped); owner answer pending on
 whole-time vs first-seconds.
 
+**Session 2026-08-23 (perf + gender root-cause):** Owner order — track
+all reported issues, don't stop (docs/owner-issues.md = live tracker).
+**"Both genders blurred" ROOT CAUSE found + fixed (2d58f1b):** embedded
+gender-ssrnet-imdb model is broken upstream — single output saturated
+~1.0 on every real face under every documented preprocessing (verified
+byte-identical to human-models, so not our conversion). Old reader did
+data[0]>data[1] with data[1]=undefined -> every face 'male'/undefined ->
+faceVerdict permanently 'flag' regardless of setting. Replaced with
+human-models gender.json (Oarriaga mini-Xception, MIT, 64x64 GRAYSCALE,
+[female,male] softmax); bench-proven directional (Obama male .988, Swift
+female .88); GENDER_MIN_SCORE 0.6->0.85 (wrong-gender scores hit .79 —
+0.6 could clear opposite gender). NOTICE + docs/detection-engine.md
+updated. **Perf:** the 694-1000ms/frame webgl "catastrophe" was a
+hidden-tab nested-timer THROTTLING ARTIFACT (Chrome clamps GPU-readback
+fence-wait setTimeouts to ~1s in hidden tabs); true cost 19.6ms face /
+17.1ms NSFW per frame (dataSync bench, RTX 3060 Ti). Still shipped real
+wins: detectFaceBoxes now ONE [896,5] GPU download + JS NMS
+(src/nms.mjs, 6 tests) instead of nonMaxSuppressionAsync + 2 downloads;
+classifyFaceGenders batches ALL faces into ONE inference; drainImages
+parks while document.hidden, resumes on visibilitychange. gaze 31/31,
+cargo 26/26, tsc clean. **Watch-click 'loads a lot' / 'ad came up'
+(#9/#12): GRILL-READY** — profiling agent proved 4.4s SPA stall +
+hard-nav pre-rolls come from our partial scriptlet set (json-prune
+deletes adPlacements -> YouTube renegotiates stream 4.4s; fast runs just
+play a pre-roll). Fix needs request-shaping scriptlets
+(trusted-json-edit-*-request) = fragile YouTube-ad-bypass front line on
+the player red line -> owner-grill, 3 options in docs/scriptlet-gap.md
+(recommend request-shaper-only). **Launcher polish (#10):** styles.css
+tap-highlight/focus-visible-ring/user-select/autofill/overscroll/svg-drag
+(FIXED-unverified). **YouTube device-account sign-in (#11): ANSWERED**
+not feasible (WebView sandboxed from device Google accounts; cookies
+persist so it's once-per-device). New APKs built both targets; arm64
+pushed to phone Download/tamescroll-debug.apk (gender fix + perf +
+polish). Emulator gender re-verify impractical (emulated-GPU inference
+minutes-slow — needs real hw). Desktop dev-app live-verify BLOCKED this
+session: npx tauri dev relaunch flaky (CDP never came up after 5
+attempts, redirect log never written) — gender fix stands on bench proof
++ tsc/tests. cdp.py needs suppress_origin=True (WebView2 403s cross-origin
+WS) + websocket-client pip pkg.
+
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
 (rules would be [unverified] — site blocked in India); Instagram
