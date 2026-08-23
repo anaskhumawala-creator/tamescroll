@@ -1,0 +1,113 @@
+﻿> Task :buildSrc:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :buildSrc:compileKotlin UP-TO-DATE
+> Task :buildSrc:compileJava NO-SOURCE
+> Task :buildSrc:compileGroovy NO-SOURCE
+> Task :buildSrc:pluginDescriptors UP-TO-DATE
+> Task :buildSrc:processResources UP-TO-DATE
+> Task :buildSrc:classes UP-TO-DATE
+> Task :buildSrc:jar UP-TO-DATE
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preX86_64DebugBuild UP-TO-DATE
+> Task :app:mergeX86_64DebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:generateX86_64DebugBuildConfig UP-TO-DATE
+> Task :tauri-android:preBuild UP-TO-DATE
+> Task :tauri-android:preDebugBuild UP-TO-DATE
+> Task :tauri-android:writeDebugAarMetadata UP-TO-DATE
+> Task :tauri-plugin-opener:preBuild UP-TO-DATE
+> Task :tauri-plugin-opener:preDebugBuild UP-TO-DATE
+> Task :tauri-plugin-opener:writeDebugAarMetadata UP-TO-DATE
+> Task :app:checkX86_64DebugAarMetadata UP-TO-DATE
+> Task :app:generateX86_64DebugResValues UP-TO-DATE
+> Task :tauri-android:generateDebugResValues UP-TO-DATE
+> Task :tauri-android:generateDebugResources UP-TO-DATE
+> Task :tauri-android:packageDebugResources UP-TO-DATE
+> Task :tauri-plugin-opener:generateDebugResValues UP-TO-DATE
+> Task :tauri-plugin-opener:generateDebugResources UP-TO-DATE
+> Task :tauri-plugin-opener:packageDebugResources UP-TO-DATE
+> Task :app:mapX86_64DebugSourceSetPaths UP-TO-DATE
+> Task :app:generateX86_64DebugResources UP-TO-DATE
+> Task :app:mergeX86_64DebugResources UP-TO-DATE
+> Task :app:packageX86_64DebugResources UP-TO-DATE
+> Task :app:parseX86_64DebugLocalResources UP-TO-DATE
+> Task :app:createX86_64DebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksX86_64Debug UP-TO-DATE
+> Task :tauri-android:extractDeepLinksDebug UP-TO-DATE
+> Task :tauri-android:processDebugManifest UP-TO-DATE
+> Task :tauri-plugin-opener:extractDeepLinksDebug UP-TO-DATE
+> Task :tauri-plugin-opener:processDebugManifest UP-TO-DATE
+> Task :app:processX86_64DebugMainManifest UP-TO-DATE
+> Task :app:processX86_64DebugManifest UP-TO-DATE
+> Task :app:processX86_64DebugManifestForPackage UP-TO-DATE
+> Task :tauri-android:compileDebugLibraryResources UP-TO-DATE
+> Task :tauri-android:parseDebugLocalResources UP-TO-DATE
+> Task :tauri-android:generateDebugRFile UP-TO-DATE
+> Task :tauri-plugin-opener:compileDebugLibraryResources UP-TO-DATE
+> Task :tauri-plugin-opener:parseDebugLocalResources UP-TO-DATE
+> Task :tauri-plugin-opener:generateDebugRFile UP-TO-DATE
+> Task :app:processX86_64DebugResources UP-TO-DATE
+> Task :tauri-android:checkKotlinGradlePluginConfigurationErrors
+> Task :tauri-android:generateDebugBuildConfig UP-TO-DATE
+> Task :tauri-android:compileDebugKotlin UP-TO-DATE
+> Task :tauri-android:javaPreCompileDebug UP-TO-DATE
+> Task :tauri-android:compileDebugJavaWithJavac UP-TO-DATE
+> Task :tauri-android:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :tauri-plugin-opener:checkKotlinGradlePluginConfigurationErrors
+> Task :tauri-plugin-opener:compileDebugKotlin UP-TO-DATE
+> Task :tauri-plugin-opener:javaPreCompileDebug UP-TO-DATE
+> Task :tauri-plugin-opener:compileDebugJavaWithJavac NO-SOURCE
+> Task :tauri-plugin-opener:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :app:compileX86_64DebugKotlin UP-TO-DATE
+> Task :app:javaPreCompileX86_64Debug UP-TO-DATE
+> Task :app:compileX86_64DebugJavaWithJavac UP-TO-DATE
+> Task :app:mergeX86_64DebugShaders UP-TO-DATE
+> Task :app:compileX86_64DebugShaders NO-SOURCE
+> Task :app:generateX86_64DebugAssets UP-TO-DATE
+> Task :tauri-android:mergeDebugShaders UP-TO-DATE
+> Task :tauri-android:compileDebugShaders NO-SOURCE
+> Task :tauri-android:generateDebugAssets UP-TO-DATE
+> Task :tauri-android:mergeDebugAssets UP-TO-DATE
+> Task :tauri-plugin-opener:mergeDebugShaders UP-TO-DATE
+> Task :tauri-plugin-opener:compileDebugShaders NO-SOURCE
+> Task :tauri-plugin-opener:generateDebugAssets UP-TO-DATE
+> Task :tauri-plugin-opener:mergeDebugAssets UP-TO-DATE
+> Task :app:mergeX86_64DebugAssets UP-TO-DATE
+> Task :app:compressX86_64DebugAssets UP-TO-DATE
+> Task :app:checkX86_64DebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarX86_64DebugFileDependencies UP-TO-DATE
+> Task :app:mergeExtDexX86_64Debug UP-TO-DATE
+> Task :tauri-plugin-opener:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :tauri-android:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :app:dexBuilderX86_64Debug UP-TO-DATE
+> Task :app:mergeProjectDexX86_64Debug UP-TO-DATE
+> Task :app:processX86_64DebugJavaRes UP-TO-DATE
+> Task :app:mergeLibDexX86_64Debug UP-TO-DATE
+> Task :tauri-android:processDebugJavaRes UP-TO-DATE
+> Task :tauri-plugin-opener:processDebugJavaRes UP-TO-DATE
+> Task :app:mergeX86_64DebugJavaResource UP-TO-DATE
+> Task :app:mergeX86_64DebugJniLibFolders
+> Task :tauri-android:mergeDebugJniLibFolders UP-TO-DATE
+> Task :tauri-android:mergeDebugNativeLibs NO-SOURCE
+> Task :tauri-android:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :tauri-plugin-opener:mergeDebugJniLibFolders UP-TO-DATE
+> Task :tauri-plugin-opener:mergeDebugNativeLibs NO-SOURCE
+> Task :tauri-plugin-opener:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :app:validateSigningX86_64Debug UP-TO-DATE
+> Task :app:writeX86_64DebugAppMetadata UP-TO-DATE
+> Task :app:writeX86_64DebugSigningConfigVersions UP-TO-DATE
+> Task :app:mergeX86_64DebugNativeLibs
+> Task :app:stripX86_64DebugDebugSymbols
+> Task :app:packageX86_64Debug
+> Task :app:createX86_64DebugApkListingFileRedirect UP-TO-DATE
+> Task :app:assembleX86_64Debug
+
+[Incubating] Problems report is available at: file:///Z:/Apps/Disconnect/app/src-tauri/gen/android/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 5s
+81 actionable tasks: 7 executed, 74 up-to-date

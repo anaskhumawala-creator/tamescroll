@@ -56,9 +56,12 @@ vladmandic/human and human-models — MIT License
   https://github.com/vladmandic/human
   The gaze module's BlazeFace box decode + anchor generation are
   adapted from Human's implementation (see app/gaze/src/detector.js),
-  and the gender classifier (SSR-Net architecture) is the converted
+  and the gender classifier (gender.json — Oarriaga mini-Xception,
+  originally from oarriaga/face_classification, MIT) is the converted
   model distributed in vladmandic/human-models, embedded (base64) like
-  the other models.
+  the other models. (The SSR-Net gender model from the same repo was
+  used until 2026-08-23; it proved unusable — single saturated output —
+  and was replaced.)
 
 EasyList / EasyPrivacy — dual-licensed GPLv3 / CC BY-SA 3.0
   https://easylist.to/

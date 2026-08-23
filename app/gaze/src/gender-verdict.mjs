@@ -2,9 +2,13 @@
 // decision #3): the app filters the opposite gender by default. Blur-first
 // fail-safe: anything not positively verified same-gender stays covered —
 // unknown gender, low confidence, or no declared user gender all flag.
-// Threshold registered in docs/detection-engine.md (status: guess).
+// Threshold registered in docs/detection-engine.md (calibrated against
+// the 2026-08-23 portrait set: the Oarriaga model's wrong-gender scores
+// reached 0.79, so anything below 0.85 can clear the opposite gender —
+// fail-open in the dangerous direction. 0.85 trades over-blur for that
+// never happening on the observed set).
 
-export var GENDER_MIN_SCORE = 0.6;
+export var GENDER_MIN_SCORE = 0.85;
 
 var OPPOSITE = { man: 'female', woman: 'male' };
 

@@ -1,0 +1,47 @@
+﻿node.exe :         Info Using installed NDK: C:\Users\zvcla\AppData\Local\Android\Sdk\ndk\27.1.12297006
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (        Info Us...k\27.1.12297006:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+        Info Looking up installed tauri packages to check mismatched versions...
+     Running beforeBuildCommand `pnpm build`
+
+> app@0.1.0 build Z:\Apps\Disconnect\app
+> tsc && vite build
+
+vite v6.4.3 building for production...
+transforming...
+✓ 6 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                 2.41 kB │ gzip: 0.97 kB
+dist/assets/index-BoYMSR88.css  6.49 kB │ gzip: 2.05 kB
+dist/assets/index-DiB80NNl.js   4.05 kB │ gzip: 1.66 kB
+✓ built in 136ms
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[92m    Finished[0m ]8;;https://doc.rust-lang.org/cargo/reference/profiles.html#default-profiles\`dev` profile [unoptimized + debuginfo]]8;;\ target(s) in 5.99s
+        Info symlinking lib "Z:\\Apps\\Disconnect\\app\\src-tauri\\target\\x86_64-linux-android\\debug\\libapp_lib.so" in jniLibs dir "Z:\\Apps\\Disconnect\\app\\src-tauri\\gen/android\\app/src/main/jniLibs/x86_64"
+failed to build Android app: Failed to create a symbolic link from "Z:\\Apps\\Disconnect\\app\\src-tauri\\target\\x86_64-linux-android\\debug\\libapp_lib.so" to file 
+"Z:\\Apps\\Disconnect\\app\\src-tauri\\gen/android\\app/src/main/jniLibs/x86_64\\libapp_lib.so" (file clobbering enabled): 
+Creation symbolic link is not allowed for this system.
+
+For Windows 10 or newer:
+You should use developer mode.
+See https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development
+
+For Window 8.1 or older:
+You need `SeCreateSymbolicLinkPrivilege` security policy.
+See https://docs.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/create-symbolic-links
+       Error failed to build Android app: Failed to create a symbolic link from "Z:\\Apps\\Disconnect\\app\\src-tauri\\target\\x86_64-linux-android\\debug\\libapp_lib.so" to file 
+"Z:\\Apps\\Disconnect\\app\\src-tauri\\gen/android\\app/src/main/jniLibs/x86_64\\libapp_lib.so" (file clobbering enabled): 
+Creation symbolic link is not allowed for this system.
+
+For Windows 10 or newer:
+You should use developer mode.
+See https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development
+
+For Window 8.1 or older:
+You need `SeCreateSymbolicLinkPrivilege` security policy.
+See https://docs.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/create-symbolic-links

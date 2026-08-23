@@ -23,15 +23,16 @@
   --font-display: "Spectral", Georgia, serif;
   --radius: 14px;
   --radius-sm: 10px;
+  --ring: rgba(201, 164, 94, 0.45);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 /* Author display values (flex on the views) must never beat the hidden
    attribute — that exact leak put onboarding under the settings panes. */
 [hidden] { display: none !important; }
 
-html, body { height: 100%; }
+html, body { height: 100%; overscroll-behavior: none; }
 
 body {
   background: var(--bg);
@@ -45,7 +46,27 @@ body {
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 input { font: inherit; color: inherit; }
 
-#app { max-width: 960px; margin: 0 auto; padding: 18px 28px 48px; }
+/* ---------- browser-chrome polish ---------- */
+/* Kills default-browser artifacts on top of the custom design: Android tap
+   highlight, the UA blue focus ring, selectable UI-chrome text, autofill
+   tinting and drag ghosts on icons. Real text inputs stay selectable. */
+
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 4px; }
+
+input, textarea { -webkit-user-select: text; user-select: text; caret-color: var(--gold); }
+
+input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+  -webkit-text-fill-color: var(--ink);
+}
+
+svg { -webkit-user-drag: none; }
+
+#app {
+  max-width: 960px; margin: 0 auto; padding: 18px 28px 48px;
+  -webkit-user-select: none; user-select: none;
+}
 
 .caps {
   font-size: 11px;
@@ -301,7 +322,7 @@ input { font: inherit; color: inherit; }
 @media (max-width: 700px) {
   #app { padding: 14px 16px 40px; }
   .settings-body { grid-template-columns: 1fr; gap: 18px; }
-  .settings-nav { flex-direction: row; overflow-x: auto; }
+  .settings-nav { flex-direction: row; overflow-x: auto; overscroll-behavior-x: contain; }
   .nav-item { white-space: nowrap; }
   .tiles { gap: 10px; }
   .tile { width: calc(50% - 6px); }

@@ -1,0 +1,67 @@
+<!doctype html>
+<!-- On-device inference benchmark (spike, not shipped). Load this page in
+     the app's WebView (or any browser on the target device) and it times:
+     backend init, BlazeFace-256 inference, SSR-Net gender, NSFW MobileNet,
+     on webgl vs cpu (wasm added when the spike lands). Results render on
+     screen AND console.log as TS_BENCH lines for CDP/logcat scraping. -->
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>tamescroll perf bench</title>
+<body style="font: 14px monospace; background: #141414; color: #eee; padding: 12px">
+  <h3>tamescroll inference bench</h3>
+  <div id="out">loading bundle…</div>
+  <script>
+    // The gaze bundle self-boots against a page; for the bench we only
+    // want its embedded models + tfjs. The bench build script injects
+    // window.__TS_BENCH__ = 1 before the bundle, and the bundle exits
+    // early in bench mode exposing __TS_BENCH_API (detector fns).
+    window.__TS_BENCH__ = 1;
+  </script>
+  <script src="gaze-init.js"></script>
+  <script>
+    var out = document.getElementById('out');
+    function log(line) {
+      console.log('TS_BENCH ' + line);
+      out.innerHTML += '<br>' + line;
+    }
+    async function timeit(label, n, fn) {
+      var t0 = performance.now();
+      for (var i = 0; i < n; i++) await fn();
+      var ms = (performance.now() - t0) / n;
+      log(label + ': ' + ms.toFixed(1) + 'ms avg (n=' + n + ')');
+      return ms;
+    }
+    (async function () {
+      var api = window.__TS_BENCH_API;
+      if (!api) { log('NO BENCH API — bundle built without bench hook'); return; }
+      // Synthetic frame: 640x360 canvas with noise (upper bound: no
+      // cache-friendly flat colors).
+      var c = document.createElement('canvas');
+      c.width = 640; c.height = 360;
+      var ctx = c.getContext('2d');
+      var img = ctx.createImageData(640, 360);
+      for (var i = 0; i < img.data.length; i++) img.data[i] = (Math.random() * 255) | 0;
+      ctx.putImageData(img, 0, 0);
+
+      for (var backend of ['webgl', 'cpu']) {
+        try {
+          var t0 = performance.now();
+          await api.setBackend(backend);
+          log(backend + ' init: ' + (performance.now() - t0).toFixed(0) + 'ms');
+          t0 = performance.now();
+          var face = await api.loadFace();
+          log(backend + ' face model load: ' + (performance.now() - t0).toFixed(0) + 'ms');
+          await api.detect(face, c); // warmup (shader compile lands here)
+          await timeit(backend + ' blazeface-256 warm', 5, function () { return api.detect(face, c); });
+          t0 = performance.now();
+          var nsfw = await api.loadNsfw();
+          log(backend + ' nsfw model load: ' + (performance.now() - t0).toFixed(0) + 'ms');
+          await api.nsfw(nsfw, c);
+          await timeit(backend + ' nsfw warm', 5, function () { return api.nsfw(nsfw, c); });
+        } catch (e) {
+          log(backend + ' FAILED: ' + e.message);
+        }
+      }
+      log('DONE');
+    })();
+  </script>
+</body>

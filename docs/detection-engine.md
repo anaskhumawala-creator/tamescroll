@@ -45,7 +45,13 @@ Order per item: **text signal → (compulsory) NSFW → face → gender.**
   Stage A / platform rules) — for the strictness spec pass.
 - **Gender stage (BUILT 2026-08-19, device verification pending):**
   per-face boxes (full BlazeFace decode, adapted from Human, MIT) →
-  SSR-Net gender per face (model from human-models, MIT, 64×64, ~161KB).
+  gender per face (human-models gender.json — Oarriaga mini-Xception,
+  MIT, 64×64 grayscale, ~202KB; ALL faces batched in ONE inference).
+  Model swapped 2026-08-23: gender-ssrnet-imdb (verified byte-identical
+  to upstream) outputs a single value saturated at ~1.0 for every real
+  face under every documented preprocessing — with the old
+  data[0]>data[1] reader every face scored 'male'/undefined, so verdicts
+  were permanently 'flag': the real root cause of "both genders blurred".
   Opposite gender or low-confidence → covered; ALL faces confidently
   same-gender → unblurred (then NSFW still checks the image). No
   declared gender → old presence behavior. This turns smart mode from
@@ -78,7 +84,7 @@ conservative, never tuned against evidence.
 | Video sample | 500ms | ≤2 inferences/s/video | guess |
 | Clean streak | 4 samples | consecutive clean frames to unblur (~2s) | guess |
 | Blur radius | 8/16/28px (Light/Med/Strong), 24px fallback | strength presets | owner-chosen |
-| Gender min score | 0.6 (GENDER_MIN_SCORE) | below ⇒ face treated unknown, stays covered | guess |
+| Gender min score | 0.85 (GENDER_MIN_SCORE) | below ⇒ face treated unknown, stays covered | calibrated 2026-08-23 (portrait set: wrong-gender scores reached 0.79 — 0.6 cleared the opposite gender) |
 | Face min confidence | 0.2 | NMS score floor for a box to count | guess |
 | Face NMS IoU | 0.1 | box de-duplication overlap | guess (Human-family default) |
 | Face crop enlarge | 1.4× | context around face for gender crop | guess (Human-family default) |

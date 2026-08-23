@@ -41,3 +41,10 @@ test('garbage user gender behaves as unset', () => {
   assert.equal(faceVerdict('banana', [male()]), 'flag');
   assert.equal(faceVerdict(null, [male()]), 'flag');
 });
+
+test('threshold pinned at 0.85 (Oarriaga calibration 2026-08-23)', () => {
+  // Portrait set: wrong-gender scores reached 0.79 (Oprah->male) — a
+  // 0.6 threshold CLEARS the opposite gender. 0.85 keeps every observed
+  // wrong verdict covered; cost is over-blur on weak same-gender scores.
+  assert.equal(GENDER_MIN_SCORE, 0.85);
+});

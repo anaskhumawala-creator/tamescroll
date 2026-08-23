@@ -35,6 +35,24 @@ import { planForMode } from './pipeline-plan.mjs';
   // Compulsory tier (handoff decision #1): the pipeline boots in every
   // launcher mode so NSFW media can be removed outright; what else runs
   // is the plan's call (pipeline-plan.mjs, unit-tested policy).
+  // Bench hook (spikes/perf-harness/bench.html): expose the raw
+  // detector fns and touch NOTHING else. The flag is only ever set by
+  // our local bench page — never by injected boot scripts.
+  if (window.__TS_BENCH__) {
+    window.__TS_BENCH_API = {
+      setBackend: detector.forceBackend,
+      loadFace: detector.loadModel,
+      loadNsfw: detector.loadNsfwModel,
+      loadGender: detector.loadGenderModel,
+      detect: detector.detectFaceBoxes,
+      nsfw: detector.isNsfw,
+      genders: detector.classifyFaceGenders,
+      tf: detector.tfHandle,
+      loadUrl: detector.loadModelUrl,
+    };
+    return;
+  }
+
   var plan = planForMode(window.__TS_GAZE_MODE);
   if (!plan.boot) return;
 
@@ -222,11 +240,7 @@ import { planForMode } from './pipeline-plan.mjs';
     return detector.detectFaceBoxes(model, el).then(function (faces) {
       if (!faces.length) return { verdict: 'clear', faces: faces };
       if (!genderModel) return { verdict: 'flag', faces: faces };
-      return Promise.all(
-        faces.map(function (box) {
-          return detector.classifyFaceGender(genderModel, el, box);
-        })
-      ).then(function (genders) {
+      return detector.classifyFaceGenders(genderModel, el, faces).then(function (genders) {
         return { verdict: faceVerdict(userGender, genders), faces: faces };
       });
     });
@@ -308,6 +322,12 @@ import { planForMode } from './pipeline-plan.mjs';
       // Face modes wait for BlazeFace AND the gender AND NSFW loads to
       // settle — draining earlier hands out irreversible presence-only
       // flags (gender) or irreversible unchecked reveals (NSFW).
+      // Hidden page: every GPU readback fence-wait is clamped to ~1s+
+      // by Chrome's nested-timer throttling (found 2026-08-23), so a
+      // hidden tab would grind through the queue at seconds per image
+      // for nobody. Park the queue; the visibilitychange listener
+      // below re-arms the drain the moment the page shows again.
+      if (document.hidden) return;
       if (plan.faceGender ? !model || !genderSettled || !nsfwSettled : !nsfwModel) {
         // Model still loading: back off instead of re-arming the idle
         // callback immediately — the immediate re-arm was a tight loop
@@ -330,6 +350,10 @@ import { planForMode } from './pipeline-plan.mjs';
       });
     });
   }
+
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && imageQueue.length) drainImages();
+  });
 
   function tagImage(img) {
     if (failed || dom.hasPlayerAncestor(img)) return;
@@ -452,11 +476,7 @@ import { planForMode } from './pipeline-plan.mjs';
             if (!faces.length || !genderModel) {
               return faces.length ? 'flag' : 'clear';
             }
-            return Promise.all(
-              faces.map(function (box) {
-                return detector.classifyFaceGender(genderModel, pixels, box);
-              })
-            ).then(function (genders) {
+            return detector.classifyFaceGenders(genderModel, pixels, faces).then(function (genders) {
               return faceVerdict(userGender, genders);
             });
           })
