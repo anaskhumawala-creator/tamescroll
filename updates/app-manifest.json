@@ -1,7 +1,7 @@
 {
-  "versionCode": 1001,
-  "versionName": "0.1.1",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.1/tamescroll-arm64-v0.1.1.apk",
-  "sha256": "c2dbadcc1196d5fda8c53ba2d7a3e20ecce64ce8b9e049cfe6a3ab6f30491315",
-  "notes": "In-app updater, gender fix, faster blur, launcher polish."
+  "versionCode": 1002,
+  "versionName": "0.1.2",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.2/app-arm64-debug.apk",
+  "sha256": "ed8c5e1d51f018fde7d54bf77086efbda1a1294952c5305d94fc3d1edafb59a8",
+  "notes": "Faster blur (fewer shader recompiles + lighter region-blur), gender fix, polish."
 }
