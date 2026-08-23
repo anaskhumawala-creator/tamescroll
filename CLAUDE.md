@@ -420,6 +420,17 @@ scripts/gen-app-manifest.mjs <apk> <releaseDownloadURL> "<notes>", (7)
 commit+push updates/app-manifest.json. Manifest URL hardcoded in
 appupdate.rs AND MainActivity.kt — keep in lockstep.
 
+**Post-v1001 loop wins (not yet in a release APK):** region-blur
+heartbeat probe-guard (6dfb7ec), WEBGL_USE_SHAPES_UNIFORMS (e668561 —
+benched on real Android WebView: gender shader compiles 223->98,
+per-new-batch recompiles 68->12, output bit-identical). Batch these into
+the NEXT release (v1002) when enough accumulates rather than churning a
+release per commit. WEBGL flag bench harness proven: point the emulator
+WebView at http://10.0.2.2:8899/bench.html via CDP (host bench server),
+tf.env().set(flag) before setBackend, wrap linkProgram to count compiles
+(arch-independent) — emulated-GPU TIMING is unreliable but compile COUNT
++ output parity are not.
+
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
 (rules would be [unverified] — site blocked in India); Instagram
