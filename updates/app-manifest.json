@@ -1,7 +1,7 @@
 {
-  "versionCode": 1000,
-  "versionName": "0.1.0",
-  "apkUrl": "",
-  "sha256": "",
-  "notes": ""
+  "versionCode": 1001,
+  "versionName": "0.1.1",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.1/tamescroll-arm64-v0.1.1.apk",
+  "sha256": "c2dbadcc1196d5fda8c53ba2d7a3e20ecce64ce8b9e049cfe6a3ab6f30491315",
+  "notes": "In-app updater, gender fix, faster blur, launcher polish."
 }
