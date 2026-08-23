@@ -65,6 +65,42 @@ Users install this one app and nothing else.
 
 **Last updated:** 2026-08-19 14:40 (day 2 — smart-mode gender parity + UI rebuild + text filter).
 
+**Session 2026-08-23 (issue-loop, app v0.1.3/1003):** Cleared every
+autonomously-fixable owner report from docs/owner-issues.md.
+- **#14 blur-over-menu FIXED+verified** (probe48, feeb54c): region-blur
+  overlays (max z-index, document-anchored) punched over m.youtube's
+  position:fixed topbar when a face thumbnail scrolled behind it.
+  clampToInset() clips overlay top to header line (fully-behind hide,
+  over-blur preserved). topInset() walks each elementsFromPoint hit's
+  ANCESTOR chain — top-center hit is a static <button> inside the fixed
+  topbar, so direct-hit-only found inset 0. insetFromChain pure+tested.
+  On-device: barBottom 48, punchThrough []; search bar clean. 10/10
+  region tests, 36/36 gaze.
+- **#10 launcher polish FIXED+verified** (probe49c): add-platform input
+  focus is a clean subtle field — tapHighlight transparent, outline 0px,
+  no blue box; no-circumvention "We don't support that" intact.
+- **v0.1.3 (1003) SHIPPED** to reach the phone via in-app updater: arm64
+  debug APK on GitHub Releases v0.1.3 (stripped 45MB), updates/
+  app-manifest.json sha256-pinned + pushed. Owner's phone sees it on next
+  launch / About Check-for-updates. Version bumps: tauri.properties
+  (gitignored) + tauri.conf.json 0.1.3 + appupdate.rs 1003.
+
+Emulator gotcha reconfirmed: relaunching MainActivity resumes the single
+webview wherever it was (YouTube), NOT the launcher — press Back
+(launcher-first) to get the launcher. CDP page label flips
+tauri.localhost <-> m.youtube accordingly.
+
+BLOCKED on owner (report + decide, do not build blind):
+- **#9/#12 "very slow" after video click** — dominant cause is the
+  scriptlet gap (docs/scriptlet-gap.md); fix touches the player red line,
+  needs owner A/B/C pick (recommend B, request-shaper-only). Safe perf
+  levers already shipped in 1002/1003 (WEBGL_USE_SHAPES_UNIFORMS, JS-NMS,
+  batched gender, hidden-tab drain gate, deferred models). Do NOT retry
+  page-side eval dedup — CSP-dead, reverted by design.
+- **#8 in-video blur real-hw timing** — emulator x86 GPU is minutes-slow;
+  only owner's phone gives real numbers.
+
+
 Done: Phase 0-2.5 as before (see git log). This session: **Gaze Stage A
 shipped** — rules/blur/{youtube,reddit,x}.css, launcher Off/On toggle
 (localStorage tamescroll.blur), page_css() in lib.rs unit-tests the
