@@ -1,7 +1,7 @@
 {
-  "versionCode": 1004,
-  "versionName": "0.1.4",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/v0.1.4/app-arm64-debug.apk",
-  "sha256": "c376367fd245b31229931eeb44181d692930a0ba5a672e5a9f2fbb57209fa03e",
-  "notes": "YouTube ad-free stream + no watch-click stall (experimental request-editor)."
+  "versionCode": 1005,
+  "versionName": "0.1.5",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/v0.1.5/app-arm64-debug.apk",
+  "sha256": "99d6b0a2b727c26d8262b5009c417008e20b5e24138ce7f992db99cbce6de41c",
+  "notes": "In-player live blur fix + request-editor ad fix."
 }
