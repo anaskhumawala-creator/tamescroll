@@ -402,6 +402,24 @@ Bootstrap: phone must install current arm64 (has updater) once from
 Files; pushed to Download/tamescroll-debug.apk. Manifest URL hardcoded
 in BOTH appupdate.rs and MainActivity.kt — keep in lockstep.
 
+**In-app updater DONE + LIVE (owner approved GitHub Releases 2026-08-23,
+verified probe46):** release app-v0.1.1 published (arm64, 45MB), manifest
+on raw main points at it, emulator v1000 -> saw v1001 -> downloaded ->
+sha256-verified -> system installer consent prompt. Owner phone got the
+stripped v1001 at Download/tamescroll-debug.apk (install ONCE from Files
+to get the updater; future updates in-app). **RELEASE RECIPE for next
+build:** (1) bump app/src-tauri/gen/android/app/tauri.properties
+versionCode (+1) & versionName, and appupdate.rs CURRENT_VERSION_CODE to
+match (tauri.properties is GITIGNORED/autogen — lockstep lives in
+tauri.conf.json version + appupdate.rs), (2) tauri android build --debug
+--target aarch64, (3) STRIP: llvm-strip --strip-unneeded the .so
+(NDK 27.1 .../llvm-strip.exe; 170MB->38MB->45MB APK) BEFORE copying to
+jniLibs/arm64-v8a, (4) gradlew assembleArm64Debug -x rust, (5) gh release
+create app-vX.Y.Z <apk> --repo anaskhumawala-creator/tamescroll, (6) node
+scripts/gen-app-manifest.mjs <apk> <releaseDownloadURL> "<notes>", (7)
+commit+push updates/app-manifest.json. Manifest URL hardcoded in
+appupdate.rs AND MainActivity.kt — keep in lockstep.
+
 Next: gaze smart-mode runtime feel (owner eyes); nsfwjs budget call
 (owner); owner one-time sign-ins; TikTok draft awaiting owner go
 (rules would be [unverified] — site blocked in India); Instagram
