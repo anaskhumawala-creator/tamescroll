@@ -59,6 +59,7 @@ const BLUR_YOUTUBE: &str = include_str!("../../../rules/blur/youtube.css");
 const BLUR_REDDIT: &str = include_str!("../../../rules/blur/reddit.css");
 const BLUR_X: &str = include_str!("../../../rules/blur/x.css");
 const BLUR_TIKTOK: &str = include_str!("../../../rules/blur/tiktok.css");
+const SCRIPTLET_RULES: &str = include_str!("../../../rules/scriptlets.txt");
 
 /// Every rules file the OTA layer may override, keyed by its
 /// repo-relative name under `rules/` — the same names
@@ -70,6 +71,7 @@ pub fn embedded(name: &str) -> Option<&'static str> {
         "reddit.txt" => Some(REDDIT_RULES),
         "x.txt" => Some(X_RULES),
         "tiktok.txt" => Some(TIKTOK_RULES),
+        "scriptlets.txt" => Some(SCRIPTLET_RULES),
         "blur/youtube.css" => Some(BLUR_YOUTUBE),
         "blur/reddit.css" => Some(BLUR_REDDIT),
         "blur/x.css" => Some(BLUR_X),
@@ -125,6 +127,15 @@ const SCRIPTLETS: &[(&str, &[&str], &str)] = &[
         &[],
         include_str!("../scriptlets/trusted-replace-xhr-response.js"),
     ),
+    (
+        // Our own request-editor (not a uBO name): sets one dotted field on
+        // outbound JSON request bodies. Drives the isInlinePlaybackNoAd
+        // ad-free-stream trick on YouTube's /player request — see
+        // docs/scriptlet-gap.md. Clean-room from public protobuf RE.
+        "trusted-set-request-field.js",
+        &[],
+        include_str!("../scriptlets/trusted-set-request-field.js"),
+    ),
 ];
 
 /// Builds the engine the whole app shares: every vendored filter list
@@ -133,6 +144,7 @@ const SCRIPTLETS: &[(&str, &[&str], &str)] = &[
 pub fn build_engine() -> Engine {
     let mut set = FilterSet::new(false);
     for list in [
+        "scriptlets.txt",
         "vendor/easylist.txt",
         "vendor/easyprivacy.txt",
         "vendor/ubo-filters.txt",

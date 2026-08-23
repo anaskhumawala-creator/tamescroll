@@ -26,6 +26,7 @@ const FILES = [
   'reddit.txt',
   'x.txt',
   'tiktok.txt',
+  'scriptlets.txt',
   'blur/youtube.css',
   'blur/reddit.css',
   'blur/x.css',

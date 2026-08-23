@@ -1,0 +1,17 @@
+! tamescroll scriptlet rules (CC0) — engine-injected +js(...) filters that
+! call our own clean-room scriptlets. Kept separate from the cosmetic
+! rule files (youtube.txt etc.): these compile INTO the adblock engine,
+! not the settings-pane surface layer.
+
+! YouTube ad-free stream, no watch-click stall. Sets one field on the
+! outbound /player request so InnerTube grants a stream with no ad and no
+! SABR backoff — the backoff our response-side strip cannot undo (the
+! multi-second freeze owner reports #9/#12).
+! Provenance (clean-room): public protobuf reverse-engineering of Google's
+! own API (https://iter.ca/post/yt-adblock/), NOT uBO/AdGuard code.
+! test: on a youtube.com /watch SPA click, the outbound
+!   POST /youtubei/v1/player body carries
+!   playbackContext.contentPlaybackContext.isInlinePlaybackNoAd:true and no
+!   pre-roll plays; video still plays (player red line).
+! [unverified] — needs owner phone; emulator is never served real ads.
+www.youtube.com,m.youtube.com##+js(trusted-set-request-field, youtubei/v1/player, playbackContext.contentPlaybackContext.isInlinePlaybackNoAd, true)
