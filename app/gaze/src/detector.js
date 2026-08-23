@@ -78,6 +78,16 @@ function initBackend() {
   if (!backendReady) {
     backendReady = (async function () {
       try {
+        // Reuse one shader across differing tensor SHAPES (shape passed as
+        // a uniform) instead of recompiling per shape. The batched gender
+        // pass runs with a varying face-count first dim, so without this
+        // every new face-count on the feed recompiled ~67 shaders on the
+        // main thread. Measured on a real Android WebView (2026-08-23):
+        // total gender-path compiles 223 -> 98, per-new-batch-size
+        // recompiles at batch 5 68 -> 12, gender output bit-identical
+        // (male:0.92274 both). Must be set before the backend compiles
+        // anything, i.e. before tf.ready().
+        tf.env().set('WEBGL_USE_SHAPES_UNIFORMS', true);
         // setBackend reports failure BOTH ways: rejecting, or resolving
         // false — a webgl init that fails politely must still fall back.
         var ok = await tf.setBackend('webgl');
