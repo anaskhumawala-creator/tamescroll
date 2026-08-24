@@ -90,7 +90,7 @@ function makeOverlay() {
   // corners (owner 2026-08-24: "rounded edges are distorting").
   d.style.cssText =
     'position:absolute;left:0;top:0;width:' + BASE_PX + 'px;height:' + BASE_PX + 'px;' +
-    'pointer-events:none;border-radius:8px;z-index:59;' +
+    'pointer-events:none;border-radius:8px;z-index:5;' +
     'will-change:transform;' +
     'backdrop-filter:blur(var(--ts-blur-strong,24px));' +
     '-webkit-backdrop-filter:blur(var(--ts-blur-strong,24px));';

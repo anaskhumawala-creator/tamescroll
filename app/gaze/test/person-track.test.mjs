@@ -36,22 +36,26 @@ test('new track starts BLURRED even on a confident clear observation', () => {
   assert.equal(blurredTracks(tracks).length, 1);
 });
 
-test('clearing needs CLEAR_HOLD_MS of continuous confident reads', () => {
+test('clearing: first confident read holds, consecutive confident reads clear (fast clear)', () => {
   let tracks = updatePersonTracks([], [obs(boxA, false, true)], 250);
-  const steps = Math.ceil(CLEAR_HOLD_MS / 250);
-  for (let i = 0; i < steps - 1; i++) {
-    tracks = updatePersonTracks(tracks, [obs(boxA, false, true)], 250);
-    assert.equal(tracks[0].state, 'blurred');
-  }
+  assert.equal(tracks[0].state, 'blurred'); // one read never clears
   tracks = updatePersonTracks(tracks, [obs(boxA, false, true)], 250);
-  assert.equal(tracks[0].state, 'cleared');
+  assert.equal(tracks[0].state, 'cleared'); // CLEAR_STREAK_N consecutive
   assert.equal(blurredTracks(tracks).length, 0);
+  // The CLEAR_HOLD_MS accumulation path still exists for interleaved
+  // reads (see the decay test below) — fast clear only rewards
+  // CONSECUTIVE confident adult reads.
 });
 
 test('an uncertain read DECAYS the clear credit while blurred (never zeroes it)', () => {
+  // Interleave confident/uncertain so the fast-clear streak never fires
+  // — this pins the ACCUMULATION path (a person looking down at a phone
+  // reads uncertain most frames).
   let tracks = updatePersonTracks([], [obs(boxA, false, true)], 250);
-  for (let i = 0; i < 4; i++) tracks = updatePersonTracks(tracks, [obs(boxA, false, true)], 250);
+  tracks = updatePersonTracks(tracks, [obs(boxA, true, false)], 250);
+  tracks = updatePersonTracks(tracks, [obs(boxA, false, true)], 250);
   const before = tracks[0].clearMs;
+  assert.equal(tracks[0].state, 'blurred');
   tracks = updatePersonTracks(tracks, [obs(boxA, true, false)], 250); // face turned away
   assert.equal(tracks[0].state, 'blurred');
   assert.ok(tracks[0].clearMs < before && tracks[0].clearMs > 0);
@@ -225,4 +229,20 @@ test('a NON-cleared track still blurs instantly on a certain flag', () => {
   const box = { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 };
   const tracks = pt.updatePersonTracks([], [{ box, flagged: true, certain: true }], 250);
   assert.equal(tracks[0].state, 'blurred');
+});
+
+test('fast clear: 2 consecutive certain adult clears lift the blur without the hold', () => {
+  const box = { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 };
+  let tracks = pt.updatePersonTracks([], [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
+  assert.equal(tracks[0].state, 'blurred'); // first read: still covered
+  tracks = pt.updatePersonTracks(tracks, [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
+  assert.equal(tracks[0].state, 'cleared'); // second consecutive: sharp
+});
+
+test('fast clear: an uncertain read in between resets the streak', () => {
+  const box = { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 };
+  let tracks = pt.updatePersonTracks([], [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
+  tracks = pt.updatePersonTracks(tracks, [{ box, flagged: true, certain: false, verdictDt: 250 }], 250);
+  tracks = pt.updatePersonTracks(tracks, [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
+  assert.equal(tracks[0].state, 'blurred'); // streak broken, one read again
 });

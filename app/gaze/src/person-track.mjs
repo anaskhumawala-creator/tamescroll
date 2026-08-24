@@ -27,6 +27,14 @@ export var PTRACK_IOU_MIN = 0.2; // below this, no association
 export var PTRACK_EMA_ALPHA = 0.6; // new-box weight per matched sample (0.45 -> 0.6 2026-08-24: owner phone — patch trailed the person; at adaptive ~2Hz the smoothing lag dominates, snappier wins)
 export var PTRACK_MAX_MISS_MS = 1000; // a lost track coasts this long, then expires
 export var CLEAR_HOLD_MS = 1500; // accumulated confident-clear time before a patch lifts
+// Fast clear (owner 2026-08-25, caps-lock: "WHY ARE YOU BLURRING A MAN
+// — I only wanted the female blur"): this many CONSECUTIVE certain
+// same-gender adult reads clear a track without waiting out the hold
+// (~0.8s at the 400ms verdict cadence; instant when identity memory
+// already knows the person). Children can never take this path — their
+// reads are never certain (age gate) — and unreadable/backside persons
+// still sit covered until a face proves otherwise.
+export var CLEAR_STREAK_N = 2;
 // Uncertain reads DECAY the accumulated clear credit at this fraction of
 // elapsed time instead of zeroing it (live 2026-08-24: a cleared-gender
 // person looking down at a phone reads uncertain for most frames — a
@@ -160,6 +168,7 @@ function matchedStep(t, obs, dt) {
       clearMs: clearMs,
       missMs: 0,
       clearAge: t.clearAge || 0,
+      clearStreak: t.clearStreak || 0,
       flagStreak: t.flagStreak || 0,
       desc: t.desc || null,
       lastVerdict: t.lastVerdict || 'uncertain',
@@ -170,6 +179,7 @@ function matchedStep(t, obs, dt) {
   // not the pass interval, so the split cadence keeps the hold honest.
   var vdt = typeof obs.verdictDt === 'number' ? obs.verdictDt : dt;
   var flagStreak = t.flagStreak || 0;
+  var clearStreak = t.clearStreak || 0;
   var clearAge = t.clearAge || 0;
   // Identity continuity check FIRST (review A1): if this read's face
   // descriptor contradicts the track's, someone else is standing here —
@@ -180,6 +190,7 @@ function matchedStep(t, obs, dt) {
     state = 'blurred';
     clearMs = 0;
     flagStreak = 0;
+    clearStreak = 0;
     clearAge = 0;
   }
   if (obs.flagged && obs.certain) {
@@ -197,9 +208,13 @@ function matchedStep(t, obs, dt) {
       clearMs = 0;
     }
   } else if (!obs.flagged && obs.certain) {
-    // Confident same-gender reading accumulates toward the clear hold.
+    // Confident same-gender reading accumulates toward the clear hold —
+    // and CLEAR_STREAK_N consecutive ones clear outright (fast clear).
     clearMs += vdt;
-    if (state === 'blurred' && clearMs >= CLEAR_HOLD_MS) state = 'cleared';
+    clearStreak += 1;
+    if (state === 'blurred' && (clearMs >= CLEAR_HOLD_MS || clearStreak >= CLEAR_STREAK_N)) {
+      state = 'cleared';
+    }
   } else if (state === 'blurred') {
     // Uncertain while blurred: not evidence either way — decay the
     // accumulated credit rather than zero it (see CLEAR_DECAY).
@@ -240,6 +255,7 @@ function matchedStep(t, obs, dt) {
     clearMs: clearMs,
     missMs: 0,
     clearAge: clearAge,
+    clearStreak: !obs.flagged && obs.certain ? clearStreak : 0,
     flagStreak: obs.flagged && obs.certain ? flagStreak : 0,
     desc: obs.desc || t.desc || null,
     lastVerdict: obs.flagged && obs.certain ? 'flag-certain' : !obs.flagged && obs.certain ? 'clear-certain' : 'uncertain',
@@ -285,6 +301,7 @@ function coastStep(t, dt) {
     clearMs: t.state === 'blurred' ? 0 : t.clearMs,
     missMs: missMs,
     clearAge: t.clearAge || 0,
+    clearStreak: t.clearStreak || 0,
     flagStreak: t.flagStreak || 0,
     desc: t.desc || null,
     lastVerdict: t.lastVerdict || 'uncertain',
@@ -312,6 +329,7 @@ export function demoteTracks(tracks) {
       clearMs: 0,
       missMs: 0,
       clearAge: 0,
+      clearStreak: 0,
       flagStreak: 0,
       desc: null,
       lastVerdict: 'uncertain',
@@ -342,6 +360,9 @@ function newTrack(obs) {
       obs.remembered === 'cleared' && !obs.flagged && obs.certain ? 'cleared' : 'blurred',
     clearMs: obs.remembered === 'cleared' && !obs.flagged && obs.certain ? CLEAR_HOLD_MS : 0,
     missMs: 0,
+    clearAge: 0,
+    clearStreak: !obs.flagged && obs.certain ? 1 : 0,
+    flagStreak: 0,
     desc: obs.desc || null,
     lastVerdict:
       obs.flagged && obs.certain
