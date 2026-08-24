@@ -134,10 +134,21 @@ def open_platform(gender):
     silently measure the same direction twice.
     """
     lau = pick("localhost:1420")
-    lau.eval(
-        "window.__TAURI__.core.invoke('set_user_gender', {gender: '%s'})" % gender
+    # Drive the LAUNCHER'S OWN TOGGLE, not the set_user_gender command.
+    # Calling the command directly looks like it works and does nothing:
+    # open_platform passes the launcher's stored gender through with the
+    # tile click and overwrites the Rust state a moment later. A run
+    # "with gender=woman" then silently measures the man direction - the
+    # exact failure this whole harness exists to catch.
+    ok = lau.eval(
+        "(function(){var b=document.querySelector("
+        "'#gender-toggle .toggle-opt[data-value=\"%s\"]');"
+        "if(!b)return 'no-toggle';b.click();return localStorage.getItem('tamescroll.gender');})()"
+        % gender
     )
-    time.sleep(0.5)
+    if ok != gender:
+        raise SystemExit("gender did not take: wanted %s, launcher says %r" % (gender, ok))
+    time.sleep(0.8)
     lau.eval(
         "(function(){var b=[].slice.call(document.querySelectorAll('button.tile'))"
         ".filter(function(x){return /youtube/i.test(x.textContent);})[0];b&&b.click();})()"
@@ -175,6 +186,10 @@ def run(outdir, gender, video, start, count, step):
     tab = pick("youtube.com")
 
     boot = tab.eval("JSON.stringify({g: window.__TS_GAZE_GENDER, b: window.__TS_GAZE_BUNDLE__})")
+    # Hard gate: a run that booted the wrong direction is worse than no
+    # run, because its frames look like evidence.
+    if ('"g":"%s"' % gender) not in (boot or ""):
+        raise SystemExit("BOOTED WRONG DIRECTION: wanted %s, page says %s" % (gender, boot))
     tab.eval(
         "(function(){var v=document.querySelector('video');v.currentTime=%d;v.play();})()" % start
     )

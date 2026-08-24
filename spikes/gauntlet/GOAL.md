@@ -109,3 +109,22 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   vote on GEOMETRY but never on whether a slot is a person at all.
   Frame f004: Linus fully sharp, daughter covered head to frame-bottom,
   single patch. gaze 88/88.
+- **R2** (2026-08-25) — first run of the `woman` direction, and it
+  immediately caught a HARNESS bug rather than a product bug: the run
+  reported `g:"man"` while claiming to test `woman`. Calling
+  `set_user_gender` directly looks like it works and does nothing —
+  `open_platform` passes the launcher's stored gender through with the
+  tile click and overwrites the Rust state a moment later. The harness
+  now drives the launcher's own toggle and HARD-FAILS if the booted
+  direction disagrees with the request, because a run that booted the
+  wrong way is worse than no run: its frames look like evidence.
+  Re-run (runs/r2b-woman): 0 EXPOSURE, 0 FALSE COVER on adults — Linus
+  covered as expected. His daughter stays covered too, which is the age
+  gate working as designed (under 18 ⇒ gender untrusted ⇒ never clears,
+  in either direction) rather than a false cover.
+  OPEN, and the next round's target: f000/f006/f008 carry 2-3 patches
+  while the last pass reported 0 persons. That is the GHOST class and it
+  matches the owner's "boxes spawn randomly and float around". Note the
+  persons count is the value from the most recent pass, so some of these
+  may be position-pass lag rather than true ghosts — settle that first
+  by timestamping the persons count alongside the patch rects.
