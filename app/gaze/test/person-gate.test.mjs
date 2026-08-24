@@ -29,6 +29,27 @@ test('parsePersons: keeps scoring slots, drops the rest', () => {
   assert.ok(out[0].confidence >= PERSON_MIN_SCORE);
 });
 
+test('parsePersons: confident keypoints extend the box (hands must be covered)', () => {
+  // Box hugs the torso; a confident wrist keypoint sits outside it
+  // (owner phone 2026-08-24: hands left showing).
+  const data = new Float32Array(6 * 56);
+  data[51] = 0.2; // y1
+  data[52] = 0.4; // x1
+  data[53] = 0.8; // y2
+  data[54] = 0.6; // x2
+  data[55] = 0.5; // score
+  data[9 * 3] = 0.5; // right wrist y
+  data[9 * 3 + 1] = 0.75; // right wrist x — outside the box
+  data[9 * 3 + 2] = 0.9; // confident
+  data[10 * 3] = 0.5; // left wrist, low score — must NOT extend
+  data[10 * 3 + 1] = 0.05;
+  data[10 * 3 + 2] = 0.1;
+  const out = parsePersons(data);
+  assert.equal(out.length, 1);
+  assert.ok(out[0].x2 > 0.75); // wrist + margin included
+  assert.ok(out[0].x1 >= 0.35); // low-score keypoint ignored
+});
+
 test('personCropRegion: pads the person box, clamped to the frame', () => {
   const region = personCropRegion({ x1: 0.3, y1: 0.1, x2: 0.6, y2: 0.7 });
   assert.ok(region.x1 < 0.3 && region.x2 > 0.6);

@@ -27,8 +27,11 @@
 var HOST_CLASS = 'ts-gaze-vregion-host';
 var RECT_REFRESH_MS = 250;
 // Interpolation stops extrapolating past this (a stale detection pass
-// must not slide a patch off its person indefinitely).
-var MAX_EXTRAPOLATE_MS = 600;
+// must not slide a patch off its person indefinitely). 600 -> 1200
+// 2026-08-24: the adaptive cadence can legitimately run ~1s/pass on a
+// slow phone, and a patch that freezes mid-gap reads as "doesn't move"
+// (owner phone test).
+var MAX_EXTRAPOLATE_MS = 1200;
 // Overlays are BASE_PX squares scaled by transform — one layout when
 // built, compositor-only moves forever after.
 var BASE_PX = 100;
@@ -59,11 +62,17 @@ export function interpolateBox(track, elapsedMs) {
   var t = Math.min(Math.max(0, elapsedMs), MAX_EXTRAPOLATE_MS) / 1000;
   var dx = (track.vx || 0) * t;
   var dy = (track.vy || 0) * t;
+  // Size extrapolation (owner 2026-08-24 "dynamic scale"): a growing
+  // patch keeps growing between passes — split across both edges. Only
+  // ever applied OUTWARD (shrink prediction is the exposure direction;
+  // the next real pass shrinks it instead).
+  var gw = Math.max(0, (track.vw || 0) * t) / 2;
+  var gh = Math.max(0, (track.vh || 0) * t) / 2;
   return {
-    x1: Math.max(0, Math.min(1, track.box.x1 + dx)),
-    y1: Math.max(0, Math.min(1, track.box.y1 + dy)),
-    x2: Math.max(0, Math.min(1, track.box.x2 + dx)),
-    y2: Math.max(0, Math.min(1, track.box.y2 + dy)),
+    x1: Math.max(0, Math.min(1, track.box.x1 + dx - gw)),
+    y1: Math.max(0, Math.min(1, track.box.y1 + dy - gh)),
+    x2: Math.max(0, Math.min(1, track.box.x2 + dx + gw)),
+    y2: Math.max(0, Math.min(1, track.box.y2 + dy + gh)),
   };
 }
 
@@ -75,12 +84,13 @@ function resolveHost(video) {
 function makeOverlay() {
   var d = document.createElement('div');
   // Near-rectangular patch; z-index above the video but below ytp
-  // controls. Fixed BASE_PX size + transform scale = zero layout per
-  // move (transform is compositor-only; backdrop-filter samples the
-  // transformed bounds, verified live 2026-08-24).
+  // controls. Position moves by TRANSLATE only (compositor-only);
+  // size is a real width/height write, but only when it actually
+  // changed — a non-uniform transform scale warped the rounded
+  // corners (owner 2026-08-24: "rounded edges are distorting").
   d.style.cssText =
     'position:absolute;left:0;top:0;width:' + BASE_PX + 'px;height:' + BASE_PX + 'px;' +
-    'pointer-events:none;border-radius:8px;z-index:59;transform-origin:0 0;' +
+    'pointer-events:none;border-radius:8px;z-index:59;' +
     'will-change:transform;' +
     'backdrop-filter:blur(var(--ts-blur-strong,24px));' +
     '-webkit-backdrop-filter:blur(var(--ts-blur-strong,24px));';
@@ -88,9 +98,33 @@ function makeOverlay() {
 }
 
 function place(overlay, rect) {
-  overlay.style.transform =
-    'translate(' + rect.left + 'px,' + rect.top + 'px) ' +
-    'scale(' + rect.width / BASE_PX + ',' + rect.height / BASE_PX + ')';
+  overlay.style.transform = 'translate(' + rect.left + 'px,' + rect.top + 'px)';
+  // Size writes cost layout — skip when the change is sub-2px.
+  if (Math.abs((overlay.__tsW || 0) - rect.width) >= 2) {
+    overlay.style.width = rect.width + 'px';
+    overlay.__tsW = rect.width;
+  }
+  if (Math.abs((overlay.__tsH || 0) - rect.height) >= 2) {
+    overlay.style.height = rect.height + 'px';
+    overlay.__tsH = rect.height;
+  }
+}
+
+// Render-side smoothing: each frame the drawn rect moves a fraction of
+// the way toward the target, so a fresh detection pass GLIDES the patch
+// instead of snapping it (owner 2026-08-24: "very jittery" — every pass
+// reset the interpolation base, a visible 8Hz snap). 0.25 @60Hz ≈ 100ms
+// settling — imperceptible lag, no visible steps.
+var RENDER_LERP = 0.25;
+
+function lerpRect(from, to) {
+  if (!from) return to;
+  return {
+    left: from.left + (to.left - from.left) * RENDER_LERP,
+    top: from.top + (to.top - from.top) * RENDER_LERP,
+    width: from.width + (to.width - from.width) * RENDER_LERP,
+    height: from.height + (to.height - from.height) * RENDER_LERP,
+  };
 }
 
 function refreshRects(entry) {
@@ -111,7 +145,9 @@ function reposition(entry, now) {
   var elapsed = now - entry.at;
   for (var j = 0; j < entry.tracks.length; j++) {
     entry.overlays[j].style.display = '';
-    place(entry.overlays[j], boxToHostRect(entry.hr, vr, interpolateBox(entry.tracks[j], elapsed)));
+    var target = boxToHostRect(entry.hr, vr, interpolateBox(entry.tracks[j], elapsed));
+    entry.rendered[j] = lerpRect(entry.rendered[j], target);
+    place(entry.overlays[j], entry.rendered[j]);
   }
 }
 
@@ -161,6 +197,7 @@ export function setTracks(video, tracks) {
       tracks: tracks,
       at: performance.now(),
       overlays: [],
+      rendered: [],
       raf: 0,
       timer: 0,
       ro: null,
@@ -196,6 +233,7 @@ export function setTracks(video, tracks) {
       if (entry.overlays[i].parentNode) entry.overlays[i].parentNode.removeChild(entry.overlays[i]);
     }
     entry.overlays = [];
+    entry.rendered = [];
     for (var b = 0; b < tracks.length; b++) {
       var o = makeOverlay();
       o.className = HOST_CLASS;

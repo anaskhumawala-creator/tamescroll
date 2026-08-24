@@ -68,16 +68,26 @@ import { planForMode } from './pipeline-plan.mjs';
       ? window.__TS_GAZE_GENDER
       : 'unset';
 
-  var IMAGE_MIN_SIZE = 64;
+  // 64 -> 120 2026-08-24 (owner: "why are all the logos blurred — the
+  // LTT tab, my own channel avatar"): sub-120px images are UI chrome
+  // (avatars, channel logos, badges), not content — HaramBlur exempts
+  // the same class. Trade-off accepted: tiny thumbnails skip the NSFW
+  // check too; content thumbnails on every supported platform measure
+  // well above this.
+  var IMAGE_MIN_SIZE = 120;
   var IMAGE_BATCH_MAX = 4;
   var VIDEO_SAMPLE_INTERVAL_MS = 500; // caps inference at ~2/s per feed video
-  // Player detection cadence (redesign 2026-08-24, blur-pipeline-audit):
-  // ONE person-primary pass per tick at 4Hz. Smoothness comes from the
-  // overlay interpolator (video-region.mjs) running at 60Hz between
-  // passes, NOT from sampling faster — the old 140ms multi-source loop
-  // put 20-35 inferences/s on YouTube's own main thread and dropped
-  // video frames (measured: 95 drops + 8.2s of long tasks per 77s).
-  var VIDEO_PLAYER_SAMPLE_INTERVAL_MS = 250;
+  // Player detection cadence (redesign 2026-08-24, blur-pipeline-audit,
+  // + owner "not instantaneous — HaramBlur is snappier"): the person
+  // POSITION pass is cheap (~30ms warm desktop) and floors at 120ms
+  // (~8Hz) — the adaptive throttle (1.5x measured pass cost, capped 1s)
+  // is what protects slow devices, not a high floor. The EXPENSIVE
+  // part — per-person crop + gender — runs at most every
+  // ZOOM_INTERVAL_MS; in between, passes update positions only, so
+  // verdict cadence and position cadence are decoupled (no beat
+  // frequency, no per-frame verdict flips).
+  var VIDEO_PLAYER_SAMPLE_INTERVAL_MS = 120;
+  var ZOOM_INTERVAL_MS = 400;
   var VIDEO_CLEAN_STREAK_TO_UNBLUR = 4;
 
   var failed = false;
@@ -465,6 +475,7 @@ import { planForMode } from './pipeline-plan.mjs';
     var dead = false;
     var hasRvfc = typeof video.requestVideoFrameCallback === 'function';
     var pill = null;
+    var pillRefresh = null;
     // The player unblurs faster than feed videos: 2s of guaranteed
     // blackout on a video the user deliberately opened was the review's
     // #13 — one clean second is enough to trust a face-free frame.
@@ -485,6 +496,15 @@ import { planForMode } from './pipeline-plan.mjs';
     // describe a video that no longer exists.
     var videoTracks = [];
     var lastPassAt = 0;
+    // ADAPTIVE cadence (owner phone 2026-08-24 "very laggy"): the target
+    // interval stretches to 1.5x the measured pass cost, capped at 1s —
+    // a Helio-class GPU taking 400ms/pass self-throttles to ~1.6Hz
+    // instead of saturating its own render thread; desktop stays at the
+    // 250ms floor. Interpolation keeps the patch moving either way.
+    var lastPassMs = 0;
+    // Gender pacing: crops+gender run when this much time has passed;
+    // position-only passes in between (see cadence note above).
+    var lastZoomAt = 0;
     var personCanvas = null;
     function ensurePersonCanvas() {
       if (!personCanvas) {
@@ -500,8 +520,11 @@ import { planForMode } from './pipeline-plan.mjs';
     // regression 2026-08-24). This is the ONLY face/gender path for the
     // player: small faces fill the model input by construction, so the
     // old full-frame pass, rescue floor and native recheck are gone.
-    var ZOOM_CROP_SIZE = 256;
-    var ZOOM_MAX_PERSONS = 4;
+    // 224 matches the gender model's input exactly — a bigger crop was
+    // pure readback cost; 3 persons/pass caps the worst-case burst
+    // (owner phone 2026-08-24 "very laggy").
+    var ZOOM_CROP_SIZE = 224;
+    var ZOOM_MAX_PERSONS = 3;
     var zoomCanvas = null;
 
     // One person's observation: face+gender read from their crop.
@@ -589,7 +612,10 @@ import { planForMode } from './pipeline-plan.mjs';
       // the pending blur already covers the wait, so just wait.
       if (!genderSettled) return;
       var now = performance.now();
-      if (now - lastSample < sampleInterval) return;
+      var effInterval = isPlayer
+        ? Math.min(1000, Math.max(sampleInterval, lastPassMs * 1.5))
+        : sampleInterval;
+      if (now - lastSample < effInterval) return;
       if (sampling) return;
       lastSample = now;
       sampling = true;
@@ -612,12 +638,26 @@ import { planForMode } from './pipeline-plan.mjs';
               // Probe-visible pass marker (verification probes read this).
               window.__TS_GAZE_PERSONS = persons.length;
               var picked = persons.slice(0, ZOOM_MAX_PERSONS);
+              // Position-only pass: skip the crops+gender, just move the
+              // tracks (verdict state untouched in the tracker).
+              if (now - lastZoomAt < ZOOM_INTERVAL_MS) {
+                return picked.map(function (p) {
+                  return { box: p, positionOnly: true };
+                });
+              }
+              // Clear credit accrues by the GAP between gender reads,
+              // not the (shorter) pass interval — otherwise the split
+              // cadence would silently triple the clear hold. Clamped
+              // so the first-ever read can't dump seconds of credit.
+              var verdictDt = Math.min(1000, lastZoomAt ? now - lastZoomAt : sampleInterval);
+              lastZoomAt = now;
               var observations = [];
               var chain = Promise.resolve();
               picked.forEach(function (p) {
                 // Serial, not parallel: one GPU queue, smaller bursts.
                 chain = chain.then(function () {
                   return observePerson(p).then(function (obs) {
+                    obs.verdictDt = verdictDt;
                     observations.push(obs);
                   });
                 });
@@ -659,6 +699,7 @@ import { planForMode } from './pipeline-plan.mjs';
               console.warn('tamescroll gaze: person pass failed', e);
             })
             .finally(function () {
+              lastPassMs = performance.now() - now;
               sampling = false;
             });
         } catch (e) {
@@ -780,7 +821,7 @@ import { planForMode } from './pipeline-plan.mjs';
       lastPassAt = 0;
       if (!playerBlurOn) {
         playerBlurOn = true;
-        if (pill) pill.textContent = 'Blur on';
+        if (pillRefresh) pillRefresh();
       }
       markPending(video);
       if (!video.paused) start();
@@ -795,18 +836,40 @@ import { planForMode } from './pipeline-plan.mjs';
       // player (owner 2026-08-24: it is the whole-video blur switch, so
       // it must not vanish when nothing is currently covered); it is our
       // own control, not a platform nag, so NO NAGS is not in play.
+      // Styled as a visible SWITCH (owner 2026-08-24: "needs a thing
+      // that shows so people know it's a toggle") — label + track +
+      // sliding knob, sized for touch (36px tall hit area on mobile).
       pill = document.createElement('button');
       pill.type = 'button';
-      pill.textContent = 'Blur on';
       pill.style.cssText =
         'position:absolute;top:48px;right:8px;z-index:2147483645;' +
+        'display:flex;align-items:center;gap:7px;' +
         'background:rgba(0,0,0,.55);color:#fff;font:500 12px system-ui;' +
-        'padding:6px 10px;border:none;border-radius:999px;opacity:.75;' +
-        'cursor:pointer;pointer-events:auto;';
+        'padding:8px 12px;border:none;border-radius:999px;opacity:.85;' +
+        'cursor:pointer;pointer-events:auto;min-height:36px;';
+      var pillLabel = document.createElement('span');
+      var pillTrack = document.createElement('span');
+      pillTrack.style.cssText =
+        'position:relative;width:30px;height:16px;border-radius:999px;' +
+        'background:#4a4;transition:background .15s;flex:none;';
+      var pillKnob = document.createElement('span');
+      pillKnob.style.cssText =
+        'position:absolute;top:2px;left:16px;width:12px;height:12px;' +
+        'border-radius:50%;background:#fff;transition:left .15s;';
+      pillTrack.appendChild(pillKnob);
+      pill.appendChild(pillLabel);
+      pill.appendChild(pillTrack);
+      var pillPaint = function () {
+        pillLabel.textContent = playerBlurOn ? 'Blur on' : 'Blur off';
+        pillTrack.style.background = playerBlurOn ? '#4a4' : '#777';
+        pillKnob.style.left = playerBlurOn ? '16px' : '2px';
+      };
+      pillPaint();
+      pillRefresh = pillPaint;
       pill.addEventListener('click', function (e) {
         e.stopPropagation();
         playerBlurOn = !playerBlurOn;
-        pill.textContent = playerBlurOn ? 'Blur on' : 'Blur off';
+        pillPaint();
         if (playerBlurOn) {
           cleanStreak = 0;
           videoTracks = [];

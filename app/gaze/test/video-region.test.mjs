@@ -95,8 +95,10 @@ test('setBoxes: reuses overlays when the count is unchanged', () => {
   const after = player.children.filter((c) => c.tagName === 'DIV');
   assert.equal(after.length, 1);
   assert.equal(after[0], first); // same node, just repositioned
-  // Compositor-only move: transform carries position AND size (v2).
-  assert.ok(after[0].style.transform.indexOf('translate(256px') === 0); // 0.4 * 640
+  // v3: translate-only transform (no scale — corner distortion) plus
+  // render-side lerp, so the first frame lands PART WAY toward 256px.
+  const m = /translate\(([\d.]+)px/.exec(after[0].style.transform);
+  assert.ok(m && Number(m[1]) > 64 && Number(m[1]) <= 256);
   vr.clear(video);
 });
 
@@ -135,7 +137,7 @@ test('interpolateBox: advances along velocity, clamps, caps extrapolation', () =
   assert.ok(Math.abs(b.x2 - 0.65) < 1e-9);
   // Past the cap the box stops sliding (stale pass must not drift off).
   const capped = vr.interpolateBox(track, 5000);
-  assert.ok(Math.abs(capped.x1 - (0.4 + 0.2 * 0.6)) < 1e-9);
+  assert.ok(Math.abs(capped.x1 - (0.4 + 0.2 * 1.2)) < 1e-9);
   // Clamped to the frame.
   const edge = vr.interpolateBox({ box: { x1: 0.9, y1: 0, x2: 1, y2: 0.1 }, vx: 1, vy: 0 }, 600);
   assert.equal(edge.x2, 1);

@@ -24,7 +24,7 @@
 // is GPL and was never read — see NOTICE).
 
 export var PTRACK_IOU_MIN = 0.2; // below this, no association
-export var PTRACK_EMA_ALPHA = 0.45; // new-box weight per matched sample (4Hz needs faster settle than the old 7Hz 0.3)
+export var PTRACK_EMA_ALPHA = 0.6; // new-box weight per matched sample (0.45 -> 0.6 2026-08-24: owner phone — patch trailed the person; at adaptive ~2Hz the smoothing lag dominates, snappier wins)
 export var PTRACK_MAX_MISS_MS = 1000; // a lost track coasts this long, then expires
 export var CLEAR_HOLD_MS = 1500; // accumulated confident-clear time before a patch lifts
 // Uncertain reads DECAY the accumulated clear credit at this fraction of
@@ -114,28 +114,59 @@ function matchedStep(t, obs, dt) {
   var sc = center(smoothed);
   var state = t.state;
   var clearMs = t.clearMs;
+  // Position-only observation (the fast pass between gender reads):
+  // move the box, leave verdict state and clear credit untouched.
+  if (obs.positionOnly) {
+    return {
+      box: smoothed,
+      vx: ((sc[0] - tc[0]) / dt) * 1000,
+      vy: ((sc[1] - tc[1]) / dt) * 1000,
+      vw: sizeVel(t.box, smoothed, dt, 'x'),
+      vh: sizeVel(t.box, smoothed, dt, 'y'),
+      state: state,
+      clearMs: clearMs,
+      missMs: 0,
+    };
+  }
+  // Verdict time-step: gender reads arrive at their own (slower)
+  // cadence — credit moves by the gap between READS (obs.verdictDt),
+  // not the pass interval, so the split cadence keeps the hold honest.
+  var vdt = typeof obs.verdictDt === 'number' ? obs.verdictDt : dt;
   if (obs.flagged && obs.certain) {
     // Positive opposite-gender reading: instant blur, memory wiped.
     state = 'blurred';
     clearMs = 0;
   } else if (!obs.flagged && obs.certain) {
     // Confident same-gender reading accumulates toward the clear hold.
-    clearMs += dt;
+    clearMs += vdt;
     if (state === 'blurred' && clearMs >= CLEAR_HOLD_MS) state = 'cleared';
   } else if (state === 'blurred') {
     // Uncertain while blurred: not evidence either way — decay the
     // accumulated credit rather than zero it (see CLEAR_DECAY).
-    clearMs = Math.max(0, clearMs - dt * CLEAR_DECAY);
+    clearMs = Math.max(0, clearMs - vdt * CLEAR_DECAY);
   }
   // Uncertain while cleared: absorbed — we already know this person.
   return {
     box: smoothed,
     vx: ((sc[0] - tc[0]) / dt) * 1000,
     vy: ((sc[1] - tc[1]) / dt) * 1000,
+    vw: sizeVel(t.box, smoothed, dt, 'x'),
+    vh: sizeVel(t.box, smoothed, dt, 'y'),
     state: state,
     clearMs: clearMs,
     missMs: 0,
   };
+}
+
+// Size velocity (normalized units/s) so the overlay can keep GROWING a
+// patch between passes — a person walking toward camera or throwing
+// their arms out scales faster than the pass cadence (owner ask
+// 2026-08-24: "change the scale according to if the person is scaling
+// up or his hands are moving").
+function sizeVel(prev, next, dt, axis) {
+  var p = axis === 'x' ? prev.x2 - prev.x1 : prev.y2 - prev.y1;
+  var n = axis === 'x' ? next.x2 - next.x1 : next.y2 - next.y1;
+  return ((n - p) / dt) * 1000;
 }
 
 function coastStep(t, dt) {
@@ -152,6 +183,8 @@ function coastStep(t, dt) {
     },
     vx: (t.vx || 0) * 0.7,
     vy: (t.vy || 0) * 0.7,
+    vw: (t.vw || 0) * 0.7,
+    vh: (t.vh || 0) * 0.7,
     state: t.state,
     // A coasting track's clear hold does not advance (no evidence).
     clearMs: t.state === 'blurred' ? 0 : t.clearMs,
@@ -169,6 +202,8 @@ function newTrack(obs) {
     },
     vx: 0,
     vy: 0,
+    vw: 0,
+    vh: 0,
     // Unknown ⇒ covered from the first observation, even one that reads
     // confidently clear — the clear hold applies to everyone equally.
     state: 'blurred',
@@ -198,6 +233,8 @@ export function blurredTracks(tracks) {
       },
       vx: t.vx,
       vy: t.vy,
+      vw: t.vw || 0,
+      vh: t.vh || 0,
     });
   }
   return out;

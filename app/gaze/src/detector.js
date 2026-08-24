@@ -161,9 +161,11 @@ export async function loadGenderModel() {
 }
 
 // Person model input dim (MoveNet MultiPose: dynamic, multiple of 32,
-// 128-512; 256 = the documented default accuracy/speed point; 30ms warm
-// on desktop WebGL at 256, spike 2026-08-24). Registered in
-// docs/detection-engine.md.
+// 128-512; 256 = documented accuracy/speed default). A 192 experiment
+// (owner phone "very laggy") was reverted same night: a small corner
+// facecam person went undetected — small subjects are the owner's
+// oldest complaint, and the ADAPTIVE pass cadence (init-entry) is the
+// phone lever instead. Registered in docs/detection-engine.md.
 export var PERSON_INPUT_SIZE = 256;
 
 /**

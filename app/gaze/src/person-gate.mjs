@@ -16,6 +16,14 @@ export var PERSON_GATE_PAD = 0.15; // person box padded by this fraction of its 
  * tensor download (6 slots x [17 keypoints x (y,x,score) = 51, then
  * ymin,xmin,ymax,xmax, box score]).
  */
+// Keypoints at/above this score extend the person box (owner phone test
+// 2026-08-24: the raw MoveNet box hugs the torso and left HANDS showing
+// — wrists/elbows are keypoints 7-10, already in the output).
+export var PERSON_KEYPOINT_MIN = 0.3;
+// Margin added around each contributing keypoint (hands are ~this much
+// bigger than the wrist point).
+var KEYPOINT_MARGIN = 0.03;
+
 export function parsePersons(data, minScore) {
   var floor = typeof minScore === 'number' ? minScore : PERSON_MIN_SCORE;
   var out = [];
@@ -23,11 +31,28 @@ export function parsePersons(data, minScore) {
     var o = p * 56;
     var score = data[o + 55];
     if (!(score >= floor)) continue;
+    var y1 = data[o + 51];
+    var x1 = data[o + 52];
+    var y2 = data[o + 53];
+    var x2 = data[o + 54];
+    // Union the box with every confident keypoint (17 x [y,x,score]
+    // ahead of the box slots): wrists and ankles routinely fall outside
+    // MoveNet's tight box, and the box IS the blur patch now.
+    for (var k = 0; k < 17; k++) {
+      var ks = data[o + k * 3 + 2];
+      if (!(ks >= PERSON_KEYPOINT_MIN)) continue;
+      var ky = data[o + k * 3];
+      var kx = data[o + k * 3 + 1];
+      if (ky - KEYPOINT_MARGIN < y1) y1 = ky - KEYPOINT_MARGIN;
+      if (ky + KEYPOINT_MARGIN > y2) y2 = ky + KEYPOINT_MARGIN;
+      if (kx - KEYPOINT_MARGIN < x1) x1 = kx - KEYPOINT_MARGIN;
+      if (kx + KEYPOINT_MARGIN > x2) x2 = kx + KEYPOINT_MARGIN;
+    }
     out.push({
-      y1: data[o + 51],
-      x1: data[o + 52],
-      y2: data[o + 53],
-      x2: data[o + 54],
+      y1: Math.max(0, y1),
+      x1: Math.max(0, x1),
+      y2: Math.min(1, y2),
+      x2: Math.min(1, x2),
       confidence: score,
     });
   }
