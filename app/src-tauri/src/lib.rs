@@ -641,8 +641,59 @@ fn injection_script(css: &str, scriptlets: &str) -> String {
   window.addEventListener("popstate", function () {{ setTimeout(apply, 0); }});
 
   // Last resort: if the site tears our style out, put it back.
-  new MutationObserver(function () {{ apply(); }})
-    .observe(document.documentElement, {{ childList: true, subtree: false }});
+  // try/catch is load-bearing: at document-start documentElement can be
+  // null, and the uncaught observe() throw silently killed EVERYTHING
+  // after this IIFE in the same script (found 2026-08-24 when the home
+  // pill — the first code ever appended after this — never ran).
+  try {{
+    new MutationObserver(function () {{ apply(); }})
+      .observe(document.documentElement, {{ childList: true, subtree: false }});
+  }} catch (e) {{
+    document.addEventListener("DOMContentLoaded", function () {{
+      try {{
+        new MutationObserver(function () {{ apply(); }})
+          .observe(document.documentElement, {{ childList: true, subtree: false }});
+      }} catch (e2) {{}}
+    }});
+  }}
+}})();
+
+(function () {{
+  // Home pill (owner ask 2026-08-24): a small fixed control back to the
+  // tamescroll launcher/settings from any platform page. Never on the
+  // launcher itself. Navigation target is the launcher origin: Android's
+  // single webview genuinely navigates there (same URL the Back handler
+  // loads); desktop platform windows intercept it in on_navigation and
+  // focus the launcher window instead (see open_platform).
+  window.__TS_HOME_IIFE__ = "entered";
+  if (/(^|\.)tauri\.localhost$/.test(location.hostname)) return;
+  var HOME_ID = "tamescroll-home";
+  function ensureHome() {{
+    if (document.getElementById(HOME_ID)) return;
+    var body = document.body;
+    if (!body) return;
+    var b = document.createElement("button");
+    b.id = HOME_ID;
+    b.type = "button";
+    b.textContent = "ts";
+    b.setAttribute("aria-label", "tamescroll settings");
+    b.style.cssText =
+      "position:fixed;left:10px;bottom:14px;z-index:2147483645;" +
+      "width:34px;height:34px;border-radius:50%;border:none;" +
+      "background:rgba(15,17,21,.62);color:#e8e6e3;" +
+      "font:600 13px system-ui;opacity:.55;cursor:pointer;" +
+      "pointer-events:auto;backdrop-filter:blur(6px);";
+    b.addEventListener("mouseenter", function () {{ b.style.opacity = "1"; }});
+    b.addEventListener("mouseleave", function () {{ b.style.opacity = ".55"; }});
+    b.addEventListener("click", function (e) {{
+      e.stopPropagation();
+      location.href = "http://tauri.localhost/";
+    }});
+    body.appendChild(b);
+  }}
+  ensureHome();
+  document.addEventListener("DOMContentLoaded", ensureHome);
+  setInterval(ensureHome, 3000);
 }})();
 "#
     )
@@ -859,10 +910,23 @@ async fn open_platform(
     // deliberate one: desktop navigations now read the CURRENT gaze
     // state like Android does, instead of the mode baked at window
     // creation.
+    // Home pill (injection_script) navigates to the launcher origin;
+    // on desktop that must FOCUS the launcher window, not render a
+    // second launcher inside the platform window — intercept and cancel.
+    let home_app = app.clone();
     let built = WebviewWindowBuilder::new(&app, platform.id, WebviewUrl::External(url))
         .title(platform.name)
         .inner_size(1200.0, 860.0)
         .initialization_script(&script)
+        .on_navigation(move |url| {
+            if url.host_str() == Some("tauri.localhost") {
+                if let Some(main) = home_app.get_webview_window("main") {
+                    let _ = main.set_focus();
+                }
+                return false;
+            }
+            true
+        })
         .on_page_load(|webview, payload| {
             if let Some(js) = page_load_gaze_script(payload.url().as_str(), gaze_state()) {
                 let _ = webview.eval(&js);
@@ -1012,6 +1076,26 @@ mod tests {
         assert!(
             css.contains("display: none !important;"),
             "expected cosmetic hide selectors for the YouTube home page"
+        );
+    }
+
+    /// The home pill (owner ask 2026-08-24) rides the injection wrapper
+    /// to every platform page on both OSes, guarded off the launcher's
+    /// own origin. Its click target is the launcher origin the desktop
+    /// on_navigation intercept keys on — the two strings must agree.
+    
+    #[test]
+    fn injection_script_carries_the_home_pill() {
+        let js = injection_script("body { color: red }", "");
+        assert!(js.contains("tamescroll-home"), "home pill element missing");
+        assert!(
+            js.contains(r#"location.href = "http://tauri.localhost/""#),
+            "home pill must navigate to the launcher origin (desktop \
+             on_navigation and Android launcherUrl both key on it)"
+        );
+        assert!(
+            js.contains("tauri\\.localhost$/.test(location.hostname)"),
+            "launcher-origin guard missing — the pill would render on the launcher itself"
         );
     }
 

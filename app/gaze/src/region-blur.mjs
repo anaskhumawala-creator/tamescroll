@@ -1,29 +1,28 @@
-// Face-region blur (owner ask 2026-08-19): when the gender stage flags an
-// image because of WHO is in it, blur just the face regions and leave the
-// rest of the image visible — instead of the whole-element blur. Pure CSS
-// overlays (backdrop-filter) so no pixels are copied and no CSP is hit.
+// Person-region blur for feed images (owner ask 2026-08-19, whole-body
+// 2026-08-24): when the gender stage flags an image because of WHO is in
+// it, blur just the person regions and leave the rest visible — instead
+// of the whole-element blur. Pure CSS overlays (backdrop-filter) so no
+// pixels are copied and no CSP is hit.
 //
-// INSTANT rule under scroll (owner report 2026-08-19: fixed-position
-// overlays lag composited scrolling — the page moves before any scroll
-// event runs, exposing the face for a beat): overlays are DOCUMENT-
-// anchored (absolute at the document origin), so scrolling moves them
-// with the content and the blur stays pinned to the thumbnail. Only
-// layout changes (virtualized feeds moving nodes, resize) can misplace
-// them — those snap the whole-element blur back until a settle pass
-// repositions. Over-blur, never under-blur.
+// ANCHORING (v3, owner report 2026-08-24 "when I scroll the blur gets
+// removed for a moment"): patches live INSIDE the image's parent element,
+// position:absolute — the same fix that cured the player overlays. A
+// patch that is a sibling of the <img> scrolls, transforms and animates
+// WITH it by construction; there is no document-space bookkeeping for a
+// composited scroll to outrun, so the flash class of bugs is gone.
+// The old document-anchored container, scroll settle passes, header-inset
+// clamps and reposition heartbeats all die with it. A slow heartbeat
+// remains only to catch in-place layout resizes (responsive reflow).
 //
-// Feed videos keep whole-element blur (they're tiny and scroll fast — a
-// static overlay would lag the composited scroll). The WATCH PLAYER is
-// the exception (owner ask 2026-08-24, HaramBlur parity): its element is
-// effectively fixed on screen, so the only motion an overlay must chase
-// is the face moving WITHIN the frame. That is handled by sampling the
-// player fast (VIDEO_PLAYER_SAMPLE_INTERVAL_MS) and padding each box
-// (padBox) so between-sample drift stays covered — over-blur, never a
-// flash of the face. Callers hand player boxes through applyRegionBlur
-// like any other element; padding is applied caller-side.
+// Trade-offs accepted: an overflow:hidden parent clips a patch to the
+// thumbnail bounds (patches are clamped inside the image anyway, and
+// clipping to the thumbnail is the CORRECT render); a fixed top bar now
+// naturally paints over patches because they participate in the page's
+// stacking order instead of sitting at max z-index (kills the old
+// punch-through bug for free).
 
-var OVERLAY_CONTAINER_ID = 'tamescroll-gaze-regions';
 var SETTLE_MS = 150;
+var PATCH_CLASS = 'ts-gaze-region-patch';
 
 /**
  * Expand a normalized (0..1) face box outward by `pad` fraction of its
@@ -47,19 +46,14 @@ export function padBox(box, pad) {
 /**
  * Expand a face box to cover the whole PERSON (owner ask 2026-08-24,
  * HaramBlur parity: the blocked gender's body is covered, not just the
- * face). Anthropometric approximation from the face box alone: shoulders
- * span ~1.6 face-widths each side of the face centre, the torso runs
- * ~4.5 face-heights below the chin, and a small margin above the
- * forehead catches hair. Everything clamps to the element, so a face
- * near the frame edge simply covers to the edge. Pure — exported for
- * tests and shared by the image and video region paths.
+ * face). Anthropometric approximation from the face box alone; input
+ * boxes arrive PRE-ENLARGED (detector.js FACE_ENLARGE 1.4, context for
+ * the gender crop) — recover the true face first or the anthropometrics
+ * compound on the inflation and the "body" swallows the whole frame
+ * (probe 2026-08-24: 788x458 overlay on an 815-wide player). Everything
+ * clamps to the element. Pure — shared by the image and video paths.
  */
 export function expandToBody(box) {
-  // Detector boxes arrive PRE-ENLARGED (detector.js FACE_ENLARGE 1.4,
-  // context for the gender crop) — recover the true face first or the
-  // anthropometrics compound on the inflation and the "body" swallows
-  // the whole frame (probe 2026-08-24: 788x458 overlay on an 815-wide
-  // player — indistinguishable from whole-video blur).
   var ENLARGE = 1.4;
   var cx = (box.x1 + box.x2) / 2;
   var cy = (box.y1 + box.y2) / 2;
@@ -77,28 +71,27 @@ export function expandToBody(box) {
 }
 
 /**
- * Pure mapping: normalized face box (0..1 of the element) -> viewport
- * rect, clamped inside the element's bounding rect so overlays never
- * bleed onto surrounding UI. Exported for unit tests.
+ * Pure mapping: normalized box on the element -> a rect in the PARENT's
+ * coordinate space (for position:absolute siblings of the element).
+ * Both rects come from getBoundingClientRect, so ancestor transforms
+ * cancel out of the subtraction. Exported for tests.
  */
-export function mapBoxToRect(imgRect, box) {
+export function boxToParentRect(parentRect, elRect, box) {
   var x1 = Math.min(Math.max(box.x1, 0), 1);
   var y1 = Math.min(Math.max(box.y1, 0), 1);
   var x2 = Math.min(Math.max(box.x2, 0), 1);
   var y2 = Math.min(Math.max(box.y2, 0), 1);
   return {
-    left: imgRect.left + x1 * imgRect.width,
-    top: imgRect.top + y1 * imgRect.height,
-    width: Math.max(0, (x2 - x1) * imgRect.width),
-    height: Math.max(0, (y2 - y1) * imgRect.height),
+    left: elRect.left - parentRect.left + x1 * elRect.width,
+    top: elRect.top - parentRect.top + y1 * elRect.height,
+    width: Math.max(0, (x2 - x1) * elRect.width),
+    height: Math.max(0, (y2 - y1) * elRect.height),
   };
 }
 
 /**
  * Sub-pixel-tolerant rect equality — the heartbeat's cheap change guard.
- * Compositor scroll leaves fractional jitter in getBoundingClientRect
- * that must not read as movement, so compare with a <1px epsilon. Null
- * (disconnected element) is never equal to anything. Exported for tests.
+ * Exported for tests.
  */
 export function sameRect(a, b) {
   if (!a || !b) return false;
@@ -120,135 +113,32 @@ export function supportsRegionBlur() {
   );
 }
 
-// entries: Array<{ el, boxes, overlays: HTMLElement[] }>. Strong refs are
-// fine here: entries are dropped as soon as their element disconnects or
-// clears, and the settle sweep prunes them on every scroll.
+// entries: Array<{ el, host, boxes, overlays, lastRect }>. Strong refs are
+// fine: entries drop as soon as their element disconnects or clears, and
+// the heartbeat prunes them.
 var entries = [];
-var container = null;
-var settleTimer = null;
-var snapped = false;
 var wholeBlurClass = null;
 var started = false;
-// Last rect of the probe entry (entries[0]), so the idle heartbeat can
-// detect "nothing moved" with ONE getBoundingClientRect instead of N
-// (review 2026-08-23: the 4Hz N-read pass was 146ms/15s of forced
-// layout during playback). Any real reflow moves the whole page, so the
-// probe moves too; per-entry drift is still caught by scroll/resize/
-// mutation observers.
-var probeRect = null;
-var lastCount = -1;
 
-function ensureContainer() {
-  if (container && container.isConnected) return container;
-  container = document.getElementById(OVERLAY_CONTAINER_ID);
-  if (!container) {
-    container = document.createElement('div');
-    container.id = OVERLAY_CONTAINER_ID;
-    // The container is inert scaffolding at the top of the viewport
-    // stack; children position themselves. pointer-events must never
-    // eat a click meant for the page.
-    container.style.cssText =
-      'position:absolute;left:0;top:0;width:0;height:0;pointer-events:none;z-index:2147483646;';
-    (document.body || document.documentElement).appendChild(container);
-  }
-  return container;
-}
-
-// Clamp a viewport-space overlay rect to a top inset (the fixed header
-// band). Overlays are document-anchored at a very high z-index, so a
-// thumbnail scrolled up behind a position:fixed top bar would paint its
-// blur OVER the bar (owner report 2026-08-23: "blur shows above the menu
-// or a title"). Clipping the overlay's top to the header line removes the
-// punch-through while keeping the still-visible part of the face covered
-// (over-blur preserved — the part behind the header is hidden by the
-// header itself, never exposed). Pure + exported for tests.
-export function clampToInset(rect, inset) {
-  var bottom = rect.top + rect.height;
-  if (bottom <= inset) {
-    // Entirely behind the header — the header already covers it.
-    return { left: rect.left, top: rect.top, width: rect.width, height: rect.height, hidden: true };
-  }
-  var top = Math.max(rect.top, inset);
-  return {
-    left: rect.left,
-    top: top,
-    width: rect.width,
-    height: bottom - top,
-    hidden: false,
-  };
-}
-
-// Bottom Y of the page's fixed/sticky top bar, or 0 if none. Cheap
-// elementsFromPoint probe near the top-center; recomputed per reposition
-// pass (one call) rather than cached, so it stays correct across SPA
-// layout changes without a separate invalidation path.
-// Pure inset finder: given the elementsFromPoint hits at the top-center,
-// walk EACH hit's ancestor chain looking for a top-anchored fixed/sticky
-// bar and return the greatest such bottom. Walking ancestors (not just the
-// direct hits) is load-bearing: on m.youtube the hit at (cx,2) is a STATIC
-// <button> nested inside the position:fixed topbar, so a direct-hit-only
-// scan finds inset 0 and the overlay punches over the menu. `top<=2` keeps
-// it to bars actually pinned at the top; `bottom < viewportH/2` rejects
-// full-height fixed overlays (search sheets, modals). Exported for tests.
-export function insetFromChain(topEls, style, rect, viewportH) {
-  var inset = 0;
-  for (var i = 0; i < topEls.length; i++) {
-    var n = topEls[i];
-    var d = 0;
-    while (n && d < 8) {
-      var pos = style(n);
-      if (pos === 'fixed' || pos === 'sticky') {
-        var r = rect(n);
-        if (r.top <= 2 && r.bottom < viewportH / 2 && r.bottom > inset) {
-          inset = r.bottom;
-        }
-      }
-      n = n.parentElement;
-      d++;
-    }
-  }
-  return inset;
-}
-
-function topInset() {
-  try {
-    var cx = Math.floor(window.innerWidth / 2);
-    var els = document.elementsFromPoint(cx, 2);
-    return insetFromChain(
-      els,
-      function (n) { return window.getComputedStyle(n).position; },
-      function (n) { return n.getBoundingClientRect(); },
-      window.innerHeight
-    );
-  } catch (e) {
-    return 0;
-  }
-}
-
-function makeOverlay(rect, inset) {
-  // Near-rectangular marker (owner 2026-08-24: the 30% ellipse-ish
-  // rounding read as "weird" against HaramBlur's straight patches).
+function makeOverlay() {
+  // Near-rectangular patch (owner 2026-08-24: heavy rounding read as
+  // "weird"). z-index 2: above the <img> inside the thumbnail's own
+  // stacking context, below page chrome — a fixed header naturally
+  // covers it, which is the correct paint order.
   var d = document.createElement('div');
+  d.className = PATCH_CLASS;
   d.style.cssText =
-    'position:absolute;pointer-events:none;' +
+    'position:absolute;pointer-events:none;border-radius:8px;z-index:2;' +
     'backdrop-filter:blur(var(--ts-blur-strong,24px));' +
-    '-webkit-backdrop-filter:blur(var(--ts-blur-strong,24px));' +
-    'border-radius:8px;';
-  positionOverlay(d, rect, inset);
+    '-webkit-backdrop-filter:blur(var(--ts-blur-strong,24px));';
   return d;
 }
 
-function positionOverlay(d, rect, inset) {
-  var c = clampToInset(rect, inset || 0);
-  if (c.hidden) {
-    d.style.display = 'none';
-    return;
-  }
-  d.style.display = '';
-  d.style.left = c.left + window.scrollX + 'px';
-  d.style.top = c.top + window.scrollY + 'px';
-  d.style.width = c.width + 'px';
-  d.style.height = c.height + 'px';
+function place(overlay, rect) {
+  overlay.style.left = rect.left + 'px';
+  overlay.style.top = rect.top + 'px';
+  overlay.style.width = rect.width + 'px';
+  overlay.style.height = rect.height + 'px';
 }
 
 function dropEntry(entry) {
@@ -260,142 +150,123 @@ function dropEntry(entry) {
   entry.overlays.length = 0;
 }
 
-function repositionAll() {
-  // Never run while snap() has the overlays display:none — stripping the
-  // whole-blur class here would leave flagged faces fully exposed until
-  // the settle timer re-shows the overlays (review 2026-08-23 #3: mobile
-  // URL-bar collapse fires resize mid-scroll while new flags arrive).
-  if (snapped) return;
-  // Read phase first, then write: interleaving getBoundingClientRect
-  // with style writes forces a synchronous layout per entry — at 4Hz
-  // over a long-scroll entry list that is jank, not hygiene
-  // (review 2026-08-23 #4).
-  var rects = [];
-  for (var r = 0; r < entries.length; r++) {
-    rects.push(entries[r].el.isConnected ? entries[r].el.getBoundingClientRect() : null);
+// Position (or re-position) one entry's patches from current geometry.
+// Returns false when the element has no usable geometry yet.
+function positionEntry(entry) {
+  var elRect = entry.el.getBoundingClientRect();
+  if (elRect.width === 0 || elRect.height === 0) return false;
+  var parentRect = entry.host.getBoundingClientRect();
+  while (entry.overlays.length < entry.boxes.length) {
+    var o = makeOverlay();
+    entry.overlays.push(o);
+    entry.host.appendChild(o);
   }
-  var inset = topInset();
-  for (var i = entries.length - 1; i >= 0; i--) {
-    var entry = entries[i];
-    var rect = rects[i];
-    if (!rect) {
-      dropEntry(entry);
-      entries.splice(i, 1);
-      continue;
-    }
-    if (rect.width === 0 || rect.height === 0) {
-      // Hidden (virtualized away): keep whole blur, park overlays.
-      entry.el.classList.add(wholeBlurClass);
-      dropEntry(entry);
-      continue;
-    }
-    if (entry.overlays.length !== entry.boxes.length) {
-      dropEntry(entry);
-      var c = ensureContainer();
-      for (var b = 0; b < entry.boxes.length; b++) {
-        var o = makeOverlay(mapBoxToRect(rect, entry.boxes[b]), inset);
-        entry.overlays.push(o);
-        c.appendChild(o);
-      }
-    } else {
-      for (var j = 0; j < entry.boxes.length; j++) {
-        positionOverlay(entry.overlays[j], mapBoxToRect(rect, entry.boxes[j]), inset);
-      }
-    }
-    entry.el.classList.remove(wholeBlurClass);
+  while (entry.overlays.length > entry.boxes.length) {
+    var extra = entry.overlays.pop();
+    if (extra.parentNode) extra.parentNode.removeChild(extra);
   }
-  // Refresh the heartbeat probe from the CURRENT first entry (splices
-  // above shift indices, so rects[0] no longer maps to entries[0]). One
-  // extra read, only on a full reposition — steady state skips this
-  // whole function and pays just the guard read.
-  probeRect =
-    entries.length && entries[0].el.isConnected
-      ? entries[0].el.getBoundingClientRect()
-      : null;
-}
-
-// Layout genuinely changed (resize, orientation): overlays are stale in
-// document space too — whole blur back on synchronously until settle.
-function snap() {
-  if (!snapped) {
-    snapped = true;
-    for (var i = 0; i < entries.length; i++) {
-      entries[i].el.classList.add(wholeBlurClass);
-      for (var j = 0; j < entries[i].overlays.length; j++) {
-        entries[i].overlays[j].style.display = 'none';
-      }
-    }
+  for (var i = 0; i < entry.boxes.length; i++) {
+    place(entry.overlays[i], boxToParentRect(parentRect, elRect, entry.boxes[i]));
   }
-  scheduleSettle();
-}
-
-// Scroll: document-anchored overlays already move with the content, so
-// nothing hides — the settle pass just re-verifies positions in case a
-// virtualized feed moved nodes while scrolling.
-function scheduleSettle() {
-  if (settleTimer) clearTimeout(settleTimer);
-  settleTimer = setTimeout(function () {
-    snapped = false;
-    for (var i = 0; i < entries.length; i++) {
-      for (var j = 0; j < entries[i].overlays.length; j++) {
-        entries[i].overlays[j].style.display = '';
-      }
-    }
-    repositionAll();
-  }, SETTLE_MS);
+  entry.lastRect = elRect;
+  return true;
 }
 
 /**
- * Starts the tracker once. flaggedClass is the whole-blur class to snap
- * back to (dom.js FLAGGED_CLASS — passed in to keep this module free of
- * imports so its pure part stays trivially unit-testable).
+ * Starts the tracker once. flaggedClass is the whole-blur class to fall
+ * back to (dom.js FLAGGED_CLASS — passed in to keep the pure part of
+ * this module dependency-free for unit tests).
  */
 export function initRegionBlur(flaggedClass) {
   wholeBlurClass = flaggedClass;
   if (started) return;
   started = true;
-  // capture:true catches nested scrollers (feeds inside panels), not
-  // just the window scroll.
-  window.addEventListener('scroll', scheduleSettle, { capture: true, passive: true });
-  window.addEventListener('resize', snap, { passive: true });
-  // Owner report 2026-08-22 (phone): "blur boxes around where they
-  // don't even belong" after tapping a thumbnail. m.youtube is an SPA —
-  // in-page navigation and slow-load layout shifts fire neither scroll
-  // nor resize, so overlays sat at stale document coords over the new
-  // page forever. A cheap heartbeat reposition (getBoundingClientRect
-  // per flagged entry, only while entries exist) prunes disconnected
-  // elements and re-pins the rest; 250ms keeps any misplacement within
-  // one glance, and the whole-blur snap still guards real layout jumps.
+  // Parent-anchored patches need no scroll handling at all. The
+  // heartbeat only catches IN-PLACE geometry changes (responsive
+  // reflow, virtualized recycling): one rect read per entry, 500ms,
+  // only while entries exist.
   setInterval(function () {
-    if (!entries.length || snapped || document.hidden) return;
-    // Cheap guard: read only the probe entry. If it hasn't moved and the
-    // entry count is unchanged, the page is static — skip the N-read
-    // reposition entirely. A reflow (SPA nav, URL-bar collapse) shifts
-    // the probe, falling through to the full pass that re-pins all.
-    var probe = entries[0].el.isConnected ? entries[0].el.getBoundingClientRect() : null;
-    if (probe && entries.length === lastCount && sameRect(probe, probeRect)) return;
-    lastCount = entries.length;
-    repositionAll();
-  }, 250);
+    if (!entries.length || document.hidden) return;
+    for (var i = entries.length - 1; i >= 0; i--) {
+      var entry = entries[i];
+      if (!entry.el.isConnected || !entry.host.isConnected) {
+        dropEntry(entry);
+        entries.splice(i, 1);
+        continue;
+      }
+      var r = entry.el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) {
+        // Virtualized away: whole blur back on, park the patches.
+        entry.el.classList.add(wholeBlurClass);
+        dropEntry(entry);
+        continue;
+      }
+      // Only the SIZE matters for repositioning (position changes ride
+      // along with the parent for free) — but a recycled node can also
+      // move within its parent, so compare the parent-relative offset.
+      var pr = entry.host.getBoundingClientRect();
+      var rel = { left: r.left - pr.left, top: r.top - pr.top, width: r.width, height: r.height };
+      var lastRel = entry.lastRelRect;
+      if (!lastRel || !sameRect(rel, lastRel)) {
+        positionEntry(entry);
+        entry.lastRelRect = rel;
+      }
+    }
+  }, 500);
+}
+
+// The patch parent: the image's own parent element, promoted to a
+// positioned box when static. Never the <html>/<body> fallback — no
+// parent means whole blur stays.
+function resolveHost(el) {
+  var host = el.parentElement;
+  if (!host) return null;
+  try {
+    if (window.getComputedStyle(host).position === 'static') {
+      host.style.position = 'relative';
+    }
+  } catch (e) {
+    /* non-fatal */
+  }
+  return host;
 }
 
 /**
- * Switches a face-flagged element from whole-element blur to face-region
- * overlays. Caller guarantees the element currently wears the whole-blur
- * class (blur-first held while detection ran; it stays until the first
- * successful reposition removes it).
+ * Switches a person-flagged element from whole-element blur to region
+ * patches anchored in its parent. Caller guarantees the element wears
+ * the whole-blur class; it comes off only after the patches are placed
+ * (blur-first holds throughout). Falls back silently (whole blur stays)
+ * when the element has no parent or no geometry yet.
  */
 export function applyRegionBlur(el, boxes) {
   if (!started || !boxes || !boxes.length) return;
+  var entry = null;
   for (var i = 0; i < entries.length; i++) {
     if (entries[i].el === el) {
-      entries[i].boxes = boxes;
-      repositionAll();
-      return;
+      entry = entries[i];
+      break;
     }
   }
-  entries.push({ el: el, boxes: boxes, overlays: [] });
-  repositionAll();
+  if (!entry) {
+    var host = resolveHost(el);
+    if (!host) return; // whole blur stays — fail covered
+    entry = { el: el, host: host, boxes: boxes, overlays: [], lastRect: null, lastRelRect: null };
+    entries.push(entry);
+  } else {
+    entry.boxes = boxes;
+    // A src-swap can reparent the img in virtualized feeds — re-resolve.
+    if (!entry.host.isConnected || entry.el.parentElement !== entry.host) {
+      dropEntry(entry);
+      var rehost = resolveHost(el);
+      if (!rehost) return;
+      entry.host = rehost;
+    }
+  }
+  if (positionEntry(entry)) {
+    el.classList.remove(wholeBlurClass);
+  }
+  // No geometry yet (display:none tab, image mid-layout): whole blur
+  // stays on; the heartbeat will place the patches once it has a rect.
 }
 
 /** Removes region overlays for one element (verdict changed / cleared). */
@@ -412,6 +283,4 @@ export function clearRegionBlur(el) {
 export function clearAllRegionBlur() {
   for (var i = 0; i < entries.length; i++) dropEntry(entries[i]);
   entries.length = 0;
-  if (container && container.parentNode) container.parentNode.removeChild(container);
-  container = null;
 }

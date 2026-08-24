@@ -15,7 +15,8 @@
 // sampling — never its AGPL-3.0 source; see NOTICE / VISION.md).
 import * as dom from './dom.js';
 import * as detector from './detector.js';
-import { faceVerdict } from './gender-verdict.mjs';
+import { flaggedFaceIndices } from './gender-verdict.mjs';
+import { updateTracks, flaggedBoxes } from './track.mjs';
 import {
   supportsRegionBlur,
   initRegionBlur,
@@ -251,14 +252,20 @@ import { planForMode } from './pipeline-plan.mjs';
         };
 
   // Shared face verdict for a pixel source: boxes -> per-face gender ->
-  // faceVerdict. Without the gender model (still loading, or failed) any
+  // per-face flags (owner report 2026-08-24: all-or-nothing flagging
+  // blurred a confident same-gender face because ANOTHER face in the
+  // thumbnail failed the bar — now only the failing faces' boxes come
+  // back). Without the gender model (still loading, or failed) every
   // face covers — the old presence behavior, which is also the fail-safe.
   function faceCheck(el) {
     return detector.detectFaceBoxes(model, el).then(function (faces) {
-      if (!faces.length) return { verdict: 'clear', faces: faces };
-      if (!genderModel) return { verdict: 'flag', faces: faces };
+      if (!faces.length) return { verdict: 'clear', flagBoxes: [] };
+      if (!genderModel) return { verdict: 'flag', flagBoxes: faces };
       return detector.classifyFaceGenders(genderModel, el, faces).then(function (genders) {
-        return { verdict: faceVerdict(userGender, genders), faces: faces };
+        var idx = flaggedFaceIndices(userGender, genders);
+        var flagBoxes = [];
+        for (var i = 0; i < idx.length; i++) flagBoxes.push(faces[idx[i]]);
+        return { verdict: idx.length ? 'flag' : 'clear', flagBoxes: flagBoxes };
       });
     });
   }
@@ -288,18 +295,18 @@ import { planForMode } from './pipeline-plan.mjs';
         // (revisit when strictness modes map face flags to reveal).
         // NSFW model missing degrades to face-only, never breaks page.
         if (!plan.faceGender) {
-          if (!nsfwModel) return { face: false, faces: [], nsfw: false };
+          if (!nsfwModel) return { face: false, flagBoxes: [], nsfw: false };
           return detector.isNsfw(nsfwModel, el).then(function (nsfw) {
-            return { face: false, faces: [], nsfw: nsfw };
+            return { face: false, flagBoxes: [], nsfw: nsfw };
           });
         }
         return faceCheck(el).then(function (face) {
           if (face.verdict === 'flag' || !nsfwModel) {
-            return { face: face.verdict === 'flag', faces: face.faces, nsfw: false };
+            return { face: face.verdict === 'flag', flagBoxes: face.flagBoxes, nsfw: false };
           }
           return detector.isNsfw(nsfwModel, el).then(function (nsfw) {
             // NSFW flags are whole-image by nature — no face boxes.
-            return { face: false, faces: [], nsfw: nsfw };
+            return { face: false, flagBoxes: [], nsfw: nsfw };
           });
         });
       })
@@ -310,14 +317,14 @@ import { planForMode } from './pipeline-plan.mjs';
           markRemoved(img);
         } else if (result.face) {
           markFlagged(img);
-          // Face-caused flags narrow to PERSON-region overlays (face
-          // expanded to the body — HaramBlur parity, owner 2026-08-24;
-          // the whole-blur class stays on until the first successful
-          // overlay positioning — blur-first holds throughout).
-          if (regionBlur && result.faces.length) {
+          // Only the FAILING faces' person-regions get patches (cleared
+          // faces in the same image stay sharp — owner 2026-08-24); the
+          // whole-blur class stays on until the first successful patch
+          // placement — blur-first holds throughout.
+          if (regionBlur && result.flagBoxes.length) {
             var bodies = [];
-            for (var rb = 0; rb < result.faces.length; rb++) {
-              bodies.push(expandToBody(result.faces[rb]));
+            for (var rb = 0; rb < result.flagBoxes.length; rb++) {
+              bodies.push(expandToBody(result.flagBoxes[rb]));
             }
             applyRegionBlur(img, bodies);
           }
@@ -469,6 +476,10 @@ import { planForMode } from './pipeline-plan.mjs';
     // True while region overlays are live on this video, so a clean-streak
     // clear knows to tear them down and blur-first can strip cleanly.
     var regionActive = false;
+    // Persistent person tracks across samples (track.mjs) — reset
+    // whenever the stream identity changes (loadstart, pill re-enable,
+    // giveUp): old tracks describe a video that no longer exists.
+    var videoTracks = [];
 
     // Cross-origin video with no CORS taints the canvas: getImageData
     // throws SecurityError on EVERY frame, forever — no header we can
@@ -484,6 +495,7 @@ import { planForMode } from './pipeline-plan.mjs';
       clearEl(video);
       videoRegion.clear(video);
       regionActive = false;
+      videoTracks = [];
       // eslint-disable-next-line no-console
       console.warn('tamescroll gaze: video unreadable, failing open (' + reason + ')', err);
     }
@@ -506,49 +518,69 @@ import { planForMode } from './pipeline-plan.mjs';
         var ctx2d = canvas.getContext('2d');
         ctx2d.drawImage(video, 0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
         var pixels = ctx2d.getImageData(0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
-        var frameFaces = [];
         detector
           .detectFaceBoxes(model, pixels)
           .then(function (faces) {
-            frameFaces = faces;
+            // Per-face flag decisions feed the tracker (owner ask
+            // 2026-08-24): only the faces that FAIL the gender bar get
+            // covered; a confident same-gender face in the same frame
+            // stays sharp. Without the gender model every face flags
+            // (presence-only fail-safe, as ever).
             if (!faces.length || !genderModel) {
-              return faces.length ? 'flag' : 'clear';
+              return { faces: faces, flaggedIdx: faces.map(function (_f, i) { return i; }) };
             }
             return detector.classifyFaceGenders(genderModel, pixels, faces).then(function (genders) {
-              return faceVerdict(userGender, genders);
+              return { faces: faces, flaggedIdx: flaggedFaceIndices(userGender, genders) };
             });
           })
-          .then(function (verdict) {
+          .then(function (res) {
             if (failed) return;
-            if (verdict === 'flag') {
-              cleanStreak = 0;
-              // Whole-person coverage (HaramBlur parity, owner
-              // 2026-08-24): each face expands to its body region, then
-              // pads so between-sample motion stays under the patch.
-              var padded = [];
-              if (useRegionVideo) {
-                for (var f = 0; f < frameFaces.length; f++) {
-                  padded.push(padBox(expandToBody(frameFaces[f]), VIDEO_REGION_PAD));
+            var anyFlagged = res.flaggedIdx.length > 0;
+            if (useRegionVideo) {
+              // Tracker path (owner ask 2026-08-24: "consider previous
+              // frames — continuously track the person"): detections
+              // update persistent tracks; a missed detection HOLDS the
+              // patch, a clear needs a streak, flags stick per person.
+              var flaggedSet = {};
+              for (var fi = 0; fi < res.flaggedIdx.length; fi++) flaggedSet[res.flaggedIdx[fi]] = true;
+              var detections = [];
+              for (var d = 0; d < res.faces.length; d++) {
+                detections.push({ box: res.faces[d], flagged: !!flaggedSet[d] });
+              }
+              videoTracks = updateTracks(videoTracks, detections);
+              var covered = flaggedBoxes(videoTracks);
+              if (covered.length) {
+                var padded = [];
+                for (var b = 0; b < covered.length; b++) {
+                  padded.push(padBox(expandToBody(covered[b]), VIDEO_REGION_PAD));
                 }
-              }
-              // setBoxes returns false if the player host vanished — then
-              // fall back to whole-video blur so a face is never exposed.
-              if (useRegionVideo && videoRegion.setBoxes(video, padded)) {
-                // Blur just the faces, tracked frame-to-frame. Strip the
-                // blur-first whole cover now that the overlays hold it.
-                video.classList.remove(dom.PENDING_CLASS, dom.FLAGGED_CLASS);
-                track(video);
-                regionActive = true;
+                // setBoxes false = player host vanished — whole blur, no
+                // person may be exposed.
+                if (videoRegion.setBoxes(video, padded)) {
+                  video.classList.remove(dom.PENDING_CLASS, dom.FLAGGED_CLASS);
+                  track(video);
+                  regionActive = true;
+                } else {
+                  markFlagged(video);
+                }
               } else {
-                markFlagged(video); // whole-video blur (feed / no host)
-              }
-            } else {
-              cleanStreak++;
-              if (cleanStreak >= unblurStreak) {
+                // No flagged track survives (streak-cleared or expired):
+                // sharp. The tracker's own hold/streak already provides
+                // the temporal safety the old cleanStreak gave.
                 clearEl(video);
                 videoRegion.clear(video);
                 regionActive = false;
               }
+              return;
+            }
+            // Whole-blur path (feed videos / no backdrop-filter): the
+            // old all-or-nothing verdict + clean streak, unchanged.
+            if (anyFlagged) {
+              cleanStreak = 0;
+              markFlagged(video);
+            } else {
+              cleanStreak++;
+              if (cleanStreak >= unblurStreak) clearEl(video);
             }
           })
           .catch(function (e) {
@@ -626,6 +658,7 @@ import { planForMode } from './pipeline-plan.mjs';
         videoRegion.clear(video);
         regionActive = false;
       }
+      videoTracks = [];
       if (!playerBlurOn) {
         playerBlurOn = true;
         if (pill) pill.textContent = 'Blur on';
@@ -656,12 +689,14 @@ import { planForMode } from './pipeline-plan.mjs';
         pill.textContent = playerBlurOn ? 'Blur on' : 'Blur off';
         if (playerBlurOn) {
           cleanStreak = 0;
+          videoTracks = [];
           markPending(video);
           if (!video.paused) start();
         } else {
           clearEl(video);
           videoRegion.clear(video);
           regionActive = false;
+          videoTracks = [];
         }
       });
       pillHost.appendChild(pill);

@@ -87,10 +87,11 @@ conservative, never tuned against evidence.
 | Body expansion | shoulders ±1.6 face-w, torso +6.0 face-h, hair +0.3 | face box → whole-person patch (HaramBlur parity); input de-inflated by /1.4 first | visual probe 2026-08-24 (3.2h cut a standing speaker at the hips; 1.4/1.6 without de-inflation swallowed the frame) |
 | Player region pad | 0.12 | between-sample motion cushion on body boxes | guess |
 | Blur radius | 8/16/28px (Light/Med/Strong), 24px fallback | strength presets | owner-chosen |
-| Gender min score | 0.85 (GENDER_MIN_SCORE) | below ⇒ face treated unknown, stays covered | calibrated 2026-08-23 (portrait set: wrong-gender scores reached 0.79 — 0.6 cleared the opposite gender) |
+| Gender min score | 0.25 (GENDER_MIN_SCORE) | certainty floor on faceres score (2*\|sigmoid-0.5\|); below ⇒ face stays covered | recalibrated 2026-08-24 for the faceres swap: direction 7/7 correct on live thumbnails (spike gender-spike.html), male conf 0.3-0.94, female 0.42-0.69; old 0.85 softmax bar blurred most same-gender faces (owner report) |
 | Face min confidence | 0.35 | NMS score floor for a box to count | raised from 0.2 2026-08-24 (owner: phantom blur patches; sub-0.35 boxes on the observed set were mostly non-faces, 0.5 kept for obscured-face recall) |
 | Face NMS IoU | 0.1 | box de-duplication overlap | guess (Human-family default) |
 | Face crop enlarge | 1.4× | context around face for gender crop | guess (Human-family default) |
+| Gender model | faceres (HSE-FaceRes via human-models, MIT) | multi-head age/gender/descriptor; gender head only | swapped from mini-Xception 2026-08-24 — live calibration showed overlapping bands + a misgendered male; faceres 7/7 direction-correct on the same set |
 
 ## 5. Calibration protocol (the rule for changing any number)
 

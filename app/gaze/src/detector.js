@@ -25,7 +25,7 @@ import { nonMaxSuppression } from './nms.mjs';
 
 export var INPUT_SIZE = 256; // matches the embedded face model's fixed input shape
 export var NSFW_INPUT_SIZE = 224; // MobileNetV2Mid fixed input shape
-export var GENDER_INPUT_SIZE = 64; // Oarriaga mini-Xception fixed input shape
+export var GENDER_INPUT_SIZE = 224; // faceres (HSE-FaceRes) fixed input shape
 
 // Face-box knobs — registered in docs/detection-engine.md.
 // 0.2 -> 0.35 2026-08-24 (owner: "sometimes false blurs"): sub-0.35
@@ -142,11 +142,12 @@ export async function loadNsfwModel() {
 }
 
 /**
- * Loads the gender classifier (Oarriaga mini-Xception via
- * vladmandic/human-models gender.json, MIT — see NOTICE; replaced the
- * unusable gender-ssrnet-imdb 2026-08-23, see embed-gender.js). Separate
- * load like the NSFW model: a failure degrades to presence-only flagging
- * (any face stays covered), never a break.
+ * Loads the gender classifier (HSE-FaceRes via vladmandic/human-models
+ * faceres.json, MIT — see NOTICE; replaced mini-Xception 2026-08-24
+ * after live calibration showed its scores unusable on real thumbnails,
+ * see embed-gender.js). Separate load like the NSFW model: a failure
+ * degrades to presence-only flagging (any face stays covered), never a
+ * break.
  */
 export async function loadGenderModel() {
   await initBackend();
@@ -278,49 +279,54 @@ export async function detectFaceBoxes(model, pixelSource) {
   return kept;
 }
 
-// Grayscale factors for the gender model's single input channel
-// (standard Rec.601 luma, same as vladmandic/human's reader).
-var GRAY_RGB = [0.2989, 0.587, 0.114];
-
 /**
  * Per-face gender for ALL boxes from detectFaceBoxes in one batched
  * inference (one fromPixels, one execute, one download — N separate
  * calls were N GPU round trips). Model semantics (human-models
- * gender.json, Oarriaga mini-Xception, MIT): input is a 64x64 GRAYSCALE
- * crop scaled to [-1,1]; output rows are [femaleProb, maleProb].
+ * faceres.json, HSE-FaceRes, MIT — reader adapted from vladmandic/human
+ * faceres.ts, MIT, see NOTICE): input is a 224x224 RGB crop with values
+ * 0..255 float; the model is multi-head (age/gender/descriptor) and the
+ * gender head is the [N,1] output — a sigmoid where <=0.5 reads female,
+ * >0.5 male, and confidence is 2*|v-0.5|.
  * Returns [{ gender: 'female'|'male', score }] parallel to boxes.
  */
 export async function classifyFaceGenders(model, pixelSource, boxes) {
   if (!boxes.length) return [];
-  var scores = tf.tidy(function () {
+  var outs = tf.tidy(function () {
     var img = tf.browser.fromPixels(pixelSource);
-    var input = tf.expandDims(tf.div(tf.cast(img, 'float32'), 255), 0);
+    var input = tf.expandDims(tf.cast(img, 'float32'), 0);
     var rects = [];
     var inds = [];
     for (var i = 0; i < boxes.length; i++) {
       rects.push([boxes[i].y1, boxes[i].x1, boxes[i].y2, boxes[i].x2]);
       inds.push(0);
     }
+    // cropAndResize interpolates from the 0..255 float source — faceres
+    // wants exactly that range, so no further normalisation.
     var crops = tf.image.cropAndResize(input, rects, inds, [GENDER_INPUT_SIZE, GENDER_INPUT_SIZE]);
-    var rgb = tf.split(crops, 3, 3);
-    var gray = tf.add(
-      tf.add(tf.mul(rgb[0], GRAY_RGB[0]), tf.mul(rgb[1], GRAY_RGB[1])),
-      tf.mul(rgb[2], GRAY_RGB[2])
-    );
-    return model.execute(tf.mul(tf.sub(gray, 0.5), 2));
+    var res = model.execute(crops);
+    var list = Array.isArray(res) ? res : [res];
+    var genderT = null;
+    for (var t = 0; t < list.length; t++) {
+      if (list[t].shape.length === 2 && list[t].shape[1] === 1) {
+        genderT = list[t];
+      }
+    }
+    // Keep only the gender head; tidy disposes the rest.
+    return genderT ? tf.clone(genderT) : tf.zeros([boxes.length, 1]);
   });
   var data;
   try {
-    data = await scores.data();
+    data = await outs.data();
   } finally {
-    tf.dispose(scores);
+    tf.dispose(outs);
   }
   var verdicts = [];
   for (var k = 0; k < boxes.length; k++) {
-    var female = data[k * 2];
-    var male = data[k * 2 + 1];
+    var v = data[k];
+    var confidence = Math.min(0.99, 2 * Math.abs(v - 0.5));
     verdicts.push(
-      female > male ? { gender: 'female', score: female } : { gender: 'male', score: male }
+      v <= 0.5 ? { gender: 'female', score: confidence } : { gender: 'male', score: confidence }
     );
   }
   return verdicts;
