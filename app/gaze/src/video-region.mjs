@@ -83,14 +83,19 @@ function resolveHost(video) {
 
 function makeOverlay() {
   var d = document.createElement('div');
-  // Near-rectangular patch; z-index above the video but below ytp
-  // controls. Position moves by TRANSLATE only (compositor-only);
+  // Near-rectangular patch. z-index MEASURED against the live player
+  // (2026-08-25): .html5-video-container is z-index 10, the bottom
+  // gradient 24 and .ytp-chrome-bottom 59 — so 20 is the only band that
+  // is ABOVE the video (below it the blur is invisible: a z-index of 5
+  // shipped in v1013 and exposed people entirely) and BELOW the
+  // timeline/controls (owner: blur must not cover the bottom bar).
+  // Position moves by TRANSLATE only (compositor-only);
   // size is a real width/height write, but only when it actually
   // changed — a non-uniform transform scale warped the rounded
   // corners (owner 2026-08-24: "rounded edges are distorting").
   d.style.cssText =
     'position:absolute;left:0;top:0;width:' + BASE_PX + 'px;height:' + BASE_PX + 'px;' +
-    'pointer-events:none;border-radius:8px;z-index:5;' +
+    'pointer-events:none;border-radius:8px;z-index:20;' +
     'will-change:transform;' +
     'backdrop-filter:blur(var(--ts-blur-strong,24px));' +
     '-webkit-backdrop-filter:blur(var(--ts-blur-strong,24px));';
