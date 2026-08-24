@@ -1,7 +1,7 @@
 {
-  "versionCode": 1009,
-  "versionName": "0.1.9",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.9/app-arm64-debug.apk",
-  "sha256": "c9269bdd8ac149c5b3cc677fb46a4a2ec1b24e623cf73418ce9df167fa9d30ae",
-  "notes": "Sharper in-video blur: per-person zoom classify, merged patches, no more double blur."
+  "versionCode": 1010,
+  "versionName": "0.1.10",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.10/app-arm64-debug.apk",
+  "sha256": "c079003adc908336339c296a4a772a3a949259c10010c9be6c7416fa0edf94b7",
+  "notes": "Smoother, faster in-video blur: redesigned tracking, no lag, no flicker; children always covered."
 }

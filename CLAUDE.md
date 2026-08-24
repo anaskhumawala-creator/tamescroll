@@ -63,7 +63,35 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-24 late night (v1009 zoom-classify + merged patches SHIPPED; tamescroll.com LIVE).
+**Last updated:** 2026-08-24 overnight (v1010 person-primary REDESIGN shipped; audit in docs/research/).
+
+**Session 2026-08-24 overnight (v0.1.10/1010, commit b66ef14):** owner
+"lagging + hit-and-miss, set a Fable instance to analyze" -> full
+redesign per the audit (docs/research/blur-pipeline-audit-2026-08-24.md
+— READ IT before touching the video pipeline again):
+- Root causes CONFIRMED by measurement: old loop = 20-35 inferences/s on
+  YouTube's main thread (95 dropped frames + 8.2s long tasks per 77s);
+  hit-and-miss = 5 detection sources racing at 3 cadences (2.4/7Hz beat).
+- NEW: ONE person-primary pass @250ms (MoveNet -> per-person native-res
+  aspect crop -> gender), person-track.mjs (IoU association + blur STATE
+  MACHINE: instant blur, clear needs 1.5s accumulated confident reads,
+  uncertain DECAYS not zeroes), video-region v2 (cached rects, transform
+  moves, 60Hz velocity interpolation). Deleted: track.mjs, person gate,
+  torso-ghost, static suppression, rescue floor, recheck, MIN_HITS.
+- **CHILD FIX** (owner frame: daughter sharp, Linus covered): faceres
+  AGE head (age_pred/Softmax [N,100], embedded all along) now read;
+  age<18 => gender untrusted, never clears. Asymmetric certainty:
+  clear needs score>=0.6 (GENDER_CLEAR_SCORE), flag stays 0.25.
+- Measured after: dropped 95->8, long tasks 69->14, stall 8.2s->1.3s.
+  Frames: Linus sharp incl. looking down; daughter single tracked patch.
+- Worker offload DEAD on YouTube: Trusted Types blocks Blob workers even
+  via trustedTypes.createPolicy (spike). 4Hz main-thread + interpolation
+  is the architecture. Owner asked "custom local AI?" — answered: models
+  already local; bottleneck was architecture, not model speed; custom
+  training = weeks + dataset, revisit only if phone numbers demand.
+- Remaining known gap: ~250ms first-detection window on scene entry
+  (new subject can be exposed for one pass; instant-cover after).
+- Phone perf still UNVERIFIED (levers: PERSON_INPUT_SIZE 192, 3Hz).
 
 **Session 2026-08-24 late night, part 2 (v0.1.9/1009 RELEASED, commit
 199c0e1):** owner's "double triple blur don't look good, merge it" +
