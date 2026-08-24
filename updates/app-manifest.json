@@ -1,7 +1,7 @@
 {
-  "versionCode": 1005,
-  "versionName": "0.1.5",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/v0.1.5/app-arm64-debug.apk",
-  "sha256": "99d6b0a2b727c26d8262b5009c417008e20b5e24138ce7f992db99cbce6de41c",
-  "notes": "In-player live blur fix + request-editor ad fix."
+  "versionCode": 1006,
+  "versionName": "0.1.6",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/v0.1.6/app-arm64-debug.apk",
+  "sha256": "a6be57d675e91e69393b196a5534938742bec5a2b25cf9af2125f8ff86618ddf",
+  "notes": "Whole-person blur on playing videos (smart mode), cleaner blur patches, fewer false blurs, video-previews toggle."
 }
