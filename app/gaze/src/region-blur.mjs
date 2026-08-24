@@ -12,12 +12,37 @@
 // them — those snap the whole-element blur back until a settle pass
 // repositions. Over-blur, never under-blur.
 //
-// Videos deliberately keep whole-element blur: their content moves under
-// a static overlay between samples, which is exactly the flash this
-// design must never produce.
+// Feed videos keep whole-element blur (they're tiny and scroll fast — a
+// static overlay would lag the composited scroll). The WATCH PLAYER is
+// the exception (owner ask 2026-08-24, HaramBlur parity): its element is
+// effectively fixed on screen, so the only motion an overlay must chase
+// is the face moving WITHIN the frame. That is handled by sampling the
+// player fast (VIDEO_PLAYER_SAMPLE_INTERVAL_MS) and padding each box
+// (padBox) so between-sample drift stays covered — over-blur, never a
+// flash of the face. Callers hand player boxes through applyRegionBlur
+// like any other element; padding is applied caller-side.
 
 var OVERLAY_CONTAINER_ID = 'tamescroll-gaze-regions';
 var SETTLE_MS = 150;
+
+/**
+ * Expand a normalized (0..1) face box outward by `pad` fraction of its
+ * own width/height on every side, clamped to the element. A moving face
+ * only samples every VIDEO_PLAYER_SAMPLE_INTERVAL_MS; the pad is the
+ * cushion that keeps the face covered as it drifts between samples.
+ * Pure — exported for tests.
+ */
+export function padBox(box, pad) {
+  var w = box.x2 - box.x1;
+  var h = box.y2 - box.y1;
+  return {
+    x1: Math.max(0, box.x1 - w * pad),
+    y1: Math.max(0, box.y1 - h * pad),
+    x2: Math.min(1, box.x2 + w * pad),
+    y2: Math.min(1, box.y2 + h * pad),
+    confidence: box.confidence,
+  };
+}
 
 /**
  * Pure mapping: normalized face box (0..1 of the element) -> viewport

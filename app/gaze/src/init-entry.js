@@ -22,7 +22,9 @@ import {
   applyRegionBlur,
   clearRegionBlur,
   clearAllRegionBlur,
+  padBox,
 } from './region-blur.mjs';
+import * as videoRegion from './video-region.mjs';
 import { createTextMatcher } from './text-signals.mjs';
 import { planForMode } from './pipeline-plan.mjs';
 
@@ -66,7 +68,15 @@ import { planForMode } from './pipeline-plan.mjs';
 
   var IMAGE_MIN_SIZE = 64;
   var IMAGE_BATCH_MAX = 4;
-  var VIDEO_SAMPLE_INTERVAL_MS = 500; // caps inference at ~2/s per video
+  var VIDEO_SAMPLE_INTERVAL_MS = 500; // caps inference at ~2/s per feed video
+  // The watch player samples faster so face-region overlays track the
+  // moving face (owner ask 2026-08-24, HaramBlur parity). ~7/s inference
+  // is the cost of the face following instead of the whole video going
+  // dark; the in-player pill is one tap away when the phone can't keep up.
+  var VIDEO_PLAYER_SAMPLE_INTERVAL_MS = 140;
+  // Each player face box is padded by this fraction of its size so a face
+  // drifting between samples stays under the overlay (over-blur cushion).
+  var VIDEO_REGION_PAD = 0.35;
   var VIDEO_CLEAN_STREAK_TO_UNBLUR = 4;
 
   var failed = false;
@@ -148,6 +158,7 @@ import { planForMode } from './pipeline-plan.mjs';
     }
     blurredEls.length = 0;
     if (regionBlur) clearAllRegionBlur();
+    videoRegion.clearAll();
     // eslint-disable-next-line no-console
     console.warn('tamescroll gaze: disabled after ' + reason, err);
   }
@@ -439,6 +450,16 @@ import { planForMode } from './pipeline-plan.mjs';
     // blackout on a video the user deliberately opened was the review's
     // #13 — one clean second is enough to trust a face-free frame.
     var unblurStreak = isPlayer ? 2 : VIDEO_CLEAN_STREAK_TO_UNBLUR;
+    // Owner ask 2026-08-24: the watch player blurs just the face regions,
+    // not the whole video (feed videos keep whole blur — too small/fast
+    // to track). Falls back to whole blur where backdrop-filter is
+    // unsupported. Region videos also sample faster so the overlay chases
+    // the face.
+    var useRegionVideo = isPlayer && regionBlur && videoRegion.canRegionVideo(video);
+    var sampleInterval = isPlayer ? VIDEO_PLAYER_SAMPLE_INTERVAL_MS : VIDEO_SAMPLE_INTERVAL_MS;
+    // True while region overlays are live on this video, so a clean-streak
+    // clear knows to tear them down and blur-first can strip cleanly.
+    var regionActive = false;
 
     // Cross-origin video with no CORS taints the canvas: getImageData
     // throws SecurityError on EVERY frame, forever — no header we can
@@ -452,6 +473,8 @@ import { planForMode } from './pipeline-plan.mjs';
       dead = true;
       stop();
       clearEl(video);
+      videoRegion.clear(video);
+      regionActive = false;
       // eslint-disable-next-line no-console
       console.warn('tamescroll gaze: video unreadable, failing open (' + reason + ')', err);
     }
@@ -465,7 +488,7 @@ import { planForMode } from './pipeline-plan.mjs';
       // the pending blur already covers the wait, so just wait.
       if (!genderSettled) return;
       var now = performance.now();
-      if (now - lastSample < VIDEO_SAMPLE_INTERVAL_MS) return;
+      if (now - lastSample < sampleInterval) return;
       if (sampling) return;
       lastSample = now;
       sampling = true;
@@ -474,9 +497,11 @@ import { planForMode } from './pipeline-plan.mjs';
         var ctx2d = canvas.getContext('2d');
         ctx2d.drawImage(video, 0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
         var pixels = ctx2d.getImageData(0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
+        var frameFaces = [];
         detector
           .detectFaceBoxes(model, pixels)
           .then(function (faces) {
+            frameFaces = faces;
             if (!faces.length || !genderModel) {
               return faces.length ? 'flag' : 'clear';
             }
@@ -488,10 +513,30 @@ import { planForMode } from './pipeline-plan.mjs';
             if (failed) return;
             if (verdict === 'flag') {
               cleanStreak = 0;
-              markFlagged(video); // re-flag instantly
+              var padded = [];
+              if (useRegionVideo) {
+                for (var f = 0; f < frameFaces.length; f++) {
+                  padded.push(padBox(frameFaces[f], VIDEO_REGION_PAD));
+                }
+              }
+              // setBoxes returns false if the player host vanished — then
+              // fall back to whole-video blur so a face is never exposed.
+              if (useRegionVideo && videoRegion.setBoxes(video, padded)) {
+                // Blur just the faces, tracked frame-to-frame. Strip the
+                // blur-first whole cover now that the overlays hold it.
+                video.classList.remove(dom.PENDING_CLASS, dom.FLAGGED_CLASS);
+                track(video);
+                regionActive = true;
+              } else {
+                markFlagged(video); // whole-video blur (feed / no host)
+              }
             } else {
               cleanStreak++;
-              if (cleanStreak >= unblurStreak) clearEl(video);
+              if (cleanStreak >= unblurStreak) {
+                clearEl(video);
+                videoRegion.clear(video);
+                regionActive = false;
+              }
             }
           })
           .catch(function (e) {
@@ -537,7 +582,7 @@ import { planForMode } from './pipeline-plan.mjs';
         // (review 2026-08-19).
         rvfcLoop();
       } else if (!intervalId) {
-        intervalId = setInterval(sampleOnce, VIDEO_SAMPLE_INTERVAL_MS);
+        intervalId = setInterval(sampleOnce, sampleInterval);
       }
     }
 
@@ -563,6 +608,12 @@ import { planForMode } from './pipeline-plan.mjs';
       if (failed) return;
       dead = false;
       cleanStreak = 0;
+      // Stale overlays belong to the previous stream — drop them before
+      // blur-first covers the new one, or they'd sit at old-face coords.
+      if (regionActive) {
+        videoRegion.clear(video);
+        regionActive = false;
+      }
       if (!playerBlurOn) {
         playerBlurOn = true;
         if (pill) pill.textContent = 'Blur on';
@@ -597,6 +648,8 @@ import { planForMode } from './pipeline-plan.mjs';
           if (!video.paused) start();
         } else {
           clearEl(video);
+          videoRegion.clear(video);
+          regionActive = false;
         }
       });
       pillHost.appendChild(pill);
@@ -606,7 +659,12 @@ import { planForMode } from './pipeline-plan.mjs';
           if (pill.parentNode) pill.parentNode.removeChild(pill);
           return;
         }
+        // Region blur strips both classes (only the face is covered), so
+        // regionActive is part of "is anything covered" — without it the
+        // pill would vanish exactly when a live face IS being blurred and
+        // the user has no way to toggle it off.
         var covered =
+          regionActive ||
           video.classList.contains(dom.PENDING_CLASS) ||
           video.classList.contains(dom.FLAGGED_CLASS);
         pill.style.display = covered || !playerBlurOn ? '' : 'none';

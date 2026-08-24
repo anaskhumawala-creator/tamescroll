@@ -4,7 +4,7 @@
 // element so overlays never bleed outside the media.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mapBoxToRect, sameRect, clampToInset, insetFromChain } from '../src/region-blur.mjs';
+import { mapBoxToRect, sameRect, clampToInset, insetFromChain, padBox } from '../src/region-blur.mjs';
 
 const imgRect = { left: 100, top: 50, width: 200, height: 100 };
 
@@ -36,6 +36,23 @@ test('sameRect: equal within sub-pixel epsilon, unequal beyond it', () => {
   assert.equal(sameRect(a, null), false);
   assert.equal(sameRect(null, a), false);
   assert.equal(sameRect(null, null), false);
+});
+
+test('padBox: expands a box by a fraction of its own size, clamped to 0..1', () => {
+  const p = padBox({ x1: 0.4, y1: 0.4, x2: 0.6, y2: 0.6, confidence: 0.9 }, 0.5);
+  // width/height 0.2, pad 0.5 -> ±0.1 each side
+  assert.equal(Math.round(p.x1 * 1000) / 1000, 0.3);
+  assert.equal(Math.round(p.y1 * 1000) / 1000, 0.3);
+  assert.equal(Math.round(p.x2 * 1000) / 1000, 0.7);
+  assert.equal(Math.round(p.y2 * 1000) / 1000, 0.7);
+  assert.equal(p.confidence, 0.9);
+});
+
+test('padBox: never pushes past the element edge', () => {
+  const p = padBox({ x1: 0.05, y1: 0.9, x2: 0.25, y2: 1.0 }, 0.5);
+  assert.equal(p.x1, 0); // 0.05 - 0.1 clamped to 0
+  assert.equal(p.y2, 1); // 1.0 + pad clamped to 1
+  assert.ok(p.x2 <= 1 && p.y1 >= 0);
 });
 
 test('clampToInset: fully below the header inset is unchanged', () => {

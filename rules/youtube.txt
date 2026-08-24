@@ -135,6 +135,32 @@ m.youtube.com##ytm-single-column-watch-next-results-renderer ytm-video-with-cont
 
 
 ! ============================================================
+! VIDEO PREVIEWS — hover / scroll autoplay
+! ============================================================
+! Owner ask 2026-08-24: give the user a way to stop thumbnails auto-
+! playing a preview. Modelled as a toggleable surface (hidden by default,
+! "Bring back" re-enables) — the same clean-by-default, no-nag pattern as
+! the feed and Shorts. DESKTOP web only for now: m.youtube's feed preview
+! reuses the shared #movie_player element (the watch player), so it is NOT
+! a safe hide-selector job — that needs a live m.youtube feed DOM capture
+! before any rule (player red line).
+
+!surface: previews Video previews
+
+! The singleton hover-preview host. YouTube moves this one element over
+! whichever thumbnail the pointer dwells on and plays a muted preview
+! inside it; hiding it disables the visual autoplay while the static
+! thumbnail stays put. Verified OUTSIDE #movie_player, so the watch player
+! is untouched (red line holds).
+! [live] ytd-video-preview counted 1 on youtube.com/, not inside
+!   #movie_player (in-app browser, 2026-08-24)
+! test: on https://www.youtube.com/ ->
+!   document.querySelectorAll('ytd-video-preview').length === 1 &&
+!   !document.querySelector('ytd-video-preview').closest('#movie_player')
+youtube.com##ytd-video-preview
+
+
+! ============================================================
 ! IN-FEED ADS — belt and braces only
 ! ============================================================
 ! Network blocking by the engine handles most ads. These catch the
