@@ -45,6 +45,38 @@ export function padBox(box, pad) {
 }
 
 /**
+ * Expand a face box to cover the whole PERSON (owner ask 2026-08-24,
+ * HaramBlur parity: the blocked gender's body is covered, not just the
+ * face). Anthropometric approximation from the face box alone: shoulders
+ * span ~1.6 face-widths each side of the face centre, the torso runs
+ * ~4.5 face-heights below the chin, and a small margin above the
+ * forehead catches hair. Everything clamps to the element, so a face
+ * near the frame edge simply covers to the edge. Pure — exported for
+ * tests and shared by the image and video region paths.
+ */
+export function expandToBody(box) {
+  // Detector boxes arrive PRE-ENLARGED (detector.js FACE_ENLARGE 1.4,
+  // context for the gender crop) — recover the true face first or the
+  // anthropometrics compound on the inflation and the "body" swallows
+  // the whole frame (probe 2026-08-24: 788x458 overlay on an 815-wide
+  // player — indistinguishable from whole-video blur).
+  var ENLARGE = 1.4;
+  var cx = (box.x1 + box.x2) / 2;
+  var cy = (box.y1 + box.y2) / 2;
+  var w = (box.x2 - box.x1) / ENLARGE;
+  var h = (box.y2 - box.y1) / ENLARGE;
+  var top = cy - h / 2;
+  var bottom = cy + h / 2;
+  return {
+    x1: Math.max(0, cx - w * 1.6),
+    y1: Math.max(0, top - h * 0.3),
+    x2: Math.min(1, cx + w * 1.6),
+    y2: Math.min(1, bottom + h * 6.0),
+    confidence: box.confidence,
+  };
+}
+
+/**
  * Pure mapping: normalized face box (0..1 of the element) -> viewport
  * rect, clamped inside the element's bounding rect so overlays never
  * bleed onto surrounding UI. Exported for unit tests.
@@ -194,12 +226,14 @@ function topInset() {
 }
 
 function makeOverlay(rect, inset) {
+  // Near-rectangular marker (owner 2026-08-24: the 30% ellipse-ish
+  // rounding read as "weird" against HaramBlur's straight patches).
   var d = document.createElement('div');
   d.style.cssText =
     'position:absolute;pointer-events:none;' +
     'backdrop-filter:blur(var(--ts-blur-strong,24px));' +
     '-webkit-backdrop-filter:blur(var(--ts-blur-strong,24px));' +
-    'border-radius:30%;';
+    'border-radius:8px;';
   positionOverlay(d, rect, inset);
   return d;
 }

@@ -23,6 +23,7 @@ import {
   clearRegionBlur,
   clearAllRegionBlur,
   padBox,
+  expandToBody,
 } from './region-blur.mjs';
 import * as videoRegion from './video-region.mjs';
 import { createTextMatcher } from './text-signals.mjs';
@@ -74,9 +75,10 @@ import { planForMode } from './pipeline-plan.mjs';
   // is the cost of the face following instead of the whole video going
   // dark; the in-player pill is one tap away when the phone can't keep up.
   var VIDEO_PLAYER_SAMPLE_INTERVAL_MS = 140;
-  // Each player face box is padded by this fraction of its size so a face
-  // drifting between samples stays under the overlay (over-blur cushion).
-  var VIDEO_REGION_PAD = 0.35;
+  // Each player body box is padded by this fraction of its size so a
+  // person drifting between samples stays under the overlay (over-blur
+  // cushion; the body expansion is already generous, so keep this small).
+  var VIDEO_REGION_PAD = 0.12;
   var VIDEO_CLEAN_STREAK_TO_UNBLUR = 4;
 
   var failed = false;
@@ -308,10 +310,17 @@ import { planForMode } from './pipeline-plan.mjs';
           markRemoved(img);
         } else if (result.face) {
           markFlagged(img);
-          // Face-caused flags narrow to face-region overlays (the
-          // whole-blur class stays on until the first successful
+          // Face-caused flags narrow to PERSON-region overlays (face
+          // expanded to the body — HaramBlur parity, owner 2026-08-24;
+          // the whole-blur class stays on until the first successful
           // overlay positioning — blur-first holds throughout).
-          if (regionBlur && result.faces.length) applyRegionBlur(img, result.faces);
+          if (regionBlur && result.faces.length) {
+            var bodies = [];
+            for (var rb = 0; rb < result.faces.length; rb++) {
+              bodies.push(expandToBody(result.faces[rb]));
+            }
+            applyRegionBlur(img, bodies);
+          }
         } else if (plan.revealClears) {
           clearEl(img);
         }
@@ -513,10 +522,13 @@ import { planForMode } from './pipeline-plan.mjs';
             if (failed) return;
             if (verdict === 'flag') {
               cleanStreak = 0;
+              // Whole-person coverage (HaramBlur parity, owner
+              // 2026-08-24): each face expands to its body region, then
+              // pads so between-sample motion stays under the patch.
               var padded = [];
               if (useRegionVideo) {
                 for (var f = 0; f < frameFaces.length; f++) {
-                  padded.push(padBox(frameFaces[f], VIDEO_REGION_PAD));
+                  padded.push(padBox(expandToBody(frameFaces[f]), VIDEO_REGION_PAD));
                 }
               }
               // setBoxes returns false if the player host vanished — then

@@ -81,11 +81,14 @@ conservative, never tuned against evidence.
 | NSFW sexy | Sexy > 0.8 | same | probe38: fired on a live suggestive thumbnail, clean results untouched |
 | Image min size | 64px | below = decorative, skip | guess |
 | Image batch | 4 / idle slice | inference batching | ok (probe-verified no jank) |
-| Video sample | 500ms | ≤2 inferences/s/video | guess |
+| Video sample (feed) | 500ms | ≤2 inferences/s/video | guess |
+| Video sample (player) | 140ms | ~7/s so region overlays chase the face | guess (owner ask 2026-08-24, region mode) |
 | Clean streak | 4 samples | consecutive clean frames to unblur (~2s) | guess |
+| Body expansion | shoulders ±1.6 face-w, torso +6.0 face-h, hair +0.3 | face box → whole-person patch (HaramBlur parity); input de-inflated by /1.4 first | visual probe 2026-08-24 (3.2h cut a standing speaker at the hips; 1.4/1.6 without de-inflation swallowed the frame) |
+| Player region pad | 0.12 | between-sample motion cushion on body boxes | guess |
 | Blur radius | 8/16/28px (Light/Med/Strong), 24px fallback | strength presets | owner-chosen |
 | Gender min score | 0.85 (GENDER_MIN_SCORE) | below ⇒ face treated unknown, stays covered | calibrated 2026-08-23 (portrait set: wrong-gender scores reached 0.79 — 0.6 cleared the opposite gender) |
-| Face min confidence | 0.2 | NMS score floor for a box to count | guess |
+| Face min confidence | 0.35 | NMS score floor for a box to count | raised from 0.2 2026-08-24 (owner: phantom blur patches; sub-0.35 boxes on the observed set were mostly non-faces, 0.5 kept for obscured-face recall) |
 | Face NMS IoU | 0.1 | box de-duplication overlap | guess (Human-family default) |
 | Face crop enlarge | 1.4× | context around face for gender crop | guess (Human-family default) |
 

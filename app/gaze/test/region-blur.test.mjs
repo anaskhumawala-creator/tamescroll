@@ -4,7 +4,7 @@
 // element so overlays never bleed outside the media.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mapBoxToRect, sameRect, clampToInset, insetFromChain, padBox } from '../src/region-blur.mjs';
+import { mapBoxToRect, sameRect, clampToInset, insetFromChain, padBox, expandToBody } from '../src/region-blur.mjs';
 
 const imgRect = { left: 100, top: 50, width: 200, height: 100 };
 
@@ -53,6 +53,29 @@ test('padBox: never pushes past the element edge', () => {
   assert.equal(p.x1, 0); // 0.05 - 0.1 clamped to 0
   assert.equal(p.y2, 1); // 1.0 + pad clamped to 1
   assert.ok(p.x2 <= 1 && p.y1 >= 0);
+});
+
+test('expandToBody: de-inflates the enlarged box, widens to shoulders, extends down the torso', () => {
+  // Input is a detector box (already 1.4x-enlarged): 0.1 wide -> true
+  // face ~0.0714. Shoulders ±1.4 true-widths of centre, torso 3.2
+  // true-heights below the chin, hair margin 0.3 above.
+  const b = expandToBody({ x1: 0.45, y1: 0.1, x2: 0.55, y2: 0.2, confidence: 0.9 });
+  assert.ok(Math.abs(b.x1 - 0.3857143) < 1e-6);
+  assert.ok(Math.abs(b.x2 - 0.6142857) < 1e-6);
+  assert.ok(Math.abs(b.y1 - 0.0928571) < 1e-6);
+  assert.ok(Math.abs(b.y2 - 0.6142857) < 1e-6);
+  assert.equal(b.confidence, 0.9);
+  // sanity: the body column must NOT balloon toward the full frame WIDTH
+  // (visual probe 2026-08-24 caught exactly that); height runs long by
+  // design — a standing person is ~7 face-heights tall.
+  assert.ok(b.x2 - b.x1 < 0.25);
+});
+
+test('expandToBody: clamps to the element for edge faces', () => {
+  const b = expandToBody({ x1: 0.0, y1: 0.6, x2: 0.3, y2: 0.95 });
+  assert.equal(b.x1, 0);
+  assert.equal(b.y2, 1); // torso extension runs off the bottom -> clamp
+  assert.ok(b.x2 <= 1 && b.y1 >= 0);
 });
 
 test('clampToInset: fully below the header inset is unchanged', () => {

@@ -28,7 +28,11 @@ export var NSFW_INPUT_SIZE = 224; // MobileNetV2Mid fixed input shape
 export var GENDER_INPUT_SIZE = 64; // Oarriaga mini-Xception fixed input shape
 
 // Face-box knobs — registered in docs/detection-engine.md.
-export var FACE_MIN_CONFIDENCE = 0.2;
+// 0.2 -> 0.35 2026-08-24 (owner: "sometimes false blurs"): sub-0.35
+// detections on the observed set were mostly non-faces (patterns,
+// hands), each one a phantom patch. Still below the 0.5 common default
+// so obscured real faces keep flagging — fail-safe leans kept.
+export var FACE_MIN_CONFIDENCE = 0.35;
 var FACE_IOU = 0.1;
 var FACE_MAX = 20;
 var FACE_ENLARGE = 1.4; // gender wants context around the face crop

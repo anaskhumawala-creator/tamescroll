@@ -44,6 +44,7 @@ globalThis.requestAnimationFrame = (cb) => {
 };
 globalThis.cancelAnimationFrame = (id) => scheduled.delete(id);
 globalThis.document = { createElement: (t) => makeEl(t) };
+globalThis.window = { getComputedStyle: () => ({ position: 'relative' }) };
 
 const vr = await import('../src/video-region.mjs');
 
@@ -56,14 +57,16 @@ function playerWithVideo(rect) {
   return { player, video };
 }
 
-test('boxToFixedRect: normalized box -> viewport-space fixed rect', () => {
-  const r = vr.boxToFixedRect({ left: 100, top: 50, width: 640, height: 360 }, {
-    x1: 0.5,
-    y1: 0.5,
-    x2: 0.75,
-    y2: 1.0,
-  });
-  assert.deepEqual(r, { left: 420, top: 230, width: 160, height: 180 });
+test('boxToHostRect: normalized box -> player-relative absolute rect', () => {
+  // player at viewport (80, 40); video inset (20, 10) inside it. The
+  // subtraction must yield player-space coords, immune to ancestor
+  // transforms (both rects share them).
+  const r = vr.boxToHostRect(
+    { left: 80, top: 40, width: 700, height: 400 },
+    { left: 100, top: 50, width: 640, height: 360 },
+    { x1: 0.5, y1: 0.5, x2: 0.75, y2: 1.0 }
+  );
+  assert.deepEqual(r, { left: 340, top: 190, width: 160, height: 180 });
 });
 
 test('canRegionVideo: true only when a player host resolves', () => {

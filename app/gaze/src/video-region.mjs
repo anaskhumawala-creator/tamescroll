@@ -1,19 +1,22 @@
-// Face-region blur for the WATCH PLAYER (owner ask 2026-08-24: blur just
-// the face on a playing video, not the whole frame — HaramBlur parity).
+// Person-region blur for the WATCH PLAYER (owner ask 2026-08-24: blur the
+// blocked person on a playing video, not the whole frame — HaramBlur
+// parity, extended to whole-body coverage via expandToBody caller-side).
 //
 // Why a separate module from region-blur.mjs (thumbnails): those overlays
 // are anchored in document.body. Element fullscreen — and Android's native
 // custom-view fullscreen — render ONLY the fullscreen subtree, so a body
 // overlay vanishes the instant the user goes fullscreen and exposes the
-// face. These overlays are anchored INSIDE the player element (same reason
-// the in-player pill lives there), so the blur survives fullscreen.
+// face. These overlays live INSIDE the player element.
 //
-// The video element is effectively fixed on screen, so the only motion an
-// overlay must chase is the face moving WITHIN the frame — the caller
-// re-detects fast and calls setBoxes; between detections a per-box pad
-// (caller-side) cushions the drift. A rAF loop keeps each overlay pinned
-// to the live video rect so scroll / player resize / fullscreen transition
-// never slide the blur off the face.
+// Anchoring is position:ABSOLUTE relative to the player, never fixed:
+// fixed positioning re-anchors to the nearest transformed/filtered
+// ancestor, and YouTube's player tree uses transforms freely — a fixed
+// overlay can land at wildly wrong coordinates (v1 of this module did
+// exactly that; owner report "in-video blur never worked"). Absolute
+// coords are computed player-relative from two getBoundingClientRects,
+// which stay correct under any ancestor transform. A rAF loop re-pins
+// every frame so player resize / theater / fullscreen transitions never
+// drift the patch.
 
 var HOST_CLASS = 'ts-gaze-vregion-host';
 
@@ -21,16 +24,15 @@ var HOST_CLASS = 'ts-gaze-vregion-host';
 var entries = new Map();
 
 /**
- * Pure mapping: a normalized (0..1) face box -> a viewport-space fixed
- * rect, from the video's current on-screen rect. Overlays are
- * position:fixed, so viewport coordinates are exactly what they want, and
- * getBoundingClientRect already reflects scroll and fullscreen scaling.
- * Exported for tests.
+ * Pure mapping: a normalized (0..1) box on the video -> a rect in the
+ * PLAYER's coordinate space (for position:absolute children of the
+ * player). Both rects come from getBoundingClientRect, so any ancestor
+ * transform cancels out of the subtraction. Exported for tests.
  */
-export function boxToFixedRect(videoRect, box) {
+export function boxToHostRect(hostRect, videoRect, box) {
   return {
-    left: videoRect.left + box.x1 * videoRect.width,
-    top: videoRect.top + box.y1 * videoRect.height,
+    left: videoRect.left - hostRect.left + box.x1 * videoRect.width,
+    top: videoRect.top - hostRect.top + box.y1 * videoRect.height,
     width: (box.x2 - box.x1) * videoRect.width,
     height: (box.y2 - box.y1) * videoRect.height,
   };
@@ -45,8 +47,12 @@ function resolveHost(video) {
 
 function makeOverlay() {
   var d = document.createElement('div');
+  // Near-rectangular patch (owner 2026-08-24: heavy rounding looked
+  // wrong); z-index above the video but below ytp controls (they sit at
+  // 2147483647-ish only in fullscreen; 59 clears the video + gradients
+  // while staying under the control bar so scrubbing stays visible).
   d.style.cssText =
-    'position:fixed;pointer-events:none;border-radius:28%;' +
+    'position:absolute;pointer-events:none;border-radius:8px;z-index:59;' +
     'backdrop-filter:blur(var(--ts-blur-strong,24px));' +
     '-webkit-backdrop-filter:blur(var(--ts-blur-strong,24px));';
   return d;
@@ -60,10 +66,11 @@ function place(overlay, rect) {
 }
 
 function reposition(entry) {
-  if (!entry.video.isConnected) {
+  if (!entry.video.isConnected || !entry.host.isConnected) {
     clear(entry.video);
     return;
   }
+  var hr = entry.host.getBoundingClientRect();
   var vr = entry.video.getBoundingClientRect();
   if (vr.width === 0 || vr.height === 0) {
     // Player detached/hidden: park the overlays rather than paint them at
@@ -73,7 +80,7 @@ function reposition(entry) {
   }
   for (var j = 0; j < entry.boxes.length; j++) {
     entry.overlays[j].style.display = '';
-    place(entry.overlays[j], boxToFixedRect(vr, entry.boxes[j]));
+    place(entry.overlays[j], boxToHostRect(hr, vr, entry.boxes[j]));
   }
 }
 
@@ -95,9 +102,9 @@ export function canRegionVideo(video) {
 }
 
 /**
- * Set (or update) the face boxes covered on a playing video. Reuses
+ * Set (or update) the region boxes covered on a playing video. Reuses
  * overlays when the count is unchanged so the rAF loop just moves them.
- * boxes: [{ x1, y1, x2, y2 }] normalized 0..1.
+ * boxes: [{ x1, y1, x2, y2 }] normalized 0..1 of the video frame.
  */
 export function setBoxes(video, boxes) {
   var host = resolveHost(video);
@@ -107,6 +114,16 @@ export function setBoxes(video, boxes) {
   }
   var entry = entries.get(video);
   if (!entry) {
+    // Absolute children need a positioned ancestor; YouTube's player is
+    // position:relative already, but belt-and-braces for other hosts —
+    // only touch it when it would otherwise be static.
+    try {
+      if (window.getComputedStyle(host).position === 'static') {
+        host.style.position = 'relative';
+      }
+    } catch (e) {
+      /* non-fatal: worst case overlays anchor to a further ancestor */
+    }
     entry = { host: host, video: video, boxes: boxes, overlays: [], raf: 0 };
     entries.set(video, entry);
   } else {
