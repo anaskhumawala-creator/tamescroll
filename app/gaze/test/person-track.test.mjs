@@ -163,30 +163,23 @@ test('blurredTracks pads the box and carries velocity', () => {
   assert.equal(typeof out[0].vx, 'number');
 });
 
-test('identity memory: remembered clear + agreeing read clears a NEW track instantly', () => {
-  const obs = [{ box: { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 }, flagged: false, certain: true, remembered: 'cleared' }];
-  const tracks = pt.updatePersonTracks([], obs, 250);
+test('identity memory: a remembered FLAG re-covers a track immediately', () => {
+  const box = { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 };
+  // Earn a clear the normal way, then meet the remembered flag.
+  let tracks = pt.updatePersonTracks([], [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
+  tracks = pt.updatePersonTracks(tracks, [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
   assert.equal(tracks[0].state, 'cleared');
-});
-
-test('identity memory: remembered clear NEVER overrides a certain flag', () => {
-  const obs = [{ box: { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 }, flagged: true, certain: true, remembered: 'cleared' }];
-  const tracks = pt.updatePersonTracks([], obs, 250);
+  tracks = pt.updatePersonTracks(tracks, [{ box, flagged: true, certain: false, verdictDt: 250, remembered: 'blurred' }], 250);
   assert.equal(tracks[0].state, 'blurred');
 });
 
-test('identity memory: remembered clear with an UNCERTAIN read stays blurred', () => {
-  const obs = [{ box: { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 }, flagged: true, certain: false, remembered: 'cleared' }];
-  const tracks = pt.updatePersonTracks([], obs, 250);
-  assert.equal(tracks[0].state, 'blurred');
+test('identity memory: a remembered clear does not exist (memory is blur-only)', () => {
+  const box = { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 };
+  const tracks = pt.updatePersonTracks([], [{ box, flagged: false, certain: true, remembered: 'cleared' }], 250);
+  assert.equal(tracks[0].state, 'blurred'); // first read never clears, memory or not
 });
 
-test('identity memory: existing blurred track skips the rest of the hold on remembered clear', () => {
-  let tracks = pt.updatePersonTracks([], [{ box: { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 }, flagged: true, certain: false }], 250);
-  assert.equal(tracks[0].state, 'blurred');
-  tracks = pt.updatePersonTracks(tracks, [{ box: { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 }, flagged: false, certain: true, remembered: 'cleared', verdictDt: 250 }], 250);
-  assert.equal(tracks[0].state, 'cleared');
-});
+
 
 test('cosineSim: identical normalized vectors 1, orthogonal 0, null 0', () => {
   const a = new Float32Array([1, 0]);

@@ -52,19 +52,23 @@ export var PTRACK_PAD_TOP = 0.12;
 // a plain dot product. Inheriting a CLEAR from memory is the risky
 // direction (under-blur) — it demands the higher bar; the blur
 // direction never needs memory (unknown ⇒ covered is the default).
-export var MEM_SIM_CLEAR = 0.6; // min similarity to inherit a remembered clear
-// Update bar = clear bar (adversarial review 2026-08-25 A2/B: an update
-// bar BELOW the inherit bar was a poisoning ramp — a face too dissimilar
-// to inherit could still blend 30% into the entry per pass and walk the
-// centroid toward the wrong person until it matched).
-export var MEM_SIM_UPDATE = 0.6;
-// Identity continuity on a live track: a matched verdict read whose
-// descriptor disagrees with the track's by more than this is a DIFFERENT
-// person standing where the track is (occlusion crossing, dissolve) —
-// verdict state resets to blurred (review A1: a child absorbed onto a
-// cleared track was invisible to the state machine, since child reads
-// are structurally uncertain and uncertainty was absorbed forever).
-export var IDENT_SIM_MIN = 0.3;
+// MEASURED 2026-08-25 (live calibration run, Linus video, review B):
+// same-person consecutive reads median 0.90, but DIFFERENT people in the
+// same frame scored >=0.6 in 32% of pairs and >=0.9 in 17%. faceres'
+// descriptor does NOT separate identity at our crop quality, at ANY
+// threshold. Consequence: identity memory may never grant a CLEAR —
+// a false match there exposes a person (and the owner's daughter is
+// exactly the adversarial case). Memory keeps only the BLUR direction,
+// where a false match costs over-blur, never exposure.
+export var MEM_SIM_FLAG = 0.85; // remembered FLAG re-applies at this similarity
+export var MEM_SIM_UPDATE = 0.85;
+// Identity continuity on a live track: only a GROSS mismatch counts as
+// "someone else is standing here" (review A1). Set below the measured
+// same-person 5th percentile (0.28) so a bad crop of the same person
+// rarely trips it — a false break re-blurs a cleared man, which is the
+// owner's loudest complaint. The real guard against absorption is
+// CLEARED_TTL_MS below; this only catches near-orthogonal swaps.
+export var IDENT_SIM_MIN = 0.15;
 // A cleared track must RE-PROVE itself: this long without a single
 // confident same-gender read reverts it to blurred (review A1 backstop —
 // bounds every absorption hole, not just the child one).
@@ -190,8 +194,16 @@ function matchedStep(t, obs, dt) {
   // Identity continuity check FIRST (review A1): if this read's face
   // descriptor contradicts the track's, someone else is standing here —
   // all verdict trust resets, blur-first for whoever this now is.
-  var identityBroken =
-    obs.desc && t.desc && cosineSim(obs.desc, t.desc) < IDENT_SIM_MIN;
+  var sameSim = obs.desc && t.desc ? cosineSim(obs.desc, t.desc) : null;
+  // Calibration probe (review B): sim of CONSECUTIVE reads of the same
+  // tracked person = the intra-person band.
+  if (sameSim !== null && typeof globalThis !== 'undefined' && globalThis.__TS_GAZE_IDS) {
+    var dbgS = globalThis.__TS_GAZE_IDS;
+    dbgS.intra = dbgS.intra || [];
+    dbgS.intra.push(Math.round(sameSim * 100) / 100);
+    if (dbgS.intra.length > 400) dbgS.intra.shift();
+  }
+  var identityBroken = sameSim !== null && sameSim < IDENT_SIM_MIN;
   if (identityBroken) {
     state = 'blurred';
     clearMs = 0;
@@ -243,13 +255,13 @@ function matchedStep(t, obs, dt) {
       }
     }
   }
-  // Identity memory: this face MATCHES a person who already earned a
-  // full clear hold, and the current read agrees confidently — skip
-  // the rest of the hold (the hold was served once; cuts/misses don't
-  // un-serve it). A certain FLAG above always wins first.
-  if (obs.remembered === 'cleared' && !obs.flagged && obs.certain && state === 'blurred') {
-    state = 'cleared';
-    clearMs = Math.max(clearMs, CLEAR_HOLD_MS);
+  // Identity memory, BLUR direction only (see MEM_SIM_FLAG): a face
+  // matching someone previously read as certainly opposite-gender is
+  // covered again immediately, without re-earning the verdict.
+  if (obs.remembered === 'blurred') {
+    state = 'blurred';
+    clearMs = 0;
+    clearStreak = 0;
   }
   return {
     id: t.id,
@@ -360,18 +372,15 @@ function newTrack(obs) {
     vy: 0,
     vw: 0,
     vh: 0,
-    // Unknown ⇒ covered from the first observation, even one that reads
-    // confidently clear — the clear hold applies to everyone equally.
-    // EXCEPT a remembered identity: someone who already served the full
-    // hold this video, re-appearing after a cut or miss, whose face
-    // matches at MEM_SIM_CLEAR and whose current read agrees. A certain
-    // flag still always wins.
-    state:
-      obs.remembered === 'cleared' && !obs.flagged && obs.certain ? 'cleared' : 'blurred',
-    clearMs: obs.remembered === 'cleared' && !obs.flagged && obs.certain ? CLEAR_HOLD_MS : 0,
+    // Unknown ⇒ covered from the first observation, always. Memory
+    // cannot shortcut this (identity similarity is not separable —
+    // see MEM_SIM_FLAG); the fast-clear streak is what lifts blur off
+    // a correctly-read same-gender adult within ~0.8s.
+    state: 'blurred',
+    clearMs: 0,
     missMs: 0,
     clearAge: 0,
-    clearStreak: !obs.flagged && obs.certain ? 1 : 0,
+    clearStreak: !obs.flagged && obs.certain && obs.remembered !== 'blurred' ? 1 : 0,
     flagStreak: 0,
     desc: obs.desc || null,
     lastVerdict:

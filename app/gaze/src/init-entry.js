@@ -22,7 +22,7 @@ import {
   blurredTracks,
   demoteTracks,
   cosineSim,
-  MEM_SIM_CLEAR,
+  MEM_SIM_FLAG,
   MEM_SIM_UPDATE,
 } from './person-track.mjs';
 import * as sceneGate from './scene-gate.mjs';
@@ -550,9 +550,12 @@ import { planForMode } from './pipeline-plan.mjs';
       dbg.mem = identityMemory.length;
       dbg.sims.push(Math.round(m.sim * 100) / 100);
       if (dbg.sims.length > 400) dbg.sims.shift();
-      // Only the CLEAR direction is worth inheriting (blur is already
-      // the default for every unknown) — and it takes the high bar.
-      if (m.best && m.best.state === 'cleared' && m.sim >= MEM_SIM_CLEAR) return 'cleared';
+      // BLUR direction only: descriptor similarity cannot separate
+      // identities reliably (measured 2026-08-25 — see MEM_SIM_FLAG in
+      // person-track.mjs), so a match may only ADD coverage, never
+      // remove it. Recognising a previously-flagged person re-covers
+      // them instantly; everyone else is covered by default anyway.
+      if (m.best && m.best.state === 'blurred' && m.sim >= MEM_SIM_FLAG) return 'blurred';
       return null;
     }
     function memoryStore(tracks) {
@@ -564,12 +567,11 @@ import { planForMode } from './pipeline-plan.mjs';
         // that would freeze "unknown ⇒ covered" into "this face is
         // always covered".
         var state = null;
-        // A cleared entry may only be (re)written on a pass whose OWN
-        // read was a certain adult clear (review A2): a child's face
-        // leaking into the crop can never author a cleared identity,
-        // because a child read is never certain.
-        if (t.state === 'cleared' && t.lastVerdict === 'clear-certain') state = 'cleared';
-        else if (t.state === 'blurred' && t.lastVerdict === 'flag-certain') state = 'blurred';
+        // Only certain FLAGS are memorized (cleared identities are not
+        // stored at all — memory can never grant a clear, see
+        // MEM_SIM_FLAG). Provisional blurs are excluded: they would
+        // freeze "unknown ⇒ covered" into "this face is always covered".
+        if (t.state === 'blurred' && t.lastVerdict === 'flag-certain') state = 'blurred';
         if (!state) continue;
         var m = memBest(t.desc);
         if (m.best && m.sim >= MEM_SIM_UPDATE) {
@@ -949,6 +951,20 @@ import { planForMode } from './pipeline-plan.mjs';
                     });
                   });
                   return chain.then(function () {
+                    // Calibration probe (review B): two persons in the
+                    // SAME frame are definitionally different people —
+                    // their pairwise sim is the cross-person band.
+                    var dbg = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+                    dbg.cross = dbg.cross || [];
+                    for (var a = 0; a < observations.length; a++) {
+                      for (var b2 = a + 1; b2 < observations.length; b2++) {
+                        if (!observations[a].desc || !observations[b2].desc) continue;
+                        dbg.cross.push(
+                          Math.round(cosineSim(observations[a].desc, observations[b2].desc) * 100) / 100
+                        );
+                      }
+                    }
+                    if (dbg.cross.length > 400) dbg.cross = dbg.cross.slice(-400);
                     return observations;
                   });
                 });
