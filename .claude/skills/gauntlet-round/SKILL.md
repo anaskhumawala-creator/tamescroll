@@ -5,6 +5,34 @@ description: Run one round of the tamescroll in-player blur accuracy gauntlet �
 
 # Gauntlet round
 
+## 0. Take the lock, or leave
+
+A round rebuilds the bundle, restarts the dev app and commits. Two
+rounds running at once in one checkout corrupt each other's build and
+race the same git index, so the first thing a round does is claim
+exclusivity:
+
+```
+cd Z:/Apps/Disconnect/spikes/gauntlet
+python lock.py acquire
+```
+
+If it prints `BUSY`, **stop immediately and do nothing else** — another
+round is live and this tick is a duplicate. Say so in one line and end.
+Do not "just check something quickly" while another round holds the
+lock; that is how two builds land in one binary.
+
+Release it when the round is done, including when it fails:
+
+```
+python lock.py release
+```
+
+The lock self-expires after 90 minutes so a crashed round cannot wedge
+the loop forever.
+
+## The round
+
 One round is: **capture → score → critique → fix → re-verify → log**. Run
 exactly one. Do not chain rounds inside a single invocation — the round
 log is what gives the next round its starting point, and a round that
@@ -154,8 +182,8 @@ pass cost, and what is still open. Before/after counts are what make the
 log useful — a round that only records what it changed cannot tell the
 next round whether it helped.
 
-Commit and push. Do not release an APK or deploy anything outward-facing
-without the owner's explicit OK.
+Commit and push, then `python lock.py release`. Do not release an APK or
+deploy anything outward-facing without the owner's explicit OK.
 
 If a round finds zero failures across all five classes in both gender
 directions on a video that actually contains people, say so prominently
