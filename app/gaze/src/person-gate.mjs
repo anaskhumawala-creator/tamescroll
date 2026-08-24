@@ -48,6 +48,39 @@ export function parsePersons(data, minScore) {
       if (kx - KEYPOINT_MARGIN < x1) x1 = kx - KEYPOINT_MARGIN;
       if (kx + KEYPOINT_MARGIN > x2) x2 = kx + KEYPOINT_MARGIN;
     }
+    // HEAD ANCHOR (owner 2026-08-24: "take the head as an anchor — the
+    // blur sometimes moves away from the head"): the head is the one
+    // part that must never escape the patch. Give the head keypoints
+    // (0-4: nose, eyes, ears) a guaranteed margin derived from the
+    // visible head size, baked into the box itself.
+    var hx = 0;
+    var hy = 0;
+    var hn = 0;
+    for (var hk = 0; hk < 5; hk++) {
+      if (!(data[o + hk * 3 + 2] >= PERSON_KEYPOINT_MIN)) continue;
+      hy += data[o + hk * 3];
+      hx += data[o + hk * 3 + 1];
+      hn++;
+    }
+    if (hn > 0) {
+      hx /= hn;
+      hy /= hn;
+      // Head size: ear-to-ear if both ears are visible, else eye gap
+      // x2.5, else 60% of the shoulder span, else a floor.
+      var headSize = 0;
+      if (data[o + 9 + 2] >= PERSON_KEYPOINT_MIN && data[o + 12 + 2] >= PERSON_KEYPOINT_MIN) {
+        headSize = Math.abs(data[o + 10] - data[o + 13]);
+      } else if (data[o + 3 + 2] >= PERSON_KEYPOINT_MIN && data[o + 6 + 2] >= PERSON_KEYPOINT_MIN) {
+        headSize = Math.abs(data[o + 4] - data[o + 7]) * 2.5;
+      } else if (data[o + 15 + 2] >= PERSON_KEYPOINT_MIN && data[o + 18 + 2] >= PERSON_KEYPOINT_MIN) {
+        headSize = Math.abs(data[o + 16] - data[o + 19]) * 0.6;
+      }
+      headSize = Math.max(headSize, 0.04);
+      if (hy - headSize * 1.5 < y1) y1 = hy - headSize * 1.5;
+      if (hx - headSize * 1.3 < x1) x1 = hx - headSize * 1.3;
+      if (hx + headSize * 1.3 > x2) x2 = hx + headSize * 1.3;
+      if (hy + headSize > y2) y2 = hy + headSize;
+    }
     out.push({
       y1: Math.max(0, y1),
       x1: Math.max(0, x1),

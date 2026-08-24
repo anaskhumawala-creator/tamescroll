@@ -814,8 +814,13 @@ import { planForMode } from './pipeline-plan.mjs';
         // safety-net cadence (plan-blur-v2 Stage 1).
         floor = sceneGate.STATIC_INTERVAL_MS;
       }
+      // 2x/3x playback compresses on-screen motion into less wall time
+      // (owner edge-case ask): tighten the cadence proportionally so
+      // patch lag doesn't scale with playback speed. The adaptive
+      // pass-cost throttle still wins on slow devices.
+      var rate = isPlayer && video.playbackRate > 1 ? Math.min(3, video.playbackRate) : 1;
       var effInterval = isPlayer
-        ? Math.min(1000, Math.max(floor, lastPassMs * 1.5))
+        ? Math.min(1000, Math.max(floor / rate, lastPassMs * 1.5))
         : sampleInterval;
       if (now - lastSample < effInterval) return;
       if (sampling) return;
@@ -1039,6 +1044,18 @@ import { planForMode } from './pipeline-plan.mjs';
     video.addEventListener('playing', start);
     video.addEventListener('pause', stop);
     video.addEventListener('ended', stop);
+    // A seek is a discontinuity like a cut (owner edge-case ask:
+    // fast-forward/arrow-key skips): old positions are meaningless.
+    // Fresh tracks, immediate full pass, new luma baseline.
+    video.addEventListener('seeked', function () {
+      if (failed || dead) return;
+      videoTracks = [];
+      prevLuma = null;
+      sceneState = 'motion';
+      lastSample = 0;
+      lastZoomAt = 0;
+      if (!video.paused) sampleOnce();
+    });
     // Paused = nothing moves: zero the velocities and re-pin, or the
     // overlay extrapolator would keep sliding/scaling patches over a
     // frozen frame (owner edge-case ask 2026-08-24).

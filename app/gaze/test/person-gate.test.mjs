@@ -59,3 +59,20 @@ test('personCropRegion: pads the person box, clamped to the frame', () => {
   assert.equal(edge.y1, 0);
   assert.equal(edge.y2, 1);
 });
+
+test('parsePersons: head keypoints get a guaranteed margin (head anchor)', () => {
+  const data = new Float32Array(6 * 56);
+  // box: tight torso box that CROPS the head (y 0.3..0.8)
+  data[51] = 0.3; data[52] = 0.4; data[53] = 0.8; data[54] = 0.6; data[55] = 0.9;
+  // nose at (0.5, 0.25) — above the box top
+  data[0] = 0.25; data[1] = 0.5; data[2] = 0.9;
+  // both ears visible, 0.08 apart -> headSize 0.08
+  data[9] = 0.26; data[10] = 0.46; data[11] = 0.9;
+  data[12] = 0.26; data[13] = 0.54; data[14] = 0.9;
+  const p = parsePersons(data)[0];
+  // top must reach headY - headSize*1.5 ≈ 0.2567 - 0.12
+  assert.ok(p.y1 <= 0.2567 - 0.08 * 1.5 + 1e-6);
+  // sides must cover headX ± headSize*1.3
+  assert.ok(p.x1 <= 0.5 - 0.08 * 1.3 + 1e-6);
+  assert.ok(p.x2 >= 0.5 + 0.08 * 1.3 - 1e-6);
+});
