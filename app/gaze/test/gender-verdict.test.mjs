@@ -3,7 +3,14 @@
 // fail-safe); no declared user gender = v1 behavior (any face covers).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { faceVerdict, flaggedFaceIndices, faceMeta, GENDER_MIN_SCORE } from '../src/gender-verdict.mjs';
+import {
+  faceVerdict,
+  flaggedFaceIndices,
+  faceMeta,
+  GENDER_MIN_SCORE,
+  GENDER_CLEAR_SCORE,
+  GENDER_ADULT_AGE,
+} from '../src/gender-verdict.mjs';
 
 const male = (s = 0.9) => ({ gender: 'male', score: s });
 const female = (s = 0.9) => ({ gender: 'female', score: s });
@@ -74,6 +81,31 @@ test('faceMeta: certain same-gender clears, certain opposite flags, low score fl
   assert.deepEqual(m[0], { flagged: false, certain: true });
   assert.deepEqual(m[1], { flagged: true, certain: true });
   assert.deepEqual(m[2], { flagged: true, certain: false });
+});
+
+test('faceMeta: the CLEAR direction pays the high bar (asymmetric certainty)', () => {
+  // A same-gender read below GENDER_CLEAR_SCORE must NOT count as a
+  // confident clear (owner frame 2026-08-24: a misread child cleared at
+  // the old shared 0.25 bar) — it stays covered, uncertain.
+  const m = faceMeta('man', [male(GENDER_CLEAR_SCORE - 0.05), male(GENDER_CLEAR_SCORE)]);
+  assert.deepEqual(m[0], { flagged: true, certain: false });
+  assert.deepEqual(m[1], { flagged: false, certain: true });
+  // The flag direction keeps the LOW bar: a 0.3-certain opposite read
+  // still flags with certainty (fail-safe stays cheap).
+  const f = faceMeta('man', [female(0.3)]);
+  assert.deepEqual(f[0], { flagged: true, certain: true });
+});
+
+test('faceMeta: child faces never clear — gender untrusted below GENDER_ADULT_AGE', () => {
+  const kid = { gender: 'male', score: 0.95, age: GENDER_ADULT_AGE - 6 };
+  const adult = { gender: 'male', score: 0.95, age: GENDER_ADULT_AGE + 10 };
+  const m = faceMeta('man', [kid, adult]);
+  assert.deepEqual(m[0], { flagged: true, certain: false }); // unknown => covered
+  assert.deepEqual(m[1], { flagged: false, certain: true });
+  // Child opposite-gender read is also uncertain (still flagged, but it
+  // may not override a track's history as a POSITIVE reading).
+  const k2 = faceMeta('woman', [{ gender: 'male', score: 0.95, age: 10 }]);
+  assert.deepEqual(k2[0], { flagged: true, certain: false });
 });
 
 test('faceMeta: unset user gender flags everything as uncertain', () => {

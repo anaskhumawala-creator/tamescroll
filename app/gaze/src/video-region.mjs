@@ -1,6 +1,6 @@
 // Person-region blur for the WATCH PLAYER (owner ask 2026-08-24: blur the
 // blocked person on a playing video, not the whole frame — HaramBlur
-// parity, extended to whole-body coverage via expandToBody caller-side).
+// parity, whole-body coverage).
 //
 // Why a separate module from region-blur.mjs (thumbnails): those overlays
 // are anchored in document.body. Element fullscreen — and Android's native
@@ -11,23 +11,36 @@
 // Anchoring is position:ABSOLUTE relative to the player, never fixed:
 // fixed positioning re-anchors to the nearest transformed/filtered
 // ancestor, and YouTube's player tree uses transforms freely — a fixed
-// overlay can land at wildly wrong coordinates (v1 of this module did
-// exactly that; owner report "in-video blur never worked"). Absolute
-// coords are computed player-relative from two getBoundingClientRects,
-// which stay correct under any ancestor transform. A rAF loop re-pins
-// every frame so player resize / theater / fullscreen transitions never
-// drift the patch.
+// overlay can land at wildly wrong coordinates (v1 did exactly that).
+// Absolute coords are computed player-relative from two
+// getBoundingClientRects, which stay correct under ancestor transforms.
+//
+// v2 (redesign 2026-08-24, blur-pipeline-audit): the old rAF loop read
+// two getBoundingClientRects and wrote left/top/width/height EVERY frame
+// — a forced synchronous layout at 60Hz for the life of the overlay.
+// Now: rects are CACHED (re-read on a slow timer + ResizeObserver, both
+// outside the rAF), overlays are fixed-size divs moved with a compositor
+// -only transform, and the loop INTERPOLATES each track between ~4Hz
+// detection updates using its velocity (dead reckoning) — smoothness
+// comes from 60Hz interpolation, not from inference rate.
 
 var HOST_CLASS = 'ts-gaze-vregion-host';
+var RECT_REFRESH_MS = 250;
+// Interpolation stops extrapolating past this (a stale detection pass
+// must not slide a patch off its person indefinitely).
+var MAX_EXTRAPOLATE_MS = 600;
+// Overlays are BASE_PX squares scaled by transform — one layout when
+// built, compositor-only moves forever after.
+var BASE_PX = 100;
 
-// video -> { host, video, boxes, overlays, raf }
+// video -> { host, video, tracks, at, overlays, raf, timer, ro, hr, vr }
 var entries = new Map();
 
 /**
  * Pure mapping: a normalized (0..1) box on the video -> a rect in the
- * PLAYER's coordinate space (for position:absolute children of the
- * player). Both rects come from getBoundingClientRect, so any ancestor
- * transform cancels out of the subtraction. Exported for tests.
+ * PLAYER's coordinate space. Both rects come from getBoundingClientRect,
+ * so any ancestor transform cancels out of the subtraction. Exported for
+ * tests.
  */
 export function boxToHostRect(hostRect, videoRect, box) {
   return {
@@ -38,56 +51,74 @@ export function boxToHostRect(hostRect, videoRect, box) {
   };
 }
 
+/**
+ * Pure: advance a track's box along its velocity (normalized units/s),
+ * capped at MAX_EXTRAPOLATE_MS. Exported for tests.
+ */
+export function interpolateBox(track, elapsedMs) {
+  var t = Math.min(Math.max(0, elapsedMs), MAX_EXTRAPOLATE_MS) / 1000;
+  var dx = (track.vx || 0) * t;
+  var dy = (track.vy || 0) * t;
+  return {
+    x1: Math.max(0, Math.min(1, track.box.x1 + dx)),
+    y1: Math.max(0, Math.min(1, track.box.y1 + dy)),
+    x2: Math.max(0, Math.min(1, track.box.x2 + dx)),
+    y2: Math.max(0, Math.min(1, track.box.y2 + dy)),
+  };
+}
+
 // The overlay host lives inside the player so fullscreen keeps it painted.
-// Falls back to null when no player container is found — the caller then
-// keeps whole-video blur.
 function resolveHost(video) {
   return (video.closest && video.closest('#movie_player')) || null;
 }
 
 function makeOverlay() {
   var d = document.createElement('div');
-  // Near-rectangular patch (owner 2026-08-24: heavy rounding looked
-  // wrong); z-index above the video but below ytp controls (they sit at
-  // 2147483647-ish only in fullscreen; 59 clears the video + gradients
-  // while staying under the control bar so scrubbing stays visible).
+  // Near-rectangular patch; z-index above the video but below ytp
+  // controls. Fixed BASE_PX size + transform scale = zero layout per
+  // move (transform is compositor-only; backdrop-filter samples the
+  // transformed bounds, verified live 2026-08-24).
   d.style.cssText =
-    'position:absolute;pointer-events:none;border-radius:8px;z-index:59;' +
+    'position:absolute;left:0;top:0;width:' + BASE_PX + 'px;height:' + BASE_PX + 'px;' +
+    'pointer-events:none;border-radius:8px;z-index:59;transform-origin:0 0;' +
+    'will-change:transform;' +
     'backdrop-filter:blur(var(--ts-blur-strong,24px));' +
     '-webkit-backdrop-filter:blur(var(--ts-blur-strong,24px));';
   return d;
 }
 
 function place(overlay, rect) {
-  overlay.style.left = rect.left + 'px';
-  overlay.style.top = rect.top + 'px';
-  overlay.style.width = rect.width + 'px';
-  overlay.style.height = rect.height + 'px';
+  overlay.style.transform =
+    'translate(' + rect.left + 'px,' + rect.top + 'px) ' +
+    'scale(' + rect.width / BASE_PX + ',' + rect.height / BASE_PX + ')';
 }
 
-function reposition(entry) {
+function refreshRects(entry) {
   if (!entry.video.isConnected || !entry.host.isConnected) {
     clear(entry.video);
     return;
   }
-  var hr = entry.host.getBoundingClientRect();
-  var vr = entry.video.getBoundingClientRect();
-  if (vr.width === 0 || vr.height === 0) {
-    // Player detached/hidden: park the overlays rather than paint them at
-    // 0,0. They resume next frame once the rect is real again.
+  entry.hr = entry.host.getBoundingClientRect();
+  entry.vr = entry.video.getBoundingClientRect();
+}
+
+function reposition(entry, now) {
+  var vr = entry.vr;
+  if (!vr || vr.width === 0 || vr.height === 0) {
     for (var i = 0; i < entry.overlays.length; i++) entry.overlays[i].style.display = 'none';
     return;
   }
-  for (var j = 0; j < entry.boxes.length; j++) {
+  var elapsed = now - entry.at;
+  for (var j = 0; j < entry.tracks.length; j++) {
     entry.overlays[j].style.display = '';
-    place(entry.overlays[j], boxToHostRect(hr, vr, entry.boxes[j]));
+    place(entry.overlays[j], boxToHostRect(entry.hr, vr, interpolateBox(entry.tracks[j], elapsed)));
   }
 }
 
 function loop(video) {
   var entry = entries.get(video);
   if (!entry) return;
-  reposition(entry);
+  reposition(entry, performance.now());
   entry.raf = requestAnimationFrame(function () {
     loop(video);
   });
@@ -102,21 +133,21 @@ export function canRegionVideo(video) {
 }
 
 /**
- * Set (or update) the region boxes covered on a playing video. Reuses
- * overlays when the count is unchanged so the rAF loop just moves them.
- * boxes: [{ x1, y1, x2, y2 }] normalized 0..1 of the video frame.
+ * Set (or update) the blurred tracks on a playing video. tracks:
+ * [{ box: {x1,y1,x2,y2}, vx, vy }] — box normalized 0..1 of the video
+ * frame, velocities in normalized units per SECOND (person-track.mjs
+ * blurredTracks output). The rAF loop interpolates between calls.
  */
-export function setBoxes(video, boxes) {
+export function setTracks(video, tracks) {
   var host = resolveHost(video);
-  if (!host || !boxes || !boxes.length) {
+  if (!host || !tracks || !tracks.length) {
     clear(video);
     return false;
   }
   var entry = entries.get(video);
   if (!entry) {
     // Absolute children need a positioned ancestor; YouTube's player is
-    // position:relative already, but belt-and-braces for other hosts —
-    // only touch it when it would otherwise be static.
+    // position:relative already — belt-and-braces for other hosts.
     try {
       if (window.getComputedStyle(host).position === 'static') {
         host.style.position = 'relative';
@@ -124,27 +155,66 @@ export function setBoxes(video, boxes) {
     } catch (e) {
       /* non-fatal: worst case overlays anchor to a further ancestor */
     }
-    entry = { host: host, video: video, boxes: boxes, overlays: [], raf: 0 };
+    entry = {
+      host: host,
+      video: video,
+      tracks: tracks,
+      at: performance.now(),
+      overlays: [],
+      raf: 0,
+      timer: 0,
+      ro: null,
+      hr: null,
+      vr: null,
+    };
     entries.set(video, entry);
+    refreshRects(entry);
+    // Rect refresh lives OUTSIDE the rAF loop: a slow timer catches
+    // scroll/theater drift, a ResizeObserver catches player resizes the
+    // frame they happen.
+    entry.timer = setInterval(function () {
+      refreshRects(entry);
+    }, RECT_REFRESH_MS);
+    if (typeof ResizeObserver === 'function') {
+      entry.ro = new ResizeObserver(function () {
+        refreshRects(entry);
+      });
+      try {
+        entry.ro.observe(host);
+        entry.ro.observe(video);
+      } catch (e) {
+        /* observer refusal: the timer still refreshes */
+      }
+    }
   } else {
-    entry.boxes = boxes;
+    entry.tracks = tracks;
+    entry.at = performance.now();
   }
-  // Rebuild overlays only when the count changes; steady state reuses them.
-  if (entry.overlays.length !== boxes.length) {
+  // Rebuild overlays only when the count changes; steady state reuses.
+  if (entry.overlays.length !== tracks.length) {
     for (var i = 0; i < entry.overlays.length; i++) {
       if (entry.overlays[i].parentNode) entry.overlays[i].parentNode.removeChild(entry.overlays[i]);
     }
     entry.overlays = [];
-    for (var b = 0; b < boxes.length; b++) {
+    for (var b = 0; b < tracks.length; b++) {
       var o = makeOverlay();
       o.className = HOST_CLASS;
       entry.overlays.push(o);
-      host.appendChild(o);
+      entry.host.appendChild(o);
     }
   }
-  reposition(entry);
+  reposition(entry, entry.at);
   if (!entry.raf) loop(video);
   return true;
+}
+
+/** Back-compat shim: static boxes = tracks with zero velocity. */
+export function setBoxes(video, boxes) {
+  var tracks = [];
+  for (var i = 0; i < (boxes ? boxes.length : 0); i++) {
+    tracks.push({ box: boxes[i], vx: 0, vy: 0 });
+  }
+  return setTracks(video, tracks);
 }
 
 /** Remove all region overlays for one video. */
@@ -152,6 +222,14 @@ export function clear(video) {
   var entry = entries.get(video);
   if (!entry) return;
   if (entry.raf) cancelAnimationFrame(entry.raf);
+  if (entry.timer) clearInterval(entry.timer);
+  if (entry.ro) {
+    try {
+      entry.ro.disconnect();
+    } catch (e) {
+      /* already dead */
+    }
+  }
   for (var i = 0; i < entry.overlays.length; i++) {
     if (entry.overlays[i].parentNode) entry.overlays[i].parentNode.removeChild(entry.overlays[i]);
   }

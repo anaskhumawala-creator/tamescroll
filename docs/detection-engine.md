@@ -81,23 +81,25 @@ conservative, never tuned against evidence.
 | NSFW sexy | Sexy > 0.8 | same | probe38: fired on a live suggestive thumbnail, clean results untouched |
 | Image min size | 64px | below = decorative, skip | guess |
 | Image batch | 4 / idle slice | inference batching | ok (probe-verified no jank) |
-| Video sample (feed) | 500ms | ≤2 inferences/s/video | guess |
-| Video sample (player) | 140ms | ~7/s so region overlays chase the face | guess (owner ask 2026-08-24, region mode) |
-| Clean streak | 4 samples | consecutive clean frames to unblur (~2s) | guess |
-| Body expansion | shoulders ±1.2 face-w, torso +6.0 face-h, hair +0.3 | face box → whole-person patch (HaramBlur parity); input de-inflated by /1.4 first | visual probe 2026-08-24 (3.2h cut a standing speaker at the hips; 1.4/1.6 without de-inflation swallowed the frame; shoulders 1.6→1.2 2026-08-24 — wide box swallowed the adjacent face) |
-| Player region pad | 0.12 | between-sample motion cushion on body boxes | guess |
-| Track hold | 8 misses (~1.1s @7Hz) | lost track coasts on velocity before its patch drops | raised from 4 2026-08-24 (small faces flicker; lingering blur is the safe direction) |
-| Track confirm | 3 hits (TRACK_MIN_HITS) below conf 0.35 | low-confidence rescue detections render only after 3 sightings; confident boxes blur frame 1 | owner screenshots 2026-08-24: one-frame phantoms (shirt graphic, plank) |
-| Face recheck | 0.5 (FACE_RECHECK_CONFIDENCE) on a 2x-padded NATIVE-res crop; runs on the rescue band AND any small box (side < 0.2 enlarged) under conf 0.7 | owner 2026-08-24 'random objects blurred': persistent texture phantoms beat pure temporal gates; zoom recheck separates a real small face (fills the crop, scores high) from wood grain |
-| Gender memory | 3 confident clears (TRACK_GENDER_MEMORY) | a track with that history absorbs UNCERTAIN flags (turned head, motion blur); a confident opposite reading still flags instantly + resets | owner 2026-08-24 'remember the person you checked' |
-| Torso-ghost drop | uncertain candidate centred inside a confidently-cleared face's body column, below it | shirt graphics on a cleared person ride along as fake faces; certain flags always bypass | live 2026-08-24: cleared Linus, patch on his moving shirt — neither static nor recheck rules could reach it |
-| Person model | MoveNet MultiPose Lightning (Apache-2.0), 256px input, every 3rd player sample (~2.4Hz) | up to 6 person boxes: gates ambiguous face candidates (only in-band drops — certain flags and conf>=0.6 bypass) + covers FACELESS persons (backside, unknown gender => covered) | spike 2026-08-24: titlecard letters 0 persons, real groups boxed 0.28-0.62, 30ms warm desktop; hybrid uint8/f16 requant 9.45->4.94MB (full uint8 killed depthwise convs, dead output) |
+| Video sample (feed) | 500ms | ≤2 inferences/s/video (whole-blur path) | guess |
+| Player pass cadence | 250ms (~4Hz) | ONE person-primary pass per tick; overlay smoothness comes from 60Hz interpolation, not inference rate | redesign 2026-08-24 (audit: the 140ms multi-source loop ran 20-35 inferences/s on the page thread — measured 95 dropped frames + 8.2s long tasks / 77s) |
+| Clean streak | 4 samples | consecutive clean frames to unblur (feed whole-blur path) | guess |
+| Body expansion | shoulders ±1.2 face-w, torso +6.0 face-h, hair +0.3 (input de-inflated /1.4) | face box → whole-person patch — IMAGE path only now (player patches are the person box) | visual probe 2026-08-24 |
+| Person model | MoveNet MultiPose Lightning (Apache-2.0), 256px input, EVERY player pass | up to 6 person boxes — the PRIMARY detector: the person is the unit of blur, faces run only on person crops | spike 2026-08-24: titlecard letters 0 persons, real groups boxed 0.28-0.62, 30ms warm desktop; hybrid uint8/f16 requant 9.45->4.94MB |
 | Person min score | 0.25 (PERSON_MIN_SCORE) | MoveNet box score floor | spike range above |
-| Person gate pad | 0.15 | person box containment padding; same pad = the zoom-classify crop region | guess |
-| Zoom classify | 256px crop per person (max 4), person-pass rate (~2.4Hz) | face+gender rerun on each person's NATIVE-res crop; verdicts replace full-frame ones inside those regions (owner 'double pass' — multi-SCALE, since same-frame repeats are deterministic) | built 2026-08-24, live-verify pending |
+| Person crop pad | 0.15 (PERSON_GATE_PAD) | padding around the person box for the face/gender crop | guess |
+| Person crop | 256px long side, aspect-preserving, max 4 persons/pass | the ONLY face/gender path on the player — small faces are big at native crop res, so no rescue floor / recheck needed | aspect fix verified v9 screens 2026-08-24 (square-stretch flipped gender reads) |
+| Track IoU min | 0.2 (PTRACK_IOU_MIN) | association floor; globally-greedy best-IoU pairing (centre-distance greedy swapped nearby identities) | redesign 2026-08-24 |
+| Track EMA | 0.45 (PTRACK_EMA_ALPHA) | matched-box smoothing per 4Hz pass | guess |
+| Track coast | 1000ms (PTRACK_MAX_MISS_MS) | lost track coasts on decayed velocity, then expires | guess |
+| Clear hold | 1500ms (CLEAR_HOLD_MS) | CONTINUOUS confident same-gender time before a patch lifts; blur direction always instant; uncertainty never un-clears a known person | redesign 2026-08-24 — THE hysteresis boundary (patches follow track STATE, never per-sample verdicts) |
+| Render pad | 0.05 (PTRACK_PAD) | person box padding at render | guess |
+| Overlay interpolation | 60Hz dead reckoning, extrapolation capped 600ms (MAX_EXTRAPOLATE_MS); rects re-read on 250ms timer + ResizeObserver, transforms only (zero per-frame layout) | video-region v2 | redesign 2026-08-24 |
 | Blur radius | 8/16/28px (Light/Med/Strong), 24px fallback | strength presets | owner-chosen |
-| Gender min score | 0.25 (GENDER_MIN_SCORE) | certainty floor on faceres score (2*\|sigmoid-0.5\|); below ⇒ face stays covered | recalibrated 2026-08-24 for the faceres swap: direction 7/7 correct on live thumbnails (spike gender-spike.html), male conf 0.3-0.94, female 0.42-0.69; old 0.85 softmax bar blurred most same-gender faces (owner report) |
-| Face min confidence | 0.35 flat (images) / video: 0.2 small (side < 0.14 frame) + track confirm | size-adaptive floor, VIDEO-ONLY | split 2026-08-24 (owner: 'failing when the subject is smaller'), then gated same day (owner: 'random blurs' — low floor re-admitted small phantoms): rescue band renders only after TRACK_MIN_HITS |
+| Gender min score | 0.25 (GENDER_MIN_SCORE) | certainty floor for the FLAG direction (opposite-gender reads) | recalibrated 2026-08-24 for the faceres swap: direction 7/7 correct on live thumbnails (spike gender-spike.html), male conf 0.3-0.94, female 0.42-0.69; old 0.85 softmax bar blurred most same-gender faces (owner report) |
+| Gender clear score | 0.6 (GENDER_CLEAR_SCORE) | asymmetric: a same-gender read counts as a confident CLEAR only at this certainty — under-blur is the failure that matters | owner frame 2026-08-24: a misread child cleared at the shared 0.25 bar (daughter sharp, Linus covered) |
+| Adult age floor | 18 (GENDER_ADULT_AGE) | faceres age head (age_pred/Softmax [N,100], expected value): below ⇒ gender untrusted BOTH directions, certain=false, unknown ⇒ covered | same owner frame — adult-trained gender models are unreliable on children; the age head was embedded all along, now read |
+| Face min confidence | 0.35 flat (images AND person crops) | the 2026-08-24 small-rescue band died with the redesign (person crops make small faces big) | redesign 2026-08-24 |
 | Face NMS IoU | 0.1 | box de-duplication overlap | guess (Human-family default) |
 | Face crop enlarge | 1.4× | context around face for gender crop | guess (Human-family default) |
 | Gender model | faceres (HSE-FaceRes via human-models, MIT) | multi-head age/gender/descriptor; gender head only | swapped from mini-Xception 2026-08-24 — live calibration showed overlapping bands + a misgendered male; faceres 7/7 direction-correct on the same set |

@@ -35,17 +35,9 @@ export var GENDER_INPUT_SIZE = 224; // faceres (HSE-FaceRes) fixed input shape
 // hands), each one a phantom patch. Still below the 0.5 common default
 // so obscured real faces keep flagging — fail-safe leans kept.
 export var FACE_MIN_CONFIDENCE = 0.35;
-// Small-subject rescue (owner 2026-08-24: "failing when the subject is
-// a bit smaller"): genuinely small faces score low on BlazeFace, so the
-// 0.35 floor traded away exactly them. Boxes whose side is below
-// FACE_SMALL_SIDE (fraction of the model frame) keep the old 0.2 floor.
-// VIDEO-ONLY (smallRescue arg): owner screenshots the same day showed
-// the low floor re-admits small phantoms too (shirt graphic, plank), so
-// the rescue is only offered where the tracker can demand persistence
-// (track.mjs TRACK_MIN_HITS) before a patch renders. Single-frame images
-// have no temporal evidence and stay at the flat 0.35 floor.
-export var FACE_SMALL_SIDE = 0.14;
-export var FACE_SMALL_MIN_CONFIDENCE = 0.2;
+// (The 2026-08-24 small-subject rescue floor is gone: the person-primary
+// video pipeline runs faces on native-res person crops, where small
+// faces are big — redesign, blur-pipeline-audit.)
 var FACE_IOU = 0.1;
 var FACE_MAX = 20;
 var FACE_ENLARGE = 1.4; // gender wants context around the face crop
@@ -271,7 +263,7 @@ function ensureAnchors() {
  * squarified in model space for downstream gender crops). Empty array =
  * no faces. Decode adapted from vladmandic/human getBoxes (MIT).
  */
-export async function detectFaceBoxes(model, pixelSource, smallRescue) {
+export async function detectFaceBoxes(model, pixelSource) {
   var anchors = ensureAnchors();
   var out = tf.tidy(function () {
     var img = tf.browser.fromPixels(pixelSource);
@@ -313,17 +305,10 @@ export async function detectFaceBoxes(model, pixelSource, smallRescue) {
     boxesArr[r * 4 + 2] = data[r * 5 + 3];
     boxesArr[r * 4 + 3] = data[r * 5 + 4];
   }
-  // With smallRescue, NMS runs at the LOW floor and the size-adaptive cut
-  // happens after, when box dimensions are known (see FACE_SMALL_SIDE
-  // above); without it (image path) the flat floor applies at NMS.
-  var floor = smallRescue ? FACE_SMALL_MIN_CONFIDENCE : FACE_MIN_CONFIDENCE;
-  var idx = nonMaxSuppression(boxesArr, scoresArr, FACE_MAX, FACE_IOU, floor);
-  var smallSide = FACE_SMALL_SIDE * INPUT_SIZE;
+  var idx = nonMaxSuppression(boxesArr, scoresArr, FACE_MAX, FACE_IOU, FACE_MIN_CONFIDENCE);
   var kept = [];
   for (var i = 0; i < idx.length; i++) {
     var j = idx[i] * 4;
-    var side = Math.max(boxesArr[j + 2] - boxesArr[j], boxesArr[j + 3] - boxesArr[j + 1]);
-    if (scoresArr[idx[i]] < FACE_MIN_CONFIDENCE && side >= smallSide) continue;
     // Enlarge + squarify in model space, then normalize to 0..1 of
     // the (resize-stretched) source — fractions map back correctly.
     var cx = (boxesArr[j] + boxesArr[j + 2]) / 2;
@@ -368,17 +353,23 @@ export async function classifyFaceGenders(model, pixelSource, boxes) {
     var res = model.execute(crops);
     var list = Array.isArray(res) ? res : [res];
     var genderT = null;
+    var ageT = null;
     for (var t = 0; t < list.length; t++) {
-      if (list[t].shape.length === 2 && list[t].shape[1] === 1) {
-        genderT = list[t];
-      }
+      if (list[t].shape.length === 2 && list[t].shape[1] === 1) genderT = list[t];
+      // age_pred/Softmax: [N,100], p(age==i) — expected value = age.
+      if (list[t].shape.length === 2 && list[t].shape[1] === 100) ageT = list[t];
     }
-    // Keep only the gender head; tidy disposes the rest.
-    return genderT ? tf.clone(genderT) : tf.zeros([boxes.length, 1]);
+    // Keep gender + age heads; tidy disposes the rest (descriptor).
+    return [
+      genderT ? tf.clone(genderT) : tf.zeros([boxes.length, 1]),
+      ageT ? tf.clone(ageT) : tf.zeros([boxes.length, 100]),
+    ];
   });
   var data;
+  var ageData;
   try {
-    data = await outs.data();
+    data = await outs[0].data();
+    ageData = await outs[1].data();
   } finally {
     tf.dispose(outs);
   }
@@ -386,8 +377,12 @@ export async function classifyFaceGenders(model, pixelSource, boxes) {
   for (var k = 0; k < boxes.length; k++) {
     var v = data[k];
     var confidence = Math.min(0.99, 2 * Math.abs(v - 0.5));
+    var age = 0;
+    for (var a = 0; a < 100; a++) age += a * ageData[k * 100 + a];
     verdicts.push(
-      v <= 0.5 ? { gender: 'female', score: confidence } : { gender: 'male', score: confidence }
+      v <= 0.5
+        ? { gender: 'female', score: confidence, age: age }
+        : { gender: 'male', score: confidence, age: age }
     );
   }
   return verdicts;

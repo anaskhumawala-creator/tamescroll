@@ -10,6 +10,18 @@
 // blurred most same-gender faces (owner report).
 
 export var GENDER_MIN_SCORE = 0.25;
+// CLEARING is asymmetric (owner frame 2026-08-24: the daughter — a
+// child — rendered SHARP while Linus was covered; faceres is trained on
+// adults and can read a child's face as confidently wrong): a face may
+// count as certainly-SAME-gender (the read that lifts blur) only at
+// this much higher certainty. Flagging keeps the low bar — over-blur
+// stays cheap, under-blur is the failure that matters.
+export var GENDER_CLEAR_SCORE = 0.6;
+// faceres age head (age_pred/Softmax, expected value over 0-99): below
+// this age the gender read is UNTRUSTED entirely — adult-trained gender
+// models are unreliable on children, and a child misread as same-gender
+// must never clear. certain=false ⇒ unknown ⇒ covered, as everywhere.
+export var GENDER_ADULT_AGE = 18;
 
 var OPPOSITE = { man: 'female', woman: 'male' };
 
@@ -59,9 +71,21 @@ export function faceMeta(userGender, faces) {
       continue;
     }
     var f = faces[i];
-    var certain = (f.gender === 'male' || f.gender === 'female') && f.score >= GENDER_MIN_SCORE;
     var same = f.gender === (opposite === 'female' ? 'male' : 'female');
-    out.push({ flagged: !same || !certain, certain: certain });
+    var directed = f.gender === 'male' || f.gender === 'female';
+    // Child faces: gender untrusted in BOTH directions (see
+    // GENDER_ADULT_AGE). Missing age (older callers) trusts the read.
+    var adult = typeof f.age !== 'number' || f.age >= GENDER_ADULT_AGE;
+    var certain;
+    if (same) {
+      // The clear direction pays the high bar (GENDER_CLEAR_SCORE) and
+      // must be an adult read.
+      certain = directed && adult && f.score >= GENDER_CLEAR_SCORE;
+      out.push({ flagged: !certain, certain: certain });
+    } else {
+      certain = directed && adult && f.score >= GENDER_MIN_SCORE;
+      out.push({ flagged: true, certain: certain });
+    }
   }
   return out;
 }

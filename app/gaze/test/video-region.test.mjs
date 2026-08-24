@@ -95,7 +95,8 @@ test('setBoxes: reuses overlays when the count is unchanged', () => {
   const after = player.children.filter((c) => c.tagName === 'DIV');
   assert.equal(after.length, 1);
   assert.equal(after[0], first); // same node, just repositioned
-  assert.equal(after[0].style.left, '256px'); // 0.4 * 640
+  // Compositor-only move: transform carries position AND size (v2).
+  assert.ok(after[0].style.transform.indexOf('translate(256px') === 0); // 0.4 * 640
   vr.clear(video);
 });
 
@@ -125,6 +126,19 @@ test('setBoxes: empty boxes clears instead of drawing', () => {
   const ok = vr.setBoxes(video, []);
   assert.equal(ok, false);
   assert.equal(player.children.filter((c) => c.tagName === 'DIV').length, 0);
+});
+
+test('interpolateBox: advances along velocity, clamps, caps extrapolation', () => {
+  const track = { box: { x1: 0.4, y1: 0.4, x2: 0.6, y2: 0.6 }, vx: 0.2, vy: 0 };
+  const b = vr.interpolateBox(track, 250); // 0.25s * 0.2/s = 0.05
+  assert.ok(Math.abs(b.x1 - 0.45) < 1e-9);
+  assert.ok(Math.abs(b.x2 - 0.65) < 1e-9);
+  // Past the cap the box stops sliding (stale pass must not drift off).
+  const capped = vr.interpolateBox(track, 5000);
+  assert.ok(Math.abs(capped.x1 - (0.4 + 0.2 * 0.6)) < 1e-9);
+  // Clamped to the frame.
+  const edge = vr.interpolateBox({ box: { x1: 0.9, y1: 0, x2: 1, y2: 0.1 }, vx: 1, vy: 0 }, 600);
+  assert.equal(edge.x2, 1);
 });
 
 test('clearAll: tears down every tracked video', () => {
