@@ -95,6 +95,10 @@ conservative, never tuned against evidence.
 | Clear hold | 1500ms (CLEAR_HOLD_MS) | CONTINUOUS confident same-gender time before a patch lifts; blur direction always instant; uncertainty never un-clears a known person | redesign 2026-08-24 — THE hysteresis boundary (patches follow track STATE, never per-sample verdicts) |
 | Render pad | 0.05 (PTRACK_PAD) | person box padding at render | guess |
 | Overlay interpolation | 60Hz dead reckoning, extrapolation capped 600ms (MAX_EXTRAPOLATE_MS); rects re-read on 250ms timer + ResizeObserver, transforms only (zero per-frame layout) | video-region v2 | redesign 2026-08-24 |
+| Scene gate size | 16×16 luma (GATE_SIZE), tick ≤10Hz (GATE_INTERVAL_MS 100) | mean-abs gray delta between gate ticks classifies player motion | plan-blur-v2 Stage 1 |
+| Scene cut | delta ≥ 28 (CUT_DELTA), min 250ms between forced passes (CUT_MIN_GAP_MS) | forces an immediate full pass incl. gender read — cuts are where new people appear | guess (cuts measure 40-100, pans <15 in principle — calibrate live) |
+| Scene static | delta ≤ 3 (STATIC_DELTA) ⇒ 1Hz floor (STATIC_INTERVAL_MS) | relaxes cadence ONLY while no track is blurred (mid-verdict/drifting subjects keep full cadence) | guess |
+| Player pixel path | fromPixels(video) direct + createImageBitmap crops | zero getImageData readback on the player; canvas fallback per-stream on error | plan-blur-v2 Stage 1 |
 | Blur radius | 8/16/28px (Light/Med/Strong), 24px fallback | strength presets | owner-chosen |
 | Gender min score | 0.25 (GENDER_MIN_SCORE) | certainty floor for the FLAG direction (opposite-gender reads) | recalibrated 2026-08-24 for the faceres swap: direction 7/7 correct on live thumbnails (spike gender-spike.html), male conf 0.3-0.94, female 0.42-0.69; old 0.85 softmax bar blurred most same-gender faces (owner report) |
 | Gender clear score | 0.6 (GENDER_CLEAR_SCORE) | asymmetric: a same-gender read counts as a confident CLEAR only at this certainty — under-blur is the failure that matters | owner frame 2026-08-24: a misread child cleared at the shared 0.25 bar (daughter sharp, Linus covered) |
