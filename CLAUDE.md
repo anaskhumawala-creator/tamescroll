@@ -63,7 +63,50 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-24 evening (whole-person region blur SHIPPED v1006, frame-verified).
+**Last updated:** 2026-08-24 night (accuracy pass SHIPPED v1007, frame-verified; next = MoveNet person-gate).
+
+**Session 2026-08-24 night (v0.1.7/1007 RELEASED):** owner escalations all
+night (small subjects missed, random blurs on text/planks/shirts, males
+re-blurred, wide boxes swallowing the neighbour face, pill vanishing,
+backside not blurred, "track the person"). Shipped + CDP-frame-verified
+on desktop dev app:
+- **faceres gender model** (HSE-FaceRes via human-models, MIT) replaced
+  mini-Xception — live bench showed mini-Xception bands overlap + one
+  misgender; faceres 7/7 direction-correct. GENDER_MIN_SCORE 0.25
+  (= certainty 2*|sigmoid-0.5|). Bundle now 16.2MB.
+- **track.mjs person tracker** (clean-room SORT-style; abewley/sort is
+  GPL — NEVER copy): EMA glide, velocity coast (8 misses), sticky flags,
+  clear streak 5, MIN_HITS 3 phantom gate, GENDER MEMORY (3 confident
+  clears absorb uncertain flags; certain opposite always wins), STATIC
+  suppression (10 samples, eps 0.025, maxConf<0.6 = graphics), TORSO-
+  GHOST drop (uncertain "face" inside a cleared face's body column =
+  shirt graphic). All calibrated from live measurements, registered in
+  docs/detection-engine.md.
+- **Small-subject rescue** video-only: detector floor 0.2 for boxes
+  <0.14 frame (flat 0.35 for images), + native-res zoom recheck of the
+  rescue band (2x crop from the VIDEO element, not the 128px canvas).
+  MEASURED GOTCHA (zoom-score sweep, 16 frames): recheck must NOT extend
+  above 0.35 — real distant faces zoom to 0 while logo letters zoomed
+  0.59; BlazeFace-128 alone cannot separate face-like graphics from
+  small faces. That separation = the person-gate milestone.
+- Body box shoulders 1.6→1.2 half-widths (owner: Linus face swallowed).
+- In-player pill ALWAYS visible now (owner: it's the blur switch).
+- **Verified** (scratchpad screens/v5-*): daughter blurred head→torso and
+  patch TRAVELS with her; Linus sharp beside her incl. shirt graphic;
+  crates/plank/titlecard phantoms gone; gaze 72/72, cargo 31/31.
+- **v1007 LIVE:** release recipe followed (strip 179MB→47MB, :app:clean,
+  APK 54MB = entry sum, aapt2 1007, gh release app-v0.1.7, manifest
+  pushed, raw sha 5888f72e verified). Phone updates in-app.
+- **NEXT (owner-commanded): humanoid/person detection** — fixes backside
+  view, remaining graphic phantoms, and "no blur straight up" scenes
+  (detector misses, not timing; look-ahead won't help — answered owner).
+  docs/research/person-gate.md: MoveNet MultiPose Lightning, Apache-2.0,
+  up to 6 persons, boxes+keypoints, raw tf.loadGraphModel viable, uint8
+  input NO normalization; open risk = tfjs int8 size (~5MB target) +
+  Helio G88 timing (no published numbers). m.youtube preview autoplay
+  emulator check still queued.
+
+**Session 2026-08-24 evening (v0.1.6/1006 RELEASED, commits 2c3b6a5+):**
 
 **Session 2026-08-24 evening (v0.1.6/1006 RELEASED, commits 2c3b6a5+):**
 Owner escalation: "in-video face blur never worked, markers weirdly
