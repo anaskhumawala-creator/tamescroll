@@ -566,6 +566,15 @@ import { planForMode } from './pipeline-plan.mjs';
         // force the next pass to re-read gender, not just positions.
         lastSample = 0;
         lastZoomAt = 0;
+        // Positions are MEANINGLESS across a cut — IoU association would
+        // glue the old shot's blur states onto whoever stands nearest in
+        // the new shot (owner 2026-08-24: subjects "switching one
+        // another" between shots). Fresh tracks: everyone in the new
+        // shot starts covered, verdicts re-read this same pass. The old
+        // overlays stay up until the pass lands (blur-first holds); the
+        // cost is a cleared person re-earning their clear after each
+        // cut — the fail-safe direction.
+        videoTracks = [];
       }
     }
     function anyBlurredTrack() {
