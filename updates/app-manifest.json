@@ -1,7 +1,7 @@
 {
-  "versionCode": 1007,
-  "versionName": "0.1.7",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.7/app-arm64-debug.apk",
-  "sha256": "5888f72e7f19036c42fb842c0ecc73efd5ef2a454956610d86bc0e71eed69c47",
-  "notes": "Blur accuracy: person tracking, fewer false blurs, small-subject rescue, blur toggle always visible"
+  "versionCode": 1008,
+  "versionName": "0.1.8",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.8/app-arm64-debug.apk",
+  "sha256": "dddb105b36ea83345cdb42e83be8690af4f2bf2383c9558e47ed3cdf7fd8a0f4",
+  "notes": "Person-aware blur: humanoid detection kills random blurs and covers backside views"
 }
