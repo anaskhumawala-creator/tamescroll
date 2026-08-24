@@ -750,6 +750,7 @@ import { planForMode } from './pipeline-plan.mjs';
       var region = personCropRegion(person);
       var obs = { box: person, flagged: true, certain: false };
       var zpix = null;
+      var zpixRef = null;
       function done(result) {
         if (zpix && typeof zpix.close === 'function') zpix.close();
         return result;
@@ -766,27 +767,95 @@ import { planForMode } from './pipeline-plan.mjs';
           return done(obs);
         });
 
+      // NATIVE-RES face crop for the gender read (owner 2026-08-25 "still
+      // not accurate" + the gender model swaying all night). Detection
+      // runs on the 224px person crop, which is fine for FINDING a face
+      // — but the face inside it is often only 40-60px, and feeding that
+      // to faceres meant classifying an upscaled blur. HaramBlur reads
+      // the FACE crop; so do we now: the winning face box is mapped back
+      // to video coordinates and re-cut from the source at 224px.
+      function faceRegionInVideo(faceBox) {
+        // faceBox is normalized to the person crop; region is normalized
+        // to the frame. Compose the two.
+        var rw = region.x2 - region.x1;
+        var rh = region.y2 - region.y1;
+        return {
+          x1: region.x1 + faceBox.x1 * rw,
+          y1: region.y1 + faceBox.y1 * rh,
+          x2: region.x1 + faceBox.x2 * rw,
+          y2: region.y1 + faceBox.y2 * rh,
+        };
+      }
+      function genderFromNativeFace(faceBox) {
+        var fr = faceRegionInVideo(faceBox);
+        // The face box already carries FACE_ENLARGE context; keep it.
+        return cropPersonPixels(fr).then(function (fpix) {
+          return detector
+            .classifyFaceGenders(genderModel, fpix, [{ x1: 0, y1: 0, x2: 1, y2: 1 }])
+            .then(function (g) {
+              if (fpix && typeof fpix.close === 'function') fpix.close();
+              return g;
+            })
+            .catch(function (e) {
+              if (fpix && typeof fpix.close === 'function') fpix.close();
+              throw e;
+            });
+        });
+      }
+
+      // Gender for the person: the LARGEST face gets a native-res crop
+      // (the person's own face dominates their region); any additional
+      // faces in the crop keep the cheap in-crop read, since they only
+      // ever act as a veto on clearing.
+      function bestIndex(faces) {
+        var bi = 0;
+        var ba = 0;
+        for (var i = 0; i < faces.length; i++) {
+          var a = (faces[i].x2 - faces[i].x1) * (faces[i].y2 - faces[i].y1);
+          if (a > ba) {
+            ba = a;
+            bi = i;
+          }
+        }
+        return bi;
+      }
+
+      function classifyBest(faces) {
+        var bigIdx = 0;
+        var bigArea = 0;
+        for (var fi = 0; fi < faces.length; fi++) {
+          var fa = (faces[fi].x2 - faces[fi].x1) * (faces[fi].y2 - faces[fi].y1);
+          if (fa > bigArea) {
+            bigArea = fa;
+            bigIdx = fi;
+          }
+        }
+        return genderFromNativeFace(faces[bigIdx])
+          .then(function (nat) {
+            if (faces.length === 1) return nat;
+            return detector.classifyFaceGenders(genderModel, zpixRef, faces).then(function (all) {
+              all[bigIdx] = nat[0]; // native read wins for the primary face
+              return all;
+            });
+          })
+          .catch(function () {
+            // Native re-crop failed (taint/unsupported): fall back to
+            // the in-crop read rather than losing the verdict.
+            return detector.classifyFaceGenders(genderModel, zpixRef, faces);
+          });
+      }
+
       function observeCropped(zpix) {
+        zpixRef = zpix;
         return detector.detectFaceBoxes(model, zpix).then(function (faces) {
           if (!faces.length) return obs;
           var faceDesc = null;
           var metaP = genderModel
-            ? detector.classifyFaceGenders(genderModel, zpix, faces).then(function (genders) {
-                // Identity descriptor of the crop's PRIMARY face = the
-                // LARGEST one (review A2: this crop is the person's own
-                // region, so their face dominates it; the previous
-                // "highest score" pick could elect a neighbour leaking
-                // in and poison identity memory with the wrong face).
-                var bigIdx = 0;
-                var bigArea = 0;
-                for (var fi = 0; fi < faces.length; fi++) {
-                  var fa = (faces[fi].x2 - faces[fi].x1) * (faces[fi].y2 - faces[fi].y1);
-                  if (fa > bigArea) {
-                    bigArea = fa;
-                    bigIdx = fi;
-                  }
-                }
-                if (genders.length) faceDesc = (genders[bigIdx] || genders[0]).desc || null;
+            ? classifyBest(faces).then(function (genders) {
+                // Identity descriptor comes from the natively-cropped
+                // primary face (index 0 when it was the only face).
+                var pick = genders.length > 1 ? genders[bestIndex(faces)] : genders[0];
+                if (pick) faceDesc = pick.desc || null;
                 return faceMeta(userGender, genders);
               })
             : Promise.resolve(
