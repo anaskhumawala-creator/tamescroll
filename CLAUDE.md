@@ -63,7 +63,44 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-24 (in-player face-region blur + hover-preview toggle).
+**Last updated:** 2026-08-24 evening (whole-person region blur SHIPPED v1006, frame-verified).
+
+**Session 2026-08-24 evening (v0.1.6/1006 RELEASED, commits 2c3b6a5+):**
+Owner escalation: "in-video face blur never worked, markers weirdly
+rounded, sometimes false blurs, HaramBlur covers the whole body — capture
+frames yourself and verify". All four fixed + VISUALLY VERIFIED on the
+desktop dev app via CDP frame captures (cdp.py in session scratchpad;
+WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223 + npx
+tauri dev works fine — the earlier "flaky CDP" didn't reproduce):
+- **Never-worked root cause:** video-region v1 used position:FIXED
+  overlays inside #movie_player — fixed re-anchors to any transformed
+  ancestor (YouTube player tree has them), so overlays landed at wrong
+  coords. v2 = position:absolute relative to the player, coords from two
+  getBoundingClientRects (ancestor transforms cancel), rAF re-pin loop.
+- **Whole-body:** expandToBody() (region-blur.mjs, shared image+video):
+  MUST de-inflate detector boxes by /1.4 first (FACE_ENLARGE) — without
+  it the compounded expansion swallowed 788px of an 815px player.
+  Shoulders ±1.6 face-w, torso +6.0 face-h, hair +0.3. Registered in
+  docs/detection-engine.md.
+- **Markers:** border-radius 30%/28% → 8px (near-rectangular).
+- **False blurs:** FACE_MIN_CONFIDENCE 0.2 → 0.35.
+- **Frame evidence (scratchpad vframe3-*/male-clear3/thumbs.png):**
+  female TED speaker = body-column blurred head→frame-bottom, TRACKS a
+  camera zoom, background sharp; male speaker (owner=man) = fully sharp
+  0 overlays; TED intro card sharp; search thumbnails 13 rectangular
+  body patches, titles sharp. gaze 50/50, cargo 30/30.
+- **v0.1.6 (1006) LIVE:** release recipe followed; APK 45MB on GitHub
+  Releases v0.1.6, manifest 1006 pushed + raw-verified (sha a6be57d6…).
+  GOTCHA: gradle incremental packaging produced an 83MB APK with an
+  ORPHANED duplicate .so (entries 45MB, file 83MB) — :app:clean +
+  assemble fixed it; check APK size vs entry sum before every upload.
+  Phone gets 1006 via in-app updater.
+- Noticed, left alone: desktop watch page shows a YouTube Premium
+  family-plan nag (NO NAGS miss, www.youtube.com desktop); pre-roll ads
+  on desktop watch (known scriptlet gap #9/#12, owner-gated).
+- Still unverified on real hw: 140ms player sampling cost on Helio G88
+  (in-player pill is the escape hatch), Android fullscreen overlay
+  behavior.
 
 **Session 2026-08-24 (owner asks, commit 5a7aee1 pushed):** Two items.
 - **In-player blur was WHOLE-video → now FACE-REGION** (owner: "whole video
