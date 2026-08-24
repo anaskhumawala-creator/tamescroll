@@ -63,7 +63,31 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-24 late night (v1008 person-gate SHIPPED; next = person-crop zoom classify).
+**Last updated:** 2026-08-24 late night (v1009 zoom-classify + merged patches SHIPPED; tamescroll.com LIVE).
+
+**Session 2026-08-24 late night, part 2 (v0.1.9/1009 RELEASED, commit
+199c0e1):** owner's "double triple blur don't look good, merge it" +
+"still blurs Linus sometimes" — both fixed + frame-verified:
+- **Per-person zoom classify** (the real multi-pass): every MoveNet
+  person region gets its own crop -> BlazeFace+gender at native scale;
+  results REPLACE full-frame dets inside those regions (centerInAny).
+  CRITICAL FIX: crop must be ASPECT-PRESERVING (scale by max(sw,sh),
+  min 32px) — the first square-stretch version distorted faces and
+  re-blurred Linus (v8 screens). ZOOM_MAX_PERSONS 4, zoomFresh reset at
+  all 7 videoTracks=[] sites.
+- **mergeOverlapping** (region-blur.mjs): unions overlapping patches
+  until stable, called in the video render + applyRegionBlur — one
+  merged patch per person, no stacked rectangles.
+- Evidence screens/v9-her-{120,300,900}.png: Linus fully sharp at 120s
+  next to covered daughter; single patch every frame. gaze 82/82,
+  cargo 31/31.
+- NOTE: v1008's commit 0f71489 only carried the model binaries — ALL
+  person-gate/zoom source landed in 199c0e1 (check `git show --stat`
+  before assuming a release commit has the source).
+- **tamescroll.com LIVE** (owner bought domain, authorized agent w/ his
+  Chrome): Cloudflare Worker `tamescroll` serves web/index.html, bound
+  to apex + www, HTTPS verified. Judgment call: www bound directly, no
+  canonical redirect to apex — flag to owner.
 
 **Session 2026-08-24 late night (v0.1.8/1008 RELEASED):** MoveNet
 MultiPose person gate BUILT + SHIPPED same night (owner commanded the
