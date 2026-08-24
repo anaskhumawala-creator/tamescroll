@@ -90,10 +90,38 @@ test('unmatched track coasts along its velocity, then expires', () => {
   tracks = updatePersonTracks(tracks, [], 250); // miss: coast
   assert.equal(tracks.length, 1);
   assert.ok(tracks[0].box.x1 > beforeX);
-  // Expiry after PTRACK_MAX_MISS_MS.
+  // A BLURRED track holds 3x longer (review A5: a covered person must
+  // not be uncovered by a detector-miss timeout).
   const missSteps = Math.ceil(PTRACK_MAX_MISS_MS / 250);
   for (let i = 0; i < missSteps; i++) tracks = updatePersonTracks(tracks, [], 250);
+  assert.equal(tracks.length, 1);
+  const blurredSteps = Math.ceil(pt.PTRACK_MAX_MISS_BLURRED_MS / 250);
+  for (let i = 0; i < blurredSteps; i++) tracks = updatePersonTracks(tracks, [], 250);
   assert.equal(tracks.length, 0);
+});
+
+test('cleared track reverts to blurred after CLEARED_TTL_MS without a confident clear', () => {
+  const box = { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 };
+  let tracks = updatePersonTracks([], [{ box, flagged: false, certain: true, verdictDt: CLEAR_HOLD_MS }], 250);
+  tracks = updatePersonTracks(tracks, [{ box, flagged: false, certain: true, verdictDt: CLEAR_HOLD_MS }], 250);
+  assert.equal(tracks[0].state, 'cleared');
+  // Only uncertain reads from here on (the absorbed-child scenario).
+  const steps = Math.ceil(pt.CLEARED_TTL_MS / 500);
+  for (let i = 0; i < steps; i++) {
+    tracks = updatePersonTracks(tracks, [{ box, flagged: true, certain: false, verdictDt: 500 }], 250);
+  }
+  assert.equal(tracks[0].state, 'blurred');
+});
+
+test('descriptor mismatch on a matched read resets a cleared track to blurred', () => {
+  const box = { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 };
+  const descA = new Float32Array([1, 0]);
+  const descB = new Float32Array([0, 1]); // orthogonal = different person
+  let tracks = updatePersonTracks([], [{ box, flagged: false, certain: true, verdictDt: CLEAR_HOLD_MS, desc: descA }], 250);
+  tracks = updatePersonTracks(tracks, [{ box, flagged: false, certain: true, verdictDt: CLEAR_HOLD_MS, desc: descA }], 250);
+  assert.equal(tracks[0].state, 'cleared');
+  tracks = updatePersonTracks(tracks, [{ box, flagged: true, certain: false, verdictDt: 250, desc: descB }], 250);
+  assert.equal(tracks[0].state, 'blurred');
 });
 
 test('IoU association keeps two nearby identities apart', () => {

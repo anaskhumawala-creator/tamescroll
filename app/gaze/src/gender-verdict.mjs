@@ -37,7 +37,13 @@ export function faceVerdict(userGender, faces) {
   for (var i = 0; i < faces.length; i++) {
     var f = faces[i];
     var same = f.gender === (opposite === 'female' ? 'male' : 'female');
-    if (!same || !(f.score >= GENDER_MIN_SCORE)) return 'flag';
+    // Child gate, same as the video path (review A10: the image path
+    // cleared children with no age check — same defect class). The
+    // score bar stays at GENDER_MIN_SCORE for images: raising it to the
+    // video's 0.6 would re-blur the 0.3-0.6 same-gender adults the
+    // owner already reported, and images have no tracker to absorb it.
+    var adult = typeof f.age !== 'number' || f.age >= GENDER_ADULT_AGE;
+    if (!same || !adult || !(f.score >= GENDER_MIN_SCORE)) return 'flag';
   }
   return 'clear';
 }
@@ -101,7 +107,8 @@ export function flaggedFaceIndices(userGender, faces) {
     }
     var f = faces[i];
     var same = f.gender === (opposite === 'female' ? 'male' : 'female');
-    if (!same || !(f.score >= GENDER_MIN_SCORE)) out.push(i);
+    var adult = typeof f.age !== 'number' || f.age >= GENDER_ADULT_AGE;
+    if (!same || !adult || !(f.score >= GENDER_MIN_SCORE)) out.push(i);
   }
   return out;
 }

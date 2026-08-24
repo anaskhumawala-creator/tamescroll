@@ -20,6 +20,7 @@ import { personCropRegion } from './person-gate.mjs';
 import {
   updatePersonTracks,
   blurredTracks,
+  demoteTracks,
   cosineSim,
   MEM_SIM_CLEAR,
   MEM_SIM_UPDATE,
@@ -473,6 +474,15 @@ import { planForMode } from './pipeline-plan.mjs';
     // video is cleared and sampling halts entirely (no spent frames).
     var playerBlurOn = true;
     markPending(video);
+    // PiP surfaces the RAW stream in a window our overlays can't follow
+    // (review C8) — close the hole where supported.
+    if (isPlayer && 'disablePictureInPicture' in video) {
+      try {
+        video.disablePictureInPicture = true;
+      } catch (e) {
+        /* not supported — nothing to close */
+      }
+    }
 
     var lastSample = 0;
     var cleanStreak = 0;
@@ -537,7 +547,11 @@ import { planForMode } from './pipeline-plan.mjs';
         // that would freeze "unknown ⇒ covered" into "this face is
         // always covered".
         var state = null;
-        if (t.state === 'cleared') state = 'cleared';
+        // A cleared entry may only be (re)written on a pass whose OWN
+        // read was a certain adult clear (review A2): a child's face
+        // leaking into the crop can never author a cleared identity,
+        // because a child read is never certain.
+        if (t.state === 'cleared' && t.lastVerdict === 'clear-certain') state = 'cleared';
         else if (t.state === 'blurred' && t.lastVerdict === 'flag-certain') state = 'blurred';
         if (!state) continue;
         var bestSim = 0;
@@ -588,6 +602,11 @@ import { planForMode } from './pipeline-plan.mjs';
     // instead of saturating its own render thread; desktop stays at the
     // 250ms floor. Interpolation keeps the patch moving either way.
     var lastPassMs = 0;
+    // Verdict passes are ~5-10x a position pass; mixing their cost into
+    // lastPassMs throttled the CHEAP passes to ~1Hz after every verdict
+    // tick (review A11) — the two costs adapt separately: position cost
+    // drives the pass floor, verdict cost stretches the zoom interval.
+    var lastVerdictMs = 0;
     // Gender pacing: crops+gender run when this much time has passed;
     // position-only passes in between (see cadence note above).
     var lastZoomAt = 0;
@@ -597,6 +616,10 @@ import { planForMode } from './pipeline-plan.mjs';
     // path ever errors non-fatally (driver quirk), the canvas fallback
     // takes over permanently for this video.
     var directPersonOk = true;
+    // Pass epoch (review A6): cut/seek/loadstart bump it; a pass that
+    // started under an older epoch discards its result instead of
+    // resurrecting pre-discontinuity people as fresh tracks.
+    var passEpoch = 0;
     var personCanvas = null;
     function ensurePersonCanvas() {
       if (!personCanvas) {
@@ -654,12 +677,17 @@ import { planForMode } from './pipeline-plan.mjs';
         // Positions are MEANINGLESS across a cut — IoU association would
         // glue the old shot's blur states onto whoever stands nearest in
         // the new shot (owner 2026-08-24: subjects "switching one
-        // another" between shots). Fresh tracks: everyone in the new
-        // shot starts covered, verdicts re-read this same pass. The old
-        // overlays stay up until the pass lands (blur-first holds); the
-        // cost is a cleared person re-earning their clear after each
-        // cut — the fail-safe direction.
-        videoTracks = [];
+        // another"). DEMOTE, don't wipe (review C2): boxes persist so
+        // coverage holds through the pass gap, but every verdict state
+        // resets to blurred — identity memory, not stale association,
+        // decides who re-clears.
+        videoTracks = demoteTracks(videoTracks);
+        passEpoch++;
+        // Cut blackout (review C1): until the forced pass lands, the
+        // whole frame is covered — a new-shot person at a NEW position
+        // has no patch yet, and the flash of full blur is perceptually
+        // masked by the cut itself.
+        if (useRegionVideo) markFlagged(video);
       }
     }
     function anyBlurredTrack() {
@@ -739,10 +767,21 @@ import { planForMode } from './pipeline-plan.mjs';
           var faceDesc = null;
           var metaP = genderModel
             ? detector.classifyFaceGenders(genderModel, zpix, faces).then(function (genders) {
-                // Identity descriptor of the crop's PRIMARY face (the
-                // highest-confidence detection = this person; extra
-                // faces are usually the neighbour leaking in).
-                if (genders.length) faceDesc = genders[0].desc || null;
+                // Identity descriptor of the crop's PRIMARY face = the
+                // LARGEST one (review A2: this crop is the person's own
+                // region, so their face dominates it; the previous
+                // "highest score" pick could elect a neighbour leaking
+                // in and poison identity memory with the wrong face).
+                var bigIdx = 0;
+                var bigArea = 0;
+                for (var fi = 0; fi < faces.length; fi++) {
+                  var fa = (faces[fi].x2 - faces[fi].x1) * (faces[fi].y2 - faces[fi].y1);
+                  if (fa > bigArea) {
+                    bigArea = fa;
+                    bigIdx = fi;
+                  }
+                }
+                if (genders.length) faceDesc = (genders[bigIdx] || genders[0]).desc || null;
                 return faceMeta(userGender, genders);
               })
             : Promise.resolve(
@@ -826,6 +865,7 @@ import { planForMode } from './pipeline-plan.mjs';
       if (sampling) return;
       lastSample = now;
       sampling = true;
+      var myEpoch = passEpoch;
 
       // PERSON-PRIMARY player path (redesign 2026-08-24): MoveNet finds
       // the persons, each person's native-res crop decides their gender,
@@ -834,17 +874,27 @@ import { planForMode } from './pipeline-plan.mjs';
       // gender, and non-persons never enter the pipeline (the entire
       // phantom class the old gates chased is excluded by construction).
       if (useRegionVideo && personModel) {
+        var effZoom = Math.max(ZOOM_INTERVAL_MS, lastVerdictMs * 1.5);
+        var wasVerdict = now - lastZoomAt >= effZoom;
         try {
           detector
             .detectPersons(personModel, personPixelSource())
             .then(function (persons) {
               // Probe-visible pass marker (verification probes read this).
               window.__TS_GAZE_PERSONS = persons.length;
-              var picked = persons.slice(0, ZOOM_MAX_PERSONS);
+              // Position observations are free — track ALL persons
+              // (review A8: slicing position passes to 3 let a 4th
+              // flagged person's track starve and expire). Only the
+              // crop/gender work is capped, highest-confidence first.
+              var byConf = persons.slice().sort(function (a, b) {
+                return (b.confidence || 0) - (a.confidence || 0);
+              });
+              var picked = byConf.slice(0, ZOOM_MAX_PERSONS);
+              var rest = byConf.slice(ZOOM_MAX_PERSONS);
               // Position-only pass: skip the crops+gender, just move the
               // tracks (verdict state untouched in the tracker).
-              if (now - lastZoomAt < ZOOM_INTERVAL_MS) {
-                return picked.map(function (p) {
+              if (!wasVerdict) {
+                return persons.map(function (p) {
                   return { box: p, positionOnly: true };
                 });
               }
@@ -876,6 +926,10 @@ import { planForMode } from './pipeline-plan.mjs';
                 })
                 .then(function (all) {
                   var observations = [];
+                  // Un-cropped extra persons still move their tracks.
+                  rest.forEach(function (p) {
+                    observations.push({ box: p, positionOnly: true });
+                  });
                   var chain = Promise.resolve();
                   all.forEach(function (p) {
                     // Serial, not parallel: one GPU queue, smaller bursts.
@@ -898,6 +952,11 @@ import { planForMode } from './pipeline-plan.mjs';
             })
             .then(function (observations) {
               if (failed || dead) return;
+              // Discontinuity landed while this pass was in flight:
+              // these observations describe a frame that no longer
+              // exists (review A6) — drop them, the forced pass that
+              // the discontinuity queued is right behind.
+              if (myEpoch !== passEpoch) return;
               var dt = lastPassAt ? now - lastPassAt : sampleInterval;
               lastPassAt = now;
               videoTracks = updatePersonTracks(videoTracks, observations, dt);
@@ -942,7 +1001,9 @@ import { planForMode } from './pipeline-plan.mjs';
               console.warn('tamescroll gaze: person pass failed', e);
             })
             .finally(function () {
-              lastPassMs = performance.now() - now;
+              var cost = performance.now() - now;
+              if (wasVerdict) lastVerdictMs = cost;
+              else lastPassMs = cost;
               sampling = false;
             });
         } catch (e) {
@@ -1054,7 +1115,15 @@ import { planForMode } from './pipeline-plan.mjs';
       sceneState = 'motion';
       lastSample = 0;
       lastZoomAt = 0;
-      if (!video.paused) sampleOnce();
+      passEpoch++;
+      if (video.paused) {
+        // Seeked while PAUSED (review A7): no pass will run until play
+        // — the landed frame is unknown, so cover it whole. The first
+        // pass after play replaces this with real patches.
+        if (useRegionVideo) markFlagged(video);
+      } else {
+        sampleOnce();
+      }
     });
     // Paused = nothing moves: zero the velocities and re-pin, or the
     // overlay extrapolator would keep sliding/scaling patches over a
@@ -1093,6 +1162,7 @@ import { planForMode } from './pipeline-plan.mjs';
       lastCutAt = 0;
       directPersonOk = true;
       identityMemory = [];
+      passEpoch++;
       if (!playerBlurOn) {
         playerBlurOn = true;
         if (pillRefresh) pillRefresh();

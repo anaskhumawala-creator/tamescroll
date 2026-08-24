@@ -45,7 +45,22 @@ export var PTRACK_PAD_TOP = 0.12;
 // direction (under-blur) — it demands the higher bar; the blur
 // direction never needs memory (unknown ⇒ covered is the default).
 export var MEM_SIM_CLEAR = 0.6; // min similarity to inherit a remembered clear
-export var MEM_SIM_UPDATE = 0.45; // min similarity to update an existing identity
+// Update bar = clear bar (adversarial review 2026-08-25 A2/B: an update
+// bar BELOW the inherit bar was a poisoning ramp — a face too dissimilar
+// to inherit could still blend 30% into the entry per pass and walk the
+// centroid toward the wrong person until it matched).
+export var MEM_SIM_UPDATE = 0.6;
+// Identity continuity on a live track: a matched verdict read whose
+// descriptor disagrees with the track's by more than this is a DIFFERENT
+// person standing where the track is (occlusion crossing, dissolve) —
+// verdict state resets to blurred (review A1: a child absorbed onto a
+// cleared track was invisible to the state machine, since child reads
+// are structurally uncertain and uncertainty was absorbed forever).
+export var IDENT_SIM_MIN = 0.3;
+// A cleared track must RE-PROVE itself: this long without a single
+// confident same-gender read reverts it to blurred (review A1 backstop —
+// bounds every absorption hole, not just the child one).
+export var CLEARED_TTL_MS = 5000;
 
 /** Dot product of two L2-normalized descriptors = cosine similarity. */
 export function cosineSim(a, b) {
@@ -144,6 +159,7 @@ function matchedStep(t, obs, dt) {
       state: state,
       clearMs: clearMs,
       missMs: 0,
+      clearAge: t.clearAge || 0,
       flagStreak: t.flagStreak || 0,
       desc: t.desc || null,
       lastVerdict: t.lastVerdict || 'uncertain',
@@ -154,6 +170,18 @@ function matchedStep(t, obs, dt) {
   // not the pass interval, so the split cadence keeps the hold honest.
   var vdt = typeof obs.verdictDt === 'number' ? obs.verdictDt : dt;
   var flagStreak = t.flagStreak || 0;
+  var clearAge = t.clearAge || 0;
+  // Identity continuity check FIRST (review A1): if this read's face
+  // descriptor contradicts the track's, someone else is standing here —
+  // all verdict trust resets, blur-first for whoever this now is.
+  var identityBroken =
+    obs.desc && t.desc && cosineSim(obs.desc, t.desc) < IDENT_SIM_MIN;
+  if (identityBroken) {
+    state = 'blurred';
+    clearMs = 0;
+    flagStreak = 0;
+    clearAge = 0;
+  }
   if (obs.flagged && obs.certain) {
     // Positive opposite-gender reading: instant blur — EXCEPT on a
     // track that already EARNED its clear (served the full hold): the
@@ -177,7 +205,23 @@ function matchedStep(t, obs, dt) {
     // accumulated credit rather than zero it (see CLEAR_DECAY).
     clearMs = Math.max(0, clearMs - vdt * CLEAR_DECAY);
   }
-  // Uncertain while cleared: absorbed — we already know this person.
+  // Uncertain while cleared: absorbed — but only for so long. A cleared
+  // track must re-prove itself with a confident same-gender read within
+  // CLEARED_TTL_MS or it reverts to blurred (review A1: absorption was
+  // unbounded, and a child who slipped onto a cleared track — whose
+  // reads are structurally uncertain — stayed exposed indefinitely).
+  if (state === 'cleared') {
+    if (!obs.flagged && obs.certain) {
+      clearAge = 0;
+    } else {
+      clearAge += vdt;
+      if (clearAge >= CLEARED_TTL_MS) {
+        state = 'blurred';
+        clearMs = 0;
+        clearAge = 0;
+      }
+    }
+  }
   // Identity memory: this face MATCHES a person who already earned a
   // full clear hold, and the current read agrees confidently — skip
   // the rest of the hold (the hold was served once; cuts/misses don't
@@ -195,6 +239,7 @@ function matchedStep(t, obs, dt) {
     state: state,
     clearMs: clearMs,
     missMs: 0,
+    clearAge: clearAge,
     flagStreak: obs.flagged && obs.certain ? flagStreak : 0,
     desc: obs.desc || t.desc || null,
     lastVerdict: obs.flagged && obs.certain ? 'flag-certain' : !obs.flagged && obs.certain ? 'clear-certain' : 'uncertain',
@@ -212,9 +257,16 @@ function sizeVel(prev, next, dt, axis) {
   return ((n - p) / dt) * 1000;
 }
 
+// A BLURRED track lingers 3x longer before expiring: silently dropping
+// a covered person on detector misses (back-of-head close-up = 0
+// persons AND 0 faces) uncovered them by timeout (review A5). A cleared
+// track expiring early costs nothing.
+export var PTRACK_MAX_MISS_BLURRED_MS = 3000;
+
 function coastStep(t, dt) {
   var missMs = t.missMs + dt;
-  if (missMs > PTRACK_MAX_MISS_MS) return null;
+  var limit = t.state === 'blurred' ? PTRACK_MAX_MISS_BLURRED_MS : PTRACK_MAX_MISS_MS;
+  if (missMs > limit) return null;
   var dx = ((t.vx || 0) * dt) / 1000;
   var dy = ((t.vy || 0) * dt) / 1000;
   return {
@@ -232,10 +284,40 @@ function coastStep(t, dt) {
     // A coasting track's clear hold does not advance (no evidence).
     clearMs: t.state === 'blurred' ? 0 : t.clearMs,
     missMs: missMs,
+    clearAge: t.clearAge || 0,
     flagStreak: t.flagStreak || 0,
     desc: t.desc || null,
     lastVerdict: t.lastVerdict || 'uncertain',
   };
+}
+
+/**
+ * Scene-cut demotion (review C2 — replaces the track WIPE): boxes are
+ * kept so existing patches persist through the pass gap, but every
+ * verdict state resets to blurred-with-no-credit and the descriptor is
+ * dropped — whoever stands there in the new shot is unknown ⇒ covered,
+ * and identity memory decides fast re-clears, not stale association.
+ */
+export function demoteTracks(tracks) {
+  var out = [];
+  for (var i = 0; i < tracks.length; i++) {
+    var t = tracks[i];
+    out.push({
+      box: t.box,
+      vx: 0,
+      vy: 0,
+      vw: 0,
+      vh: 0,
+      state: 'blurred',
+      clearMs: 0,
+      missMs: 0,
+      clearAge: 0,
+      flagStreak: 0,
+      desc: null,
+      lastVerdict: 'uncertain',
+    });
+  }
+  return out;
 }
 
 function newTrack(obs) {
@@ -302,8 +384,16 @@ export function blurredTracks(tracks) {
 // two blurs you could even merge them" — two swapping/overlapping
 // squares over a close pair read as chaos; one patch over both reads
 // as intended). Iterates until stable, velocities averaged.
+// Small margin so ABUTTING patches merge too (two squares kissing at an
+// edge read as the same chaos as overlapping ones — review A13).
+var MERGE_MARGIN = 0.02;
 function overlaps(a, b) {
-  return a.x1 < b.x2 && b.x1 < a.x2 && a.y1 < b.y2 && b.y1 < a.y2;
+  return (
+    a.x1 < b.x2 + MERGE_MARGIN &&
+    b.x1 < a.x2 + MERGE_MARGIN &&
+    a.y1 < b.y2 + MERGE_MARGIN &&
+    b.y1 < a.y2 + MERGE_MARGIN
+  );
 }
 
 export function mergeTracks(list) {

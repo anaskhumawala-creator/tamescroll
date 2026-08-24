@@ -63,7 +63,46 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-24 overnight (v1011 split-cadence polish SHIPPED on top of the v1010 redesign).
+**Last updated:** 2026-08-25 overnight (blur v2 Stage 1 + owner-feedback wave, v1012 release in flight).
+
+**Session 2026-08-24→25 overnight (blur v2):** docs/plan-blur-v2.md =
+owner-approved implementation plan + risk register (research settled in
+docs/research/blur-architectures-2026-08-24.md). Shipped since v1011,
+all frame-verified on the Linus video (NWoT1ZVd1Lo) via CDP:
+- **Stage 1 zero-readback** (bundle v6): person pass = fromPixels(video)
+  DIRECT; gender crops = createImageBitmap(video, crop, {resize}); no
+  getImageData in the player path (canvas fallback kept per-stream via
+  directPersonOk). Measured: long tasks 1338ms -> 247ms/87s, dropped 0.6%.
+- **Scene gate** (scene-gate.mjs): 16x16 luma delta @<=10Hz; cut(>=28) =
+  wipe tracks + immediate full pass (fixes owner's "blur interchanging
+  between people" — IoU association is meaningless across a cut);
+  static(<=3) = 1Hz floor only while no track is blurred.
+- **Identity memory** (owner: "keep the person in memory"): faceres
+  [1024] descriptor (was discarded) L2-normed per gender read; per-video
+  memory stores EARNED states only (served hold / certain flag);
+  re-appearing face matching a remembered clear at cos>=0.6 AND reading
+  confident-clear inherits instantly. Child can never inherit (age gate
+  upstream). MEM_SIM_CLEAR 0.6 / MEM_SIM_UPDATE 0.45 UNCALIBRATED.
+- **Close-up fallback**: full-frame face pass every verdict tick; faces
+  outside person boxes -> expandToBody synthetic persons (fixed a real
+  exposure: v17-560 daughter close-up, MoveNet 0 persons, fully sharp).
+- **mergeTracks**: overlapping video patches union into one (owner ask).
+- **Head anchor** (person-gate): head keypoints get guaranteed margin.
+- **Edge cases** (owner asks): seeked = wipe tracks + immediate pass;
+  pause zeroes velocities + re-pins; playbackRate>1 tightens cadence;
+  loadstart wipes identityMemory.
+- **Flag streak**: an EARNED clear takes 2 consecutive certain-opposite
+  reads to revoke (gender sway was re-blurring Linus repeatedly).
+- gaze 77/77, cargo 31/31, bundle marker v6. v1012 release recipe run
+  overnight — check updates/app-manifest.json before assuming shipped.
+- Background agents launched: Fable adversarial critic of all of the
+  above; Sonnet brand-kit agent (owner's falcon brand kit from
+  Z:\Downloads	amescroll-screens-drop\ -> web favicon/logo + tauri
+  icon set; isolated worktree, commits only, NO deploy).
+- NEXT (plan-blur-v2): Stage 2 delay-line spike (desktop WebView2:
+  VideoFrame ring + delayed present + DelayNode audio — owner
+  independently asked for exactly this "longer buffer"); then flow
+  tracking, silhouettes. Owner bar: "not a single frame should pass."
 
 **Session 2026-08-24 overnight, part 2 (v0.1.11/1011, commit 516cc54):**
 owner live-tested v1010 (phone + watching the dev app) and fired 5

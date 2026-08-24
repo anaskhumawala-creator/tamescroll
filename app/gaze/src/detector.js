@@ -340,6 +340,7 @@ export async function detectFaceBoxes(model, pixelSource) {
  */
 export async function classifyFaceGenders(model, pixelSource, boxes) {
   if (!boxes.length) return [];
+  var genderHeadFound = false;
   var outs = tf.tidy(function () {
     var img = tf.browser.fromPixels(pixelSource);
     var input = tf.expandDims(tf.cast(img, 'float32'), 0);
@@ -368,6 +369,7 @@ export async function classifyFaceGenders(model, pixelSource, boxes) {
       // owner ask 2026-08-24 "keep the person in memory").
       if (list[d].shape.length === 2 && list[d].shape[1] === 1024) descT = list[d];
     }
+    if (genderT) genderHeadFound = true;
     return [
       genderT ? tf.clone(genderT) : tf.zeros([boxes.length, 1]),
       ageT ? tf.clone(ageT) : tf.zeros([boxes.length, 100]),
@@ -377,17 +379,23 @@ export async function classifyFaceGenders(model, pixelSource, boxes) {
   var data;
   var ageData;
   var descData;
+  var hadGenderHead = true;
   try {
-    data = await outs[0].data();
-    ageData = await outs[1].data();
-    descData = await outs[2].data();
+    // One parallel wait, not three serial GPU fences (review A11).
+    var downloaded = await Promise.all([outs[0].data(), outs[1].data(), outs[2].data()]);
+    data = downloaded[0];
+    ageData = downloaded[1];
+    descData = downloaded[2];
+    // A zeros fallback (missing gender head) would read v=0 -> "female
+    // 0.99" (review A12) — report zero confidence instead.
+    hadGenderHead = genderHeadFound;
   } finally {
     tf.dispose(outs);
   }
   var verdicts = [];
   for (var k = 0; k < boxes.length; k++) {
     var v = data[k];
-    var confidence = Math.min(0.99, 2 * Math.abs(v - 0.5));
+    var confidence = hadGenderHead ? Math.min(0.99, 2 * Math.abs(v - 0.5)) : 0;
     var age = 0;
     for (var a = 0; a < 100; a++) age += a * ageData[k * 100 + a];
     // L2-normalized descriptor slice so identity matching is a plain
