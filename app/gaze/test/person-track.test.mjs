@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import {
   iou,
   updatePersonTracks,
+  wipeIfEmpty,
   blurredTracks,
   CLEAR_HOLD_MS,
   PTRACK_MAX_MISS_MS,
@@ -94,11 +95,9 @@ test('unmatched track coasts along its velocity, then expires', () => {
   tracks = updatePersonTracks(tracks, [], 250); // miss: coast
   assert.equal(tracks.length, 1);
   assert.ok(tracks[0].box.x1 > beforeX);
-  // A BLURRED track holds 3x longer (review A5: a covered person must
-  // not be uncovered by a detector-miss timeout).
-  const missSteps = Math.ceil(PTRACK_MAX_MISS_MS / 250);
-  for (let i = 0; i < missSteps; i++) tracks = updatePersonTracks(tracks, [], 250);
-  assert.equal(tracks.length, 1);
+  // A blurred track coasts to PTRACK_MAX_MISS_BLURRED_MS and no further:
+  // a patch with nothing under it is a ghost, not protection (owner
+  // frame 2026-08-25, an empty desk shot wearing four of them).
   const blurredSteps = Math.ceil(pt.PTRACK_MAX_MISS_BLURRED_MS / 250);
   for (let i = 0; i < blurredSteps; i++) tracks = updatePersonTracks(tracks, [], 250);
   assert.equal(tracks.length, 0);
@@ -256,4 +255,15 @@ test('a faceless (back-turned) person stays covered — never expired by faceles
   }
   assert.equal(tracks.length, 1);
   assert.equal(tracks[0].state, 'blurred');
+});
+
+test('wipeIfEmpty: an empty frame erases every coasting ghost patch', () => {
+  const tracks = [{ id: 1, state: 'blurred' }, { id: 2, state: 'blurred' }];
+  assert.equal(wipeIfEmpty(tracks, 0, 0).length, 0);
+});
+
+test('wipeIfEmpty: any evidence at all keeps the tracks (eraser, not clearer)', () => {
+  const tracks = [{ id: 1, state: 'blurred' }];
+  assert.equal(wipeIfEmpty(tracks, 1, 0).length, 1);
+  assert.equal(wipeIfEmpty(tracks, 0, 1).length, 1);
 });

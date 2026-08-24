@@ -79,11 +79,28 @@ export function parsePersons(data, minScore, aspect) {
     var bothShoulders = ls.s >= PERSON_KEYPOINT_MIN && rs.s >= PERSON_KEYPOINT_MIN;
     if (!head.length && !bothShoulders) continue;
 
-    // --- box: model box unioned with upper-body keypoints -----------
+    // --- box: keypoint hull, NOT the model's head-to-feet box -------
+    // Owner frames 2026-08-25: a standing person's patch covered the
+    // whole player height, because the model box runs head to FEET and
+    // the union only ever grew it. What protection actually needs is
+    // head through hips. When the upper-body keypoints are trustworthy
+    // they define the patch and the model box only CLAMPS it; with weak
+    // keypoints we fall back to the model box (blur-first).
     var y1 = data[o + 51];
     var x1 = data[o + 52];
     var y2 = data[o + 53];
     var x2 = data[o + 54];
+    var lh = kp(data, o, 11);
+    var rh = kp(data, o, 12);
+    var hipY = null;
+    if (lh.s >= PERSON_KEYPOINT_MIN && rh.s >= PERSON_KEYPOINT_MIN) hipY = Math.max(lh.y, rh.y);
+    else if (lh.s >= PERSON_KEYPOINT_MIN) hipY = lh.y;
+    else if (rh.s >= PERSON_KEYPOINT_MIN) hipY = rh.y;
+    if (hipY !== null) {
+      // Below the hips is legs. Keep a margin for a seated/bent pose.
+      var hipFloor = hipY + 0.12;
+      if (hipFloor < y2) y2 = hipFloor;
+    }
     for (var u = 0; u < UNION_KEYPOINT_MAX; u++) {
       var ku = kp(data, o, u);
       if (!(ku.s >= PERSON_KEYPOINT_MIN)) continue;

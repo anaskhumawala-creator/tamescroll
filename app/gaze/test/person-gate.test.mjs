@@ -119,3 +119,22 @@ test('personCropRegion: pads the person box, clamped to the frame', () => {
   assert.equal(edge.y1, 0);
   assert.equal(edge.y2, 1);
 });
+
+test('parsePersons: the patch stops below the hips, not at the feet', () => {
+  const data = new Float32Array(6 * 56);
+  // Model box runs head (0.05) to feet (0.98).
+  setBox(data, 0, 0.05, 0.4, 0.98, 0.6, 0.8);
+  upperBody(data, 0, 0.5, 0.12, 0.05);
+  setKp(data, 0, 11, 0.55, 0.45, 0.9); // left hip
+  setKp(data, 0, 12, 0.55, 0.55, 0.9); // right hip
+  const p = parsePersons(data, undefined, 16 / 9)[0];
+  assert.ok(p.y2 <= 0.55 + 0.12 + 1e-6, 'patch must end near the hips, got ' + p.y2);
+});
+
+test('parsePersons: no confident hips leaves the model box alone (blur-first)', () => {
+  const data = new Float32Array(6 * 56);
+  setBox(data, 0, 0.05, 0.4, 0.98, 0.6, 0.8);
+  upperBody(data, 0, 0.5, 0.12, 0.05);
+  const p = parsePersons(data, undefined, 16 / 9)[0];
+  assert.ok(p.y2 > 0.9);
+});

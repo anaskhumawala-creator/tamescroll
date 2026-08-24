@@ -19,6 +19,7 @@ import { flaggedFaceIndices, faceMeta } from './gender-verdict.mjs';
 import { personCropRegion, personFromFace } from './person-gate.mjs';
 import {
   updatePersonTracks,
+  wipeIfEmpty,
   blurredTracks,
   demoteTracks,
   cosineSim,
@@ -641,6 +642,8 @@ import { planForMode } from './pipeline-plan.mjs';
     // anyone. The adaptive throttle could not help either: it keys off
     // lastVerdictMs, which is only written when a verdict COMPLETES.
     var verdictBusy = false;
+    // Set by a verdict pass that found neither a person nor a face.
+    var emptyFrame = false;
     // Backstop: a verdict pass that never reports back must not wedge
     // the guard shut for the life of the video.
     var VERDICT_STALL_MS = 4000;
@@ -1139,6 +1142,10 @@ import { planForMode } from './pipeline-plan.mjs';
                   // capped. Unverdicted people keep their existing
                   // state, and a brand-new one starts covered.
                   var all = picked.concat(extra);
+                  // Negative detection (owner idea): remember that THIS
+                  // verdict pass saw an empty frame, so the tracker can
+                  // erase ghosts instead of coasting them.
+                  emptyFrame = persons.length === 0 && faces.length === 0;
                   var dbgF = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
                   dbgF.faceStage = (dbgF.faceStage || []).concat([faces.length + '/' + all.length]).slice(-40);
                   dbgF.log = (dbgF.log || []).concat(['  faceStage all=' + all.length]).slice(-60);
@@ -1246,6 +1253,12 @@ import { planForMode } from './pipeline-plan.mjs';
               if (dbgK.shape.length > 60) dbgK.shape.shift();
               var dt = lastPassAt ? now - lastPassAt : sampleInterval;
               lastPassAt = now;
+              if (wasVerdict && emptyFrame) {
+                // Nobody in frame at all: every surviving patch is a
+                // ghost riding out its coast window. Kill them now.
+                videoTracks = wipeIfEmpty(videoTracks, 0, 0);
+                emptyFrame = false;
+              }
               videoTracks = updatePersonTracks(videoTracks, observations, dt);
               memoryStore(videoTracks);
               // Calibration probe: per-track state after every pass, so

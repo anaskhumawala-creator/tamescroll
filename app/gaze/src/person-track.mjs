@@ -123,6 +123,24 @@ function center(b) {
  * pairs claim each other first, so a jittery frame cannot swap two
  * nearby identities the way per-track nearest-centre could.
  */
+/**
+ * NEGATIVE DETECTION (owner idea 2026-08-25: "the detection tells you
+ * there are no humans in the frame and you don't have the blur").
+ * A verdict pass that found neither a person nor a face is positive
+ * evidence of an empty frame — every coasting track is a ghost and dies
+ * NOW rather than riding out its coast window.
+ *
+ * Deliberately an ERASER, never a CLEARER: absence removes patches, it
+ * never marks anyone same-gender. A person facing away or half out of
+ * frame also reads as absent, so this only ever runs when the frame is
+ * empty of BOTH signals, and only on a verdict pass (the position pass
+ * does not look for faces, so its silence means nothing).
+ */
+export function wipeIfEmpty(tracks, personCount, faceCount) {
+  if (personCount === 0 && faceCount === 0) return [];
+  return tracks;
+}
+
 export function updatePersonTracks(tracks, observations, dtMs) {
   var dt = dtMs > 0 ? dtMs : 250;
   var pairs = [];
@@ -306,7 +324,13 @@ function sizeVel(prev, next, dt, axis) {
 // a covered person on detector misses (back-of-head close-up = 0
 // persons AND 0 faces) uncovered them by timeout (review A5). A cleared
 // track expiring early costs nothing.
-export var PTRACK_MAX_MISS_BLURRED_MS = 3000;
+// A BLURRED track coasts longer than a cleared one — losing a covered
+// person for a moment must not expose them. But 3000ms was far too
+// generous: owner frame 2026-08-25 shows an overhead desk shot with NO
+// people in it carrying four stacked ghost patches, all of them tracks
+// coasting on evidence that stopped existing seconds earlier. A patch
+// with nothing under it is not protection, it is the bug.
+export var PTRACK_MAX_MISS_BLURRED_MS = 900;
 
 function coastStep(t, dt) {
   var missMs = t.missMs + dt;
