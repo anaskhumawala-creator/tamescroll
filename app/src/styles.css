@@ -92,11 +92,7 @@ svg { -webkit-user-drag: none; }
 .icon-btn:hover { color: var(--ink); border-color: var(--line); }
 
 .home-brand { text-align: center; margin: 42px 0 36px; }
-.home-brand .glyph { width: 26px; height: 26px; color: var(--ink); vertical-align: -3px; margin-right: 10px; }
-.home-brand h1 {
-  display: inline; font-family: var(--font-display); font-weight: 500;
-  font-size: 32px; letter-spacing: 0.01em;
-}
+.home-brand .wordmark { height: 34px; width: auto; }
 .home-brand .tagline { color: var(--muted); margin-top: 10px; font-size: 14.5px; }
 
 .tiles {
@@ -273,7 +269,7 @@ svg { -webkit-user-drag: none; }
 .ob-step { flex: 1; display: flex; align-items: center; justify-content: center; }
 .ob-center { text-align: center; max-width: 460px; padding: 40px 20px; }
 .ob-center h2 { font-size: 24px; font-weight: 650; margin-bottom: 12px; }
-.ob-wordmark { font-family: var(--font-display); font-weight: 500; font-size: 38px; margin: 14px 0 4px; }
+.ob-wordmark { width: 170px; height: auto; margin: 14px 0 4px; }
 .ob-copy { color: var(--muted); font-size: 15px; margin-bottom: 26px; }
 .glyph.big { width: 40px; height: 40px; color: var(--ink); }
 .ob-done { font-size: 30px; }
@@ -327,5 +323,5 @@ svg { -webkit-user-drag: none; }
   .tiles { gap: 10px; }
   .tile { width: calc(50% - 6px); }
   .home-brand { margin: 26px 0 26px; }
-  .home-brand h1 { font-size: 27px; }
+  .home-brand .wordmark { height: 29px; }
 }

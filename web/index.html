@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>tamescroll — the same platforms, none of the machinery</title>
 <meta name="description" content="tamescroll opens the platforms you already use as cleaned versions of themselves — no ads, no Shorts, no algorithmic feeds. Free, open source, desktop + mobile.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij48cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxNCIgZmlsbD0iIzE0MTQxNCI+PC9yZWN0PjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDkgMTIpIHNjYWxlKDEpIj48cGF0aCBkPSJNMjIgMjBhMyAzIDAgMCAwLTYgMGE2IDYgMCAwIDAgMTIgMGE5IDkgMCAwIDAtMTggMGExMiAxMiAwIDAgMCAxMiAxMmwxOCAwIiBmaWxsPSJub25lIiBzdHJva2U9IiNlN2U1ZTEiIHN0cm9rZS13aWR0aD0iNC42IiBzdHJva2UtbGluZWNhcD0icm91bmQiPjwvcGF0aD48L2c+PC9zdmc+">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -40,8 +41,7 @@
     max-width: 1080px; margin: 0 auto; padding: 22px 24px;
   }
   .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-  .brand svg { width: 22px; height: 22px; }
-  .brand span { font-family: var(--font-display); font-size: 22px; letter-spacing: .01em; }
+  .brand svg { height: 26px; width: auto; }
   nav.top { display: flex; gap: 26px; align-items: center; font-size: 14.5px; }
   nav.top a { text-decoration: none; color: var(--paper-muted); }
   nav.top a:hover { color: var(--paper-ink); }
@@ -102,11 +102,8 @@
   .mock .dots i { width: 9px; height: 9px; border-radius: 50%; background: #2e2e2e; }
   .mock .title { text-align: center; font-size: 12px; color: var(--faint); }
   .mock .inner { text-align: center; padding: 44px 32px 6px; }
-  .mock .word {
-    display: inline-flex; align-items: center; gap: 12px;
-    font-family: var(--font-display); font-size: 30px;
-  }
-  .mock .word svg { width: 24px; height: 24px; }
+  .mock .word { display: inline-flex; align-items: center; }
+  .mock .word svg { height: 32px; width: auto; }
   .mock .tag { color: var(--muted); font-size: 14px; margin-top: 8px; }
   .mock .tiles {
     display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;
@@ -199,8 +196,7 @@
 
 <header>
   <a class="brand" href="#top" aria-label="tamescroll home">
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 9.5a2.5 2.5 0 0 0-5 0a5 5 0 0 0 10 0a7.5 7.5 0 0 0-15 0a10 10 0 0 0 10 10h9" stroke="#1d1c19" stroke-width="2" stroke-linecap="round"/></svg>
-    <span>tamescroll</span>
+    <svg viewBox="0 0 560 140" role="img" aria-hidden="true"><g transform="translate(40 42) scale(1.28)"><path d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke="#1d1c19" stroke-width="3.6" stroke-linecap="round"/></g><text x="146" y="88" font-family="Spectral, Georgia, 'Times New Roman', serif" font-size="58" font-weight="600" letter-spacing="-0.6" fill="#1d1c19">tamescroll</text></svg>
   </a>
   <nav class="top">
     <a href="#how">How it works</a>
@@ -237,8 +233,7 @@
       </div>
       <div class="inner">
         <div class="word">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M12 9.5a2.5 2.5 0 0 0-5 0a5 5 0 0 0 10 0a7.5 7.5 0 0 0-15 0a10 10 0 0 0 10 10h9" stroke="#e7e5e1" stroke-width="2" stroke-linecap="round"/></svg>
-          tamescroll
+          <svg viewBox="0 0 560 140" role="img" aria-hidden="true"><g transform="translate(40 42) scale(1.28)"><path d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke="#e7e5e1" stroke-width="3.6" stroke-linecap="round"/></g><text x="146" y="88" font-family="Spectral, Georgia, 'Times New Roman', serif" font-size="58" font-weight="600" letter-spacing="-0.6" fill="#e7e5e1">tamescroll</text></svg>
         </div>
         <div class="tag">Your platforms, without the machinery.</div>
         <div class="tiles">
