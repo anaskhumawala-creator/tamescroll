@@ -23,15 +23,23 @@
 // 0.25 -> 0.35 2026-08-25: the old floor sat BELOW the observed
 // real-person band (0.28-0.62), so it admitted noise slots by design.
 export var PERSON_MIN_SCORE = 0.35;
+export var PATCH_MARGIN = 0.08; // outward margin on a finished person patch
 export var PERSON_GATE_PAD = 0.15; // person box padded by this fraction of its size for the crop
 export var PERSON_KEYPOINT_MIN = 0.3;
 // Evidence gate: this many confident keypoints AND a head/shoulder
 // anchor before a slot is a person at all.
 export var PERSON_MIN_KEYPOINTS = 5;
-var KEYPOINT_MARGIN = 0.03;
-// Keypoints 0-12 only: nose, eyes, ears, shoulders, elbows, wrists,
-// hips. 13-16 (knees, ankles) are excluded — see header.
-var UNION_KEYPOINT_MAX = 13;
+// Margin around every keypoint. 0.03 -> 0.05 (owner 2026-08-25: cover
+// them fully): a wrist keypoint sits at the wrist, and the HAND carries
+// on past it.
+var KEYPOINT_MARGIN = 0.05;
+// All 17 keypoints extend the patch: a covered person must not have
+// their legs or hands sticking out of it (owner 2026-08-25). Leg
+// keypoints are the noisiest, which is why the EVIDENCE gate below is
+// counted over the upper body only (0-12) — a slot still has to prove
+// it is a person before its ankles get a vote on the geometry.
+var UNION_KEYPOINT_MAX = 17;
+var EVIDENCE_KEYPOINT_MAX = 13;
 
 var NOSE = 0;
 var L_EAR = 3;
@@ -65,7 +73,7 @@ export function parsePersons(data, minScore, aspect) {
     // nothing to the patch and are the noisiest slots (owner 2026-08-25:
     // "you don't even have to use all keypoints — do accordingly").
     var confident = 0;
-    for (var c = 0; c < UNION_KEYPOINT_MAX; c++) {
+    for (var c = 0; c < EVIDENCE_KEYPOINT_MAX; c++) {
       if (data[o + c * 3 + 2] >= PERSON_KEYPOINT_MIN) confident++;
     }
     if (confident < PERSON_MIN_KEYPOINTS) continue;
@@ -79,28 +87,19 @@ export function parsePersons(data, minScore, aspect) {
     var bothShoulders = ls.s >= PERSON_KEYPOINT_MIN && rs.s >= PERSON_KEYPOINT_MIN;
     if (!head.length && !bothShoulders) continue;
 
-    // --- box: keypoint hull, NOT the model's head-to-feet box -------
-    // Owner frames 2026-08-25: a standing person's patch covered the
-    // whole player height, because the model box runs head to FEET and
-    // the union only ever grew it. What protection actually needs is
-    // head through hips. When the upper-body keypoints are trustworthy
-    // they define the patch and the model box only CLAMPS it; with weak
-    // keypoints we fall back to the model box (blur-first).
+    // --- box: the WHOLE person, head to feet ------------------------
+    // A hip clamp lived here for one commit and was wrong. The owner's
+    // "patches cover the whole video" complaint was never about covered
+    // people being covered too generously — it was about the WRONG
+    // people being covered at all. Owner 2026-08-25, explicitly: blur
+    // them fully, "not leave anything, the legs or the hands or the
+    // head". So the patch is the model's full box unioned with EVERY
+    // confident keypoint, legs included, plus a margin.
     var y1 = data[o + 51];
     var x1 = data[o + 52];
     var y2 = data[o + 53];
     var x2 = data[o + 54];
-    var lh = kp(data, o, 11);
-    var rh = kp(data, o, 12);
-    var hipY = null;
-    if (lh.s >= PERSON_KEYPOINT_MIN && rh.s >= PERSON_KEYPOINT_MIN) hipY = Math.max(lh.y, rh.y);
-    else if (lh.s >= PERSON_KEYPOINT_MIN) hipY = lh.y;
-    else if (rh.s >= PERSON_KEYPOINT_MIN) hipY = rh.y;
-    if (hipY !== null) {
-      // Below the hips is legs. Keep a margin for a seated/bent pose.
-      var hipFloor = hipY + 0.12;
-      if (hipFloor < y2) y2 = hipFloor;
-    }
+
     for (var u = 0; u < UNION_KEYPOINT_MAX; u++) {
       var ku = kp(data, o, u);
       if (!(ku.s >= PERSON_KEYPOINT_MIN)) continue;
@@ -146,11 +145,16 @@ export function parsePersons(data, minScore, aspect) {
       if (hx + headW * 1.2 > x2) x2 = hx + headW * 1.2;
     }
 
+    // Final outward margin. Over-covering a person who is meant to be
+    // covered costs nothing; under-covering them is the failure the
+    // owner counts.
+    var mw = (x2 - x1) * PATCH_MARGIN;
+    var mh = (y2 - y1) * PATCH_MARGIN;
     out.push({
-      y1: Math.max(0, y1),
-      x1: Math.max(0, x1),
-      y2: Math.min(1, y2),
-      x2: Math.min(1, x2),
+      y1: Math.max(0, y1 - mh),
+      x1: Math.max(0, x1 - mw),
+      y2: Math.min(1, y2 + mh),
+      x2: Math.min(1, x2 + mw),
       confidence: score,
       // Head anchor in FRAME coordinates (null when no head keypoint is
       // confident, e.g. a person facing away). The face/gender pass uses
@@ -181,10 +185,10 @@ export function personFromFace(face) {
   var w = (face.x2 - face.x1) / 1.4; // de-inflate FACE_ENLARGE
   var h = (face.y2 - face.y1) / 1.4;
   return {
-    x1: Math.max(0, cx - w * 1.15),
-    y1: Math.max(0, cy - h * 0.85),
-    x2: Math.min(1, cx + w * 1.15),
-    y2: Math.min(1, cy + h * 2.6),
+    x1: Math.max(0, cx - w * 1.8),
+    y1: Math.max(0, cy - h * 1.0),
+    x2: Math.min(1, cx + w * 1.8),
+    y2: Math.min(1, cy + h * 6.0),
     confidence: face.confidence,
     headX: cx,
     headY: cy,

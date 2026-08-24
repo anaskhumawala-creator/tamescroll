@@ -65,15 +65,23 @@ test('parsePersons: keypoints without a head OR both shoulders are rejected', ()
   assert.equal(parsePersons(data).length, 0);
 });
 
-test('parsePersons: leg keypoints never extend the patch', () => {
+test('parsePersons: leg keypoints DO extend the patch (cover them fully)', () => {
   const data = new Float32Array(6 * 56);
   setBox(data, 0, 0.2, 0.4, 0.5, 0.6, 0.6);
   upperBody(data, 0, 0.5, 0.25, 0.05);
-  // A hallucinated ankle at the frame floor must be ignored (13-16).
-  setKp(data, 0, 15, 0.98, 0.5, 0.9);
-  setKp(data, 0, 16, 0.99, 0.55, 0.9);
+  setKp(data, 0, 15, 0.9, 0.5, 0.9); // ankle below the model box
   const p = parsePersons(data)[0];
-  assert.ok(p.y2 < 0.9, 'ankle must not drag the patch to the floor: ' + p.y2);
+  assert.ok(p.y2 > 0.9, 'the patch must reach the feet, got ' + p.y2);
+});
+
+test('parsePersons: legs do NOT count as person evidence', () => {
+  // Score passes and five confident LEG keypoints exist, but nothing
+  // above the waist: still not a person.
+  const data = new Float32Array(6 * 56);
+  setBox(data, 0, 0.1, 0.1, 0.9, 0.9, 0.6);
+  for (let i = 13; i <= 16; i++) setKp(data, 0, i, 0.7 + i * 0.01, 0.5, 0.9);
+  setKp(data, 0, 9, 0.6, 0.4, 0.9);
+  assert.equal(parsePersons(data).length, 0);
 });
 
 test('parsePersons: wrists DO extend the patch (hands must be covered)', () => {
@@ -104,8 +112,8 @@ test('parsePersons: head anchor uses the frame aspect for its vertical margin', 
 test('personFromFace: face -> head+upper-torso region, not a full-frame patch', () => {
   const region = personFromFace({ x1: 0.4, y1: 0.1, x2: 0.5, y2: 0.24, confidence: 0.9 });
   const area = (region.x2 - region.x1) * (region.y2 - region.y1);
-  assert.ok(area < 0.2, 'crowd patch must stay small, got ' + area);
-  assert.ok(region.y2 > 0.24, 'should reach below the face for the torso');
+  assert.ok(area < 0.55, 'crowd patch must not swallow the frame, got ' + area);
+  assert.ok(region.y2 > 0.6, 'should reach well below the face for the body');
   assert.equal(region.fromFace, true);
   assert.ok(Math.abs(region.headX - 0.45) < 1e-6);
 });
@@ -120,21 +128,12 @@ test('personCropRegion: pads the person box, clamped to the frame', () => {
   assert.equal(edge.y2, 1);
 });
 
-test('parsePersons: the patch stops below the hips, not at the feet', () => {
-  const data = new Float32Array(6 * 56);
-  // Model box runs head (0.05) to feet (0.98).
-  setBox(data, 0, 0.05, 0.4, 0.98, 0.6, 0.8);
-  upperBody(data, 0, 0.5, 0.12, 0.05);
-  setKp(data, 0, 11, 0.55, 0.45, 0.9); // left hip
-  setKp(data, 0, 12, 0.55, 0.55, 0.9); // right hip
-  const p = parsePersons(data, undefined, 16 / 9)[0];
-  assert.ok(p.y2 <= 0.55 + 0.12 + 1e-6, 'patch must end near the hips, got ' + p.y2);
-});
-
-test('parsePersons: no confident hips leaves the model box alone (blur-first)', () => {
+test('parsePersons: a full-height subject keeps a full-height patch', () => {
   const data = new Float32Array(6 * 56);
   setBox(data, 0, 0.05, 0.4, 0.98, 0.6, 0.8);
   upperBody(data, 0, 0.5, 0.12, 0.05);
+  setKp(data, 0, 11, 0.55, 0.45, 0.9);
+  setKp(data, 0, 12, 0.55, 0.55, 0.9);
   const p = parsePersons(data, undefined, 16 / 9)[0];
-  assert.ok(p.y2 > 0.9);
+  assert.ok(p.y2 > 0.95, 'covered people are covered to the feet, got ' + p.y2);
 });
