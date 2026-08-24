@@ -63,7 +63,40 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-24 night (accuracy pass SHIPPED v1007, frame-verified; next = MoveNet person-gate).
+**Last updated:** 2026-08-24 late night (v1008 person-gate SHIPPED; next = person-crop zoom classify).
+
+**Session 2026-08-24 late night (v0.1.8/1008 RELEASED):** MoveNet
+MultiPose person gate BUILT + SHIPPED same night (owner commanded the
+humanoid ask; also "made it worse / inconsistent" on v1007's pure
+temporal gates — person evidence replaces guesswork).
+- Model: MoveNet MultiPose Lightning tfjs f16 fetched via the tfhub
+  ?tfjs-format=file double-redirect (curl -L works; -I 404s). OUR
+  hybrid uint8/f16 requant (app/gaze/build/requant-uint8.py): full
+  uint8 = DEAD OUTPUT (depthwise convs, 2.8 abs err); absolute 0.02
+  error bound keeps those f16 -> 4.94MB, output parity spot-checked.
+  Bundle 22.7MB. NOTICE updated (Apache-2.0).
+- person-gate.mjs (pure, 8 tests): parsePersons [1,6,56]; gateDetections
+  drops ONLY ambiguous candidates (uncertain + conf<0.6) outside person
+  regions — null persons = inert, empty = real evidence; facelessPersons
+  = backside coverage (person box IS the patch). Person pass every 3rd
+  player sample on own 256 canvas; loads after NSFW; failure = no gate.
+- embeddedIoHandler now passes signature through (needed for MoveNet
+  default-output resolve).
+- Verified live (screens/v6-, v7-): titlecard letters = 0 persons ->
+  phantom class dead; crates/plank clean; daughter covered across 4
+  scenes incl. tracked movement; Linus sharp (one brief uncertain flag
+  at 15:00 scene — fail-safe, cleared). __TS_GAZE_PERSONS = probe marker.
+- v1008 LIVE: APK 61MB (entries match), aapt2 1008, manifest raw sha
+  dddb105b verified. gaze 79/79, cargo 31/31.
+- **NEXT: person-crop zoom classify** (the real version of owner's
+  "double pass" idea): run face+gender on each PERSON'S zoomed crop
+  instead of the 128px full frame — fixes small-subject gender reads +
+  consistency. (Same-frame repeat passes are deterministic = useless;
+  multi-SCALE is the standard small-object practice. Look-ahead decode
+  impossible on YouTube MSE — answered owner twice.)
+- Perf UNVERIFIED on phone: 22.7MB bundle eval + MoveNet every 3rd
+  sample on Helio G88. If phone chokes: drop PERSON_INPUT_SIZE to 192/
+  160, or person pass every 5th sample.
 
 **Session 2026-08-24 night (v0.1.7/1007 RELEASED):** owner escalations all
 night (small subjects missed, random blurs on text/planks/shirts, males
