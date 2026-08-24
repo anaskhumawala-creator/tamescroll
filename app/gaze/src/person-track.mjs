@@ -144,6 +144,7 @@ function matchedStep(t, obs, dt) {
       state: state,
       clearMs: clearMs,
       missMs: 0,
+      flagStreak: t.flagStreak || 0,
       desc: t.desc || null,
       lastVerdict: t.lastVerdict || 'uncertain',
     };
@@ -152,10 +153,21 @@ function matchedStep(t, obs, dt) {
   // cadence — credit moves by the gap between READS (obs.verdictDt),
   // not the pass interval, so the split cadence keeps the hold honest.
   var vdt = typeof obs.verdictDt === 'number' ? obs.verdictDt : dt;
+  var flagStreak = t.flagStreak || 0;
   if (obs.flagged && obs.certain) {
-    // Positive opposite-gender reading: instant blur, memory wiped.
-    state = 'blurred';
-    clearMs = 0;
+    // Positive opposite-gender reading: instant blur — EXCEPT on a
+    // track that already EARNED its clear (served the full hold): the
+    // gender model sways on angled/blurred faces (owner 2026-08-24),
+    // and one noisy opposite read was re-blurring the cleared person
+    // over and over. An earned clear takes 2 consecutive certain
+    // opposite reads to revoke (~one verdict interval of risk on
+    // someone who already passed the bar — bounded, and a child can
+    // never be on this path: the age gate blocks earning a clear).
+    flagStreak += 1;
+    if (state !== 'cleared' || flagStreak >= 2) {
+      state = 'blurred';
+      clearMs = 0;
+    }
   } else if (!obs.flagged && obs.certain) {
     // Confident same-gender reading accumulates toward the clear hold.
     clearMs += vdt;
@@ -183,6 +195,7 @@ function matchedStep(t, obs, dt) {
     state: state,
     clearMs: clearMs,
     missMs: 0,
+    flagStreak: obs.flagged && obs.certain ? flagStreak : 0,
     desc: obs.desc || t.desc || null,
     lastVerdict: obs.flagged && obs.certain ? 'flag-certain' : !obs.flagged && obs.certain ? 'clear-certain' : 'uncertain',
   };
@@ -219,6 +232,7 @@ function coastStep(t, dt) {
     // A coasting track's clear hold does not advance (no evidence).
     clearMs: t.state === 'blurred' ? 0 : t.clearMs,
     missMs: missMs,
+    flagStreak: t.flagStreak || 0,
     desc: t.desc || null,
     lastVerdict: t.lastVerdict || 'uncertain',
   };

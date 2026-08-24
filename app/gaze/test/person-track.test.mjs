@@ -65,15 +65,19 @@ test('an uncertain read DECAYS the clear credit while blurred (never zeroes it)'
   assert.equal(tracks[0].state, 'cleared');
 });
 
-test('cleared + uncertain stays cleared (memory absorbs); confident opposite flips instantly', () => {
+test('cleared + uncertain stays cleared (memory absorbs); 2 confident opposites revoke', () => {
   let tracks = updatePersonTracks([], [obs(boxA, false, true)], 250);
   const steps = Math.ceil(CLEAR_HOLD_MS / 250) + 1;
   for (let i = 0; i < steps; i++) tracks = updatePersonTracks(tracks, [obs(boxA, false, true)], 250);
   assert.equal(tracks[0].state, 'cleared');
   tracks = updatePersonTracks(tracks, [obs(boxA, true, false)], 250);
   assert.equal(tracks[0].state, 'cleared'); // uncertainty absorbed
+  // An EARNED clear takes 2 consecutive certain opposites (gender-sway
+  // noise, owner 2026-08-24) — one read holds, the second revokes.
   tracks = updatePersonTracks(tracks, [obs(boxA, true, true)], 250);
-  assert.equal(tracks[0].state, 'blurred'); // positive reading: instant
+  assert.equal(tracks[0].state, 'cleared');
+  tracks = updatePersonTracks(tracks, [obs(boxA, true, true)], 250);
+  assert.equal(tracks[0].state, 'blurred');
 });
 
 test('unmatched track coasts along its velocity, then expires', () => {
@@ -169,4 +173,28 @@ test('mergeTracks: overlapping render boxes union into one, disjoint stay apart'
   assert.equal(merged.length, 2);
   assert.deepEqual(merged[0].box, { x1: 0.1, y1: 0.1, x2: 0.6, y2: 0.7 });
   assert.ok(Math.abs(merged[0].vx - 0.1) < 1e-9);
+});
+
+test('earned clear survives ONE noisy opposite read, revoked on two consecutive', () => {
+  const box = { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 };
+  // earn the clear
+  let tracks = pt.updatePersonTracks([], [{ box, flagged: false, certain: true, verdictDt: CLEAR_HOLD_MS }], 250);
+  tracks = pt.updatePersonTracks(tracks, [{ box, flagged: false, certain: true, verdictDt: CLEAR_HOLD_MS }], 250);
+  assert.equal(tracks[0].state, 'cleared');
+  // one noisy certain-opposite read: still cleared
+  tracks = pt.updatePersonTracks(tracks, [{ box, flagged: true, certain: true, verdictDt: 250 }], 250);
+  assert.equal(tracks[0].state, 'cleared');
+  // a clean read in between resets the streak
+  tracks = pt.updatePersonTracks(tracks, [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
+  tracks = pt.updatePersonTracks(tracks, [{ box, flagged: true, certain: true, verdictDt: 250 }], 250);
+  assert.equal(tracks[0].state, 'cleared');
+  // two consecutive: revoked
+  tracks = pt.updatePersonTracks(tracks, [{ box, flagged: true, certain: true, verdictDt: 250 }], 250);
+  assert.equal(tracks[0].state, 'blurred');
+});
+
+test('a NON-cleared track still blurs instantly on a certain flag', () => {
+  const box = { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 };
+  const tracks = pt.updatePersonTracks([], [{ box, flagged: true, certain: true }], 250);
+  assert.equal(tracks[0].state, 'blurred');
 });
