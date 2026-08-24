@@ -1,7 +1,7 @@
 {
-  "versionCode": 1013,
-  "versionName": "0.1.13",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.13/app-arm64-debug.apk",
-  "sha256": "60d5e65ddeb1d1ad588c41b9544b01f233bc6107e9e3f9e0c526f33b9dce531b",
-  "notes": "Fast male clear, blur under the timeline bar, falcon brand icons"
+  "versionCode": 1014,
+  "versionName": "0.1.14",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.14/app-arm64-debug.apk",
+  "sha256": "b7822d5bdbfe4ca74e55853d35acb6c23082f666f4ac4567d71ee3f2a674c011",
+  "notes": "Important fix: v0.1.13 blur was invisible (rendered behind the video)"
 }
