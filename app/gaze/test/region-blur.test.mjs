@@ -61,8 +61,8 @@ test('padBox: never pushes past the element edge', () => {
 
 test('expandToBody: de-inflates the enlarged box, widens to shoulders, extends down the torso', () => {
   const b = expandToBody({ x1: 0.45, y1: 0.1, x2: 0.55, y2: 0.2, confidence: 0.9 });
-  assert.ok(Math.abs(b.x1 - 0.3857143) < 1e-6);
-  assert.ok(Math.abs(b.x2 - 0.6142857) < 1e-6);
+  assert.ok(Math.abs(b.x1 - 0.4142857) < 1e-6);
+  assert.ok(Math.abs(b.x2 - 0.5857143) < 1e-6);
   assert.ok(Math.abs(b.y1 - 0.0928571) < 1e-6);
   assert.ok(Math.abs(b.y2 - 0.6142857) < 1e-6);
   assert.equal(b.confidence, 0.9);

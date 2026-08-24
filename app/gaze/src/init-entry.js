@@ -15,8 +15,8 @@
 // sampling — never its AGPL-3.0 source; see NOTICE / VISION.md).
 import * as dom from './dom.js';
 import * as detector from './detector.js';
-import { flaggedFaceIndices } from './gender-verdict.mjs';
-import { updateTracks, flaggedBoxes } from './track.mjs';
+import { flaggedFaceIndices, faceMeta } from './gender-verdict.mjs';
+import { updateTracks, flaggedBoxes, suppressTorsoGhosts } from './track.mjs';
 import {
   supportsRegionBlur,
   initRegionBlur,
@@ -34,7 +34,7 @@ import { planForMode } from './pipeline-plan.mjs';
   // Distinctive, minification-proof marker (property assignment with a
   // string literal — esbuild won't rename it) so the Rust side can prove
   // this exact bundle is what got injected. See lib.rs gaze tests.
-  window.__TS_GAZE_BUNDLE__ = 'v1';
+  window.__TS_GAZE_BUNDLE__ = 'v2'; // v2: zoom recheck + tracker gender memory (2026-08-24)
 
   // Compulsory tier (handoff decision #1): the pipeline boots in every
   // launcher mode so NSFW media can be removed outright; what else runs
@@ -480,6 +480,80 @@ import { planForMode } from './pipeline-plan.mjs';
     // whenever the stream identity changes (loadstart, pill re-enable,
     // giveUp): old tracks describe a video that no longer exists.
     var videoTracks = [];
+    // Zoom re-verify canvas (owner 2026-08-24 "random objects blurred" +
+    // "failing when the subject is smaller" — one mechanism fixes both):
+    // the sampling canvas is only INPUT_SIZE px, so a distant face is a
+    // handful of pixels there and scores in the rescue band alongside
+    // wood grain and shirt graphics. Re-cropping the candidate straight
+    // from the video at NATIVE resolution and re-running the detector on
+    // just that region separates them decisively: a real face fills the
+    // recheck frame and scores high, a texture patch stays floor-level.
+    // (Detection-cascade idea, standard in surveillance pipelines.)
+    var recheckCanvas = null;
+    var FACE_RECHECK_CONFIDENCE = 0.5; // registered in docs/detection-engine.md
+
+    function recheckSmallFace(box) {
+      try {
+        if (!recheckCanvas) {
+          recheckCanvas = document.createElement('canvas');
+          recheckCanvas.width = detector.INPUT_SIZE;
+          recheckCanvas.height = detector.INPUT_SIZE;
+        }
+        var vw = video.videoWidth;
+        var vh = video.videoHeight;
+        if (!vw || !vh) return Promise.resolve(false);
+        var bw = (box.x2 - box.x1) * vw;
+        var bh = (box.y2 - box.y1) * vh;
+        var sx = Math.max(0, box.x1 * vw - bw * 0.5);
+        var sy = Math.max(0, box.y1 * vh - bh * 0.5);
+        var sw = Math.min(vw - sx, bw * 2);
+        var sh = Math.min(vh - sy, bh * 2);
+        if (sw < 8 || sh < 8) return Promise.resolve(false);
+        var ctx2d = recheckCanvas.getContext('2d');
+        ctx2d.drawImage(video, sx, sy, sw, sh, 0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
+        var crop = ctx2d.getImageData(0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
+        return detector.detectFaceBoxes(model, crop).then(function (found) {
+          for (var i = 0; i < found.length; i++) {
+            if (found[i].confidence >= FACE_RECHECK_CONFIDENCE) return true;
+          }
+          return false;
+        });
+      } catch (e) {
+        // Unreadable crop: keep the candidate (fail-safe — a real person
+        // must not be dropped because the verifier broke).
+        return Promise.resolve(true);
+      }
+    }
+
+    // Filters detect() output. Suspects = the rescue band ONLY (conf
+    // below FACE_MIN_CONFIDENCE): the extra candidates the low floor
+    // admits must re-earn their place at native res. Measured 2026-08-24
+    // (zoom-score sweep, 16 frames): the recheck must NOT extend to
+    // 0.35+ small boxes — real distant faces there zoom to 0 while bold
+    // red LETTERS zoomed to 0.59, so a wider recheck deletes people and
+    // keeps graphics. Static-texture phantoms in that band die in the
+    // tracker instead (static suppression, track.mjs); full separation
+    // is the person-detector milestone (docs/research/video-tracking.md).
+    function verifyLowConf(faces) {
+      var confident = [];
+      var suspects = [];
+      for (var i = 0; i < faces.length; i++) {
+        if (faces[i].confidence >= detector.FACE_MIN_CONFIDENCE) confident.push(faces[i]);
+        else suspects.push(faces[i]);
+      }
+      if (!suspects.length) return Promise.resolve(faces);
+      var checks = suspects.map(function (f) {
+        return recheckSmallFace(f).then(function (ok) {
+          return ok ? f : null;
+        });
+      });
+      return Promise.all(checks).then(function (kept) {
+        for (var k = 0; k < kept.length; k++) {
+          if (kept[k]) confident.push(kept[k]);
+        }
+        return confident;
+      });
+    }
 
     // Cross-origin video with no CORS taints the canvas: getImageData
     // throws SecurityError on EVERY frame, forever — no header we can
@@ -519,7 +593,10 @@ import { planForMode } from './pipeline-plan.mjs';
         ctx2d.drawImage(video, 0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
         var pixels = ctx2d.getImageData(0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
         detector
-          .detectFaceBoxes(model, pixels)
+          // smallRescue=true: video only — verifyLowConf's native-res
+          // recheck + the tracker's MIN_HITS gate make the low floor safe.
+          .detectFaceBoxes(model, pixels, true)
+          .then(verifyLowConf)
           .then(function (faces) {
             // Per-face flag decisions feed the tracker (owner ask
             // 2026-08-24): only the faces that FAIL the gender bar get
@@ -527,26 +604,37 @@ import { planForMode } from './pipeline-plan.mjs';
             // stays sharp. Without the gender model every face flags
             // (presence-only fail-safe, as ever).
             if (!faces.length || !genderModel) {
-              return { faces: faces, flaggedIdx: faces.map(function (_f, i) { return i; }) };
+              return {
+                faces: faces,
+                meta: faces.map(function () { return { flagged: true, certain: false }; }),
+              };
             }
             return detector.classifyFaceGenders(genderModel, pixels, faces).then(function (genders) {
-              return { faces: faces, flaggedIdx: flaggedFaceIndices(userGender, genders) };
+              return { faces: faces, meta: faceMeta(userGender, genders) };
             });
           })
           .then(function (res) {
             if (failed) return;
-            var anyFlagged = res.flaggedIdx.length > 0;
+            var anyFlagged = false;
+            for (var mi = 0; mi < res.meta.length; mi++) {
+              if (res.meta[mi].flagged) anyFlagged = true;
+            }
             if (useRegionVideo) {
               // Tracker path (owner ask 2026-08-24: "consider previous
               // frames — continuously track the person"): detections
               // update persistent tracks; a missed detection HOLDS the
               // patch, a clear needs a streak, flags stick per person.
-              var flaggedSet = {};
-              for (var fi = 0; fi < res.flaggedIdx.length; fi++) flaggedSet[res.flaggedIdx[fi]] = true;
               var detections = [];
               for (var d = 0; d < res.faces.length; d++) {
-                detections.push({ box: res.faces[d], flagged: !!flaggedSet[d] });
+                detections.push({
+                  box: res.faces[d],
+                  flagged: res.meta[d].flagged,
+                  certain: res.meta[d].certain,
+                });
               }
+              // Shirt graphics on a cleared person ride along as
+              // uncertain "faces" — drop them before they seed tracks.
+              detections = suppressTorsoGhosts(detections, expandToBody);
               videoTracks = updateTracks(videoTracks, detections);
               var covered = flaggedBoxes(videoTracks);
               if (covered.length) {
@@ -672,9 +760,10 @@ import { planForMode } from './pipeline-plan.mjs';
       // In-player toggle (owner ask): a wrong live verdict must be one
       // tap from gone. Lives INSIDE the player container so element
       // fullscreen keeps it visible (fixed-position elements outside
-      // the fullscreen element are not rendered). NO NAGS: visible only
-      // while the player is actually covered — or toggled off, since
-      // the user needs the way back (review 2026-08-23 #9).
+      // the fullscreen element are not rendered). ALWAYS visible on the
+      // player (owner 2026-08-24: it is the whole-video blur switch, so
+      // it must not vanish when nothing is currently covered); it is our
+      // own control, not a platform nag, so NO NAGS is not in play.
       pill = document.createElement('button');
       pill.type = 'button';
       pill.textContent = 'Blur on';
@@ -704,17 +793,7 @@ import { planForMode } from './pipeline-plan.mjs';
         if (!video.isConnected || failed) {
           clearInterval(pillWatch);
           if (pill.parentNode) pill.parentNode.removeChild(pill);
-          return;
         }
-        // Region blur strips both classes (only the face is covered), so
-        // regionActive is part of "is anything covered" — without it the
-        // pill would vanish exactly when a live face IS being blurred and
-        // the user has no way to toggle it off.
-        var covered =
-          regionActive ||
-          video.classList.contains(dom.PENDING_CLASS) ||
-          video.classList.contains(dom.FLAGGED_CLASS);
-        pill.style.display = covered || !playerBlurOn ? '' : 'none';
       }, 1000);
     }
 

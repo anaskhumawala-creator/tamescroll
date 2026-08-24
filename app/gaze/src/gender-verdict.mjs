@@ -41,6 +41,31 @@ export function faceVerdict(userGender, faces) {
  * gender ⇒ every face covered.
  * faces: [{ gender, score }] parallel to the caller's box array.
  */
+/**
+ * Per-face {flagged, certain} for the video tracker (owner ask
+ * 2026-08-24: "remember the person you checked — don't repeatedly blur
+ * a male"). `certain` = the gender stage returned a real direction at
+ * or above the bar; the tracker uses it to tell "confidently opposite
+ * gender — flag NOW" apart from "couldn't read the face this frame" —
+ * only the former may override a track's accumulated same-gender
+ * history. faces: [{ gender, score }].
+ */
+export function faceMeta(userGender, faces) {
+  var opposite = OPPOSITE[userGender];
+  var out = [];
+  for (var i = 0; i < (faces ? faces.length : 0); i++) {
+    if (!opposite) {
+      out.push({ flagged: true, certain: false });
+      continue;
+    }
+    var f = faces[i];
+    var certain = (f.gender === 'male' || f.gender === 'female') && f.score >= GENDER_MIN_SCORE;
+    var same = f.gender === (opposite === 'female' ? 'male' : 'female');
+    out.push({ flagged: !same || !certain, certain: certain });
+  }
+  return out;
+}
+
 export function flaggedFaceIndices(userGender, faces) {
   if (!faces || faces.length === 0) return [];
   var opposite = OPPOSITE[userGender];

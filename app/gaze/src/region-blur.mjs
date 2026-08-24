@@ -62,9 +62,12 @@ export function expandToBody(box) {
   var top = cy - h / 2;
   var bottom = cy + h / 2;
   return {
-    x1: Math.max(0, cx - w * 1.6),
+    // Shoulders: 1.6 -> 1.2 half-widths 2026-08-24 (owner screenshot:
+    // the wide box swallowed the face NEXT to the covered person;
+    // biacromial width ~2.3 head-widths, 2.4 total still covers it).
+    x1: Math.max(0, cx - w * 1.2),
     y1: Math.max(0, top - h * 0.3),
-    x2: Math.min(1, cx + w * 1.6),
+    x2: Math.min(1, cx + w * 1.2),
     y2: Math.min(1, bottom + h * 6.0),
     confidence: box.confidence,
   };

@@ -33,6 +33,17 @@ export var GENDER_INPUT_SIZE = 224; // faceres (HSE-FaceRes) fixed input shape
 // hands), each one a phantom patch. Still below the 0.5 common default
 // so obscured real faces keep flagging — fail-safe leans kept.
 export var FACE_MIN_CONFIDENCE = 0.35;
+// Small-subject rescue (owner 2026-08-24: "failing when the subject is
+// a bit smaller"): genuinely small faces score low on BlazeFace, so the
+// 0.35 floor traded away exactly them. Boxes whose side is below
+// FACE_SMALL_SIDE (fraction of the model frame) keep the old 0.2 floor.
+// VIDEO-ONLY (smallRescue arg): owner screenshots the same day showed
+// the low floor re-admits small phantoms too (shirt graphic, plank), so
+// the rescue is only offered where the tracker can demand persistence
+// (track.mjs TRACK_MIN_HITS) before a patch renders. Single-frame images
+// have no temporal evidence and stay at the flat 0.35 floor.
+export var FACE_SMALL_SIDE = 0.14;
+export var FACE_SMALL_MIN_CONFIDENCE = 0.2;
 var FACE_IOU = 0.1;
 var FACE_MAX = 20;
 var FACE_ENLARGE = 1.4; // gender wants context around the face crop
@@ -217,7 +228,7 @@ function ensureAnchors() {
  * squarified in model space for downstream gender crops). Empty array =
  * no faces. Decode adapted from vladmandic/human getBoxes (MIT).
  */
-export async function detectFaceBoxes(model, pixelSource) {
+export async function detectFaceBoxes(model, pixelSource, smallRescue) {
   var anchors = ensureAnchors();
   var out = tf.tidy(function () {
     var img = tf.browser.fromPixels(pixelSource);
@@ -259,10 +270,17 @@ export async function detectFaceBoxes(model, pixelSource) {
     boxesArr[r * 4 + 2] = data[r * 5 + 3];
     boxesArr[r * 4 + 3] = data[r * 5 + 4];
   }
-  var idx = nonMaxSuppression(boxesArr, scoresArr, FACE_MAX, FACE_IOU, FACE_MIN_CONFIDENCE);
+  // With smallRescue, NMS runs at the LOW floor and the size-adaptive cut
+  // happens after, when box dimensions are known (see FACE_SMALL_SIDE
+  // above); without it (image path) the flat floor applies at NMS.
+  var floor = smallRescue ? FACE_SMALL_MIN_CONFIDENCE : FACE_MIN_CONFIDENCE;
+  var idx = nonMaxSuppression(boxesArr, scoresArr, FACE_MAX, FACE_IOU, floor);
+  var smallSide = FACE_SMALL_SIDE * INPUT_SIZE;
   var kept = [];
   for (var i = 0; i < idx.length; i++) {
     var j = idx[i] * 4;
+    var side = Math.max(boxesArr[j + 2] - boxesArr[j], boxesArr[j + 3] - boxesArr[j + 1]);
+    if (scoresArr[idx[i]] < FACE_MIN_CONFIDENCE && side >= smallSide) continue;
     // Enlarge + squarify in model space, then normalize to 0..1 of
     // the (resize-stretched) source — fractions map back correctly.
     var cx = (boxesArr[j] + boxesArr[j + 2]) / 2;

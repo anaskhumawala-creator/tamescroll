@@ -3,7 +3,7 @@
 // fail-safe); no declared user gender = v1 behavior (any face covers).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { faceVerdict, flaggedFaceIndices, GENDER_MIN_SCORE } from '../src/gender-verdict.mjs';
+import { faceVerdict, flaggedFaceIndices, faceMeta, GENDER_MIN_SCORE } from '../src/gender-verdict.mjs';
 
 const male = (s = 0.9) => ({ gender: 'male', score: s });
 const female = (s = 0.9) => ({ gender: 'female', score: s });
@@ -67,4 +67,16 @@ test('flaggedFaceIndices: unset gender flags every face', () => {
     { gender: 'male', score: 0.99 },
     { gender: 'female', score: 0.99 },
   ]), [0, 1]);
+});
+
+test('faceMeta: certain same-gender clears, certain opposite flags, low score flags UNCERTAIN', () => {
+  const m = faceMeta('man', [male(0.9), female(0.9), male(0.1)]);
+  assert.deepEqual(m[0], { flagged: false, certain: true });
+  assert.deepEqual(m[1], { flagged: true, certain: true });
+  assert.deepEqual(m[2], { flagged: true, certain: false });
+});
+
+test('faceMeta: unset user gender flags everything as uncertain', () => {
+  const m = faceMeta('unset', [male(0.9)]);
+  assert.deepEqual(m[0], { flagged: true, certain: false });
 });
