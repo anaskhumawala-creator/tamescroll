@@ -267,3 +267,41 @@ test('wipeIfEmpty: any evidence at all keeps the tracks (eraser, not clearer)', 
   assert.equal(wipeIfEmpty(tracks, 1, 0).length, 1);
   assert.equal(wipeIfEmpty(tracks, 0, 1).length, 1);
 });
+
+test('mergeTracks: a small patch sitting inside a big one merges (stacked patches)', () => {
+  // The runs/r2b-woman/f008 shape: a head-and-shoulders patch inside a
+  // full-body patch on the SAME person. IoU is only ~0.14 here, so the
+  // old IoU-only rule left both on screen with a visible seam.
+  const big = { key: 'a', box: { x1: 0.1, y1: 0.05, x2: 0.6, y2: 1.0 } };
+  const small = { key: 'b', box: { x1: 0.25, y1: 0.08, x2: 0.5, y2: 0.35 } };
+  assert.ok(pt.iou(big.box, small.box) < pt.MERGE_IOU_MIN, 'precondition: IoU is low');
+  assert.equal(pt.mergeTracks([big, small]).length, 1);
+});
+
+test('mergeTracks: people standing side by side still do NOT merge', () => {
+  const left = { key: 'a', box: { x1: 0.05, y1: 0.1, x2: 0.45, y2: 0.95 } };
+  const right = { key: 'b', box: { x1: 0.5, y1: 0.1, x2: 0.9, y2: 0.95 } };
+  assert.equal(pt.mergeTracks([left, right]).length, 2);
+});
+
+test('mergeTracks: slight shoulder overlap between two people does not merge them', () => {
+  const left = { key: 'a', box: { x1: 0.05, y1: 0.1, x2: 0.5, y2: 0.95 } };
+  const right = { key: 'b', box: { x1: 0.45, y1: 0.1, x2: 0.9, y2: 0.95 } };
+  assert.equal(pt.mergeTracks([left, right]).length, 2);
+});
+
+test('dedupeObservations: a duplicate sighting of one person collapses to one', () => {
+  const body = { box: { x1: 0.1, y1: 0.05, x2: 0.6, y2: 1.0 }, positionOnly: true };
+  const head = { box: { x1: 0.25, y1: 0.08, x2: 0.5, y2: 0.35 }, flagged: false, certain: true };
+  const out = pt.dedupeObservations([body, head]);
+  assert.equal(out.length, 1);
+  // The one carrying a real verdict survives — a position-only sighting
+  // must never outrank an actual gender read.
+  assert.equal(out[0].certain, true);
+});
+
+test('dedupeObservations: two separate people are both kept', () => {
+  const a = { box: { x1: 0.05, y1: 0.1, x2: 0.45, y2: 0.95 } };
+  const b = { box: { x1: 0.5, y1: 0.1, x2: 0.9, y2: 0.95 } };
+  assert.equal(pt.dedupeObservations([a, b]).length, 2);
+});

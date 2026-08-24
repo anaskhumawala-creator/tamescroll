@@ -62,8 +62,12 @@ at least once.
 2. `python gauntlet.py runs/<round>-<gender> <gender> <videoId> <start>
    <count> <step>` captures player-only frames + overlay geometry +
    track state + pass cost.
-3. Score EVERY frame by eye against the five classes. Record counts and
-   the exact frame files that failed.
+3. Score EVERY frame by eye against the five classes, comparing
+   `fNNN.png` (as the user sees it) against `fNNN_truth.png` (same
+   instant, overlays hidden). The pair is what makes scoring objective —
+   from the blurred image alone, a correctly-covered person and a
+   wrongly-covered one look identical. Record counts and the exact frame
+   files that failed.
 4. Spawn a critic agent. **Each round's brief must differ from the
    last** — different lens, different question, fresh evidence, and it
    is told what the previous critic already said so it does not repeat
@@ -128,3 +132,32 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   persons count is the value from the most recent pass, so some of these
   may be position-pass lag rather than true ghosts — settle that first
   by timestamping the persons count alongside the patch rects.
+- **R3** (2026-08-25) — the "boxes spawn randomly and float around"
+  complaint, diagnosed and fixed. NOT ghosts: the truth frames show real
+  people under every patch. The defect was DUPLICATE patches — two
+  tracks per person, drawn stacked with a visible seam.
+  Two causes, both fixed:
+  * merge used IoU only, which punishes a size difference. A full-body
+    patch and a head-and-shoulders patch on one person score IoU ~0.14
+    and never merged. Added MERGE_CONTAIN_MIN 0.6 on intersection-over-
+    smaller-area, which asks the question that matters (is this patch
+    essentially inside that one) and stays near zero for people standing
+    side by side.
+  * the duplicate tracks themselves: MoveNet reports a person, the
+    full-frame face pass finds their face, `faceInsideAny` misses
+    because the face box pokes outside the person box, and
+    personFromFace mints a second person on top. New
+    dedupeObservations() collapses them BEFORE association — merging at
+    render time hid the seam but left two tracks competing for one
+    person's gender reads, so a verdict landing on one left the other
+    blurred forever.
+  Before: 3 stacked patches over 2 people. After: exactly one patch per
+  person, no seams (runs/r3-woman, runs/r3b-woman).
+  COST, first measurement on the dev app: verdict pass p50 152ms,
+  p95 554ms, max 3856ms; position pass p50 27ms, p95 37ms, max 57ms.
+  The position pass is cheap and fine. The verdict tail is the problem —
+  a 3.8s outlier on a desktop means a phone stalls, and the adaptive
+  throttle reacts to it rather than preventing it. NEXT ROUND'S TARGET.
+  Harness: frames are now captured in PAIRS, blur-on and blur-off at the
+  same instant (owner idea), so scoring stops being guesswork about who
+  is underneath a patch. gaze 93/93, cargo 31/31.

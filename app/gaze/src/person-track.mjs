@@ -141,7 +141,54 @@ export function wipeIfEmpty(tracks, personCount, faceCount) {
   return tracks;
 }
 
+/**
+ * Two observations describing the SAME human in one pass.
+ *
+ * It happens routinely: MoveNet reports a person, the full-frame face
+ * pass finds their face, `faceInsideAny` misses because the face box
+ * pokes outside the person box, and personFromFace mints a second
+ * person on top of the first. The tracker then keeps two tracks for one
+ * body, each drawing its own patch — which is what the owner sees as
+ * stacked, seamed, "randomly spawning" boxes.
+ *
+ * Merging at RENDER time hides the seam but not the cause: two tracks
+ * still compete for the same person's gender reads, and a verdict that
+ * lands on one of them leaves the other blurred. So they are collapsed
+ * here, before association, and the survivor is chosen blur-first: a
+ * real verdict beats a position-only sighting, and the larger box wins
+ * ties so nothing shrinks off the person.
+ */
+export function dedupeObservations(observations) {
+  var out = [];
+  for (var i = 0; i < observations.length; i++) {
+    var o = observations[i];
+    var dup = -1;
+    for (var j = 0; j < out.length; j++) {
+      if (containment(o.box, out[j].box) >= MERGE_CONTAIN_MIN) {
+        dup = j;
+        break;
+      }
+    }
+    if (dup === -1) {
+      out.push(o);
+      continue;
+    }
+    out[dup] = preferred(out[dup], o);
+  }
+  return out;
+}
+
+function preferred(a, b) {
+  var aV = a.positionOnly ? 0 : 1;
+  var bV = b.positionOnly ? 0 : 1;
+  if (aV !== bV) return aV > bV ? a : b;
+  var areaA = (a.box.x2 - a.box.x1) * (a.box.y2 - a.box.y1);
+  var areaB = (b.box.x2 - b.box.x1) * (b.box.y2 - b.box.y1);
+  return areaB > areaA ? b : a;
+}
+
 export function updatePersonTracks(tracks, observations, dtMs) {
+  observations = dedupeObservations(observations);
   var dt = dtMs > 0 ? dtMs : 250;
   var pairs = [];
   var i, j;
@@ -468,8 +515,30 @@ export function blurredTracks(tracks) {
 // ends up under a blur. Two people standing together must stay two
 // patches; only near-duplicate boxes of the SAME person merge.
 export var MERGE_IOU_MIN = 0.5;
+// Containment threshold: intersection over the SMALLER box's area.
+// IoU alone is the wrong test for stacked patches. Two patches on the
+// same person are often very different sizes — a full-body track and a
+// head-and-shoulders one — and IoU punishes that size difference hard
+// enough that they never merge, so the player shows two boxes with a
+// visible seam down the middle of one person. Owner frame
+// runs/r2b-woman/f008: three stacked patches over two people, read by
+// him as "boxes spawn randomly and float around". Intersection over the
+// smaller area asks the question that actually matters — is this patch
+// essentially inside that one — and it stays near zero for people
+// standing side by side, so they still get their own patches.
+export var MERGE_CONTAIN_MIN = 0.6;
+export function containment(a, b) {
+  var iw = Math.max(0, Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1));
+  var ih = Math.max(0, Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1));
+  var inter = iw * ih;
+  if (inter <= 0) return 0;
+  var areaA = Math.max(0, a.x2 - a.x1) * Math.max(0, a.y2 - a.y1);
+  var areaB = Math.max(0, b.x2 - b.x1) * Math.max(0, b.y2 - b.y1);
+  var small = Math.min(areaA, areaB);
+  return small > 0 ? inter / small : 0;
+}
 function overlaps(a, b) {
-  return iou(a, b) >= MERGE_IOU_MIN;
+  return iou(a, b) >= MERGE_IOU_MIN || containment(a, b) >= MERGE_CONTAIN_MIN;
 }
 
 export function mergeTracks(list) {

@@ -119,6 +119,15 @@ PROBE = r"""
     patches: patches,
     tracks: tr,
     reads: (d.reads || []).slice(-4),
+    cost: (function () {
+      var c = d.cost || { verdict: [], pass: [] };
+      function stat(a) {
+        if (!a.length) return null;
+        var s = a.slice().sort(function (x, y) { return x - y; });
+        return { n: s.length, p50: s[(s.length / 2) | 0], p95: s[Math.min(s.length - 1, (s.length * 0.95) | 0)], max: s[s.length - 1] };
+      }
+      return { verdict: stat(c.verdict), pass: stat(c.pass) };
+    })(),
     rect: { x: vr.left, y: vr.top, w: vr.width, h: vr.height },
   };
 })()
@@ -201,9 +210,27 @@ def run(outdir, gender, video, start, count, step):
         if not p:
             time.sleep(step)
             continue
+        # PAIRED CAPTURE (owner idea 2026-08-25: "you can enable and
+        # disable the blur to check for yourself"). Every frame is shot
+        # twice — once as the user sees it, once with the overlays
+        # hidden — so scoring is not guesswork about who is underneath a
+        # patch. Judging coverage from the blurred image alone is how a
+        # correctly-covered person and a wrongly-covered one end up
+        # looking identical.
         name = "f%03d.png" % i
+        truth = "f%03d_truth.png" % i
         try:
             tab.clip_shot(os.path.join(outdir, name), p["rect"])
+            tab.eval(
+                "(function(){var n=document.querySelectorAll('.ts-gaze-vregion-host');"
+                "for(var i=0;i<n.length;i++)n[i].style.visibility='hidden';return n.length;})()"
+            )
+            tab.clip_shot(os.path.join(outdir, truth), p["rect"])
+            tab.eval(
+                "(function(){var n=document.querySelectorAll('.ts-gaze-vregion-host');"
+                "for(var i=0;i<n.length;i++)n[i].style.visibility='';})()"
+            )
+            p["truth"] = truth
         except Exception as e:  # a capture failure must not lose the run
             p["shotError"] = str(e)
         p.pop("rect", None)

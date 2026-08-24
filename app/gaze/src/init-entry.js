@@ -1325,6 +1325,16 @@ import { planForMode } from './pipeline-plan.mjs';
               var cost = performance.now() - now;
               if (wasVerdict) lastVerdictMs = cost;
               else lastPassMs = cost;
+              // Cost telemetry for the gauntlet's mobile budget. Owner
+              // 2026-08-25: "be sure to make it optimized and
+              // performance oriented — that is the only way this app
+              // would be helpful." Accuracy that costs a phone its
+              // frame rate is not a win, so every round records both.
+              var dbgC = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+              dbgC.cost = dbgC.cost || { verdict: [], pass: [] };
+              var bucket = wasVerdict ? dbgC.cost.verdict : dbgC.cost.pass;
+              bucket.push(Math.round(cost));
+              if (bucket.length > 120) bucket.shift();
               sampling = false;
             });
         } catch (e) {
