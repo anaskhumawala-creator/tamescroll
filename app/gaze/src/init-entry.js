@@ -18,6 +18,7 @@ import * as detector from './detector.js';
 import { flaggedFaceIndices, faceMeta } from './gender-verdict.mjs';
 import { personCropRegion } from './person-gate.mjs';
 import { updatePersonTracks, blurredTracks } from './person-track.mjs';
+import * as sceneGate from './scene-gate.mjs';
 import {
   supportsRegionBlur,
   initRegionBlur,
@@ -34,7 +35,7 @@ import { planForMode } from './pipeline-plan.mjs';
   // Distinctive, minification-proof marker (property assignment with a
   // string literal — esbuild won't rename it) so the Rust side can prove
   // this exact bundle is what got injected. See lib.rs gaze tests.
-  window.__TS_GAZE_BUNDLE__ = 'v5'; // v5: person-primary redesign (2026-08-24 audit)
+  window.__TS_GAZE_BUNDLE__ = 'v6'; // v6: zero-readback sampling + scene gate (plan-blur-v2 Stage 1)
 
   // Compulsory tier (handoff decision #1): the pipeline boots in every
   // launcher mode so NSFW media can be removed outright; what else runs
@@ -505,6 +506,12 @@ import { planForMode } from './pipeline-plan.mjs';
     // Gender pacing: crops+gender run when this much time has passed;
     // position-only passes in between (see cadence note above).
     var lastZoomAt = 0;
+    // Zero-readback (plan-blur-v2 Stage 1): the person pass feeds the
+    // VIDEO ELEMENT straight into fromPixels (texture upload, in-graph
+    // resize) — no 2D canvas, no getImageData sync readback. If that
+    // path ever errors non-fatally (driver quirk), the canvas fallback
+    // takes over permanently for this video.
+    var directPersonOk = true;
     var personCanvas = null;
     function ensurePersonCanvas() {
       if (!personCanvas) {
@@ -513,6 +520,59 @@ import { planForMode } from './pipeline-plan.mjs';
         personCanvas.height = detector.PERSON_INPUT_SIZE;
       }
       return personCanvas;
+    }
+    function personPixelSource() {
+      if (directPersonOk) return video;
+      var pc = ensurePersonCanvas();
+      var pctx = pc.getContext('2d');
+      pctx.drawImage(video, 0, 0, detector.PERSON_INPUT_SIZE, detector.PERSON_INPUT_SIZE);
+      return pctx.getImageData(0, 0, detector.PERSON_INPUT_SIZE, detector.PERSON_INPUT_SIZE);
+    }
+    // Scene gate (scene-gate.mjs): 16x16 luma thumbnail classifies the
+    // player's motion. 'cut' forces an immediate pass + gender read;
+    // 'static' relaxes cadence toward 1Hz — but ONLY while no track is
+    // blurred (a blurred track is mid-verdict: its clear credit and any
+    // drifting subject need full cadence — plan-blur-v2 risk register).
+    var GATE_INTERVAL_MS = 100;
+    var gateCanvas = null;
+    var prevLuma = null;
+    var lastGateAt = 0;
+    var lastCutAt = 0;
+    var sceneState = 'motion';
+    function gateTick(now) {
+      if (now - lastGateAt < GATE_INTERVAL_MS) return;
+      lastGateAt = now;
+      try {
+        if (!gateCanvas) {
+          gateCanvas = document.createElement('canvas');
+          gateCanvas.width = sceneGate.GATE_SIZE;
+          gateCanvas.height = sceneGate.GATE_SIZE;
+        }
+        var g = gateCanvas.getContext('2d', { willReadFrequently: true });
+        g.drawImage(video, 0, 0, sceneGate.GATE_SIZE, sceneGate.GATE_SIZE);
+        var d = g.getImageData(0, 0, sceneGate.GATE_SIZE, sceneGate.GATE_SIZE).data;
+        var n = sceneGate.GATE_SIZE * sceneGate.GATE_SIZE;
+        var cur = sceneGate.lumaGrid(d, n);
+        if (prevLuma) sceneState = sceneGate.classifyScene(sceneGate.meanAbsDelta(prevLuma, cur));
+        prevLuma = cur;
+      } catch (e) {
+        // Tainted canvas: the gate goes inert ('motion' = no behaviour
+        // change); the main path's own taint handling decides giveUp.
+        sceneState = 'motion';
+      }
+      if (sceneState === 'cut' && now - lastCutAt >= sceneGate.CUT_MIN_GAP_MS) {
+        lastCutAt = now;
+        // A cut is where new people appear: bypass the interval AND
+        // force the next pass to re-read gender, not just positions.
+        lastSample = 0;
+        lastZoomAt = 0;
+      }
+    }
+    function anyBlurredTrack() {
+      for (var i = 0; i < videoTracks.length; i++) {
+        if (videoTracks[i].state === 'blurred') return true;
+      }
+      return false;
     }
     // Per-person face/gender crop (the audit's person-primary pass): the
     // person's region cropped at NATIVE resolution, aspect-preserving
@@ -526,24 +586,60 @@ import { planForMode } from './pipeline-plan.mjs';
     var ZOOM_CROP_SIZE = 224;
     var ZOOM_MAX_PERSONS = 3;
     var zoomCanvas = null;
+    // createImageBitmap(video, crop, {resize}) crops + scales GPU-side
+    // and feeds fromPixels directly — the zoom pass's getImageData
+    // readback is gone (plan-blur-v2 Stage 1). Canvas path stays as the
+    // runtime fallback for WebViews without it.
+    var hasImageBitmap = typeof createImageBitmap === 'function';
+
+    // Crop pixels for one person's region: ImageBitmap where supported,
+    // else the old canvas + getImageData. Both aspect-preserving
+    // (square-stretch distorted faces — live regression 2026-08-24).
+    function cropPersonPixels(region) {
+      var vw = video.videoWidth;
+      var vh = video.videoHeight;
+      var sw = Math.max(1, (region.x2 - region.x1) * vw);
+      var sh = Math.max(1, (region.y2 - region.y1) * vh);
+      var scale = ZOOM_CROP_SIZE / Math.max(sw, sh);
+      var dw = Math.max(32, Math.round(sw * scale));
+      var dh = Math.max(32, Math.round(sh * scale));
+      if (hasImageBitmap) {
+        return createImageBitmap(video, region.x1 * vw, region.y1 * vh, sw, sh, {
+          resizeWidth: dw,
+          resizeHeight: dh,
+        });
+      }
+      if (!zoomCanvas) zoomCanvas = document.createElement('canvas');
+      zoomCanvas.width = dw;
+      zoomCanvas.height = dh;
+      var zctx = zoomCanvas.getContext('2d');
+      zctx.drawImage(video, region.x1 * vw, region.y1 * vh, sw, sh, 0, 0, dw, dh);
+      return Promise.resolve(zctx.getImageData(0, 0, dw, dh));
+    }
 
     // One person's observation: face+gender read from their crop.
     // No face at all = backside/turned-away = unknown ⇒ covered.
     function observePerson(person) {
       var region = personCropRegion(person);
       var obs = { box: person, flagged: true, certain: false };
-      try {
-        var vw = video.videoWidth;
-        var vh = video.videoHeight;
-        var sw = Math.max(1, (region.x2 - region.x1) * vw);
-        var sh = Math.max(1, (region.y2 - region.y1) * vh);
-        var scale = ZOOM_CROP_SIZE / Math.max(sw, sh);
-        if (!zoomCanvas) zoomCanvas = document.createElement('canvas');
-        zoomCanvas.width = Math.max(32, Math.round(sw * scale));
-        zoomCanvas.height = Math.max(32, Math.round(sh * scale));
-        var zctx = zoomCanvas.getContext('2d');
-        zctx.drawImage(video, region.x1 * vw, region.y1 * vh, sw, sh, 0, 0, zoomCanvas.width, zoomCanvas.height);
-        var zpix = zctx.getImageData(0, 0, zoomCanvas.width, zoomCanvas.height);
+      var zpix = null;
+      function done(result) {
+        if (zpix && typeof zpix.close === 'function') zpix.close();
+        return result;
+      }
+      return cropPersonPixels(region)
+        .then(function (pix) {
+          zpix = pix;
+          return observeCropped(zpix);
+        })
+        .then(done)
+        .catch(function () {
+          // Unreadable crop (taint rejects createImageBitmap, sync
+          // canvas throw rejects here too): unknown ⇒ covered.
+          return done(obs);
+        });
+
+      function observeCropped(zpix) {
         return detector.detectFaceBoxes(model, zpix).then(function (faces) {
           if (!faces.length) return obs;
           var metaP = genderModel
@@ -577,9 +673,6 @@ import { planForMode } from './pipeline-plan.mjs';
             };
           });
         });
-      } catch (e) {
-        // Unreadable crop: unknown ⇒ covered (fail-safe).
-        return Promise.resolve(obs);
       }
     }
 
@@ -612,8 +705,17 @@ import { planForMode } from './pipeline-plan.mjs';
       // the pending blur already covers the wait, so just wait.
       if (!genderSettled) return;
       var now = performance.now();
+      // Scene gate first: a hard cut zeroes lastSample/lastZoomAt so
+      // the checks below let this very call through at full depth.
+      if (isPlayer) gateTick(now);
+      var floor = sampleInterval;
+      if (isPlayer && sceneState === 'static' && !anyBlurredTrack()) {
+        // Nothing changing on screen and nothing mid-verdict: ~1Hz
+        // safety-net cadence (plan-blur-v2 Stage 1).
+        floor = sceneGate.STATIC_INTERVAL_MS;
+      }
       var effInterval = isPlayer
-        ? Math.min(1000, Math.max(sampleInterval, lastPassMs * 1.5))
+        ? Math.min(1000, Math.max(floor, lastPassMs * 1.5))
         : sampleInterval;
       if (now - lastSample < effInterval) return;
       if (sampling) return;
@@ -628,12 +730,8 @@ import { planForMode } from './pipeline-plan.mjs';
       // phantom class the old gates chased is excluded by construction).
       if (useRegionVideo && personModel) {
         try {
-          var pc = ensurePersonCanvas();
-          var pctx = pc.getContext('2d');
-          pctx.drawImage(video, 0, 0, detector.PERSON_INPUT_SIZE, detector.PERSON_INPUT_SIZE);
-          var ppix = pctx.getImageData(0, 0, detector.PERSON_INPUT_SIZE, detector.PERSON_INPUT_SIZE);
           detector
-            .detectPersons(personModel, ppix)
+            .detectPersons(personModel, personPixelSource())
             .then(function (persons) {
               // Probe-visible pass marker (verification probes read this).
               window.__TS_GAZE_PERSONS = persons.length;
@@ -694,6 +792,18 @@ import { planForMode } from './pipeline-plan.mjs';
               }
             })
             .catch(function (e) {
+              if (e && e.name === 'SecurityError') {
+                // Tainted source (cross-origin, no CORS): permanent for
+                // this stream — fail open, same as the canvas path.
+                giveUp('tainted source', e);
+                return;
+              }
+              if (directPersonOk) {
+                // Direct fromPixels(video) hit a driver quirk — retry
+                // next pass through the canvas fallback (plan-blur-v2
+                // Stage 1 risk register).
+                directPersonOk = false;
+              }
               // Cannot verify this pass — tracks coast, patches hold.
               // eslint-disable-next-line no-console
               console.warn('tamescroll gaze: person pass failed', e);
@@ -819,6 +929,12 @@ import { planForMode } from './pipeline-plan.mjs';
       }
       videoTracks = [];
       lastPassAt = 0;
+      // New stream = new scene: forget the luma baseline and re-enable
+      // the direct pixel path (a per-stream quirk shouldn't outlive it).
+      prevLuma = null;
+      sceneState = 'motion';
+      lastCutAt = 0;
+      directPersonOk = true;
       if (!playerBlurOn) {
         playerBlurOn = true;
         if (pillRefresh) pillRefresh();
