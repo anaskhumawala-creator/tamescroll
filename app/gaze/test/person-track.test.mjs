@@ -159,3 +159,14 @@ test('cosineSim: identical normalized vectors 1, orthogonal 0, null 0', () => {
   assert.equal(pt.cosineSim(a, b), 0);
   assert.equal(pt.cosineSim(null, a), 0);
 });
+
+test('mergeTracks: overlapping render boxes union into one, disjoint stay apart', () => {
+  const merged = pt.mergeTracks([
+    { box: { x1: 0.1, y1: 0.1, x2: 0.4, y2: 0.6 }, vx: 0.2, vy: 0, vw: 0, vh: 0 },
+    { box: { x1: 0.3, y1: 0.2, x2: 0.6, y2: 0.7 }, vx: 0, vy: 0, vw: 0, vh: 0 },
+    { box: { x1: 0.8, y1: 0.1, x2: 0.95, y2: 0.5 }, vx: 0, vy: 0, vw: 0, vh: 0 },
+  ]);
+  assert.equal(merged.length, 2);
+  assert.deepEqual(merged[0].box, { x1: 0.1, y1: 0.1, x2: 0.6, y2: 0.7 });
+  assert.ok(Math.abs(merged[0].vx - 0.1) < 1e-9);
+});

@@ -281,5 +281,44 @@ export function blurredTracks(tracks) {
       vh: t.vh || 0,
     });
   }
-  return out;
+  return mergeTracks(out);
+}
+
+// Overlapping patches union into ONE (owner 2026-08-24: "if there are
+// two blurs you could even merge them" — two swapping/overlapping
+// squares over a close pair read as chaos; one patch over both reads
+// as intended). Iterates until stable, velocities averaged.
+function overlaps(a, b) {
+  return a.x1 < b.x2 && b.x1 < a.x2 && a.y1 < b.y2 && b.y1 < a.y2;
+}
+
+export function mergeTracks(list) {
+  var merged = list.slice();
+  var changed = true;
+  while (changed) {
+    changed = false;
+    outer: for (var i = 0; i < merged.length; i++) {
+      for (var j = i + 1; j < merged.length; j++) {
+        if (!overlaps(merged[i].box, merged[j].box)) continue;
+        var a = merged[i];
+        var b = merged[j];
+        merged[i] = {
+          box: {
+            x1: Math.min(a.box.x1, b.box.x1),
+            y1: Math.min(a.box.y1, b.box.y1),
+            x2: Math.max(a.box.x2, b.box.x2),
+            y2: Math.max(a.box.y2, b.box.y2),
+          },
+          vx: (a.vx + b.vx) / 2,
+          vy: (a.vy + b.vy) / 2,
+          vw: ((a.vw || 0) + (b.vw || 0)) / 2,
+          vh: ((a.vh || 0) + (b.vh || 0)) / 2,
+        };
+        merged.splice(j, 1);
+        changed = true;
+        break outer;
+      }
+    }
+  }
+  return merged;
 }
