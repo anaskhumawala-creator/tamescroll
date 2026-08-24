@@ -100,3 +100,10 @@ HaramBlur — GNU Affero General Public License v3.0
 
   Contributors: do not copy code from HaramBlur, and do not accept
   patches derived from it.
+
+MoveNet MultiPose Lightning (person/pose detection model)
+  Copyright Google LLC. Licensed under the Apache License, Version 2.0.
+  Source: https://tfhub.dev/google/tfjs-model/movenet/multipose/lightning/1
+  The embedded weights are our own hybrid uint8/float16 re-quantization
+  of Google's official float16 TensorFlow.js release
+  (app/gaze/build/requant-uint8.py); no model architecture changes.

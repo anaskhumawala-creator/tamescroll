@@ -18,6 +18,13 @@ import * as detector from './detector.js';
 import { flaggedFaceIndices, faceMeta } from './gender-verdict.mjs';
 import { updateTracks, flaggedBoxes, suppressTorsoGhosts } from './track.mjs';
 import {
+  gateDetections,
+  facelessPersons,
+  personCropRegion,
+  mapCropBoxToFrame,
+  centerInAny,
+} from './person-gate.mjs';
+import {
   supportsRegionBlur,
   initRegionBlur,
   applyRegionBlur,
@@ -25,6 +32,7 @@ import {
   clearAllRegionBlur,
   padBox,
   expandToBody,
+  mergeOverlapping,
 } from './region-blur.mjs';
 import * as videoRegion from './video-region.mjs';
 import { createTextMatcher } from './text-signals.mjs';
@@ -34,7 +42,7 @@ import { planForMode } from './pipeline-plan.mjs';
   // Distinctive, minification-proof marker (property assignment with a
   // string literal — esbuild won't rename it) so the Rust side can prove
   // this exact bundle is what got injected. See lib.rs gaze tests.
-  window.__TS_GAZE_BUNDLE__ = 'v2'; // v2: zoom recheck + tracker gender memory (2026-08-24)
+  window.__TS_GAZE_BUNDLE__ = 'v4'; // v4: per-person zoom classify (2026-08-24)
 
   // Compulsory tier (handoff decision #1): the pipeline boots in every
   // launcher mode so NSFW media can be removed outright; what else runs
@@ -86,6 +94,11 @@ import { planForMode } from './pipeline-plan.mjs';
   var model = null;
   var nsfwModel = null;
   var genderModel = null;
+  // Person/pose model (MoveNet MultiPose, person-gate.mjs). Loads LAST
+  // — it only ever refines: gates ambiguous face candidates and covers
+  // backside persons. null = no gating, no backside coverage (fail-safe
+  // in the "never drop extra blur" direction).
+  var personModel = null;
   // Guards the face-model load so it runs exactly once whether it is the
   // post-load-idle deferral OR a played player video that kicks it early
   // (see ensureFaceModels).
@@ -480,6 +493,98 @@ import { planForMode } from './pipeline-plan.mjs';
     // whenever the stream identity changes (loadstart, pill re-enable,
     // giveUp): old tracks describe a video that no longer exists.
     var videoTracks = [];
+    // Person-gate state (person-gate.mjs, owner "humanoid" ask): person
+    // boxes from MoveNet refreshed every PERSON_GATE_EVERY-th sample
+    // (~2.4Hz at the player rate — bodies move slower than faces);
+    // personTracks covers FACELESS persons (backside view) with the
+    // same tracker machinery faces use. null personBoxes = model not
+    // run yet, gate inert.
+    var PERSON_GATE_EVERY = 3;
+    var sampleIdx = 0;
+    var personBoxes = null;
+    var personTracks = [];
+    var personCanvas = null;
+    function ensurePersonCanvas() {
+      if (!personCanvas) {
+        personCanvas = document.createElement('canvas');
+        personCanvas.width = detector.PERSON_INPUT_SIZE;
+        personCanvas.height = detector.PERSON_INPUT_SIZE;
+      }
+      return personCanvas;
+    }
+    // Per-person zoom classify state: detections produced from person
+    // crops this person pass ({regions, detections}), consumed by the
+    // same sample's merge and then cleared. 256px crop canvas: gender's
+    // 224 crop comes from real pixels instead of an upscaled 128.
+    var ZOOM_CROP_SIZE = 256;
+    var ZOOM_MAX_PERSONS = 4;
+    var zoomCanvas = null;
+    var zoomFresh = null;
+
+    function zoomClassifyPersons(persons) {
+      zoomFresh = null;
+      if (!persons.length || !video.videoWidth) return;
+      if (!zoomCanvas) zoomCanvas = document.createElement('canvas');
+      var regions = [];
+      for (var i = 0; i < Math.min(persons.length, ZOOM_MAX_PERSONS); i++) {
+        regions.push(personCropRegion(persons[i]));
+      }
+      var collected = [];
+      var chain = Promise.resolve();
+      regions.forEach(function (region) {
+        chain = chain.then(function () {
+          try {
+            var vw = video.videoWidth;
+            var vh = video.videoHeight;
+            var sw = Math.max(1, (region.x2 - region.x1) * vw);
+            var sh = Math.max(1, (region.y2 - region.y1) * vh);
+            // ASPECT-PRESERVING crop dims (live regression 2026-08-24:
+            // squeezing a portrait person region to a square canvas
+            // distorted the face enough that the gender read flipped to
+            // uncertain and a cleared speaker re-blurred). Long side =
+            // ZOOM_CROP_SIZE, short side proportional; both detectors
+            // handle arbitrary source dims, mapping back stays linear.
+            var scale = ZOOM_CROP_SIZE / Math.max(sw, sh);
+            zoomCanvas.width = Math.max(32, Math.round(sw * scale));
+            zoomCanvas.height = Math.max(32, Math.round(sh * scale));
+            var zctx = zoomCanvas.getContext('2d');
+            zctx.drawImage(video, region.x1 * vw, region.y1 * vh, sw, sh, 0, 0, zoomCanvas.width, zoomCanvas.height);
+            var zpix = zctx.getImageData(0, 0, zoomCanvas.width, zoomCanvas.height);
+            return detector.detectFaceBoxes(model, zpix).then(function (faces) {
+              if (!faces.length) return;
+              var metaP = genderModel
+                ? detector.classifyFaceGenders(genderModel, zpix, faces).then(function (genders) {
+                    return faceMeta(userGender, genders);
+                  })
+                : Promise.resolve(
+                    faces.map(function () {
+                      return { flagged: true, certain: false };
+                    })
+                  );
+              return metaP.then(function (meta) {
+                for (var f = 0; f < faces.length; f++) {
+                  collected.push({
+                    box: mapCropBoxToFrame(region, faces[f]),
+                    flagged: meta[f].flagged,
+                    certain: meta[f].certain,
+                  });
+                }
+              });
+            });
+          } catch (e) {
+            return; // unreadable crop: full-frame path still covers this person
+          }
+        });
+      });
+      return chain.then(
+        function () {
+          zoomFresh = { regions: regions, detections: collected };
+        },
+        function () {
+          /* zoom failure: full-frame results stand */
+        }
+      );
+    }
     // Zoom re-verify canvas (owner 2026-08-24 "random objects blurred" +
     // "failing when the subject is smaller" — one mechanism fixes both):
     // the sampling canvas is only INPUT_SIZE px, so a distant face is a
@@ -570,6 +675,9 @@ import { planForMode } from './pipeline-plan.mjs';
       videoRegion.clear(video);
       regionActive = false;
       videoTracks = [];
+      personTracks = [];
+      personBoxes = null;
+      zoomFresh = null;
       // eslint-disable-next-line no-console
       console.warn('tamescroll gaze: video unreadable, failing open (' + reason + ')', err);
     }
@@ -592,7 +700,44 @@ import { planForMode } from './pipeline-plan.mjs';
         var ctx2d = canvas.getContext('2d');
         ctx2d.drawImage(video, 0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
         var pixels = ctx2d.getImageData(0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
-        detector
+        // Person pass (person-gate.mjs) every PERSON_GATE_EVERY-th
+        // sample: refreshes personBoxes for gating + backside coverage.
+        // Runs on its own 256px canvas (drawing the video again beats
+        // upscaling the 128px face canvas). A pass failure keeps the
+        // previous boxes — stale gate data beats no gate.
+        sampleIdx++;
+        var personPass = Promise.resolve();
+        if (personModel && useRegionVideo && sampleIdx % PERSON_GATE_EVERY === 1) {
+          try {
+            var pc = ensurePersonCanvas();
+            var pctx = pc.getContext('2d');
+            pctx.drawImage(video, 0, 0, detector.PERSON_INPUT_SIZE, detector.PERSON_INPUT_SIZE);
+            var ppix = pctx.getImageData(0, 0, detector.PERSON_INPUT_SIZE, detector.PERSON_INPUT_SIZE);
+            personPass = detector
+              .detectPersons(personModel, ppix)
+              .then(function (persons) {
+                personBoxes = persons;
+                // Probe-visible pass marker (verification probes read
+                // this; person boxes derive from public video pixels).
+                window.__TS_GAZE_PERSONS = persons.length;
+                // Zoom classify (owner "double pass" 2026-08-24): rerun
+                // face+gender on each person's NATIVE-res crop — a
+                // distant person's face fills the model input instead of
+                // being a handful of pixels in the 128px full frame.
+                // Runs at person-pass rate; the tracker's gender memory
+                // carries these high-quality verdicts across the cheap
+                // full-frame samples in between.
+                return zoomClassifyPersons(persons);
+              })
+              .catch(function () {
+                /* keep previous boxes */
+              });
+          } catch (e) {
+            /* tainted/unready canvas: face path's own catch handles taint */
+          }
+        }
+        personPass.then(function () {
+          return detector
           // smallRescue=true: video only — verifyLowConf's native-res
           // recheck + the tracker's MIN_HITS gate make the low floor safe.
           .detectFaceBoxes(model, pixels, true)
@@ -635,13 +780,50 @@ import { planForMode } from './pipeline-plan.mjs';
               // Shirt graphics on a cleared person ride along as
               // uncertain "faces" — drop them before they seed tracks.
               detections = suppressTorsoGhosts(detections, expandToBody);
+              // Person gate: ambiguous candidates inside no person
+              // region are graphics (person-gate.mjs; inert until the
+              // model has run).
+              detections = gateDetections(detections, personBoxes);
+              // Zoom merge (same sample as a person pass): inside
+              // zoom-covered regions the native-res crop verdicts
+              // REPLACE the 128px full-frame ones — better detection
+              // and a gender read from real pixels.
+              if (zoomFresh) {
+                detections = detections.filter(function (fd) {
+                  return !centerInAny(fd.box, zoomFresh.regions);
+                });
+                detections = detections.concat(zoomFresh.detections);
+                zoomFresh = null;
+              }
               videoTracks = updateTracks(videoTracks, detections);
+              // Backside coverage: person regions owned by no face
+              // candidate and no face track = someone facing away —
+              // unknown gender ⇒ covered (their pose box IS the body
+              // patch, no anthropometric expansion). Person tracks
+              // update on person passes, coast between them.
+              if (personBoxes) {
+                var trackBoxes = [];
+                for (var tb = 0; tb < videoTracks.length; tb++) trackBoxes.push(videoTracks[tb].box);
+                var faceless = facelessPersons(personBoxes, res.faces, trackBoxes);
+                var personDets = [];
+                for (var pf = 0; pf < faceless.length; pf++) {
+                  personDets.push({ box: faceless[pf], flagged: true, certain: false });
+                }
+                personTracks = updateTracks(personTracks, personDets);
+              }
               var covered = flaggedBoxes(videoTracks);
-              if (covered.length) {
+              var coveredPersons = flaggedBoxes(personTracks);
+              if (covered.length || coveredPersons.length) {
                 var padded = [];
                 for (var b = 0; b < covered.length; b++) {
                   padded.push(padBox(expandToBody(covered[b]), VIDEO_REGION_PAD));
                 }
+                for (var pb = 0; pb < coveredPersons.length; pb++) {
+                  padded.push(padBox(coveredPersons[pb], 0.05));
+                }
+                // Overlapping patches render as ugly stacked rectangles
+                // (owner) — union them into one.
+                padded = mergeOverlapping(padded);
                 // setBoxes false = player host vanished — whole blur, no
                 // person may be exposed.
                 if (videoRegion.setBoxes(video, padded)) {
@@ -680,6 +862,7 @@ import { planForMode } from './pipeline-plan.mjs';
           .finally(function () {
             sampling = false;
           });
+        });
       } catch (e) {
         // A sync throw from drawImage/getImageData is the tainted-canvas
         // case: permanent for this element, so stop burning frames and
@@ -747,6 +930,9 @@ import { planForMode } from './pipeline-plan.mjs';
         regionActive = false;
       }
       videoTracks = [];
+      personTracks = [];
+      personBoxes = null;
+      zoomFresh = null;
       if (!playerBlurOn) {
         playerBlurOn = true;
         if (pill) pill.textContent = 'Blur on';
@@ -779,6 +965,9 @@ import { planForMode } from './pipeline-plan.mjs';
         if (playerBlurOn) {
           cleanStreak = 0;
           videoTracks = [];
+          personTracks = [];
+          personBoxes = null;
+          zoomFresh = null;
           markPending(video);
           if (!video.paused) start();
         } else {
@@ -786,6 +975,9 @@ import { planForMode } from './pipeline-plan.mjs';
           videoRegion.clear(video);
           regionActive = false;
           videoTracks = [];
+          personTracks = [];
+          personBoxes = null;
+          zoomFresh = null;
         }
       });
       pillHost.appendChild(pill);
@@ -1010,6 +1202,18 @@ import { planForMode } from './pipeline-plan.mjs';
             .then(function () {
               nsfwSettled = true;
               if (imageQueue.length) drainImages();
+              // Person model truly last: nothing waits on it (no
+              // settled flag) — the video loop simply starts gating and
+              // covering backs once it exists.
+              return detector.loadPersonModel().then(
+                function (person) {
+                  personModel = person;
+                },
+                function (e) {
+                  // eslint-disable-next-line no-console
+                  console.warn('tamescroll gaze: person model unavailable, no person gate', e);
+                }
+              );
             });
         });
     })

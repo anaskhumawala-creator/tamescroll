@@ -21,6 +21,8 @@ import * as tfconv from '@tensorflow/tfjs-converter';
 import { MODEL_JSON, MODEL_WEIGHTS_B64 } from './model-embed.js';
 import { NSFW_MODEL_JSON, NSFW_WEIGHTS_B64 } from './nsfw-model-embed.js';
 import { GENDER_MODEL_JSON, GENDER_WEIGHTS_B64 } from './gender-model-embed.js';
+import { PERSON_MODEL_JSON, PERSON_WEIGHTS_B64 } from './person-model-embed.js';
+import { parsePersons } from './person-gate.mjs';
 import { nonMaxSuppression } from './nms.mjs';
 
 export var INPUT_SIZE = 256; // matches the embedded face model's fixed input shape
@@ -75,6 +77,7 @@ function embeddedIoHandler(modelJson, weightsB64) {
         format: modelJson.format,
         generatedBy: modelJson.generatedBy,
         convertedBy: modelJson.convertedBy,
+        signature: modelJson.signature,
         userDefinedMetadata: modelJson.userDefinedMetadata,
       });
     },
@@ -163,6 +166,46 @@ export async function loadNsfwModel() {
 export async function loadGenderModel() {
   await initBackend();
   return tfconv.loadGraphModel(embeddedIoHandler(GENDER_MODEL_JSON, GENDER_WEIGHTS_B64));
+}
+
+// Person model input dim (MoveNet MultiPose: dynamic, multiple of 32,
+// 128-512; 256 = the documented default accuracy/speed point; 30ms warm
+// on desktop WebGL at 256, spike 2026-08-24). Registered in
+// docs/detection-engine.md.
+export var PERSON_INPUT_SIZE = 256;
+
+/**
+ * Loads the person/pose model (MoveNet MultiPose Lightning, Apache-2.0
+ * — see NOTICE; our hybrid uint8/f16 requant of Google's f16 tfjs
+ * release, build/requant-uint8.py). Separate load like NSFW/gender: a
+ * failure degrades to no person gating (fail-safe: nothing extra is
+ * dropped, backside coverage just doesn't happen).
+ */
+export async function loadPersonModel() {
+  await initBackend();
+  return tfconv.loadGraphModel(embeddedIoHandler(PERSON_MODEL_JSON, PERSON_WEIGHTS_B64));
+}
+
+/**
+ * Person boxes for a frame. pixelSource should already be square (the
+ * caller's sample canvas stretches the video the same way the face path
+ * does, so face and person coordinates live in the same stretched
+ * space). MoveNet wants RAW int32 pixels — no normalization (unlike
+ * BlazeFace's [-1,1]); output [1,6,56] parsed by person-gate.mjs.
+ */
+export async function detectPersons(model, pixelSource) {
+  var out = tf.tidy(function () {
+    var img = tf.browser.fromPixels(pixelSource);
+    var resized = tf.image.resizeBilinear(tf.expandDims(img, 0), [PERSON_INPUT_SIZE, PERSON_INPUT_SIZE]);
+    return model.execute(tf.cast(resized, 'int32'));
+  });
+  var data;
+  try {
+    data = await out.data();
+  } finally {
+    tf.dispose(out);
+  }
+  return parsePersons(data);
 }
 
 /**

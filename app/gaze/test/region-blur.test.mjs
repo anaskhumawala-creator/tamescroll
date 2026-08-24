@@ -2,7 +2,7 @@
 // 2026-08-24: scroll briefly exposed document-anchored patches).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { boxToParentRect, sameRect, padBox, expandToBody } from '../src/region-blur.mjs';
+import { boxToParentRect, sameRect, padBox, expandToBody, mergeOverlapping } from '../src/region-blur.mjs';
 
 test('boxToParentRect: element inset inside its parent maps to parent space', () => {
   // parent at viewport (80, 40); img at (100, 50) sized 200x100
@@ -76,4 +76,17 @@ test('expandToBody: clamps to the element for edge faces', () => {
   assert.equal(b.x1, 0);
   assert.equal(b.y2, 1);
   assert.ok(b.x2 <= 1 && b.y1 >= 0);
+});
+
+test('mergeOverlapping: overlapping boxes union, disjoint stay, chains collapse', () => {
+  const merged = mergeOverlapping([
+    { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.3, confidence: 0.5 },
+    { x1: 0.25, y1: 0.1, x2: 0.5, y2: 0.35, confidence: 0.7 },
+    { x1: 0.45, y1: 0.1, x2: 0.6, y2: 0.3, confidence: 0.4 },
+    { x1: 0.8, y1: 0.8, x2: 0.9, y2: 0.9, confidence: 0.9 },
+  ]);
+  assert.equal(merged.length, 2);
+  const chain = merged.find((b) => b.x1 === 0.1);
+  assert.equal(chain.x2, 0.6);
+  assert.equal(chain.confidence, 0.7);
 });

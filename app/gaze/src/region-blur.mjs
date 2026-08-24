@@ -74,6 +74,40 @@ export function expandToBody(box) {
 }
 
 /**
+ * Merge overlapping normalized boxes into their unions (owner 2026-08-24:
+ * "double triple blur don't look good" — two people close together, or a
+ * face patch + person patch on the same body, rendered as stacked
+ * translucent rectangles). Iterates until no pair overlaps, so chains
+ * (A∩B, B∩C) collapse into one. Pure — shared by image + video paths.
+ */
+export function mergeOverlapping(boxes) {
+  var out = boxes.slice();
+  var merged = true;
+  while (merged) {
+    merged = false;
+    outer: for (var i = 0; i < out.length; i++) {
+      for (var j = i + 1; j < out.length; j++) {
+        var a = out[i];
+        var b = out[j];
+        if (a.x1 < b.x2 && b.x1 < a.x2 && a.y1 < b.y2 && b.y1 < a.y2) {
+          out[i] = {
+            x1: Math.min(a.x1, b.x1),
+            y1: Math.min(a.y1, b.y1),
+            x2: Math.max(a.x2, b.x2),
+            y2: Math.max(a.y2, b.y2),
+            confidence: Math.max(a.confidence || 0, b.confidence || 0),
+          };
+          out.splice(j, 1);
+          merged = true;
+          break outer;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Pure mapping: normalized box on the element -> a rect in the PARENT's
  * coordinate space (for position:absolute siblings of the element).
  * Both rects come from getBoundingClientRect, so ancestor transforms
@@ -243,6 +277,7 @@ function resolveHost(el) {
  */
 export function applyRegionBlur(el, boxes) {
   if (!started || !boxes || !boxes.length) return;
+  boxes = mergeOverlapping(boxes); // stacked translucent patches look broken (owner)
   var entry = null;
   for (var i = 0; i < entries.length; i++) {
     if (entries[i].el === el) {
