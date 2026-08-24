@@ -63,7 +63,35 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-19 14:40 (day 2 — smart-mode gender parity + UI rebuild + text filter).
+**Last updated:** 2026-08-24 (in-player face-region blur + hover-preview toggle).
+
+**Session 2026-08-24 (owner asks, commit 5a7aee1 pushed):** Two items.
+- **In-player blur was WHOLE-video → now FACE-REGION** (owner: "whole video
+  blurred instead of a specific face, HaramBlur does it better"; picked
+  "just build it"). New app/gaze/src/video-region.mjs: overlays anchored
+  INSIDE #movie_player (NOT body — body overlays vanish in element/native
+  fullscreen and expose the face), rAF loop pins each to the live video
+  rect. Player samples at 140ms (was 500) so the overlay chases the face;
+  boxes padded 35% (padBox, region-blur.mjs) to cushion between-sample
+  drift — over-blur never a flash. Feed videos KEEP whole blur (too
+  small/fast). Falls back to whole blur if no backdrop-filter / no player
+  host. In-player pill now treats regionActive as "covered" so it stays
+  reachable when only a face is blurred. gaze 48/48, cargo 30/30, tsc
+  clean. NOT verified on-device: overlay pixel placement under YouTube's
+  real player CSS (position:fixed assumes no transformed ancestor) +
+  fullscreen coverage (esp. Android native custom-view fullscreen) — owner
+  phone, real inference (emulator GPU minutes-slow). If placement is off,
+  next fix is absolute-within-a-positioned-player-wrapper instead of fixed.
+  Needs a v1006 APK release to reach the phone (bundle is compiled in).
+- **"Video previews" surface** (hover/scroll autoplay toggle, owner picked
+  "hover/preview autoplay"). Toggleable surface in rules/youtube.txt,
+  hidden by default, Bring-back re-enables — zero Rust/TS change, settings
+  pane auto-lists it. Hides ytd-video-preview (live-verified via in-app
+  browser: 1 on youtube.com/, OUTSIDE #movie_player — red line holds).
+  Ships via OTA (pushed) — should appear in Settings→Bring back after the
+  phone's next rules refresh (UNVERIFIED on-device). m.youtube feed preview
+  REUSES the shared #movie_player element, so it is NOT a safe hide —
+  deferred, needs a signed-in m.youtube feed DOM capture (noted in rule).
 
 **Session 2026-08-23 (issue-loop, app v0.1.3/1003):** Cleared every
 autonomously-fixable owner report from docs/owner-issues.md.
