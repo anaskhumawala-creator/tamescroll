@@ -361,17 +361,26 @@ export async function classifyFaceGenders(model, pixelSource, boxes) {
       // age_pred/Softmax: [N,100], p(age==i) — expected value = age.
       if (list[t].shape.length === 2 && list[t].shape[1] === 100) ageT = list[t];
     }
-    // Keep gender + age heads; tidy disposes the rest (descriptor).
+    var descT = null;
+    for (var d = 0; d < list.length; d++) {
+      // global_pooling/Mean: [N,1024] identity descriptor — the face
+      // RECOGNITION embedding (identity memory, plan-blur-v2 /
+      // owner ask 2026-08-24 "keep the person in memory").
+      if (list[d].shape.length === 2 && list[d].shape[1] === 1024) descT = list[d];
+    }
     return [
       genderT ? tf.clone(genderT) : tf.zeros([boxes.length, 1]),
       ageT ? tf.clone(ageT) : tf.zeros([boxes.length, 100]),
+      descT ? tf.clone(descT) : tf.zeros([boxes.length, 1024]),
     ];
   });
   var data;
   var ageData;
+  var descData;
   try {
     data = await outs[0].data();
     ageData = await outs[1].data();
+    descData = await outs[2].data();
   } finally {
     tf.dispose(outs);
   }
@@ -381,10 +390,17 @@ export async function classifyFaceGenders(model, pixelSource, boxes) {
     var confidence = Math.min(0.99, 2 * Math.abs(v - 0.5));
     var age = 0;
     for (var a = 0; a < 100; a++) age += a * ageData[k * 100 + a];
+    // L2-normalized descriptor slice so identity matching is a plain
+    // dot product downstream.
+    var desc = descData.slice(k * 1024, (k + 1) * 1024);
+    var norm = 0;
+    for (var n = 0; n < desc.length; n++) norm += desc[n] * desc[n];
+    norm = Math.sqrt(norm) || 1;
+    for (var m = 0; m < desc.length; m++) desc[m] /= norm;
     verdicts.push(
       v <= 0.5
-        ? { gender: 'female', score: confidence, age: age }
-        : { gender: 'male', score: confidence, age: age }
+        ? { gender: 'female', score: confidence, age: age, desc: desc }
+        : { gender: 'male', score: confidence, age: age, desc: desc }
     );
   }
   return verdicts;

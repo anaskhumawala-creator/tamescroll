@@ -17,7 +17,13 @@ import * as dom from './dom.js';
 import * as detector from './detector.js';
 import { flaggedFaceIndices, faceMeta } from './gender-verdict.mjs';
 import { personCropRegion } from './person-gate.mjs';
-import { updatePersonTracks, blurredTracks } from './person-track.mjs';
+import {
+  updatePersonTracks,
+  blurredTracks,
+  cosineSim,
+  MEM_SIM_CLEAR,
+  MEM_SIM_UPDATE,
+} from './person-track.mjs';
 import * as sceneGate from './scene-gate.mjs';
 import {
   supportsRegionBlur,
@@ -497,6 +503,85 @@ import { planForMode } from './pipeline-plan.mjs';
     // describe a video that no longer exists.
     var videoTracks = [];
     var lastPassAt = 0;
+    // Identity memory (owner ask 2026-08-24 "keep the person in memory
+    // and always blur her/him"): per-VIDEO list of face descriptors with
+    // the blur state their person EARNED (cleared = served the full
+    // hold; blurred = certain opposite-gender read). New/re-appearing
+    // faces that match a remembered identity inherit it — no re-serving
+    // the clear hold after every cut, no identity swap across shots.
+    // Reset on loadstart: a new video is new people.
+    var identityMemory = [];
+    var MEM_MAX = 8;
+    function memoryLookup(desc) {
+      if (!desc) return null;
+      var bestSim = 0;
+      var best = null;
+      for (var i = 0; i < identityMemory.length; i++) {
+        var s = cosineSim(desc, identityMemory[i].desc);
+        if (s > bestSim) {
+          bestSim = s;
+          best = identityMemory[i];
+        }
+      }
+      // Only the CLEAR direction is worth inheriting (blur is already
+      // the default for every unknown) — and it takes the high bar.
+      if (best && best.state === 'cleared' && bestSim >= MEM_SIM_CLEAR) return 'cleared';
+      return null;
+    }
+    function memoryStore(tracks) {
+      for (var i = 0; i < tracks.length; i++) {
+        var t = tracks[i];
+        if (!t.desc) continue;
+        // Memorize only EARNED states: a served clear hold, or a
+        // certain opposite-gender flag. Never a provisional blur —
+        // that would freeze "unknown ⇒ covered" into "this face is
+        // always covered".
+        var state = null;
+        if (t.state === 'cleared') state = 'cleared';
+        else if (t.state === 'blurred' && t.lastVerdict === 'flag-certain') state = 'blurred';
+        if (!state) continue;
+        var bestSim = 0;
+        var best = null;
+        for (var j = 0; j < identityMemory.length; j++) {
+          var s = cosineSim(t.desc, identityMemory[j].desc);
+          if (s > bestSim) {
+            bestSim = s;
+            best = identityMemory[j];
+          }
+        }
+        if (best && bestSim >= MEM_SIM_UPDATE) {
+          // Blend toward the newest look (lighting/angle drift) and
+          // re-normalize so similarity stays a dot product.
+          var d = best.desc;
+          var norm = 0;
+          for (var k = 0; k < d.length; k++) {
+            d[k] = d[k] * 0.7 + t.desc[k] * 0.3;
+            norm += d[k] * d[k];
+          }
+          norm = Math.sqrt(norm) || 1;
+          for (var m = 0; m < d.length; m++) d[m] /= norm;
+          // A certain flag OVERWRITES a remembered clear (fail-safe);
+          // a clear only upgrades an entry that isn't certain-flagged.
+          if (state === 'blurred' || best.state !== 'blurred') best.state = state;
+        } else {
+          identityMemory.push({ desc: t.desc, state: state });
+          if (identityMemory.length > MEM_MAX) identityMemory.shift();
+        }
+      }
+    }
+    // Face center inside any (padded) person box — used to keep the
+    // full-frame face fallback from duplicating a MoveNet person.
+    function faceInsideAny(face, persons) {
+      var cx = (face.x1 + face.x2) / 2;
+      var cy = (face.y1 + face.y2) / 2;
+      for (var i = 0; i < persons.length; i++) {
+        var p = persons[i];
+        var pw = (p.x2 - p.x1) * 0.1;
+        var ph = (p.y2 - p.y1) * 0.1;
+        if (cx >= p.x1 - pw && cx <= p.x2 + pw && cy >= p.y1 - ph && cy <= p.y2 + ph) return true;
+      }
+      return false;
+    }
     // ADAPTIVE cadence (owner phone 2026-08-24 "very laggy"): the target
     // interval stretches to 1.5x the measured pass cost, capped at 1s —
     // a Helio-class GPU taking 400ms/pass self-throttles to ~1.6Hz
@@ -651,8 +736,13 @@ import { planForMode } from './pipeline-plan.mjs';
       function observeCropped(zpix) {
         return detector.detectFaceBoxes(model, zpix).then(function (faces) {
           if (!faces.length) return obs;
+          var faceDesc = null;
           var metaP = genderModel
             ? detector.classifyFaceGenders(genderModel, zpix, faces).then(function (genders) {
+                // Identity descriptor of the crop's PRIMARY face (the
+                // highest-confidence detection = this person; extra
+                // faces are usually the neighbour leaking in).
+                if (genders.length) faceDesc = genders[0].desc || null;
                 return faceMeta(userGender, genders);
               })
             : Promise.resolve(
@@ -679,6 +769,7 @@ import { planForMode } from './pipeline-plan.mjs';
               box: person,
               flagged: flagged,
               certain: flagged ? anyCertainFlag : allCertainClear,
+              desc: faceDesc,
             };
           });
         });
@@ -758,26 +849,54 @@ import { planForMode } from './pipeline-plan.mjs';
               // so the first-ever read can't dump seconds of credit.
               var verdictDt = Math.min(1000, lastZoomAt ? now - lastZoomAt : sampleInterval);
               lastZoomAt = now;
-              var observations = [];
-              var chain = Promise.resolve();
-              picked.forEach(function (p) {
-                // Serial, not parallel: one GPU queue, smaller bursts.
-                chain = chain.then(function () {
-                  return observePerson(p).then(function (obs) {
-                    obs.verdictDt = verdictDt;
-                    observations.push(obs);
+              // Close-up fallback (owner frame 2026-08-24: extreme
+              // close-up of the daughter, MoveNet 0 persons, fully
+              // exposed — MoveNet needs body context a close-up doesn't
+              // have): a full-frame face pass backstops the person pass
+              // on every verdict tick; faces outside every person box
+              // become synthetic person observations (face expanded to
+              // body). Zero-readback too (fromPixels(video) direct).
+              return detector
+                .detectFaceBoxes(model, directPersonOk ? video : personPixelSource())
+                .then(function (faces) {
+                  var extra = [];
+                  for (var f = 0; f < faces.length && extra.length < 2; f++) {
+                    if (!faceInsideAny(faces[f], persons)) extra.push(expandToBody(faces[f]));
+                  }
+                  return picked.concat(extra);
+                })
+                .catch(function () {
+                  // Fallback pass failed — the person pass still stands.
+                  return picked;
+                })
+                .then(function (all) {
+                  var observations = [];
+                  var chain = Promise.resolve();
+                  all.forEach(function (p) {
+                    // Serial, not parallel: one GPU queue, smaller bursts.
+                    chain = chain.then(function () {
+                      return observePerson(p).then(function (obs) {
+                        obs.verdictDt = verdictDt;
+                        // Identity memory: a face matching someone who
+                        // already earned a full clear this video
+                        // inherits it (person-track.mjs honors this
+                        // only when the current read agrees).
+                        obs.remembered = memoryLookup(obs.desc);
+                        observations.push(obs);
+                      });
+                    });
+                  });
+                  return chain.then(function () {
+                    return observations;
                   });
                 });
-              });
-              return chain.then(function () {
-                return observations;
-              });
             })
             .then(function (observations) {
               if (failed || dead) return;
               var dt = lastPassAt ? now - lastPassAt : sampleInterval;
               lastPassAt = now;
               videoTracks = updatePersonTracks(videoTracks, observations, dt);
+              memoryStore(videoTracks);
               // Hysteresis boundary: patches follow track STATE, which
               // only ever flips instantly toward blur; the clear
               // direction needs CLEAR_HOLD_MS of continuous confident
@@ -920,6 +1039,18 @@ import { planForMode } from './pipeline-plan.mjs';
     video.addEventListener('playing', start);
     video.addEventListener('pause', stop);
     video.addEventListener('ended', stop);
+    // Paused = nothing moves: zero the velocities and re-pin, or the
+    // overlay extrapolator would keep sliding/scaling patches over a
+    // frozen frame (owner edge-case ask 2026-08-24).
+    video.addEventListener('pause', function () {
+      for (var i = 0; i < videoTracks.length; i++) {
+        videoTracks[i].vx = 0;
+        videoTracks[i].vy = 0;
+        videoTracks[i].vw = 0;
+        videoTracks[i].vh = 0;
+      }
+      if (regionActive) videoRegion.setTracks(video, blurredTracks(videoTracks));
+    });
 
     // A reused element is a NEW video (YouTube SPA watch->watch keeps
     // the same <video> and just swaps the stream — review 2026-08-23
@@ -944,6 +1075,7 @@ import { planForMode } from './pipeline-plan.mjs';
       sceneState = 'motion';
       lastCutAt = 0;
       directPersonOk = true;
+      identityMemory = [];
       if (!playerBlurOn) {
         playerBlurOn = true;
         if (pillRefresh) pillRefresh();

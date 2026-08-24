@@ -38,6 +38,24 @@ export var PTRACK_PAD = 0.05; // person box side/bottom padding at render
 // the covered person's hair crown poked out above the patch).
 export var PTRACK_PAD_TOP = 0.12;
 
+// Identity memory thresholds (owner ask 2026-08-24: "keep the person in
+// memory and always blur her/him"). Descriptors are the faceres [1024]
+// recognition embedding, L2-normalized in detector.js, so similarity is
+// a plain dot product. Inheriting a CLEAR from memory is the risky
+// direction (under-blur) — it demands the higher bar; the blur
+// direction never needs memory (unknown ⇒ covered is the default).
+export var MEM_SIM_CLEAR = 0.6; // min similarity to inherit a remembered clear
+export var MEM_SIM_UPDATE = 0.45; // min similarity to update an existing identity
+
+/** Dot product of two L2-normalized descriptors = cosine similarity. */
+export function cosineSim(a, b) {
+  if (!a || !b) return 0;
+  var n = Math.min(a.length, b.length);
+  var s = 0;
+  for (var i = 0; i < n; i++) s += a[i] * b[i];
+  return s;
+}
+
 export function iou(a, b) {
   var x1 = Math.max(a.x1, b.x1);
   var y1 = Math.max(a.y1, b.y1);
@@ -126,6 +144,8 @@ function matchedStep(t, obs, dt) {
       state: state,
       clearMs: clearMs,
       missMs: 0,
+      desc: t.desc || null,
+      lastVerdict: t.lastVerdict || 'uncertain',
     };
   }
   // Verdict time-step: gender reads arrive at their own (slower)
@@ -146,6 +166,14 @@ function matchedStep(t, obs, dt) {
     clearMs = Math.max(0, clearMs - vdt * CLEAR_DECAY);
   }
   // Uncertain while cleared: absorbed — we already know this person.
+  // Identity memory: this face MATCHES a person who already earned a
+  // full clear hold, and the current read agrees confidently — skip
+  // the rest of the hold (the hold was served once; cuts/misses don't
+  // un-serve it). A certain FLAG above always wins first.
+  if (obs.remembered === 'cleared' && !obs.flagged && obs.certain && state === 'blurred') {
+    state = 'cleared';
+    clearMs = Math.max(clearMs, CLEAR_HOLD_MS);
+  }
   return {
     box: smoothed,
     vx: ((sc[0] - tc[0]) / dt) * 1000,
@@ -155,6 +183,8 @@ function matchedStep(t, obs, dt) {
     state: state,
     clearMs: clearMs,
     missMs: 0,
+    desc: obs.desc || t.desc || null,
+    lastVerdict: obs.flagged && obs.certain ? 'flag-certain' : !obs.flagged && obs.certain ? 'clear-certain' : 'uncertain',
   };
 }
 
@@ -189,6 +219,8 @@ function coastStep(t, dt) {
     // A coasting track's clear hold does not advance (no evidence).
     clearMs: t.state === 'blurred' ? 0 : t.clearMs,
     missMs: missMs,
+    desc: t.desc || null,
+    lastVerdict: t.lastVerdict || 'uncertain',
   };
 }
 
@@ -206,9 +238,21 @@ function newTrack(obs) {
     vh: 0,
     // Unknown ⇒ covered from the first observation, even one that reads
     // confidently clear — the clear hold applies to everyone equally.
-    state: 'blurred',
-    clearMs: 0,
+    // EXCEPT a remembered identity: someone who already served the full
+    // hold this video, re-appearing after a cut or miss, whose face
+    // matches at MEM_SIM_CLEAR and whose current read agrees. A certain
+    // flag still always wins.
+    state:
+      obs.remembered === 'cleared' && !obs.flagged && obs.certain ? 'cleared' : 'blurred',
+    clearMs: obs.remembered === 'cleared' && !obs.flagged && obs.certain ? CLEAR_HOLD_MS : 0,
     missMs: 0,
+    desc: obs.desc || null,
+    lastVerdict:
+      obs.flagged && obs.certain
+        ? 'flag-certain'
+        : !obs.flagged && obs.certain
+          ? 'clear-certain'
+          : 'uncertain',
   };
 }
 
