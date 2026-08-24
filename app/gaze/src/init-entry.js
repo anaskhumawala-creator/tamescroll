@@ -522,20 +522,37 @@ import { planForMode } from './pipeline-plan.mjs';
     // Reset on loadstart: a new video is new people.
     var identityMemory = [];
     var MEM_MAX = 8;
-    function memoryLookup(desc) {
-      if (!desc) return null;
+    // Exemplar entries (review C6): 2-3 raw descriptors per identity,
+    // match = max over exemplars, update = append/replace — a blended
+    // centroid could be WALKED toward the wrong person by repeated
+    // near-threshold updates; exemplars can't drift.
+    function memBest(desc) {
       var bestSim = 0;
       var best = null;
       for (var i = 0; i < identityMemory.length; i++) {
-        var s = cosineSim(desc, identityMemory[i].desc);
-        if (s > bestSim) {
-          bestSim = s;
-          best = identityMemory[i];
+        var descs = identityMemory[i].descs;
+        for (var d = 0; d < descs.length; d++) {
+          var sim = cosineSim(desc, descs[d]);
+          if (sim > bestSim) {
+            bestSim = sim;
+            best = identityMemory[i];
+          }
         }
       }
+      return { best: best, sim: bestSim };
+    }
+    function memoryLookup(desc) {
+      if (!desc) return null;
+      var m = memBest(desc);
+      // Calibration probe (review B): similarity bands are unmeasured —
+      // every lookup logs its best sim so a CDP run can histogram them.
+      var dbg = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || { mem: 0, sims: [] });
+      dbg.mem = identityMemory.length;
+      dbg.sims.push(Math.round(m.sim * 100) / 100);
+      if (dbg.sims.length > 400) dbg.sims.shift();
       // Only the CLEAR direction is worth inheriting (blur is already
       // the default for every unknown) — and it takes the high bar.
-      if (best && best.state === 'cleared' && bestSim >= MEM_SIM_CLEAR) return 'cleared';
+      if (m.best && m.best.state === 'cleared' && m.sim >= MEM_SIM_CLEAR) return 'cleared';
       return null;
     }
     function memoryStore(tracks) {
@@ -554,31 +571,17 @@ import { planForMode } from './pipeline-plan.mjs';
         if (t.state === 'cleared' && t.lastVerdict === 'clear-certain') state = 'cleared';
         else if (t.state === 'blurred' && t.lastVerdict === 'flag-certain') state = 'blurred';
         if (!state) continue;
-        var bestSim = 0;
-        var best = null;
-        for (var j = 0; j < identityMemory.length; j++) {
-          var s = cosineSim(t.desc, identityMemory[j].desc);
-          if (s > bestSim) {
-            bestSim = s;
-            best = identityMemory[j];
-          }
-        }
-        if (best && bestSim >= MEM_SIM_UPDATE) {
-          // Blend toward the newest look (lighting/angle drift) and
-          // re-normalize so similarity stays a dot product.
-          var d = best.desc;
-          var norm = 0;
-          for (var k = 0; k < d.length; k++) {
-            d[k] = d[k] * 0.7 + t.desc[k] * 0.3;
-            norm += d[k] * d[k];
-          }
-          norm = Math.sqrt(norm) || 1;
-          for (var m = 0; m < d.length; m++) d[m] /= norm;
+        var m = memBest(t.desc);
+        if (m.best && m.sim >= MEM_SIM_UPDATE) {
+          // Same identity: add this look as an exemplar (raw, never
+          // blended), capped at 3 — oldest look rotates out.
+          m.best.descs.push(t.desc);
+          if (m.best.descs.length > 3) m.best.descs.shift();
           // A certain flag OVERWRITES a remembered clear (fail-safe);
           // a clear only upgrades an entry that isn't certain-flagged.
-          if (state === 'blurred' || best.state !== 'blurred') best.state = state;
+          if (state === 'blurred' || m.best.state !== 'blurred') m.best.state = state;
         } else {
-          identityMemory.push({ desc: t.desc, state: state });
+          identityMemory.push({ descs: [t.desc], state: state });
           if (identityMemory.length > MEM_MAX) identityMemory.shift();
         }
       }

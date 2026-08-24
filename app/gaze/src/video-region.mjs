@@ -227,20 +227,47 @@ export function setTracks(video, tracks) {
     entry.tracks = tracks;
     entry.at = performance.now();
   }
-  // Rebuild overlays only when the count changes; steady state reuses.
-  if (entry.overlays.length !== tracks.length) {
-    for (var i = 0; i < entry.overlays.length; i++) {
-      if (entry.overlays[i].parentNode) entry.overlays[i].parentNode.removeChild(entry.overlays[i]);
+  // Overlays are keyed to TRACK IDENTITY (review A9): same-count churn
+  // (one track dies, another is born in the same pass) must not lerp a
+  // dead person's rect toward a new person's — each key keeps its own
+  // overlay + render state; unknown keys get fresh nodes, missing keys
+  // are removed. Tracks without keys fall back to positional pairing.
+  var nextOverlays = [];
+  var nextRendered = [];
+  var byKey = {};
+  for (var i = 0; i < entry.overlays.length; i++) {
+    var k = entry.overlays[i].__tsKey;
+    if (k) byKey[k] = i;
+  }
+  var used = new Array(entry.overlays.length).fill(false);
+  for (var b = 0; b < tracks.length; b++) {
+    var key = tracks[b].key;
+    var idx = key && byKey[key] !== undefined && !used[byKey[key]] ? byKey[key] : -1;
+    if (idx === -1) {
+      // Positional fallback for keyless tracks (setBoxes shim).
+      if (!key && b < entry.overlays.length && !used[b]) idx = b;
     }
-    entry.overlays = [];
-    entry.rendered = [];
-    for (var b = 0; b < tracks.length; b++) {
+    if (idx !== -1) {
+      used[idx] = true;
+      entry.overlays[idx].__tsKey = key || '';
+      nextOverlays.push(entry.overlays[idx]);
+      nextRendered.push(entry.rendered[idx] || null);
+    } else {
       var o = makeOverlay();
       o.className = HOST_CLASS;
-      entry.overlays.push(o);
+      o.__tsKey = key || '';
       entry.host.appendChild(o);
+      nextOverlays.push(o);
+      nextRendered.push(null); // fresh patch snaps to place, no glide-in
     }
   }
+  for (var r = 0; r < entry.overlays.length; r++) {
+    if (!used[r] && nextOverlays.indexOf(entry.overlays[r]) === -1) {
+      if (entry.overlays[r].parentNode) entry.overlays[r].parentNode.removeChild(entry.overlays[r]);
+    }
+  }
+  entry.overlays = nextOverlays;
+  entry.rendered = nextRendered;
   reposition(entry, entry.at);
   if (!entry.raf) loop(video);
   return true;

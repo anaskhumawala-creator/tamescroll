@@ -70,6 +70,11 @@ export var IDENT_SIM_MIN = 0.3;
 // bounds every absorption hole, not just the child one).
 export var CLEARED_TTL_MS = 5000;
 
+// Monotonic track ids (review A9): overlays key on identity, not array
+// index, so same-count churn cannot smear one person's patch onto
+// another between passes.
+var nextTrackId = 1;
+
 /** Dot product of two L2-normalized descriptors = cosine similarity. */
 export function cosineSim(a, b) {
   if (!a || !b) return 0;
@@ -159,6 +164,7 @@ function matchedStep(t, obs, dt) {
   // move the box, leave verdict state and clear credit untouched.
   if (obs.positionOnly) {
     return {
+      id: t.id,
       box: smoothed,
       vx: ((sc[0] - tc[0]) / dt) * 1000,
       vy: ((sc[1] - tc[1]) / dt) * 1000,
@@ -246,6 +252,7 @@ function matchedStep(t, obs, dt) {
     clearMs = Math.max(clearMs, CLEAR_HOLD_MS);
   }
   return {
+    id: t.id,
     box: smoothed,
     vx: ((sc[0] - tc[0]) / dt) * 1000,
     vy: ((sc[1] - tc[1]) / dt) * 1000,
@@ -286,6 +293,7 @@ function coastStep(t, dt) {
   var dx = ((t.vx || 0) * dt) / 1000;
   var dy = ((t.vy || 0) * dt) / 1000;
   return {
+    id: t.id,
     box: {
       x1: Math.max(0, Math.min(1, t.box.x1 + dx)),
       y1: Math.max(0, Math.min(1, t.box.y1 + dy)),
@@ -320,6 +328,7 @@ export function demoteTracks(tracks) {
   for (var i = 0; i < tracks.length; i++) {
     var t = tracks[i];
     out.push({
+      id: t.id,
       box: t.box,
       vx: 0,
       vy: 0,
@@ -340,6 +349,7 @@ export function demoteTracks(tracks) {
 
 function newTrack(obs) {
   return {
+    id: nextTrackId++,
     box: {
       x1: obs.box.x1,
       y1: obs.box.y1,
@@ -386,6 +396,7 @@ export function blurredTracks(tracks) {
     var w = t.box.x2 - t.box.x1;
     var h = t.box.y2 - t.box.y1;
     out.push({
+      key: String(t.id || 0),
       box: {
         x1: Math.max(0, t.box.x1 - w * PTRACK_PAD),
         y1: Math.max(0, t.box.y1 - h * PTRACK_PAD_TOP),
@@ -428,6 +439,7 @@ export function mergeTracks(list) {
         var a = merged[i];
         var b = merged[j];
         merged[i] = {
+          key: [a.key, b.key].filter(Boolean).sort().join('+'),
           box: {
             x1: Math.min(a.box.x1, b.box.x1),
             y1: Math.min(a.box.y1, b.box.y1),
