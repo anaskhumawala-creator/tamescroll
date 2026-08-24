@@ -1,7 +1,7 @@
 {
-  "versionCode": 1012,
-  "versionName": "0.1.12",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.12/app-arm64-debug.apk",
-  "sha256": "214111d88940be7f576a2d56ffac9f4349dd5c02016c631743a670901c877f08",
-  "notes": "In-player blur: person memory, cut handling, close-up coverage, merged patches, edge cases, faster pipeline"
+  "versionCode": 1013,
+  "versionName": "0.1.13",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.13/app-arm64-debug.apk",
+  "sha256": "60d5e65ddeb1d1ad588c41b9544b01f233bc6107e9e3f9e0c526f33b9dce531b",
+  "notes": "Fast male clear, blur under the timeline bar, falcon brand icons"
 }
