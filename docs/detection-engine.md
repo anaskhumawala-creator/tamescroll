@@ -93,6 +93,13 @@ conservative, never tuned against evidence.
 | Track EMA | 0.45 (PTRACK_EMA_ALPHA) | matched-box smoothing per 4Hz pass | guess |
 | Track coast | 1000ms (PTRACK_MAX_MISS_MS) | lost track coasts on decayed velocity, then expires | guess |
 | Clear hold | 1500ms (CLEAR_HOLD_MS) | CONTINUOUS confident same-gender time before a patch lifts; blur direction always instant; uncertainty never un-clears a known person | redesign 2026-08-24 — THE hysteresis boundary (patches follow track STATE, never per-sample verdicts) |
+| Identity memory inherit | cos ≥ 0.6 (MEM_SIM_CLEAR) + current read must be certain adult clear | re-appearing face inherits an EARNED clear (no re-serving the hold) | UNCALIBRATED — measure faceres descriptor sim distributions (intra-person vs Linus↔daughter kinship case) |
+| Identity memory update | cos ≥ 0.6 (MEM_SIM_UPDATE) | update bar = inherit bar (a lower bar was a centroid-poisoning ramp — review A2/B) | review-driven |
+| Identity continuity | cos < 0.3 (IDENT_SIM_MIN) ⇒ track resets to blurred | a matched read whose face contradicts the track's = different person standing there | UNCALIBRATED guess |
+| Cleared TTL | 5000ms (CLEARED_TTL_MS) | cleared track must re-prove with a confident clear read or reverts to blurred (bounds every absorption hole) | review A1 |
+| Flag streak | 2 consecutive certain-opposite reads revoke an EARNED clear | single noisy opposite read no longer re-blurs a cleared person; all other paths blur instantly | owner "gender sways" 2026-08-24 |
+| Blurred coast | 3000ms (PTRACK_MAX_MISS_BLURRED_MS) | a covered person is never uncovered by a 1s detector-miss timeout (cleared tracks keep 1000ms) | review A5 |
+| Cut behavior | demote tracks + whole-frame blur until the forced pass lands | coverage holds through the pass gap; identity memory, not stale IoU, decides re-clears | review C1/C2 |
 | Render pad | 0.05 (PTRACK_PAD) | person box padding at render | guess |
 | Overlay interpolation | 60Hz dead reckoning, extrapolation capped 600ms (MAX_EXTRAPOLATE_MS); rects re-read on 250ms timer + ResizeObserver, transforms only (zero per-frame layout) | video-region v2 | redesign 2026-08-24 |
 | Scene gate size | 16×16 luma (GATE_SIZE), tick ≤10Hz (GATE_INTERVAL_MS 100) | mean-abs gray delta between gate ticks classifies player motion | plan-blur-v2 Stage 1 |
