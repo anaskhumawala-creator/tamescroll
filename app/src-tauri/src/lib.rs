@@ -375,6 +375,54 @@ fn engine() -> Arc<Engine> {
     w.get_or_insert(built).clone()
 }
 
+/// Should this outbound request be blocked?
+///
+/// THE GAP THIS CLOSES (found 2026-08-25, owner: "ads started appearing
+/// again... why were they able to get through?"): the adblock engine has
+/// been in this app since Phase 2.5 with EasyList, EasyPrivacy and the
+/// uBO lists compiled in — and it was only ever asked
+/// `url_cosmetic_resources`. Cosmetic filtering hides ELEMENTS. It
+/// cannot stop a request, and a YouTube pre-roll is not an element: it
+/// is video served through the player itself. Measured on the dev app,
+/// a single watch page let all of these reach the network:
+///   googleads.g.doubleclick.net/pagead/id
+///   static.doubleclick.net/instream/ad_status.js
+///   www.youtube.com/ptracking
+///   .../pagead/viewthroughconversion/...
+/// So this was never a regression. Network blocking was never wired at
+/// all; what changed is which ads YouTube chose to serve.
+///
+/// `source_url` is the page making the request (first-party context) and
+/// `resource_type` is the fetch destination ("script", "image", "xhr",
+/// ""), both of which the filter lists genuinely use — a rule can be
+/// third-party-only, or script-only, so passing them through is the
+/// difference between blocking ads and breaking the site.
+pub(crate) fn blocks_request(url: &str, source_url: &str, resource_type: &str) -> bool {
+    // Never gamble on our own IPC or the launcher: a false positive here
+    // bricks the app, and neither can serve an ad.
+    if url.starts_with("tauri://") || url.starts_with("ipc://") || url.contains("tauri.localhost") {
+        return false;
+    }
+    // An unparseable URL is not something we can reason about, and this
+    // runs inside every page load: degrade to "allow" rather than panic.
+    let Ok(req) = adblock::request::Request::new(url, source_url, resource_type, "GET") else {
+        return false;
+    };
+    // should_block() rather than `filter.is_some()`: a blocking rule can
+    // be cancelled by an exception rule, and the unbreak lists exist
+    // precisely to cancel over-broad blocks. Reading the raw match would
+    // ignore every one of them and break the sites we are cleaning.
+    engine().check_network_request(&req).should_block()
+}
+
+/// Bridge for the Android WebViewClient (`shouldInterceptRequest`) and
+/// any other host-side interceptor. Kept deliberately thin: the decision
+/// lives in one place so desktop and Android can never drift.
+#[tauri::command]
+fn should_block_request(url: String, source_url: String, resource_type: String) -> bool {
+    blocks_request(&url, &source_url, &resource_type)
+}
+
 /// Rebuilds engine + surfaces from the current rule set (embedded +
 /// OTA overrides). Called by ota.rs after a verified refresh; new page
 /// loads pick the new data up immediately, already-rendered pages keep
@@ -989,7 +1037,8 @@ pub fn run() {
             set_user_gender,
             set_user_terms,
             refresh_rules,
-            app_update_check
+            app_update_check,
+            should_block_request
         ])
         .run(tauri::generate_context!())
         .expect("error while running tamescroll");
@@ -998,6 +1047,62 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The gap the owner hit 2026-08-25: the engine held EasyList,
+    /// EasyPrivacy and the uBO lists all along and was never asked about
+    /// a single network request. These four URLs were MEASURED reaching
+    /// the network from one YouTube watch page in the dev app.
+    #[test]
+    fn blocks_the_ad_requests_that_were_measured_getting_through() {
+        let page = "https://www.youtube.com/watch?v=E4lnTIJaz-g";
+        for (url, kind) in [
+            ("https://googleads.g.doubleclick.net/pagead/id", "image"),
+            ("https://static.doubleclick.net/instream/ad_status.js", "script"),
+            (
+                "https://googleads.g.doubleclick.net/pagead/viewthroughconversion/962985656/",
+                "image",
+            ),
+        ] {
+            assert!(
+                blocks_request(url, page, kind),
+                "must block ad request: {url}"
+            );
+        }
+    }
+
+    /// The other half, and the one that actually matters: over-blocking
+    /// breaks the player, and a broken player is worse than an ad.
+    #[test]
+    fn never_blocks_the_page_or_the_player_itself() {
+        let page = "https://www.youtube.com/watch?v=E4lnTIJaz-g";
+        for (url, kind) in [
+            ("https://www.youtube.com/watch?v=E4lnTIJaz-g", "document"),
+            ("https://www.youtube.com/youtubei/v1/player", "xhr"),
+            ("https://i.ytimg.com/vi/E4lnTIJaz-g/hqdefault.jpg", "image"),
+            ("https://rr3---sn-abc.googlevideo.com/videoplayback?x=1", "media"),
+            ("https://www.youtube.com/s/player/base.js", "script"),
+        ] {
+            assert!(
+                !blocks_request(url, page, kind),
+                "must NOT block: {url}"
+            );
+        }
+    }
+
+    /// Our own IPC and launcher can never serve an ad, and a false
+    /// positive there bricks the app rather than degrading it.
+    #[test]
+    fn never_blocks_our_own_surfaces() {
+        assert!(!blocks_request("tauri://localhost/index.html", "tauri://localhost", "document"));
+        assert!(!blocks_request("http://tauri.localhost/main.js", "http://tauri.localhost", "script"));
+    }
+
+    /// A malformed URL must degrade to "allow", not panic: this runs
+    /// inside a page load on every request.
+    #[test]
+    fn a_malformed_url_is_allowed_not_a_panic() {
+        assert!(!blocks_request("not a url at all", "also not a url", "script"));
+    }
 
     /// Owner report 2026-08-20 (first real-phone test): "ad blocking does
     /// not work at all in the mobile app." Root cause: Android's only
