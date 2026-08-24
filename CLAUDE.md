@@ -63,7 +63,31 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-24 overnight (v1010 person-primary REDESIGN shipped; audit in docs/research/).
+**Last updated:** 2026-08-24 overnight (v1011 split-cadence polish SHIPPED on top of the v1010 redesign).
+
+**Session 2026-08-24 overnight, part 2 (v0.1.11/1011, commit 516cc54):**
+owner live-tested v1010 (phone + watching the dev app) and fired 5
+feedback rounds; all addressed + frame-verified:
+- "laggy / patch trails / hands showing" -> SPLIT CADENCE (position pass
+  floors 120ms ~8Hz, crops+gender every <=400ms, positionOnly obs move
+  tracks w/o touching verdicts; clear credit accrues by verdictDt gap);
+  ADAPTIVE throttle 1.5x measured pass cost cap 1s (phone self-slows);
+  keypoint UNION covers hands (wrists >=0.3 + 0.03 margin).
+- "jittery, corners distorting" -> overlay v3: translate-only (scale
+  warped border-radius), size writes only >=2px change, 60Hz render
+  lerp 0.25 so passes glide not snap. Size velocity extrapolates
+  OUTWARD only.
+- "logos/avatars blurred" -> IMAGE_MIN_SIZE 64->120 (UI chrome exempt;
+  accepted trade: <120px imgs skip NSFW too).
+- Pill = visible SWITCH (green track + knob, 36px touch) — same on
+  Android.
+- 192px MoveNet input experiment REVERTED same night (missed a corner
+  facecam person — small subjects outrank phone perf; cadence is the
+  phone lever, not input size).
+- OPEN (flagged, not built): small-person recall (tiled/hi-res person
+  pass = next milestone); m.youtube feed autoplay-preview removal still
+  blocked on signed-in m.youtube DOM capture (feed preview reuses
+  #movie_player — hiding it breaks the player red line).
 
 **Session 2026-08-24 overnight (v0.1.10/1010, commit b66ef14):** owner
 "lagging + hit-and-miss, set a Fable instance to analyze" -> full
