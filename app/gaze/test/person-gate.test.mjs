@@ -1,53 +1,113 @@
 // MoveNet output parsing + person-crop geometry (person-primary
-// pipeline, redesign 2026-08-24).
+// pipeline, redesign 2026-08-24; evidence gate + aspect-correct head
+// anchor 2026-08-25).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePersons, personCropRegion, PERSON_MIN_SCORE } from '../src/person-gate.mjs';
+import {
+  parsePersons,
+  personCropRegion,
+  personFromFace,
+  PERSON_MIN_SCORE,
+} from '../src/person-gate.mjs';
 
-function rawOutput(persons) {
-  // Builds a flat [6*56] array from {y1,x1,y2,x2,score} specs.
-  const data = new Float32Array(6 * 56);
-  persons.forEach((p, i) => {
-    const o = i * 56;
-    data[o + 51] = p.y1;
-    data[o + 52] = p.x1;
-    data[o + 53] = p.y2;
-    data[o + 54] = p.x2;
-    data[o + 55] = p.score;
-  });
-  return data;
+// Keypoint layout: 17 x [y, x, score] then y1,x1,y2,x2,score.
+function setKp(data, slot, idx, y, x, s) {
+  const o = slot * 56 + idx * 3;
+  data[o] = y;
+  data[o + 1] = x;
+  data[o + 2] = s;
+}
+function setBox(data, slot, y1, x1, y2, x2, score) {
+  const o = slot * 56;
+  data[o + 51] = y1;
+  data[o + 52] = x1;
+  data[o + 53] = y2;
+  data[o + 54] = x2;
+  data[o + 55] = score;
+}
+// A believable upper body: nose, both eyes, both ears, both shoulders.
+function upperBody(data, slot, cx, cy, headW) {
+  setKp(data, slot, 0, cy, cx, 0.9); // nose
+  setKp(data, slot, 1, cy - 0.01, cx - headW * 0.2, 0.9); // left eye
+  setKp(data, slot, 2, cy - 0.01, cx + headW * 0.2, 0.9); // right eye
+  setKp(data, slot, 3, cy, cx - headW / 2, 0.9); // left ear
+  setKp(data, slot, 4, cy, cx + headW / 2, 0.9); // right ear
+  setKp(data, slot, 5, cy + 0.15, cx - headW, 0.9); // left shoulder
+  setKp(data, slot, 6, cy + 0.15, cx + headW, 0.9); // right shoulder
 }
 
-test('parsePersons: keeps scoring slots, drops the rest', () => {
-  const data = rawOutput([
-    { y1: 0.1, x1: 0.2, y2: 0.6, x2: 0.4, score: 0.5 },
-    { y1: 0, x1: 0, y2: 0, x2: 0, score: 0.05 },
-  ]);
+test('parsePersons: keeps a real person, drops a low-scoring slot', () => {
+  const data = new Float32Array(6 * 56);
+  setBox(data, 0, 0.1, 0.2, 0.6, 0.4, 0.5);
+  upperBody(data, 0, 0.3, 0.2, 0.05);
+  setBox(data, 1, 0, 0, 0, 0, 0.05);
   const out = parsePersons(data);
   assert.equal(out.length, 1);
-  assert.ok(Math.abs(out[0].x1 - 0.2) < 1e-6); // Float32Array storage
   assert.ok(out[0].confidence >= PERSON_MIN_SCORE);
 });
 
-test('parsePersons: confident keypoints extend the box (hands must be covered)', () => {
-  // Box hugs the torso; a confident wrist keypoint sits outside it
-  // (owner phone 2026-08-24: hands left showing).
+test('parsePersons: a slot with too few keypoints is NOT a person (phantom gate)', () => {
+  // Score passes, but only two scattered keypoints — the hand/desk
+  // close-up case that produced frame-sized phantom patches.
   const data = new Float32Array(6 * 56);
-  data[51] = 0.2; // y1
-  data[52] = 0.4; // x1
-  data[53] = 0.8; // y2
-  data[54] = 0.6; // x2
-  data[55] = 0.5; // score
-  data[9 * 3] = 0.5; // right wrist y
-  data[9 * 3 + 1] = 0.75; // right wrist x — outside the box
-  data[9 * 3 + 2] = 0.9; // confident
-  data[10 * 3] = 0.5; // left wrist, low score — must NOT extend
-  data[10 * 3 + 1] = 0.05;
-  data[10 * 3 + 2] = 0.1;
-  const out = parsePersons(data);
-  assert.equal(out.length, 1);
-  assert.ok(out[0].x2 > 0.75); // wrist + margin included
-  assert.ok(out[0].x1 >= 0.35); // low-score keypoint ignored
+  setBox(data, 0, 0.1, 0.1, 0.9, 0.9, 0.6);
+  setKp(data, 0, 9, 0.5, 0.5, 0.8); // a wrist
+  setKp(data, 0, 10, 0.6, 0.7, 0.7); // another wrist
+  assert.equal(parsePersons(data).length, 0);
+});
+
+test('parsePersons: keypoints without a head OR both shoulders are rejected', () => {
+  const data = new Float32Array(6 * 56);
+  setBox(data, 0, 0.1, 0.1, 0.9, 0.9, 0.6);
+  // Six confident lower/arm keypoints, no head, only ONE shoulder.
+  setKp(data, 0, 5, 0.4, 0.3, 0.8);
+  for (let i = 7; i <= 11; i++) setKp(data, 0, i, 0.5 + i * 0.01, 0.4, 0.8);
+  assert.equal(parsePersons(data).length, 0);
+});
+
+test('parsePersons: leg keypoints never extend the patch', () => {
+  const data = new Float32Array(6 * 56);
+  setBox(data, 0, 0.2, 0.4, 0.5, 0.6, 0.6);
+  upperBody(data, 0, 0.5, 0.25, 0.05);
+  // A hallucinated ankle at the frame floor must be ignored (13-16).
+  setKp(data, 0, 15, 0.98, 0.5, 0.9);
+  setKp(data, 0, 16, 0.99, 0.55, 0.9);
+  const p = parsePersons(data)[0];
+  assert.ok(p.y2 < 0.9, 'ankle must not drag the patch to the floor: ' + p.y2);
+});
+
+test('parsePersons: wrists DO extend the patch (hands must be covered)', () => {
+  const data = new Float32Array(6 * 56);
+  setBox(data, 0, 0.2, 0.4, 0.8, 0.6, 0.5);
+  upperBody(data, 0, 0.5, 0.25, 0.05);
+  setKp(data, 0, 10, 0.5, 0.75, 0.9); // right wrist, outside the box
+  const p = parsePersons(data)[0];
+  assert.ok(p.x2 > 0.75);
+});
+
+test('parsePersons: head anchor uses the frame aspect for its vertical margin', () => {
+  const data = new Float32Array(6 * 56);
+  // Torso box that crops the head off at y=0.3.
+  setBox(data, 0, 0.3, 0.4, 0.8, 0.6, 0.9);
+  upperBody(data, 0, 0.5, 0.26, 0.08); // ear span 0.08 -> headW 0.08
+  const wide = parsePersons(data, undefined, 16 / 9)[0];
+  const square = parsePersons(data, undefined, 1)[0];
+  // headH = headW * aspect, so a 16:9 frame reserves MORE normalized-y.
+  assert.ok(wide.y1 < square.y1);
+  assert.ok(wide.y1 <= 0.26 - 0.08 * (16 / 9) * 1.1 + 1e-6);
+  // Sides still cover the head width.
+  assert.ok(wide.x1 <= 0.5 - 0.08 * 1.2 + 1e-6);
+  assert.ok(wide.x2 >= 0.5 + 0.08 * 1.2 - 1e-6);
+  assert.equal(typeof wide.headX, 'number');
+});
+
+test('personFromFace: face -> head+upper-torso region, not a full-frame patch', () => {
+  const region = personFromFace({ x1: 0.4, y1: 0.1, x2: 0.5, y2: 0.24, confidence: 0.9 });
+  const area = (region.x2 - region.x1) * (region.y2 - region.y1);
+  assert.ok(area < 0.2, 'crowd patch must stay small, got ' + area);
+  assert.ok(region.y2 > 0.24, 'should reach below the face for the torso');
+  assert.equal(region.fromFace, true);
+  assert.ok(Math.abs(region.headX - 0.45) < 1e-6);
 });
 
 test('personCropRegion: pads the person box, clamped to the frame', () => {
@@ -58,21 +118,4 @@ test('personCropRegion: pads the person box, clamped to the frame', () => {
   assert.equal(edge.x1, 0);
   assert.equal(edge.y1, 0);
   assert.equal(edge.y2, 1);
-});
-
-test('parsePersons: head keypoints get a guaranteed margin (head anchor)', () => {
-  const data = new Float32Array(6 * 56);
-  // box: tight torso box that CROPS the head (y 0.3..0.8)
-  data[51] = 0.3; data[52] = 0.4; data[53] = 0.8; data[54] = 0.6; data[55] = 0.9;
-  // nose at (0.5, 0.25) — above the box top
-  data[0] = 0.25; data[1] = 0.5; data[2] = 0.9;
-  // both ears visible, 0.08 apart -> headSize 0.08
-  data[9] = 0.26; data[10] = 0.46; data[11] = 0.9;
-  data[12] = 0.26; data[13] = 0.54; data[14] = 0.9;
-  const p = parsePersons(data)[0];
-  // top must reach headY - headSize*1.5 ≈ 0.2567 - 0.12
-  assert.ok(p.y1 <= 0.2567 - 0.08 * 1.5 + 1e-6);
-  // sides must cover headX ± headSize*1.3
-  assert.ok(p.x1 <= 0.5 - 0.08 * 1.3 + 1e-6);
-  assert.ok(p.x2 >= 0.5 + 0.08 * 1.3 - 1e-6);
 });

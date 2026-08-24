@@ -187,7 +187,7 @@ export async function loadPersonModel() {
  * space). MoveNet wants RAW int32 pixels — no normalization (unlike
  * BlazeFace's [-1,1]); output [1,6,56] parsed by person-gate.mjs.
  */
-export async function detectPersons(model, pixelSource) {
+export async function detectPersons(model, pixelSource, aspect) {
   var out = tf.tidy(function () {
     var img = tf.browser.fromPixels(pixelSource);
     var resized = tf.image.resizeBilinear(tf.expandDims(img, 0), [PERSON_INPUT_SIZE, PERSON_INPUT_SIZE]);
@@ -199,7 +199,7 @@ export async function detectPersons(model, pixelSource) {
   } finally {
     tf.dispose(out);
   }
-  return parsePersons(data);
+  return parsePersons(data, undefined, aspect);
 }
 
 /**

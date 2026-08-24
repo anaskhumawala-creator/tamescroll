@@ -158,6 +158,14 @@ export function updatePersonTracks(tracks, observations, dtMs) {
   return next;
 }
 
+// NOTE (review F4, deliberately NOT implemented): expiring blurred
+// tracks that never produce a face would also uncover a person standing
+// with their back to camera — the exact case blur-first exists for. The
+// phantom problem it targeted is fixed at the SOURCE instead: a MoveNet
+// slot is only a person with a real box score, enough confident
+// keypoints, and a head or both shoulders (person-gate.mjs). Tracks
+// still carry facelessReads for diagnosis.
+
 function matchedStep(t, obs, dt) {
   var smoothed = ema(t.box, obs.box, PTRACK_EMA_ALPHA);
   var tc = center(t.box);
@@ -178,6 +186,7 @@ function matchedStep(t, obs, dt) {
       clearMs: clearMs,
       missMs: 0,
       clearAge: t.clearAge || 0,
+      facelessReads: t.facelessReads || 0,
       clearStreak: t.clearStreak || 0,
       flagStreak: t.flagStreak || 0,
       desc: t.desc || null,
@@ -191,6 +200,7 @@ function matchedStep(t, obs, dt) {
   var flagStreak = t.flagStreak || 0;
   var clearStreak = t.clearStreak || 0;
   var clearAge = t.clearAge || 0;
+  var facelessReads = obs.faceFound ? 0 : (t.facelessReads || 0) + 1;
   // Identity continuity check FIRST (review A1): if this read's face
   // descriptor contradicts the track's, someone else is standing here —
   // all verdict trust resets, blur-first for whoever this now is.
@@ -321,6 +331,7 @@ function coastStep(t, dt) {
     clearMs: t.state === 'blurred' ? 0 : t.clearMs,
     missMs: missMs,
     clearAge: t.clearAge || 0,
+    facelessReads: t.facelessReads || 0,
     clearStreak: t.clearStreak || 0,
     flagStreak: t.flagStreak || 0,
     desc: t.desc || null,
@@ -350,6 +361,7 @@ export function demoteTracks(tracks) {
       clearMs: 0,
       missMs: 0,
       clearAge: 0,
+      facelessReads: t.facelessReads || 0,
       clearStreak: 0,
       flagStreak: 0,
       desc: null,
@@ -425,16 +437,15 @@ export function blurredTracks(tracks) {
 // two blurs you could even merge them" — two swapping/overlapping
 // squares over a close pair read as chaos; one patch over both reads
 // as intended). Iterates until stable, velocities averaged.
-// Small margin so ABUTTING patches merge too (two squares kissing at an
-// edge read as the same chaos as overlapping ones — review A13).
-var MERGE_MARGIN = 0.02;
+// Merge ONLY genuinely-coincident patches. A 2% abutment margin (and
+// before that, any overlap at all) unioned two side-by-side people into
+// one frame-wide rectangle — measured 2026-08-25 at 66% of frame area
+// for a two-shot, and it is the direct mechanism by which a CLEARED man
+// ends up under a blur. Two people standing together must stay two
+// patches; only near-duplicate boxes of the SAME person merge.
+export var MERGE_IOU_MIN = 0.5;
 function overlaps(a, b) {
-  return (
-    a.x1 < b.x2 + MERGE_MARGIN &&
-    b.x1 < a.x2 + MERGE_MARGIN &&
-    a.y1 < b.y2 + MERGE_MARGIN &&
-    b.y1 < a.y2 + MERGE_MARGIN
-  );
+  return iou(a, b) >= MERGE_IOU_MIN;
 }
 
 export function mergeTracks(list) {

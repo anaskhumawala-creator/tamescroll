@@ -16,7 +16,7 @@
 import * as dom from './dom.js';
 import * as detector from './detector.js';
 import { flaggedFaceIndices, faceMeta } from './gender-verdict.mjs';
-import { personCropRegion } from './person-gate.mjs';
+import { personCropRegion, personFromFace } from './person-gate.mjs';
 import {
   updatePersonTracks,
   blurredTracks,
@@ -42,7 +42,7 @@ import { planForMode } from './pipeline-plan.mjs';
   // Distinctive, minification-proof marker (property assignment with a
   // string literal — esbuild won't rename it) so the Rust side can prove
   // this exact bundle is what got injected. See lib.rs gaze tests.
-  window.__TS_GAZE_BUNDLE__ = 'v6'; // v6: zero-readback sampling + scene gate (plan-blur-v2 Stage 1)
+  window.__TS_GAZE_BUNDLE__ = 'v7'; // v7: crowd path (faces past MoveNet's 6) + no cut blackout
 
   // Compulsory tier (handoff decision #1): the pipeline boots in every
   // launcher mode so NSFW media can be removed outright; what else runs
@@ -512,6 +512,11 @@ import { planForMode } from './pipeline-plan.mjs';
     // identity changes (loadstart, pill re-enable, giveUp): old tracks
     // describe a video that no longer exists.
     var videoTracks = [];
+    window.__TS_SAMPLERS = (window.__TS_SAMPLERS || 0) + 1;
+    var samplerId = window.__TS_SAMPLERS;
+    // Ceiling on a single person's verdict work before it is abandoned
+    // as unknown (⇒ covered). Registered in docs/detection-engine.md.
+    var VERDICT_TIMEOUT_MS = 900;
     var lastPassAt = 0;
     // Identity memory (owner ask 2026-08-24 "keep the person in memory
     // and always blur her/him"): per-VIDEO list of face descriptors with
@@ -546,7 +551,18 @@ import { planForMode } from './pipeline-plan.mjs';
       var m = memBest(desc);
       // Calibration probe (review B): similarity bands are unmeasured —
       // every lookup logs its best sim so a CDP run can histogram them.
-      var dbg = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || { mem: 0, sims: [] });
+      // NEVER let instrumentation throw: this probe seeded __TS_GAZE_IDS
+      // with {sims: []}, while a LATER-ADDED probe upstream (the raw
+      // gender reads) seeded it as a bare {}. Whichever ran first won,
+      // and when the reads probe won, `dbg.sims.push` threw a TypeError
+      // INSIDE the verdict chain. The rejection was swallowed by the
+      // pass-level catch as a warning, so every verdict for a frame
+      // containing a person was silently discarded and no track ever
+      // received a gender read: everyone stayed at their initial
+      // blurred state for the life of the video. That is the whole of
+      // the owner's "Linus is not clearing at all". Shipped in v1013.
+      var dbg = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+      if (!dbg.sims) dbg.sims = [];
       dbg.mem = identityMemory.length;
       dbg.sims.push(Math.round(m.sim * 100) / 100);
       if (dbg.sims.length > 400) dbg.sims.shift();
@@ -615,6 +631,19 @@ import { planForMode } from './pipeline-plan.mjs';
     // Gender pacing: crops+gender run when this much time has passed;
     // position-only passes in between (see cadence note above).
     var lastZoomAt = 0;
+    // In-flight guard for the VERDICT pass (crops + gender + descriptor).
+    // MEASURED 2026-08-25 on the dev app: verdict passes were issued
+    // every ~400ms but only ~0.5/s actually completed, so five of them
+    // stacked on the single WebGL queue and each new one made the
+    // backlog worse. 51 issued / 12 completed in 22s — the tracker saw
+    // position updates ONLY, every person stayed at their initial
+    // blurred state, and no amount of state-machine tuning could clear
+    // anyone. The adaptive throttle could not help either: it keys off
+    // lastVerdictMs, which is only written when a verdict COMPLETES.
+    var verdictBusy = false;
+    // Backstop: a verdict pass that never reports back must not wedge
+    // the guard shut for the life of the video.
+    var VERDICT_STALL_MS = 4000;
     // Zero-readback (plan-blur-v2 Stage 1): the person pass feeds the
     // VIDEO ELEMENT straight into fromPixels (texture upload, in-graph
     // resize) — no 2D canvas, no getImageData sync readback. If that
@@ -625,6 +654,9 @@ import { planForMode } from './pipeline-plan.mjs';
     // started under an older epoch discards its result instead of
     // resurrecting pre-discontinuity people as fresh tracks.
     var passEpoch = 0;
+    // Round-robin cursor for crowd scenes: which slice of a large group
+    // gets a gender read this pass (everyone is tracked regardless).
+    var crowdCursor = 0;
     var personCanvas = null;
     function ensurePersonCanvas() {
       if (!personCanvas) {
@@ -688,11 +720,13 @@ import { planForMode } from './pipeline-plan.mjs';
         // decides who re-clears.
         videoTracks = demoteTracks(videoTracks);
         passEpoch++;
-        // Cut blackout (review C1): until the forced pass lands, the
-        // whole frame is covered — a new-shot person at a NEW position
-        // has no patch yet, and the flash of full blur is perceptually
-        // masked by the cut itself.
-        if (useRegionVideo) markFlagged(video);
+        // NO whole-frame blackout here. Measured 2026-08-25: cuts fire
+        // every ~2.8s on ordinary edited video, so blacking out the
+        // frame until the forced pass landed meant the player spent
+        // most of its life fully blurred — the loudest form of "not
+        // accurate". Existing patches persist through the gap instead
+        // (demoteTracks keeps the boxes), and the forced pass is
+        // already at the front of the queue.
       }
     }
     function anyBlurredTrack() {
@@ -748,14 +782,24 @@ import { planForMode } from './pipeline-plan.mjs';
     // No face at all = backside/turned-away = unknown ⇒ covered.
     function observePerson(person) {
       var region = personCropRegion(person);
-      var obs = { box: person, flagged: true, certain: false };
+      var obs = { box: person, flagged: true, certain: false, faceFound: false };
       var zpix = null;
       var zpixRef = null;
       function done(result) {
         if (zpix && typeof zpix.close === 'function') zpix.close();
         return result;
       }
-      return cropPersonPixels(region)
+      // WATCHDOG (measured 2026-08-25): createImageBitmap on the live
+      // <video> can hang without ever settling — not reject, HANG. The
+      // per-person verdict chain is serial, so ONE hung crop stalled the
+      // whole pass forever, and a CDP run showed 38 of 49 verdict passes
+      // never reaching the tracker: every person stayed at their initial
+      // blurred state for the life of the video. That is exactly the
+      // owner's "Linus is not clearing at all". A verdict that hasn't
+      // landed within VERDICT_TIMEOUT_MS is abandoned as unknown (⇒
+      // covered, the fail-safe direction) so the NEXT pass still runs.
+      var settled = false;
+      var work = cropPersonPixels(region)
         .then(function (pix) {
           zpix = pix;
           return observeCropped(zpix);
@@ -765,7 +809,22 @@ import { planForMode } from './pipeline-plan.mjs';
           // Unreadable crop (taint rejects createImageBitmap, sync
           // canvas throw rejects here too): unknown ⇒ covered.
           return done(obs);
+        })
+        .then(function (r) {
+          settled = true;
+          return r;
         });
+      return Promise.race([
+        work,
+        new Promise(function (resolve) {
+          setTimeout(function () {
+            if (settled) return;
+            var dbgW = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+            dbgW.timeouts = (dbgW.timeouts || 0) + 1;
+            resolve(obs);
+          }, VERDICT_TIMEOUT_MS);
+        }),
+      ]);
 
       // NATIVE-RES face crop for the gender read (owner 2026-08-25 "still
       // not accurate" + the gender model swaying all night). Detection
@@ -807,6 +866,37 @@ import { planForMode } from './pipeline-plan.mjs';
       // (the person's own face dominates their region); any additional
       // faces in the crop keep the cheap in-crop read, since they only
       // ever act as a veto on clearing.
+      // Which detected face belongs to THIS person: the one whose centre
+      // is nearest the MoveNet head anchor (mapped into crop space), and
+      // only if it is plausibly close. Without a head anchor (person
+      // facing away) fall back to the largest face, which in a crop
+      // centred on this person is normally theirs.
+      function ownFaceIndex(faces) {
+        if (!faces.length) return -1;
+        var rw = region.x2 - region.x1;
+        var rh = region.y2 - region.y1;
+        if (typeof person.headX === 'number' && typeof person.headY === 'number' && rw > 0 && rh > 0) {
+          var hx = (person.headX - region.x1) / rw;
+          var hy = (person.headY - region.y1) / rh;
+          var best = -1;
+          var bestD = Infinity;
+          for (var i = 0; i < faces.length; i++) {
+            var cx = (faces[i].x1 + faces[i].x2) / 2;
+            var cy = (faces[i].y1 + faces[i].y2) / 2;
+            var fw = faces[i].x2 - faces[i].x1;
+            var d = Math.sqrt((cx - hx) * (cx - hx) + (cy - hy) * (cy - hy));
+            // Within roughly one face-width of the head keypoint.
+            if (d < bestD && d <= Math.max(0.18, fw)) {
+              bestD = d;
+              best = i;
+            }
+          }
+          if (best !== -1) return best;
+          return -1;
+        }
+        return bestIndex(faces);
+      }
+
       function bestIndex(faces) {
         var bi = 0;
         var ba = 0;
@@ -830,6 +920,8 @@ import { planForMode } from './pipeline-plan.mjs';
             bigIdx = fi;
           }
         }
+        var ownIdx = ownFaceIndex(faces);
+        if (ownIdx !== -1) bigIdx = ownIdx;
         return genderFromNativeFace(faces[bigIdx])
           .then(function (nat) {
             if (faces.length === 1) return nat;
@@ -854,8 +946,23 @@ import { planForMode } from './pipeline-plan.mjs';
             ? classifyBest(faces).then(function (genders) {
                 // Identity descriptor comes from the natively-cropped
                 // primary face (index 0 when it was the only face).
-                var pick = genders.length > 1 ? genders[bestIndex(faces)] : genders[0];
+                var ownI = ownFaceIndex(faces);
+                var pick = genders.length > 1 ? genders[ownI === -1 ? bestIndex(faces) : ownI] : genders[0];
                 if (pick) faceDesc = pick.desc || null;
+                // Calibration probe: the raw model reads behind every
+                // verdict, so a CDP run can say WHY someone stays
+                // covered (wrong direction vs low certainty vs age).
+                if (pick) {
+                  var dbgR = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+                  dbgR.reads = dbgR.reads || [];
+                  dbgR.reads.push({
+                    g: pick.gender,
+                    s: Math.round(pick.score * 100) / 100,
+                    a: Math.round(pick.age),
+                    n: faces.length,
+                  });
+                  if (dbgR.reads.length > 300) dbgR.reads.shift();
+                }
                 return faceMeta(userGender, genders);
               })
             : Promise.resolve(
@@ -864,24 +971,44 @@ import { planForMode } from './pipeline-plan.mjs';
                 })
               );
           return metaP.then(function (meta) {
-            // Any flagged face in the crop flags the person; the person
-            // clears only when EVERY face read confidently clear (a
-            // second face in the crop is usually the neighbour leaking
-            // in — never a licence to unblur this one).
-            var flagged = false;
-            var anyCertainFlag = false;
-            var allCertainClear = true;
-            for (var m = 0; m < meta.length; m++) {
-              if (meta[m].flagged) {
-                flagged = true;
-                if (meta[m].certain) anyCertainFlag = true;
-              }
-              if (meta[m].flagged || !meta[m].certain) allCertainClear = false;
+            // ONE face decides this person: the one at their head.
+            // Neighbours' faces routinely land in the same padded crop
+            // (measured 2026-08-25: 2-3 faces per crop in a two-shot),
+            // and the old "any flagged face flags the person" rule made
+            // a confidently-male adult permanently blurred whenever a
+            // covered person stood beside him. Each neighbour has their
+            // OWN person track and is covered by it — vetoing here
+            // covered the wrong people, it never added protection.
+            var own = ownFaceIndex(faces);
+            var dbgA = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+            dbgA.attr = dbgA.attr || [];
+            dbgA.attr.push({
+              own: own,
+              nf: faces.length,
+              hx: person.headX === null ? null : Math.round(person.headX * 100) / 100,
+              hy: person.headY === null ? null : Math.round(person.headY * 100) / 100,
+              fc: faces.map(function (f) {
+                return [
+                  Math.round(((f.x1 + f.x2) / 2) * 100) / 100,
+                  Math.round(((f.y1 + f.y2) / 2) * 100) / 100,
+                ];
+              }),
+              meta: meta.map(function (m) {
+                return (m.flagged ? 'F' : 'c') + (m.certain ? '!' : '?');
+              }),
+            });
+            if (dbgA.attr.length > 120) dbgA.attr.shift();
+            if (own === -1) {
+              // No face attributable to this person's head ⇒ unknown ⇒
+              // covered, exactly as a faceless person already is.
+              return { box: person, flagged: true, certain: false, faceFound: true, desc: faceDesc };
             }
+            var mine = meta[own] || { flagged: true, certain: false };
             return {
               box: person,
-              flagged: flagged,
-              certain: flagged ? anyCertainFlag : allCertainClear,
+              flagged: mine.flagged,
+              certain: mine.certain,
+              faceFound: true,
               desc: faceDesc,
             };
           });
@@ -949,10 +1076,18 @@ import { planForMode } from './pipeline-plan.mjs';
       // phantom class the old gates chased is excluded by construction).
       if (useRegionVideo && personModel) {
         var effZoom = Math.max(ZOOM_INTERVAL_MS, lastVerdictMs * 1.5);
-        var wasVerdict = now - lastZoomAt >= effZoom;
+        // Never a second verdict pass while one is still running: one
+        // GPU queue, and a backlog is indistinguishable from a hang.
+        var wasVerdict = !verdictBusy && now - lastZoomAt >= effZoom;
+        if (wasVerdict) {
+          verdictBusy = true;
+          setTimeout(function () {
+            verdictBusy = false;
+          }, VERDICT_STALL_MS);
+        }
         try {
           detector
-            .detectPersons(personModel, personPixelSource())
+            .detectPersons(personModel, personPixelSource(), video.videoWidth / (video.videoHeight || 1))
             .then(function (persons) {
               // Probe-visible pass marker (verification probes read this).
               window.__TS_GAZE_PERSONS = persons.length;
@@ -978,21 +1113,54 @@ import { planForMode } from './pipeline-plan.mjs';
               // so the first-ever read can't dump seconds of credit.
               var verdictDt = Math.min(1000, lastZoomAt ? now - lastZoomAt : sampleInterval);
               lastZoomAt = now;
-              // Close-up fallback (owner frame 2026-08-24: extreme
-              // close-up of the daughter, MoveNet 0 persons, fully
-              // exposed — MoveNet needs body context a close-up doesn't
-              // have): a full-frame face pass backstops the person pass
-              // on every verdict tick; faces outside every person box
-              // become synthetic person observations (face expanded to
-              // body). Zero-readback too (fromPixels(video) direct).
+              var dbgV = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+              dbgV.vEnter = (dbgV.vEnter || 0) + 1;
+              dbgV.vE = dbgV.vE || {}; dbgV.vE[samplerId] = (dbgV.vE[samplerId]||0)+1;
+              dbgV.vP = (dbgV.vP || []).concat([persons.length]).slice(-40);
+              dbgV.log = (dbgV.log || []).concat(['  vEnter persons=' + persons.length]).slice(-60);
+              // FULL-FRAME FACE PASS — two jobs (both measured):
+              //  1. Close-ups: MoveNet needs body context a face-filling
+              //     shot doesn't have (owner frame: daughter close-up,
+              //     0 persons, fully exposed).
+              //  2. CROWDS: MoveNet MultiPose reports at most SIX
+              //     people. BlazeFace returns up to 20, so in a group
+              //     shot everyone past the sixth is covered through
+              //     here (owner 2026-08-25: "work with 10+ people").
+              // A face with no pose behind it becomes a head+torso
+              // person (personFromFace) — deliberately modest geometry.
               return detector
                 .detectFaceBoxes(model, directPersonOk ? video : personPixelSource())
                 .then(function (faces) {
                   var extra = [];
-                  for (var f = 0; f < faces.length && extra.length < 2; f++) {
-                    if (!faceInsideAny(faces[f], persons)) extra.push(expandToBody(faces[f]));
+                  for (var f = 0; f < faces.length; f++) {
+                    if (!faceInsideAny(faces[f], persons)) extra.push(personFromFace(faces[f]));
                   }
-                  return picked.concat(extra);
+                  // Everyone is TRACKED; only the verdict budget is
+                  // capped. Unverdicted people keep their existing
+                  // state, and a brand-new one starts covered.
+                  var all = picked.concat(extra);
+                  var dbgF = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+                  dbgF.faceStage = (dbgF.faceStage || []).concat([faces.length + '/' + all.length]).slice(-40);
+                  dbgF.log = (dbgF.log || []).concat(['  faceStage all=' + all.length]).slice(-60);
+                  if (all.length > ZOOM_MAX_PERSONS) {
+                    // Round-robin the crops so a large group is fully
+                    // classified across a few passes instead of the
+                    // same three people every time.
+                    all.sort(function (a, b) {
+                      return (b.confidence || 0) - (a.confidence || 0);
+                    });
+                    var start = crowdCursor % all.length;
+                    var budget = [];
+                    for (var c = 0; c < ZOOM_MAX_PERSONS; c++) {
+                      budget.push(all[(start + c) % all.length]);
+                    }
+                    crowdCursor = (start + ZOOM_MAX_PERSONS) % all.length;
+                    for (var r2 = 0; r2 < all.length; r2++) {
+                      if (budget.indexOf(all[r2]) === -1) rest.push(all[r2]);
+                    }
+                    return budget;
+                  }
+                  return all;
                 })
                 .catch(function () {
                   // Fallback pass failed — the person pass still stands.
@@ -1008,18 +1176,34 @@ import { planForMode } from './pipeline-plan.mjs';
                   all.forEach(function (p) {
                     // Serial, not parallel: one GPU queue, smaller bursts.
                     chain = chain.then(function () {
-                      return observePerson(p).then(function (obs) {
+                      return observePerson(p).catch(function (e) {
+                        var dbgE = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+                        dbgE.errs = (dbgE.errs || []).concat([String((e && e.message) || e)]).slice(-8);
+                        throw e;
+                      }).then(function (obs) {
                         obs.verdictDt = verdictDt;
                         // Identity memory: a face matching someone who
                         // already earned a full clear this video
                         // inherits it (person-track.mjs honors this
                         // only when the current read agrees).
-                        obs.remembered = memoryLookup(obs.desc);
+                        try {
+                          obs.remembered = memoryLookup(obs.desc);
+                        } catch (e) {
+                          // Memory is an optimisation; a failure here
+                          // must never discard the verdict itself.
+                          obs.remembered = null;
+                        }
                         observations.push(obs);
                       });
                     });
                   });
                   return chain.then(function () {
+                    var dbgX = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+                    verdictBusy = false;
+                    dbgX.log = (dbgX.log || []).concat(['  chainDone obs=' + observations.length]).slice(-60);
+                    dbgX.vDone = (dbgX.vDone || 0) + 1;
+                    dbgX.vD = dbgX.vD || {}; dbgX.vD[samplerId] = (dbgX.vD[samplerId]||0)+1;
+                    dbgX.vLen = (dbgX.vLen || []).concat([observations.length]);
                     // Calibration probe (review B): two persons in the
                     // SAME frame are definitionally different people —
                     // their pairwise sim is the cross-person band.
@@ -1044,11 +1228,44 @@ import { planForMode } from './pipeline-plan.mjs';
               // these observations describe a frame that no longer
               // exists (review A6) — drop them, the forced pass that
               // the discontinuity queued is right behind.
-              if (myEpoch !== passEpoch) return;
+              if (myEpoch !== passEpoch) {
+                var dbgD = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+                dbgD.dropped = (dbgD.dropped || 0) + 1;
+                return;
+              }
+              var dbgK = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+              dbgK.kept = (dbgK.kept || 0) + 1;
+              dbgK.keptV = (dbgK.keptV || 0) + (observations.some(function (o) { return !o.positionOnly; }) ? 1 : 0);
+              dbgK.shape = dbgK.shape || [];
+              dbgK.log = (dbgK.log || []).concat([
+                (wasVerdict ? 'V' : 'p') + ' obs=' + observations.length,
+              ]).slice(-60);
+              dbgK.shape.push(samplerId + ':' + observations.map(function (o) {
+                return (o.positionOnly ? 'P' : (o.flagged ? 'F' : 'c') + (o.certain ? '!' : '?'));
+              }).join('+'));
+              if (dbgK.shape.length > 60) dbgK.shape.shift();
               var dt = lastPassAt ? now - lastPassAt : sampleInterval;
               lastPassAt = now;
               videoTracks = updatePersonTracks(videoTracks, observations, dt);
               memoryStore(videoTracks);
+              // Calibration probe: per-track state after every pass, so
+              // a "why is he not clearing" question is answered by
+              // measurement instead of a guess.
+              var dbgT = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+              dbgT.tracks = dbgT.tracks || [];
+              dbgT.tracks.push(
+                videoTracks.map(function (tk) {
+                  return {
+                    id: tk.id,
+                    st: tk.state,
+                    cs: tk.clearStreak,
+                    fs: tk.flagStreak,
+                    cm: Math.round(tk.clearMs || 0),
+                    lv: tk.lastVerdict,
+                  };
+                })
+              );
+              if (dbgT.tracks.length > 200) dbgT.tracks = dbgT.tracks.slice(-200);
               // Hysteresis boundary: patches follow track STATE, which
               // only ever flips instantly toward blur; the clear
               // direction needs CLEAR_HOLD_MS of continuous confident
@@ -1085,6 +1302,9 @@ import { planForMode } from './pipeline-plan.mjs';
                 directPersonOk = false;
               }
               // Cannot verify this pass — tracks coast, patches hold.
+              var dbgP = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+              dbgP.passFails = (dbgP.passFails || 0) + 1;
+              dbgP.lastFail = String((e && e.message) || e);
               // eslint-disable-next-line no-console
               console.warn('tamescroll gaze: person pass failed', e);
             })

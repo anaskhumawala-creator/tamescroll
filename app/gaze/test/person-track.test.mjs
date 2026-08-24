@@ -189,15 +189,22 @@ test('cosineSim: identical normalized vectors 1, orthogonal 0, null 0', () => {
   assert.equal(pt.cosineSim(null, a), 0);
 });
 
-test('mergeTracks: overlapping render boxes union into one, disjoint stay apart', () => {
-  const merged = pt.mergeTracks([
-    { box: { x1: 0.1, y1: 0.1, x2: 0.4, y2: 0.6 }, vx: 0.2, vy: 0, vw: 0, vh: 0 },
-    { box: { x1: 0.3, y1: 0.2, x2: 0.6, y2: 0.7 }, vx: 0, vy: 0, vw: 0, vh: 0 },
-    { box: { x1: 0.8, y1: 0.1, x2: 0.95, y2: 0.5 }, vx: 0, vy: 0, vw: 0, vh: 0 },
+test('mergeTracks: near-duplicate boxes merge; side-by-side people do NOT', () => {
+  // Two people standing together overlap slightly — they must stay two
+  // patches (measured 2026-08-25: unioning them covered 66% of frame and
+  // buried a cleared man under the daughter's patch).
+  const pair = pt.mergeTracks([
+    { key: '1', box: { x1: 0.1, y1: 0.1, x2: 0.45, y2: 0.9 }, vx: 0, vy: 0, vw: 0, vh: 0 },
+    { key: '2', box: { x1: 0.42, y1: 0.1, x2: 0.8, y2: 0.9 }, vx: 0, vy: 0, vw: 0, vh: 0 },
   ]);
-  assert.equal(merged.length, 2);
-  assert.deepEqual(merged[0].box, { x1: 0.1, y1: 0.1, x2: 0.6, y2: 0.7 });
-  assert.ok(Math.abs(merged[0].vx - 0.1) < 1e-9);
+  assert.equal(pair.length, 2);
+  // Near-duplicate boxes of the same person DO merge (IoU >= 0.5).
+  const dup = pt.mergeTracks([
+    { key: '1', box: { x1: 0.1, y1: 0.1, x2: 0.5, y2: 0.9 }, vx: 0.2, vy: 0, vw: 0, vh: 0 },
+    { key: '2', box: { x1: 0.14, y1: 0.12, x2: 0.52, y2: 0.88 }, vx: 0, vy: 0, vw: 0, vh: 0 },
+  ]);
+  assert.equal(dup.length, 1);
+  assert.ok(Math.abs(dup[0].vx - 0.1) < 1e-9);
 });
 
 test('earned clear survives ONE noisy opposite read, revoked on two consecutive', () => {
@@ -238,4 +245,15 @@ test('fast clear: an uncertain read in between resets the streak', () => {
   tracks = pt.updatePersonTracks(tracks, [{ box, flagged: true, certain: false, verdictDt: 250 }], 250);
   tracks = pt.updatePersonTracks(tracks, [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
   assert.equal(tracks[0].state, 'blurred'); // streak broken, one read again
+});
+
+
+test('a faceless (back-turned) person stays covered — never expired by facelessness', () => {
+  const box = { x1: 0.2, y1: 0.2, x2: 0.6, y2: 0.9 };
+  let tracks = pt.updatePersonTracks([], [{ box, flagged: true, certain: false, faceFound: false }], 250);
+  for (let i = 0; i < 12; i++) {
+    tracks = pt.updatePersonTracks(tracks, [{ box, flagged: true, certain: false, faceFound: false }], 250);
+  }
+  assert.equal(tracks.length, 1);
+  assert.equal(tracks[0].state, 'blurred');
 });
