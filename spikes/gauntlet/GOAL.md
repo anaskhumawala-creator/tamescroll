@@ -252,3 +252,78 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   `duration` (during a pre-roll the element reports the AD's duration, so
   an 843s talk briefly looks like a 6s clip and the guard rejected a good
   run).
+- **R6** (2026-08-25) — rotation entry 4, news panel u_Kdf06irw8, `woman`.
+  First woman-direction run since the tracker rewrite, and it found a
+  **real direction asymmetry in the model, not in our code**.
+  BEFORE (runs/r6-woman, 12 frames): FALSE COVER 3 (f000-f002) · EXPOSURE 0
+  · GHOST 0 · PARTIAL 6 (f006-f011, the newspaper) · DRIFT 0.
+  AFTER (runs/r6d-woman + r6g-woman, same segment): **FALSE COVER 3 -> 1**,
+  and the 1 is the unavoidable first-appearance frame where a new track
+  starts covered before its first two reads land. Man direction re-checked
+  for symmetry (runs/r6f-man): 2 of 10 frames carry a patch, matching the
+  R5 baseline — no regression.
+  THE FINDING. A 3-person panel: man left, woman centre, man right, all
+  seated, faces 8-11% of frame height, one static shot. For ~6 seconds
+  ALL THREE were covered — including the woman, who is the person the
+  setting exists to leave alone. The raw reads say why:
+      male reads   (19 samples): 0.87-0.97, median 0.94, P(>=0.6) = 19/19
+      female reads ( 5 samples): 0.22-0.67, median 0.54, P(>=0.6) =  2/5
+  Same frames, same lighting, same scale — the frame is its own control,
+  so this is NOT the R5 scale effect. faceres gets the DIRECTION right
+  every time; it is simply far less certain about women. GENDER_CLEAR_SCORE
+  0.6 was calibrated on the male distribution, so one number is not one
+  bar: a man clears on his first read, a woman's clear streak keeps
+  resetting. With CLEAR_STREAK_N 2, expected reads to clear go from 2
+  (~0.8s) at p=1.0 to ~8.75 (~3.5s) at p=0.4 — which is the observed
+  latency, and it would hit every woman-mode user on every video.
+  FIXED:
+  * per-gender clear bar, selected by the MODEL'S LABEL rather than by the
+    user's gender so the code stays symmetric: GENDER_CLEAR_SCORE_FEMALE
+    0.45, male bar untouched at 0.6. Note this cannot affect the owner's
+    own experience at all — in man mode the clear side is male, so the
+    female bar is never consulted.
+  * clearStreak now DECAYS by one on an uncertain read instead of being
+    zeroed. An uncertain read is treated as non-evidence everywhere else
+    in the tracker (CLEAR_DECAY); zeroing treated it as evidence against.
+    A certain OPPOSITE read still erases the streak outright.
+  * coast window CAPPED (PTRACK_MAX_COAST_MS 2000). R5 made coast track
+    the verdict cadence but left it unbounded above — this desktop's worst
+    verdict of 1618ms already implied a 6-SECOND coast, and a phone would
+    carry a stale patch for 10-15s. Every ghost complaint scales with it.
+  CRITIC CORRECTED MY SCORING, and the correction matters: I logged the
+  newspaper frames as GHOST. They are not. Every patch there has real
+  photographed people under it — a group photo, a portrait — so they score
+  PARTIAL/FALSE COVER instead. f004/f005 are also correct, not ghosts: a
+  full-frame close-up of a man, covered, in woman mode.
+  STILL OPEN, next round's target:
+  * **printed-photo churn.** Twelve distinct track ids across six frames of
+    a nearly static newspaper: BlazeFace finds a different subset of ~15
+    printed faces each pass, personFromFace mints a new body for each, and
+    PTRACK_IOU_MIN 0.2 sits inside the 0.16-0.30 band those boxes score
+    against each other, so association is a coin flip. Fix is face-anchored
+    association (associate on the FACE box, not a body box that is 7 face-
+    heights tall of which 1/7 is evidence). Free.
+  * merge is structurally blind here: for EQUAL-area boxes containment>=0.6
+    implies IoU>=0.4286, barely looser than MERGE_IOU_MIN 0.5, so the
+    containment rule only does real work at >=2x area difference. A cluster
+    of similar-sized offset boxes never merges at any scale.
+  * positionOnly observations mint blurred tracks that never receive a
+    verdict (person-track newTrack has no positionOnly check).
+  * static suppression was considered and REJECTED on argument: it cannot
+    separate a printed person from a motionless real one (a still subject
+    decodes to bit-identical frames), and the old confidence leg is refuted
+    by R5, where a real speaker in full view scored 0.14. Low confidence
+    means SMALL, not PRINTED.
+  * OWNER DECISION NEEDED: should printed photographs of people be covered?
+    Recommendation is yes, for consistency with thumbnail blurring — but it
+    means printed SAME-gender people get covered too, and the model cannot
+    resolve those faces (reads 0.02-0.27, coin flips).
+  COST: verdict p50 103-203 p95 496-537 max 2332-4943 across the round's
+  runs; position p50 21-29 p95 28-38. The tail is still the standing target
+  and it did not improve this round.
+  Harness: three new hard-fail guards, each from a run that silently lied.
+  A run is now rejected if playback jumps BACKWARDS (the video ended and
+  autoplay moved on — r6b scored six frames of one video and six of
+  another), if the video id changes mid-run, or if ANY frame was captured
+  during an ad (r6e scored ten frames of a pre-roll and the numbers read
+  like a regression in the TED talk).

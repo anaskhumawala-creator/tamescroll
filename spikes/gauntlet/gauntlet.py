@@ -112,7 +112,15 @@ PROBE = r"""
   var tr = (d.tracks || []).slice(-1)[0] || [];
   return {
     t: +v.currentTime.toFixed(2),
+    // Which video these pixels actually came from, so a run that
+    // overran its video and got autoplayed into another one is caught
+    // instead of scored.
+    vid: (location.search.match(/[?&]v=([\w-]{11})/) || [])[1] || null,
     paused: v.paused,
+    // True while YouTube is playing an AD in the same element. Ad frames
+    // are not this video's frames: r6e scored ten frames of a pre-roll
+    // and the numbers looked like a regression in the TED talk.
+    ad: /ad-showing|ad-interrupting/.test(host.className || ''),
     persons: window.__TS_GAZE_PERSONS,
     passFails: d.passFails || 0,
     lastFail: d.lastFail || null,
@@ -290,6 +298,30 @@ def run(outdir, gender, video, start, count, step):
     times = [f["t"] for f in meta["frames"]]
     if len(times) > 2 and max(times) - min(times) < 0.5:
         meta["invalid"] = "player never advanced (t=%.2f throughout)" % times[0]
+    # THE VIDEO MUST STILL BE THE VIDEO. If the run overruns the end,
+    # YouTube autoplays the NEXT video and the harness keeps shooting
+    # happily — r6b captured six frames of one panel discussion and six
+    # of something else entirely, with currentTime jumping 185 -> 0.
+    # Frames from two different videos scored as one run are worse than
+    # no run: the comparison against the previous round is meaningless
+    # and nothing in the numbers shows it.
+    for i in range(1, len(times)):
+        if times[i] < times[i - 1] - 2.0:
+            meta["invalid"] = (
+                "playback jumped backwards (%.1f -> %.1f at frame %d): the video "
+                "ended and autoplay moved on. Start earlier or capture fewer frames."
+                % (times[i - 1], times[i], i)
+            )
+            break
+    ads = sum(1 for f in meta["frames"] if f.get("ad"))
+    if ads:
+        meta["invalid"] = (
+            "%d of %d frames were captured during an AD - those are not this "
+            "video's frames" % (ads, len(meta["frames"]))
+        )
+    ids = set(f.get("vid") for f in meta["frames"] if f.get("vid"))
+    if len(ids) > 1:
+        meta["invalid"] = "video id changed mid-run: %s" % sorted(ids)
     with open(os.path.join(outdir, "meta.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=1)
     if meta.get("invalid"):

@@ -17,6 +17,36 @@ export var GENDER_MIN_SCORE = 0.25;
 // this much higher certainty. Flagging keeps the low bar — over-blur
 // stays cheap, under-blur is the failure that matters.
 export var GENDER_CLEAR_SCORE = 0.6;
+// ...but 0.6 was calibrated on MALE faces, and faceres is not equally
+// confident about the two genders. Measured in gauntlet R6 on a 3-person
+// news panel (runs/r6-woman), same shot, same lighting, faces all
+// 8-11% of frame height:
+//   male reads   (19 samples): 0.87-0.97, median 0.94
+//   female reads ( 5 samples): 0.22-0.67, median 0.54
+// The model is directionally correct every time — it never called a man
+// female or a woman male. Only its CERTAINTY differs, and it differs by
+// roughly 0.4 across the whole distribution.
+//
+// So a single threshold is not a single bar. At 0.6 a man sails through
+// instantly (man mode: cleared on the first read), while a woman sits
+// astride it and her clear streak keeps resetting — she stayed covered
+// for ~6 seconds of a static panel shot in woman mode, which is FALSE
+// COVER of exactly the person the setting exists to leave alone. Every
+// woman-mode user would see that on every video.
+//
+// Fixing it by lowering GENDER_CLEAR_SCORE globally would drag the male
+// clear bar down with it for no reason and weaken the child/uncertainty
+// fail-safe. Instead the bar is set per CLEARED gender, calibrated to
+// that gender's own distribution. The safety argument for the lower
+// female bar is that direction is reliable: a man reads male at 0.87+,
+// so he cannot sneak through a female-clear gate at 0.45 — he would have
+// to be misread as female first, which was not observed once.
+export var GENDER_CLEAR_SCORE_FEMALE = 0.45;
+
+/** Clear-side certainty bar for the gender being cleared. */
+export function clearScoreFor(gender) {
+  return gender === 'female' ? GENDER_CLEAR_SCORE_FEMALE : GENDER_CLEAR_SCORE;
+}
 // faceres age head (age_pred/Softmax, expected value over 0-99): below
 // this age the gender read is UNTRUSTED entirely — adult-trained gender
 // models are unreliable on children, and a child misread as same-gender
@@ -86,7 +116,7 @@ export function faceMeta(userGender, faces) {
     if (same) {
       // The clear direction pays the high bar (GENDER_CLEAR_SCORE) and
       // must be an adult read.
-      certain = directed && adult && f.score >= GENDER_CLEAR_SCORE;
+      certain = directed && adult && f.score >= clearScoreFor(f.gender);
       out.push({ flagged: !certain, certain: certain });
     } else {
       certain = directed && adult && f.score >= GENDER_MIN_SCORE;

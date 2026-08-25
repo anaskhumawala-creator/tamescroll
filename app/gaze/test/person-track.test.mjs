@@ -313,7 +313,12 @@ test('setVerdictCadence: the blurred coast window never falls below the verdict 
   const desktop = coastFor(400, 100);
   const phone = coastFor(1500, 100);
   assert.ok(desktop >= 900 && desktop <= 1200, `desktop coast ${desktop}ms should stay near 900`);
-  assert.ok(phone > 2.5 * 1500 - 200, `phone coast ${phone}ms must outlive a 1500ms verdict pass`);
+  // The requirement is that a covered person survives to the NEXT verdict
+  // pass, not that the window grows without limit - it is capped at
+  // PTRACK_MAX_COAST_MS so a slow device cannot carry a stale patch for
+  // ten seconds.
+  assert.ok(phone > 1500, `phone coast ${phone}ms must outlive a 1500ms verdict pass`);
+  assert.ok(phone <= pt.PTRACK_MAX_COAST_MS + 200, `phone coast ${phone}ms must respect the cap`);
   pt.setVerdictCadence(400);
 });
 
@@ -396,4 +401,39 @@ test('identity break snaps the box to the new observation, never glides the old 
   assert.equal(t.state, 'blurred');
   assert.equal(t.box.x2, smallBox.x2, 'box must SNAP to the observation, not glide');
   assert.equal(t.box.y2, smallBox.y2);
+});
+
+test('clearStreak decays on uncertainty but is erased by a certain opposite', () => {
+  // R6: an uncertain read used to ZERO the streak, treating non-evidence
+  // as evidence against - the mechanism behind ~6s of false cover on a
+  // woman the model only reads confidently 40% of the time.
+  let tracks = updatePersonTracks([], [obs(boxA, false, true)], 250);
+  assert.equal(tracks[0].clearStreak, 1);
+  tracks = updatePersonTracks(tracks, [obs(boxA, true, false)], 250); // uncertain
+  assert.equal(tracks[0].clearStreak, 0, 'decays by one, not below zero');
+  tracks = updatePersonTracks(tracks, [obs(boxA, false, true)], 250);
+  tracks = updatePersonTracks(tracks, [obs(boxA, false, true)], 250);
+  assert.equal(tracks[0].state, 'cleared');
+
+  // A CERTAIN OPPOSITE read must still wipe the streak outright.
+  let t2 = updatePersonTracks([], [obs(boxA, false, true)], 250);
+  t2 = updatePersonTracks(t2, [obs(boxA, true, true)], 250);
+  assert.equal(t2[0].clearStreak, 0, 'a certain opposite read erases, not decays');
+});
+
+test('coast window is capped however slow the verdict pass gets', () => {
+  // effZoom is uncapped above, so without this a 4s verdict on a phone
+  // would carry a stale patch for 10-15s.
+  pt.setVerdictCadence(4000);
+  let tracks = [{
+    id: 1, box: boxA, state: 'blurred', missMs: 0, hits: 5,
+    clearMs: 0, clearStreak: 0, flagStreak: 0, vx: 0, vy: 0,
+  }];
+  let elapsed = 0;
+  while (tracks.length && elapsed < 30000) {
+    tracks = updatePersonTracks(tracks, [], 100);
+    elapsed += 100;
+  }
+  assert.ok(elapsed <= pt.PTRACK_MAX_COAST_MS + 200, `coast ${elapsed}ms must respect the cap`);
+  pt.setVerdictCadence(400);
 });

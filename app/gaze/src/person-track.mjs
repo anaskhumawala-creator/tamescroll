@@ -432,7 +432,21 @@ function matchedStep(t, obs, dt) {
     clearMs: clearMs,
     missMs: 0,
     clearAge: clearAge,
-    clearStreak: !obs.flagged && obs.certain ? clearStreak : 0,
+    // DECREMENT, don't erase. An UNCERTAIN read is treated as non-evidence
+    // everywhere else in this module (see CLEAR_DECAY) — zeroing the
+    // streak treated it as evidence AGAINST, which contradicts that and
+    // is what turned a 40%-certain read rate into ~6 seconds of false
+    // cover on the R6 panel woman. Expected reads to reach 2 drops from
+    // ~8.75 to ~4 at that rate.
+    // A CERTAIN OPPOSITE read still hard-blurs instantly upstream, so
+    // this loosens only the ambiguous case, and CLEARED_TTL_MS still
+    // bounds how long an unrefreshed clear survives.
+    clearStreak:
+      !obs.flagged && obs.certain
+        ? clearStreak
+        : obs.flagged && obs.certain
+          ? 0
+          : Math.max(0, (t.clearStreak || 0) - 1),
     flagStreak: obs.flagged && obs.certain ? flagStreak : 0,
     desc: obs.desc || t.desc || null,
     lastVerdict: obs.flagged && obs.certain ? 'flag-certain' : !obs.flagged && obs.certain ? 'clear-certain' : 'uncertain',
@@ -478,9 +492,20 @@ export var PTRACK_MAX_MISS_BLURRED_MS = 900;
 var blurredCoastMs = PTRACK_MAX_MISS_BLURRED_MS;
 
 /** Tell the tracker the current verdict cadence, in ms. */
+// ...but CAPPED. effZoom is max(400, lastVerdictMs * 1.5) and has no
+// upper bound, so a slow pass feeds straight into coast length: this
+// desktop's worst verdict of 1618ms already implies effZoom 2427 and a
+// 6-SECOND coast, and a phone at 3-4s verdicts would carry a stale patch
+// for 10-15s. Every ghost complaint scales with this number, so the
+// cadence may lengthen the window but not without limit.
+export var PTRACK_MAX_COAST_MS = 2000;
+
 export function setVerdictCadence(effZoomMs) {
   var ms = typeof effZoomMs === 'number' && effZoomMs > 0 ? effZoomMs : 0;
-  blurredCoastMs = Math.max(PTRACK_MAX_MISS_BLURRED_MS, Math.round(2.5 * ms));
+  blurredCoastMs = Math.min(
+    PTRACK_MAX_COAST_MS,
+    Math.max(PTRACK_MAX_MISS_BLURRED_MS, Math.round(2.5 * ms))
+  );
 }
 
 function coastStep(t, dt) {

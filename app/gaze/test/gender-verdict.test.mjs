@@ -112,3 +112,38 @@ test('faceMeta: unset user gender flags everything as uncertain', () => {
   const m = faceMeta('unset', [male(0.9)]);
   assert.deepEqual(m[0], { flagged: true, certain: false });
 });
+
+test('clear bar is per-gender: faceres is ~0.4 less certain about women', () => {
+  // Gauntlet R6, runs/r6-woman, one static 3-person panel, same lighting,
+  // faces all 8-11% of frame height:
+  //   male reads   (19): 0.87-0.97, median 0.94
+  //   female reads  (5): 0.22-0.67, median 0.54
+  // Direction was correct every time; only certainty differs. A single
+  // 0.6 bar therefore cleared men instantly and left the woman covered
+  // for ~6s in woman mode - FALSE COVER of the exact person the setting
+  // exists to leave alone.
+  const typicalWoman = [{ gender: 'female', score: 0.54, age: 47 }];
+  assert.equal(
+    faceMeta('woman', typicalWoman)[0].certain,
+    true,
+    'a typical female read must clear for a woman user'
+  );
+
+  // The same score from a MALE read must still NOT clear a man: the male
+  // distribution sits at 0.87+, so 0.54 is genuinely anomalous there.
+  const weakMan = [{ gender: 'male', score: 0.54, age: 47 }];
+  assert.equal(
+    faceMeta('man', weakMan)[0].certain,
+    false,
+    'the male clear bar must not be lowered by this change'
+  );
+
+  // Symmetry gate: a confident man is still COVERED in woman mode.
+  const confidentMan = [{ gender: 'male', score: 0.94, age: 62 }];
+  const inWomanMode = faceMeta('woman', confidentMan)[0];
+  assert.equal(inWomanMode.flagged, true, 'a man must stay covered in woman mode');
+
+  // ...and a woman below even the lowered bar stays covered.
+  const unsureWoman = [{ gender: 'female', score: 0.22, age: 40 }];
+  assert.equal(faceMeta('woman', unsureWoman)[0].certain, false);
+});
