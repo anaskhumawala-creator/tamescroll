@@ -261,10 +261,30 @@ export function personFromFace(face) {
   var cy = (face.y1 + face.y2) / 2;
   var w = (face.x2 - face.x1) / 1.4; // de-inflate FACE_ENLARGE
   var h = (face.y2 - face.y1) / 1.4;
+  // HEADROOM, measured in gauntlet R8 (runs/r8b-woman, a naval officer
+  // in a peaked cap at a podium): y1 was `cy - h*1.0`, and since the
+  // de-inflated face box only reaches `cy - h/2`, that is HALF a
+  // face-height of cover above the face. Hair, hats and any upward tilt
+  // fall outside it. The patch top sat at y 0.21-0.26 on nine
+  // consecutive frames while the head began at y~0.05 — the top of his
+  // head was sharp in EVERY frame of the run, which is EXPOSURE, the
+  // worst class, and it is systematic rather than a hard case.
+  // 1.4 puts 0.9 face-heights above the face box, which clears a peaked
+  // cap. Going further starts eating the frame above short subjects for
+  // no measured gain.
+  //
+  // WIDTH: 1.8 half-widths (3.6 face-widths) cut the shoulders off the
+  // same subject — the patch ended at x 0.686 with his shoulder board
+  // and sleeve sharp out to x~0.79, scored PARTIAL on nine frames.
+  // Measured requirement there was 2.5 half-widths; 2.2 is the
+  // compromise, because this podium framing is unusually tight and in a
+  // crowd every extra half-width is a neighbour swallowed. mergeTracks
+  // unions genuine overlaps, so a slight over-reach costs one patch, not
+  // a stack of them.
   return {
-    x1: Math.max(0, cx - w * 1.8),
-    y1: Math.max(0, cy - h * 1.0),
-    x2: Math.min(1, cx + w * 1.8),
+    x1: Math.max(0, cx - w * 2.2),
+    y1: Math.max(0, cy - h * 1.4),
+    x2: Math.min(1, cx + w * 2.2),
     y2: Math.min(1, cy + h * 6.0),
     confidence: face.confidence,
     headX: cx,

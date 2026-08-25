@@ -127,6 +127,24 @@ PROBE = r"""
     patches: patches,
     tracks: tr,
     reads: (d.reads || []).slice(-4),
+    // Identity-memory forensics (R7 critic F7): memoryLookup can REVOKE
+    // a clear when a stored exemplar false-matches at MEM_SIM_FLAG 0.85,
+    // and the module's own calibration says 17% of DIFFERENT-person pairs
+    // score >=0.9. Both numbers were already logged by the bundle and
+    // simply never captured, so the round could not tell "he never earned
+    // a clear" from "he earned one and memory took it away".
+    sims: (d.sims || []).slice(-8),
+    mem: d.mem || 0,
+    // Track lifecycle counters (person-track.mjs bump()): newTrack,
+    // sizeReject, identityBroke, ... Churn conclusions are worthless
+    // without them.
+    life: d.life || null,
+    // How many samplers are alive. __TS_GAZE_IDS is a WINDOW global while
+    // videoTracks is per-element, so two live samplers would interleave
+    // every snapshot above and the measured churn would be an artifact of
+    // the measurement. R7's critic flagged this as gating its own
+    // findings. Must be 1.
+    samplers: window.__TS_SAMPLERS || 0,
     cost: (function () {
       var c = d.cost || { verdict: [], pass: [] };
       function stat(a) {

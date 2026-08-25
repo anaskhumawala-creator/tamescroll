@@ -174,7 +174,7 @@ export var WIPE_EMPTY_STREAK = 2;
  */
 export var WIPE_SMALL_H = 0.25;
 
-export function wipeIfEmpty(tracks, personCount, faceCount, emptyStreak, prevMaxH) {
+export function wipeIfEmpty(tracks, personCount, faceCount, emptyStreak, prevMaxH, sceneCut) {
   if (personCount !== 0 || faceCount !== 0) return tracks;
   // MEASURED REGRESSION, r5b f003: requiring two empty passes
   // unconditionally kept a stale CLOSE-UP track alive through a cut to a
@@ -183,6 +183,38 @@ export function wipeIfEmpty(tracks, personCount, faceCount, emptyStreak, prevMax
   // only justified where the detectors are actually unreliable, which is
   // at small subject scale. If the last thing we saw was BIG, its
   // disappearance is a cut, not a miss.
+  // ...but "big subject vanished" is only evidence of a CUT if the shot
+  // actually changed. MEASURED REGRESSION, r8b f009: a naval officer
+  // filling the frame (prevMaxH 0.78) tilted his head DOWN for one pass.
+  // BlazeFace lost the face, MoveNet reported 0 persons, `big` fired on
+  // that single pass, and every track was erased — the frame went from
+  // fully covered to a completely sharp opposite-gender man who had
+  // never left the shot. Total EXPOSURE from one missed detection.
+  //
+  // The scene gate already knows the difference and the caller already
+  // computes it, so the shortcut now requires corroboration from it: a
+  // recent cut means believe the disappearance at once (r5b), no cut
+  // means this is the same shot and a detector miss gets the same two
+  // passes of corroboration a small subject gets. Callers that pass no
+  // sceneCut keep the old behaviour so the r5b test still pins it.
+  // ...and the first attempt at this — requiring two empty passes instead
+  // of one when there was no cut — only MOVED the failure, measured in
+  // r8b2: f009 gained its patch back and f005 lost its own, because the
+  // same man looked down for two consecutive passes instead of one. No
+  // pass count is large enough, because the thing being counted is the
+  // detector's blindness and not the subject's absence.
+  //
+  // So with no cut, the eraser stands down entirely and coastStep's TIME
+  // window (blurredCoastMs, 900-2000ms, scaled to the verdict cadence)
+  // is what ends a stale track. That window is the right instrument: it
+  // is wall-clock, it already scales to slow hardware, and it does not
+  // pretend that "two blind passes" means "nobody there".
+  // The cost is that a genuine ghost over an empty desk now survives up
+  // to its coast window instead of ~800ms. Taken deliberately: the owner
+  // ranks EXPOSURE above GHOST, and both of this eraser's own measured
+  // misfires (R5's stage of ~40 people, r8b's officer) were it erasing
+  // people who were still there.
+  if (sceneCut === false) return tracks;
   var big = typeof prevMaxH === 'number' && prevMaxH >= WIPE_SMALL_H;
   if (big) return [];
   // Undefined streak keeps the original single-pass contract so callers

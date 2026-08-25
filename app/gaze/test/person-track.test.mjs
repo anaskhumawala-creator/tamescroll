@@ -290,6 +290,29 @@ test('wipeIfEmpty: a BIG subject vanishing is a cut — erase on the first pass'
   assert.equal(wipeIfEmpty(tracks, 0, 0, 1, 0.1).length, 1, 'small subject gone = wait');
 });
 
+test('wipeIfEmpty: a BIG subject vanishing with NO cut is a miss, not a departure', () => {
+  // r8b f009 regression, and it is the mirror image of the r5b test
+  // above: a naval officer filling the frame (prevMaxH 0.78) tilted his
+  // head DOWN for one pass, the face was lost, MoveNet was already
+  // reporting 0 persons, and the `big` shortcut erased every track — a
+  // fully covered opposite-gender man went completely sharp without ever
+  // leaving the shot. Total EXPOSURE from one missed detection.
+  // "Big subject gone" only means a cut if the shot actually CHANGED, and
+  // the scene gate already knows. Same shot => the same two passes of
+  // corroboration a small subject gets.
+  const tracks = [{ id: 1, state: 'blurred' }];
+  // Two passes is not enough either, measured in r8b2: the fix moved the
+  // exposure from f009 to f005 because he looked down for two passes.
+  // With no cut the eraser stands down and coastStep's time window ends
+  // the track instead.
+  assert.equal(wipeIfEmpty(tracks, 0, 0, 1, 0.6, false).length, 1, 'no cut: survive the miss');
+  assert.equal(wipeIfEmpty(tracks, 0, 0, 9, 0.6, false).length, 1, 'no cut: never erased by pass count');
+  assert.equal(wipeIfEmpty(tracks, 0, 0, 1, 0.1, false).length, 1, 'no cut, small: also survives');
+  assert.equal(wipeIfEmpty(tracks, 0, 0, 1, 0.6, true).length, 0, 'cut + big: erase at once (r5b)');
+  assert.equal(wipeIfEmpty(tracks, 0, 0, 1, 0.1, true).length, 1, 'cut + small: still corroborate');
+  assert.equal(wipeIfEmpty(tracks, 0, 0, 2, 0.1, true).length, 0, 'cut + small, twice: erase');
+});
+
 test('setVerdictCadence: the blurred coast window never falls below the verdict pass', () => {
   // The 900ms floor is wall-time, but a track the position pass cannot
   // refresh is only fed at the verdict cadence. On a Helio G88 that

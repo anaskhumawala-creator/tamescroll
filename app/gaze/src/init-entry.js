@@ -937,10 +937,32 @@ import { planForMode } from './pipeline-plan.mjs';
         return genderFromNativeFace(faces[bigIdx])
           .then(function (nat) {
             if (faces.length === 1) return nat;
-            return detector.classifyFaceGenders(genderModel, zpixRef, faces).then(function (all) {
-              all[bigIdx] = nat[0]; // native read wins for the primary face
-              return all;
-            });
+            // The multi-face pass that used to run here was DEAD WORK,
+            // verified by reading every consumer (R7 critic F3):
+            //   - `all[bigIdx] = nat[0]` overwrote the only element read;
+            //   - the caller's `own === -1` branch returns without ever
+            //     touching `meta`, and its `faceDesc` pick resolves to
+            //     `bigIdx` too (bigIdx defaults to bestIndex);
+            //   - the `own !== -1` branch reads `meta[own]`, and bigIdx
+            //     was already forced to `own` above.
+            // So `nat[0]` was the answer in both branches while a whole
+            // extra faceres inference per neighbour face was computed and
+            // thrown away — and it fired exactly on crowd and two-shot
+            // crops, where the pass is already most expensive.
+            //
+            // It cannot simply be deleted: the caller indexes this array
+            // by `own`, and a SHORT array yields undefined there, which
+            // falls back to flagged:true — a silent FALSE COVER of the
+            // person we just read. So the array keeps its length and the
+            // faces we did not read are filled with what they honestly
+            // are: unread. faceMeta turns that into covered-and-uncertain,
+            // which is the blur-first default and is never consumed
+            // anyway (only the attr probe prints it).
+            var out = new Array(faces.length);
+            for (var i = 0; i < faces.length; i++) {
+              out[i] = i === bigIdx ? nat[0] : { gender: 'unknown', score: 0, age: 0, desc: null };
+            }
+            return out;
           })
           .catch(function () {
             // Native re-crop failed (taint/unsupported): fall back to
@@ -1306,7 +1328,14 @@ import { planForMode } from './pipeline-plan.mjs';
                   emptyFrame ? 0 : 1,
                   0,
                   emptyStreak,
-                  lastMaxBoxH
+                  lastMaxBoxH,
+                  // Did the shot actually change? Only then may a big
+                  // subject's disappearance be believed on one pass —
+                  // otherwise it is a detection miss and the patch has to
+                  // survive it (r8b f009). One verdict interval of slack,
+                  // because the cut is detected on the gate tick and the
+                  // wipe happens on the verdict pass that follows it.
+                  lastCutAt !== 0 && now - lastCutAt <= effZoom
                 );
                 if (!emptyFrame) lastMaxBoxH = passMaxBoxH;
                 emptyFrame = false;

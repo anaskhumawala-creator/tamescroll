@@ -464,3 +464,100 @@ Owner constraint: nothing indecent. Queries stay ordinary.
     gives each a read every ~5 passes while all of them start blurred —
     converting EXPOSURE into mass FALSE COVER. Measure F3's saving on real
     hardware first.
+
+- **R8** — rotation entry 6 (`conference keynote audience`, **woman** — the
+  direction the last three rounds never exercised). TWO videos, because the
+  first was too easy and the skill says move on rather than declare victory.
+
+  **Run A, y08TrAsHZzI** (single man, talking head, static camera, later a
+  slide with a stock-photo man inset). 10 frames, **ZERO failures in all
+  five classes**, both layouts. Logged as a clean baseline, not as a win.
+
+  **Run B, pxBQLFLei70 t=601-615** (a naval officer in a white peaked cap at
+  a lit podium, seated audience behind him in low light). This is where the
+  round happened.
+
+  | class | before (r8b) | after (r8c) |
+  |---|---|---|
+  | EXPOSURE | **10/10** | **3/10** (cap tip only) |
+  | of which TOTAL exposure (no patch at all) | 1 (f009) | **0** |
+  | head/face covered | 0/10 | **10/10** |
+  | PARTIAL | 9 | 5 |
+  | FALSE COVER / GHOST / DRIFT | 0 / 0 / 0 | 0 / 0 / 0 |
+  | verdict p50 / p95 / max | 91 / 355 / **4360** | 74 / 320 / **2109** |
+  | newTrack per 10 frames | 29 | 27 |
+
+  Run A cost also improved with no accuracy change: p50 66 -> 55, p95 590 ->
+  106, **max 5973 -> 2619**.
+
+  HARNESS FIRST (R7's critic asked for all three and they paid off
+  immediately): the PROBE now captures `sims`, `mem`, `life` and
+  `samplers`. **samplers = 1 in every frame of every run**, which settles
+  R7's critic's own gating worry that `__TS_GAZE_IDS` being a window global
+  while `videoTracks` is per-element could make the measured id churn an
+  artifact of the measurement. It is not; the churn is real.
+
+  **The dominant finding: MoveNet reported `persons: 0` on EVERY frame of
+  run B** — for a large, well-lit, centred human filling a third of the
+  frame. The primary detector was blind for the entire run and every patch
+  came from the `personFromFace` fallback. That fallback's geometry had
+  never been measured against a real subject, and it was wrong in two ways
+  at once:
+  * `y1 = cy - h*1.0` on the DE-INFLATED face box, whose top is at
+    `cy - h/2` — half a face-height of headroom. Hair, hats and any upward
+    tilt fall outside. The patch top sat at y 0.21-0.26 on nine consecutive
+    frames while his head began at y~0.05. Now `cy - h*1.4`.
+  * half-width 1.8 (3.6 face-widths) cut his shoulder board and sleeve off,
+    sharp out to x~0.79 against a patch ending at 0.686. Measured
+    requirement was 2.5 half-widths; took **2.2** as the crowd-safety
+    compromise, since every extra half-width is a neighbour swallowed and
+    mergeTracks unions genuine overlaps anyway.
+
+  **The second finding, and it took two attempts:** r8b f009 was a fully
+  covered man going COMPLETELY SHARP because he tilted his head down for
+  one pass. `wipeIfEmpty`'s `big` shortcut (R5b's fix) erases every track on
+  a SINGLE empty pass whenever the last subject filled the frame — and it
+  never asked whether the shot had actually changed.
+  * Attempt 1: require a recent scene cut for the `big` shortcut, else fall
+    back to WIPE_EMPTY_STREAK 2. **This only MOVED the failure** — r8b2
+    f009 got its patch back and f005 lost its own, because the same man
+    looked down for two consecutive passes instead of one.
+  * Attempt 2, shipped: **with no cut the eraser stands down entirely**, and
+    coastStep's TIME window (blurredCoastMs 900-2000ms, already scaled to
+    the verdict cadence) ends stale tracks instead. No pass count can be
+    right here, because what is being counted is the detector's blindness,
+    not the subject's absence. Cost accepted deliberately: a genuine ghost
+    over an empty desk now survives up to its coast window instead of
+    ~800ms. The owner ranks EXPOSURE above GHOST, and BOTH measured
+    misfires of this eraser (R5's stage of ~40 people, r8b's officer) were
+    it erasing people who were still there.
+
+  **R7 critic's F3 applied** (verified dead work before shipping): the
+  multi-face `classifyFaceGenders` at init-entry.js:940 was computed and
+  discarded — `nat[0]` is the answer in both consumer branches. It is NOT a
+  plain deletion: the caller indexes the result by `own`, and a SHORT array
+  yields undefined there, which falls back to flagged:true and would have
+  been a silent FALSE COVER of the person just read. The array keeps its
+  length; unread faces are filled with `{gender:'unknown', score:0}`, which
+  is what they honestly are.
+
+  STILL OPEN, in priority order:
+  * **MoveNet's total blindness on run B is the real bug and it is
+    unexplained.** Everything above is the fallback path compensating for
+    it. The subject is truncated at the podium — head, shoulders, upper
+    chest, no hips, no legs — so either `parsePersons`' evidence gate is
+    rejecting him or the model genuinely cannot see him. `lastSlotDiag`
+    already holds the raw pre-gate slots at zero cost and is still not
+    captured; capture it in R9 and the two hypotheses separate in one run.
+  * residual PARTIAL 5/10 and cap-tip EXPOSURE 3/10 in run B — a fixed
+    multiple of a face box assumes a fixed head-to-body ratio on a frontal
+    upright untruncated subject, and all three assumptions are false here.
+  * the cost tail is better but still 30-45x the median (max 2109-2619 vs
+    p50 55-74). On a single-person static talking head. Unexplained.
+  * identity memory: `sims` ran 0.70-0.94, mostly at or above MEM_SIM_FLAG
+    0.85, with `mem` pinned at the MEM_MAX cap of 8, for a whole run whose
+    subject is ONE man. Captured but NOT interpreted — the run direction is
+    `woman`, so the man is the flagged party and memory was working in its
+    intended direction, which means this run cannot answer whether memory
+    wrongly REVOKES clears. Needs a `man` run on the same footage.
+  * crowd EXPOSURE (R7's top item) untouched this round.
