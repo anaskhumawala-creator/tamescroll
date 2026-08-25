@@ -423,6 +423,41 @@ fn should_block_request(url: String, source_url: String, resource_type: String) 
     blocks_request(&url, &source_url, &resource_type)
 }
 
+/// JNI entry point for the Android WebViewClient.
+///
+/// `shouldInterceptRequest` runs on a background thread for EVERY
+/// subresource and must answer synchronously, so it cannot go through a
+/// Tauri command (JS-facing, async, main-thread). It calls straight into
+/// the engine here.
+///
+/// Fails open on every error path: a request we cannot evaluate is
+/// allowed, because a false positive breaks the page while a false
+/// negative only lets one ad through. The engine is already warmed on a
+/// background thread at startup, so this is a hash lookup, not a build.
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub extern "system" fn Java_app_tamescroll_client_MainActivity_nativeShouldBlock(
+    mut env: jni::JNIEnv,
+    _class: jni::objects::JClass,
+    url: jni::objects::JString,
+    source_url: jni::objects::JString,
+    resource_type: jni::objects::JString,
+) -> jni::sys::jboolean {
+    fn get(env: &mut jni::JNIEnv, s: &jni::objects::JString) -> Option<String> {
+        env.get_string(s).ok().map(|v| v.into())
+    }
+    let (Some(u), Some(src), Some(ty)) = (
+        get(&mut env, &url),
+        get(&mut env, &source_url),
+        get(&mut env, &resource_type),
+    ) else {
+        return 0;
+    };
+    // A panic must never cross the JNI boundary — it would abort the app
+    // mid-page-load. Anything unexpected means "allow".
+    std::panic::catch_unwind(|| blocks_request(&u, &src, &ty)).unwrap_or(false) as jni::sys::jboolean
+}
+
 /// Rebuilds engine + surfaces from the current rule set (embedded +
 /// OTA overrides). Called by ota.rs after a verified refresh; new page
 /// loads pick the new data up immediately, already-rendered pages keep

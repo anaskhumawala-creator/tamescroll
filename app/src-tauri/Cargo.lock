@@ -87,6 +87,7 @@ name = "app"
 version = "0.1.0"
 dependencies = [
  "adblock",
+ "jni",
  "serde",
  "serde_json",
  "sha2",

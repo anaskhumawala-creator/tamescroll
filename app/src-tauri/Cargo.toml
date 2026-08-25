@@ -26,3 +26,10 @@ adblock = { version = "0.13.2", default-features = false, features = ["content-b
 ureq = "2"
 sha2 = "0.10"
 
+
+# JNI so the Android WebViewClient can ask the adblock engine about a
+# request synchronously. shouldInterceptRequest runs on a background
+# thread and must answer immediately — routing it through a Tauri
+# command (which is JS-facing and async) is not an option.
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"

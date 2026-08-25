@@ -24,6 +24,13 @@ import android.webkit.JsPromptResult
 import android.webkit.JsResult
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
+import android.webkit.WebViewClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebResourceError
+import android.graphics.Bitmap
+import java.io.ByteArrayInputStream
+import android.util.Log
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
@@ -385,6 +392,100 @@ class MainActivity : TauriActivity() {
     }
   }
 
+  // --- Network ad blocking -------------------------------------------
+  //
+  // Owner 2026-08-25: "ads started appearing again... why were they able
+  // to get through?" They always could. The adblock engine shipped in
+  // Phase 2.5 with EasyList/EasyPrivacy/uBO compiled in, and the app
+  // only ever asked it which ELEMENTS to hide. Hiding cannot stop a
+  // request, and a YouTube pre-roll is not an element — it is video
+  // served through the player. This is the missing half.
+  //
+  // shouldInterceptRequest runs on a background thread for every
+  // subresource, so the decision has to be synchronous: it calls
+  // straight into the Rust engine over JNI rather than through a Tauri
+  // command (JS-facing, async, main thread).
+  private external fun nativeShouldBlock(
+    url: String,
+    sourceUrl: String,
+    resourceType: String,
+  ): Boolean
+
+  /// A blocked request answers with an empty 204 rather than an error.
+  /// A hard failure makes pages retry, log errors and sometimes show
+  /// their own "content blocked" placeholder — an empty success is the
+  /// quiet outcome, and quiet is the product (NO NAGS).
+  private fun blockedResponse(): WebResourceResponse =
+    WebResourceResponse("text/plain", "utf-8", 204, "No Content", emptyMap(), ByteArrayInputStream(ByteArray(0)))
+
+  /// Filter lists genuinely use resource-type options (script-only,
+  /// image-only, third-party-only rules), so the type is part of the
+  /// decision, not decoration. Android does not hand us the fetch
+  /// destination directly, so it is inferred from the Accept header and
+  /// the URL — imperfect, but far better than passing "other" for
+  /// everything, which would silently disable every typed rule.
+  private fun resourceTypeOf(request: WebResourceRequest): String {
+    if (request.isForMainFrame) return "document"
+    val accept = request.requestHeaders?.get("Accept").orEmpty()
+    val path = request.url.path.orEmpty().lowercase()
+    return when {
+      accept.contains("text/css") || path.endsWith(".css") -> "stylesheet"
+      accept.contains("image/") || Regex("\.(png|jpe?g|gif|webp|svg|ico)$").containsMatchIn(path) -> "image"
+      path.endsWith(".js") || path.endsWith(".mjs") -> "script"
+      accept.contains("text/html") -> "sub_frame"
+      Regex("\.(mp4|webm|m4s|ts)$").containsMatchIn(path) -> "media"
+      accept.contains("application/json") -> "xhr"
+      else -> "other"
+    }
+  }
+
+  /// Same shape as installFullscreenClient: wry's RustWebViewClient is
+  /// final and attached from Rust after onWebViewCreate returns, so this
+  /// runs via webView.post and WRAPS it. Every method wry overrides is
+  /// forwarded verbatim — the wrapper adds a block check in front of
+  /// shouldInterceptRequest and changes nothing else. Getting this wrong
+  /// breaks the custom protocol the whole app is served over, so the
+  /// delegation is deliberately total.
+  private fun installBlockingClient() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+    val wry = webView.webViewClient
+    webView.webViewClient = object : WebViewClient() {
+      override fun shouldInterceptRequest(
+        view: WebView,
+        request: WebResourceRequest,
+      ): WebResourceResponse? {
+        try {
+          val url = request.url.toString()
+          // Never evaluate our own surfaces: a false positive there
+          // bricks the app, and they cannot serve an ad.
+          if (!url.startsWith("http")) return wry.shouldInterceptRequest(view, request)
+          val page = view.url.orEmpty()
+          if (nativeShouldBlock(url, page, resourceTypeOf(request))) return blockedResponse()
+        } catch (e: Throwable) {
+          // Fail OPEN. An engine that cannot answer must not take the
+          // page down with it: a missed ad is a nuisance, a dead page is
+          // a broken app.
+          Log.w("tamescroll", "block check failed, allowing: " + e.message)
+        }
+        return wry.shouldInterceptRequest(view, request)
+      }
+
+      override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) =
+        wry.shouldOverrideUrlLoading(view, request)
+
+      override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) =
+        wry.onPageStarted(view, url, favicon)
+
+      override fun onPageFinished(view: WebView, url: String) = wry.onPageFinished(view, url)
+
+      override fun onReceivedError(
+        view: WebView,
+        request: WebResourceRequest,
+        error: WebResourceError,
+      ) = wry.onReceivedError(view, request, error)
+    }
+  }
+
   override fun onWebViewCreate(webView: WebView) {
     this.webView = webView
     webView.addJavascriptInterface(ShortcutBridge(), "TsShortcuts")
@@ -395,6 +496,7 @@ class MainActivity : TauriActivity() {
     // real app (see UpdateBridge).
     webView.addJavascriptInterface(UpdateBridge(), "TsUpdater")
     webView.post { installFullscreenClient() }
+    webView.post { installBlockingClient() }
 
     // tamescroll: on Android everything runs in this one WebView, so the
     // system Back key must always land on our launcher before it is
