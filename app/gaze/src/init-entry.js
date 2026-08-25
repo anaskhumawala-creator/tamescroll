@@ -533,6 +533,13 @@ import { planForMode } from './pipeline-plan.mjs';
     // identity changes (loadstart, pill re-enable, giveUp): old tracks
     // describe a video that no longer exists.
     var videoTracks = [];
+    // Persons admitted by the LAST person pass, fed back into
+    // parsePersons as its hysteresis input (R17). Continuity of the
+    // DETECTOR, not of a verdict: it is dropped wherever positions stop
+    // meaning what they meant — cut, seek, loadstart, stream change —
+    // and holding it one pass too long can only re-admit a box that is
+    // still geometrically where it was.
+    var heldPersons = [];
     window.__TS_SAMPLERS = (window.__TS_SAMPLERS || 0) + 1;
     var samplerId = window.__TS_SAMPLERS;
     // Ceiling on a single person's verdict work before it is abandoned
@@ -712,6 +719,11 @@ import { planForMode } from './pipeline-plan.mjs';
         // resets to blurred — identity memory, not stale association,
         // decides who re-clears.
         videoTracks = demoteTracks(videoTracks);
+        // Same reasoning one level down: positions are meaningless
+        // across a cut, so the detector's own continuity goes with them.
+        // Holding a pre-cut box open would re-admit a slot sitting where
+        // somebody USED to stand — a GHOST, which the owner counts.
+        heldPersons = [];
         passEpoch++;
         // NO whole-frame blackout here. Measured 2026-08-25: cuts fire
         // every ~2.8s on ordinary edited video, so blacking out the
@@ -1279,6 +1291,7 @@ import { planForMode } from './pipeline-plan.mjs';
       videoRegion.clear(video);
       regionActive = false;
       videoTracks = [];
+      heldPersons = [];
       lastPassAt = 0;
       // eslint-disable-next-line no-console
       console.warn('tamescroll gaze: video unreadable, failing open (' + reason + ')', err);
@@ -1335,10 +1348,26 @@ import { planForMode } from './pipeline-plan.mjs';
         }
         try {
           detector
-            .detectPersons(personModel, personPixelSource(), video.videoWidth / (video.videoHeight || 1))
+            .detectPersons(
+              personModel,
+              personPixelSource(),
+              video.videoWidth / (video.videoHeight || 1),
+              heldPersons
+            )
             .then(function (persons) {
               // Probe-visible pass marker (verification probes read this).
               window.__TS_GAZE_PERSONS = persons.length;
+              // Hysteresis input for the NEXT pass. Stamped from the
+              // admitted set only, so a person the gate refused this pass
+              // cannot hold themselves open on the next one.
+              // EPOCH-GUARDED. A discontinuity (cut / seek / loadstart)
+              // clears heldPersons, but a pass already in flight resolves
+              // AFTER that and would put the pre-discontinuity people
+              // straight back — letting a person who is no longer there
+              // hold a post-cut noise slot open for up to PERSON_HOLD_MAX
+              // passes, which renders as a GHOST. Same rule the
+              // observation path applies below at `myEpoch !== passEpoch`.
+              heldPersons = myEpoch === passEpoch ? persons : [];
               // Raw slot scores BEFORE our gates, so a "zero persons"
               // wide shot can be attributed: model blind, or our own
               // floor discarding a real detection. Wrapped because a
@@ -1348,6 +1377,13 @@ import { planForMode } from './pipeline-plan.mjs';
                 if (!dbgS.slots) dbgS.slots = [];
                 dbgS.slots.push({
                   n: persons.length,
+                  // How many of those were admitted by the R17 hysteresis
+                  // rather than by the ordinary floor, and the oldest
+                  // hold age. A hold that never fires is dead code; one
+                  // that pins at PERSON_HOLD_MAX is a latch. Neither is
+                  // visible from `n` alone.
+                  hd: persons.filter(function (q) { return (q.hold || 0) > 0; }).length,
+                  ha: persons.reduce(function (m, q) { return Math.max(m, q.hold || 0); }, 0),
                   // score / confident-at-0.3 / MAX keypoint / count-at-0.15
                   // / box height. The last two are R14's question: a slot
                   // reading `confident 0` is ambiguous between "MoveNet
@@ -1833,6 +1869,7 @@ import { planForMode } from './pipeline-plan.mjs';
     video.addEventListener('seeked', function () {
       if (failed || dead) return;
       videoTracks = [];
+      heldPersons = [];
       prevLuma = null;
       sceneState = 'motion';
       lastSample = 0;
@@ -1876,6 +1913,7 @@ import { planForMode } from './pipeline-plan.mjs';
         regionActive = false;
       }
       videoTracks = [];
+      heldPersons = [];
       lastPassAt = 0;
       // New stream = new scene: forget the luma baseline and re-enable
       // the direct pixel path (a per-stream quirk shouldn't outlive it).
@@ -1964,6 +2002,7 @@ import { planForMode } from './pipeline-plan.mjs';
         if (playerBlurOn) {
           cleanStreak = 0;
           videoTracks = [];
+          heldPersons = [];
           lastPassAt = 0;
           markPending(video);
           if (!video.paused) start();
@@ -1972,6 +2011,7 @@ import { planForMode } from './pipeline-plan.mjs';
           videoRegion.clear(video);
           regionActive = false;
           videoTracks = [];
+          heldPersons = [];
           lastPassAt = 0;
         }
       });

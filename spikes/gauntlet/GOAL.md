@@ -2172,3 +2172,184 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   subject, now the only podium failure in `man`. (7) Still open from R15:
   `PTRACK_PAD_TOP` as a fraction of box rather than head, the symmetric
   render lerp, and re-capturing the R8 podium footage to narrow `k`.
+
+- **R17** — rotation entry 7 (`sports post match interview`, **man**),
+  resolved live to `1L_R0MB2W5A` (Sky Sports pitchside, two Chelsea
+  players after Fulham 2-3 Chelsea), plus the same footage in **woman**
+  as the second direction. Baseline build `85b4120-dirty` (= R16 as
+  shipped), after build `f8168eb-dirty`; the dev app PID changed on every
+  rebuild (8580 -> 40644 -> 46180 -> 43212), which is the only proof of a
+  reload. Dev watcher still dead — every rebuild was an explicit stop /
+  cargo build / detached relaunch.
+
+  **The footage is the point: this is the EASIEST composition in the
+  rotation and it still failed.** Two adult men, static camera, chest-up
+  two-shot, each filling ~half the frame, nothing else in shot but a
+  sponsor backdrop. All 80 gender reads in the baseline run came back
+  `male` at 0.54-0.99. Recall was not the problem and the gender model
+  was not the problem, and the pipeline still put a half-frame patch on
+  one of the two men in MAN mode.
+
+  **THE MEASUREMENT. Two obvious people, and the person gate admitted
+  BOTH on 5 of 30 passes, ONE on 24, NEITHER on 1.** Slot scores for the
+  two men run 0.30-0.45 and 0.12-0.44 against `PERSON_MIN_SCORE` 0.35 —
+  they sit ON the threshold and the per-pass noise is LARGER than their
+  distance from it. `confident` for the SAME man swings 8 -> 3 -> 2
+  between consecutive passes while `nKp15` holds at 5-11, because a
+  chest-up close-up has no hips, elbows or wrists in frame to count.
+  What that costs is not a missing patch, it is CHURN: `life` over the
+  window read `birthClaimed +2, coastExpired +1` on a shot where nothing
+  moved. A new track starts BLURRED, so f008 wore a patch at
+  x 0.041-0.543 over a man, in MAN mode.
+
+  **SHIPPED 1: admission hysteresis (person-gate.mjs).** A slot that was
+  a person on the PREVIOUS pass is re-admitted at a lower bar while it is
+  still where it was: `score >= 0.22` AND `confident >= 3` AND
+  `IoU >= 0.4` against a previously admitted slot's RAW MODEL BOX AND
+  `hold < 8` consecutive passes. Matched on geometry because MoveNet's
+  slot ORDER permutes between passes — visible in the same run — so the
+  index is not identity. Threaded as `detectPersons(model, px, aspect,
+  held)`; `held` is owned per-video by init-entry.js, is the previous
+  pass's admitted set verbatim, and is dropped at every discontinuity
+  (cut, seek, loadstart, pill, giveUp) plus an epoch guard, so a pass
+  still in flight when a cut lands cannot put the pre-cut people back.
+  Cost: <=36 IoU comparisons per pass, no inference.
+  It is not dead and it does not silently latch: **held admissions 8/30
+  passes (man) and 13/30 (woman)**, max hold age 3 (man) and **8 (woman)
+  — i.e. the cap itself was reached once**, which is worth flagging: on
+  that stretch MoveNet refused a plainly visible man for eight
+  consecutive passes and the hold is papering over a real recall gap.
+  `n=0` passes went from 1/30 to **0/30 in all three post-fix runs**.
+
+  **SHIPPED 2 (the critic's find, and the bigger one): the dedupe was
+  DELETING a human.** `dedupeObservations` merged any two observations at
+  `containment >= 0.6`, and containment is `intersection / min(area)`.
+  `personFromFace` paints a body 4.4 face-heights wide, so on a chest-up
+  two-shot each synthetic body is 0.7-0.9 of frame width and BOTH clamp
+  at the frame edge — which shrinks the denominator and RAISES
+  containment. The critic's arithmetic: at h_face 0.18 the pair sits at
+  0.50 and survives; at 0.22 it is 0.67 and merges. Knife-edge on
+  framing, which is why it fires on some passes of a static shot and not
+  others. When it fires, the loser's observation AND the gender verdict
+  already paid for it are discarded, their track gets nothing, coasts,
+  expires — and the next sighting mints a fresh track, which starts
+  blurred. That is f008 verbatim, including its clearing again one pass
+  later.
+  The discriminator was already on both boxes and nothing read it:
+  `parsePersons` averages the confident head keypoints into `headX`,
+  `personFromFace` uses the face centre. A merge is now refused when both
+  anchors are finite and `|headX_a - headX_b| > 0.5 * min(width)`.
+  Deliberately INERT when either anchor is null (a back-turned person has
+  no head keypoints) — there the old behaviour stands, because a merge
+  refused on no evidence is two patches on one body.
+  **It fires constantly: `dedupeHeadSplit` +21 (man) and +20 (woman) per
+  15-second window, against `dedupeMerged` +8.** The merge that used to
+  delete a person was 2.5x more common than the merge the dedupe exists
+  for.
+
+  **SHIPPED 3: the render lerp grows instantly and shrinks smoothly**
+  (video-region.mjs — raised as a deferred item by R13's critic and only
+  now measured). `lerpRect` was symmetric, so every edge — including the
+  ones the subject is moving TOWARD — trailed its target by ~100ms after
+  each pass, and `interpolateBox` goes to the trouble of extrapolating
+  size outward-only immediately before that threw it away. Caught by the
+  intermediate re-verify: r17b-woman f002 left **7.5% of frame width of a
+  covered man's shoulder sharp** while the target box had already reached
+  the frame edge. Each edge now takes the target immediately when the
+  target is outside it, and lerps when it is inside. Anti-jitter is
+  preserved where it was earned; the cost is that a translating patch is
+  briefly the union of where it was and where it is going, i.e. slightly
+  OVER-covered for ~100ms, and it cannot create a GHOST because every
+  edge involved belongs to a real target rect for a real track.
+
+  **SCORES, every frame read against its truth pair, both directions.**
+  * **man** (r17-man -> r17c-man): FALSE COVER **1/10 -> 0/10**.
+    EXPOSURE 0 -> 0 (no woman appears in this footage), PARTIAL 0 -> 0,
+    GHOST 0 -> 0, DRIFT 0 -> 0. After: **zero patches on all ten
+    frames**, both men sharp, and the two tracks (ids 3 and 4) survive
+    all ten frames with **zero churn in the window** — birthFresh 0,
+    birthContended 0, birthNearMiss 0, coastExpired 0, against
+    `birthClaimed +2 / coastExpired +1` before.
+  * **woman** (r17-woman -> r17c-woman): EXPOSURE 0 -> 0, FALSE COVER
+    0 -> 0 (no woman present), GHOST 0 -> 0, DRIFT 0 -> 0, PARTIAL
+    **2/10 -> 2/10**. Both men covered head to frame-bottom on every
+    frame of both runs; the residual PARTIAL is the right-hand man's
+    jacket shoulder running to the frame edge while the patch stops
+    2.5-3.9% of frame width short (baseline f000/f005, after f005/f009).
+    Unchanged — and the intermediate build's worse 7.5% version of the
+    same failure is what change 3 removed.
+  * **A SCORING CORRECTION on my own baseline read.** I first scored the
+    woman baseline PARTIAL 0/10 from two eyeballed edge crops. Measured
+    properly — per-column diff of `fNNN.png` against `fNNN_truth.png` to
+    find the covered band, then the truth luma inside the sharp band — it
+    was 2/10 all along. On footage where a patch nearly fills the frame
+    the eye cannot see a 3% sliver; the column profile can. Use it.
+    The same measure flags LEFT-edge slivers on this footage that are NOT
+    people — the sharp left band is sponsor backdrop and a Sky Sports
+    microphone, confirmed by eye at 3x zoom. Only the right band is a
+    person here, so the luma test needs the eye to sign it off.
+
+  **COST: unchanged. All three changes are arithmetic.** verdict p50
+  108 -> 106ms (man) and 91 -> 94ms (woman); p95 199 -> 186 and
+  194 -> 153. pass p50 30 -> 28 and 26 -> 24. gaze 134/134 (128 plus 11
+  new assertions across 3 files: 5 pinning the hysteresis in both
+  directions, 3 the head-anchor guard, 3 the lerp asymmetry), cargo
+  36/36.
+
+  **A DEFECT IN MY OWN FIX, caught by the critic mid-flight, worth
+  recording because it would have been invisible.** The hysteresis first
+  claimed its `heldTaken` slot at the moment of admission — before two
+  further gates (the head/shoulder anchor and the low-tier sprawl guard)
+  that can still `continue`. A slot that claimed an entry and then failed
+  one of those left it flagged taken, so the real person's slot, arriving
+  later in the permuted order, found it gone. The hysteresis would have
+  failed intermittently on exactly the frames it exists for, and no
+  fixed-order unit test could have seen it. The claim is now made at the
+  push.
+
+  **REJECTED, with the reason, so R18 does not re-litigate.**
+  * The critic's most direct route to this round's single failure was to
+    let `newTrack` clear immediately on an `obs.instant` read — and it
+    named a real asymmetry: `matchedStep` clears an EXISTING blurred
+    track on one instant-grade read, while `newTrack` ignores
+    `obs.instant` entirely, so the identical observation clears a
+    one-pass-old track and not a zero-pass-old one. Its own justifying
+    comment cites R9 and *this exact footage*. Not taken: the failure
+    input is a genuine high-score misread (profile, long-haired man,
+    short-haired woman) at >=0.9 in the wrong direction, which today
+    costs one pass of protection and would then cost none — converting a
+    bounded FALSE COVER into an unbounded EXPOSURE, in the direction that
+    outranks it. The cause was removed at source instead. If it is ever
+    wanted, the narrow form is `obs.instant && !obs.positionOnly` behind
+    a `bump('bornCleared')`, measured on footage containing a woman.
+  * Damping the EMA on a source flip (MoveNet box <-> synthetic body,
+    ~2x apart in area at `PTRACK_EMA_ALPHA` 0.6) was left alone: the
+    hysteresis reduces the flip FREQUENCY directly, and DRIFT scored 0 in
+    both directions before and after.
+
+  **DIAGNOSTICS ADDED, because this round lost analysis to their
+  absence.** `birthClaimed` split into `birthContended` vs
+  `birthSizeRejected` (it fired for both, and they want opposite fixes);
+  `dedupeMerged` and `dedupeHeadSplit` counters; `hd`/`ha` in the slots
+  probe (how many persons this pass were admitted by hysteresis, and the
+  oldest hold age — a hold that never fires is dead code, one pinned at
+  the cap is a latch, and neither is visible from `n`); and
+  `lastSlotDiag.score` at 3dp, because at 2dp a printed `0.35` covers
+  0.345-0.3549 and the artifact could not answer the exact question this
+  round was about.
+
+  **R18's queue.** (1) The hysteresis hit its 8-pass cap once in the
+  woman run — measure what MoveNet was doing for those 2+ seconds before
+  anyone raises the cap; a hold sitting at the cap is a recall gap
+  wearing a fix. (2) The residual PARTIAL: a covered person whose body
+  runs off the frame edge stops 2-4% short. `personFromFace`'s `halfX` is
+  already BELOW its own R8-measured requirement (3.91H against 4.44H) and
+  R14 deferred narrowing it until the R8 podium footage could be
+  re-captured — the same footage answers whether it should instead be
+  WIDENED. (3) Still open from R16: the crowd-region product decision
+  (owner's call, not built), the N/3 dilation of every ms-denominated
+  bound at density, `crowdCursor` sampling ranks rather than rotating
+  people, FACE_IOU 0.1 against a conventional 0.3. (4) Still open from
+  R15: `PTRACK_PAD_TOP` as a fraction of box rather than head. (5) The
+  frame-edge faceless subject, R16's sole remaining podium failure in
+  `man`.

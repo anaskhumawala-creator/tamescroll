@@ -224,21 +224,63 @@ export function wipeIfEmpty(tracks, personCount, faceCount, emptyStreak, prevMax
  * real verdict beats a position-only sighting, and the larger box wins
  * ties so nothing shrinks off the person.
  */
+/**
+ * HEAD-ANCHOR GUARD (gauntlet R17). Containment alone cannot tell one
+ * person's two representations from two people standing side by side,
+ * and getting that wrong DELETES a human: the loser's observation and
+ * the gender verdict already paid for it are discarded, their track gets
+ * nothing, coasts, and expires — after which the next sighting mints a
+ * fresh track, which starts BLURRED.
+ *
+ * It is not hypothetical geometry. `personFromFace` paints a body
+ * 4.4 face-heights wide, so on a chest-up two-shot each synthetic body
+ * is 0.7-0.9 of the frame width and both get clamped at the frame edge,
+ * which SHRINKS the smaller area and so RAISES containment. At
+ * h_face 0.18 the pair sits at containment 0.50 and survives; at 0.22 it
+ * is 0.67 and merges. Knife-edge on framing, which is why it fires on
+ * some passes of a static shot and not others.
+ *
+ * Both sources already carry a head anchor — parsePersons averages the
+ * confident head keypoints, personFromFace uses the face centre — and
+ * nothing consulted it. Two heads half a body-width apart are two
+ * people no matter how far their extrapolated torsos overlap.
+ *
+ * Deliberately inert when either anchor is null (a back-turned MoveNet
+ * person has no head keypoints): there the old behaviour stands, because
+ * a merge refused on no evidence is a second patch on one body, which is
+ * the failure this dedupe was built to stop.
+ */
+export var MERGE_HEAD_SEP = 0.5; // in units of the narrower box's width
+
+export function sameHuman(a, b) {
+  if (containment(a.box, b.box) < MERGE_CONTAIN_MIN) return false;
+  var ax = a.box.headX;
+  var bx = b.box.headX;
+  if (typeof ax !== 'number' || typeof bx !== 'number') return true;
+  var narrow = Math.min(a.box.x2 - a.box.x1, b.box.x2 - b.box.x1);
+  return Math.abs(ax - bx) <= MERGE_HEAD_SEP * narrow;
+}
+
 export function dedupeObservations(observations) {
   var out = [];
   for (var i = 0; i < observations.length; i++) {
     var o = observations[i];
     var dup = -1;
     for (var j = 0; j < out.length; j++) {
-      if (containment(o.box, out[j].box) >= MERGE_CONTAIN_MIN) {
+      if (sameHuman(o, out[j])) {
         dup = j;
         break;
       }
+      // Contained, but the heads are too far apart to be one person.
+      // Counted separately: this is the branch that used to delete a
+      // human, and a round has to be able to see how often it fires.
+      if (containment(o.box, out[j].box) >= MERGE_CONTAIN_MIN) bump('dedupeHeadSplit');
     }
     if (dup === -1) {
       out.push(o);
       continue;
     }
+    bump('dedupeMerged');
     out[dup] = preferred(out[dup], o);
   }
   return out;
@@ -295,6 +337,9 @@ export function updatePersonTracks(tracks, observations, dtMs) {
   // 0.15 is the SAME person the association threshold just refused, and
   // that difference is the whole of the churn question.
   var bestIou = new Array(observations.length).fill(0);
+  // Was this observation ever refused a well-overlapping track purely on
+  // size? Needed to attribute a birth below.
+  var sizeBlocked = new Array(observations.length).fill(false);
   for (i = 0; i < tracks.length; i++) {
     for (j = 0; j < observations.length; j++) {
       var v = iou(tracks[i].box, observations[j].box);
@@ -311,6 +356,7 @@ export function updatePersonTracks(tracks, observations, dtMs) {
       // track.
       if (!sizeCompatible(tracks[i].box, observations[j].box)) {
         bump('sizeRejected');
+        sizeBlocked[j] = true;
         continue;
       }
       pairs.push({ t: i, o: j, iou: v });
@@ -345,9 +391,15 @@ export function updatePersonTracks(tracks, observations, dtMs) {
     // 0 < iou < PTRACK_IOU_MIN is the SAME person, re-minted because the
     // threshold refused them — that one is churn, and it costs the
     // subject their accumulated clear every time it happens.
+    // birthClaimed covered two different causes at once — an
+    // observation whose track was taken by a better-scoring pair
+    // (contention), and one refused by sizeCompatible. They want
+    // opposite fixes, and R17 lost a section of analysis to not being
+    // able to tell them apart from the artifact.
     if (bestIou[j] <= 0) bump('birthFresh');
     else if (bestIou[j] < PTRACK_IOU_MIN) bump('birthNearMiss');
-    else bump('birthClaimed');
+    else if (sizeBlocked[j]) bump('birthSizeRejected');
+    else bump('birthContended');
     next.push(newTrack(observations[j]));
   }
   return next;

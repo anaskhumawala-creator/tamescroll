@@ -65,6 +65,63 @@ export var PERSON_KEYPOINT_MIN = 0.3;
 // Evidence gate: this many confident keypoints AND a head/shoulder
 // anchor before a slot is a person at all.
 export var PERSON_MIN_KEYPOINTS = 5;
+
+// --- ADMISSION HYSTERESIS (gauntlet R17) ---------------------------
+// Measured, runs/r17-man: a Sky Sports pitchside TWO-SHOT — exactly two
+// adult men, each filling ~half the frame width and its full height,
+// static camera, 30 consecutive MoveNet passes. Both men are present on
+// 30/30 passes. The gate admitted BOTH on 5, ONE on 24, NEITHER on 1.
+//
+// The reason is not recall and not the gender read (every read in that
+// run was `male` at 0.54-0.99). Both men sit ON the 0.35 floor — slot
+// scores 0.30-0.45 and 0.12-0.44 — and the per-pass score noise is
+// LARGER than their distance from it. The `confident` count for the same
+// man swings 8 -> 3 -> 2 between consecutive passes while nKp15 holds at
+// 5-11, because a chest-up close-up simply has no hips, elbows or wrists
+// in frame to count.
+//
+// What that costs on screen is not a missing patch — it is CHURN. Each
+// time a person drops out of `persons`, the full-frame face pass paints
+// a synthetic body for them instead, the observation changes shape, the
+// greedy IoU association re-pairs, and the track is re-minted. `life`
+// over that window: birthClaimed +2, coastExpired +1, on a STATIC shot.
+// A new track starts BLURRED, so on f008 one of the two men wore a
+// half-frame patch in MAN mode — the owner watching himself get blurred,
+// which is the failure class he complains about most.
+//
+// So a slot that WAS a person on the previous pass is re-admitted at a
+// lower bar while it is still where it was. Four conditions, all
+// required, because any one alone is a licence for a phantom:
+//   * score >= PERSON_HOLD_SCORE — far above the ~0.00-0.02 that empty
+//     slots return, and above the 0.00-0.13 noise band R13 measured on
+//     TED close-ups (that band is what makes lowering PERSON_LOW_SCORE
+//     unsafe; it is nowhere near 0.22).
+//   * confident >= PERSON_HOLD_KEYPOINTS — relaxed from 5 because the
+//     close-up framing above is exactly what suppresses the count, but
+//     the head-or-both-shoulders anchor below still applies unchanged.
+//   * IoU >= PERSON_HOLD_IOU against a slot admitted LAST pass, matched
+//     on the RAW MODEL BOX (the returned box carries keypoint union and
+//     margins, which move for reasons the model did not). MoveNet's slot
+//     ORDER permutes between passes — visible in the same run — so the
+//     index is not identity and geometry has to be.
+//   * hold < PERSON_HOLD_MAX consecutive PASSES, so nothing can be held
+//     forever. Passes, not milliseconds, and deliberately: what is being
+//     bounded is a run of consecutive detector misses, which is a count.
+//     The wall time it buys therefore differs by device — the person
+//     pass runs at the sampler cadence (floor 120ms desktop, ~250ms+ on
+//     a G88), so 8 passes is ~1s here and ~2-3s on the phone. That is
+//     the right direction: the slower the device, the longer a real
+//     person deserves to survive one dropped detection. A person who
+//     genuinely LEAVES is dropped by the IoU test long before the cap
+//     either way; the cap only bounds the pathological case where noise
+//     lands on their last position.
+// Cost: <=6 slots x <=6 held boxes = 36 IoU computations per pass, no
+// inference, no tensor. Unmeasurable next to a 30ms person pass.
+export var PERSON_HOLD_SCORE = 0.22;
+export var PERSON_HOLD_IOU = 0.4;
+export var PERSON_HOLD_KEYPOINTS = 3;
+export var PERSON_HOLD_MAX = 8;
+
 // Margin around every keypoint. 0.03 -> 0.05 (owner 2026-08-25: cover
 // them fully): a wrist keypoint sits at the wrist, and the HAND carries
 // on past it.
@@ -115,10 +172,25 @@ function kp(data, o, i) {
  */
 export var lastSlotDiag = [];
 
-export function parsePersons(data, minScore, aspect) {
+/** IoU of two normalized boxes. Local so this module stays dependency-free. */
+function boxIou(a, b) {
+  var ix = Math.min(a[2], b[2]) - Math.max(a[0], b[0]);
+  var iy = Math.min(a[3], b[3]) - Math.max(a[1], b[1]);
+  if (!(ix > 0) || !(iy > 0)) return 0;
+  var inter = ix * iy;
+  var ua = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter;
+  return ua > 0 ? inter / ua : 0;
+}
+
+export function parsePersons(data, minScore, aspect, held) {
   var floor = typeof minScore === 'number' ? minScore : PERSON_MIN_SCORE;
   var ar = typeof aspect === 'number' && aspect > 0 ? aspect : 16 / 9;
   var out = [];
+  // Previous pass's admitted persons, for the hysteresis above. Each may
+  // be claimed by at most ONE slot this pass, or a single lingering
+  // person could hold two noise slots open at once.
+  var heldList = held && held.length ? held : null;
+  var heldTaken = heldList ? new Array(heldList.length).fill(false) : null;
   lastSlotDiag.length = 0;
   for (var p = 0; p < 6; p++) {
     var o = p * 56;
@@ -153,7 +225,11 @@ export function parsePersons(data, minScore, aspect) {
       if (ks > maxKp) maxKp = ks;
     }
     lastSlotDiag.push({
-      score: Math.round(score * 100) / 100,
+      // 3dp, not 2 (R17): the whole question this round asked was
+      // whether a slot was just UNDER PERSON_MIN_SCORE or just over, and
+      // at 2dp a printed `0.35` covers 0.345-0.3549 — i.e. the artifact
+      // could not answer the question it was built to answer.
+      score: Math.round(score * 1000) / 1000,
       confident: confident,
       maxKp: Math.round(maxKp * 100) / 100,
       nKp15: nKp15,
@@ -188,8 +264,45 @@ export function parsePersons(data, minScore, aspect) {
     // so it buys small-subject recall without reopening the phantom-class
     // failures that raising this floor to 0.35 was meant to close.
     var strong = score >= PERSON_LOW_SCORE && confident >= PERSON_STRONG_KEYPOINTS;
-    if (!(score >= floor) && !strong) continue;
-    if (confident < PERSON_MIN_KEYPOINTS) continue;
+    // HYSTERESIS: was this exact box a person on the previous pass? See
+    // the PERSON_HOLD_* block for the measurement. Evaluated only when
+    // the ordinary gates have already refused, so it can never make the
+    // gate stricter, and matched on the raw model box because the
+    // returned box carries margins the model did not choose.
+    var heldIdx = -1;
+    if (
+      heldList &&
+      !(score >= floor) &&
+      !strong &&
+      score >= PERSON_HOLD_SCORE &&
+      confident >= PERSON_HOLD_KEYPOINTS
+    ) {
+      var rawBox = [data[o + 52], data[o + 51], data[o + 54], data[o + 53]];
+      var bestOv = PERSON_HOLD_IOU;
+      for (var hi = 0; hi < heldList.length; hi++) {
+        if (heldTaken[hi]) continue;
+        var hp = heldList[hi];
+        if (!hp || !hp.raw) continue;
+        if ((hp.hold || 0) >= PERSON_HOLD_MAX) continue;
+        var ov = boxIou(rawBox, hp.raw);
+        if (ov >= bestOv) {
+          bestOv = ov;
+          heldIdx = hi;
+        }
+      }
+    }
+    if (heldIdx === -1) {
+      if (!(score >= floor) && !strong) continue;
+      if (confident < PERSON_MIN_KEYPOINTS) continue;
+    }
+    // NOTE: the claim on `heldTaken` is NOT made here. Two gates below
+    // (the head/shoulder anchor and the low-tier sprawl guard) can still
+    // reject this slot, and marking the entry taken before them lets a
+    // slot that goes on to fail consume the entry the REAL person's slot
+    // needed. MoveNet's slot order permutes between passes, so which slot
+    // reaches the entry first is not stable — the hysteresis would then
+    // fail intermittently on exactly the frames it exists for, and no
+    // fixed-order unit test would see it. The claim is made at the push.
     var head = [];
     for (var h = 0; h <= R_EAR; h++) {
       var k = kp(data, o, h);
@@ -308,7 +421,15 @@ export function parsePersons(data, minScore, aspect) {
       // clear (owner: "linus is not clearing at all").
       headX: hx,
       headY: hy,
+      // The RAW model box and the hysteresis age, fed straight back in
+      // as `held` on the next pass. Kept on the person rather than in
+      // module state so parsePersons stays pure and the caller decides
+      // when continuity ends (cut, seek, loadstart, stream change).
+      raw: [data[o + 52], data[o + 51], data[o + 54], data[o + 53]],
+      hold: heldIdx === -1 ? 0 : (heldList[heldIdx].hold || 0) + 1,
     });
+    // Claimed only now that the slot has actually survived every gate.
+    if (heldIdx !== -1) heldTaken[heldIdx] = true;
   }
   return out;
 }

@@ -8,6 +8,7 @@ import {
   personCropRegion,
   personFromFace,
   PERSON_MIN_SCORE,
+  PERSON_HOLD_MAX,
 } from '../src/person-gate.mjs';
 
 // Keypoint layout: 17 x [y, x, score] then y1,x1,y2,x2,score.
@@ -286,4 +287,87 @@ test('personFromFace: vertical video is no longer three times too narrow', () =>
     (p.x2 - p.x1) / 2 > 2.2 * h * 1.7,
     'the synthetic body must widen in normalized-x as the frame narrows',
   );
+});
+
+// --- admission hysteresis (gauntlet R17) ---------------------------
+// Measured cause: on a static two-shot of two men, both slots sit ON
+// PERSON_MIN_SCORE and the per-pass noise is larger than their distance
+// from it, so the admitted set flickered 2/1/0 across 30 passes on a
+// frame whose content never changed. Every flicker re-mints a track, and
+// a new track starts BLURRED — which is the owner watching himself get
+// covered. These pin the fix in both directions: it must hold a real
+// person through a dip, and it must not hold anything else.
+
+// A chest-up close-up: head and shoulders confident, no eyes (the ears
+// carry the head anchor), so `confident` is 5 — BELOW
+// PERSON_STRONG_KEYPOINTS, which is what the real footage looks like and
+// what keeps the strong-skeleton tier out of these assertions. Box and
+// scores are r17-man f008's slot 0.
+function closeUpMan(score, cx) {
+  const data = new Float32Array(6 * 56);
+  const x = typeof cx === 'number' ? cx : 0.3;
+  setBox(data, 0, 0.21, x - 0.2, 1.0, x + 0.18, score);
+  setKp(data, 0, 0, 0.3, x, 0.9); // nose
+  setKp(data, 0, 3, 0.3, x - 0.025, 0.9); // left ear
+  setKp(data, 0, 4, 0.3, x + 0.025, 0.9); // right ear
+  setKp(data, 0, 5, 0.45, x - 0.05, 0.9); // left shoulder
+  setKp(data, 0, 6, 0.45, x + 0.05, 0.9); // right shoulder
+  return data;
+}
+
+test('hysteresis: a person who dips under the floor is held, not dropped', () => {
+  const strong = parsePersons(closeUpMan(0.4), undefined, 16 / 9);
+  assert.equal(strong.length, 1, 'baseline pass must admit him');
+  // Same man, same place, score noise takes him to 0.34 — under 0.35.
+  assert.equal(
+    parsePersons(closeUpMan(0.34), undefined, 16 / 9).length,
+    0,
+    'without the previous pass he is dropped — that is the bug'
+  );
+  const held = parsePersons(closeUpMan(0.34), undefined, 16 / 9, strong);
+  assert.equal(held.length, 1, 'with the previous pass he survives');
+  assert.equal(held[0].hold, 1, 'and is marked as held, not freshly admitted');
+});
+
+test('hysteresis: a hold expires after PERSON_HOLD_MAX consecutive passes', () => {
+  let prev = parsePersons(closeUpMan(0.4), undefined, 16 / 9);
+  const ages = [];
+  for (let i = 0; i < PERSON_HOLD_MAX + 3; i++) {
+    prev = parsePersons(closeUpMan(0.3), undefined, 16 / 9, prev);
+    ages.push(prev.length ? prev[0].hold : null);
+    if (!prev.length) break;
+  }
+  assert.equal(ages[ages.length - 1], null, 'the hold must end');
+  assert.equal(ages[ages.length - 2], PERSON_HOLD_MAX, 'and only at the cap');
+});
+
+test('hysteresis: it never resurrects a person who moved away', () => {
+  const prev = parsePersons(closeUpMan(0.4), undefined, 16 / 9);
+  // Same weak score, far side of the frame — no overlap with where the
+  // held person was, so this is a different (unproven) candidate.
+  assert.equal(parsePersons(closeUpMan(0.3, 0.8), undefined, 16 / 9, prev).length, 0);
+});
+
+test('hysteresis: a noise-band slot is never held', () => {
+  // R13 measured pure-noise slots at score 0.00-0.13 WITH 6-9 confident
+  // keypoints. PERSON_HOLD_SCORE sits above that band on purpose; if
+  // someone lowers it into the band, this fails.
+  const prev = parsePersons(closeUpMan(0.4), undefined, 16 / 9);
+  assert.equal(parsePersons(closeUpMan(0.13), undefined, 16 / 9, prev).length, 0);
+});
+
+test('hysteresis: one held person cannot hold two slots open', () => {
+  const prev = parsePersons(closeUpMan(0.4), undefined, 16 / 9);
+  const twin = closeUpMan(0.3);
+  // A duplicate detection on the same box is not a second person.
+  for (let k = 0; k < 56; k++) twin[56 + k] = twin[k];
+  assert.equal(parsePersons(twin, undefined, 16 / 9, prev).length, 1);
+});
+
+test('hysteresis: an unheld pass does not change the ordinary gate', () => {
+  // No `held` argument at all — every existing caller and every earlier
+  // assertion must behave exactly as before.
+  assert.equal(parsePersons(closeUpMan(0.4), undefined, 16 / 9).length, 1);
+  assert.equal(parsePersons(closeUpMan(0.34), undefined, 16 / 9).length, 0);
+  assert.equal(parsePersons(closeUpMan(0.34), undefined, 16 / 9, []).length, 0);
 });

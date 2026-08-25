@@ -717,3 +717,40 @@ test('re-observing a demoted track restores the full coast budget', () => {
   tracks = pt.updatePersonTracks(tracks, [], 700);
   assert.equal(tracks.length, 1, 'back on the ordinary 1000ms miss coast');
 });
+
+// --- head-anchor guard on the dedupe (gauntlet R17) ----------------
+// The dedupe is the one place in the handoff that can DELETE a human.
+// personFromFace paints a body 4.4 face-heights wide, so on a chest-up
+// two-shot both synthetic bodies clamp at the frame edge, which shrinks
+// the smaller area and pushes containment past MERGE_CONTAIN_MIN — two
+// men, one observation, and the loser's track coasts out and re-mints
+// BLURRED. The anchors were already on the boxes and nothing read them.
+
+test('dedupeObservations: two side-by-side people are not merged by torso overlap', () => {
+  // Both clamped to the frame edges, containment 0.67 — merged before
+  // this guard existed. Heads a third of the frame apart.
+  const left = { box: { x1: 0, y1: 0, x2: 0.754, y2: 1, headX: 0.27, headY: 0.3 } };
+  const right = { box: { x1: 0.246, y1: 0, x2: 1, y2: 1, headX: 0.73, headY: 0.3 } };
+  assert.ok(
+    pt.containment(left.box, right.box) >= pt.MERGE_CONTAIN_MIN,
+    'the containment that used to merge them must still be there'
+  );
+  assert.equal(pt.dedupeObservations([left, right]).length, 2);
+});
+
+test('dedupeObservations: one person seen twice still collapses', () => {
+  // MoveNet body + the same person's synthetic body. Anchors are
+  // near-coincident by construction, so the guard must stay out of it.
+  const body = { box: { x1: 0.1, y1: 0.05, x2: 0.6, y2: 1.0, headX: 0.34, headY: 0.2 }, positionOnly: true };
+  const synth = { box: { x1: 0.05, y1: 0.0, x2: 0.68, y2: 1.0, headX: 0.36, headY: 0.21 }, certain: true };
+  assert.equal(pt.dedupeObservations([body, synth]).length, 1);
+});
+
+test('dedupeObservations: with no head anchor the old behaviour stands', () => {
+  // A back-turned person has no confident head keypoints, so parsePersons
+  // reports headX null. Refusing a merge on no evidence would put two
+  // patches on one body — the failure the dedupe exists to stop.
+  const a = { box: { x1: 0, y1: 0, x2: 0.754, y2: 1, headX: null, headY: null } };
+  const b = { box: { x1: 0.246, y1: 0, x2: 1, y2: 1, headX: 0.73, headY: 0.3 } };
+  assert.equal(pt.dedupeObservations([a, b]).length, 1);
+});

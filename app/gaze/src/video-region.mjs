@@ -122,14 +122,39 @@ function place(overlay, rect) {
 // settling — imperceptible lag, no visible steps.
 var RENDER_LERP = 0.25;
 
-function lerpRect(from, to) {
+// GROW INSTANTLY, SHRINK SMOOTHLY (gauntlet R17; raised as a deferred
+// item by R13's critic and measured here). The lerp above was symmetric,
+// so every edge of the patch — including the ones the subject is moving
+// TOWARD — trailed its target by ~100ms after each pass. That is not a
+// cosmetic lag: the leading edge is where a raised hand or a shoulder
+// exits the patch, which is the owner's PARTIAL class, and
+// `interpolateBox` goes to the trouble of extrapolating size OUTWARD
+// only just before this function throws that away.
+//
+// Measured on runs/r17b-woman f002: the target box reached the frame
+// edge while the drawn rect was still at x 0.925, leaving 7.5% of the
+// frame width of a covered man's shoulder sharp.
+//
+// So each EDGE takes the target immediately when the target is outside
+// it, and lerps when the target is inside it. Anti-jitter is preserved
+// where it was earned — a settling or shrinking patch still glides, and
+// a jittery detector still cannot make the patch flicker smaller. The
+// cost is that a translating patch is briefly the union of where it was
+// and where it is going, i.e. slightly OVER-covered for ~100ms. Over-
+// covering a person who is meant to be covered is free; under-covering
+// them is the failure being scored. It cannot create a GHOST either:
+// every edge involved is an edge of a real target rect for a real track.
+export function lerpRect(from, to) {
   if (!from) return to;
-  return {
-    left: from.left + (to.left - from.left) * RENDER_LERP,
-    top: from.top + (to.top - from.top) * RENDER_LERP,
-    width: from.width + (to.width - from.width) * RENDER_LERP,
-    height: from.height + (to.height - from.height) * RENDER_LERP,
-  };
+  var l = Math.min(to.left, from.left + (to.left - from.left) * RENDER_LERP);
+  var t = Math.min(to.top, from.top + (to.top - from.top) * RENDER_LERP);
+  var fr = from.left + from.width;
+  var fb = from.top + from.height;
+  var tr = to.left + to.width;
+  var tb = to.top + to.height;
+  var r = Math.max(tr, fr + (tr - fr) * RENDER_LERP);
+  var b = Math.max(tb, fb + (tb - fb) * RENDER_LERP);
+  return { left: l, top: t, width: r - l, height: b - t };
 }
 
 function refreshRects(entry) {

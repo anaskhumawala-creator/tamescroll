@@ -152,3 +152,36 @@ test('clearAll: tears down every tracked video', () => {
   assert.equal(a.player.children.filter((c) => c.tagName === 'DIV').length, 0);
   assert.equal(b.player.children.filter((c) => c.tagName === 'DIV').length, 0);
 });
+
+// --- render lerp: grow instantly, shrink smoothly (R17) ------------
+// The symmetric lerp left every LEADING edge ~100ms behind its target,
+// which is where a hand or a shoulder leaves the patch. Measured on
+// runs/r17b-woman f002: 7.5% of frame width of a covered man's shoulder
+// sharp while the target already reached the frame edge.
+
+test('lerpRect: an edge the target has moved OUTSIDE snaps immediately', () => {
+  const from = { left: 100, top: 100, width: 100, height: 100 };
+  const to = { left: 80, top: 90, width: 160, height: 140 }; // grows every way
+  const out = vr.lerpRect(from, to);
+  assert.equal(out.left, 80);
+  assert.equal(out.top, 90);
+  assert.equal(out.left + out.width, 240);
+  assert.equal(out.top + out.height, 230);
+});
+
+test('lerpRect: an edge the target has moved INSIDE still glides', () => {
+  const from = { left: 100, top: 100, width: 100, height: 100 };
+  const to = { left: 120, top: 120, width: 60, height: 60 }; // shrinks every way
+  const out = vr.lerpRect(from, to);
+  assert.ok(out.left > 100 && out.left < 120, 'left eases in, does not snap');
+  assert.ok(out.left + out.width > 180 && out.left + out.width < 200, 'right eases in');
+});
+
+test('lerpRect: a translating patch never uncovers its leading edge', () => {
+  // Pure rightward motion: the right edge is leading, the left trailing.
+  let cur = { left: 100, top: 0, width: 100, height: 100 };
+  const to = { left: 140, top: 0, width: 100, height: 100 };
+  cur = vr.lerpRect(cur, to);
+  assert.equal(cur.left + cur.width, 240, 'leading edge is already at the target');
+  assert.ok(cur.left < 140, 'trailing edge is still catching up — over-covered, never under');
+});
