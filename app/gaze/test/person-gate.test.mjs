@@ -137,3 +137,58 @@ test('parsePersons: a full-height subject keeps a full-height patch', () => {
   const p = parsePersons(data, undefined, 16 / 9)[0];
   assert.ok(p.y2 > 0.95, 'covered people are covered to the feet, got ' + p.y2);
 });
+
+test('parsePersons: a low-scoring slot with a strong skeleton is still a person', () => {
+  // Gauntlet R5, runs/r5c-man slot probe: on every zero-person wide
+  // pass, slot 0 returned 0.24-0.35 with 10-11 of 13 confident keypoints
+  // and a 0.30 box - the speaker in full view, discarded by the score
+  // floor alone, while the audience went undetected and he was the only
+  // one we could have covered. Noise slots scored ~0 with 0-4 keypoints.
+  const strong = new Float32Array(6 * 56);
+  for (let k = 0; k < 13; k++) {
+    strong[k * 3] = 0.3 + k * 0.02;   // y
+    strong[k * 3 + 1] = 0.4;          // x
+    strong[k * 3 + 2] = 0.8;          // confident
+  }
+  strong[51] = 0.3; strong[52] = 0.3; strong[53] = 0.6; strong[54] = 0.5;
+  strong[55] = 0.24;                  // below PERSON_MIN_SCORE 0.35
+  assert.equal(parsePersons(strong).length, 1, 'strong skeleton must survive a low score');
+
+  // Same low score, noise-level skeleton: still rejected.
+  const noise = new Float32Array(6 * 56);
+  for (let k = 0; k < 3; k++) {
+    noise[k * 3 + 2] = 0.8;
+  }
+  noise[51] = 0.3; noise[52] = 0.3; noise[53] = 0.6; noise[54] = 0.5;
+  noise[55] = 0.24;
+  assert.equal(parsePersons(noise).length, 0, 'a weak skeleton at a low score stays out');
+});
+
+test('parsePersons: a low-scoring slot that claims most of the frame is noise', () => {
+  // r5d f003: strong-skeleton admission also let in a slot whose
+  // keypoints were scattered across the stage, unioning to 79% of the
+  // frame and rendering as a near-full-frame blur. A person that large
+  // is MoveNet's easiest case and would never score 0.14.
+  const sprawl = new Float32Array(6 * 56);
+  for (let k = 0; k < 13; k++) {
+    sprawl[k * 3] = k % 2 ? 0.05 : 0.95;      // y alternating top/bottom
+    sprawl[k * 3 + 1] = k % 3 ? 0.02 : 0.96;  // x alternating left/right
+    sprawl[k * 3 + 2] = 0.8;
+  }
+  // MoveNet's own box is small; the keypoints disagree with it wildly.
+  sprawl[51] = 0.40; sprawl[52] = 0.40; sprawl[53] = 0.60; sprawl[54] = 0.55;
+  sprawl[55] = 0.14;
+  assert.equal(parsePersons(sprawl).length, 0, 'sprawling low-score slot must be rejected');
+
+  // A big, COHERENT low-score person (wide shot, keypoints inside the
+  // model box) must still get in — that is the whole point of the tier.
+  const coherent = new Float32Array(6 * 56);
+  for (let k = 0; k < 13; k++) {
+    coherent[k * 3] = 0.35 + (k / 13) * 0.5;
+    coherent[k * 3 + 1] = 0.45 + (k % 2) * 0.05;
+    coherent[k * 3 + 2] = 0.8;
+  }
+  coherent[51] = 0.30; coherent[52] = 0.40; coherent[53] = 0.90; coherent[54] = 0.55;
+  coherent[55] = 0.14;
+  assert.equal(parsePersons(coherent).length, 1, 'coherent low-score person is kept');
+});

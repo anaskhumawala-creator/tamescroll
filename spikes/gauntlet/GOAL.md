@@ -191,4 +191,64 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   end of the video. A seek past duration silently CLAMPS to the final
   frame, and R5's first attempt scored 12 identical frozen frames at
   t=76.08 while believing it was looking at a static shot.
-  AFTER: pending — critic running on the scale question.
+  AFTER (runs/r5h-man, same video, same offsets):
+  EXPOSURE 4 (unchanged) · FALSE COVER **3 -> 0** · GHOST 1 · PARTIAL 0 ·
+  DRIFT 0. COST verdict p50 86 p95 330 max 1494 (from p95 340 max 2416);
+  position p50 23 p95 36. gaze 100/100.
+  WHAT CHANGED, and the measurement behind each:
+  * **Two-tier person floor.** A new probe (person-gate lastSlotDiag)
+    logged all six raw MoveNet slots BEFORE any gate. On every
+    zero-person wide pass, slot 0 came back at 0.14-0.35 with 10-11 of 13
+    confident keypoints — the speaker in full view, thrown away by our
+    own PERSON_MIN_SCORE 0.35. Noise slots scored ~0 with 0-4 keypoints,
+    so keypoint count separates person from noise where score cannot. A
+    slot now gets in by scoring well OUTRIGHT or by carrying a strong
+    skeleton (>=7 keypoints, score >=0.12). Every wide frame now reports
+    persons=1 where it reported 0.
+    This is the answer to the round's open question: the wide-shot miss
+    was OUR THRESHOLD, not the model. It was free to fix. The audience is
+    a genuinely different problem — their slots carry 0-4 keypoints, i.e.
+    below the model's real floor, and most are back-of-head so no face
+    path reaches them either. That needs multi-scale and it is NOT done.
+  * **Track survival + wipe corroboration.** Coast is now cadence-aware
+    (max(900ms, 2.5x the verdict interval)) because 900ms of wall time is
+    less than one verdict pass on a Helio G88, which would flicker every
+    covered person once per pass — a phone-only bug no desktop round can
+    reproduce. wipeIfEmpty now needs TWO consecutive empty passes, but
+    only when the last thing seen was SMALL: at small scale both
+    detectors fail for the same reason, so their agreement is one blind
+    spot counted twice, whereas a BIG subject vanishing really is a cut.
+  * **Size-compatible association.** An oversized stale track overlaps
+    everything, so on IoU alone it claimed every new detection, reset its
+    own miss counter and became immortal. Boxes differing by more than 3x
+    in area no longer associate.
+  * **Identity break snaps the box.** When a descriptor stops matching we
+    already reset the verdict; the box kept EMA-gliding from the old
+    shot's geometry. If it is not the same person, the geometry is not
+    theirs either.
+  THREE REGRESSIONS CAUGHT AND FIXED INSIDE THE ROUND, each by re-running
+  and looking rather than by reasoning:
+  * unconditional wipe corroboration kept a stale close-up alive through
+    a cut = near-full-frame blur (r5b f003) -> fixed by the size
+    condition;
+  * a plain area cap on low-tier slots rejected legitimate close-ups and
+    drove FALSE COVER to 5 frames (r5e) -> replaced with a COHERENCE
+    check (keypoint union vs the model's own box), because the tell is
+    keypoints disagreeing with the box, not the box being large.
+  STILL OPEN, and the next round's target:
+  * **the cut frame.** f003 — the first wide frame after the close-up —
+    still carries one near-full-frame patch, and it survived all four
+    fixes above. It is a single transient frame at a shot change; the
+    scene gate's luma-delta cut detector does not fire on this
+    crossfade. Next round: instrument the cut path directly rather than
+    guessing which layer mints that box.
+  * **audience EXPOSURE (4 frames, unchanged).** Needs multi-scale
+    recall, and per the critic that must NOT ship before the verdict
+    budget can absorb what it finds: ZOOM_MAX_PERSONS is 3, so finding
+    40 people would give each a gender read every ~5s while all of them
+    start blurred — converting EXPOSURE into mass FALSE COVER, which is
+    a lateral move, not a fix.
+  Harness: gauntlet.py now waits out the ad/load window before trusting
+  `duration` (during a pre-roll the element reports the AD's duration, so
+  an 843s talk briefly looks like a 6s clip and the guard rejected a good
+  run).

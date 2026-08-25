@@ -136,9 +136,47 @@ function center(b) {
  * empty of BOTH signals, and only on a verdict pass (the position pass
  * does not look for faces, so its silence means nothing).
  */
-export function wipeIfEmpty(tracks, personCount, faceCount) {
-  if (personCount === 0 && faceCount === 0) return [];
-  return tracks;
+/**
+ * How many CONSECUTIVE empty verdict passes it takes before absence is
+ * believed. Two, not one.
+ *
+ * The original one-pass version read "both detectors returned nothing"
+ * as independent corroboration. It is not: at small subject scale both
+ * detectors fail for the SAME reason, so their agreement is one
+ * correlated blind spot being counted twice. Measured in gauntlet R5 on
+ * a TED stage holding ~40 people — persons 0, faces 0, and the eraser
+ * fired, clearing the screen in a room full of them.
+ *
+ * Two passes is the cheapest possible corroboration and still kills a
+ * genuine ghost inside ~800ms, which is the case this eraser was built
+ * for (the owner's four stacked patches over an empty desk).
+ */
+export var WIPE_EMPTY_STREAK = 2;
+
+/**
+ * Below this box height (fraction of frame) the detectors are near their
+ * floor, so "I see nobody" is weak evidence and gets corroborated. Above
+ * it they were seeing the subject comfortably, so a sudden nothing means
+ * the shot really changed — believe it at once.
+ */
+export var WIPE_SMALL_H = 0.25;
+
+export function wipeIfEmpty(tracks, personCount, faceCount, emptyStreak, prevMaxH) {
+  if (personCount !== 0 || faceCount !== 0) return tracks;
+  // MEASURED REGRESSION, r5b f003: requiring two empty passes
+  // unconditionally kept a stale CLOSE-UP track alive through a cut to a
+  // wide shot, and it rendered as a near-full-frame blur (x 0.086-0.813,
+  // y 0-1) - the exact "what even is this mess" failure. Corroboration is
+  // only justified where the detectors are actually unreliable, which is
+  // at small subject scale. If the last thing we saw was BIG, its
+  // disappearance is a cut, not a miss.
+  var big = typeof prevMaxH === 'number' && prevMaxH >= WIPE_SMALL_H;
+  if (big) return [];
+  // Undefined streak keeps the original single-pass contract so callers
+  // that genuinely know the frame is empty (and every existing test) are
+  // unaffected; the live pipeline passes its real count.
+  var streak = typeof emptyStreak === 'number' ? emptyStreak : WIPE_EMPTY_STREAK;
+  return streak >= WIPE_EMPTY_STREAK ? [] : tracks;
 }
 
 /**
@@ -187,6 +225,21 @@ function preferred(a, b) {
   return areaB > areaA ? b : a;
 }
 
+/**
+ * Largest area ratio at which two boxes can still be the same person
+ * between passes. A subject walking toward camera grows smoothly and
+ * never comes close to this between two ~400ms passes; a stale patch
+ * inherited from a different shot does immediately.
+ */
+export var PTRACK_SIZE_RATIO_MAX = 3;
+
+export function sizeCompatible(a, b) {
+  var areaA = Math.max(1e-6, (a.x2 - a.x1) * (a.y2 - a.y1));
+  var areaB = Math.max(1e-6, (b.x2 - b.x1) * (b.y2 - b.y1));
+  var r = areaA > areaB ? areaA / areaB : areaB / areaA;
+  return r <= PTRACK_SIZE_RATIO_MAX;
+}
+
 export function updatePersonTracks(tracks, observations, dtMs) {
   observations = dedupeObservations(observations);
   var dt = dtMs > 0 ? dtMs : 250;
@@ -195,7 +248,18 @@ export function updatePersonTracks(tracks, observations, dtMs) {
   for (i = 0; i < tracks.length; i++) {
     for (j = 0; j < observations.length; j++) {
       var v = iou(tracks[i].box, observations[j].box);
-      if (v >= PTRACK_IOU_MIN) pairs.push({ t: i, o: j, iou: v });
+      if (v < PTRACK_IOU_MIN) continue;
+      // SIZE COMPATIBILITY, measured r5f f003. An oversized stale track
+      // overlaps everything, so on IoU alone it claims whatever the next
+      // pass finds, resets its own miss counter, and becomes immortal —
+      // a close-up-sized box left over from before a cut kept absorbing
+      // wide-shot detections and rendered as a near-full-frame blur that
+      // never expired. Two boxes that differ this much in area are not
+      // the same person seen twice; refusing the match lets the stale
+      // one die on its coast timer and the real detection start a clean
+      // track.
+      if (!sizeCompatible(tracks[i].box, observations[j].box)) continue;
+      pairs.push({ t: i, o: j, iou: v });
     }
   }
   pairs.sort(function (a, b) {
@@ -280,6 +344,25 @@ function matchedStep(t, obs, dt) {
   }
   var identityBroken = sameSim !== null && sameSim < IDENT_SIM_MIN;
   if (identityBroken) {
+    // SNAP, do not glide. Measured r5g f003: at a cut from a close-up to
+    // a wide stage shot, the close-up track's descriptor stopped
+    // matching — correctly, it is a different view of a different size —
+    // and the verdict reset to blurred. But the BOX kept EMA-gliding
+    // from its close-up geometry, so for one pass the new blur was
+    // painted at the old shot's scale: a near-full-frame patch over a
+    // speaker who occupies 12% of it.
+    //
+    // If we have just decided this is not the same person, the stale
+    // geometry has no more claim to be right than the stale verdict did.
+    // Adopt the observation's box outright and let the smoothing restart
+    // from there.
+    smoothed = {
+      x1: obs.box.x1,
+      y1: obs.box.y1,
+      x2: obs.box.x2,
+      y2: obs.box.y2,
+    };
+    sc = center(smoothed);
     state = 'blurred';
     clearMs = 0;
     flagStreak = 0;
@@ -379,9 +462,30 @@ function sizeVel(prev, next, dt, axis) {
 // with nothing under it is not protection, it is the bug.
 export var PTRACK_MAX_MISS_BLURRED_MS = 900;
 
+// 900ms is denominated in WALL time, but a track that only the verdict
+// pass can refresh gets fed at the verdict cadence — and that cadence is
+// adaptive (effZoom = max(400, lastVerdictMs * 1.5)). On this desktop
+// that is 400ms, so 900ms buys two chances and the constant looks fine.
+// On the target Helio G88, a 600-1000ms verdict makes effZoom 900-1500ms:
+// the limit expires BEFORE the next verdict pass can arrive, so a covered
+// person's patch would drop out between every single pass. That is a
+// phone-only flicker that no desktop round can ever reproduce.
+//
+// So the floor stays 900 and the limit becomes cadence-aware. On desktop
+// this changes almost nothing (1000 vs 900), which is deliberate: the
+// ghost behaviour that 900 was tuned against is desktop-measured and must
+// not regress. It only opens up where the pass is genuinely slow.
+var blurredCoastMs = PTRACK_MAX_MISS_BLURRED_MS;
+
+/** Tell the tracker the current verdict cadence, in ms. */
+export function setVerdictCadence(effZoomMs) {
+  var ms = typeof effZoomMs === 'number' && effZoomMs > 0 ? effZoomMs : 0;
+  blurredCoastMs = Math.max(PTRACK_MAX_MISS_BLURRED_MS, Math.round(2.5 * ms));
+}
+
 function coastStep(t, dt) {
   var missMs = t.missMs + dt;
-  var limit = t.state === 'blurred' ? PTRACK_MAX_MISS_BLURRED_MS : PTRACK_MAX_MISS_MS;
+  var limit = t.state === 'blurred' ? blurredCoastMs : PTRACK_MAX_MISS_MS;
   if (missMs > limit) return null;
   var dx = ((t.vx || 0) * dt) / 1000;
   var dy = ((t.vy || 0) * dt) / 1000;

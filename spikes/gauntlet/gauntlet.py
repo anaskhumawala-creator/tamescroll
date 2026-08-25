@@ -208,7 +208,28 @@ def run(outdir, gender, video, start, count, step):
     # element and refuse rather than guess a replacement offset: the
     # start offset is chosen to land on people, so a silently-moved one
     # is a different test than the round claims to be running.
-    dur = tab.eval("(function(){var v=document.querySelector('video');return v?v.duration:0;})()")
+    # WAIT OUT THE AD / LOAD WINDOW BEFORE TRUSTING `duration`. During a
+    # pre-roll the video element reports the AD's duration, so a healthy
+    # 843-second talk briefly looks like a 6-second clip and the guard
+    # below rejects a perfectly good run. Poll until the player is not
+    # ad-showing and the duration has stopped changing.
+    dur = 0
+    for _ in range(30):
+        st = tab.eval(
+            "(function(){var v=document.querySelector('video');"
+            "var p=document.querySelector('#movie_player');"
+            "return JSON.stringify({d:v?v.duration:0,"
+            "ad:/ad-showing|ad-interrupting/.test((p&&p.className)||'')});})()"
+        )
+        try:
+            st = json.loads(st or "{}")
+        except Exception:
+            st = {}
+        d = st.get("d") or 0
+        if not st.get("ad") and d and d == dur:
+            break
+        dur = d
+        time.sleep(1.0)
     if not dur or dur != dur:  # 0, None or NaN — metadata never arrived
         raise SystemExit("RUN INVALID: no video duration (player never loaded)")
     if start > dur - 5:

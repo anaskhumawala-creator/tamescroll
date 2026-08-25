@@ -23,6 +23,18 @@
 // 0.25 -> 0.35 2026-08-25: the old floor sat BELOW the observed
 // real-person band (0.28-0.62), so it admitted noise slots by design.
 export var PERSON_MIN_SCORE = 0.35;
+// Second tier of the score gate: a slot this weak still counts as a
+// person if its skeleton is strong. 0.12 sits below every real-person
+// score measured on a wide stage shot (lowest observed 0.14 with 10
+// confident keypoints) and above the ~0-0.02 that empty slots return.
+export var PERSON_LOW_SCORE = 0.12;
+export var PERSON_STRONG_KEYPOINTS = 7;
+// How much bigger than MoveNet's own box a low-scoring slot's keypoint
+// union may get before it is treated as scattered noise. A real person's
+// keypoints sit inside their box, so the union barely grows it; the r5d
+// garbage slot's keypoints spanned the stage and blew it up many times
+// over. Deliberately generous - this rejects sprawl, not big people.
+export var LOW_TIER_MAX_SPRAWL = 3;
 export var PATCH_MARGIN = 0.08; // outward margin on a finished person patch
 export var PERSON_GATE_PAD = 0.15; // person box padded by this fraction of its size for the crop
 export var PERSON_KEYPOINT_MIN = 0.3;
@@ -59,23 +71,70 @@ function kp(data, o, i) {
  * ymin,xmin,ymax,xmax, box score]). aspect = videoWidth/videoHeight,
  * used to convert head width into the right vertical margin.
  */
+/**
+ * Raw per-slot diagnostics from the LAST parsePersons call, before any
+ * gate ran: `[{score, confident, h}]` for all six MoveNet slots.
+ *
+ * This exists to answer one question that reorders every other fix
+ * (gauntlet R5): when a wide shot reports zero persons, did MoveNet miss
+ * the subject, or did our own score floor throw a real detection away?
+ * PERSON_MIN_SCORE was raised 0.25 -> 0.35 while the observed real-person
+ * band starts at 0.28, so the two answers imply completely different
+ * work — one is a free threshold change, the other is a costly
+ * multi-scale pass. Guessing between them is how a round gets wasted.
+ *
+ * Mutated in place rather than reassigned so importers keep the live
+ * array, and written before any `continue` so a gated-out slot still
+ * shows up. Diagnostics must never be able to throw inside the pipeline
+ * (that cost two releases), so this is plain array writes and nothing
+ * else — no probe object, no optional chaining, no page-global.
+ */
+export var lastSlotDiag = [];
+
 export function parsePersons(data, minScore, aspect) {
   var floor = typeof minScore === 'number' ? minScore : PERSON_MIN_SCORE;
   var ar = typeof aspect === 'number' && aspect > 0 ? aspect : 16 / 9;
   var out = [];
+  lastSlotDiag.length = 0;
   for (var p = 0; p < 6; p++) {
     var o = p * 56;
     var score = data[o + 55];
-    if (!(score >= floor)) continue;
 
     // --- evidence gate ---------------------------------------------
     // Count only the keypoints we actually use (0-12). Legs contribute
     // nothing to the patch and are the noisiest slots (owner 2026-08-25:
     // "you don't even have to use all keypoints — do accordingly").
+    // Counted for EVERY slot, including ones the score floor is about to
+    // reject, because "was it the floor or the model?" is exactly the
+    // question lastSlotDiag exists to answer. Six slots x 13 comparisons
+    // is free next to one inference.
     var confident = 0;
     for (var c = 0; c < EVIDENCE_KEYPOINT_MAX; c++) {
       if (data[o + c * 3 + 2] >= PERSON_KEYPOINT_MIN) confident++;
     }
+    lastSlotDiag.push({
+      score: Math.round(score * 100) / 100,
+      confident: confident,
+      h: Math.round((data[o + 53] - data[o + 51]) * 100) / 100,
+    });
+
+    // TWO-TIER FLOOR, measured in gauntlet R5 (runs/r5c-man slot probe).
+    // On every zero-person wide pass, slot 0 came back at 0.14-0.35 with
+    // 10-11 of 13 confident keypoints and a plausible 0.30 box height —
+    // the speaker, standing in full view, discarded by the score floor
+    // alone. Meanwhile genuine noise slots scored ~0 with 0-4 confident
+    // keypoints. Keypoint count separates person from noise cleanly at
+    // this scale; the score does not, because MoveNet's confidence falls
+    // off with subject size and a stage-wide shot is exactly where it is
+    // lowest and where we need it most.
+    //
+    // So a slot gets in either by scoring well OUTRIGHT, or by carrying
+    // strong skeletal evidence. The second tier is deliberately stricter
+    // on keypoints than the ordinary gate (7 vs PERSON_MIN_KEYPOINTS 5)
+    // so it buys small-subject recall without reopening the phantom-class
+    // failures that raising this floor to 0.35 was meant to close.
+    var strong = score >= PERSON_LOW_SCORE && confident >= PERSON_STRONG_KEYPOINTS;
+    if (!(score >= floor) && !strong) continue;
     if (confident < PERSON_MIN_KEYPOINTS) continue;
     var head = [];
     for (var h = 0; h <= R_EAR; h++) {
@@ -150,6 +209,24 @@ export function parsePersons(data, minScore, aspect) {
     // owner counts.
     var mw = (x2 - x1) * PATCH_MARGIN;
     var mh = (y2 - y1) * PATCH_MARGIN;
+
+    // COHERENCE GUARD, low tier only. Measured r5d f003: admitting
+    // strong-skeleton slots also admitted a garbage one whose keypoints
+    // were scattered across the whole stage, unioning into a box of
+    // 0.005-0.797 x 0.0-1.0 while the real speaker was 12% of the frame.
+    // It rendered as a near-full-frame blur.
+    //
+    // The tell is NOT that the box is big — a legitimate close-up fills
+    // the frame too, and a plain area cap rejected those, driving FALSE
+    // COVER up in r5e. The tell is that the keypoints disagree with the
+    // model's OWN box: on a real person they sit inside it, so the union
+    // barely grows it. On a noise slot they are flung to opposite
+    // corners and the union explodes. Ratio, not size.
+    if (!(score >= floor)) {
+      var mArea = Math.max(1e-6, (data[o + 53] - data[o + 51]) * (data[o + 54] - data[o + 52]));
+      if ((x2 - x1) * (y2 - y1) > mArea * LOW_TIER_MAX_SPRAWL) continue;
+    }
+
     out.push({
       y1: Math.max(0, y1 - mh),
       x1: Math.max(0, x1 - mw),

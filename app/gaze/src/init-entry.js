@@ -16,10 +16,11 @@
 import * as dom from './dom.js';
 import * as detector from './detector.js';
 import { flaggedFaceIndices, faceMeta } from './gender-verdict.mjs';
-import { personCropRegion, personFromFace } from './person-gate.mjs';
+import { personCropRegion, personFromFace, lastSlotDiag } from './person-gate.mjs';
 import {
   updatePersonTracks,
   wipeIfEmpty,
+  setVerdictCadence,
   blurredTracks,
   demoteTracks,
   cosineSim,
@@ -644,6 +645,14 @@ import { planForMode } from './pipeline-plan.mjs';
     var verdictBusy = false;
     // Set by a verdict pass that found neither a person nor a face.
     var emptyFrame = false;
+    // Consecutive verdict passes that saw nothing. Absence has to be
+    // seen twice before it is believed — see wipeIfEmpty.
+    var emptyStreak = 0;
+    // Largest box height seen by this verdict pass, and by the last pass
+    // that saw anything. Subject scale decides how much an empty frame is
+    // worth: big subject vanishing = cut, small subject vanishing = miss.
+    var passMaxBoxH = 0;
+    var lastMaxBoxH = 0;
     // Backstop: a verdict pass that never reports back must not wedge
     // the guard shut for the life of the video.
     var VERDICT_STALL_MS = 4000;
@@ -1094,6 +1103,21 @@ import { planForMode } from './pipeline-plan.mjs';
             .then(function (persons) {
               // Probe-visible pass marker (verification probes read this).
               window.__TS_GAZE_PERSONS = persons.length;
+              // Raw slot scores BEFORE our gates, so a "zero persons"
+              // wide shot can be attributed: model blind, or our own
+              // floor discarding a real detection. Wrapped because a
+              // probe must never be able to throw inside the pipeline.
+              try {
+                var dbgS = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+                if (!dbgS.slots) dbgS.slots = [];
+                dbgS.slots.push({
+                  n: persons.length,
+                  raw: lastSlotDiag.map(function (s) {
+                    return s.score + '/' + s.confident + '/' + s.h;
+                  }),
+                });
+                if (dbgS.slots.length > 40) dbgS.slots.shift();
+              } catch (e) {}
               // Position observations are free — track ALL persons
               // (review A8: slicing position passes to 3 let a 4th
               // flagged person's track starve and expire). Only the
@@ -1146,6 +1170,20 @@ import { planForMode } from './pipeline-plan.mjs';
                   // verdict pass saw an empty frame, so the tracker can
                   // erase ghosts instead of coasting them.
                   emptyFrame = persons.length === 0 && faces.length === 0;
+                  // Largest thing this pass actually saw. It is the
+                  // cheapest available read on subject scale — already
+                  // computed, no extra pixels — and scale is what decides
+                  // whether "I see nobody" next pass is a detector miss
+                  // or a real cut. See wipeIfEmpty.
+                  passMaxBoxH = 0;
+                  for (var mb = 0; mb < persons.length; mb++) {
+                    var ph = persons[mb].y2 - persons[mb].y1;
+                    if (ph > passMaxBoxH) passMaxBoxH = ph;
+                  }
+                  for (var mf = 0; mf < faces.length; mf++) {
+                    var fh = (faces[mf].y2 - faces[mf].y1) * 3;
+                    if (fh > passMaxBoxH) passMaxBoxH = fh;
+                  }
                   var dbgF = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
                   dbgF.faceStage = (dbgF.faceStage || []).concat([faces.length + '/' + all.length]).slice(-40);
                   dbgF.log = (dbgF.log || []).concat(['  faceStage all=' + all.length]).slice(-60);
@@ -1253,12 +1291,30 @@ import { planForMode } from './pipeline-plan.mjs';
               if (dbgK.shape.length > 60) dbgK.shape.shift();
               var dt = lastPassAt ? now - lastPassAt : sampleInterval;
               lastPassAt = now;
-              if (wasVerdict && emptyFrame) {
+              if (wasVerdict) {
                 // Nobody in frame at all: every surviving patch is a
-                // ghost riding out its coast window. Kill them now.
-                videoTracks = wipeIfEmpty(videoTracks, 0, 0);
+                // ghost riding out its coast window. Kill them now —
+                // but only once TWO passes agree. One empty pass is not
+                // evidence of an empty room: at wide subject scale
+                // MoveNet and BlazeFace fail together, for the same
+                // reason, so their agreement is a single blind spot
+                // counted twice. Gauntlet R5 caught the eraser firing on
+                // a stage holding ~40 people.
+                emptyStreak = emptyFrame ? emptyStreak + 1 : 0;
+                videoTracks = wipeIfEmpty(
+                  videoTracks,
+                  emptyFrame ? 0 : 1,
+                  0,
+                  emptyStreak,
+                  lastMaxBoxH
+                );
+                if (!emptyFrame) lastMaxBoxH = passMaxBoxH;
                 emptyFrame = false;
               }
+              // Keep the coast window in step with the verdict cadence —
+              // on a slow device the cadence is what decides whether a
+              // covered person's patch survives to the next pass.
+              setVerdictCadence(effZoom);
               videoTracks = updatePersonTracks(videoTracks, observations, dt);
               memoryStore(videoTracks);
               // Calibration probe: per-track state after every pass, so

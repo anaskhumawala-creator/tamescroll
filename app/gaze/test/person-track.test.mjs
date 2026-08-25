@@ -268,6 +268,55 @@ test('wipeIfEmpty: any evidence at all keeps the tracks (eraser, not clearer)', 
   assert.equal(wipeIfEmpty(tracks, 0, 1).length, 1);
 });
 
+test('wipeIfEmpty: ONE empty pass is not enough — absence must be seen twice', () => {
+  // Gauntlet R5: on a TED stage holding ~40 people, a wide shot made
+  // MoveNet and BlazeFace fail together and the eraser cleared the
+  // screen. Their agreement was one correlated blind spot counted twice,
+  // not corroboration. A single empty pass now keeps the tracks.
+  const tracks = [{ id: 1, state: 'blurred' }];
+  const small = 0.1;
+  assert.equal(wipeIfEmpty(tracks, 0, 0, 1, small).length, 1, 'first empty pass must not erase');
+  assert.equal(wipeIfEmpty(tracks, 0, 0, 2, small).length, 0, 'second empty pass erases');
+});
+
+test('wipeIfEmpty: a BIG subject vanishing is a cut — erase on the first pass', () => {
+  // r5b f003 regression: unconditional corroboration kept a stale
+  // close-up track through a cut to a wide shot and painted a
+  // near-full-frame blur. Corroboration is only for the small-subject
+  // regime where the detectors are unreliable; when the last thing we
+  // saw filled the frame, its disappearance is a cut, not a miss.
+  const tracks = [{ id: 1, state: 'blurred' }];
+  assert.equal(wipeIfEmpty(tracks, 0, 0, 1, 0.6).length, 0, 'big subject gone = erase now');
+  assert.equal(wipeIfEmpty(tracks, 0, 0, 1, 0.1).length, 1, 'small subject gone = wait');
+});
+
+test('setVerdictCadence: the blurred coast window never falls below the verdict pass', () => {
+  // The 900ms floor is wall-time, but a track the position pass cannot
+  // refresh is only fed at the verdict cadence. On a Helio G88 that
+  // cadence reaches ~1500ms, so a fixed 900ms limit would expire BEFORE
+  // the next pass could arrive and every covered person would flicker
+  // once per pass. Desktop (400ms cadence) must stay ~unchanged so the
+  // ghost tuning that produced 900 does not regress.
+  const coastFor = (cadence, dt) => {
+    pt.setVerdictCadence(cadence);
+    let tracks = [{
+      id: 1, box: boxA, state: 'blurred', missMs: 0, hits: 5,
+      clearMs: 0, clearStreak: 0, flagStreak: 0, vx: 0, vy: 0,
+    }];
+    let elapsed = 0;
+    while (tracks.length && elapsed < 10000) {
+      tracks = updatePersonTracks(tracks, [], dt);
+      elapsed += dt;
+    }
+    return elapsed;
+  };
+  const desktop = coastFor(400, 100);
+  const phone = coastFor(1500, 100);
+  assert.ok(desktop >= 900 && desktop <= 1200, `desktop coast ${desktop}ms should stay near 900`);
+  assert.ok(phone > 2.5 * 1500 - 200, `phone coast ${phone}ms must outlive a 1500ms verdict pass`);
+  pt.setVerdictCadence(400);
+});
+
 test('mergeTracks: a small patch sitting inside a big one merges (stacked patches)', () => {
   // The runs/r2b-woman/f008 shape: a head-and-shoulders patch inside a
   // full-body patch on the SAME person. IoU is only ~0.14 here, so the
@@ -304,4 +353,47 @@ test('dedupeObservations: two separate people are both kept', () => {
   const a = { box: { x1: 0.05, y1: 0.1, x2: 0.45, y2: 0.95 } };
   const b = { box: { x1: 0.5, y1: 0.1, x2: 0.9, y2: 0.95 } };
   assert.equal(pt.dedupeObservations([a, b]).length, 2);
+});
+
+test('association: an oversized stale track cannot swallow a small detection', () => {
+  // r5f f003: a close-up-sized box left over from before a cut overlapped
+  // every wide-shot detection, so on IoU alone it kept claiming them,
+  // kept resetting its miss counter, and rendered as a near-full-frame
+  // blur that never expired.
+  const stale = {
+    id: 1, box: { x1: 0, y1: 0, x2: 0.795, y2: 1 }, state: 'blurred',
+    missMs: 0, hits: 9, clearMs: 0, clearStreak: 0, flagStreak: 0, vx: 0, vy: 0,
+  };
+  const small = { box: { x1: 0.32, y1: 0.48, x2: 0.44, y2: 0.93 }, flagged: false, certain: true };
+  const next = updatePersonTracks([stale], [small], 400);
+  const inherited = next.find((t) => t.id === 1);
+  assert.ok(
+    !inherited || inherited.missMs > 0,
+    'the stale track must NOT be refreshed by a detection a third of its size'
+  );
+  assert.ok(next.some((t) => t.id !== 1), 'the real detection starts its own track');
+});
+
+test('identity break snaps the box to the new observation, never glides the old one', () => {
+  // r5g f003: at a cut, a close-up track's descriptor stopped matching,
+  // the verdict correctly reset to blurred, but the box kept EMA-gliding
+  // from close-up geometry - painting a near-full-frame patch over a
+  // speaker occupying 12% of the frame. A broken identity invalidates
+  // the geometry as much as the verdict.
+  const bigBox = { x1: 0.0, y1: 0.0, x2: 0.8, y2: 1.0 };
+  // Close enough in size to still associate (the size guard rejects
+  // anything beyond PTRACK_SIZE_RATIO_MAX), but clearly different
+  // geometry - which is exactly the shape of a shot change.
+  const smallBox = { x1: 0.1, y1: 0.1, x2: 0.6, y2: 0.9 };
+  const descA = new Float32Array([1, 0]);
+  const descB = new Float32Array([0, 1]);
+  let tracks = updatePersonTracks([], [{ box: bigBox, flagged: false, certain: true, desc: descA }], 250);
+  tracks = updatePersonTracks(tracks, [{ box: bigBox, flagged: false, certain: true, desc: descA }], 250);
+  assert.equal(tracks[0].state, 'cleared');
+  // Same slot, different person: identity breaks.
+  tracks = updatePersonTracks(tracks, [{ box: smallBox, flagged: false, certain: false, desc: descB }], 250);
+  const t = tracks[0];
+  assert.equal(t.state, 'blurred');
+  assert.equal(t.box.x2, smallBox.x2, 'box must SNAP to the observation, not glide');
+  assert.equal(t.box.y2, smallBox.y2);
 });
