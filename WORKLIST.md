@@ -3,7 +3,7 @@
 Top item is what to work on. Edit as things land. This file is the
 answer to "what now" — the scheduled ping reads it rather than guessing.
 
-## 1. ADS — network blocking (owner: "the biggest issue we have")
+## 2. ADS — network blocking (owner: "the biggest issue we have")
 
 Root cause found 2026-08-25: the adblock engine has been in the app
 since Phase 2.5 with EasyList/EasyPrivacy/uBO compiled in, and the code
@@ -31,7 +31,7 @@ ad_status.js, www.youtube.com/ptracking, /pagead/viewthroughconversion/.
 - [ ] Desktop WebView2 equivalent (owner watches on desktop too)
 - [ ] Release once verified — owner OK required before publishing
 
-## 2. GAUNTLET — blur accuracy loop
+## 1. GAUNTLET — blur accuracy loop (owner 2026-08-25: "pursue gauntlet properly")
 
 `spikes/gauntlet/GOAL.md` holds the bar, the five failure classes, the
 rotation and the ROUNDS log. R0-R3 landed real fixes. R4 in progress.

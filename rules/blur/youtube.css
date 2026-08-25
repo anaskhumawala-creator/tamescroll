@@ -56,3 +56,36 @@ ytm-media-item img.video-thumbnail-img {
 ytm-backstage-image-renderer img {
   filter: blur(var(--ts-blur, 16px));
 }
+
+/* END-SCREEN recommendation wall (owner ask 2026-08-25: "hide the cards
+ * that come up after a video ends — and blur them as well in case
+ * someone has them enabled").
+ *
+ * Hiding these is already handled by the watch_recs surface in
+ * youtube.txt. But watch_recs is TOGGLEABLE: anyone who turns
+ * recommendations back on in Settings gets the full end-screen wall of
+ * thumbnails, and those thumbnails are exactly the kind of image the
+ * blur layer exists for. Blur is a separate layer from the hide rules
+ * for precisely this case — the two must not depend on each other.
+ * [live 2026-08-25] on a finished /watch video: .ytp-endscreen-content
+ * counted 1, .ytp-videowall-still counted 12, .ytp-suggestion-set 25.
+ * The video element itself is never touched here — the player is the
+ * red line, and these are siblings overlaid on top of it. */
+.ytp-videowall-still,
+.ytp-suggestion-set,
+.ytp-endscreen-content .ytp-videowall-still-image,
+.ytp-ce-element,
+.ytp-ce-covering-image,
+.ytp-ce-video-thumb,
+.ytp-ce-channel-thumb {
+  filter: blur(var(--ts-blur, 16px));
+}
+
+/* MOBILE watch page end-screen. m.youtube renders the same wall through
+ * the shared player chrome, so the ytp-* classes carry over; the
+ * container name differs. [unverified] needs a device check — the
+ * owner's phone is the only real signed-out mobile surface available. */
+.ytm-autonav-endscreen-upnext-thumbnail,
+ytm-autonav-endscreen-video-renderer img {
+  filter: blur(var(--ts-blur, 16px));
+}

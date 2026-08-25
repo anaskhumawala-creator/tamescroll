@@ -236,10 +236,26 @@ def run(outdir, gender, video, start, count, step):
         p.pop("rect", None)
         p["file"] = name
         meta["frames"].append(p)
+        if p.get("paused"):
+            # Autoplay policies, an ad transition or a buffer stall can
+            # leave the player paused mid-run; nudge it rather than
+            # capturing the same frame N times.
+            tab.eval("(function(){var v=document.querySelector('video');v&&v.play();})()")
         time.sleep(step)
 
+    # A STALLED PLAYER IS NOT EVIDENCE. A paused or buffering video hands
+    # back N identical frames that look exactly like a clean run with a
+    # static shot, and every one of them carries the same stale patches.
+    # Scoring that is worse than not running: it invents a result. Caught
+    # live on r5-man, where all 12 frames sat at t=76.08 with three
+    # patches over nobody.
+    times = [f["t"] for f in meta["frames"]]
+    if len(times) > 2 and max(times) - min(times) < 0.5:
+        meta["invalid"] = "player never advanced (t=%.2f throughout)" % times[0]
     with open(os.path.join(outdir, "meta.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=1)
+    if meta.get("invalid"):
+        raise SystemExit("RUN INVALID: " + meta["invalid"])
     print(json.dumps({"out": outdir, "frames": len(meta["frames"]), "boot": boot}))
 
 
