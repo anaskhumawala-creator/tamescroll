@@ -380,3 +380,87 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   genuinely the same instant. Also: the duration guard now re-reads before
   rejecting, because a pre-roll ad reports ITS duration (72s) for a
   2545s episode and the guard was throwing away good videos.
+
+  CRITIC (Opus, track-lifecycle lens) landed after the round was committed.
+  Its ranked findings are R8's input. Two were verified against source
+  before being written down here; the rest are recorded as claims to check,
+  not as facts:
+
+  * **F3 — VERIFIED by reading the code: one faceres inference per
+    multi-face crop is dead work.** init-entry.js:940 runs
+    `classifyFaceGenders` over ALL faces in a person crop, then :941
+    overwrites the only element anybody reads with the native re-crop
+    result. Downstream, `own === -1` returns at :1013 without touching
+    `meta` at all, and `own !== -1` reads `meta[own]` where `bigIdx` was
+    already forced to `own` at :936 — so `nat[0]` is the answer in both
+    branches and the multi-face pass is 100% discarded. It fires exactly
+    when a crop holds >1 face, i.e. the crowd and two-shot frames where
+    cost hurts most (up to 3 of a pass's ~8-11 inferences).
+    NOT applied this round, deliberately: deleting it changes the array
+    LENGTH, and `meta[own]` with `own > 0` on a short array yields
+    undefined, which falls back to flagged:true — a silent FALSE COVER
+    regression. The correct shape is to keep the array length and fill
+    non-primary slots with `{gender:'unknown', score:0}` (which is what an
+    unread neighbour honestly is, and what faceMeta already turns into
+    flagged/uncertain). That needs frames, so it is R8's first item.
+  * **F1 — demoteTracks on every scene cut is what zeroes the earned
+    clear.** Field signature at f001->f002 (blurred/0/0/0/'uncertain' with
+    the id kept) matches demoteTracks and nothing else; the critic
+    eliminated flagStreak revocation, CLEARED_TTL, coastStep and identity
+    break by their predicted field values. Its argument that this is
+    terminal on a phone: shots here average ~2s, and re-earning a clear
+    costs >=2 verdict passes at effZoom = max(400, lastVerdict*1.5), which
+    on a G88 is 1.8-2.9s. Proposed fix is to demote on EVIDENCE (mark
+    pendingCut, then keep state for a track re-matched at iou>=0.5 and
+    size-compatible) rather than on the cut event.
+  * **F2 — nothing kills a track that sizeCompatible refused**, so the
+    refused track coasts up to 2s at the previous shot's geometry, and
+    mergeTracks unions overlapping stale boxes transitively with no area
+    test — which is how f007 got a (0,0,1,1) full-frame patch from five
+    stale tracks while persons was 0. Two proposed guards: drop a track
+    refused ONLY on size (positive evidence it is stale), and refuse a
+    merge whose union is mostly empty (MERGE_MAX_FILL ~1.35).
+  * **F4 — R6's CLEAR_DECAY is arithmetically a no-op on the blurred
+    track.** A blurred track's clearStreak only ever holds 0 or 1 (it
+    clears the instant it reaches CLEAR_STREAK_N 2), so decaying 1->0 is
+    identical to zeroing. R6's log claims 8.75 -> ~4 expected reads; the
+    correct figure is 8.75 -> 8.75. Decay does still help the OTHER clear
+    path (clearMs >= CLEAR_HOLD_MS). Suggested replacement is a windowed
+    vote (2 certain clears within the last 4 reads) instead of a
+    consecutive run.
+  * **F5 — sizeCompatible is NOT what broke R7's close-up.** The critic
+    computed the actual ratio from f000_truth geometry: 1.28, nowhere near
+    3, and faceInsideAny + dedupeObservations each independently stop the
+    body/synthetic pair reaching association in a close-up. So the 3->6
+    change shipped above fixed a real churn source but the critic's read of
+    WHERE it fires differs from the round's; both agree the gate stays and
+    the consequence of refusal is the bug. Worth resolving in R8 with the
+    per-refusal reason already being logged.
+  * **F8/F9 — clearMs is zeroed on coast for blurred tracks while
+    clearStreak is preserved (inconsistent), and nothing de-duplicates
+    TRACKS anywhere** (dedupeObservations works on observations,
+    mergeTracks on the render list). Two tracks on one human alternate
+    claims and the blurred one always wins the render. f001 shows exactly
+    that: id 14 (cs 0, cm 0) beside id 15 (cs 3, cm 839, cleared).
+  * **F7 — identity memory may be revoking clears and the harness cannot
+    see it.** memoryLookup returns 'blurred' at MEM_SIM_FLAG 0.85, and the
+    module's own calibration note records 17% of DIFFERENT-person pairs
+    scoring >=0.9. A crowd fills identityMemory (MEM_MAX 8) with female
+    exemplars seconds before the edit cuts back to the man. Unverified —
+    `__TS_GAZE_IDS.sims` and `.mem` are already logged in the bundle and
+    simply not captured. **Add `sims` and `mem` to the PROBE in
+    gauntlet.py before R8**; that is the cheapest high-value harness change
+    available.
+  * Critic's own flag, and it gates the id-churn conclusions: `__TS_GAZE_IDS`
+    is a WINDOW global while videoTracks is per-element, so two live
+    samplers would interleave the snapshots and part of the measured churn
+    could be a MEASUREMENT artifact — the same class of bug as R2's gender
+    mismatch and R5's seek clamp. `video.__tsGazeAttached` should prevent
+    it, but it was not verified. Capture a sampler count in the probe and
+    hard-fail if it is not 1, BEFORE acting on F1/F2/F9.
+  * Critic agrees with R5's critic that multi-scale crowd recall must NOT
+    ship yet: duty cycle is already ~31% on this desktop and 67% at a
+    5-8x G88 multiplier, and finding 10 people with ZOOM_MAX_PERSONS 3
+    gives each a read every ~5 passes while all of them start blurred —
+    converting EXPOSURE into mass FALSE COVER. Measure F3's saving on real
+    hardware first.
