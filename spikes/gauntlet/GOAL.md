@@ -1311,3 +1311,103 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   STILL OPEN and not caused by any of the above: the audience is sharp in
   every frame. MoveNet is NOT hitting its 6-person cap — slots 2-5 score
   0.00-0.15 on a hall of dozens. That is R8's conclusion holding.
+
+- **R12** — rotation entry 2 (`(fixed) NWoT1ZVd1Lo`, **woman**) as the
+  scored run, plus a re-verify on R11's TED footage (H14bBuluwB8, woman)
+  because that is where the failure this round targets actually lives,
+  and entry 1 (`man`) as the symmetry check. First round whose runs can
+  be attributed to a build: `boot.b` now reads `f51c0f8-dirty` instead of
+  the hand-edited `v7` that had covered at least three code states.
+
+  **SHIPPED: null-signature abstention.** R11's critic proved faceres
+  returns its PRIOR — a constant — when it has no signal, and that in
+  woman mode that constant is a CERTAIN opposite-gender flag. I did not
+  take the constants on trust; I instrumented and re-derived them.
+  * detector.js discarded the raw sigmoid and kept only
+    `confidence = 2*|v-0.5|`. Folding destroys the sign the test needs: a
+    null (v~0.63) and a genuine weak female read (v~0.37) are the SAME
+    folded number and 0.26 apart unfolded. Verdicts now carry `raw`, and
+    the reads probe logs `v` and `px`.
+  * Independent re-derivation on entry 2 (18 unique male reads):
+    IN BAND 4 — raw 0.623/0.627/0.641/0.652, ages 36/36/36/37, scores
+    0.25/0.25/0.28/0.30. OUT 14, nearest real male read raw **0.759**.
+    Every single in-band read scored >= GENDER_MIN_SCORE 0.25, i.e. all
+    four were certain flags built on nothing.
+  * Confirmed again on the TED footage, unseen by the derivation:
+    **16 of 55 reads** in band, raw 0.616-0.681, ages 35-39, scores
+    0.23-0.36 — against real female reads at raw 0.045-0.373, ages 20-34.
+    No overlap.
+  * `isNullRead` + a guard at the top of `faceMeta`'s loop
+    (gender-verdict.mjs). Abstain = `{flagged:true, certain:false}` — the
+    same honest state a person with no visible face gets. **Safe by
+    construction: abstention only ever REMOVES flag evidence, never adds
+    clear evidence**, so no configuration of it can expose anyone, and in
+    man mode it is inert (a null folds to ~0.27, far below
+    GENDER_CLEAR_SCORE 0.6). Tests pin the four measured nulls as refused
+    and the six nearest real male reads as NOT refused, so if the band
+    ever grows into real data the suite says so.
+  * CAUGHT BEFORE BUILDING: my first patch inserted the guard into
+    `faceVerdict`, which has no `out` array — it would have thrown inside
+    the verdict chain, the exact failure class that silently killed every
+    gender read for two releases. Read the diff, not the intent.
+
+  **MEASURED: `FACE_MIN_NATIVE_PX = 64` is very nearly unreachable.**
+  Across both runs the native face size behind a read ran 49-577px and
+  exactly ONE read fell below 64. The box already carries FACE_ENLARGE
+  1.4, so the effective floor is ~46px. It is not the instrument for
+  this: the nulls came from faces of 68, 69, 90, 112, 224, 234 and 239
+  native px. A size gate also cannot see a face in shadow or a BlazeFace
+  false positive; the null-signature test catches all three and is
+  resolution-invariant (which matters, since R11 proved resolution
+  varies run to run under us).
+
+  **SCORES.**
+  * entry 2 (r12-woman2), 8 scorable frames: **EXPOSURE 1/8**, FALSE
+    COVER 0, GHOST 0. The exposure is f007 — an overhead workbench shot,
+    `persons: 0`, zero patches, a man's hand and a child's head both
+    fully visible. Same class as R11's audience: a person-primary
+    pipeline is blind to a body it cannot see. I first scored a
+    neighbouring frame as GHOST from the blurred image and was WRONG —
+    the truth frame showed the patch sitting exactly on the child's
+    hands. Second round running that mistake has appeared; score the PAIR.
+  * TED re-verify (r12-ted): FALSE COVER **9/10 before and 9/10 after**.
+    The abstention did NOT move the frame score, and that is the honest
+    result: blur-first covers `uncertain` too, so refusing the null
+    changes WHY the seated woman is covered, not WHETHER. What it does
+    remove is her ability to condemn — she went from `flag-certain` every
+    pass to `uncertain` every pass, so she can no longer revoke an earned
+    clear or be written into identity memory. The speaker clears one
+    frame earlier (f003, was f005) and holds at cs 2 to the end.
+    f003 is a fully CORRECT frame — both women sharp, audience sharp,
+    zero patches — verified by eye, so the target state is reachable on
+    this footage.
+  * symmetry (r12-man): unchanged. Linus clears and holds, daughter
+    covered throughout, one frame with `persons: 0` and no patches (the
+    same overhead-bench exposure class).
+
+  **HARNESS: two guards, both from failures this round produced.**
+  r12-woman2 wrote two frames captured before the player existed — one
+  with videoWidth 0, one reporting a full 1920x1080 while the PNG was
+  still the YouTube search bar over black — and both scored as a clean
+  "0 patches, no people". Now a run hard-fails on any frame with no
+  decoded video, any 0-byte PNG, and on a LEADING run of identical
+  timestamps (the reliable tell: currentTime had not moved yet). Verified
+  the guard rejects r12-woman2 and accepts r12-ted and r12-man, so it has
+  no false positives on good runs.
+
+  Verdict cost p50 97-131, first === max again — **seventh consecutive
+  round**. gaze 112/112, cargo 36/36.
+
+  **STILL OPEN, and R13's target.** The seated woman reads null with a
+  face of 224-239 native px. It is therefore NOT size, and R11 already
+  proved it is not resolution. Remaining candidates, in order: she is in
+  deep stage shadow (luminance, not geometry), or BlazeFace is returning
+  a false positive on her and faceres is being handed something that is
+  not a face. Her crop finds `n=1` face every pass while the speaker's
+  finds 2-3. Settle it by dumping the 224x224 crop actually handed to
+  faceres for one of her reads — one toDataURL behind a debug flag —
+  before changing any threshold.
+  Also open and unaddressed: EXPOSURE on partial/edge-of-frame humans
+  (hands, scalps, an arm entering frame) where MoveNet reports 0 persons;
+  and re-deriving MEM_SIM_FLAG 0.85, which was calibrated against a read
+  population that was ~40% null and now is not.

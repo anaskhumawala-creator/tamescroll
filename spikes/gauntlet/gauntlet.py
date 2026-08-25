@@ -521,6 +521,52 @@ def run(outdir, gender, video, start, count, step):
     # Scoring that is worse than not running: it invents a result. Caught
     # live on r5-man, where all 12 frames sat at t=76.08 with three
     # patches over nobody.
+    # A FRAME CAPTURED BEFORE THE PLAYER EXISTS IS NOT A FRAME. r12-woman2
+    # wrote two: videoWidth 0, no <video> yet, the PNG showing the YouTube
+    # search bar over black. They still landed in meta.json with a
+    # timestamp and an empty patch list, which scores as "0 patches, no
+    # people" — a perfect run. The repeated-timestamp guard below missed
+    # them because 2 of 10 is under its 30% bar.
+    # Any frame with no decoded video is a capture that started too early;
+    # the whole run is suspect, because the models were still loading for
+    # the frames that follow it too.
+    blind = [i for i, f in enumerate(meta["frames"]) if not f.get("vw")]
+    if blind:
+        meta["invalid"] = (
+            "frames %s captured before the player had decoded video "
+            "(videoWidth 0): the run started too early, and the frames "
+            "after them were taken while the models were still loading"
+            % blind
+        )
+    # An empty PNG is the same failure one layer down: the screenshot
+    # succeeded as a call and produced nothing to look at.
+    empty = [
+        i
+        for i in range(len(meta["frames"]))
+        if os.path.exists(os.path.join(outdir, "f%03d.png" % i))
+        and os.path.getsize(os.path.join(outdir, "f%03d.png" % i)) == 0
+    ]
+    if empty and not meta.get("invalid"):
+        meta["invalid"] = "frames %s captured as 0-byte PNGs" % empty
+    # videoWidth alone does not catch it. r12-woman2 f001 reported a full
+    # 1920x1080 while the PNG was still the YouTube search bar over black:
+    # the element had dimensions before the player had painted a frame.
+    # The reliable tell is that currentTime had not moved yet — a LEADING
+    # run of identical timestamps means capture began before playback did,
+    # and those frames show the page, not the video.
+    if not meta.get("invalid") and len(meta["frames"]) > 2:
+        lead = 1
+        while lead < len(meta["frames"]) and abs(
+            meta["frames"][lead]["t"] - meta["frames"][0]["t"]
+        ) < 0.01:
+            lead += 1
+        if lead > 1:
+            meta["invalid"] = (
+                "the first %d frames share t=%.2f — capture began before "
+                "playback, so they show the page rather than the video"
+                % (lead, meta["frames"][0]["t"])
+            )
+
     times = [f["t"] for f in meta["frames"]]
     if len(times) > 2 and max(times) - min(times) < 0.5:
         meta["invalid"] = "player never advanced (t=%.2f throughout)" % times[0]

@@ -138,6 +138,65 @@ export function faceVerdict(userGender, faces) {
  * only the former may override a track's accumulated same-gender
  * history. faces: [{ gender, score }].
  */
+// THE NULL OUTPUT, AND HOW TO REFUSE IT.
+//
+// faceres does not fail loudly when it has no signal — it returns its
+// PRIOR, and the prior is a constant. Measured across three rounds and
+// two independent videos: the raw sigmoid lands in a band barely 0.03
+// wide while the age head simultaneously returns its own training mean
+// (~36). Two heads emitting priors at once is zero information.
+//
+// Why that is not harmless: score = 2*|v - 0.5|, so a null at v ~ 0.63
+// folds to ~0.27 — and GENDER_MIN_SCORE is 0.25. In WOMAN mode the null
+// label `male` is therefore an OPPOSITE-gender read that clears the
+// certainty bar, i.e. a CERTAIN FLAG built on nothing. Measured on
+// runs/r12-woman2: every one of the four in-band reads scored 0.25-0.30,
+// so all four were certain flags. On R11's TED footage 20 of 22 `male`
+// reads in a frame containing two women and no men were exactly this.
+//
+// Why a SIZE gate cannot do this job (FACE_MIN_NATIVE_PX is the earlier
+// attempt): the same four null reads came from faces of 68, 69, 90 and
+// 239 native px — all comfortably above the 64px floor, which is itself
+// diluted by the FACE_ENLARGE 1.4 the box already carries. Size never
+// fired once in any measured run. A null-signature test also catches the
+// two cases size cannot see at all: a face in deep shadow, and a
+// BlazeFace false positive on something that is not a face.
+//
+// The band is deliberately JOINT. The 1-D gap is thin — nearest real
+// male read measured at v = 0.759 against a null ceiling of 0.652 — so
+// thresholding v alone would be reckless. Real male reads in this log
+// carry ages 23-35; the null sits at 36-37. Neither axis separates
+// cleanly on its own; together they have not yet produced a collision in
+// 140 reads.
+//
+// SAFETY, and this is why it is shippable without a frame-by-frame
+// argument: abstaining can only ever REMOVE flag evidence, never add
+// clear evidence. `unknown` is not a third verdict — faceMeta turns an
+// undirected read into {flagged:true, certain:false}, the same honest
+// state a person with no visible face gets, so the subject stays
+// COVERED. What changes is that a read built on nothing may no longer
+// condemn a woman, revoke an earned clear, or be written into identity
+// memory. In MAN mode it is inert by construction: a null folds to ~0.27,
+// far below GENDER_CLEAR_SCORE 0.6, so it could never clear anyone
+// anyway. There is no configuration of this that exposes somebody.
+export var NULL_V_LO = 0.53;
+export var NULL_V_HI = 0.72;
+export var NULL_AGE_LO = 34;
+export var NULL_AGE_HI = 42;
+
+export function isNullRead(face) {
+  if (!face || face.gender !== 'male') return false;
+  // Older callers (and the abstention path) carry no raw sigmoid; with
+  // nothing to test, trust the read rather than inventing a refusal.
+  if (typeof face.raw !== 'number' || typeof face.age !== 'number') return false;
+  return (
+    face.raw >= NULL_V_LO &&
+    face.raw <= NULL_V_HI &&
+    face.age >= NULL_AGE_LO &&
+    face.age <= NULL_AGE_HI
+  );
+}
+
 export function faceMeta(userGender, faces) {
   var opposite = OPPOSITE[userGender];
   var out = [];
@@ -147,6 +206,13 @@ export function faceMeta(userGender, faces) {
       continue;
     }
     var f = faces[i];
+    // Refuse the model's prior before it can become evidence. This lands
+    // on exactly the state an unreadable face already gets: covered, but
+    // powerless to condemn, revoke a clear, or enter identity memory.
+    if (isNullRead(f)) {
+      out.push({ flagged: true, certain: false });
+      continue;
+    }
     var same = f.gender === (opposite === 'female' ? 'male' : 'female');
     var directed = f.gender === 'male' || f.gender === 'female';
     // Child faces: gender untrusted in BOTH directions (see

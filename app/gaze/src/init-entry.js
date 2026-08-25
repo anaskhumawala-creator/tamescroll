@@ -929,6 +929,15 @@ import { planForMode } from './pipeline-plan.mjs';
             .classifyFaceGenders(genderModel, fpix, [{ x1: 0, y1: 0, x2: 1, y2: 1 }])
             .then(function (g) {
               if (fpix && typeof fpix.close === 'function') fpix.close();
+              // Stamp the size the model actually saw. R11's critic could
+              // not tell whether FACE_MIN_NATIVE_PX was even reachable
+              // (no read ever returned 'unknown'); with px on the read
+              // that is one number to look at instead of an inference.
+              try {
+                if (g && g.length && fr && fr.nativePx) {
+                  g[0].px = Math.round(fr.nativePx);
+                }
+              } catch (e) {}
               return g;
             })
             .catch(function (e) {
@@ -1058,6 +1067,10 @@ import { planForMode } from './pipeline-plan.mjs';
                     s: Math.round(pick.score * 100) / 100,
                     a: Math.round(pick.age),
                     n: faces.length,
+                    // Raw sigmoid and the native face size behind it:
+                    // the two numbers R11's critic had to infer.
+                    v: typeof pick.raw === 'number' ? Math.round(pick.raw * 1000) / 1000 : null,
+                    px: typeof pick.px === 'number' ? pick.px : null,
                   });
                   if (dbgR.reads.length > 300) dbgR.reads.shift();
                 }

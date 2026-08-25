@@ -11,6 +11,7 @@ import {
   GENDER_CLEAR_SCORE,
   GENDER_ADULT_AGE,
 } from '../src/gender-verdict.mjs';
+import * as gv from '../src/gender-verdict.mjs';
 
 const male = (s = 0.9) => ({ gender: 'male', score: s });
 const female = (s = 0.9) => ({ gender: 'female', score: s });
@@ -152,4 +153,60 @@ test('clear bar is per-gender: faceres is ~0.4 less certain about women', () => 
   // ...and a woman below even the lowered bar stays covered.
   const unsureWoman = [{ gender: 'female', score: 0.22, age: 40 }];
   assert.equal(faceMeta('woman', unsureWoman)[0].certain, false);
+});
+
+test('R12: the faceres null output is refused instead of believed', () => {
+  // Measured constants, two independent videos. The null is a CONSTANT:
+  // raw sigmoid 0.623-0.652 with the age head simultaneously returning
+  // its training mean (36-37). Folded, that is score 0.25-0.30 -- above
+  // GENDER_MIN_SCORE 0.25 -- so in woman mode every one of these was a
+  // CERTAIN opposite-gender flag built on zero information.
+  const nulls = [
+    { gender: 'male', score: 0.25, age: 36, raw: 0.623 },
+    { gender: 'male', score: 0.25, age: 36, raw: 0.627 },
+    { gender: 'male', score: 0.28, age: 37, raw: 0.641 },
+    { gender: 'male', score: 0.3, age: 36, raw: 0.652 },
+  ];
+  for (const n of nulls) {
+    assert.equal(gv.isNullRead(n), true, `should be refused: raw ${n.raw}`);
+    const [m] = gv.faceMeta('woman', [n]);
+    // Covered (blur-first is untouched) but NOT certain, so it can no
+    // longer condemn, revoke a clear, or poison identity memory.
+    assert.deepEqual(m, { flagged: true, certain: false });
+  }
+});
+
+test('R12: real male reads are NOT refused, in either direction', () => {
+  // Every male read measured outside the null band in runs/r12-woman2.
+  // The nearest one to the band is v = 0.759 against a null ceiling of
+  // 0.652 -- if this test ever fails, the band has grown into real data
+  // and must be re-derived, not widened.
+  const real = [
+    { gender: 'male', score: 0.52, age: 36, raw: 0.759 },
+    { gender: 'male', score: 0.6, age: 35, raw: 0.799 },
+    { gender: 'male', score: 0.69, age: 34, raw: 0.845 },
+    { gender: 'male', score: 0.91, age: 31, raw: 0.954 },
+    // Weak but genuinely directed reads, ages outside the null band.
+    { gender: 'male', score: 0.32, age: 25, raw: 0.661 },
+    { gender: 'male', score: 0.33, age: 32, raw: 0.664 },
+  ];
+  for (const r of real) {
+    assert.equal(gv.isNullRead(r), false, `must not refuse raw ${r.raw} age ${r.age}`);
+  }
+  // In MAN mode the abstention is inert by construction: a null folds to
+  // ~0.27, nowhere near GENDER_CLEAR_SCORE, so it never cleared anyone.
+  const [asMan] = gv.faceMeta('man', [{ gender: 'male', score: 0.27, age: 36, raw: 0.635 }]);
+  assert.equal(asMan.certain, false);
+  assert.equal(asMan.flagged, true);
+});
+
+test('R12: a female read is never refused, and reads with no raw value are trusted', () => {
+  // The band is male-only -- the null label is `male`. A weak female
+  // read must keep its meaning, or woman mode loses the evidence that
+  // clears women.
+  assert.equal(gv.isNullRead({ gender: 'female', score: 0.14, age: 36, raw: 0.429 }), false);
+  // Older callers carry no raw sigmoid. With nothing to test, trust the
+  // read rather than inventing a refusal.
+  assert.equal(gv.isNullRead({ gender: 'male', score: 0.3, age: 36 }), false);
+  assert.equal(gv.isNullRead(null), false);
 });

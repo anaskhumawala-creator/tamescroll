@@ -405,10 +405,20 @@ export async function classifyFaceGenders(model, pixelSource, boxes) {
     for (var n = 0; n < desc.length; n++) norm += desc[n] * desc[n];
     norm = Math.sqrt(norm) || 1;
     for (var m = 0; m < desc.length; m++) desc[m] /= norm;
+    // KEEP THE RAW SIGMOID. `confidence` folds it around 0.5, which
+    // destroys the sign the null test needs: faceres answers with a
+    // CONSTANT when it has no signal, and that constant lives on one
+    // side of 0.5 only. Folded, a null (v~0.63) and a genuine weak
+    // female read (v~0.37) are the same number; unfolded they are
+    // 0.26 apart. R11's critic measured the null band at v in
+    // [0.545, 0.705] over 44 reads against real male reads starting at
+    // v = 0.74 — a 1-D gap of 0.035, too thin to threshold alone, which
+    // is exactly why the raw value has to survive to where age and the
+    // descriptor are also in scope.
     verdicts.push(
       v <= 0.5
-        ? { gender: 'female', score: confidence, age: age, desc: desc }
-        : { gender: 'male', score: confidence, age: age, desc: desc }
+        ? { gender: 'female', score: confidence, age: age, desc: desc, raw: v }
+        : { gender: 'male', score: confidence, age: age, desc: desc, raw: v }
     );
   }
   return verdicts;
