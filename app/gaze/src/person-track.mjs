@@ -477,6 +477,35 @@ function matchedStep(t, obs, dt) {
       state = 'blurred';
       clearMs = 0;
     }
+  } else if (obs.abstained && state === 'cleared') {
+    // ABSTENTION MUST NOT BUY MORE PROTECTION THAN THE READ IT REPLACED.
+    // R12 started refusing the gender model's no-information output (see
+    // isNullRead). That was right, but it moved those reads from the
+    // branch above — where a cleared track is revoked by 2 consecutive
+    // certain flags — into plain `uncertain`, which a cleared track
+    // absorbs for the whole CLEARED_TTL_MS. Measured: 4800ms of an
+    // opposite-gender subject sharp, against 400ms before the change.
+    // The exposure case is a person SWAP: someone walks into a cleared
+    // track's box and reads null, so the pipeline is holding a face crop
+    // it cannot read on top of somebody else's earned clear.
+    //
+    // So an abstention advances the same revocation streak a certain flag
+    // does, and 2 consecutive ones demote — exactly the pre-R12 bound, on
+    // any device, because a streak is cadence-relative and a fixed ms
+    // budget is not. It keeps everything the abstention was for: a null
+    // still cannot condemn, cannot blur on its own, and cannot enter
+    // identity memory.
+    //
+    // Deliberately NOT extended to plain uncertain reads. An uncertain
+    // read is weak evidence pointing somewhere; a null is the model
+    // returning its prior. Only the second is a face we demonstrably
+    // could not read, and only the second used to be a flag.
+    flagStreak += 1;
+    if (flagStreak >= 2) {
+      bump('abstainDemote');
+      state = 'blurred';
+      clearMs = 0;
+    }
   } else if (!obs.flagged && obs.certain) {
     // Confident same-gender reading accumulates toward the clear hold —
     // and CLEAR_STREAK_N consecutive ones clear outright (fast clear).
@@ -583,7 +612,10 @@ function matchedStep(t, obs, dt) {
           ? 0
           : Math.max(0, clearStreak - 1)
     ),
-    flagStreak: obs.flagged && obs.certain ? flagStreak : 0,
+    // The streak survives a certain flag OR an abstention — both count
+    // against a clear (see the abstainDemote branch). Anything else
+    // zeroes it, so only CONSECUTIVE evidence revokes.
+    flagStreak: obs.flagged && (obs.certain || obs.abstained) ? flagStreak : 0,
     desc: obs.desc || t.desc || null,
     lastVerdict: obs.flagged && obs.certain ? 'flag-certain' : !obs.flagged && obs.certain ? 'clear-certain' : 'uncertain',
   };

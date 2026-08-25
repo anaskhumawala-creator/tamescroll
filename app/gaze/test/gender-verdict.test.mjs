@@ -171,8 +171,9 @@ test('R12: the faceres null output is refused instead of believed', () => {
     assert.equal(gv.isNullRead(n), true, `should be refused: raw ${n.raw}`);
     const [m] = gv.faceMeta('woman', [n]);
     // Covered (blur-first is untouched) but NOT certain, so it can no
-    // longer condemn, revoke a clear, or poison identity memory.
-    assert.deepEqual(m, { flagged: true, certain: false });
+    // longer condemn, or poison identity memory. `abstained` is what lets
+    // person-track still revoke a clear in 2 reads rather than 5 seconds.
+    assert.deepEqual(m, { flagged: true, certain: false, abstained: true });
   }
 });
 
@@ -209,4 +210,36 @@ test('R12: a female read is never refused, and reads with no raw value are trust
   // read rather than inventing a refusal.
   assert.equal(gv.isNullRead({ gender: 'male', score: 0.3, age: 36 }), false);
   assert.equal(gv.isNullRead(null), false);
+});
+
+// The abstention is only safe in MAN mode because of an arithmetic accident,
+// and an accident nobody has written down is a future regression. A read is
+// only refused inside [NULL_V_LO, NULL_V_HI], and confidence folds to
+// 2*|v-0.5|, so the most confident read the band can contain is worth
+// 2*(NULL_V_HI-0.5). While that stays under the same-gender clear bar, no
+// refused read could ever have cleared anyone and abstaining costs nothing.
+// Widen the band past that point — or lower the bar — and man mode silently
+// starts refusing reads that would have LIFTED blur off the owner.
+test('the null band can never contain a read that would have cleared someone', () => {
+  const worst = 2 * Math.max(gv.NULL_V_HI - 0.5, 0.5 - gv.NULL_V_LO);
+  assert.ok(
+    worst < gv.clearScoreFor('male'),
+    `widening the null band past 2*|v-0.5| >= clear bar makes abstention unsafe in man mode: ` +
+      `band tops out at ${worst.toFixed(3)} against a bar of ${gv.clearScoreFor('male')}`,
+  );
+});
+
+test('an abstained read is marked so the tracker can tell it from plain uncertain', () => {
+  const nul = { gender: 'male', score: 0.28, age: 36, raw: 0.641 };
+  const [meta] = gv.faceMeta('woman', [nul]);
+  assert.equal(meta.flagged, true);
+  assert.equal(meta.certain, false);
+  assert.equal(meta.abstained, true, 'person-track keys clear-revocation off this');
+
+  // A real, weak, opposite-gender read must NOT be marked — it is evidence
+  // pointing somewhere, and it keeps the powers the null loses.
+  const real = { gender: 'male', score: 0.52, age: 36, raw: 0.759 };
+  const [m2] = gv.faceMeta('woman', [real]);
+  assert.notEqual(m2.abstained, true);
+  assert.equal(m2.certain, true);
 });

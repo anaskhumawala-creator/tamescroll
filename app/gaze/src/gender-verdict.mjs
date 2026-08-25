@@ -165,9 +165,22 @@ export function faceVerdict(userGender, faces) {
 // The band is deliberately JOINT. The 1-D gap is thin — nearest real
 // male read measured at v = 0.759 against a null ceiling of 0.652 — so
 // thresholding v alone would be reckless. Real male reads in this log
-// carry ages 23-35; the null sits at 36-37. Neither axis separates
-// cleanly on its own; together they have not yet produced a collision in
-// 140 reads.
+// carry ages 19-35; the null sits at 36-37.
+//
+// R12's critic argued the v-axis is dead weight and age is doing all the
+// work. COUNTED on runs/r12-woman2, 21 unique reads: the v-band holds 9,
+// the age-band holds 11, and only 4 are in BOTH. Drop the age test and 5
+// real reads (ages 19, 25, 27, 28, 32) become nulls; drop the v test and
+// 7 do, including reads at v 0.938/0.947 scoring 0.88/0.89 — the most
+// confident male reads in the run. Both axes are load-bearing; neither
+// alone is safe. Do not simplify this to one dimension.
+//
+// STILL UNDECIDED, and the honest limit of the box: two reads sit inside
+// the v-band and outside the age-band (v 0.664/age 32 and v 0.717/age 27)
+// and go on to flag CERTAIN. Nothing in the log says whether they are
+// real men or nulls that drifted a few age-points. A self-calibrating
+// test against the model's own no-information output would decide it;
+// a fitted rectangle cannot.
 //
 // SAFETY, and this is why it is shippable without a frame-by-frame
 // argument: abstaining can only ever REMOVE flag evidence, never add
@@ -210,7 +223,12 @@ export function faceMeta(userGender, faces) {
     // on exactly the state an unreadable face already gets: covered, but
     // powerless to condemn, revoke a clear, or enter identity memory.
     if (isNullRead(f)) {
-      out.push({ flagged: true, certain: false });
+      // `abstained` is NOT decoration. A cleared track absorbs an
+      // uncertain read for CLEARED_TTL_MS, so folding the null into plain
+      // `uncertain` handed it 5s of protection where the certain flag it
+      // replaced took 2 reads to revoke — R12 measured 4800ms of sharp
+      // against 400ms. person-track keys the revocation streak off this.
+      out.push({ flagged: true, certain: false, abstained: true });
       continue;
     }
     var same = f.gender === (opposite === 'female' ? 'male' : 'female');
@@ -238,6 +256,16 @@ export function faceMeta(userGender, faces) {
   return out;
 }
 
+// The image/thumbnail path deliberately does NOT abstain, and this is the
+// reasoning rather than an oversight (R12's critic read it as one).
+// Abstention exists to stop a no-information read acting as EVIDENCE: it
+// must not condemn, revoke an earned clear, or enter identity memory.
+// A feed image has none of those — no track, no state machine, no memory.
+// Its only question is flagged-or-not, and a null already lands on
+// `flagged` here (it is labelled opposite-gender and cannot clear the
+// same-gender bar). Abstaining would produce the identical output, and
+// the only way to make it produce a DIFFERENT one is to stop flagging —
+// which is an exposure. Nothing to fix; do not "fix the class" here.
 export function flaggedFaceIndices(userGender, faces) {
   if (!faces || faces.length === 0) return [];
   var opposite = OPPOSITE[userGender];

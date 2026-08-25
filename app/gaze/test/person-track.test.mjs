@@ -618,3 +618,68 @@ test('R11: an identity break must not leave a clear streak the new person can sp
     'one read after an identity break must not clear a new person',
   );
 });
+// R12 opened this hole and R12's critic measured it: when the null-signature
+// abstention moved no-information reads out of "certain flag" and into plain
+// uncertain, a CLEARED track absorbed them for the whole CLEARED_TTL_MS —
+// 4800ms of an opposite-gender subject sharp, against 400ms before. The
+// exposure case is a person swap into a cleared track's box.
+test('abstention on a cleared track revokes in 2 reads, not CLEARED_TTL_MS', () => {
+  let tracks = updatePersonTracks([], [obs(boxA, false, true)], 250);
+  tracks = updatePersonTracks(tracks, [obs(boxA, false, true)], 250);
+  assert.equal(tracks[0].state, 'cleared', 'setup: track must be cleared first');
+
+  const nul = { box: boxA, flagged: true, certain: false, abstained: true };
+
+  tracks = updatePersonTracks(tracks, [nul], 250);
+  assert.equal(
+    tracks[0].state,
+    'cleared',
+    'one abstention must not re-blur someone who earned a clear',
+  );
+  assert.equal(tracks[0].flagStreak, 1);
+
+  tracks = updatePersonTracks(tracks, [nul], 250);
+  assert.equal(
+    tracks[0].state,
+    'blurred',
+    'two consecutive abstentions must revoke the clear',
+  );
+  assert.equal(tracks[0].clearMs, 0);
+});
+
+test('a real read between two abstentions resets the revocation streak', () => {
+  let tracks = updatePersonTracks([], [obs(boxA, false, true)], 250);
+  tracks = updatePersonTracks(tracks, [obs(boxA, false, true)], 250);
+  assert.equal(tracks[0].state, 'cleared');
+
+  const nul = { box: boxA, flagged: true, certain: false, abstained: true };
+  tracks = updatePersonTracks(tracks, [nul], 250);
+  tracks = updatePersonTracks(tracks, [obs(boxA, false, true)], 250);
+  tracks = updatePersonTracks(tracks, [nul], 250);
+  assert.equal(
+    tracks[0].state,
+    'cleared',
+    'only CONSECUTIVE abstentions revoke — an unreadable frame between two good ones is not evidence',
+  );
+});
+
+// The abstention must stay confined to the cleared branch. On a track that is
+// already blurred, an unreadable read is not new information: it must behave
+// exactly like the plain uncertain read it used to be folded into. Asserting
+// EQUIVALENCE rather than a value keeps this true if CLEAR_DECAY is retuned.
+test('abstention on a blurred track is indistinguishable from plain uncertain', () => {
+  const grow = (extra) => {
+    let tracks = updatePersonTracks([], [obs(boxA, false, true)], 250);
+    return updatePersonTracks(
+      tracks,
+      [{ box: boxA, flagged: true, certain: false, ...extra }],
+      250,
+    )[0];
+  };
+  const plain = grow({});
+  const abstained = grow({ abstained: true });
+  assert.equal(abstained.state, 'blurred');
+  assert.equal(abstained.state, plain.state);
+  assert.equal(abstained.clearMs, plain.clearMs);
+  assert.equal(abstained.clearStreak, plain.clearStreak);
+});

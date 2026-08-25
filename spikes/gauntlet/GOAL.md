@@ -1411,3 +1411,104 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   (hands, scalps, an arm entering frame) where MoveNet reports 0 persons;
   and re-deriving MEM_SIM_FLAG 0.85, which was calibrated against a read
   population that was ~40% null and now is not.
+
+  **R12, CONTINUED — the critic's round, folded in the same round for
+  once, because one of its findings was a regression R12 itself shipped.**
+
+  **THE HOLE I OPENED.** The abstention moved no-information reads out of
+  `flag-certain` and into plain `uncertain`. A cleared track ABSORBS an
+  uncertain read for the whole CLEARED_TTL_MS, while the certain flag it
+  replaced needed 2 consecutive reads to revoke. So on a cleared track the
+  refusal bought the subject 4800ms of sharp against 400ms — measured by
+  the critic against the real modules, not argued. The case that bites is
+  a person SWAP: someone walks into a cleared track's box, reads null, and
+  inherits somebody else's earned clear. I had checked the abstention for
+  safety in one direction (it can only remove flag evidence) and missed
+  that removing flag evidence IS the exposure when that evidence was the
+  only thing revoking a stale clear.
+  FIXED: `faceMeta` marks the refusal `abstained: true` and person-track
+  advances the same revocation streak a certain flag does — 2 consecutive
+  abstentions demote. A streak, not a millisecond budget, because a streak
+  is cadence-relative and reproduces the pre-R12 bound on ANY device
+  (desktop ~400ms, Helio ~1800-3000ms). Deliberately NOT extended to plain
+  uncertain reads: an uncertain read is weak evidence pointing somewhere,
+  a null is the model returning its prior, and only the second is a face
+  we demonstrably could not read. Three regression tests, including one
+  asserting an abstention on a BLURRED track is byte-identical to plain
+  uncertain, so the change cannot leak outside the cleared branch.
+  It did NOT fire once on either re-verify run — proven by unit test, not
+  by frame. Say that rather than claiming footage evidence it does not have.
+
+  **TWO CRITIC FINDINGS I REJECTED, WITH THE COUNTS.**
+  * "The v-axis is dead weight; age carries the guard." COUNTED on
+    runs/r12-woman2, 21 unique reads: v-band 9, age-band 11, BOTH only 4.
+    Drop age and 5 real reads become nulls; drop v and 7 do — including
+    the two most confident male reads in the run (v 0.938/0.947 scoring
+    0.88/0.89). Both axes are load-bearing. Written into the code.
+  * "Fix the class — apply the abstention to the image path too." The
+    image path has no track, no state machine and no memory. A null there
+    is already `flagged`, and abstaining would produce the identical
+    output; the only way to make it produce a different one is to stop
+    flagging, which is an exposure. A no-op, not an oversight. Also
+    written into the code so R13 does not re-litigate it.
+
+  **THE CRITIC'S BIGGEST FINDING, VERIFIED BY ME, AND R13'S TARGET.**
+  Identity memory saturates and converges on flagging everyone. From
+  runs/r12-woman2/meta.json, abstention live, two people on screen:
+  `mem` 0 -> 1 -> 2 -> 4 -> 6 -> **8 = MEM_MAX in ten frames (~15s)**, and
+  the best-match similarity FLOOR climbs with it — reads taken while
+  mem<=2 scored 0.00-0.89 (median 0.39), reads at mem>=6 scored 0.68-0.82
+  (median 0.77). MEM_SIM_FLAG is 0.85 and it already fired three times.
+  The mechanism is structural, not a bad threshold: `memBest` takes a MAX
+  over a bank that only ever grows, and docs/detection-engine.md already
+  registers 17% of DIFFERENT-person pairs scoring >=0.9 — so the false-
+  match probability goes as 1-(1-0.17)^k in the bank size: ~0.43 at one
+  entry, ~0.99 at eight. That is a plausible mechanism for the owner's
+  oldest complaint, "why does it keep blurring me": in man mode the bank
+  fills with women and then re-covers him on any read that is not
+  confidently same-gender. It cannot be re-tuned — R11 measured the full
+  ROC and the distributions overlap across their whole useful range — so
+  R13's question is whether memory is worth keeping at all. What it
+  actually buys is one thing: shortening CLEARED_TTL_MS for a face we
+  have seen before. That is obtainable directly, without a descriptor
+  test, and the abstention fix above is already half of it.
+
+  **RE-VERIFY, build `914b7d9-dirty`, both directions, every frame read
+  against its truth pair.**
+  * runs/r12b-ted (H14bBuluwB8, woman), 10 frames: FALSE COVER 9/10,
+    GHOST 0. Unchanged, and unchanged is the honest answer — blur-first
+    covers `uncertain`, so the abstention still changes WHY the seated
+    woman is covered, not WHETHER. The speaker now clears at **f002**
+    (r12 f003, r11e f005) and holds to f009 with flagStreak 0 throughout,
+    so the fix did not cost her a single frame. f003 is again a fully
+    correct frame: speaker sharp, seated woman sharp, zero patches. Every
+    patch was checked against its truth frame and sat on a real person.
+  * runs/r12b-man (NWoT1ZVd1Lo, man): EXPOSURE 1/10, PARTIAL 2/10, FALSE
+    COVER 1/10, GHOST 0. Linus clears at f003, again at f007 after a cut,
+    and holds — no abstention ever demoted him, which was the false-cover
+    risk this change carried. f008 shows the daughter at `flag-certain`
+    fs1 while his track sits at fs0, so the real flag path still works.
+    f005 is the standing exposure: overhead bench, MoveNet `persons: 0`,
+    zero patches, her scalp and hands visible. f000/f001 are the partial
+    class — her hands covered, her sleeve and the top of her head outside
+    the patch. The one false cover is f002, a scene transition where both
+    tracks are re-minted and blur-first covers him for a single frame.
+
+  gaze 117/117, cargo 36/36.
+
+  **R13's queue, in the critic's order and mine.** (1) Identity memory:
+  delete it, or gate `memoryStore` on a verdict pass and dedupe — it is
+  currently re-storing the same descriptor at PASS cadence, so exemplar
+  slots hold duplicates of one look while every genuinely new look mints
+  a new entry. (2) `lastSlotDiag` records only a COUNT of keypoints above
+  0.3, so nobody can say whether MoveNet had a 0.28 wrist on the workbench
+  frame or nothing at all — three comparisons in an existing loop decide
+  whether the exposure class needs a second model (BlazePalm, Apache-2.0
+  code AND weights) or a free keypoint-rescue tier. Measure before buying.
+  (3) Log `abstained` and `own` on every read: the abstention is currently
+  invisible in the artifact, and the band was fitted on a log that can
+  contain reads the pipeline discarded. (4) Harness: `p95` is computed
+  over a ring that still holds the model-load pass, so every frame reports
+  p95 = the warm-up number; and the blank-frame guard only catches a
+  LEADING stall — f001 had 123 unique colours against f002's 47409, which
+  would catch a blank anywhere in a run.
