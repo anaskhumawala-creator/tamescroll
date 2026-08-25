@@ -33,3 +33,11 @@ sha2 = "0.10"
 # command (which is JS-facing and async) is not an option.
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
+
+# WebView2 request interception on desktop. Tauri/wry expose no general
+# http interception, so the block hook is installed straight on the
+# ICoreWebView2 (AddWebResourceRequestedFilter + WebResourceRequested) —
+# the desktop counterpart of Android's shouldInterceptRequest.
+[target.'cfg(target_os = "windows")'.dependencies]
+webview2-com = "0.38"
+windows = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Com"] }

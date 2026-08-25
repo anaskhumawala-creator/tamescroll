@@ -423,6 +423,106 @@ fn should_block_request(url: String, source_url: String, resource_type: String) 
     blocks_request(&url, &source_url, &resource_type)
 }
 
+/// Installs the network block hook on a desktop WebView2.
+///
+/// The desktop counterpart of Android's `shouldInterceptRequest`. Tauri
+/// and wry expose no general http interception, so this reaches the
+/// underlying ICoreWebView2 through `with_webview` and subscribes to
+/// WebResourceRequested with an ALL filter.
+///
+/// A blocked request is answered with an empty 204 rather than an
+/// error, for the same reason as on Android: a hard failure makes pages
+/// retry and sometimes render their own "content blocked" placeholder,
+/// where an empty success is silent.
+///
+/// Every failure path leaves the webview untouched — a webview with no
+/// hook shows ads, a webview with a broken hook shows nothing at all.
+#[cfg(target_os = "windows")]
+fn install_request_blocker(window: &tauri::WebviewWindow) {
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL, ICoreWebView2, ICoreWebView2Environment,
+        ICoreWebView2WebResourceRequestedEventArgs,
+    };
+    use webview2_com::WebResourceRequestedEventHandler;
+    use windows::core::{Interface, PCWSTR};
+
+    let _ = window.with_webview(|webview| unsafe {
+        let core: ICoreWebView2 = match webview.controller().CoreWebView2() {
+            Ok(c) => c,
+            Err(_) => return,
+        };
+        let wide: Vec<u16> = "* ".encode_utf16().collect();
+        if core
+            .AddWebResourceRequestedFilter(
+                PCWSTR(wide.as_ptr()),
+                COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
+            )
+            .is_err()
+        {
+            return;
+        }
+        let env: ICoreWebView2Environment = match core
+            .cast::<webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_2>()
+            .and_then(|w| w.Environment())
+        {
+            Ok(e) => e,
+            Err(_) => return,
+        };
+        let mut token = Default::default();
+        let _ = core.add_WebResourceRequested(
+            &WebResourceRequestedEventHandler::create(Box::new(
+                move |sender: Option<ICoreWebView2>,
+                      args: Option<ICoreWebView2WebResourceRequestedEventArgs>| {
+                    let (Some(sender), Some(args)) = (sender, args) else {
+                        return Ok(());
+                    };
+                    let Ok(request) = args.Request() else { return Ok(()) };
+                    // These COM getters write into an out-param and hand
+                    // us ownership of the buffer; PWSTR::to_string reads
+                    // it, and CoTaskMemFree releases it. Skipping the
+                    // free leaks on every single request the page makes.
+                    let mut raw = windows::core::PWSTR::null();
+                    if request.Uri(&mut raw).is_err() {
+                        return Ok(());
+                    }
+                    let url = raw.to_string().unwrap_or_default();
+                    windows::Win32::System::Com::CoTaskMemFree(Some(raw.0 as *const _));
+                    if !url.starts_with("http") {
+                        return Ok(());
+                    }
+                    // The page making the request. Without it every rule
+                    // reads as first-party and the third-party options
+                    // that carry most ad rules never fire.
+                    let mut raw_src = windows::core::PWSTR::null();
+                    let source = if sender.Source(&mut raw_src).is_ok() {
+                        let v = raw_src.to_string().unwrap_or_default();
+                        windows::Win32::System::Com::CoTaskMemFree(Some(raw_src.0 as *const _));
+                        v
+                    } else {
+                        String::new()
+                    };
+                    if !blocks_request(&url, &source, "other") {
+                        return Ok(());
+                    }
+                    if let Ok(response) = env.CreateWebResourceResponse(
+                        None::<&windows::Win32::System::Com::IStream>,
+                        204,
+                        windows::core::w!("No Content"),
+                        windows::core::w!(""),
+                    ) {
+                        let _ = args.SetResponse(&response);
+                    }
+                    Ok(())
+                },
+            )),
+            &mut token,
+        );
+    });
+}
+
+#[cfg(not(target_os = "windows"))]
+fn install_request_blocker(_window: &tauri::WebviewWindow) {}
+
 /// JNI entry point for the Android WebViewClient.
 ///
 /// `shouldInterceptRequest` runs on a background thread for EVERY
@@ -1016,6 +1116,12 @@ async fn open_platform(
             }
         })
         .build();
+    if let Ok(w) = &built {
+        // Ad/tracker network blocking. Installed per platform window,
+        // right after creation, so it is live before the first
+        // subresource of the first page load.
+        install_request_blocker(w);
+    }
     #[cfg(debug_assertions)]
     eprintln!(
         "open_platform build id={} -> {:?}",
