@@ -457,6 +457,11 @@ export function parsePersons(data, minScore, aspect, held) {
     // --- head anchor: the part that must never escape the patch -----
     var hx = null;
     var hy = null;
+    // Published, not just consumed (gauntlet R19). This number was
+    // computed to widen the box and then thrown away, and it is the only
+    // scale in the pass at which "are these two boxes one human?" is a
+    // well-posed question -- see sameHuman in person-track.mjs.
+    var headWOut = null;
     if (head.length) {
       hx = 0;
       hy = 0;
@@ -481,6 +486,7 @@ export function parsePersons(data, minScore, aspect, held) {
         headW = Math.abs(ls.x - rs.x) * 0.6;
       }
       headW = Math.max(headW, 0.04);
+      headWOut = headW;
       // Same physical distance is a LARGER number in normalized-y on a
       // wide frame: dy_norm = dx_norm * (W/H).
       var headH = headW * ar;
@@ -528,6 +534,12 @@ export function parsePersons(data, minScore, aspect, held) {
       // clear (owner: "linus is not clearing at all").
       headX: hx,
       headY: hy,
+      // Head width in normalized-x (null with no confident head
+      // keypoint). NOT the body width: two people standing shoulder to
+      // shoulder always have heads closer together than half a body
+      // width, so a body-denominated separation test can never tell them
+      // apart -- it was deleting one of three people on every pass.
+      headW: headWOut,
       // The RAW model box and the hysteresis age, fed straight back in
       // as `held` on the next pass. Kept on the person rather than in
       // module state so parsePersons stays pure and the caller decides
@@ -631,6 +643,11 @@ export function personFromFace(face, aspect) {
     confidence: face.confidence,
     headX: cx,
     headY: cy,
+    // The face's width on the FAITHFUL axis. The detector's box is
+    // square in NORMALIZED units, so its x extent carries a hidden
+    // factor of the frame aspect (see the `w` note above); h/ar is the
+    // real head width in normalized-x, which is what sameHuman needs.
+    headW: h / ar,
     fromFace: true,
     // THE FACE THIS BODY WAS EXTRAPOLATED FROM, kept in frame
     // coordinates. Without it the pipeline throws away a face box it

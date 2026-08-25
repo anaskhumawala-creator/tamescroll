@@ -275,11 +275,58 @@ export function wipeIfEmpty(tracks, personCount, faceCount, emptyStreak, prevMax
  */
 export var MERGE_HEAD_SEP = 0.5; // in units of the narrower box's width
 
+/**
+ * Head separation bar when BOTH boxes carry a head width, in units of
+ * the WIDER head (gauntlet R19).
+ *
+ * MERGE_HEAD_SEP above is denominated in the narrower BODY width, and
+ * that is the wrong ruler in the exact way that matters: a body box
+ * sprawls (MoveNet's keypoint union leaks a wrist onto a neighbour,
+ * personFromFace extrapolates 3.9 face-heights per side), so the
+ * guard's tolerance GROWS with the sprawl it exists to catch. Two people
+ * shoulder to shoulder always have heads closer than half a body width,
+ * so the guard could never fire on them.
+ *
+ * Measured, runs/r19-man f003, three humans in frame:
+ *   containment(child, man) = 0.726, heads 0.15 apart,
+ *   old bar = 0.5 x min(0.579, 0.588) = 0.290  -> MERGED
+ * and `preferred` keeps the larger box, so the CHILD's observation and
+ * the gender read already paid for it are discarded. `dedupeMerged` ran
+ * 9 -> 115 over 13.7s, about one deletion per pass, and which of the
+ * three people died was decided by iteration order rather than by
+ * evidence. runs/r19d-man f002 is what that looks like on screen: two
+ * tracks for three humans, and the child fully sharp. EXPOSURE.
+ *
+ * Head widths there are 0.125 (man) and 0.092 (child); at 1.0 x the
+ * wider the bar is 0.125 against a 0.15 separation, so they stay two
+ * people. Heads are rigid and cannot overlap, so different people sit
+ * at >= ~1.5 head widths while two REPRESENTATIONS of one person (a
+ * MoveNet keypoint average against a BlazeFace face centre) disagree by
+ * a fraction of one. 1.0 sits between those populations.
+ *
+ * Strictly stricter than the old rule on every pair it applies to
+ * (0.125 against 0.290 here), and refusing a merge can only ever ADD a
+ * patch, never remove one -- so the class this can regress is the
+ * stacked-patch cosmetic complaint MERGE_CONTAIN_MIN was built for, not
+ * exposure. Watch `dedupeMerged` per pass in the next round.
+ *
+ * Falls back to the body rule when either side has no head: that is the
+ * weak-tier population (R18 measured 59% null headX), whose boxes are
+ * MoveNet's raw ones with no keypoint union, so they do not sprawl and
+ * the old rule is not wrong about them.
+ */
+export var MERGE_HEAD_SEP_HEADW = 1.0;
+
 export function sameHuman(a, b) {
   if (containment(a.box, b.box) < MERGE_CONTAIN_MIN) return false;
   var ax = a.box.headX;
   var bx = b.box.headX;
   if (typeof ax !== 'number' || typeof bx !== 'number') return true;
+  var aw = a.box.headW;
+  var bw = b.box.headW;
+  if (typeof aw === 'number' && aw > 0 && typeof bw === 'number' && bw > 0) {
+    return Math.abs(ax - bx) <= MERGE_HEAD_SEP_HEADW * Math.max(aw, bw);
+  }
   var narrow = Math.min(a.box.x2 - a.box.x1, b.box.x2 - b.box.x1);
   return Math.abs(ax - bx) <= MERGE_HEAD_SEP * narrow;
 }
@@ -436,6 +483,27 @@ export function updatePersonTracks(tracks, observations, dtMs) {
 // keypoints, and a head or both shoulders (person-gate.mjs). Tracks
 // still carry facelessReads for diagnosis.
 
+/**
+ * Move a stored head square by the same delta the track's box just
+ * moved (gauntlet R19). The fast position-only pass runs several times
+ * per gender read, so without this the hole would sit still while the
+ * face it belongs to walks out from under it — a sharp rectangle over
+ * whatever is behind, which is the DRIFT class wearing a hole's clothes.
+ */
+function shiftHead(head, from, to) {
+  if (!head) return null;
+  var dx = (to.x1 + to.x2) / 2 - (from.x1 + from.x2) / 2;
+  var dy = (to.y1 + to.y2) / 2 - (from.y1 + from.y2) / 2;
+  return { x1: head.x1 + dx, y1: head.y1 + dy, x2: head.x2 + dx, y2: head.y2 + dy };
+}
+
+/** Distance a shiftHead moved the hole -- the uncertainty it just added. */
+function headShiftDist(from, to) {
+  var dx = (to.x1 + to.x2) / 2 - (from.x1 + from.x2) / 2;
+  var dy = (to.y1 + to.y2) / 2 - (from.y1 + from.y2) / 2;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
 function matchedStep(t, obs, dt) {
   var smoothed = ema(t.box, obs.box, PTRACK_EMA_ALPHA);
   var tc = center(t.box);
@@ -460,6 +528,12 @@ function matchedStep(t, obs, dt) {
       clearStreak: t.clearStreak || 0,
       flagStreak: t.flagStreak || 0,
       desc: t.desc || null,
+      // The head hole rides the position pass so it stays on the face
+      // between gender reads, but its AGE still advances: a position
+      // observation is not evidence that the face is still there.
+      headBox: shiftHead(t.headBox, t.box, smoothed),
+      headAgeMs: (t.headAgeMs || 0) + dt,
+      headDrift: (t.headDrift || 0) + (t.headBox ? headShiftDist(t.box, smoothed) : 0),
       lastVerdict: t.lastVerdict || 'uncertain',
     };
   }
@@ -671,6 +745,11 @@ function matchedStep(t, obs, dt) {
     // R13 measured it at 12 on a single track in ten frames.
     flagStreak: obs.flagged && (obs.certain || obs.abstained) ? Math.min(2, flagStreak) : 0,
     desc: obs.desc || t.desc || null,
+    // A fresh face square resets the age to zero; a verdict pass that
+    // found no attributable face keeps the last one and lets it age out.
+    headBox: obs.headBox || shiftHead(t.headBox, t.box, smoothed),
+    headAgeMs: obs.headBox ? 0 : (t.headAgeMs || 0) + vdt,
+    headDrift: obs.headBox ? 0 : (t.headDrift || 0) + (t.headBox ? headShiftDist(t.box, smoothed) : 0),
     lastVerdict: obs.flagged && obs.certain ? 'flag-certain' : !obs.flagged && obs.certain ? 'clear-certain' : 'uncertain',
   };
 }
@@ -842,6 +921,13 @@ function coastStep(t, dt) {
     clearStreak: t.clearStreak || 0,
     flagStreak: t.flagStreak || 0,
     desc: t.desc || null,
+    // Coasting moves the box by velocity, so the head moves with it —
+    // and ages, which is what eventually retires the hole.
+    headBox: t.headBox
+      ? { x1: t.headBox.x1 + dx, y1: t.headBox.y1 + dy, x2: t.headBox.x2 + dx, y2: t.headBox.y2 + dy }
+      : null,
+    headAgeMs: (t.headAgeMs || 0) + dt,
+    headDrift: (t.headDrift || 0) + Math.sqrt(dx * dx + dy * dy),
     lastVerdict: t.lastVerdict || 'uncertain',
     // Carried, or a demoted track would silently regain the full coast
     // budget on its second missed pass — the exact behaviour this is here
@@ -908,6 +994,9 @@ function newTrack(obs) {
     clearStreak: !obs.flagged && obs.certain ? 1 : 0,
     flagStreak: 0,
     desc: obs.desc || null,
+    headBox: obs.headBox || null,
+    headAgeMs: 0,
+    headDrift: 0,
     lastVerdict:
       obs.flagged && obs.certain
         ? 'flag-certain'
@@ -922,6 +1011,111 @@ function newTrack(obs) {
  * of every track whose STATE is blurred. State, not per-sample verdict —
  * this is the hysteresis boundary.
  */
+/**
+ * How long a cleared person's face square may keep punching its hole
+ * after the last pass that actually detected that face.
+ *
+ * Matched to PTRACK_MAX_MISS_MS deliberately: the hole is evidence of
+ * the same kind as the track's own position, it goes stale for the same
+ * reason (the person moved, or the detector lost them), and it must not
+ * outlive the box it is expressed against. A hole that outlives its
+ * evidence is EXPOSURE, which is the class this whole file ranks worst.
+ */
+export var HEAD_HOLE_MAX_AGE_MS = 1000;
+
+/**
+ * `patch` minus `hole`, as up to four axis-aligned rectangles.
+ *
+ * WHY A HOLE AND NOT A NARROWER PATCH (gauntlet R19). Two people
+ * standing together produce two boxes that genuinely overlap — MoveNet's
+ * keypoint union leaks a shoulder or a wrist onto the neighbour, and
+ * PTRACK_PAD widens the result again. On runs/r19-man the covered
+ * child's track sat at x 0.414-0.894 while she really occupies
+ * 0.50-0.72, so her patch was drawn straight across the cleared man's
+ * face on six of ten frames. That is the owner's second bar failing
+ * ("not a single frame where the wrong gender is blurred up").
+ *
+ * The tempting fix — clamp the patch's left edge to the right of his
+ * head — exposes a FULL-HEIGHT band on nothing but a positional guess:
+ * anything of hers at that x and a lower y goes sharp. Subtracting only
+ * the head square cannot do that, because of what the square is: the
+ * pixels a face detector found a face in, this pass. A visible face is
+ * an unoccluded face, so those pixels are HIS. Covering them can only
+ * ever be FALSE COVER; it can never be preventing an EXPOSURE, because
+ * nobody behind his head is visible there to expose.
+ *
+ * That argument is sound for a HEAD and is NOT sound for a body: bodies
+ * are not convex, and a gap between an arm and a torso shows whatever is
+ * behind it. So this only ever subtracts head squares, and only ones a
+ * cleared track earned.
+ */
+export function subtractBox(patch, hole) {
+  var ix1 = Math.max(patch.x1, hole.x1);
+  var iy1 = Math.max(patch.y1, hole.y1);
+  var ix2 = Math.min(patch.x2, hole.x2);
+  var iy2 = Math.min(patch.y2, hole.y2);
+  // No overlap: the patch is untouched.
+  if (!(ix2 > ix1 && iy2 > iy1)) return [{ side: '', box: patch }];
+  // EACH PIECE CARRIES THE SIDE IT IS, NOT ITS INDEX (R19 critic, F2a).
+  // The four pushes below are conditional, so an index is not a stable
+  // identity: the moment the hole reaches the patch's top edge the top
+  // slab stops being emitted and index 0 silently becomes the BOTTOM
+  // slab. video-region keys its DOM nodes by this string and lerps each
+  // one from its own previous rect, so that swap would glide a single
+  // overlay from the top of the frame to the bottom -- and it is one
+  // pass of drift away on r19-man f004, whose patch top edge is y 0.037
+  // against a head hole reaching y 0.147.
+  var out = [];
+  if (iy1 > patch.y1) out.push({ side: 't', box: { x1: patch.x1, y1: patch.y1, x2: patch.x2, y2: iy1 } });
+  if (iy2 < patch.y2) out.push({ side: 'b', box: { x1: patch.x1, y1: iy2, x2: patch.x2, y2: patch.y2 } });
+  if (ix1 > patch.x1) out.push({ side: 'l', box: { x1: patch.x1, y1: iy1, x2: ix1, y2: iy2 } });
+  if (ix2 < patch.x2) out.push({ side: 'r', box: { x1: ix2, y1: iy1, x2: patch.x2, y2: iy2 } });
+  return out;
+}
+
+/**
+ * The head squares that may be subtracted from this pass's patches:
+ * every CLEARED track carrying face evidence younger than
+ * HEAD_HOLE_MAX_AGE_MS. State, not last verdict — a track that has not
+ * yet earned its clear is still a person we are covering, and punching a
+ * hole in their own patch would be EXPOSURE.
+ */
+/**
+ * How much of the hole's smaller side is given back at full age.
+ *
+ * The hole is only as trustworthy as the evidence behind it, and that
+ * evidence decays two ways between gender reads: `shiftHead` translates
+ * it by the track box's centre delta (which moves for reasons a head
+ * does not -- EMA convergence, keypoint-union jitter, size
+ * extrapolation), and the face itself may simply have turned. So the
+ * hole SHRINKS instead of switching off -- by the distance it has been
+ * translated on unverified evidence, which makes it a subset of where
+ * the face plausibly still is, and by a fraction of its own size as it
+ * ages. Shrinking also removes the flicker a hard on/off would cause
+ * (R19 critic, F2c): a hole that fades geometrically never rekeys a
+ * whole patch mid-shot.
+ */
+export var HEAD_HOLE_AGE_SHRINK = 0.25;
+
+export function clearedHeadHoles(tracks) {
+  var holes = [];
+  for (var i = 0; i < (tracks ? tracks.length : 0); i++) {
+    var t = tracks[i];
+    if (!t || t.state !== 'cleared' || !t.headBox) continue;
+    var age = t.headAgeMs || 0;
+    if (age > HEAD_HOLE_MAX_AGE_MS) continue;
+    var h = t.headBox;
+    var w = h.x2 - h.x1;
+    var hh = h.y2 - h.y1;
+    if (!(w > 0 && hh > 0)) continue;
+    var inset =
+      (t.headDrift || 0) + (age / HEAD_HOLE_MAX_AGE_MS) * HEAD_HOLE_AGE_SHRINK * Math.min(w, hh);
+    if (inset * 2 >= Math.min(w, hh)) continue; // nothing trustworthy left
+    holes.push({ x1: h.x1 + inset, y1: h.y1 + inset, x2: h.x2 - inset, y2: h.y2 - inset });
+  }
+  return holes;
+}
+
 export function blurredTracks(tracks) {
   var out = [];
   for (var i = 0; i < tracks.length; i++) {
@@ -943,7 +1137,38 @@ export function blurredTracks(tracks) {
       vh: t.vh || 0,
     });
   }
-  return mergeTracks(out);
+  var merged = mergeTracks(out);
+  var holes = clearedHeadHoles(tracks);
+  if (!holes.length) return merged;
+  // Subtract AFTER the merge, not before: mergeTracks unions boxes, so a
+  // hole punched first would be filled straight back in by the union.
+  var cut = [];
+  for (var m = 0; m < merged.length; m++) {
+    var parts = [{ side: '', box: merged[m].box }];
+    for (var hI = 0; hI < holes.length; hI++) {
+      var nextParts = [];
+      for (var pI = 0; pI < parts.length; pI++) {
+        var pieces = subtractBox(parts[pI].box, holes[hI]);
+        for (var q = 0; q < pieces.length; q++) {
+          nextParts.push({ side: parts[pI].side + pieces[q].side, box: pieces[q].box });
+        }
+      }
+      parts = nextParts;
+    }
+    for (var c = 0; c < parts.length; c++) {
+      cut.push({
+        // Side-derived, so a piece keeps the same overlay across passes
+        // however many of its siblings come and go.
+        key: merged[m].key + (parts[c].side ? '#' + parts[c].side : ''),
+        box: parts[c].box,
+        vx: merged[m].vx,
+        vy: merged[m].vy,
+        vw: merged[m].vw || 0,
+        vh: merged[m].vh || 0,
+      });
+    }
+  }
+  return cut;
 }
 
 // Overlapping patches union into ONE (owner 2026-08-24: "if there are

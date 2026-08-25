@@ -1279,8 +1279,44 @@ import { planForMode } from './pipeline-plan.mjs';
               return { box: person, flagged: true, certain: false, faceFound: true, desc: faceDesc };
             }
             var mine = meta[own] || { flagged: true, certain: false };
+            // THE PIXELS THIS VERDICT WAS READ FROM, in frame
+            // coordinates (gauntlet R19). `faceRegionInVideo` is the
+            // square the gender model actually saw, so it is not a guess
+            // about where the head is — it is a detection, and a face
+            // that was DETECTED is by definition not occluded. That makes
+            // it the one region of a cleared person which provably shows
+            // that person and nobody behind them, which is what
+            // `blurredTracks` needs to stop drawing a neighbour's patch
+            // across a cleared man's face. Deliberately the SQUARE and
+            // not the enlarged detector box: the square is a subset of
+            // what the detector claimed, so subtracting it can never
+            // uncover someone the detector never asserted was there.
+            // ONLY FROM AN ANCHORED ATTRIBUTION (R19 critic, F1).
+            // `ownFaceIndex` has two branches: with a head keypoint it
+            // picks the face nearest that anchor; WITHOUT one it falls
+            // through to `bestIndex`, the largest face in the crop —
+            // which in a two-shot is routinely the NEIGHBOUR's, and R18
+            // measured headX null on 59% of weak-tier admits. A stolen
+            // face already mis-supplies this person's verdict; letting it
+            // also punch a subtraction hole would put a sharp window over
+            // the very person it was stolen from. The verdict half of
+            // that bug is real and is R20's, with the critic's numbers in
+            // GOAL.md — this only refuses to build NEW geometry on it.
+            var anchored = typeof person.headX === 'number' && typeof person.headY === 'number';
+            var headSq = null;
+            try {
+              if (!anchored) throw new Error('unanchored');
+              var hb = faceRegionInVideo(faces[own]);
+              if (hb && hb.x2 > hb.x1 && hb.y2 > hb.y1) {
+                headSq = { x1: hb.x1, y1: hb.y1, x2: hb.x2, y2: hb.y2 };
+              }
+            } catch (e) {
+              /* geometry is optional; a missing head hole only means the
+                 old, over-wide behaviour for this pass */
+            }
             return {
               box: person,
+              headBox: headSq,
               flagged: mine.flagged,
               certain: mine.certain,
               // One read confident enough to clear on its own — see
@@ -1724,6 +1760,38 @@ import { planForMode } from './pipeline-plan.mjs';
               // on a slow device the cadence is what decides whether a
               // covered person's patch survives to the next pass.
               setVerdictCadence(effZoom);
+              // OBSERVATION PROVENANCE (gauntlet R19). `slots` shows what
+              // MoveNet raw-produced and `tracks` shows what survived, and
+              // between them sits the one step no artifact has ever
+              // recorded: personFromFace minting synthetic bodies, and
+              // dedupeObservations choosing ONE box per human. R19 scored
+              // FALSE COVER on a cleared man whose face sat inside another
+              // track's patch, and could not say from the artifact whether
+              // the offending box was MoveNet's measurement or an
+              // extrapolation that beat it on area in `preferred()`.
+              // `f` is the fromFace flag; `p` positionOnly; `v` the
+              // verdict shape. Wrapped because instrumentation has killed
+              // two releases and does not get to kill a third.
+              try {
+                var dbgO = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+                dbgO.obs = dbgO.obs || [];
+                dbgO.obs.push(
+                  observations.map(function (o) {
+                    var bx = (o && o.box) || {};
+                    return {
+                      f: bx.fromFace ? 1 : 0,
+                      p: o && o.positionOnly ? 1 : 0,
+                      v: o && o.positionOnly ? 'P' : (o && o.flagged ? 'F' : 'c') + (o && o.certain ? '!' : '?'),
+                      b: [bx.x1, bx.y1, bx.x2, bx.y2].map(function (n) {
+                        return typeof n === 'number' ? Math.round(n * 1000) / 1000 : null;
+                      }),
+                    };
+                  })
+                );
+                if (dbgO.obs.length > 60) dbgO.obs = dbgO.obs.slice(-60);
+              } catch (e) {
+                /* probes never break the pipeline */
+              }
               videoTracks = updatePersonTracks(videoTracks, observations, dt);
               // Calibration probe: per-track state after every pass, so
               // a "why is he not clearing" question is answered by
@@ -1739,6 +1807,15 @@ import { planForMode } from './pipeline-plan.mjs';
                     fs: tk.flagStreak,
                     cm: Math.round(tk.clearMs || 0),
                     lv: tk.lastVerdict,
+                    // R19: the track's own box. Without it a patch cannot
+                    // be attributed to the track that drew it, which is
+                    // the join every geometry question needs.
+                    b: tk.box
+                      ? [tk.box.x1, tk.box.y1, tk.box.x2, tk.box.y2].map(function (n) {
+                          return typeof n === 'number' ? Math.round(n * 1000) / 1000 : null;
+                        })
+                      : null,
+                    f: tk.box && tk.box.fromFace ? 1 : 0,
                   };
                 })
               );

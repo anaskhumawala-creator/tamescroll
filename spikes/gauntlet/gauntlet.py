@@ -181,6 +181,12 @@ PROBE = r"""
     // has logged it all along (init-entry.js slots probe); only the
     // harness was not reading it.
     slots: (d.slots || []).slice(-3),
+    // The deduped OBSERVATION list handed to the tracker (R19). Sits
+    // between `slots` (what MoveNet raw-produced) and `tracks` (what
+    // survived) — the one step no artifact recorded, and the step where
+    // personFromFace's extrapolated body can beat MoveNet's measured box
+    // on area and become the rectangle the user actually sees.
+    obs: (d.obs || []).slice(-3),
     cost: (function () {
       var c = d.cost || { verdict: [], pass: [] };
       function stat(a) {

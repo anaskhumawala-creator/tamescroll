@@ -766,3 +766,216 @@ test('dedupeObservations: one back-turned person seen twice still collapses', ()
   const b = { box: { x1: 0.12, y1: 0.62, x2: 0.38, y2: 1, headX: null, headY: null } };
   assert.equal(pt.dedupeObservations([a, b]).length, 1);
 });
+
+// --- R19: a cleared person's detected face may not be covered ---------
+// The gauntlet R19 failure, reproduced from the run's own numbers
+// (runs/r19-man f005): the covered child's track sat at x 0.414-0.894
+// while she really occupies ~0.50-0.72, so her padded patch was drawn
+// across the cleared man's face on six of ten frames.
+
+test('subtractBox: no overlap returns the patch untouched', () => {
+  const p = { x1: 0.4, y1: 0.0, x2: 1.0, y2: 1.0 };
+  const out = pt.subtractBox(p, { x1: 0.0, y1: 0.0, x2: 0.2, y2: 0.2 });
+  assert.equal(out.length, 1);
+  assert.deepEqual(out[0].box, p);
+});
+
+test('subtractBox: a hole biting one edge leaves three pieces and none of them covers it', () => {
+  // Linus's face square from runs/r19-man f005, against that frame's patch.
+  const patch = { x1: 0.388, y1: 0.045, x2: 1.0, y2: 0.999 };
+  const hole = { x1: 0.341, y1: 0.157, x2: 0.479, y2: 0.403 };
+  const parts = pt.subtractBox(patch, hole).map((p) => p.box);
+  assert.equal(parts.length, 3); // top, bottom, right — no left band survives
+  // The centre of his face must be inside NO piece.
+  const cx = 0.44;
+  const cy = 0.28;
+  for (const b of parts) {
+    assert.ok(
+      !(cx > b.x1 && cx < b.x2 && cy > b.y1 && cy < b.y2),
+      `piece ${JSON.stringify(b)} still covers the cleared face`
+    );
+  }
+  // ...and every piece stays inside the original patch: subtraction may
+  // only ever REMOVE cover, never add any.
+  for (const b of parts) {
+    assert.ok(b.x1 >= patch.x1 - 1e-9 && b.x2 <= patch.x2 + 1e-9);
+    assert.ok(b.y1 >= patch.y1 - 1e-9 && b.y2 <= patch.y2 + 1e-9);
+  }
+});
+
+test('subtractBox: a hole fully inside leaves four pieces', () => {
+  const patch = { x1: 0, y1: 0, x2: 1, y2: 1 };
+  const parts = pt.subtractBox(patch, { x1: 0.4, y1: 0.4, x2: 0.6, y2: 0.6 });
+  assert.equal(parts.length, 4);
+  // Sides, not indices: an index is not a stable identity because the
+  // four pieces are emitted conditionally.
+  assert.deepEqual(parts.map((p) => p.side).sort(), ['b', 'l', 'r', 't']);
+});
+
+test('subtractBox: a hole covering the patch leaves nothing', () => {
+  const parts = pt.subtractBox({ x1: 0.3, y1: 0.3, x2: 0.5, y2: 0.5 }, { x1: 0, y1: 0, x2: 1, y2: 1 });
+  assert.equal(parts.length, 0);
+});
+
+test('clearedHeadHoles: only CLEARED tracks, only fresh evidence', () => {
+  const head = { x1: 0.3, y1: 0.1, x2: 0.45, y2: 0.35 };
+  assert.equal(pt.clearedHeadHoles([{ state: 'cleared', headBox: head, headAgeMs: 0 }]).length, 1);
+  // A blurred track's own head must never be punched out — that is the
+  // covered person, and a hole in their patch is EXPOSURE.
+  assert.equal(pt.clearedHeadHoles([{ state: 'blurred', headBox: head, headAgeMs: 0 }]).length, 0);
+  // Stale evidence retires.
+  assert.equal(
+    pt.clearedHeadHoles([
+      { state: 'cleared', headBox: head, headAgeMs: pt.HEAD_HOLE_MAX_AGE_MS + 1 },
+    ]).length,
+    0
+  );
+  assert.equal(pt.clearedHeadHoles([{ state: 'cleared', headBox: null, headAgeMs: 0 }]).length, 0);
+});
+
+test('blurredTracks: a covered neighbour cannot cover a cleared face', () => {
+  const covered = {
+    id: 11,
+    state: 'blurred',
+    box: { x1: 0.414, y1: 0.148, x2: 0.894, y2: 1 },
+    vx: 0,
+    vy: 0,
+  };
+  const clearedMan = {
+    id: 7,
+    state: 'cleared',
+    box: { x1: 0.138, y1: 0, x2: 0.694, y2: 1 },
+    headBox: { x1: 0.341, y1: 0.157, x2: 0.479, y2: 0.403 },
+    headAgeMs: 0,
+    vx: 0,
+    vy: 0,
+  };
+  const before = pt.blurredTracks([covered]);
+  assert.equal(before.length, 1);
+  const cx = 0.44;
+  const cy = 0.28;
+  assert.ok(
+    before.some((r) => cx > r.box.x1 && cx < r.box.x2 && cy > r.box.y1 && cy < r.box.y2),
+    'precondition: without the cleared track his face IS covered'
+  );
+  const after = pt.blurredTracks([covered, clearedMan]);
+  assert.ok(
+    !after.some((r) => cx > r.box.x1 && cx < r.box.x2 && cy > r.box.y1 && cy < r.box.y2),
+    'his face must be sharp once his track is cleared'
+  );
+  // Every piece keeps a distinct, stable key so video-region does not
+  // lerp one piece's rect onto another's overlay.
+  assert.equal(new Set(after.map((r) => r.key)).size, after.length);
+});
+
+test('blurredTracks: a cleared track with no head evidence changes nothing', () => {
+  const covered = { id: 11, state: 'blurred', box: { x1: 0.4, y1: 0.1, x2: 0.9, y2: 1 }, vx: 0, vy: 0 };
+  const cleared = { id: 7, state: 'cleared', box: { x1: 0.1, y1: 0, x2: 0.7, y2: 1 }, vx: 0, vy: 0 };
+  assert.deepEqual(pt.blurredTracks([covered, cleared]), pt.blurredTracks([covered]));
+});
+
+test('the head hole rides the track and ages out', () => {
+  const head = { x1: 0.3, y1: 0.1, x2: 0.45, y2: 0.35 };
+  let tracks = updatePersonTracks(
+    [],
+    [{ box: boxA, flagged: false, certain: true, headBox: head }],
+    250
+  );
+  assert.deepEqual(tracks[0].headBox, head);
+  assert.equal(tracks[0].headAgeMs, 0);
+  // A position-only pass moves the box; the hole moves with it and ages.
+  const moved = { x1: 0.2, y1: 0.1, x2: 0.5, y2: 0.8 };
+  tracks = updatePersonTracks(tracks, [{ box: moved, positionOnly: true }], 250);
+  assert.ok(tracks[0].headBox.x1 > head.x1, 'hole followed the box');
+  assert.equal(tracks[0].headAgeMs, 250);
+  // Coasting with no observation at all keeps ageing it.
+  tracks = updatePersonTracks(tracks, [], 250);
+  assert.equal(tracks[0].headAgeMs, 500);
+});
+
+test('a hole that has drifted on unverified evidence shrinks instead of switching off', () => {
+  const head = { x1: 0.30, y1: 0.10, x2: 0.42, y2: 0.32 };
+  const fresh = pt.clearedHeadHoles([
+    { state: 'cleared', headBox: head, headAgeMs: 0, headDrift: 0 },
+  ])[0];
+  assert.deepEqual(fresh, head);
+  const drifted = pt.clearedHeadHoles([
+    { state: 'cleared', headBox: head, headAgeMs: 0, headDrift: 0.02 },
+  ])[0];
+  assert.ok(drifted.x1 > fresh.x1 && drifted.x2 < fresh.x2, 'drift insets the hole');
+  const aged = pt.clearedHeadHoles([
+    { state: 'cleared', headBox: head, headAgeMs: pt.HEAD_HOLE_MAX_AGE_MS, headDrift: 0 },
+  ])[0];
+  assert.ok(aged.x1 > fresh.x1, 'age insets the hole');
+  // Drift past half the short side leaves nothing worth trusting.
+  assert.equal(
+    pt.clearedHeadHoles([{ state: 'cleared', headBox: head, headAgeMs: 0, headDrift: 0.07 }]).length,
+    0
+  );
+});
+
+test('piece keys survive a sibling disappearing', () => {
+  const covered = { id: 4, state: 'blurred', box: { x1: 0.3, y1: 0.2, x2: 0.9, y2: 0.9 }, vx: 0, vy: 0 };
+  // Hole in the middle -> four pieces.
+  const inside = {
+    id: 1,
+    state: 'cleared',
+    box: { x1: 0.3, y1: 0.2, x2: 0.9, y2: 0.9 },
+    headBox: { x1: 0.5, y1: 0.4, x2: 0.6, y2: 0.5 },
+    headAgeMs: 0,
+    headDrift: 0,
+    vx: 0,
+    vy: 0,
+  };
+  const four = pt.blurredTracks([covered, inside]);
+  assert.equal(four.length, 4);
+  // Same hole, now touching the patch top -> the top slab is gone, and
+  // the bottom slab must KEEP its key rather than inherit the top's.
+  const topped = { ...inside, headBox: { x1: 0.5, y1: 0.1, x2: 0.6, y2: 0.5 } };
+  const three = pt.blurredTracks([covered, topped]);
+  assert.equal(three.length, 3);
+  const keyOf = (list, side) => list.find((r) => r.key.endsWith('#' + side));
+  assert.ok(keyOf(four, 'b') && keyOf(three, 'b'));
+  assert.equal(keyOf(four, 'b').box.y2, keyOf(three, 'b').box.y2);
+  assert.equal(keyOf(three, 't'), undefined);
+});
+
+test('sameHuman: two people shoulder to shoulder are not one person', () => {
+  // runs/r19-man f003, measured: the child's box is 0.726 contained in
+  // the man's, their heads sit 0.15 apart, and the OLD body-denominated
+  // bar (0.5 x 0.579 = 0.290) merged them -- deleting one of the three
+  // humans in frame and leaving her sharp on runs/r19d-man f002.
+  const man = {
+    box: { x1: 0.151, y1: 0, x2: 0.739, y2: 1, headX: 0.45, headW: 0.125 },
+  };
+  const child = {
+    box: { x1: 0.319, y1: 0.201, x2: 0.898, y2: 1, headX: 0.6, headW: 0.092 },
+  };
+  assert.ok(pt.containment(child.box, man.box) >= pt.MERGE_CONTAIN_MIN, 'precondition: contained');
+  assert.equal(sameHumanBodyRule(man, child), true, 'precondition: the old rule merged them');
+  assert.equal(pt.sameHuman(man, child), false);
+});
+
+// The rule as it stood before R19, kept here so the regression this
+// replaces stays visible rather than becoming folklore.
+function sameHumanBodyRule(a, b) {
+  if (pt.containment(a.box, b.box) < pt.MERGE_CONTAIN_MIN) return false;
+  const narrow = Math.min(a.box.x2 - a.box.x1, b.box.x2 - b.box.x1);
+  return Math.abs(a.box.headX - b.box.headX) <= pt.MERGE_HEAD_SEP * narrow;
+}
+
+test('sameHuman: two representations of ONE person still merge', () => {
+  // A MoveNet body and the personFromFace body built from the same face:
+  // the head anchors are a keypoint average against a face centre, which
+  // disagree by a fraction of a head width.
+  const movenet = { box: { x1: 0.30, y1: 0.10, x2: 0.70, y2: 1, headX: 0.50, headW: 0.11 } };
+  const synthetic = { box: { x1: 0.26, y1: 0.02, x2: 0.76, y2: 1, headX: 0.54, headW: 0.10 } };
+  assert.equal(pt.sameHuman(movenet, synthetic), true);
+  assert.equal(pt.dedupeObservations([movenet, synthetic]).length, 1);
+});
+
+test('sameHuman: with no head width the body rule still applies', () => {
+  const a = { box: { x1: 0.30, y1: 0.10, x2: 0.70, y2: 1, headX: 0.50 } };
+  const b = { box: { x1: 0.26, y1: 0.02, x2: 0.76, y2: 1, headX: 0.54 } };
+  assert.equal(pt.sameHuman(a, b), true);
+});

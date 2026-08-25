@@ -80,10 +80,10 @@ at least once.
 
 | # | query | gender | why this one |
 |---|---|---|---|
-| 1 | (fixed) NWoT1ZVd1Lo | man | baseline: adult male + child female, known-hard |
+| 1 | (fixed) NWoT1ZVd1Lo | man | baseline: adult male + child female, known-hard. R19 note: a rotation entry is a VIDEO, not a window - every round before R19 used t=560; moving to t=901 produced the worst man-direction score on record. Move the offset. |
 | 2 | (fixed) NWoT1ZVd1Lo | woman | same footage, inverted expectation |
 | 3 | ted talk full speech | man | single speaker, stage lighting, slow cuts |
-| 4 | news panel discussion | woman | 3-5 people, seated, small faces |
+| 4 | news panel discussion | woman | 3-5 people, seated, small faces. R19 note: news footage is half GRAPHICS - z5WBceo0bIg is a title slate at t=240 (and painted a whole-frame GHOST over it), fFbNU0TvMH8 is two men in split-screen boxes at t=600. Probe forward for actual faces, and note this is the only GHOST-regime footage in the table. |
 | 5 | cooking show episode | man | hands and objects — the GHOST trap |
 | 6 | graduation ceremony full ceremony | woman | crowd shots, 100+ people. R16 note: "conference keynote audience" resolves to single-speaker talking heads, not crowds, and livestreams open on a title-card slate - probe forward before capturing |
 | 7 | sports post match interview | man | motion, back-turned subjects |
@@ -2532,3 +2532,253 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   it. (8) The `attr` probe mixes coordinate spaces (frame-space headX
   against crop-space face centres), so `own === -1` — which hard-returns
   a covered verdict on 25% of reads — is currently unauditable.
+
+- **R19** — rotation entry 1 (baseline `NWoT1ZVd1Lo`, **man**), but at a
+  window no round had ever captured: **t=901**, not the t=560 every
+  earlier baseline round used. Ten frames @1.5s, plus the R18 classroom
+  in `woman` as the symmetry regression. Build `826c357-dirty`; PID
+  changed on every rebuild (18012 -> 45772 -> 34840 -> 32360 -> 28868).
+  The dev watcher is still dead — every rebuild was an explicit stop /
+  `cargo build` / detached relaunch.
+
+  **THE OWNER WAS BLURRED ON EIGHT OF TEN FRAMES, IN HIS OWN DIRECTION.**
+  On f007 he is ALONE in a close-up and the entire video is covered. The
+  baseline video has been the regression anchor for nineteen rounds and
+  this window had never been looked at; moving the offset by six minutes
+  produced the worst `man`-direction score on record. **A rotation entry
+  is a video, not a window. Move the offset.**
+
+  **THE VERDICT LAYER WAS NOT THE FAILURE, AND THAT IS THE ROUND.** On
+  f003-f006 Linus's own track reads `st:cleared, cs:2, lv:clear-certain`
+  with gender reads `male 0.67/0.74/0.89/0.90/0.92/0.93` at childP
+  0.01-0.02 — the pipeline knew exactly who he was, and drew a
+  neighbour's rectangle across his face anyway. Every round from R9 to
+  R18 worked on detection and verdict. This one is geometry: the step
+  between "we know who is who" and "these rectangles are on the video."
+
+  **SHIPPED 1: a covered patch may not cover a CLEARED person's detected
+  face.** `subtractBox` / `clearedHeadHoles` in person-track.mjs, fed by
+  a `headBox` the observation now carries. The subtracted region is
+  `faceRegionInVideo(faces[own])` — the square the gender model actually
+  read from, in frame coordinates. **The safety argument is the whole
+  point and it is not a heuristic: a face that was DETECTED this pass is
+  an unoccluded face, so those pixels are HIS. Covering them can only
+  ever be FALSE COVER; it can never be preventing an EXPOSURE, because
+  nobody behind his head is visible there to expose.** That argument
+  holds for a head and NOT for a body — bodies are not convex, and the
+  gap between an arm and a torso shows whatever is behind it — so only
+  head squares are ever subtracted, and only ones a cleared track earned.
+  The tempting alternative (clamp the patch's left edge to the right of
+  his head) was rejected in code with the reason: it exposes a
+  FULL-HEIGHT band on nothing but a positional guess.
+
+  **SHIPPED 2: `sameHuman` was measuring with the wrong ruler, and it was
+  deleting one of three people on every pass.** The separation guard was
+  denominated in the narrower **body** width, and a body box sprawls —
+  MoveNet's keypoint union leaks a wrist onto a neighbour,
+  `personFromFace` extrapolates 3.9 face-heights per side — so the
+  guard's tolerance GREW with the sprawl it exists to catch. Two people
+  shoulder to shoulder always have heads closer than half a body width,
+  so on them it could never fire. Measured, f003: containment(child, man)
+  0.726, heads 0.15 apart, old bar `0.5 x min(0.579, 0.588)` = **0.290**
+  -> merged, and `preferred` keeps the larger box, so **the child's
+  observation and the faceres inference already paid for it are
+  discarded**. `dedupeMerged` ran 9 -> 115 over 13.7s, about one deletion
+  per pass, and *which* of the three humans died was decided by
+  iteration order rather than by evidence.
+  **runs/r19d-man f002 is what that looks like on screen: two tracks for
+  three humans, and the ten-year-old fully sharp. EXPOSURE, the worst
+  class, on the intermediate build.** It was not caused by the new hole —
+  it is the pre-existing dedupe, and it had simply never landed on the
+  child before in a scored frame.
+  `person-gate.mjs` already computed a head WIDTH and threw it away; it
+  is now published on the person box, and `personFromFace` publishes
+  `h / ar` (the face's width on the faithful axis — the detector's box is
+  square in NORMALIZED units, so its x extent carries a hidden factor of
+  the frame aspect, for the third time in this codebase). New bar:
+  **1.0 x the wider head**. Heads are rigid and cannot overlap, so
+  different people sit at >= ~1.5 head widths, while two REPRESENTATIONS
+  of one person (a MoveNet keypoint average against a BlazeFace face
+  centre) disagree by a fraction of one. On f003 that is 0.125 against a
+  0.15 separation — they stay two people. **Strictly stricter than the
+  old rule on every pair it applies to, and refusing a merge can only ADD
+  a patch, never remove one**, so the class it can regress is the
+  stacked-patch cosmetic complaint, not exposure. Falls back to the body
+  rule when either side has no head — the weak-tier population, whose
+  boxes are MoveNet's raw ones with no keypoint union, so they do not
+  sprawl and the old rule is not wrong about them.
+
+  **THE CRITIC FOUND FOUR DEFECTS IN MY OWN FIX, MID-FLIGHT, ALL SHIPPED
+  AS CORRECTIONS.** Its lens this round was composition rather than
+  detection, and it spent its budget on the code I was writing:
+  * **Piece keys were positional indices over a conditionally-built
+    list.** `subtractBox` pushes top/bottom/left/right each behind an
+    `if`, so the moment the hole reaches the patch's top edge the top
+    slab is omitted and `#0` silently becomes the BOTTOM slab —
+    `video-region` keys DOM nodes by that string and lerps each from its
+    own last rect, so the transition would glide one overlay from the top
+    of the frame to the bottom. One pass of drift away on f004 (patch top
+    y 0.037 against a hole reaching y 0.147). Pieces now carry their
+    SIDE.
+  * **`border-radius: 8px` was unconditional.** Four pieces around a hole
+    meet along four seams and each rounds its corners AWAY from the
+    junction — up to ~16px squares of the covered person left sharp at
+    each hole corner on a 1080p player. The fix would have introduced the
+    class it fixes. Pieces are square-cornered; whole patches keep the
+    rounding.
+  * **Hole on/off rekeyed the whole patch**, and `nextRendered.push(null)`
+    means a fresh key SNAPS. At the 400ms verdict cadence that is visible
+    flicker. The hole now SHRINKS instead of switching off.
+  * **`shiftHead` translated the hole by the box-centre delta on every
+    position pass**, and the box centre moves for reasons a head does not
+    (EMA convergence, keypoint-union jitter, size extrapolation). The
+    hole is only ~0.12 wide and her box's x1 swung 0.319/0.389/0.330/
+    0.323 across four frames. The hole is now inset by the distance it
+    has been translated on unverified evidence — which makes it a subset
+    of where the face plausibly still is — and by `HEAD_HOLE_AGE_SHRINK`
+    0.25 of its short side as it ages out.
+  * Fifth, from the critic's F1: a hole is refused entirely when
+    `ownFaceIndex` fell through to its `bestIndex` branch. That branch
+    picks the LARGEST face in the crop, which in a two-shot is routinely
+    the neighbour's, and R18 measured headX null on 59% of weak-tier
+    admits — a stolen face must not punch a sharp window over the person
+    it was stolen from.
+
+  **SCORES, every frame read against its truth pair, and MEASURED rather
+  than eyeballed.** New in `spikes/gauntlet`: `cover.py`, `covmap.py`,
+  `faces.py`, `girl.py` — a pixel is covered where `fNNN.png` differs
+  from `fNNN_truth.png`, which is the patch set as the USER sees it
+  (overlay lerp and stacking included), not as the probe reported it a
+  few hundred ms earlier. The two disagree on churny frames and the
+  frame is the one that counts.
+  * **man, before (r19-man / r19b-man repeat) -> after (r19e-man /
+    r19f-man repeat): FALSE COVER 8/10 -> 1/10 full + 3/10 partial.**
+    His face measured covered **58.7% / 45.3% mean -> 20.0% / 21.4%**.
+    f000, f004, f005, f006 go from fully blurred to FULLY SHARP —
+    face, torso, arm — with the child covered beside him; those four are
+    the dedupe fix, not the hole (his own track exists again, so it
+    clears and the covered patch is properly scoped). f001, f002, f003
+    are the hole: face sharp in a clean square-cornered window, chin and
+    body still covered.
+  * **EXPOSURE 0/10 -> 0/10.** Child coverage 85-92% on every frame she
+    is present, before and after. The intermediate r19d build scored her
+    at 43% and 27% on two frames — that is the dedupe deletion above, and
+    it is why shipped-2 is in this round rather than the next one.
+  * **PARTIAL: r19f f000 leaves her hair crown sharp** above the patch in
+    the birth window right after the seek. GHOST 0, DRIFT 0.
+  * `f007` is UNCHANGED and still fully covers a lone man (81%). The
+    head-hole structurally cannot help it — a hole needs a `cleared`
+    track and here the man's own track is the blurred one.
+  * **woman (R18 classroom, r19-woman -> r19e-woman): no change, as
+    designed.** Track and patch counts identical, `dedupeMerged` 84 -> 83
+    (the head-width rule barely fires there: most weak-tier admits have
+    null headX and take the body fallback). The head-hole is provably
+    inert on that footage — no track ever reaches `cleared`, because
+    R18's teacher still reads male. Children-band coverage 79/74/70/... 
+    unchanged frame for frame. The front-row bottom band reads 79.4 ->
+    78.6 mean against a **53-89 swing measured across four runs of the
+    same footage** (r18e, r19, r19c, r19e), so it is variance, and the
+    exposure there remains R18's open residual.
+
+  cost: man verdict p50 **121-152 -> 111ms**, pass p50 25 -> 24;
+  woman verdict p50 121 -> 118, pass 24 -> 24. gaze **157/157** (144
+  plus 13: 5 on `subtractBox` including side-keys and the piece-survives-
+  a-missing-sibling case, 2 on hole freshness and drift-shrink, 2 on
+  `blurredTracks` with and without head evidence, 1 on the hole riding
+  and ageing, 3 on `sameHuman` in both directions plus the body
+  fallback). cargo 36/36.
+
+  **REJECTED, with the reason, so R20 does not re-litigate.** The
+  critic's most direct route to the residual FALSE COVER was to clamp a
+  covered patch's contested edge to `hx_cleared + 0.4 x (hx_covered -
+  hx_cleared)`, and its calibration is genuinely striking: f001 is the
+  ONE frame of the run that scored correct, its patch edge is 0.502, and
+  alpha=0.4 reproduces that to within 0.012 on all four failing frames
+  (0.510 / 0.514 / 0.502 / 0.498). Not taken, for the reason the critic
+  itself gave: alpha is fitted to four frames of ONE shot, and the class
+  it can open is EXPOSURE (her arm reaching across his half goes sharp).
+  **I went looking for the second two-shot to settle it and could not
+  find one in the time** — `news panel discussion` resolved to a graphics
+  slate at t=240 (`z5WBceo0bIg`) and to two men in split-screen boxes at
+  t=600 (`fFbNU0TvMH8`), neither of which produces a cleared adult beside
+  a covered one. R20 should find that footage FIRST and then decide.
+  Shipping a fitted constant in the same round as two measured changes
+  would also have made the next round unable to attribute any of them.
+
+  **NEW INSTRUMENTATION, because this round could not answer its own
+  question from the artifact.** `obs` — the deduped OBSERVATION list
+  handed to the tracker, with a `fromFace` flag per box. It sits between
+  `slots` (what MoveNet raw-produced) and `tracks` (what survived), and
+  it is the step where an extrapolated body can beat a measured one and
+  become the rectangle the user sees. It immediately refuted my own first
+  hypothesis (I assumed the over-wide patch was `preferred` keeping a
+  synthetic body; `f:0` on every offending track says it was not) and it
+  is what exposed f007's `{f:1, b:[0,0,1,1]}` — a synthetic body covering
+  the entire frame. Tracks also now carry their own box and fromFace
+  flag, so a patch can be attributed to the track that drew it.
+
+  **R20's queue.**
+  (1) **f007, the last full-frame FALSE COVER, and the critic diagnosed
+  it better than I did.** `cutCoastExpired` goes 0 -> 1 between f006 and
+  f007, so `demoteTracks` ran: there is a scene cut to the close-up and
+  demotion resets Linus's cleared track. MoveNet's zero is expected and
+  the face fallback fired correctly; what it PRODUCED is the failure. The
+  full-frame BlazeFace box reads `cx 0.49, cy 0.58, h 0.563` against his
+  actual face centre (0.59, 0.427) — a 1102x620px rectangle centred on
+  his CHIN, at 57% of frame height, far out of BlazeFace's distribution.
+  `faceRegionInVideo` recovers the size and keeps that centre, so the
+  tile handed to faceres is ~45% T-shirt and wall, and the reads come
+  back `childP 0.67` and `0.34`, both over GENDER_CHILD_MASS — i.e.
+  ABSTENTIONS, which can never clear a track, so the demoted track is
+  structurally unable to recover until MoveNet finds him again on f008.
+  **Settle the causal claim offline before building anything**: feed
+  `classifyFaceGenders` (a) the mis-centred crop and (b) one centred on
+  his real face at the same 620px side, and compare raw sigmoid and
+  childP. If (b) reads male with childP < 0.25 the crop is the culprit
+  and the fix is to re-detect inside a ~2x face crop when the known face
+  box is large (>0.25 normalized) — note this INVERTS person-gate's
+  standing argument against re-detecting, which is about the opposite
+  regime (a face at ~2% of model input, below BlazeFace's ~5% floor).
+  The same pass also minted a phantom body from a face on the tiled
+  BACKSPLASH (`cx 0.84, cy 0.60, h 0.279`) — inert in `man`, a half-frame
+  GHOST in `woman`.
+  (2) **`ownFaceIndex` can hand one person's verdict to their
+  neighbour.** `init-entry.js` ~:1054-1078, tolerance
+  `d <= max(0.18, fw)` where `fw` is the CANDIDATE face's width in CROP
+  units — both denominators wrong, and the tolerance GROWS with the
+  neighbour's size. Measured on f003: the child's head anchor sits 0.040
+  from her own face and **0.236 from Linus's, against a tolerance of
+  0.296 — his face is eligible to supply her verdict.** She wins only by
+  being nearer. One pass where BlazeFace misses her face and the child's
+  track receives `male 0.74 / childP 0.02`, `clear-certain`; twice and
+  she is cleared. That is EXPOSURE. 19 of 40 crops in this run contain
+  more than one face. Proposed `d <= 0.5 * fw`, but it also deletes the
+  0.18 floor, so **recompute d and 0.5*fw for all 40 `attr` rows and
+  confirm every currently-correct attribution survives before shipping**
+  — the failure mode of getting it wrong is mass FALSE COVER in the man
+  direction. This round only refused to build new GEOMETRY on it.
+  (3) **`preferred` keeps the guess and destroys a paid verdict.** It
+  returns one object wholesale, so the survivor does not carry the
+  loser's evidence: a faceres inference the pass already paid for is
+  thrown away and the deleted person's track goes unfed -> coast ->
+  expire -> re-mint BLURRED. Minimum fix ~4 lines: OR the evidence into
+  the survivor and **refuse the merge outright when one side is
+  `clear-certain` and the other `flag-certain`** — two genders cannot be
+  one person. It would not have fired this round (the child read is an
+  abstention), so it needs footage that exercises it.
+  (4) The alpha clamp from REJECTED above, once a second two-shot exists.
+  (5) **A whole-frame GHOST over a graphics slate**, captured in passing:
+  `runs/r19c-panel-woman` f008/f009, `z5WBceo0bIg` at t=248-255, persons
+  0 on all ten frames, and a track born at box `[0,0,1,1]` painting the
+  entire title card. Same synthetic-body-from-a-phantom-face mechanism as
+  (1). Also worth adding to the rotation table: news-channel footage is
+  half graphics, which is a GHOST regime the table does not otherwise
+  cover.
+  (6) The highest-scoring "person" in several baseline frames is the
+  plastic MANNEQUIN on the counter (slot 0, score 0.371, 10 confident
+  keypoints — above every real person in frame), and one of three
+  ZOOM_MAX_PERSONS verdict slots per pass goes to it.
+  (7) Still open from R18: the teacher (an adult woman in profile reading
+  `male` 24 times of 29, max score 0.51 in BOTH directions — faceres has
+  no signal on a profile and `isNullRead` is not catching it), the
+  front-row frame-edge band, and the square-256 person-pass resize.

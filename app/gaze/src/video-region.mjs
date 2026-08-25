@@ -81,8 +81,16 @@ function resolveHost(video) {
   return (video.closest && video.closest('#movie_player')) || null;
 }
 
-function makeOverlay() {
+function makeOverlay(key) {
   var d = document.createElement('div');
+  // A patch SPLIT around a cleared person's head (person-track's
+  // subtractBox) meets its siblings along four straight seams, and the
+  // 8px corner radius below rounds every piece AWAY from those
+  // junctions — leaving four ~16px squares of the covered person sharp
+  // at the hole's corners on a 1080p player, which is the very class the
+  // split exists to reduce. Pieces are square-cornered; only whole
+  // patches keep the rounding.
+  var pieceKey = typeof key === 'string' && key.indexOf('#') !== -1;
   // Near-rectangular patch. z-index MEASURED against the live player
   // (2026-08-25): .html5-video-container is z-index 10, the bottom
   // gradient 24 and .ytp-chrome-bottom 59 — so 20 is the only band that
@@ -95,7 +103,7 @@ function makeOverlay() {
   // corners (owner 2026-08-24: "rounded edges are distorting").
   d.style.cssText =
     'position:absolute;left:0;top:0;width:' + BASE_PX + 'px;height:' + BASE_PX + 'px;' +
-    'pointer-events:none;border-radius:8px;z-index:20;' +
+    'pointer-events:none;border-radius:' + (pieceKey ? '0' : '8px') + ';z-index:20;' +
     'will-change:transform;' +
     'backdrop-filter:blur(var(--ts-blur-strong,24px));' +
     '-webkit-backdrop-filter:blur(var(--ts-blur-strong,24px));';
@@ -283,7 +291,7 @@ export function setTracks(video, tracks) {
       nextOverlays.push(entry.overlays[idx]);
       nextRendered.push(entry.rendered[idx] || null);
     } else {
-      var o = makeOverlay();
+      var o = makeOverlay(key);
       o.className = HOST_CLASS;
       o.__tsKey = key || '';
       entry.host.appendChild(o);
