@@ -455,6 +455,39 @@ test('clearStreak decays on uncertainty but is erased by a certain opposite', ()
   assert.equal(t2[0].clearStreak, 0, 'a certain opposite read erases, not decays');
 });
 
+test('a CLEARED track survives a slow verdict pass (the mirror bug)', () => {
+  // R9 critic: blurredCoastMs got the cadence treatment, the cleared
+  // limit stayed a flat PTRACK_MAX_MISS_MS 1000. `dt` includes the
+  // previous pass's full cost and `sampling` blocks position passes for
+  // the whole verdict, so after a 2-3s verdict the next dt exceeds 1000
+  // and a cleared track is DELETED on one miss - then re-detected and
+  // reborn `blurred`. A cleared same-gender man re-covered after every
+  // slow pass, on the phone, never on this desktop.
+  const survivesOneMiss = (cadence) => {
+    pt.setVerdictCadence(cadence);
+    const dt = Math.round(cadence + 400); // dt carries the pass cost
+    let tracks = [{
+      id: 1, box: boxA, state: 'cleared', missMs: 0, hits: 5,
+      clearMs: CLEAR_HOLD_MS, clearStreak: 3, flagStreak: 0, clearAge: 0, vx: 0, vy: 0,
+    }];
+    tracks = updatePersonTracks(tracks, [], dt);
+    return tracks.length === 1;
+  };
+  assert.ok(survivesOneMiss(400), 'desktop: a cleared track survives one miss');
+  assert.ok(survivesOneMiss(2109), 'slow pass: a cleared track must NOT die on one miss');
+  assert.ok(survivesOneMiss(3000), 'G88-speed pass: same');
+  // ...and the longer window must not let an unconfirmed clear ride
+  // forever: clearAge advances during coast so CLEARED_TTL_MS still bites.
+  pt.setVerdictCadence(3000);
+  let t = [{
+    id: 1, box: boxA, state: 'cleared', missMs: 0, hits: 5,
+    clearMs: CLEAR_HOLD_MS, clearStreak: 3, flagStreak: 0, clearAge: 0, vx: 0, vy: 0,
+  }];
+  t = updatePersonTracks(t, [], 3400);
+  assert.ok((t[0].clearAge || 0) >= 3400, 'coasting must AGE a clear, not freeze it');
+  pt.setVerdictCadence(400);
+});
+
 test('coast window is capped however slow the verdict pass gets', () => {
   // effZoom is uncapped above, so without this a 4s verdict on a phone
   // would carry a stale patch for 10-15s. The cap still bounds it - but

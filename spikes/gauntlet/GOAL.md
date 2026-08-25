@@ -991,3 +991,92 @@ Owner constraint: nothing indecent. Queries stay ordinary.
     blur, could not confirm WebGL context loss on the phone, did not read
     video-region.mjs or region-blur.mjs beyond call sites, and labels every
     millisecond figure in its ranking as an estimate.
+
+- **R10** — rotation entry 8 (`classroom lecture`, **woman**), video
+  DD54J5kecpg t=900-915: a Harvard lecture hall — a woman lecturer at the
+  blackboard, a foreground row of students seen from BEHIND, and (at t=900)
+  a medium close-up of a woman speaking. In `woman` direction women must be
+  completely sharp.
+
+  | class | r10-woman | regression check (r10b-man, R9's footage) |
+  |---|---|---|
+  | FALSE COVER frames | **10/10** | 2/10 (unchanged from R9) |
+  | EXPOSURE / PARTIAL / GHOST / DRIFT | 0 | 0 |
+  | verdict first / p50 / p95 / max | 4508 / 157 / 312 / **4508** | 2794 / 120 / 225 / **2794** |
+  | newTrack in-window (now baselined) | 15 | 3 |
+
+  **The worst score any round has recorded, and it is the woman direction.**
+  Every track blurred, every frame. This is the calibration item R9 flagged
+  and deferred, now measured on an unambiguous face.
+
+  **The decisive frame is f000.** A medium close-up of a woman — frontal,
+  well lit, face ~20% of frame height, nothing hard about it — is FULLY
+  COVERED. Her read was `female 0.31`. `GENDER_CLEAR_SCORE_FEMALE` is 0.45,
+  set in R6 from **five samples**. She fails the bar, so she is uncertain,
+  so she is covered. Every woman-mode user would see this on every video,
+  and it is precisely the person the setting exists to leave alone.
+
+  **All 40 reads, and the pattern is not subtle: 38 of 40 read `male`**,
+  scores 0.07-0.74 median 0.29, ages 27-42, nearly all from single-face
+  (`n:1`) crops. 28 of the 38 clear GENDER_MIN_SCORE 0.25, so they are
+  CERTAIN flags. Compare the same code on bigger faces: R9's interview read
+  male 0.71-0.99, R6's news panel read male 0.87-0.97 median 0.94. **The
+  same model on the same path gives 0.97 on a big face and 0.25 on a small
+  one, and the direction collapses to `male`.**
+  That asymmetry cuts opposite ways by direction, which is why nine
+  man-direction rounds never saw it: a no-signal `male` default CLEARS
+  people in man mode (invisible, and an exposure risk) and COVERS them in
+  woman mode (total false cover). NOT acted on this round — whether `male`
+  is a reading or a default is exactly what R10's critic was sent to
+  determine, and moving a safety-critical threshold on one video is what
+  produced R5's ghost regression.
+
+  **The cold-start EXPOSURE window R9's critic predicted DID NOT REPRODUCE.**
+  New `coldstart` harness mode polls from the moment of navigation, and the
+  hole is defined exactly: player carrying neither gaze class, no patches,
+  `__TS_GAZE_PERSONS` still undefined (the region path has never run), video
+  playing, not an ad. Two videos, 28s each: **hole_ticks 0 on both.**
+  `pending` held from navigation until MoveNet produced its first pass —
+  14.4s on one, 18.9s on the other — and only then did the player unblur.
+  The predicted chain needed full-frame BlazeFace to find no face for two
+  consecutive passes; in practice the ~22MB bundle eval also blocks video
+  DECODE, so `currentTime` sat at 0 for 13-15s and there were no frames to
+  expose. Honest mechanism, and it means blur-first held. Recorded as
+  REFUTED ON DESKTOP, not as refuted — a G88 changes the ratio between
+  "models loading" and "video decoding" and only a device settles it.
+
+  SHIPPED:
+  * **The CLEARED coast was still flat** while R9 made the blurred one
+    cadence-aware — the exact mirror bug, and R9's critic found it. `dt`
+    carries the previous pass's full cost and `sampling` blocks position
+    passes for the whole verdict, so against a flat 1000ms limit a 2109ms
+    verdict deletes a cleared track on ONE miss; it is then re-detected and
+    reborn `blurred`. A cleared same-gender man re-covered after every slow
+    pass, on the phone, never on this desktop. `clearedCoastMs` now takes
+    the same `min(cap, max(1000, 2.5*effZoom))`, and `coastStep` advances
+    `clearAge` during coast so `CLEARED_TTL_MS` still expires a clear
+    nobody re-confirmed. Desktop unchanged by construction (effZoom 400 =>
+    max(1000, 1000) = 1000). Regression-checked on R9's footage: 8/10 clean,
+    tracks persisting to cs 17, no change to the residual 2 birth frames.
+  * **HARNESS — a partial stall was scoring as evidence.** The existing
+    guard only asked whether the player moved AT ALL (max-min spread
+    >= 0.5s). The first r10-woman attempt sat frozen at t=900 for eight
+    frames then advanced to 905 on the last two: spread 5.26s, guard
+    satisfied, run "valid" — and those eight frozen frames were a BLACK
+    SCREEN WITH A PLAY BUTTON. Eight tenths of the round would have been
+    fiction. A run with >30% repeated timestamps is now INVALID.
+  * **HARNESS — `life` is baselined at the seek.** It is cumulative from
+    page load and nothing resets it, so R7/R8/R9 all quoted page totals as
+    per-window rates. `life_window` now reports the delta: 3 births in
+    R9's footage (matching the R9 critic's reconciliation exactly) and 15
+    in the lecture hall.
+
+  STILL OPEN:
+  * **the female clear bar (0.45, n=5) is the top item** — a frontal woman
+    reads 0.31. Needs the critic's verdict on whether low-score `male` is a
+    direction or a default before the bar moves either way.
+  * `cost.verdict.first === max` for the FOURTH consecutive round (4508,
+    2794, and R9's three). Warm-up still unbuilt and still the single
+    biggest millisecond item in the log.
+  * demote-on-cut (proven by r9b f006), personFromFace units, MERGE_MAX_FILL,
+    the memory override at person-track.mjs:496, crowd recall.

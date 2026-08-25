@@ -138,6 +138,14 @@ PROBE = r"""
     // Track lifecycle counters (person-track.mjs bump()): newTrack,
     // sizeReject, identityBroke, ... Churn conclusions are worthless
     // without them.
+    // Track lifecycle counters (person-track.mjs bump()). These are
+    // CUMULATIVE FROM PAGE LOAD — bump() only ever increments and nothing
+    // resets them, not on seek, not on loadstart. Three rounds quoted
+    // them as per-window RATES and were wrong every time ("7 newTrack per
+    // 10 frames" was 7 since the page loaded, across ~20s of pre-seek
+    // autoplay plus the seek wipe). The harness now stamps a baseline at
+    // the seek and reports the DELTA alongside the raw total, so a rate
+    // can be quoted honestly or not at all.
     life: d.life || null,
     // How many samplers are alive. __TS_GAZE_IDS is a WINDOW global while
     // videoTracks is per-element, so two live samplers would interleave
@@ -227,6 +235,141 @@ def search_ids(query, n=6):
     )
 
 
+# --- cold-start probe ------------------------------------------------
+# The ordinary run sleeps 20s after navigating, polls the duration for up
+# to 30s more, seeks, then settles 2s — so by its first frame the page is
+# at least 22 seconds old and every model has long since loaded. That
+# makes it STRUCTURALLY BLIND to the first seconds of a video, which is
+# where R9's critic traced an EXPOSURE window that fires on every single
+# video:
+#
+#   autoplay -> play -> ensureFaceModels (bypassing the post-load-idle
+#   deferral entirely) -> backend, face, gender, `genderSettled = true`,
+#   THEN the 6.8MB MoveNet embed.
+#
+# Between `genderSettled` and `personModel` the region path is closed
+# (it needs both), so the player falls through to the WHOLE-BLUR path —
+# whose clean-streak of 2 passes at the 120ms floor UNBLURS the video in
+# ~250-500ms if full-frame BlazeFace finds no face. That detector is the
+# one every earlier round measured as blind on wide shots, small subjects
+# and back-turned people. So the player can go sharp and stay sharp for
+# the whole MoveNet load plus the first verdict pass.
+#
+# `__TS_GAZE_PERSONS` is written ONLY by the region path, so `undefined`
+# means MoveNet has never produced a pass. The hole is exactly the
+# interval where the video carries neither gaze class AND persons is
+# still undefined. This probe is deliberately tiny: it runs every ~120ms
+# from the moment of navigation, and anything heavier would perturb the
+# very window it is measuring.
+COLD_PROBE = r"""
+(function () {
+  var v = document.querySelector('video');
+  var host = document.querySelector('#movie_player');
+  if (!v) return null;
+  var cls = v.className || '';
+  var vr = v.getBoundingClientRect();
+  var kids = host ? host.querySelectorAll('.ts-gaze-vregion-host').length : 0;
+  return {
+    t: +(v.currentTime || 0).toFixed(2),
+    paused: v.paused,
+    ad: host ? /ad-showing|ad-interrupting/.test(host.className || '') : false,
+    // The two blur-first classes. Neither present = the player is SHARP.
+    pending: cls.indexOf('ts-gaze-pending') !== -1,
+    flagged: cls.indexOf('ts-gaze-flagged') !== -1,
+    filt: (v.style && v.style.filter) || '',
+    patches: kids,
+    // undefined until the region path has run once = MoveNet not ready.
+    persons: window.__TS_GAZE_PERSONS,
+    boot: window.__TS_GAZE_BUNDLE__ || null,
+    rect: { x: vr.left, y: vr.top, w: vr.width, h: vr.height },
+  };
+})()
+"""
+
+
+def coldstart(outdir, gender, video, seconds=25.0):
+    """Capture the first seconds of a watch page, from navigation onward.
+
+    Writes one screenshot per STATE CHANGE (not per tick) plus a full
+    timeline, so the output is small but the transitions are all there.
+    A state is (pending, flagged, patches>0, persons-defined).
+    """
+    os.makedirs(outdir, exist_ok=True)
+    tab = open_platform(gender)
+    tab.eval("location.href='https://www.youtube.com/watch?v=%s'" % video)
+    t0 = time.time()
+    timeline, shots, last_state, i = [], [], None, 0
+    while time.time() - t0 < seconds:
+        try:
+            tab = tab if i else pick("youtube.com")
+            p = tab.eval(COLD_PROBE)
+        except Exception:
+            time.sleep(0.2)
+            try:
+                tab = pick("youtube.com")
+            except Exception:
+                pass
+            continue
+        if not p:
+            time.sleep(0.12)
+            continue
+        p["ms"] = int((time.time() - t0) * 1000)
+        timeline.append(p)
+        state = (
+            bool(p.get("pending")),
+            bool(p.get("flagged")),
+            (p.get("patches") or 0) > 0,
+            p.get("persons") is not None,
+        )
+        if state != last_state and p.get("rect", {}).get("w"):
+            last_state = state
+            name = "c%03d_%dms.png" % (i, p["ms"])
+            try:
+                tab.clip_shot(os.path.join(outdir, name), p["rect"])
+                shots.append({"file": name, **p})
+                i += 1
+            except Exception:
+                pass
+        time.sleep(0.12)
+
+    # The hole: player sharp (neither class, no patches) while the video
+    # is PLAYING and MoveNet has not produced a pass yet.
+    hole = [
+        s
+        for s in timeline
+        if not s.get("pending")
+        and not s.get("flagged")
+        and not (s.get("patches") or 0)
+        and s.get("persons") is None
+        and not s.get("paused")
+        and not s.get("ad")
+        and (s.get("t") or 0) > 0
+    ]
+    meta = {
+        "video": video,
+        "gender": gender,
+        "mode": "coldstart",
+        "ticks": len(timeline),
+        "shots": shots,
+        "hole_ticks": len(hole),
+        "hole_first_ms": hole[0]["ms"] if hole else None,
+        "hole_last_ms": hole[-1]["ms"] if hole else None,
+        "timeline": timeline,
+    }
+    with open(os.path.join(outdir, "meta.json"), "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=1)
+    print(
+        json.dumps(
+            {
+                "out": outdir,
+                "shots": len(shots),
+                "hole_ticks": len(hole),
+                "hole_ms": [meta["hole_first_ms"], meta["hole_last_ms"]],
+            }
+        )
+    )
+
+
 def run(outdir, gender, video, start, count, step):
     os.makedirs(outdir, exist_ok=True)
     tab = open_platform(gender)
@@ -295,7 +438,21 @@ def run(outdir, gender, video, start, count, step):
     )
     time.sleep(SETTLE_S)
 
-    meta = {"video": video, "gender": gender, "boot": boot, "frames": []}
+    # Baseline for the cumulative lifecycle counters — see `life` in the
+    # PROBE. Stamped AFTER the seek so the delta covers the capture window
+    # and nothing else.
+    life0 = tab.eval("JSON.stringify((window.__TS_GAZE_IDS||{}).life||{})")
+    try:
+        life0 = json.loads(life0 or "{}")
+    except Exception:
+        life0 = {}
+    meta = {
+        "video": video,
+        "gender": gender,
+        "boot": boot,
+        "life_baseline": life0,
+        "frames": [],
+    }
     for i in range(count):
         p = tab.eval(PROBE)
         if not p:
@@ -354,6 +511,19 @@ def run(outdir, gender, video, start, count, step):
     times = [f["t"] for f in meta["frames"]]
     if len(times) > 2 and max(times) - min(times) < 0.5:
         meta["invalid"] = "player never advanced (t=%.2f throughout)" % times[0]
+    # ...and a PARTIAL stall slips straight through that test. r10-woman
+    # sat frozen at t=900 for eight frames and then advanced to 905 on the
+    # last two: spread 5.26s, guard satisfied, run "valid" — and the eight
+    # frozen frames were a BLACK SCREEN WITH A PLAY BUTTON, scored as
+    # eight clean frames. Eight tenths of that round would have been
+    # fiction. The spread test only asks whether the player moved at all;
+    # what matters is whether each frame is its own moment.
+    frozen = sum(1 for i in range(1, len(times)) if abs(times[i] - times[i - 1]) < 0.05)
+    if not meta.get("invalid") and len(times) > 2 and frozen > len(times) * 0.3:
+        meta["invalid"] = (
+            "player stalled for %d of %d frames (repeated timestamps): those "
+            "frames are the same moment, not evidence" % (frozen, len(times))
+        )
     # THE VIDEO MUST STILL BE THE VIDEO. If the run overruns the end,
     # YouTube autoplays the NEXT video and the harness keeps shooting
     # happily — r6b captured six frames of one panel discussion and six
@@ -375,6 +545,11 @@ def run(outdir, gender, video, start, count, step):
             "%d of %d frames were captured during an AD - those are not this "
             "video's frames" % (ads, len(meta["frames"]))
         )
+    # Cumulative counters -> a window delta the log can quote as a rate.
+    lastlife = (meta["frames"][-1].get("life") or {}) if meta["frames"] else {}
+    meta["life_window"] = {
+        k: v - (life0.get(k) or 0) for k, v in (lastlife or {}).items()
+    }
     ids = set(f.get("vid") for f in meta["frames"] if f.get("vid"))
     if len(ids) > 1:
         meta["invalid"] = "video id changed mid-run: %s" % sorted(ids)
@@ -389,6 +564,10 @@ if __name__ == "__main__":
     a = sys.argv[1:]
     if a and a[0] == "search":
         print(json.dumps(search_ids(a[1], int(a[2]) if len(a) > 2 else 6)))
+        raise SystemExit(0)
+    # coldstart <outdir> <gender> <videoId> [seconds]
+    if a and a[0] == "coldstart":
+        coldstart(a[1], a[2], a[3], float(a[4]) if len(a) > 4 else 25.0)
         raise SystemExit(0)
     if len(a) < 5:
         raise SystemExit(__doc__)

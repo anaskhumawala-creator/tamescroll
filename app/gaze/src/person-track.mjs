@@ -597,15 +597,39 @@ export var PTRACK_MAX_COAST_MS = 2000;
 // which is where the exposure was.
 export var PTRACK_MIN_COAST_PASSES = 2;
 
+// The CLEARED limit needs exactly the same treatment, and not giving it
+// the same treatment was the mirror of the bug above (R9 critic). `dt` is
+// `now - lastPassAt` with `now` taken at pass START, so dt for pass N+1
+// includes pass N's full cost, and `sampling` blocks every position pass
+// for the duration of a verdict pass. Against a FLAT 1000ms limit:
+//
+//   verdict  120ms (this desktop p50) -> dt ~250ms  -> survives 4 misses
+//   verdict 2109ms (R8 run B max)     -> dt ~2.5s   -> DELETED on ONE miss
+//   verdict 3000ms (plausible G88)    -> dt ~3.4s   -> DELETED, every time
+//
+// A deleted cleared track's person is re-detected on the next pass and
+// gets `newTrack`, which starts BLURRED. So a cleared same-gender man is
+// re-covered after every slow verdict pass, on the phone, forever — and
+// never once on this desktop, which is why ten rounds of desktop frames
+// missed it. At effZoom 400 the formula returns max(1000, 2.5*400) = 1000,
+// i.e. desktop behaviour is unchanged by construction; it only opens up
+// where the pass is genuinely slow, which is where the failure was.
+//
+// The new risk — a cleared track surviving longer without evidence — is
+// bounded by advancing `clearAge` during coast (see coastStep), so
+// CLEARED_TTL_MS still expires a clear nobody has re-confirmed.
+var clearedCoastMs = PTRACK_MAX_MISS_MS;
+
 export function setVerdictCadence(effZoomMs) {
   var ms = typeof effZoomMs === 'number' && effZoomMs > 0 ? effZoomMs : 0;
   var cap = Math.max(PTRACK_MAX_COAST_MS, Math.round(PTRACK_MIN_COAST_PASSES * ms));
   blurredCoastMs = Math.min(cap, Math.max(PTRACK_MAX_MISS_BLURRED_MS, Math.round(2.5 * ms)));
+  clearedCoastMs = Math.min(cap, Math.max(PTRACK_MAX_MISS_MS, Math.round(2.5 * ms)));
 }
 
 function coastStep(t, dt) {
   var missMs = t.missMs + dt;
-  var limit = t.state === 'blurred' ? blurredCoastMs : PTRACK_MAX_MISS_MS;
+  var limit = t.state === 'blurred' ? blurredCoastMs : clearedCoastMs;
   if (missMs > limit) return null;
   var dx = ((t.vx || 0) * dt) / 1000;
   var dy = ((t.vy || 0) * dt) / 1000;
@@ -625,7 +649,11 @@ function coastStep(t, dt) {
     // A coasting track's clear hold does not advance (no evidence).
     clearMs: t.state === 'blurred' ? 0 : t.clearMs,
     missMs: missMs,
-    clearAge: t.clearAge || 0,
+    // Coasting ADVANCES the clear's age even though it does not advance
+    // its hold: absence of evidence must still age a clear out, or the
+    // longer cleared-coast window above would let an unconfirmed clear
+    // ride indefinitely on a slow device.
+    clearAge: (t.clearAge || 0) + (t.state === 'cleared' ? dt : 0),
     facelessReads: t.facelessReads || 0,
     clearStreak: t.clearStreak || 0,
     flagStreak: t.flagStreak || 0,
