@@ -1,5 +1,29 @@
 # YouTube watch-click stall — scriptlet gap (owner-grill needed)
 
+> **SUPERSEDED IN PART, 2026-08-25.** The mechanism section below blames a
+> stream *renegotiation* for the multi-second stall. That was wrong.
+> Measured: the stall is YouTube's SABR **fake buffering** — InnerTube
+> attaches a backoff worth ~80% of the ad's duration to the stream it
+> serves (https://iter.ca/post/yt-adblock/). Pruning ad fields removes the
+> ad and leaves the penalty, so the user waits out the ad looking at
+> black. Numbers, same video, same build: hard nav pruning ad fields only
+> 24-37s to first frame; SPA click 6.8s; hard nav additionally dropping the
+> embedded `streamingData` 4.4-11.5s across 3 videos.
+>
+> The fix shipped is neither option A, B nor C below: `streamingData` is
+> dropped from the embedded `ytInitialPlayerResponse` so the player must
+> issue the client-side `/youtubei/v1/player` request that our EXISTING
+> `isInlinePlaybackNoAd` shaper already turns into an ad-free,
+> backoff-free stream. No `serverContract` reload dance, no new fragile
+> scriptlets. Desktop only until the same numbers exist from the phone.
+> See rules/scriptlets.txt for the full reasoning and the trade.
+>
+> Also fixed same day: `set-constant` and `trusted-prune-window-json` both
+> installed accessors on `window.ytInitialPlayerResponse` with an
+> unconditional `Object.defineProperty`, so whichever the engine emitted
+> last silently destroyed the other. That is why the pruner appeared inert
+> while winning its race. Both now compose.
+
 **Owner reports it feeds:** #1 "why did ad come up", #9 "loads a lot after
 clicking a video". Dominant cause of both.
 

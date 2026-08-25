@@ -63,7 +63,40 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-25 overnight (blur v2 Stage 1 + owner-feedback wave, v1012 release in flight).
+**Last updated:** 2026-08-25 (YouTube ads + start-stall fixed, commit 8fd0aad).
+
+**Session 2026-08-25 (owner: "Again ads came" / "still ads come"):**
+Two separate causes, both measured, both fixed + live-verified on desktop.
+- **Scriptlets clobbered each other.** A watch page emits our pruner AND
+  four `setConstant("ytInitialPlayerResponse.<adfield>")`; every one
+  installed an accessor on the same global with an unconditional
+  `Object.defineProperty`, so the last one emitted silently destroyed the
+  rest. The pruner WON its race against the page and was still inert.
+  Both scriptlets now COMPOSE over an existing configurable accessor.
+  Regression test pins both emit orders (scriptlet-collision.test.mjs).
+- **Killing the ad did not kill its cost.** Hard nav was still 24-37s to
+  first frame. NOT renegotiation (docs/scriptlet-gap.md was wrong, now
+  annotated) — it is SABR **fake buffering**: InnerTube ships a backoff
+  worth ~80% of the ad duration (https://iter.ca/post/yt-adblock/). Fix:
+  drop `streamingData` from the embedded ytInitialPlayerResponse so the
+  player MUST issue the client-side /youtubei/v1/player request that our
+  existing isInlinePlaybackNoAd shaper already reshapes ad-free.
+  Measured 4.4-11.5s across 3 videos x 2 loads, no ad, no .ytp-error.
+  **DESKTOP ONLY** — m.youtube keeps the old field list until phone
+  numbers exist (dropping the embedded fallback stream is player-red-line).
+- **GOTCHA that cost hours: the OTA cache in app-data SHADOWS local
+  rules/ edits.** Rules changes cannot be verified locally until pushed.
+  And `touch lib.rs` is not proof of a reload — only an app.exe **PID
+  change** is (binary mtime lies; cargo test rebuilds it independently).
+- ReVanced comparison (owner asked): it patches the APK bytecode
+  (AdPlaybackController/VideoAdsManager -> no-ops) + spoofs the InnerTube
+  client. The patching half is permanently closed to us (hard rule, and
+  it is what got ProTube removed); the request-shaping half is what we
+  now do. Their client spoofs are currently breaking as InnerTube retires
+  Android VR/TV; isInlinePlaybackNoAd is not a client spoof.
+- STILL OPEN: gauntlet track churn (diagnostics built in person-track.mjs,
+  uncommitted, never measured — birthFresh/birthNearMiss/coastExpired);
+  29+ commits since v0.1.14 with no release, so the phone has none of it.
 
 **Session 2026-08-24→25 overnight (blur v2):** docs/plan-blur-v2.md =
 owner-approved implementation plan + risk register (research settled in
