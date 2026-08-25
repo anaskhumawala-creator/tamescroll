@@ -404,6 +404,17 @@ export function personFromFace(face, aspect) {
     headX: cx,
     headY: cy,
     fromFace: true,
+    // THE FACE THIS BODY WAS EXTRAPOLATED FROM, kept in frame
+    // coordinates. Without it the pipeline throws away a face box it
+    // already has and runs a SECOND detector pass over the synthetic
+    // body's crop to re-find it — and that second pass is sub-spec by
+    // construction: the body is 7.8 x 7.4 face-heights, personCropRegion
+    // pads 15%, and detectFaceBoxes stretches the result to 256, so the
+    // face lands at ~2% of the model input against BlazeFace's published
+    // ~5% evaluation floor, no matter how large the person is in frame.
+    // When that re-detect fails the track gets `faceFound:false`, sits
+    // blurred on no evidence, and has spent one of three verdict slots.
+    faceBox: { x1: face.x1, y1: face.y1, x2: face.x2, y2: face.y2 },
   };
 }
 

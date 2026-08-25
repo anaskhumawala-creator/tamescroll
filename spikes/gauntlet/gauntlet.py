@@ -166,6 +166,7 @@ PROBE = r"""
     // artifacts could have shown that.
     cfg: d.cfg || null,
     ff: (d.ff || []).slice(-3),
+    tile: (d.tile || []).slice(-3),
     // How many samplers are alive. __TS_GAZE_IDS is a WINDOW global while
     // videoTracks is per-element, so two live samplers would interleave
     // every snapshot above and the measured churn would be an artifact of
@@ -397,6 +398,11 @@ def run(outdir, gender, video, start, count, step):
     tab = pick("youtube.com")
 
     boot = tab.eval("JSON.stringify({g: window.__TS_GAZE_GENDER, b: window.__TS_GAZE_BUNDLE__})")
+    # Opt-in tile-recall probe (R16). Off by default: it runs four extra
+    # face inferences per verdict pass, which is exactly the cost the
+    # probe exists to measure, so it must never be on in a scored run.
+    if os.environ.get("TILE_PROBE"):
+        tab.eval("window.__TS_TILE_PROBE=1")
     # Hard gate: a run that booted the wrong direction is worse than no
     # run, because its frames look like evidence.
     if ('"g":"%s"' % gender) not in (boot or ""):

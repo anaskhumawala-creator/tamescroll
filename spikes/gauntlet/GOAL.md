@@ -85,7 +85,7 @@ at least once.
 | 3 | ted talk full speech | man | single speaker, stage lighting, slow cuts |
 | 4 | news panel discussion | woman | 3-5 people, seated, small faces |
 | 5 | cooking show episode | man | hands and objects — the GHOST trap |
-| 6 | conference keynote audience | woman | crowd shots, 10+ people (MoveNet caps at 6) |
+| 6 | graduation ceremony full ceremony | woman | crowd shots, 100+ people. R16 note: "conference keynote audience" resolves to single-speaker talking heads, not crowds, and livestreams open on a title-card slate - probe forward before capturing |
 | 7 | sports post match interview | man | motion, back-turned subjects |
 | 8 | classroom lecture | woman | mixed ages — the child gate |
 
@@ -2034,3 +2034,141 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   `lastSlotDiag` now carries the boxes it said were needed first. (6)
   Still open from R14: the per-cell motion mask, and re-capturing the R8
   podium footage to narrow `k` from 3.911.
+
+- **R16** — rotation entry 6 (`conference keynote audience`, **woman**).
+  The literal query resolved to five single-speaker talking heads, which
+  is not what the entry exists to test, so I substituted a genuine crowd:
+  `PYgPUAR9jNw`, a school graduation livestream. **Its first offset was a
+  "Will Begin Shortly" slate** — 0 persons, 0 faces, 0 patches for ten
+  frames, which is a correct result on a title card and a useless one for
+  scoring. Probed forward and captured at t=2700: a packed auditorium,
+  roughly ONE HUNDRED people, front-row faces ~120px down to back rows at
+  ~15px, intercut with a podium medium of six. Same footage in `man`.
+  Build `85b4120-dirty`; PID changed on every rebuild (45256 -> 39396 ->
+  21464 -> 45892 -> 43268 -> 8580). The dev watcher is still dead, so
+  every rebuild was an explicit stop / cargo build / detached relaunch.
+
+  **THE REGIME IS THE FINDING. The pipeline is CORRECT on six people and
+  fails in every class on a hundred.** On the podium composition it is
+  right in both directions — three women sharp and three men under one
+  patch in `man`, the exact inverse in `woman`, on 5 of 7 frames. On the
+  auditorium wide it covered 15% of a frame that is almost entirely
+  people. So the failure is not the gender read and not the tracker; it
+  is density, and it deserved to be measured before anything was tuned.
+
+  **MEASURED AND KILLED: tiling. This was the round's main question and
+  the answer is no.** The full-frame face pass resizes to INPUT_SIZE 256
+  (detector.js ~:271), so on 1920x1080 a 40px back-row face arrives ~5px
+  wide — the obvious hypothesis is that recall is resolution-bound and
+  tiles fix it. I added a guarded probe (`__TS_TILE_PROBE`, opt-in via
+  the harness, four extra inferences per pass, never on in a scored run)
+  that runs the SAME detector over a 2x2 grid of native-resolution
+  quadrants with a 10% seam overlap and IoU dedupe, and measured it on
+  this footage: **auditorium 13 -> 15, 14 -> 17, 14 -> 18, 15 -> 15, and
+  one pass 13 -> 10. Cost 36-124ms per pass** against a verdict p50 of
+  124ms in the same run. So 2x2 recovers 2-4 faces of the ~85 missing,
+  sometimes fewer, for roughly double the pass. The arithmetic agrees: a
+  quadrant is still a 3.75x downscale, taking a 40px face from 5px to
+  10px, and reaching a detectable size needs ~6x6 = 36 inferences.
+  **Per-face detection cannot see this crowd at any budget a Helio G88
+  can pay.** The critic independently put the requirement at ~28 tiles.
+  Also measured to cost nothing: `FACE_MAX` 20 is never reached (max
+  observed 15).
+
+  **SHIPPED 1: a face-derived person no longer re-detects its own face.
+  Cost-negative, no trade, and it is the round's largest single number.**
+  `personFromFace` builds a body FROM a face box and the pipeline then
+  threw that box away and ran a second full BlazeFace pass over the
+  body's crop to find it again. The critic showed that second pass is
+  sub-spec by construction: body 7.8 x 7.4 face-heights, +15% crop pad,
+  stretched to 256, so the face lands at ~2% of model input against
+  BlazeFace's ~5% evaluation floor — independent of how large the person
+  is in frame. When it failed the track got `faceFound:false` and sat
+  blurred on no evidence, having spent one of three verdict slots.
+  `personFromFace` now carries `faceBox` and `observeCropped` maps it into
+  crop coordinates, so ownFaceIndex, classifyBest, the descriptor and the
+  reads probe all run unchanged.
+  **Measured, both directions: verdict p50 150 -> 93ms (man) and
+  140 -> 98ms (woman); p95 301 -> 162 and 219 -> 173.** ~38% off the
+  verdict pass on the hardware we have, and it is the pass whose cost the
+  phone has never been measured on.
+
+  **SHIPPED 2: one person box is one person, not every face inside it.**
+  `faceInsideAny` dropped any face whose centre fell inside any admitted
+  MoveNet box, on the assumption that the box IS that face's person. In a
+  seated row that is false, and the artifact caught it exactly: on
+  r16e-man f004 the `ff` probe recorded four faces at cx 0.51, 0.83, 0.09
+  and **0.30**, with the 0.30 one marked INSIDE a person box — the
+  speaker's, whose patch spans x 0.317-0.706. So a woman whose face was
+  successfully detected produced no observation of her own and sat fully
+  sharp in the 0.087-wide gap between two patches, in man mode, on three
+  frames of the run. She was simultaneously invisible to the fallback
+  (dropped as "inside a person") and to `ownFaceIndex` (which correctly
+  picked the speaker's face inside that same crop). Now the largest face
+  claims the box it falls in and every other face inside it becomes its
+  own synthetic person. **Verified: the gap closes, she is covered, and
+  the three men beside her stay sharp.** Cost did not regress — p50 fell
+  further to 93ms, because the extra observations are the cheap kind
+  shipped in change 1.
+
+  **SCORES, every frame read against its truth pair, both directions.**
+  * podium composition (7 of 10 frames): correct in both directions
+    before and after. In `man` the three women are covered and the three
+    men sharp; in `woman` the exact inverse.
+  * `man` before (r16b): the crowd frame f000 carried ZERO patches — a
+    hundred people, every one sharp. After (r16f) it carries 2 and the
+    seated-row gap is closed on f004/f006/f008. EXPOSURE still 10/10 by
+    frame, but the remaining cause on the podium frames is now a SINGLE
+    subject: a woman at the extreme right edge, x>0.93, whose face is
+    outside the frame, so neither detector ever sees her. That is the
+    faceless/edge class, unchanged since R15 and now the sole podium
+    failure.
+  * `woman` before (r16-woman2): EXPOSURE 3/10 (both crowd frames plus a
+    man at the right edge), FALSE COVER 5/10, GHOST 4/10, PARTIAL 0,
+    DRIFT 0. After (r16g): the crowd frames still expose — f000 goes from
+    15% covered to ~60%, which is better and still fails — and the podium
+    frames trade in the other direction: the extra observations mean a
+    second seated woman is now covered on more frames (FALSE COVER),
+    because with `all` pushed past ZOOM_MAX_PERSONS 3 the round-robin
+    slows her clear. That trade is blur-first working as designed and it
+    is the honest cost of change 2.
+  * A SCORING CORRECTION worth keeping: I first read the crowd frame by
+    eye as ~60% covered and the meta rects said 15%. An out-of-focus
+    crowd looks blurred. On dense footage the overlay rects are the
+    coverage truth and the eye is only good for WHO is underneath.
+
+  cost p50 93-98ms (was 140-150), gaze 122/122, cargo 36/36.
+
+  **THE OPEN QUESTION, and it is the owner's, not mine.** At ~100 people
+  the per-person patch has already collapsed into a region cover without
+  anyone choosing it — `mergeTracks` unions 13 observations into 2
+  patches — and that accidental region's boundary swings with whichever
+  faces the pass happened to return. The critic's proposal is to make it
+  deliberate: trigger on `faces >= 9 AND maxFaceH <= 0.20` (two
+  independent axes; the corpus separates 1-8 from 11-15 with nothing at
+  9-10, and every close-up sits at maxFaceH 0.36+), latch it against
+  recall chatter, and paint the seating block from the face field rather
+  than the whole frame, so stage and ceiling stay sharp and it is not a
+  GHOST. **The trade in this frame is roughly 45 exposed men covered
+  against roughly 50 sharp women covered too, and that is a product
+  decision, not a tuning one.** Not built. Owner decides.
+
+  **R17's queue.** (1) The crowd-region decision above. (2) The critic's
+  strongest un-built finding: at density every ms-denominated bound
+  dilates by N/3 while every count-denominated one does not — clearing is
+  gated on 2 VISITS but revoking a clear is gated on CLEARED_TTL_MS 5000
+  fed 400ms per visit, so at N=13 an unearned clear survives 21.6s on
+  desktop and over a minute at phone cadence, and the population drifts
+  sharp. Fix is ~6 lines (advance staleness on elapsed time, credit on
+  observed time) but it makes the frame LOOK worse without (1). (3)
+  `dedupeObservations` may delete a back-row person in favour of a
+  front-row neighbour's larger box — the critic's own least-confident
+  finding; log containment and area ratio at every merge before touching
+  it. (4) `crowdCursor` samples ranks rather than rotating people, and
+  mixes MoveNet box scores with BlazeFace scores in one sort, so
+  face-derived persons systematically outrank real skeletal ones. (5)
+  FACE_IOU 0.1 suppresses vertically-stacked faces in tiered seating;
+  0.3 is conventional, worth a few faces. (6) The frame-edge faceless
+  subject, now the only podium failure in `man`. (7) Still open from R15:
+  `PTRACK_PAD_TOP` as a fraction of box rather than head, the symmetric
+  render lerp, and re-capturing the R8 podium footage to narrow `k`.

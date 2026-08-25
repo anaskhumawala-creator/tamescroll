@@ -582,16 +582,23 @@ import { planForMode } from './pipeline-plan.mjs';
     // reads (see `abstained` in gender-verdict.mjs).
     // Face center inside any (padded) person box — used to keep the
     // full-frame face fallback from duplicating a MoveNet person.
-    function faceInsideAny(face, persons) {
+    // Which admitted person's box contains this face's centre, or -1.
+    // Returns the INDEX rather than a boolean because one person box can
+    // contain several people's faces and only one of them is that person
+    // — see faceOwnerIndex's caller for what the rest are worth.
+    function faceInsideIndex(face, persons) {
       var cx = (face.x1 + face.x2) / 2;
       var cy = (face.y1 + face.y2) / 2;
       for (var i = 0; i < persons.length; i++) {
         var p = persons[i];
         var pw = (p.x2 - p.x1) * 0.1;
         var ph = (p.y2 - p.y1) * 0.1;
-        if (cx >= p.x1 - pw && cx <= p.x2 + pw && cy >= p.y1 - ph && cy <= p.y2 + ph) return true;
+        if (cx >= p.x1 - pw && cx <= p.x2 + pw && cy >= p.y1 - ph && cy <= p.y2 + ph) return i;
       }
-      return false;
+      return -1;
+    }
+    function faceInsideAny(face, persons) {
+      return faceInsideIndex(face, persons) !== -1;
     }
     // ADAPTIVE cadence (owner phone 2026-08-24 "very laggy"): the target
     // interval stretches to 1.5x the measured pass cost, capped at 1s —
@@ -762,6 +769,80 @@ import { planForMode } from './pipeline-plan.mjs';
       var zctx = zoomCanvas.getContext('2d');
       zctx.drawImage(video, region.x1 * vw, region.y1 * vh, sw, sh, 0, 0, dw, dh);
       return Promise.resolve(zctx.getImageData(0, 0, dw, dh));
+    }
+
+    // Tile-recall probe (R16). Runs the SAME detector over a 2x2 grid of
+    // native-resolution quadrants and reports how many faces that finds
+    // against the single full-frame pass, plus what it cost. Nothing here
+    // feeds the pipeline: it exists so the tiling decision is made on
+    // numbers from real footage rather than on the arithmetic of
+    // 1920 -> 256. Guarded end to end — instrumentation has killed two
+    // releases here and does not get to kill a third.
+    var tileProbeBusy = false;
+    function tileProbe(baseCount) {
+      if (tileProbeBusy) return;
+      tileProbeBusy = true;
+      var t0 = performance.now();
+      var quads = [
+        { x1: 0, y1: 0, x2: 0.55, y2: 0.55 },
+        { x1: 0.45, y1: 0, x2: 1, y2: 0.55 },
+        { x1: 0, y1: 0.45, x2: 0.55, y2: 1 },
+        { x1: 0.45, y1: 0.45, x2: 1, y2: 1 },
+      ];
+      var found = [];
+      var chain = Promise.resolve();
+      quads.forEach(function (q) {
+        chain = chain.then(function () {
+          return cropPersonPixels(q)
+            .then(function (pix) {
+              return detector.detectFaceBoxes(model, pix).then(function (fs) {
+                if (pix && typeof pix.close === 'function') pix.close();
+                var qw = q.x2 - q.x1;
+                var qh = q.y2 - q.y1;
+                for (var i = 0; i < fs.length; i++) {
+                  found.push({
+                    x1: q.x1 + fs[i].x1 * qw,
+                    y1: q.y1 + fs[i].y1 * qh,
+                    x2: q.x1 + fs[i].x2 * qw,
+                    y2: q.y1 + fs[i].y2 * qh,
+                  });
+                }
+              });
+            })
+            .catch(function () {});
+        });
+      });
+      chain.then(function () {
+        // Quadrants overlap by 10% so a face on a seam is not cut in two;
+        // dedupe what that double-counts.
+        var uniq = [];
+        for (var i = 0; i < found.length; i++) {
+          var dup = false;
+          for (var j = 0; j < uniq.length; j++) {
+            if (boxIou(found[i], uniq[j]) > 0.3) {
+              dup = true;
+              break;
+            }
+          }
+          if (!dup) uniq.push(found[i]);
+        }
+        var ms = Math.round(performance.now() - t0);
+        try {
+          var dbgP = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+          dbgP.tile = (dbgP.tile || [])
+            .concat([{ base: baseCount, tiled: uniq.length, ms: ms }])
+            .slice(-12);
+        } catch (e) {}
+        tileProbeBusy = false;
+      });
+    }
+
+    function boxIou(a, b) {
+      var ix = Math.max(0, Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1));
+      var iy = Math.max(0, Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1));
+      var inter = ix * iy;
+      var ua = (a.x2 - a.x1) * (a.y2 - a.y1) + (b.x2 - b.x1) * (b.y2 - b.y1) - inter;
+      return ua > 0 ? inter / ua : 0;
     }
 
     // One person's observation: face+gender read from their crop.
@@ -1018,9 +1099,39 @@ import { planForMode } from './pipeline-plan.mjs';
           });
       }
 
+      // A face-derived person ALREADY CARRIES ITS FACE. Re-detecting it in
+      // the crop is a whole BlazeFace inference spent re-finding a box we
+      // were handed, and it runs at ~2% of the model input where the
+      // model's evaluation floor is ~5% (see person-gate's faceBox note),
+      // so it frequently fails and costs the track its verdict as well as
+      // the time. Map the known box into crop coordinates and hand it
+      // straight to the same code path — ownFaceIndex, classifyBest, the
+      // descriptor and the reads probe all work unchanged, because the
+      // only thing that changed is where the box came from.
+      function knownFaceInCrop() {
+        var fb = person && person.faceBox;
+        if (!fb) return null;
+        var rw = region.x2 - region.x1;
+        var rh = region.y2 - region.y1;
+        if (!(rw > 0) || !(rh > 0)) return null;
+        var box = {
+          x1: (fb.x1 - region.x1) / rw,
+          y1: (fb.y1 - region.y1) / rh,
+          x2: (fb.x2 - region.x1) / rw,
+          y2: (fb.y2 - region.y1) / rh,
+          confidence: typeof person.confidence === 'number' ? person.confidence : 0.5,
+        };
+        // If the crop does not actually contain it, fall back to detecting
+        // rather than handing the models a box outside their own pixels.
+        if (!(box.x2 > 0 && box.y2 > 0 && box.x1 < 1 && box.y1 < 1)) return null;
+        return [box];
+      }
+
       function observeCropped(zpix) {
         zpixRef = zpix;
-        return detector.detectFaceBoxes(model, zpix).then(function (faces) {
+        var known = knownFaceInCrop();
+        var facesP = known ? Promise.resolve(known) : detector.detectFaceBoxes(model, zpix);
+        return facesP.then(function (faces) {
           if (!faces.length) return obs;
           var faceDesc = null;
           var metaP = genderModel
@@ -1296,6 +1407,22 @@ import { planForMode } from './pipeline-plan.mjs';
                 .detectFaceBoxes(model, directPersonOk ? video : personPixelSource())
                 .then(function (faces) {
                   var extra = [];
+                  // TILE-RECALL PROBE — measurement only, off unless the
+                  // harness sets the flag, and it never touches `extra`,
+                  // `persons` or any track. R16 measured 4-15 faces found
+                  // in an auditorium containing ~100 people, and the
+                  // suspected cause is resolution, not any threshold: the
+                  // full-frame pass resizes 1920x1080 to INPUT_SIZE 256,
+                  // so a 40px back-row face arrives ~9px tall. Before
+                  // anyone pays for tiling on a Helio G88, measure what it
+                  // would actually BUY on this exact footage and what it
+                  // costs. Fire-and-forget so a slow probe cannot stall
+                  // the pass it is measuring.
+                  if (window.__TS_TILE_PROBE) {
+                    try {
+                      tileProbe(faces.length);
+                    } catch (e) {}
+                  }
                   // Tallest face this pass found — the free scale
                   // reference the fallback needs to tell a close-up's
                   // neighbouring TEXTURE from a genuinely distant person.
@@ -1304,9 +1431,40 @@ import { planForMode } from './pipeline-plan.mjs';
                     var fh = faces[mf].y2 - faces[mf].y1;
                     if (fh > maxFaceH) maxFaceH = fh;
                   }
-                  for (var f = 0; f < faces.length; f++) {
-                    if (faceInsideAny(faces[f], persons)) continue;
-                    extra.push(personFromFace(faces[f], video.videoWidth / (video.videoHeight || 1)));
+                  // ONE PERSON BOX IS ONE PERSON, NOT EVERY FACE IN IT.
+                  // A face landing inside an admitted MoveNet box used to
+                  // be dropped outright, on the assumption that the box IS
+                  // that face's person. In a seated row that is false: R16
+                  // measured a woman at cx 0.30 whose face WAS detected,
+                  // fell inside the SPEAKER's box (whose patch spans
+                  // x 0.317-0.706), and so produced no observation of her
+                  // own — she sat fully sharp in the 0.087-wide gap
+                  // between two patches, in man mode, on three frames of
+                  // one run. Her face was also inside the speaker's CROP,
+                  // where ownFaceIndex correctly picked the speaker's, so
+                  // she was invisible to every stage at once.
+                  // Largest face first, so the face that claims a box is
+                  // the one most likely to belong to it; every other face
+                  // in that box gets its own body. mergeTracks unions the
+                  // genuine overlaps, so an over-claim costs one merged
+                  // patch rather than a stack.
+                  var order = [];
+                  for (var oi = 0; oi < faces.length; oi++) order.push(oi);
+                  order.sort(function (a, b) {
+                    return (
+                      (faces[b].x2 - faces[b].x1) * (faces[b].y2 - faces[b].y1) -
+                      (faces[a].x2 - faces[a].x1) * (faces[a].y2 - faces[a].y1)
+                    );
+                  });
+                  var claimed = {};
+                  for (var oj = 0; oj < order.length; oj++) {
+                    var fi = order[oj];
+                    var owner = faceInsideIndex(faces[fi], persons);
+                    if (owner !== -1 && !claimed[owner]) {
+                      claimed[owner] = 1;
+                      continue;
+                    }
+                    extra.push(personFromFace(faces[fi], video.videoWidth / (video.videoHeight || 1)));
                   }
                   try {
                     var dbgT = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
@@ -1326,6 +1484,15 @@ import { planForMode } from './pipeline-plan.mjs';
                           mx: Math.round(maxFaceH * 1000) / 1000,
                           hs: faces.map(function (fb) {
                             return Math.round((fb.y2 - fb.y1) * 1000) / 1000;
+                          }),
+                          // Centres too: a crowd rule needs to know
+                          // whether the faces SPAN the frame or cluster in
+                          // one band, and a count alone cannot say.
+                          cx: faces.map(function (fb) {
+                            return Math.round(((fb.x1 + fb.x2) / 2) * 100) / 100;
+                          }),
+                          cy: faces.map(function (fb) {
+                            return Math.round(((fb.y1 + fb.y2) / 2) * 100) / 100;
                           }),
                           in: faces.map(function (fb) {
                             return faceInsideAny(fb, persons) ? 1 : 0;
