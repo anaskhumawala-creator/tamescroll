@@ -306,9 +306,16 @@ export function updatePersonTracks(tracks, observations, dtMs) {
   var dt = dtMs > 0 ? dtMs : 250;
   var pairs = [];
   var i, j;
+  // Best IoU each observation achieved against ANY live track, whether or
+  // not the pair survived the gates. An observation that mints a new
+  // track having scored 0.0 is a genuinely new person; one that scored
+  // 0.15 is the SAME person the association threshold just refused, and
+  // that difference is the whole of the churn question.
+  var bestIou = new Array(observations.length).fill(0);
   for (i = 0; i < tracks.length; i++) {
     for (j = 0; j < observations.length; j++) {
       var v = iou(tracks[i].box, observations[j].box);
+      if (v > bestIou[j]) bestIou[j] = v;
       if (v < PTRACK_IOU_MIN) continue;
       // SIZE COMPATIBILITY, measured r5f f003. An oversized stale track
       // overlaps everything, so on IoU alone it claims whatever the next
@@ -342,11 +349,22 @@ export function updatePersonTracks(tracks, observations, dtMs) {
   for (i = 0; i < tracks.length; i++) {
     if (trackClaimed[i]) continue;
     var coasted = coastStep(tracks[i], dt);
+    // WHY a track ends, separated. `newTrack` alone cannot distinguish
+    // "the detector found an extra person" from "an existing person was
+    // dropped and re-minted", and those need opposite fixes.
+    if (!coasted) bump('coastExpired');
     if (coasted) next.push(coasted);
   }
   for (j = 0; j < observations.length; j++) {
     if (obsClaimed[j]) continue;
-    bump('newTrack');
+    // Classify the birth by how close it came to matching. A birth at
+    // bestIou 0 is a person who was not on screen before; a birth at
+    // 0 < iou < PTRACK_IOU_MIN is the SAME person, re-minted because the
+    // threshold refused them — that one is churn, and it costs the
+    // subject their accumulated clear every time it happens.
+    if (bestIou[j] <= 0) bump('birthFresh');
+    else if (bestIou[j] < PTRACK_IOU_MIN) bump('birthNearMiss');
+    else bump('birthClaimed');
     next.push(newTrack(observations[j]));
   }
   return next;
@@ -543,12 +561,28 @@ function matchedStep(t, obs, dt) {
     // A CERTAIN OPPOSITE read still hard-blurs instantly upstream, so
     // this loosens only the ambiguous case, and CLEARED_TTL_MS still
     // bounds how long an unrefreshed clear survives.
-    clearStreak:
+    // READ THE LOCAL `clearStreak`, NOT `t.clearStreak` (R11). The
+    // decrement branch used to reach back to the PREVIOUS track, which
+    // silently killed both places above that zero the local one: the
+    // identityBroken block (:453) and the memory override (:542). Both
+    // exist precisely because a different person is now standing in this
+    // box, and both were being undone one line later.
+    // The exposure that bought: a track at clearStreak 21 (measured —
+    // this counter was also never clamped) suffers an identity break,
+    // reads uncertain, and hands back 20. ONE confident same-gender read
+    // from the NEW person then satisfies `>= CLEAR_STREAK_N` and clears
+    // them. Blur-first says they owe two reads; they paid one.
+    // Clamped to CLEAR_STREAK_N because the counter carries no
+    // information above the bar — unclamped it made the decrement
+    // hysteresis below a no-op for any track cleared more than twice.
+    clearStreak: Math.min(
+      CLEAR_STREAK_N,
       !obs.flagged && obs.certain
         ? clearStreak
         : obs.flagged && obs.certain
           ? 0
-          : Math.max(0, (t.clearStreak || 0) - 1),
+          : Math.max(0, clearStreak - 1)
+    ),
     flagStreak: obs.flagged && obs.certain ? flagStreak : 0,
     desc: obs.desc || t.desc || null,
     lastVerdict: obs.flagged && obs.certain ? 'flag-certain' : !obs.flagged && obs.certain ? 'clear-certain' : 'uncertain',

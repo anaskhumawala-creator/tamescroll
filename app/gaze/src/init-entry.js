@@ -1654,6 +1654,32 @@ import { planForMode } from './pipeline-plan.mjs';
       if (!video.paused) start();
     });
 
+    // NO PLAYBACK-QUALITY FLOOR HERE, and that is a measured decision.
+    //
+    // R11 built one (raise ABR to hd720 so small faces carry more
+    // pixels), shipped it behind a backoff, and then measured it against
+    // itself. Verdict: REVERTED. The identical capture at 480p, 720p and
+    // 1080p produced the SAME nine falsely-covered frames out of ten. The
+    // seated subject who reads `uncertain` with a ~50px face still reads
+    // `uncertain` with a ~112px one. Source resolution costs ~+4ms p50 on
+    // the verdict pass and buys nothing, because every crop is resampled
+    // to a fixed model input anyway — this pipeline is very nearly
+    // resolution-independent.
+    //
+    // Her cover is the faceres NULL OUTPUT, not a shortage of pixels: a
+    // constant `male` ~0.3 read that is a CERTAIN opposite-gender flag in
+    // woman mode. Pixels cannot fix a model returning its prior.
+    //
+    // Two further reasons not to re-try this: raising the rung spends the
+    // owner's mobile data on a Helio G88 for zero visible gain, and
+    // YouTube's setPlaybackQuality has been a documented no-op since
+    // 2019, so the only remaining lever writes the platform's own
+    // storage — outside BLOCK-ONLY as written.
+    //
+    // What DID come out of it is a harness rule, not product code: two
+    // runs of the same video minutes apart differed 854x480 vs 1280x720,
+    // so `vw`/`vh` is now recorded per frame and a resolution mismatch
+    // invalidates a cross-round comparison.
     var pillHost = isPlayer ? (video.closest && video.closest('#movie_player')) || null : null;
     if (pillHost) {
       // In-player toggle (owner ask): a wrong live verdict must be one

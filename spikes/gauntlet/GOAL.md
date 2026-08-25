@@ -1194,3 +1194,120 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   frame is a track birth. `life_window` 2 newTrack. Verdict p50 234, p95
   468, first === max === 6941 (**fifth consecutive round** where the worst
   pass is the first pass). gaze 107/107, cargo 35/35.
+
+- **R11** — NOT the strict rotation entry. R10 was entry 8, so entry 1
+  (baseline NWoT1ZVd1Lo/man) was due, but the standing target was
+  woman-mode TRACK CHURN and the baseline shows almost none. Picked
+  footage that exhibits the failure instead, per the skill's licence to
+  choose for a failure class: **H14bBuluwB8** (TED, Angela Lee
+  Duckworth), `woman`, t=60s. Single large adult woman on stage + a
+  second seated adult woman stage-right + a full audience. In woman mode
+  BOTH women should be sharp, so every patch on them is a clean
+  FALSE COVER signal. Entry 1 (`man`, NWoT1ZVd1Lo t=540) run as the
+  symmetry check.
+
+  **BEFORE — woman: FALSE COVER 9/10** (only f003 clean), EXPOSURE
+  present every frame (audience). **man: PARTIAL/EXPOSURE 3/10** —
+  f000-f002, the daughter's HANDS are covered while her HEAD sits
+  uncovered at the frame edge (overhead bench shot, MoveNet pers=0).
+  I first scored f001 as a GHOST from the blurred frame alone and was
+  WRONG — the truth frame shows the patch sitting exactly on her hands.
+  Score from the blurred image alone and you invent failures.
+
+  **CHURN, MEASURED FOR THE FIRST TIME** (diagnostics built at the end of
+  R10 and never run): window `birthFresh 1, birthNearMiss 3,
+  coastExpired 3`. So 3 of 4 track births were the association threshold
+  refusing a person it already had. The critic then traced the cause one
+  layer further and it is NOT the IoU gate: the seated woman is admitted
+  only via the second person tier (`PERSON_LOW_SCORE 0.12 &&
+  PERSON_STRONG_KEYPOINTS 7`, person-gate.mjs:136) and her confident
+  keypoints oscillate 3-9, so she is dropped and re-admitted repeatedly.
+  The IoU gate only decides whether the re-mint keeps her identity.
+
+  **A HYPOTHESIS I BUILT, MEASURED, AND THEN REVERTED.** The probe showed
+  the stream was 854x480 — every previous round's arithmetic had assumed
+  1280x720. Her face is ~50 native px there. So I wired a raise-only,
+  desktop-only ABR floor (YouTube's own setPlaybackQualityRange) with a
+  dropped-frame backoff, and it worked: 480p -> 720p live, 0 dropped
+  frames. It bought NOTHING. Same 9/10 FALSE COVER at 480p, 720p AND
+  1080p; the seated woman reads `uncertain` with a ~112px face exactly as
+  she did with a ~50px one. Cost: verdict p50 97ms (480p) -> 101 (720p)
+  -> 127-131 (1080p). REVERTED, with the reasoning written into
+  init-entry.js where the code was, so R12 does not rebuild it. Two
+  further nails: YouTube's setPlaybackQuality has been a documented no-op
+  since 2019, and raising the rung spends the owner's mobile data on the
+  G88 for zero visible gain.
+  It did leave one real result: **input resolution is an uncontrolled
+  variable in this harness.** Two runs of the same video minutes apart
+  gave 854x480 and 1280x720 with no code change. `vw/vh` is recorded per
+  frame now — a resolution mismatch INVALIDATES a cross-round comparison,
+  and every run before r10c has it null.
+
+  **SHIPPED: the clearStreak leak (EXPOSURE class).**
+  person-track.mjs return block read `t.clearStreak` — the PREVIOUS
+  track — on the decrement branch, so both places that zero the local
+  streak when someone else is in the box (the `identityBroken` block
+  :453, the memory override :542) were undone one line later. And the
+  counter was never clamped: cs 21 measured live. Exposure: a long-cleared
+  track suffers an identity break, reads uncertain, hands back 20, and
+  ONE confident read from the NEW person clears them — they owe
+  CLEAR_STREAK_N, they pay one. `identityBroke: 2` was logged in a
+  10-frame window, so this fires on real footage. Now reads the local
+  streak and clamps to CLEAR_STREAK_N. Regression test fails on the old
+  code with "streak must be clamped, got 8".
+  **AFTER:** cs never exceeds 2 in any frame of either direction (was 21);
+  speaker still holds her earned clear (r11e f008 verified by eye, fully
+  sharp). man direction: birthNearMiss 0, Linus clears, daughter covered.
+  FALSE COVER unchanged at 9/10 — this fix closes an exposure path, it
+  was never going to move the false-cover count.
+
+  Verdict cost: p50 119-131, p95 199-605, and **first === max in all six
+  runs — the sixth consecutive round.** Warm-up, not a tail; that target
+  stays retired. gaze 109/109, cargo 36/36.
+
+  **R12'S INPUT — the critic's findings, which I have NOT yet applied.**
+  Its central result overturns my framing of this round: the false covers
+  are the R10 NULL, read-by-read, not churn and not resolution.
+  * In a frame containing two women and zero men, 22 reads were labelled
+    `male`; 21 sat in the null box and **20 were CERTAIN FLAGS**
+    (GENDER_MIN_SCORE 0.25). Control r11c-man: 78 real male reads,
+    minimum score 0.48, not one in the null box. 122 samples, total
+    separation.
+  * The f001 frame I attributed to a streak reset was actually a null
+    `male 0.31` flag-certain read. My mechanism was wrong.
+  * Corrected constant: the null sigmoid band is v in [0.545, 0.705] over
+    44 reads (R10 said [0.595, 0.670] from 24). Real male reads start at
+    v = 0.74 — a 1-D gap of only 0.035, so **do not build a 1-D
+    threshold**; use the joint (v, age) box or a null reference
+    descriptor.
+  * `FACE_MIN_NATIVE_PX = 64` NEVER FIRED — no read in any run returned
+    `gender:'unknown'`. The box already carries FACE_ENLARGE 1.4, so the
+    effective floor is ~46px. A size gate also cannot catch a dark face
+    or a BlazeFace false positive; a null-signature gate catches all
+    three, and is resolution-invariant.
+  * **Identity memory is already a working null detector, wired
+    backwards.** Null-labelled reads score median 0.91 against memory
+    (35/40 above MEM_SIM_FLAG 0.85); real female reads score 0.23-0.62
+    (0/56 above it). memoryStore only stores on `flag-certain`, so the
+    null is what gets memorised — `mem` climbed to 6 of MEM_MAX 8, six
+    copies of a constant, then used to blur people.
+  * `uncertain` conflates four things; 27% of female reads are
+    direction-correct-but-weak and are penalised identically to a null.
+    Proposed `weakSame` HOLD semantics (never advances a streak, so
+    exposure-safe by construction).
+  * Ranked for R12: (R1) null-signature abstention, ~0ms, kills 8 of the
+    9 false covers, and is strictly safe — abstention only ever REMOVES
+    flag evidence, and in man mode the null at 0.27 is already below
+    GENDER_CLEAR_SCORE 0.6 so it is inert; (R3) keep the null out of
+    identity memory and re-derive MEM_SIM_FLAG afterwards; (R4)
+    `weakSame`; (R5) second-chance association that may NOT inherit
+    `cleared`.
+  * **`__TS_GAZE_BUNDLE__` is stale ('v7' across at least three distinct
+    code states), so no run can be attributed to a build.** Stamp it from
+    git HEAD. Also: runs/r12-woman is a corrupt run (0-byte PNGs,
+    vw/vh 0) that still wrote a scorable meta.json — the harness must
+    refuse to write meta.json when videoWidth is 0 or a capture is empty.
+
+  STILL OPEN and not caused by any of the above: the audience is sharp in
+  every frame. MoveNet is NOT hitting its 6-person cap — slots 2-5 score
+  0.00-0.15 on a hall of dozens. That is R8's conclusion holding.

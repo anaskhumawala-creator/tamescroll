@@ -571,3 +571,50 @@ test('coast window is capped however slow the verdict pass gets', () => {
   assert.ok(elapsed <= 2.5 * 4000 + 200, 'the 2.5x rule still governs');
   pt.setVerdictCadence(400);
 });
+
+test('R11: an identity break must not leave a clear streak the new person can spend', () => {
+  // The exposure this closes: `clearStreak` is seeded from the previous
+  // track and was returned as `t.clearStreak - 1`, so the two places
+  // that zero it when someone ELSE is standing in the box -- the
+  // identityBroken block and the memory override -- were both undone one
+  // line later. A long-cleared track that suffers an identity break then
+  // handed the newcomer a streak already past the bar, and ONE confident
+  // read cleared them. Blur-first says they owe CLEAR_STREAK_N.
+  const same = [1, 0, 0];
+  const other = [0, 1, 0]; // cosine 0 < IDENT_SIM_MIN
+  let tracks = [];
+  // Earn a clear and let the streak run well past the bar.
+  for (let i = 0; i < 8; i++) {
+    tracks = updatePersonTracks(
+      tracks,
+      [{ box: boxA, flagged: false, certain: true, desc: same }],
+      250,
+    );
+  }
+  assert.equal(tracks[0].state, 'cleared');
+  assert.ok(
+    tracks[0].clearStreak <= pt.CLEAR_STREAK_N,
+    `streak must be clamped, got ${tracks[0].clearStreak}`,
+  );
+
+  // A DIFFERENT person now occupies the box, and we cannot read them.
+  tracks = updatePersonTracks(
+    tracks,
+    [{ box: boxA, flagged: true, certain: false, desc: other }],
+    250,
+  );
+  assert.equal(tracks[0].state, 'blurred', 'identity break must blur');
+  assert.equal(tracks[0].clearStreak, 0, 'identity break must reset the streak');
+
+  // One confident same-gender read from the newcomer must NOT be enough.
+  tracks = updatePersonTracks(
+    tracks,
+    [{ box: boxA, flagged: false, certain: true, desc: other }],
+    250,
+  );
+  assert.equal(
+    tracks[0].state,
+    'blurred',
+    'one read after an identity break must not clear a new person',
+  );
+});
