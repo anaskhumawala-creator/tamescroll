@@ -561,3 +561,157 @@ Owner constraint: nothing indecent. Queries stay ordinary.
     intended direction, which means this run cannot answer whether memory
     wrongly REVOKES clears. Needs a `man` run on the same footage.
   * crowd EXPOSURE (R7's top item) untouched this round.
+
+  CRITIC (Opus, geometry + cost-tail lens) landed after the round closed.
+  R9's input. Two findings verified against source before writing them here;
+  the rest are ranked claims to check.
+
+  * **VERIFIED — personFromFace's `h` is not a face height, and my R8
+    headroom fix is therefore in the wrong unit.** detector.js:318-323
+    computes ONE scalar `half` and divides it by INPUT_SIZE for BOTH axes,
+    so a face box is square in NORMALIZED units — x2-x1 and y2-y1 are
+    numerically equal, always. In real pixels that makes w*W = Wf (an
+    honest face width) but h*H = Wf/ar. On 16:9 `h` is 0.56 face-widths, so
+    my cy - h*1.4 buys only ~0.6 face-heights above centre — which is
+    exactly why the cap tip is STILL exposed on 3/10 frames after the fix.
+    I hand-tuned a constant that is 1.78x short by construction.
+    person-gate.mjs's own header (:12-14) documents this precise trap, and
+    the MoveNet path already corrects for it at :199-200 (headH =
+    headW * ar); personFromFace is simply never passed `ar`
+    (init-entry.js:1185).
+    **And it inverts on portrait video**: at ar 0.5625 the same code yields
+    3.2x MORE headroom than on 16:9, so every patch reaches far above and
+    below its subject — GHOST. Pre-existing (1.0 had the same bug) but my
+    change amplified it 40%. NOT hot-fixed: no portrait capture exists to
+    verify against, and shipping a geometry change without frames is the
+    thing this loop exists to prevent.
+    Fix for R9: personFromFace(face, ar) with every multiplier in
+    face-widths — fw = (x2-x1)/1.4, vy = fw*ar, y1 = cy - vy*1.3,
+    y2 = cy + vy*7.0, x = cx +- fw*1.9. Aspect-invariant, one
+    anthropometric unit, ~4 lines.
+  * The critic also argues my width 1.8 -> 2.2 was paying width for a
+    vertical problem: at 4.4 face-widths total, two neighbours 3
+    face-widths apart overlap enough to cover each other's heads but NOT
+    enough for mergeTracks (containment 0.32 / IoU 0.19 vs MERGE_CONTAIN_MIN
+    0.6 / MERGE_IOU_MIN 0.5) — FALSE COVER in the crowd case this function
+    exists to serve. Recommends 1.9 once the vertical unit is fixed. Not
+    observed in R8 (run B had one subject); check on crowd footage in R9
+    before reverting.
+  * **VERIFIED — the cost tail converts directly into EXPOSURE on slow
+    hardware, and it is a two-constant interaction, not a model problem.**
+    effZoom = max(ZOOM_INTERVAL_MS, lastVerdictMs*1.5) (init-entry.js:1112)
+    is UNCAPPED above, while blurredCoastMs = min(2000, max(900,
+    2.5*effZoom)) (person-track.mjs:570-576) is CAPPED at
+    PTRACK_MAX_COAST_MS 2000. One 5973ms verdict therefore puts the next
+    verdict 8960ms away while every blurred track's coast window is pinned
+    at 2000ms — and `sampling` (init-entry.js:1100) blocks position passes
+    for the whole verdict, so nothing refreshes them either. A covered
+    opposite-gender person goes sharp ~7s after a single slow pass. On a
+    G88, where p95 is plausibly 2-3s, effZoom p95 3-4.5s exceeds the 2000ms
+    coast ROUTINELY and never once on this desktop. Sharpest answer yet to
+    why the tail matters more than the median. Free fix: cap effZoom, or
+    raise PTRACK_MAX_COAST_MS in step with it.
+  * **Check cost.verdict[0] FIRST, before any tail work.** The array is
+    push-ordered and capped at 120; both runs had n<120, so nothing was
+    shifted and index 0 IS the first verdict pass. If max === verdict[0] the
+    tail is model warm-up (faceres + BlazeFace + MoveNet shader compile),
+    amortised, and should be reported as p99-excluding-index-0. Costs
+    nothing and reorders everything below it.
+  * **Critic's top item: MoveNet's input is squashed.** detector.js:191-195
+    resizes a 16:9 frame into a hard 256x256 square — a 1.78x anisotropic
+    compression of every person. MoveNet MultiPose's documented contract is
+    aspect-PRESERVING resize padded to multiples of 32. A person-centre
+    heatmap is a whole-body-geometry prior, so this is off-distribution, and
+    it bites hardest on subjects already geometrically atypical — such as a
+    podium-truncated head/shoulders/chest. Internal inconsistency worth
+    noting: parsePersons is handed the true `aspect` (init-entry.js:1124)
+    and corrects head geometry with it, so the code knows the frame is 16:9
+    while the MODEL was shown a square.
+    Fix needs no coordinate un-letterboxing (normalized coords map 1:1 under
+    a plain non-uniform resize, parsePersons untouched):
+    resizeBilinear(..., [160, 256]) on 16:9. Distortion 78% -> 11% AND the
+    tensor drops 65536 -> 40960 px, -37% on the person pass.
+    Its bet is model-blindness rather than gate-rejection, because BlazeFace
+    found his face on all 10 frames from the SAME squashed source (a face
+    survives anisotropy far better than a body pose), and because R5
+    established MoveNet emits 0.14-0.35 slots for real distant people rather
+    than nothing.
+  * lastSlotDiag is ALREADY pushed to __TS_GAZE_IDS.slots[].raw
+    (init-entry.js:1132-1142) — the bundle needs no change at all, only
+    gauntlet.py extracting `slots` the way it now extracts sims/mem.
+    Decision table for run B's zero-person frames: all six slots ~0/0-4 =>
+    model blind (fix the squash); a slot at 0.12-0.35 with >=7 confident
+    keypoints => the gate threw him out; a slot >=0.35 is impossible.
+  * If it IS the gate, the critic found a defect in my own R5 coherence
+    guard: person-gate.mjs:227 tests the box AFTER the 17-keypoint union
+    with KEYPOINT_MARGIN (:162-169) and after the head anchor (:201-204), so
+    it asks "do the keypoints plus OUR OWN inflation disagree with the model
+    box" rather than "is this box sprawling". On a tightly-boxed truncated
+    subject the head anchor alone approaches 2x the model box, so a real
+    person can trip a 3x cap on our own inflation. Fix: test the raw
+    keypoint union, then inflate. Zero cost.
+  * **This run structurally CANNOT answer R7's F7** — direction was `woman`,
+    so the man is the flagged party, memoryStore only stores flag-certain
+    (init-entry.js:592) and memoryLookup only ever returns 'blurred' (:576).
+    Memory was working in its intended direction. Needs a `man`-direction
+    run with >=2 people. Recorded as unanswered, not as evidence either way.
+  * What the sims DO prove is worse: mem pinned at MEM_MAX 8 on a shot
+    containing ONE man means at least 8 stores fell BELOW MEM_SIM_UPDATE
+    0.85 and pushed fresh entries — identity memory held eight copies of the
+    same person. Intra-person sims measured this round 0.70-0.94; the
+    cross-person band already recorded at person-track.mjs:55-58 is 32% of
+    DIFFERENT-person pairs >=0.6 and 17% >=0.9. Those bands overlap across
+    essentially their whole range, so MEM_SIM_FLAG 0.85 is not defensible as
+    an identity threshold in EITHER direction: it false-splits (observed)
+    and false-merges (calibrated). Same conclusion the module already
+    reached for the clear direction, now extended to the flag direction.
+  * The bug that follows: person-track.mjs:486-490 applies
+    obs.remembered === 'blurred' UNCONDITIONALLY and AFTER the clear logic
+    at :452-459, so a track that just earned two certain same-gender reads
+    is forced back to blurred with its streak zeroed on every later pass. In
+    `man` mode one memorised woman permanently covers any man matching her
+    at >=0.85 — a 17%-likely event by our own calibration, and unrecoverable
+    rather than transient. newTrack at :662 already respects this
+    interaction; matchedStep does not. Two-line fix, zero ms: gate the
+    override on the current read. Per-shot scoping is the WRONG fix (memory
+    exists to survive cuts); the wrong bound is the eviction rule, since
+    MEM_MAX shifts the OLDEST entry and one person's 8 near-duplicates flush
+    every other identity out.
+  * Free cost wins the critic rates above accuracy work: ONE
+    tf.browser.fromPixels per verdict pass instead of two full-resolution
+    uploads (init-entry.js:1124 and :1181 each upload the raw video, ~8.3MB
+    each at 1080p, half pure waste and dominant on a G88's shared LPDDR4);
+    and quantizing the crop dw/dh (init-entry.js:776-778) to multiples of
+    32, because the crop is derived from a moving person box so almost every
+    pass asks tfjs for a texture shape it has never seen, and the pool keys
+    on shape. One-line probe to confirm the latter: dbgC.gpu =
+    (dbgC.gpu||[]).concat([tf.memory().numBytesInGPU]).slice(-40) in the
+    .finally at :1409 — monotonic growth confirms it.
+  * MERGE_MAX_FILL (R7 critic F2) is still unbuilt, and standing the eraser
+    down this round left its mirror armed: on a CROSSFADE the 16x16 luma
+    gate does not fire, so neither demoteTracks nor the eraser runs and
+    stale tracks ride the coast window into the new shot, where mergeTracks
+    (person-track.mjs:740-770) unions overlaps TRANSITIVELY with no area or
+    fill test — the r7 f007 (0,0,1,1) full-frame mechanism exactly.
+  * Judged my third change (classifyBest length-preserving fill) CLEAN,
+    having checked the one place it could break: when own === -1, pick =
+    genders[bestIndex(faces)], and bigIdx's loop (:926-934) is behaviourally
+    identical to bestIndex (:912-923), so pick is always a real read and
+    faceDesc never goes null.
+  * BlazeFace already decodes 6 face landmarks and throws them away
+    (detector.js:284, "12 landmark values we ignore"). Free, already
+    downloaded: inter-ocular distance is a far more stable scale than the
+    box, tragion span gives head width directly, and mouth->eye-midpoint
+    gives an UP-VECTOR — precisely what r8b f009's head-tilted-down total
+    failure needed and what a fixed vertical multiple cannot provide. Prior
+    art named as MediaPipe's detection_to_roi (Apache-2.0, licence clean);
+    the critic did NOT verify its constants, so read the .pbtxt before
+    copying numbers.
+  * Critic's own flags: could not verify which Q2 hypothesis is true (only
+    the slots probe decides), never ran a portrait video, has no stage
+    timings so the tail composition is ranked candidates rather than
+    measurement, did not measure the texture-pool consequence, and warns
+    that back-solving captured patch rects into personFromFace constants is
+    INVALID — those rects are post-EMA, post-PTRACK_PAD and
+    post-mergeTracks. Two of its own early attempts to do that produced
+    contradictions.
