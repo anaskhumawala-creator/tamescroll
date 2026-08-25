@@ -126,7 +126,20 @@ PROBE = r"""
     lastFail: d.lastFail || null,
     patches: patches,
     tracks: tr,
-    reads: (d.reads || []).slice(-4),
+    // NATIVE video resolution. Every pixel calculation about face size —
+    // and therefore every claim about why a small face reads as noise —
+    // was parameterised on a number no round had ever recorded. YouTube
+    // picks the format from the element size, so this is not guessable.
+    vw: v.videoWidth || 0,
+    vh: v.videoHeight || 0,
+    // R10 had 5 tracks and this was slice(-4): reads were being DROPPED
+    // before they reached the log.
+    reads: (d.reads || []).slice(-8),
+    // Face ATTRIBUTION, already pushed by the bundle and captured by
+    // nothing. `own` separates the three states the score alone cannot:
+    // no face found, a face found but not attributable to this person's
+    // head, and a face actually used for the verdict.
+    attr: (d.attr || []).slice(-4),
     // Identity-memory forensics (R7 critic F7): memoryLookup can REVOKE
     // a clear when a stored exemplar false-matches at MEM_SIM_FLAG 0.85,
     // and the module's own calibration says 17% of DIFFERENT-person pairs

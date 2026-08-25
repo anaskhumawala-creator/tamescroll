@@ -488,6 +488,46 @@ test('a CLEARED track survives a slow verdict pass (the mirror bug)', () => {
   pt.setVerdictCadence(400);
 });
 
+test('a coasting CLEARED track cannot outlive CLEARED_TTL_MS (R10 regression)', () => {
+  // R10 made the cleared coast cadence-aware and claimed clearAge bounded
+  // it. It did not - clearAge was advanced in coastStep and tested only in
+  // matchedStep, which a coasting track never reaches. At effZoom 3000 the
+  // window is 6000ms against a 5000ms TTL, so a newcomer associating with
+  // the coasted box would START cleared: sharp, with zero reads. EXPOSURE.
+  pt.setVerdictCadence(3000);
+  let tracks = [{
+    id: 1, box: boxA, state: 'cleared', missMs: 0, hits: 5,
+    clearMs: CLEAR_HOLD_MS, clearStreak: 3, flagStreak: 0, clearAge: 0, vx: 0, vy: 0,
+  }];
+  let elapsed = 0;
+  while (tracks.length && tracks[0].state === 'cleared' && elapsed < 20000) {
+    tracks = updatePersonTracks(tracks, [], 500);
+    elapsed += 500;
+  }
+  assert.ok(elapsed <= pt.CLEARED_TTL_MS + 500, `a clear survived ${elapsed}ms of coast unobserved`);
+  // ...and what it demotes to must be blurred, not deleted: still probably
+  // a person, just no longer one we have evidence about.
+  assert.equal(tracks.length, 1);
+  assert.equal(tracks[0].state, 'blurred');
+  pt.setVerdictCadence(400);
+});
+
+test('a stale track loses the earned-clear protection (2 reads -> 1)', () => {
+  // The flagStreak>=2 guard absorbs one noisy read on THE SAME PERSON. A
+  // track nobody has seen for over a verdict interval has no claim to it.
+  pt.setVerdictCadence(400);
+  const staleCleared = () => ({
+    id: 1, box: boxA, state: 'cleared', missMs: PTRACK_MAX_MISS_MS + 200, hits: 5,
+    clearMs: CLEAR_HOLD_MS, clearStreak: 3, flagStreak: 0, clearAge: 0, vx: 0, vy: 0,
+  });
+  let t = updatePersonTracks([staleCleared()], [obs(boxA, true, true)], 250);
+  assert.equal(t[0].state, 'blurred', 'one certain opposite read covers a STALE clear');
+  // A freshly-observed clear still gets its two reads.
+  const freshCleared = { ...staleCleared(), missMs: 0 };
+  let f = updatePersonTracks([freshCleared], [obs(boxA, true, true)], 250);
+  assert.equal(f[0].state, 'cleared', 'a fresh clear still absorbs one noisy read');
+});
+
 test('coast window is capped however slow the verdict pass gets', () => {
   // effZoom is uncapped above, so without this a 4s verdict on a phone
   // would carry a stale patch for 10-15s. The cap still bounds it - but

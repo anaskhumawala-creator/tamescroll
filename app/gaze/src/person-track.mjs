@@ -445,7 +445,17 @@ function matchedStep(t, obs, dt) {
     // someone who already passed the bar — bounded, and a child can
     // never be on this path: the age gate blocks earning a clear).
     flagStreak += 1;
-    if (state !== 'cleared' || flagStreak >= 2) {
+    // ...but a track NOBODY HAS SEEN for over a verdict interval has no
+    // claim to that protection. The streak exists to absorb one noisy
+    // read on THE SAME PERSON; a track that has been coasting is exactly
+    // as likely to be someone who walked into the departed person's
+    // screen region, and the descriptor cannot tell us otherwise (a
+    // back-turned newcomer has desc null, so identityBroken never even
+    // runs). Without this, an inherited clear also inherits two-reads-to-
+    // revoke, roughly doubling the exposure window it opened with.
+    // missMs is 0 on every matched pass, so this is inert on desktop.
+    var stale = (t.missMs || 0) > PTRACK_MAX_MISS_MS;
+    if (state !== 'cleared' || flagStreak >= 2 || stale) {
       state = 'blurred';
       clearMs = 0;
     }
@@ -631,6 +641,21 @@ function coastStep(t, dt) {
   var missMs = t.missMs + dt;
   var limit = t.state === 'blurred' ? blurredCoastMs : clearedCoastMs;
   if (missMs > limit) return null;
+  // R10 shipped the cadence-aware cleared coast claiming `clearAge`
+  // bounded it via CLEARED_TTL_MS. It did not: clearAge was advanced here
+  // and then tested only in matchedStep, which a COASTING track by
+  // definition never reaches. At effZoom 3000 the window is 6000ms
+  // against a 5000ms TTL, so the coast outlived the bound that was
+  // supposed to contain it. The cost is not a ghost (a cleared track
+  // paints nothing) — it is INHERITANCE: a newcomer entering that screen
+  // region associates at IoU 0.2 against the coasted box and starts
+  // `cleared`, sharp from frame one with zero reads. That is EXPOSURE,
+  // and R10 introduced it. Demote rather than delete: the track is still
+  // probably a person, it has simply stopped being a person we have
+  // evidence about.
+  var state = t.state;
+  var clearAge = (t.clearAge || 0) + (state === 'cleared' ? dt : 0);
+  if (state === 'cleared' && clearAge >= CLEARED_TTL_MS) state = 'blurred';
   var dx = ((t.vx || 0) * dt) / 1000;
   var dy = ((t.vy || 0) * dt) / 1000;
   return {
@@ -645,15 +670,15 @@ function coastStep(t, dt) {
     vy: (t.vy || 0) * 0.7,
     vw: (t.vw || 0) * 0.7,
     vh: (t.vh || 0) * 0.7,
-    state: t.state,
+    state: state,
     // A coasting track's clear hold does not advance (no evidence).
-    clearMs: t.state === 'blurred' ? 0 : t.clearMs,
+    clearMs: state === 'blurred' ? 0 : t.clearMs,
     missMs: missMs,
     // Coasting ADVANCES the clear's age even though it does not advance
     // its hold: absence of evidence must still age a clear out, or the
     // longer cleared-coast window above would let an unconfirmed clear
     // ride indefinitely on a slow device.
-    clearAge: (t.clearAge || 0) + (t.state === 'cleared' ? dt : 0),
+    clearAge: clearAge,
     facelessReads: t.facelessReads || 0,
     clearStreak: t.clearStreak || 0,
     flagStreak: t.flagStreak || 0,

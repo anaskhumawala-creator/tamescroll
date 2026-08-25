@@ -1080,3 +1080,117 @@ Owner constraint: nothing indecent. Queries stay ordinary.
     biggest millisecond item in the log.
   * demote-on-cut (proven by r9b f006), personFromFace units, MERGE_MAX_FILL,
     the memory override at person-track.mjs:496, crowd recall.
+
+  CRITIC (Opus, crop/resampling-chain lens) landed after the round closed.
+  It found a REGRESSION R10 SHIPPED, which is fixed and re-verified below;
+  the rest is R11 input. Two things verified against source first.
+
+  * **VERIFIED, and fixed same session — R10's cleared-coast change opened
+    an EXPOSURE window.** The entry above claims `clearAge` bounded the
+    longer window via `CLEARED_TTL_MS`. It did not: `coastStep` ADVANCED
+    clearAge and the TTL was tested only in `matchedStep`, which a coasting
+    track by definition never reaches. At effZoom 3000 the window is 6000ms
+    against a 5000ms TTL — the coast outlived the bound meant to contain
+    it. The cost is not a ghost (a cleared track paints nothing) but
+    INHERITANCE: a newcomer entering that screen region associates at
+    PTRACK_IOU_MIN 0.2 against the coasted box and starts `cleared` —
+    sharp, from frame one, on zero reads. And the identity check cannot
+    stop it, because `sameSim` needs `obs.desc` and a back-turned newcomer
+    has `desc: null`, so `identityBroken` never runs on exactly the
+    observations most likely to be a different person.
+    FIXED: `coastStep` now demotes cleared -> blurred once the advanced
+    clearAge reaches CLEARED_TTL_MS (demote, not delete — still probably a
+    person, just no longer one we have evidence about). And per the
+    critic's amendment, a track unobserved for more than PTRACK_MAX_MISS_MS
+    loses the earned-clear protection: the `flagStreak >= 2` guard exists
+    to absorb one noisy read on THE SAME PERSON, and a coasting track has
+    no claim to be the same person. Without it an inherited clear also
+    inherited two-reads-to-revoke, roughly doubling the window. `missMs` is
+    0 on every matched pass, so both are inert on desktop. Two regression
+    tests added.
+  * **VERIFIED — the low-score `male` reads are the model's NULL OUTPUT,
+    not a direction.** Invert the score formula (detector.js:397,
+    `score = min(0.99, 2*|v-0.5|)`) on R10's last 24 reads: raw sigmoid
+    **v in [0.595, 0.670], mean 0.635, sd 0.022**. Twenty-four reads, four
+    or more different subjects, six frames, inside a +-0.04 band. That is
+    not a distribution, it is a constant. The AGE head corroborates
+    independently and more strongly: mean 36.2 overall, and over the last
+    20 reads **mean 36.9 sd 1.4** — on a hall of undergraduates. `age` is
+    the expectation over a [N,100] softmax, so with no signal it returns
+    the training-set mean age, ~35-38 for the IMDB-WIKI/VGGFace2 family.
+    Two independent heads simultaneously returning their training priors
+    is a zero-information signature. Compare R9 on real faces: ages 23-37,
+    spread; scores 0.71-0.99.
+    v ~ 0.635 gives score ~0.27, and **GENDER_MIN_SCORE is 0.25 — the flag
+    bar sits BELOW the centre of the null distribution.**
+  * **The asymmetry is not the one the R10 entry above guessed.** Traced
+    through faceMeta: in `man` mode the null label `male` is SAME gender,
+    so `certain` needs GENDER_CLEAR_SCORE 0.6 and the null is inert — it
+    clears nobody, and there is **no exposure path from the default in man
+    mode**. In `woman` mode `male` is OPPOSITE, `certain` needs only
+    GENDER_MIN_SCORE 0.25, so the null is a CERTAIN flag: hard blur,
+    clearMs 0, and two consecutive nulls revoke an earned clear. Since the
+    null is a CONSTANT, "two consecutive" is guaranteed the moment a
+    subject drops below resolution.
+    So the real defect is that a read in [0.25, 0.45) is **certain enough
+    to condemn, not certain enough to acquit**, and in woman mode that
+    makes it terminal: the evidence that would clear her is the same
+    evidence flagging her.
+    It also unifies the whole log — because the null label is `male` and
+    the male clear bar is 0.6, the no-signal path has never once produced
+    EXPOSURE in either direction. Every measured EXPOSURE in ten rounds
+    came from detector MISSES, never from a wrong read.
+  * **Do NOT lower GENDER_CLEAR_SCORE_FEMALE on R10's data.** R9 asked R10
+    to measure the female band; what R10 actually measured is n=2 at 0.02
+    and 0.31, and both are null-band artifacts rather than female reads.
+    Lowering the bar to reach them would let the null's occasional
+    `female` side instantly clear a MAN. Honest reading: no female band
+    was measured, the footage was below resolution.
+  * **The chain, computed — five resamples, three anisotropic.** (1)
+    `cropPersonPixels` aspect-preserving to 224 (init-entry.js:771-791),
+    `createImageBitmap` with no `resizeQuality` so the spec default "low"
+    aliases on a downsample; (2) `detectFaceBoxes` `resizeBilinear` to a
+    hard 256x256 square (detector.js:273) — the R8 MoveNet squash bug in a
+    SECOND function; (3) the face box squarified in MODEL space
+    (detector.js:318-323); (4) `genderFromNativeFace` re-crops, still
+    non-square (init-entry.js:860-864); (5) `cropAndResize` to 224x224
+    stretching it square again (detector.js:355).
+    NATIVE RESOLUTION NOW MEASURED (new probe): **1280x720** — the number
+    the critic had to assume. On that, R10's lecturer: person box 170x399
+    native -> crop 95x224, her 33-native-px face becomes 18.5px, then gets
+    stretched **2.36:1** and lands as ~135px wide x 68px tall in a 224
+    frame, reconstructed by bilinear from ~33 real pixels. R9's interview
+    on the same arithmetic: anisotropy 1.24, face ~180 native px — **5.5x
+    more real pixels and half the distortion.** That is the whole of 0.97
+    vs 0.25, and half of it is chain, not model. Literature floor for this
+    model class is ~64-100px face width.
+  * R11's ranked work, all zero or negative ms: skip the faceres inference
+    entirely when `own === -1` (init-entry.js:935 pays a full call that
+    :1035 then discards — 29 of 38 track-frames in R10 hit that path);
+    kill the gender-crop anisotropy by taking `min(w_px,h_px)` as the
+    square side in `faceRegionInVideo` (:846-859) — provably the honest
+    1.4x-enlarged face size, ~4 lines, third instance of the
+    normalized-vs-pixel unit bug; abstain below a FACE_MIN_NATIVE_PX of 64
+    by returning `gender:'unknown'` (faceMeta already turns that into the
+    honest `{flagged:true, certain:false}`, so it is exposure-safe by
+    construction); split ZOOM_CROP_SIZE so the DETECTION crop is 256 to
+    match the detector input instead of 224-then-upsampled; and
+    `resizeQuality:'high'`.
+  * Note on the R10 fix above: `clearedCoastMs` and `blurredCoastMs` are
+    now IDENTICAL for every reachable input (effZoom >= 400 forces
+    2.5*ms >= 1000, so the 900 and 1000 floors are both inert). One
+    window, not two — worth knowing before anyone tunes them apart.
+  * Critic could not verify: which of R10's 40 reads was the lecturer's
+    (reads carry no track id); whether anisotropy or resolution dominates
+    (needs a 2x2 bench factorial: isotropic-downsample vs stretch vs both
+    vs control, ~20 lines on the existing bench.html); whether the four
+    per-frame faces are hallucinations or real profiles (`confidence` is
+    decoded at detector.js:324 and read by NO player-path consumer); and
+    every millisecond figure is an estimate.
+
+  AFTER the exposure fix, re-verified on R9's footage (runs/r10c-man):
+  **FALSE COVER 1/10** — the best man-direction result in the log, down
+  from 2/10 before the fix and 3/10 at R9's start; the single remaining
+  frame is a track birth. `life_window` 2 newTrack. Verdict p50 234, p95
+  468, first === max === 6941 (**fifth consecutive round** where the worst
+  pass is the first pass). gaze 107/107, cargo 35/35.
