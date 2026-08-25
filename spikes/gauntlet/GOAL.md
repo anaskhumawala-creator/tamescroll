@@ -819,3 +819,175 @@ Owner constraint: nothing indecent. Queries stay ordinary.
     still 2-6s away has never once been scored.
   * personFromFace units (R8 critic, verified), MERGE_MAX_FILL, the
     identity-memory override at person-track.mjs:486, crowd EXPOSURE.
+
+  CRITIC (Opus, boot / warm-up / cold-start lens) landed after the round
+  closed. It corrects TWO things in the R9 entry above, both verified
+  against source before writing here. **Read the corrections before
+  trusting the numbers above.**
+
+  * **CORRECTION 1 — R9's instant clear does NOT fix the frames it was
+    built from.** `newTrack` (person-track.mjs:669-699) sets
+    `state: 'blurred'` UNCONDITIONALLY and never reads `obs.instant`; the
+    only consumer is matchedStep:466, i.e. a track on its second-or-later
+    pass. The three scored FALSE COVER frames were all newTrack BIRTHS, and
+    the field signature proves it rather than suggesting it: newTrack is
+    the only producer of `clearMs 0`, because matchedStep's clear branch
+    does `clearMs += vdt` before anything else — even the identityBroken
+    path zeroes it and then immediately adds vdt. f000 id3 and f009 id7 are
+    `cm 0 / cs 1 / 'clear-certain'`; f006 id6 is `cm 0 / cs 0 /
+    'uncertain'`. All births.
+    Where I DISAGREE with the critic, having checked it: it calls the
+    change "a no-op in both directions". It is not. r9b f001 id4 read
+    `cleared, cs 1, cm 437` — a MATCHED track (cm > 0), with clearMs 437
+    below CLEAR_HOLD_MS 1500 and clearStreak 1 below CLEAR_STREAK_N 2, so
+    neither pre-existing path can explain `cleared`. Only `obs.instant`
+    does. The fix is real and it halves time-to-clear for a track that
+    survives one pass; it simply does not touch the birth frame, which is
+    where this round's failures were. The measured 3/10 -> 1-2/10 is
+    therefore cut-timing variance plus faster recovery, NOT the birth fix
+    I implied. Honouring `instant` in newTrack is R10's decision, and it is
+    the risky one — see the screen-face path below.
+  * **CORRECTION 2 — every `newTrack` / `sizeReject` rate in R7, R8 and R9
+    is wrong, mine included.** `bump` (person-track.mjs:88-93) only ever
+    increments; nothing assigns `g.life = {}`, and `seeked`/`loadstart`
+    reset videoTracks but not the counter. So `life` is CUMULATIVE FROM
+    PAGE LOAD and gauntlet.py reads it raw. "7 newTrack per 10 frames" is
+    7 since the page loaded — across the ~20s pre-seek autoplay, the seek
+    wipe, and the capture window.
+    The critic's reconciliation is exact and it makes the round's story
+    tighter, not looser: ids 1-2 pre-seek, 3-4 alive at f000, and 5, 6, 7
+    minted during capture — **3 births, 2 people, and exactly 3 FALSE COVER
+    frames. One per birth.** Churn is far lower than assumed and maps 1:1
+    onto the failures. R7's 30->0 size-rejection before/after still stands
+    (both sides measured the same way); the RATES do not. **Reset `life`
+    on seek in the harness, or subtract a baseline, before quoting it
+    again.**
+
+  Findings ranked as R10 input:
+
+  * **The cold-start EXPOSURE window, and the harness is structurally blind
+    to it.** Sequence, verified: bundle evals, `.ts-gaze-pending` blur
+    installs, `attachVideo` calls `markPending` — blur-first holds. Then
+    autoplay fires `play` -> `start()` -> `ensureFaceModels()`
+    (init-entry.js:1503), which BYPASSES the post-load-idle deferral
+    entirely, so on a watch page the deferral never does its job. Models
+    load in order: backend, face, gender, `genderSettled = true` (:1850),
+    THEN person/MoveNet (6.8MB embed), then NSFW.
+    **The hole is between `genderSettled = true` and `personModel != null`.**
+    The region path requires `useRegionVideo && personModel` (:1114); with
+    personModel still null the player falls through to whole-blur
+    (:1442-1479), which is full-frame BlazeFace at 256px — the detector
+    R5/R7/R8 all measured as blind on wide shots, small subjects and
+    back-turned people. Find no face and `cleanStreak` hits `unblurStreak`
+    2 (:501) at the 120ms floor, so **the player goes SHARP in ~250-500ms**
+    and stays sharp for the whole MoveNet b64-decode + graph-parse +
+    weight-upload, then for the 2220-5973ms first verdict pass on top.
+    Harness blindness confirmed: gauntlet.py sleeps 20s after navigation,
+    polls duration up to ~30s, seeks, then settles 2.0s — by f000 the page
+    is >=22s old and the hole has long closed. `cost.verdict.first`
+    survives only because `dbgC.cost` is never reset on loadstart or
+    seeked. The NUMBER is captured; the FRAMES it describes never are.
+    Free structural fix, no measurement needed: gate the fallback unblur at
+    :1468 on `personModel || !useRegionVideo`. The user keeps watching a
+    blurred player for the extra MoveNet seconds — which they were already
+    doing one second earlier, so it costs nothing they were not paying.
+  * **The CLEARED coast is a flat 1000ms and was never made cadence-aware
+    — the exact mirror of the bug I fixed this round.** coastStep:608 uses
+    `blurredCoastMs` for blurred tracks (which `setVerdictCadence` now
+    scales) but flat `PTRACK_MAX_MISS_MS` 1000 (:28) for cleared ones, and
+    nothing ever touches it. `dt` includes the previous pass's full cost
+    (init-entry.js:1084) and `sampling` blocks position passes for the
+    whole verdict, so after a 2109ms verdict the next dt is ~2.5s against a
+    1000ms limit: **the cleared track is deleted on ONE miss**, re-detected
+    next pass, and reborn `blurred`. A cleared same-gender man is re-covered
+    after every slow verdict pass, on the phone, forever — and never once on
+    this desktop. Two lines, zero ms, desktop-neutral (at effZoom 400 the
+    formula returns max(1000, 2.5*400) = 1000, unchanged). Bound the new
+    risk by advancing `clearAge` during coast so CLEARED_TTL_MS still
+    expires it.
+  * **Do NOT make MoveNet admission hysteretic.** The critic checked the
+    slots against the gate and the gate is honest: f003 slot1 `0.26/2/1`
+    fails PERSON_MIN_SCORE 0.35, fails PERSON_STRONG_KEYPOINTS 7, and fails
+    PERSON_MIN_KEYPOINTS 5 as well. Two confident keypoints is not a
+    person. `parsePersons` is stateless on purpose and loosening it
+    reopens the phantom class R5 closed at real cost. The hysteresis
+    already exists in the tracker; it is the cleared coast that is flat.
+    Slot ORDERING is not implicated at all — association is IoU-based
+    (:311), never index-based, and `byConf` only picks who gets a gender
+    read.
+  * **Warm-up is absent everywhere.** `grep warm` returns nothing; every
+    model goes straight from `loadGraphModel` to its first real inference,
+    and in tfjs-webgl the texture upload and every shader compile happen on
+    that first `execute`. That is the whole of `first === max`. Shape of
+    the fix: run each model once on a blank source of the EXACT shape the
+    real path uses — MoveNet [1,256,256,3] int32, faceres batch N=1 (the
+    player always passes one box), BlazeFace [1,256,256,3] — and feed a
+    blank CANVAS through `tf.browser.fromPixels` rather than `tf.zeros` so
+    the fromPixels program compiles too. `WEBGL_USE_SHAPES_UNIFORMS` makes
+    the programs shape-portable so it transfers. Put each warm-up in the
+    same `.then` as its load; a warm-up throw must be swallowed, never a
+    gate. Estimated 2-15s moved off the user's first frame on a G88 —
+    an estimate, not a measurement.
+  * Warm-up is NOT paid per SPA navigation, per new video element, or on
+    fullscreen/resolution change (model handles are IIFE-closure scoped and
+    `loadstart` touches none of them). It IS paid in full on every hard
+    navigation, which is what the launcher's `open_platform` does — so
+    every platform open re-evals ~22MB and reloads and re-warms four
+    models. No cross-document caching exists: tfjs shader programs are
+    per-GL-context, and `b64ToBuffer` (detector.js:45-51) re-decodes ~17MB
+    of base64 through a per-character loop on every document.
+  * **No `webglcontextlost` listener anywhere in the bundle.** On Android a
+    backgrounded WebView that loses its GL context leaves every model
+    handle pointing at dead textures; the pass-level catch just counts
+    `passFails` forever, tracks coast, then expire, then everything goes
+    sharp. Silent AND fails open. Unverified on device, and it is the only
+    failure mode in this area with both properties.
+  * **The path that would break an instant clear in `newTrack`, named
+    precisely:** a woman turned away (her own face undetected — this is
+    common, it is why the `own === -1` branch exists at :1035), a screen or
+    poster behind her showing a man, that face falling inside her crop and
+    nearer her head anchor than anything else. `own` resolves to the screen
+    face, the read comes back male at 0.95, and with instant in newTrack
+    **her track clears in ONE pass.** Today it takes two, which is little
+    protection against a static screen but total protection against a
+    transient one. R6 measured NEWSPRINT faces at 0.02-0.27, which is not
+    evidence about a monitor or a backdrop portrait — those present a
+    full-quality frontal face and read like any other.
+  * Related defect the above rides on: `ownFaceIndex` (init-entry.js:886-910)
+    computes a Euclidean distance over x normalised by `rw` and y by `rh`,
+    which are different physical scales — and on 16:9 they differ again by
+    the frame aspect. `d <= max(0.18, fw)` is therefore not one distance in
+    one unit, and a HORIZONTALLY offset neighbour in a wide crop produces a
+    small `d`. Same bug class the R8 critic verified in `personFromFace`,
+    different function.
+  * **The test that decides whether the 0.9 bar means anything, and it
+    needs no run:** `score = min(0.99, 2*|v-0.5|)` (detector.js:398) is a
+    sigmoid DISTANCE, not a calibrated probability. This codebase was
+    burned by exactly this once already — gender-ssrnet saturated ~1.0 on
+    every real face. "High score implies reliable" is a property of a
+    well-behaved model and we have n=24 frontal samples asserting it.
+    bench.html already exposes `genders`: feed a known female face at 8x
+    downsample and under Gaussian blur and record the score. If a smeared
+    face reaches 0.9, the instant bar is dead and the streak is all that
+    stands.
+  * Calibration gap to close before tuning the bar again: `reads` is logged
+    per-READ, not per-track, so this round CANNOT say whether f000 id3's
+    own read was 0.71 or 0.99. One line each: `score: pick.score` on the obs
+    (init-entry.js:1041-1050) and `sc` in the track probe (:1357-1368).
+  * The R8 critic's memory-ordering bug is still live and still unfixed:
+    matchedStep applies `obs.remembered === 'blurred'` at :496-500 AFTER
+    the clear logic at :464-469, unconditionally — so an instant clear at
+    :468 is silently overridable by a 17%-likely descriptor false-match.
+    Safe direction today, but it means instant is not final.
+  * Judged change #2 (cadence-aware coast cap) correct and minimal, and
+    change #3 (cost.*.first) as the thing that reframed the round.
+    Endorsed keeping GENDER_INSTANT_CLEAR_FEMALE unreachable rather than
+    guessed — "an unreachable bar is honest, a guessed one is exposure" —
+    and said to label it as unreachable rather than as symmetry.
+  * Critic's own flags: no run, no build, no device. It could not measure
+    the `genderSettled -> personModel` window on any hardware (so the
+    cold-start exposure is a mechanism, not a measurement), could not say
+    whether f000 id3's read was >=0.9, did not test faceres under motion
+    blur, could not confirm WebGL context loss on the phone, did not read
+    video-region.mjs or region-blur.mjs beyond call sites, and labels every
+    millisecond figure in its ranking as an estimate.
