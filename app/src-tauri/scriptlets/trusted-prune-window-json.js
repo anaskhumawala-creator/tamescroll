@@ -58,6 +58,41 @@ function trustedPruneWindowJson(propName) {
   } catch (e) {}
   if (current !== undefined) current = prune(current);
 
+  // ANOTHER SCRIPTLET MAY ALREADY OWN THIS PROPERTY, and clobbering it is
+  // how a pre-roll got through to the owner twice (measured 2026-08-25).
+  // `set-constant` walks a dotted chain and, finding the first link not
+  // yet assigned, installs its OWN accessor on `window.<propName>` — so
+  // whichever of the two scriptlets the engine emits LAST silently
+  // destroys the other's interception. On a watch page the vendored
+  // `set-constant ytInitialPlayerResponse.playerAds` rule is emitted
+  // after this one, so this pruner never saw a single assignment:
+  // `adSlots` still held 5 entries and the ad played.
+  //
+  // Composing rather than replacing fixes the whole class, in both
+  // orders: prune on the way in, then hand the CLEANED value to whoever
+  // was here first, and read back through their getter so their view and
+  // ours can never diverge.
+  var prev;
+  try {
+    prev = Object.getOwnPropertyDescriptor(window, propName);
+  } catch (e) {}
+  if (prev && prev.configurable && typeof prev.get === "function" && typeof prev.set === "function") {
+    var prevGet = prev.get;
+    var prevSet = prev.set;
+    try {
+      Object.defineProperty(window, propName, {
+        configurable: true,
+        get: function () {
+          return prevGet.call(window);
+        },
+        set: function (value) {
+          prevSet.call(window, prune(value));
+        },
+      });
+    } catch (e) {}
+    return;
+  }
+
   try {
     Object.defineProperty(window, propName, {
       configurable: true,

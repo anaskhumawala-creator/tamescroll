@@ -42,6 +42,39 @@ function setConstant(chain, rawValue) {
       pin(existing, index + 1);
       return;
     }
+    // SOMEONE ELSE MAY ALREADY BE TRAPPING THIS LINK. Blindly redefining
+    // it is how a pre-roll reached the owner twice (measured 2026-08-25):
+    // on a watch page `trusted-prune-window-json` traps
+    // window.ytInitialPlayerResponse first, this walk then reads through
+    // its getter, sees `undefined` ("not there yet"), and replaced the
+    // whole accessor — so the pruner never saw the page's assignment and
+    // `adSlots` kept all 5 entries.
+    //
+    // If the existing trap is a full configurable accessor, delegate to
+    // it instead: let it store (and transform) the value, then continue
+    // this walk on what IT ended up holding. Both scriptlets then get
+    // what they came for regardless of the order the engine emits them.
+    var d;
+    try { d = Object.getOwnPropertyDescriptor(owner, prop); } catch (e) {}
+    if (d && d.configurable && typeof d.get === "function" && typeof d.set === "function") {
+      var prevGet = d.get;
+      var prevSet = d.set;
+      try {
+        Object.defineProperty(owner, prop, {
+          get: function () { return prevGet.call(owner); },
+          set: function (v) {
+            prevSet.call(owner, v);
+            var held = prevGet.call(owner);
+            if (held !== undefined && held !== null && typeof held === "object") {
+              pin(held, index + 1);
+            }
+          },
+          configurable: true
+        });
+      } catch (e) {}
+      return;
+    }
+
     // Link not there yet: trap its assignment, then continue the walk on
     // whatever value the page assigns (re-pinning on every reassignment).
     var stored = existing;

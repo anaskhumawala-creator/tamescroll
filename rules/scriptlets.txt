@@ -16,14 +16,50 @@
 ! [unverified] — needs owner phone; emulator is never served real ads.
 www.youtube.com,m.youtube.com##+js(trusted-set-request-field, youtubei/v1/player, playbackContext.contentPlaybackContext.isInlinePlaybackNoAd, true)
 
-! Pre-roll video ads on a HARD navigation. Blocking ad REQUESTS (added
-! 2026-08-25) kills the tracking and serving calls but cannot touch the
-! pre-roll itself: its stream comes from googlevideo.com, the same origin
-! as the real content stream. And there is no client-side
-! /youtubei/v1/player request to reshape on a hard nav — YouTube embeds
-! the whole player response in the page HTML.
-! test: on a cold load of a www.youtube.com/watch page that serves a
-!   pre-roll, window.ytInitialPlayerResponse.adSlots is undefined (it was
-!   an array of 4 when measured 2026-08-25) and no .ytp-ad-skip-button
-!   appears; the content video plays from 0:00.
-www.youtube.com,m.youtube.com##+js(trusted-prune-window-json, ytInitialPlayerResponse, adSlots, adPlacements, playerAds, adBreakHeartbeatParams)
+! Pre-roll video ads on a HARD navigation, and the fake buffering that
+! comes with them.
+!
+! MEASURED 2026-08-25 (spikes/forceplayer.py, spikes/ttfp.py):
+! Blocking ad REQUESTS kills the tracking and serving calls but cannot
+! touch a pre-roll -- its stream is googlevideo.com, the same origin as
+! the real content. Pruning the ad fields out of the embedded response
+! DOES kill the ad, but it does NOT kill the penalty attached to it:
+! InnerTube ships a SABR backoff instruction with the stream worth ~80%
+! of the ad's duration (YouTube's "fake buffering"; see
+! https://iter.ca/post/yt-adblock/). So pruning alone bought a black
+! screen for as long as the ad would have run -- 24-37s to first frame,
+! which is owner reports #9/#12 "loads a lot".
+!
+! The fix is to stop editing the embedded response and instead force the
+! player onto the CLIENT-SIDE /youtubei/v1/player request, which the
+! isInlinePlaybackNoAd rule above already reshapes into a stream that has
+! no ad and therefore no backoff. Dropping `streamingData` is what does
+! that: with no stream embedded, the player must ask, and asking is the
+! path we control. Measured: exactly ONE extra /player fetch, first frame
+! 8.3s/9.0s (from 24-37s), no ad, no .ytp-error. An SPA click -- which has
+! always taken this path -- is 6.8s, so this brings a hard nav essentially
+! in line with it.
+!
+! The ad fields are still pruned alongside. They are no longer what
+! suppresses the ad (the reshaped request is), but leaving ad slots in an
+! object the page can still read is a needless second chance to render
+! one.
+!
+! TRADE, stated because it touches the player red line: the page now has
+! no embedded fallback stream, so if that one /player request fails the
+! player shows YouTube's own error instead of playing. The SPA path has
+! always had exactly this dependency and works, which is the evidence
+! this is survivable -- but it is the reason to keep videoDetails and
+! everything else intact rather than pruning the object wholesale.
+!
+! test: on a cold load of a www.youtube.com/watch page,
+!   window.ytInitialPlayerResponse.streamingData is undefined, exactly one
+!   POST to /youtubei/v1/player is made, no .ytp-ad-skip-button appears,
+!   and the content video reaches currentTime>0.3 within ~10s.
+! DESKTOP ONLY for now. Everything above was measured in WebView2 on
+! www.youtube.com. m.youtube.com keeps the old field list until the same
+! numbers exist from the owner's phone: dropping the embedded stream is a
+! player-red-line change, and shipping it to a device blind is exactly the
+! trade VISION.md refuses (a broken player is worse than an ad).
+www.youtube.com##+js(trusted-prune-window-json, ytInitialPlayerResponse, streamingData, adSlots, adPlacements, playerAds, adBreakHeartbeatParams)
+m.youtube.com##+js(trusted-prune-window-json, ytInitialPlayerResponse, adSlots, adPlacements, playerAds, adBreakHeartbeatParams)
