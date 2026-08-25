@@ -240,6 +240,19 @@ def run(outdir, gender, video, start, count, step):
         time.sleep(1.0)
     if not dur or dur != dur:  # 0, None or NaN — metadata never arrived
         raise SystemExit("RUN INVALID: no video duration (player never loaded)")
+    # An AD can still be occupying the element with ITS duration (72s for
+    # a pre-roll on a 2545s episode), and the ad class is not always set
+    # when the duration is. Re-read a few times before rejecting, or the
+    # guard throws away a perfectly good video.
+    for _ in range(6):
+        if start <= dur - 5:
+            break
+        time.sleep(3)
+        d2 = tab.eval(
+            "(function(){var v=document.querySelector('video');return v?v.duration:0;})()"
+        )
+        if d2 and d2 > dur:
+            dur = d2
     if start > dur - 5:
         raise SystemExit(
             "RUN INVALID: start %ds is past the end of a %.0fs video (%s). "
@@ -266,6 +279,16 @@ def run(outdir, gender, video, start, count, step):
         name = "f%03d.png" % i
         truth = "f%03d_truth.png" % i
         try:
+            # PAUSE ACROSS THE PAIR. The blur-on and blur-off shots are two
+            # sequential screenshots a few hundred ms apart, and on
+            # fast-cut footage the video CUTS between them: r7b f001 was
+            # captured as a man pointing, while its "truth" twin showed a
+            # completely different shot of a crowd. Scoring a patch against
+            # a frame it was never drawn on is worse than not scoring -
+            # every judgement it produces is fiction. Pausing makes the two
+            # shots genuinely the same instant.
+            tab.eval("(function(){var v=document.querySelector('video');v&&v.pause();})()")
+            time.sleep(0.15)
             tab.clip_shot(os.path.join(outdir, name), p["rect"])
             tab.eval(
                 "(function(){var n=document.querySelectorAll('.ts-gaze-vregion-host');"
@@ -276,6 +299,7 @@ def run(outdir, gender, video, start, count, step):
                 "(function(){var n=document.querySelectorAll('.ts-gaze-vregion-host');"
                 "for(var i=0;i<n.length;i++)n[i].style.visibility='';})()"
             )
+            tab.eval("(function(){var v=document.querySelector('video');v&&v.play();})()")
             p["truth"] = truth
         except Exception as e:  # a capture failure must not lose the run
             p["shotError"] = str(e)

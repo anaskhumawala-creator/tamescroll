@@ -327,3 +327,56 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   another), if the video id changes mid-run, or if ANY frame was captured
   during an ad (r6e scored ten frames of a pre-roll and the numbers read
   like a regression in the TED talk).
+- **R7** (2026-08-25) — rotation entry 5, Hell's Kitchen S19E1 KAWvDsghyc8,
+  `man`. Target was the GHOST trap (hands and objects); what it actually
+  found was **TRACK CHURN, and the cause was a fix I shipped in R5**.
+  BEFORE (runs/r7-man, 12 frames): FALSE COVER 5 (f000-f003, f008 — a male
+  close-up, covered) · EXPOSURE 1 severe (f004: a dense crowd of ~8 women,
+  ZERO patches, everything sharp) · f007 the opposite extreme (one patch
+  covering the WHOLE frame, so every man in the crowd covered too) ·
+  correct on f009/f010.
+  THE FINDING. One continuous close-up of ONE man, no cuts, gender reads
+  'male' at 0.52-0.96 throughout — and **eighteen track ids** across twelve
+  frames. He kept earning a clear and then losing it: id 15 CLEARED with
+  clearStreak 3 at f001, BLURRED with clearMs 0 at f002; id 17 CLEARED at
+  f004, blurred again at f005. CLEAR_STREAK_N needs 2 CONSECUTIVE certain
+  reads on ONE identity, so an identity that rarely survives two passes
+  makes the clear mechanism close to structurally unreachable.
+  MEASURED CAUSE (new lifecycle probe, __TS_GAZE_IDS.life): over 8 frames,
+  30 SIZE-REJECTED associations against 26 new tracks. R5's
+  `sizeCompatible` gate (PTRACK_SIZE_RATIO_MAX 3) was firing constantly,
+  and every refusal mints a fresh track. The reason is that one human has
+  two legitimate representations in this pipeline — a MoveNet body box and
+  a personFromFace synthetic body (3.6 face-widths by 7 face-heights) — and
+  they differ severalfold in area, so whenever the observation SOURCE
+  flipped between passes the gate declared them two different people.
+  FIXED: PTRACK_SIZE_RATIO_MAX 3 -> 6. That still blocks what the gate was
+  built for (the r5f immortal ghost was a 0.795x1.0 box absorbing a
+  0.12x0.45 detection, ratio ~15) without punishing a person for being
+  seen a different way.
+  AFTER (runs/r7b-man, r7c-man): size rejections **30 -> 0**, distinct
+  track ids **23 -> 16**, identityBroke only 1 in a full run, and tracks
+  now persist 2-5 passes instead of 1. Frame effect: the male close-up
+  that was fully covered at r7-man f002 is SHARP at r7b-man f002.
+  COST unchanged: verdict p50 100-105 p95 403-436 max 2294-2581; position
+  p50 21 p95 27.
+  STILL OPEN — and this is now the biggest single failure in the log:
+  * **crowd EXPOSURE.** r7c f008 is a wide restaurant shot with ~20 people
+    and carries 2 patches. r7-man f004 was ~8 women with ZERO. MoveNet caps
+    at 6 slots, ZOOM_MAX_PERSONS is 3, and the crowd is below the model's
+    resolution floor anyway. This is the multi-scale item R5 deferred, and
+    R5's critic was right that recall must not ship before the verdict
+    budget can absorb it — but "a crowd of women left entirely sharp" is
+    the owner's worst class and it is now the top item.
+  * the man is still covered on some close-up frames (r7c f003). Churn is
+    reduced, not eliminated; 16 ids for one shot is still too many.
+  HARNESS — a correctness bug that silently corrupted scoring on fast-cut
+  footage, and it invalidates any earlier round scored on such content:
+  the blur-on and blur-off shots are two SEQUENTIAL screenshots, and on
+  rapid editing the video CUTS between them. r7b f001 was captured as a
+  man pointing while its "truth" twin showed a completely different shot of
+  a crowd — a patch scored against a frame it was never drawn on. Capture
+  now PAUSES across the pair and resumes after, so the two shots are
+  genuinely the same instant. Also: the duration guard now re-reads before
+  rejecting, because a pre-roll ad reports ITS duration (72s) for a
+  2545s episode and the guard was throwing away good videos.

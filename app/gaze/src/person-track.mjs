@@ -79,6 +79,19 @@ export var CLEARED_TTL_MS = 5000;
 // another between passes.
 var nextTrackId = 1;
 
+// Lifecycle counters. A track that keeps being REPLACED can never earn a
+// clear (CLEAR_STREAK_N needs 2 consecutive certain reads on ONE track),
+// and R7 saw 18 ids across a single unbroken close-up of one man. These
+// say WHICH path is ending the identity instead of leaving it to guesswork.
+// Plain increments on a plain object, guarded by existence: a probe must
+// never be able to throw inside the pipeline.
+function bump(key) {
+  var g = typeof globalThis !== 'undefined' ? globalThis.__TS_GAZE_IDS : null;
+  if (!g) return;
+  if (!g.life) g.life = {};
+  g.life[key] = (g.life[key] || 0) + 1;
+}
+
 /** Dot product of two L2-normalized descriptors = cosine similarity. */
 export function cosineSim(a, b) {
   if (!a || !b) return 0;
@@ -231,7 +244,23 @@ function preferred(a, b) {
  * never comes close to this between two ~400ms passes; a stale patch
  * inherited from a different shot does immediately.
  */
-export var PTRACK_SIZE_RATIO_MAX = 3;
+// 3 -> 6, MEASURED r7probe: 30 size-rejections against 26 new tracks in
+// eight frames. The gate was firing constantly, and each refusal mints a
+// fresh track — which is fatal because CLEAR_STREAK_N needs 2
+// CONSECUTIVE certain reads on ONE identity. R7 saw eighteen track ids
+// across a single unbroken close-up of one man, who kept earning a clear
+// and then losing it to a new id.
+//
+// The cause is that ONE human has two legitimate representations here: a
+// MoveNet body box, and a personFromFace synthetic body (3.6 face-widths
+// by 7 face-heights, often clipped at the frame edge). Those differ by
+// several times in area, so whenever the observation source flipped
+// between passes the gate declared them different people.
+//
+// 6 still blocks what the gate was built for: the r5f immortal ghost was
+// a 0.795x1.0 stale box absorbing a 0.12x0.45 detection, a ratio of ~15.
+// It no longer punishes a person for being seen a different way.
+export var PTRACK_SIZE_RATIO_MAX = 6;
 
 export function sizeCompatible(a, b) {
   var areaA = Math.max(1e-6, (a.x2 - a.x1) * (a.y2 - a.y1));
@@ -258,7 +287,10 @@ export function updatePersonTracks(tracks, observations, dtMs) {
       // the same person seen twice; refusing the match lets the stale
       // one die on its coast timer and the real detection start a clean
       // track.
-      if (!sizeCompatible(tracks[i].box, observations[j].box)) continue;
+      if (!sizeCompatible(tracks[i].box, observations[j].box)) {
+        bump('sizeRejected');
+        continue;
+      }
       pairs.push({ t: i, o: j, iou: v });
     }
   }
@@ -282,6 +314,7 @@ export function updatePersonTracks(tracks, observations, dtMs) {
   }
   for (j = 0; j < observations.length; j++) {
     if (obsClaimed[j]) continue;
+    bump('newTrack');
     next.push(newTrack(observations[j]));
   }
   return next;
@@ -344,6 +377,7 @@ function matchedStep(t, obs, dt) {
   }
   var identityBroken = sameSim !== null && sameSim < IDENT_SIM_MIN;
   if (identityBroken) {
+    bump(t.state === 'cleared' ? 'identityBrokeCleared' : 'identityBroke');
     // SNAP, do not glide. Measured r5g f003: at a cut from a close-up to
     // a wide stage shot, the close-up track's descriptor stopped
     // matching — correctly, it is a different view of a different size —
@@ -407,6 +441,7 @@ function matchedStep(t, obs, dt) {
     } else {
       clearAge += vdt;
       if (clearAge >= CLEARED_TTL_MS) {
+        bump('ttlDemote');
         state = 'blurred';
         clearMs = 0;
         clearAge = 0;
