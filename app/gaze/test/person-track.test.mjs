@@ -750,7 +750,19 @@ test('dedupeObservations: with no head anchor the old behaviour stands', () => {
   // A back-turned person has no confident head keypoints, so parsePersons
   // reports headX null. Refusing a merge on no evidence would put two
   // patches on one body — the failure the dedupe exists to stop.
+  //
+  // R18 tried replacing the null anchor with the box centre and reverted
+  // it; the reasoning and the numbers are on MERGE_HEAD_SEP. This test
+  // pins the behaviour that survived, so the revert cannot be silently
+  // undone by someone reading only the diff.
   const a = { box: { x1: 0, y1: 0, x2: 0.754, y2: 1, headX: null, headY: null } };
   const b = { box: { x1: 0.246, y1: 0, x2: 1, y2: 1, headX: 0.73, headY: 0.3 } };
+  assert.equal(pt.dedupeObservations([a, b]).length, 1);
+});
+
+test('dedupeObservations: one back-turned person seen twice still collapses', () => {
+  // The weak tier's ordinary case: two tight boxes on one seated child.
+  const a = { box: { x1: 0.10, y1: 0.6, x2: 0.36, y2: 1, headX: null, headY: null } };
+  const b = { box: { x1: 0.12, y1: 0.62, x2: 0.38, y2: 1, headX: null, headY: null } };
   assert.equal(pt.dedupeObservations([a, b]).length, 1);
 });

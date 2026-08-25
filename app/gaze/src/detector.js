@@ -400,8 +400,30 @@ export async function classifyFaceGenders(model, pixelSource, boxes) {
   for (var k = 0; k < boxes.length; k++) {
     var v = data[k];
     var confidence = hadGenderHead ? Math.min(0.99, 2 * Math.abs(v - 0.5)) : 0;
+    // AGE IS AN EXPECTED VALUE over a 100-bin softmax, and that is the
+    // wrong statistic for the one question we ask of it (gauntlet R18).
+    // A mean over a bimodal posterior lands where no mass is: on a child
+    // face faceres splits between a young mode and its adult training
+    // prior, and the mean comes out in the twenties. Measured on the
+    // classroom footage, twelve directed reads of ONE eight-year-old
+    // returned ages 14,14,17,19,19,21,22,26,26,27,29,37 — the child gate
+    // would fire on three of twelve, and the two reads that age him 19
+    // and 22 are `male` at 0.79 and 0.81, i.e. consecutive certain-clear
+    // evidence, which in MAN mode is two of the two CLEAR_STREAK_N reads
+    // needed to render an eight-year-old sharp.
+    //
+    // So carry the MASS under GENDER_ADULT_AGE alongside the mean. It
+    // answers the actual question — is there meaningful probability that
+    // this face is a child — and it costs nothing: the loop over all 100
+    // bins already runs. `age` stays, because it is what the artifact has
+    // recorded for eleven rounds and the probes join on it.
     var age = 0;
-    for (var a = 0; a < 100; a++) age += a * ageData[k * 100 + a];
+    var childP = 0;
+    for (var a = 0; a < 100; a++) {
+      var pa = ageData[k * 100 + a];
+      age += a * pa;
+      if (a < 18) childP += pa;
+    }
     // L2-normalized descriptor slice so identity matching is a plain
     // dot product downstream.
     var desc = descData.slice(k * 1024, (k + 1) * 1024);
@@ -421,8 +443,8 @@ export async function classifyFaceGenders(model, pixelSource, boxes) {
     // descriptor are also in scope.
     verdicts.push(
       v <= 0.5
-        ? { gender: 'female', score: confidence, age: age, desc: desc, raw: v }
-        : { gender: 'male', score: confidence, age: age, desc: desc, raw: v }
+        ? { gender: 'female', score: confidence, age: age, childP: childP, desc: desc, raw: v }
+        : { gender: 'male', score: confidence, age: age, childP: childP, desc: desc, raw: v }
     );
   }
   return verdicts;

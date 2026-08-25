@@ -151,3 +151,67 @@ registry (status column moves guess → calibrated + date).
 Blur-first, nothing flashes. AI never in the critical path. Fail-open
 video / fail-closed image. Player red line. Compulsory tier has no off
 switch. No GPL/AGPL code, ever (HaramBlur = behavior reference only).
+
+## Weak tier: the back-turned person (gauntlet R18)
+
+| Constant | Value | Where | Measured on |
+|---|---|---|---|
+| `PERSON_WEAK_KP15` | 9 | person-gate.mjs | 4086 slots / 56 runs |
+| `PERSON_WEAK_MAXKP` | 0.25 | person-gate.mjs | same |
+| `PERSON_WEAK_ANCHOR` | 0.20 | person-gate.mjs | 78 R18 candidates |
+
+MoveNet emits all 17 keypoints always, with low confidence rather than
+absence, so a subject facing AWAY has a full skeleton at 0.15-0.29 and
+nothing at all above `PERSON_KEYPOINT_MIN` 0.3. Four gates key on that
+one threshold (`PERSON_STRONG_KEYPOINTS`, `PERSON_MIN_KEYPOINTS`, the
+head-or-both-shoulders anchor, and `confident` itself), so a back-turned
+person fails all four at once and no single-threshold change reaches
+them. The weak tier is keyed on `nKp15` and `maxKp` instead, and NOT on
+box score — in the R18 classroom the correctly-admitted adult teacher
+never scores above 0.321.
+
+Corpus behaviour, counting only slots the previous gate rejected: **0.00
+extra admits per pass on all 33 low-density runs** (R9-R14 close-ups, the
+R12 TED audience, the R13 talking heads whose noise band is what makes
+`PERSON_LOW_SCORE` unsafe to lower), 0.17-0.37 on R15/R17 — inspected,
+all real people the old gate was dropping — and 2.3-2.7 on the two dense
+runs, R16's auditorium and R18's classroom.
+
+A weak-tier patch is MoveNet's raw box plus `PATCH_MARGIN`: the keypoint
+union only takes keypoints over `PERSON_KEYPOINT_MIN`, so a skeleton
+entirely below that threshold contributes nothing to the geometry. That
+is why `LOW_TIER_MAX_SPRAWL` cannot fire on this tier and does not need
+to.
+
+## Child gate: mass, not mean (gauntlet R18)
+
+| Constant | Value | Where |
+|---|---|---|
+| `GENDER_ADULT_AGE` | 18 | gender-verdict.mjs |
+| `GENDER_CHILD_MASS` | 0.25 | gender-verdict.mjs |
+
+faceres' age head is a 100-bin softmax and `detector.js` reduces it to an
+expected value. A mean over a bimodal posterior lands where no mass is:
+on a child, probability splits between a young mode and the model's adult
+training prior, and the mean comes out in the twenties. Detector now also
+carries `childP`, the mass under 18, and `isAdultRead` gates on it.
+
+Calibrated on the only corpus footage with a known child and a known
+adult in the same frame (R18, 2nd-grade classroom):
+
+| Subject | Directed reads | childP range |
+|---|---|---|
+| boy, ~8 years old | 16 | 0.15-0.72, median 0.42 |
+| teacher, adult woman | 23 | 0.09-0.18, **max 0.18** |
+
+In MAN mode that run produced 11 reads confident enough to clear a track.
+Ten of them were the eight-year-old; the mean-based gate caught two of
+those ten, the mass gate catches ten of ten. Adult regression on the
+baseline video: 1 of 66 adult reads gated, and that one scored 0.18, far
+below any clear bar.
+
+A child read is also an ABSTENTION now, not merely an uncertain flag —
+otherwise it is absorbed for `CLEARED_TTL_MS` by a track that was cleared
+on somebody else, which is the maximum-duration absorption case the
+pipeline can produce.
+

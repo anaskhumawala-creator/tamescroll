@@ -117,6 +117,65 @@ export var PERSON_MIN_KEYPOINTS = 5;
 //     lands on their last position.
 // Cost: <=6 slots x <=6 held boxes = 36 IoU computations per pass, no
 // inference, no tensor. Unmeasurable next to a 30ms person pass.
+// --- WEAK TIER: the BACK-TURNED subject (gauntlet R18) --------------
+// Measured, runs/r18-woman and r18b-woman: a 2nd-grade classroom, one
+// adult teacher and ~12 seated children filling the near bottom-left of
+// a fixed wide shot, most of them facing AWAY toward the whiteboard.
+// The pipeline covered the teacher and left every child sharp on 10 of
+// 10 frames — EXPOSURE, the worst class, on children.
+//
+// MoveNet was NOT blind to them. Over 180 slots, the children's band
+// reads score 0.00-0.23 (median 0.09), `confident` 0-9 (median 1) and
+// nKp15 0-13 (median 9), on boxes 0.21-0.43 of frame height sitting on
+// the frame floor exactly where the children are. Genuine noise slots in
+// the same run read score 0.00, confident 0, nKp15 0, maxKp 0.02. So the
+// two populations are cleanly separable — just not by either quantity
+// the gate was using.
+//
+// WHY THE EXISTING TIERS CANNOT REACH THEM. `confident` counts keypoints
+// over PERSON_KEYPOINT_MIN 0.3, and a person facing away has no nose, no
+// eyes and no ears to count: the whole head set (hk) sits at a median of
+// 0.26 and the weaker shoulder (sk) at 0.13. That fails PERSON_LOW_SCORE
+// (0.09 < 0.12), fails PERSON_STRONG_KEYPOINTS (1 < 7), fails
+// PERSON_MIN_KEYPOINTS (1 < 5) and fails the head-or-both-shoulders
+// anchor. Four independent gates, all keyed on the same 0.3 threshold,
+// and turning any one of them down globally moves ALL of them.
+//
+// So this is a separate tier keyed on the two axes that DO separate:
+// nKp15 (how much skeleton is there at all) and maxKp (how sure MoveNet
+// is about its best joint). Deliberately NOT keyed on box score, because
+// the score is the quantity that fails worst here — the teacher, in full
+// view and correctly admitted, never scores above 0.32 in this footage.
+//
+// CALIBRATED AGAINST THE WHOLE CORPUS, not this round's footage: 4086
+// slots across 56 runs, counting only slots the CURRENT gate rejects.
+// nKp15 >= 9 AND maxKp >= 0.25 admits 0.00 extra slots per pass on all
+// 33 low-density runs (every R9-R14 close-up, the R12 TED audience, the
+// R13 talking heads whose noise band is what makes PERSON_LOW_SCORE
+// unsafe to move) and 2.3-2.7 per pass on exactly the two dense runs,
+// R16's auditorium and R18's classroom. It fires where the people are.
+//
+// The 0.17-0.37/pass it adds on R15 and R17 was inspected slot by slot
+// and is REAL PEOPLE, not phantoms: in R17 it is the same two pitchside
+// men whose flicker that round's hysteresis was built to paper over
+// (boxes 0.47,0.05-0.98,1 and 0.07,0.17-0.46,1, maxKp 0.66-0.88), and in
+// R15 it is Linus and his daughter. That is the tier working, and it is
+// why this is not R14's reverted PERSON_STRONG_KEYPOINTS 7 -> 5: that
+// change moved a GLOBAL threshold and fired everywhere; this one is
+// orthogonal and fires only where the existing axes have collapsed.
+export var PERSON_WEAK_KP15 = 9;
+export var PERSON_WEAK_MAXKP = 0.25;
+// The anchor a weak-tier slot must clear, in place of
+// PERSON_KEYPOINT_MIN. 0.20 rather than 0.15: 77 of the 78 R18
+// candidates clear 0.20 and all 78 clear 0.15, so 0.15 buys one slot for
+// a materially wider door. 57 of the 78 clear the ORDINARY 0.3 anchor
+// already — the anchor is not what was rejecting most of them, the
+// counts were — so this relaxation is the small half of the change.
+// Geometry is untouched: headX/headY and the head margin still require
+// PERSON_KEYPOINT_MIN, so a weak-tier person simply has no head anchor,
+// exactly like the faceless persons the pipeline already handles.
+export var PERSON_WEAK_ANCHOR = 0.2;
+
 export var PERSON_HOLD_SCORE = 0.22;
 export var PERSON_HOLD_IOU = 0.4;
 export var PERSON_HOLD_KEYPOINTS = 3;
@@ -218,12 +277,26 @@ export function parsePersons(data, minScore, aspect, held) {
     var confident = 0;
     var maxKp = 0;
     var nKp15 = 0;
+    // R18 adds the ANCHOR's own evidence to the diagnostic, and it is a
+    // different question from `confident`. The gate below rejects a slot
+    // outright unless it has a head keypoint OR both shoulders above
+    // PERSON_KEYPOINT_MIN. On a back-turned subject that is exactly the
+    // set MoveNet is least sure about — nose, eyes and ears are behind
+    // the skull — so a slot can carry nine keypoints at 0.15-0.29 and
+    // still be discarded by the anchor and not by the count. `confident`
+    // and `maxKp` cannot distinguish that case from a slot whose only
+    // evidence is a stray wrist, and the two want opposite fixes.
+    // hk = best of the five head keypoints, sk = the WEAKER shoulder
+    // (both are required, so the weaker one is the binding number).
+    var hk = 0;
     for (var c = 0; c < EVIDENCE_KEYPOINT_MAX; c++) {
       var ks = data[o + c * 3 + 2];
       if (ks >= PERSON_KEYPOINT_MIN) confident++;
       if (ks >= 0.15) nKp15++;
       if (ks > maxKp) maxKp = ks;
+      if (c <= R_EAR && ks > hk) hk = ks;
     }
+    var sk = Math.min(data[o + L_SHOULDER * 3 + 2], data[o + R_SHOULDER * 3 + 2]);
     lastSlotDiag.push({
       // 3dp, not 2 (R17): the whole question this round asked was
       // whether a slot was just UNDER PERSON_MIN_SCORE or just over, and
@@ -233,6 +306,8 @@ export function parsePersons(data, minScore, aspect, held) {
       confident: confident,
       maxKp: Math.round(maxKp * 100) / 100,
       nKp15: nKp15,
+      hk: Math.round(hk * 100) / 100,
+      sk: Math.round(sk * 100) / 100,
       h: Math.round((data[o + 53] - data[o + 51]) * 100) / 100,
       // The MODEL box, before any gate. R15's critic could not tell
       // whether f005's four rejected h=1.00 slots were localised on the
@@ -264,6 +339,8 @@ export function parsePersons(data, minScore, aspect, held) {
     // so it buys small-subject recall without reopening the phantom-class
     // failures that raising this floor to 0.35 was meant to close.
     var strong = score >= PERSON_LOW_SCORE && confident >= PERSON_STRONG_KEYPOINTS;
+    // See the PERSON_WEAK_* block. Score is deliberately not part of it.
+    var weak = nKp15 >= PERSON_WEAK_KP15 && maxKp >= PERSON_WEAK_MAXKP;
     // HYSTERESIS: was this exact box a person on the previous pass? See
     // the PERSON_HOLD_* block for the measurement. Evaluated only when
     // the ordinary gates have already refused, so it can never make the
@@ -292,9 +369,20 @@ export function parsePersons(data, minScore, aspect, held) {
       }
     }
     if (heldIdx === -1) {
-      if (!(score >= floor) && !strong) continue;
-      if (confident < PERSON_MIN_KEYPOINTS) continue;
+      if (!(score >= floor) && !strong && !weak) continue;
+      // PERSON_MIN_KEYPOINTS is a count at 0.3 and is therefore the same
+      // gate the weak tier exists to get past; applying it here would
+      // make the tier unreachable. nKp15 >= PERSON_WEAK_KP15 is the
+      // weak tier's own evidence requirement and it is stricter in
+      // count (9 vs 5), just measured at a threshold a back-turned head
+      // can actually reach.
+      if (!weak && confident < PERSON_MIN_KEYPOINTS) continue;
     }
+    // Which anchor threshold this slot must clear. Only a slot that got
+    // in on the weak tier ALONE is relaxed; anything the ordinary gates
+    // admitted keeps the 0.3 anchor it has always had.
+    var weakOnly = heldIdx === -1 && weak && !strong && !(score >= floor);
+    var anchorMin = weakOnly ? PERSON_WEAK_ANCHOR : PERSON_KEYPOINT_MIN;
     // NOTE: the claim on `heldTaken` is NOT made here. Two gates below
     // (the head/shoulder anchor and the low-tier sprawl guard) can still
     // reject this slot, and marking the entry taken before them lets a
@@ -311,7 +399,26 @@ export function parsePersons(data, minScore, aspect, held) {
     var ls = kp(data, o, L_SHOULDER);
     var rs = kp(data, o, R_SHOULDER);
     var bothShoulders = ls.s >= PERSON_KEYPOINT_MIN && rs.s >= PERSON_KEYPOINT_MIN;
-    if (!head.length && !bothShoulders) continue;
+    // ADMISSION anchor, evaluated at anchorMin. `head` and
+    // `bothShoulders` above stay at PERSON_KEYPOINT_MIN because they
+    // drive GEOMETRY (headX/headY, the head margin, headW's ear/eye
+    // fallbacks) and a 0.2-confidence ear is not a measurement worth
+    // sizing a patch from. A weak-tier person therefore ends up with
+    // headX null, which is the same state a faceless person already has
+    // and which the crop's own-face disambiguation already handles.
+    var anchored =
+      head.length > 0 ||
+      bothShoulders ||
+      (weakOnly &&
+        (Math.max(
+          data[o + NOSE * 3 + 2],
+          data[o + L_EYE * 3 + 2],
+          data[o + R_EYE * 3 + 2],
+          data[o + L_EAR * 3 + 2],
+          data[o + R_EAR * 3 + 2]
+        ) >= anchorMin ||
+          Math.min(ls.s, rs.s) >= anchorMin));
+    if (!anchored) continue;
 
     // --- box: the WHOLE person, head to feet ------------------------
     // A hip clamp lived here for one commit and was wrong. The owner's

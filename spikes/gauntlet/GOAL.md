@@ -2353,3 +2353,182 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   R15: `PTRACK_PAD_TOP` as a fraction of box rather than head. (5) The
   frame-edge faceless subject, R16's sole remaining podium failure in
   `man`.
+
+- **R18** — rotation entry 8 (`classroom lecture`, **woman**), and the
+  first footage in the rotation that contains CHILDREN. The literal query
+  returned talking heads, so I resolved `8R1hy3uHds0` (a 2nd-grade
+  vocabulary lesson) for real ones: a fixed wide shot, one adult female
+  teacher, one boy at the whiteboard, and roughly twelve seated children
+  filling the near bottom-left, most of them facing AWAY toward the
+  board. t=120, 10 frames @1.5s, same footage in `man`, plus the baseline
+  video as an adult regression. Build `1c28a75-dirty`; PID changed on
+  every rebuild (9688 -> 38388 -> 6148 -> 33904 -> 18012). The dev
+  watcher is still dead — every rebuild was an explicit stop / `cargo
+  build` / detached relaunch.
+
+  **THE OPENING SCORE WAS THE WORST OF ANY ROUND: EXPOSURE on 10 of 10
+  frames, and it was twelve children.** Every child sharp, on every
+  frame, while the one adult woman — who must be SHARP in woman mode —
+  wore a patch on all ten. Both failures at once, in the two directions
+  the owner's bar names first.
+
+  **SHIPPED 1: a weak tier at the person gate, for the person MoveNet
+  sees and our own thresholds throw away.** MoveNet was not blind here.
+  Over 180 slots the children's band reads score 0.00-0.23 (median 0.09),
+  `confident` 0-9 (median 1), nKp15 0-13 (median 9), on boxes 0.21-0.43
+  of frame height sitting exactly where the children are; genuine noise
+  in the same run reads score 0.00, confident 0, nKp15 0, maxKp 0.02.
+  Cleanly separable — just not by anything the gate was using.
+  **The reason is one number used four times.** `confident` counts
+  keypoints over PERSON_KEYPOINT_MIN 0.3, and a person facing away has no
+  nose, eyes or ears to count. New instrumentation this round (`hk`, the
+  best head keypoint; `sk`, the weaker shoulder) shows the children at
+  hk median 0.26 and sk median 0.13 — so they fail PERSON_LOW_SCORE,
+  PERSON_STRONG_KEYPOINTS, PERSON_MIN_KEYPOINTS *and* the
+  head-or-both-shoulders anchor, all keyed on the same threshold. Turning
+  any one of them down globally turns all of them down.
+  So the tier is keyed on the two axes that DO separate — nKp15 and
+  maxKp — and deliberately NOT on box score, because the score is the
+  quantity that fails worst here: the teacher, in full view and correctly
+  admitted, never scores above 0.321 in this footage.
+  **Calibrated against the whole corpus, not this round's frames: 4086
+  slots across 56 runs, counting only slots the OLD gate rejected.
+  `nKp15 >= 9 AND maxKp >= 0.25` adds 0.00 slots per pass on all 33
+  low-density runs** — every R9-R14 close-up, the R12 TED audience, the
+  R13 talking heads whose noise band is what makes PERSON_LOW_SCORE
+  unsafe to move — **and 2.3-2.7 per pass on exactly the two dense runs,
+  R16's auditorium and R18's classroom.** The 0.17-0.37/pass it adds on
+  R15 and R17 was inspected slot by slot and is REAL PEOPLE: in R17 it is
+  the same two pitchside men whose flicker that round's hysteresis was
+  built to paper over, and in R15 it is Linus and his daughter.
+  **This is not R14's reverted PERSON_STRONG_KEYPOINTS 7 -> 5.** That
+  moved a global threshold and fired everywhere; this is orthogonal and
+  fires only where the existing axes have collapsed. R14's refutation was
+  that dedupe collapsed the newly-admitted boxes into neighbours' larger
+  synthetic bodies — and a weak-tier box is MoveNet's RAW box with no
+  keypoint union (nothing it carries clears 0.3), so it is tight and
+  small and does not sprawl.
+
+  **SHIPPED 2: the child gate was asking the wrong statistic, and it has
+  never once protected a child in any measured run.** faceres' age head
+  is a 100-bin softmax and `detector.js` reduced it to an EXPECTED VALUE.
+  A mean over a bimodal posterior lands where no mass is: on a child,
+  probability splits between a young mode and the model's adult training
+  prior and the mean comes out in the twenties. Twelve directed reads of
+  ONE eight-year-old returned ages 14,14,17,19,19,21,22,26,26,27,29,37.
+  **In MAN mode two of those reads — `male/0.79/age 19` and
+  `male/0.81/age 22` — are ADJACENT in the log and each clears the
+  certainty bar, which is exactly CLEAR_STREAK_N consecutive
+  certain-clear reads. The old gate renders an eight-year-old sharp.**
+  Detector now also carries `childP`, the probability mass under 18, from
+  the loop over all 100 bins that already ran. Calibrated on the only
+  footage in the corpus with a known child and a known adult in frame
+  together: **boy 16 directed reads, childP 0.15-0.72 median 0.42;
+  teacher 23 directed reads, childP 0.09-0.18, MAX 0.18.**
+  GENDER_CHILD_MASS = 0.25 — 0.07 of headroom over her worst read.
+  **Measured, man mode, same footage: 11 reads were confident enough to
+  clear a track and ten of them were the child. The mean gate caught two
+  of those ten; the mass gate catches ten of ten.** Kept as an OR with
+  the mean rather than a replacement — child protection should widen,
+  never narrow. Adult regression on the baseline video: **1 of 66 adult
+  reads gated, and that one scored 0.18**, far below any clear bar; the
+  man still earns his clear (`c2`, fully sharp on f006).
+
+  **SHIPPED 3: a child read is an ABSTENTION.** It arrived as
+  `{flagged:true, certain:false}`, which person-track's cleared branch
+  absorbs for CLEARED_TTL_MS 5000 and which zeroes flagStreak so it can
+  never revoke anything. That branch's comment asserts a child can never
+  reach it because the age gate blocks EARNING a clear — true for
+  earning, false for INHERITING, i.e. a track cleared on an adult that a
+  child walks into. Identical shape to R12's null-read fix: a read we
+  demonstrably cannot trust must not buy MORE protection than the read it
+  replaced. A child read was the one class the code openly declares
+  untrustworthy and the only one not routed there.
+
+  **SHIPPED 4: `confidence` was never one scale, and the weak tier made
+  that binding.** A MoveNet person carries the slot score (0.057-0.321
+  here); a `personFromFace` body carries BlazeFace's face confidence
+  (0.35-0.93). They were sorted together to pick the ZOOM_MAX_PERSONS 3
+  crop budget, so every synthetic body outranked every real person, every
+  pass. Latent while `all.length` stayed <= 3; the weak tier pushes it to
+  5-6 and the sort starts deciding who is starved — and who it starved is
+  the teacher, the one person in frame who needs consecutive reads to
+  clear. Now compared within a population, not across.
+
+  **TRIED, BUILT, MEASURED AND REVERTED IN THE SAME ROUND: a box-centre
+  fallback for the null head anchor.** The critic's strongest structural
+  finding was that R17's head-split guard is inert when either headX is
+  null, and the weak tier makes null the majority case by construction
+  (59% of admits) — so R17's fix silently stopped covering the population
+  most likely to be deleted, and `dedupeMerged` went 8 -> 82 the moment
+  the tier landed. The proposed fix was the box centre. Built, measured:
+  **`dedupeMerged` 82 -> 83, coverage unchanged frame for frame.** The
+  arithmetic says why — two boxes only reach that guard at containment
+  >= 0.6, and heavy overlap drags their CENTRES together in proportion:
+  the R17 side-by-side pair whose HEADS sit 0.46 apart have centres 0.246
+  apart against a 0.377 bar. A centre is not a weak head anchor, it
+  measures the overlap itself. The better reason it did nothing is the
+  one written into the code: the sprawling boxes that guard exists for
+  all come from `personFromFace`, and those all HAVE head anchors,
+  because a face is what built them. The null-head population is
+  precisely the population that does not need it.
+
+  **SCORES, every frame read against its truth pair, both directions.**
+  * **woman, before (r18-woman) -> after (r18e-woman): EXPOSURE 10/10 ->
+    3/10, PARTIAL ~6/10 -> 3/10, FALSE COVER 10/10 -> 10/10, GHOST 0 ->
+    0, DRIFT 0 -> 0.** f000/f001/f002/f006 go from twelve sharp children
+    to contiguous cover from x 0 to x 0.75 with no face visible anywhere.
+    f004's raised arms, sharp before at y 0.34-0.50, are covered.
+  * **The three that still expose are one class and one band**: the front
+    row NEAREST camera, x 0.30-0.40, cropped by the bottom edge. f003 and
+    f005 leave a blonde girl's head sharp in a 0.03-0.06 gap between two
+    patches; f007 admitted only one person on that pass and left a
+    0.10-wide gap. Same instant in `man` covers her (f007 man: 0.00-0.37
+    and 0.38-0.73), so this is pass-to-pass admission variance in the
+    weak tier, not a mode difference.
+  * **FALSE COVER did not move and the cause is not the age gate.** The
+    teacher is back-turned or in profile for most of the run and faceres
+    reads her **male 24 times to female 5, max score 0.51 either
+    direction** — below GENDER_CLEAR_SCORE 0.6, so she cannot clear in
+    woman mode and is actively FLAGGED as a man rather than merely
+    uncertain. That is a misgender on a profile view, and it is the
+    round's honest miss: nothing shipped here touches it.
+  * `man`, same footage: every person covered on all 10 frames, which is
+    the CORRECT answer — teacher a woman, boy a child, twelve children.
+    0 EXPOSURE, 0 FALSE COVER. A weak symmetry test by construction,
+    since the footage contains no adult man; the real symmetry evidence
+    is the baseline regression above.
+  * churn went DOWN, not up, which is the opposite of what R14 predicted
+    for a recall change: **`birthFresh` 3 -> 0, `coastExpired` 5 -> 7,
+    `identityBroke` 3 -> 4** on a static camera. Consistent admission
+    beats flicker.
+
+  cost: verdict p50 102-104 -> 116-132ms (+16%), pass p50 unchanged at
+  25-26ms. gaze 144/144, cargo 36/36.
+
+  **R19's queue.** (1) **The teacher.** An adult woman in profile reading
+  `male` 24 times of 29 is the round's unaddressed failure and it is the
+  owner's second bar. Start from the fact that her max score is 0.51 in
+  BOTH directions — this is faceres having no signal on a profile, not a
+  wrong answer, and `isNullRead` is not catching it. (2) The front-row
+  frame-edge band above: measure why the weak tier admits 5 persons on
+  seven passes and 1-3 on three. (3) The critic's F3 stands even though
+  its proposed fix did not — `dedupeMerged` at 78-83 per window is
+  enormous and nobody has looked at WHAT is merging. Log containment and
+  both areas at every merge before touching it. (4) One read of the boy
+  still escapes the mass gate (pc 0.13, age 31, male 0.62); one read
+  cannot clear alone, but the residual is real. (5) R17's hysteresis
+  fired **zero** times in 30 passes here — PERSON_HOLD_SCORE 0.22 sits
+  above the entire seated-children band and above the boy's median 0.156.
+  It is scale-calibrated to a two-shot exactly the way PERSON_MIN_SCORE
+  was before R5; write the scope limit next to the constant. (6) The
+  critic's own least-confident finding, and it agrees with R16: the
+  person pass resizes 1920x1080 to a SQUARE 256, against a model card
+  that asks for aspect-preserved max-side 256. Up-resolution to 448x256
+  is 1.75x the person pass for the same bet tiling already lost —
+  measure the child-slot maxKp distribution at 448x256 FIRST and drop it
+  unless the p50 moves well above 0.32. (7) `facelessReads` is computed,
+  copied three times and read by no decision anywhere: use it or delete
+  it. (8) The `attr` probe mixes coordinate spaces (frame-space headX
+  against crop-space face centres), so `own === -1` — which hard-returns
+  a covered verdict on 25% of reads — is currently unauditable.

@@ -92,8 +92,46 @@ export function instantClearScoreFor(gender) {
 // models are unreliable on children, and a child misread as same-gender
 // must never clear. certain=false ⇒ unknown ⇒ covered, as everywhere.
 export var GENDER_ADULT_AGE = 18;
+// The mean is the WRONG STATISTIC and the round that finally measured it
+// says so plainly (gauntlet R18, runs/r18d-woman). faceres' age head is a
+// 100-bin softmax and detector.js reduces it to an expected value; on a
+// child, mass splits between a young mode and the model's adult training
+// prior and the mean lands between them, in the twenties. So the gate
+// asks the mass directly: how much probability sits under
+// GENDER_ADULT_AGE.
+//
+// Calibrated on the only footage in the corpus with a KNOWN child and a
+// KNOWN adult in the same frame — a 2nd-grade classroom, one boy at the
+// whiteboard and his teacher:
+//   boy (~8 years old), 16 directed reads: childP 0.15-0.72, median 0.42
+//   teacher (adult woman), 23 directed reads: childP 0.09-0.18, MAX 0.18
+// At 0.25 the child gate fires on 13 of the boy's 16 reads against 4 of
+// 16 for the mean, and on ZERO of the teacher's 23, with 0.07 of
+// headroom above her worst read.
+//
+// This is not a tightening for its own sake. Two of the boy's reads —
+// `male / 0.79 / age 19` and `male / 0.81 / age 22` — are ADJACENT in the
+// log and each clears the certainty bar, which is exactly CLEAR_STREAK_N
+// consecutive certain-clear reads. In MAN mode the old gate renders an
+// eight-year-old sharp. Their childP is 0.56 and 0.49.
+//
+// Kept as an OR with the mean rather than a replacement: the mean already
+// catches the unambiguous young reads (age 7, 9, 15) and a gate on child
+// protection should widen, never narrow. A read with no childP (older
+// callers, the image path) falls back to the mean exactly as before.
+export var GENDER_CHILD_MASS = 0.25;
 
 var OPPOSITE = { man: 'female', woman: 'male' };
+
+/**
+ * Is this read trustworthy as an ADULT read? False for a child, in which
+ * case the gender answer is untrusted in BOTH directions. Missing age
+ * (older callers) trusts the read, unchanged.
+ */
+function isAdultRead(f) {
+  if (typeof f.childP === 'number' && f.childP >= GENDER_CHILD_MASS) return false;
+  return typeof f.age !== 'number' || f.age >= GENDER_ADULT_AGE;
+}
 
 /**
  * userGender: "man" | "woman" | anything else (treated as unset).
@@ -112,7 +150,7 @@ export function faceVerdict(userGender, faces) {
     // score bar stays at GENDER_MIN_SCORE for images: raising it to the
     // video's 0.6 would re-blur the 0.3-0.6 same-gender adults the
     // owner already reported, and images have no tracker to absorb it.
-    var adult = typeof f.age !== 'number' || f.age >= GENDER_ADULT_AGE;
+    var adult = isAdultRead(f);
     if (!same || !adult || !(f.score >= GENDER_MIN_SCORE)) return 'flag';
   }
   return 'clear';
@@ -257,7 +295,31 @@ export function faceMeta(userGender, faces) {
     var directed = f.gender === 'male' || f.gender === 'female';
     // Child faces: gender untrusted in BOTH directions (see
     // GENDER_ADULT_AGE). Missing age (older callers) trusts the read.
-    var adult = typeof f.age !== 'number' || f.age >= GENDER_ADULT_AGE;
+    var adult = isAdultRead(f);
+    // A CHILD READ IS AN ABSTENTION, not merely an uncertain flag
+    // (gauntlet R18). Both branches below already refuse to CLEAR on a
+    // child, and that half was right. The half that was wrong is what a
+    // child read did to a track that was ALREADY cleared: it arrived as
+    // {flagged:true, certain:false}, which person-track's cleared branch
+    // absorbs for CLEARED_TTL_MS = 5000 and which zeroes flagStreak so it
+    // can never revoke anything.
+    //
+    // The comment on that branch asserts a child can never reach it
+    // because the age gate blocks EARNING a clear. True for earning,
+    // false for INHERITING — a track cleared on an adult that a child
+    // walks into, or that re-associates onto a child after a miss. And
+    // because a child read is untrusted by construction, it is the
+    // maximum-duration absorption case the pipeline can produce.
+    //
+    // This is the identical shape R12 fixed for null reads: a read we
+    // demonstrably cannot trust must not buy MORE protection than the
+    // read it replaced. A child read is the one class the code openly
+    // declares untrustworthy, and it was the only one not routed there.
+    // Two consecutive child reads now demote a cleared track instead.
+    if (directed && !adult) {
+      out.push({ flagged: true, certain: false, abstained: true });
+      continue;
+    }
     var certain;
     if (same) {
       // The clear direction pays the high bar (GENDER_CLEAR_SCORE) and
@@ -299,7 +361,7 @@ export function flaggedFaceIndices(userGender, faces) {
     }
     var f = faces[i];
     var same = f.gender === (opposite === 'female' ? 'male' : 'female');
-    var adult = typeof f.age !== 'number' || f.age >= GENDER_ADULT_AGE;
+    var adult = isAdultRead(f);
     if (!same || !adult || !(f.score >= GENDER_MIN_SCORE)) out.push(i);
   }
   return out;

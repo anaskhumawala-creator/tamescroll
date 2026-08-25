@@ -249,6 +249,29 @@ export function wipeIfEmpty(tracks, personCount, faceCount, emptyStreak, prevMax
  * person has no head keypoints): there the old behaviour stands, because
  * a merge refused on no evidence is a second patch on one body, which is
  * the failure this dedupe was built to stop.
+ *
+ * TRIED AND REVERTED IN R18, with the measurement, so the next round does
+ * not rebuild it. R18's critic pointed out — correctly — that
+ * person-gate's new weak tier makes headX null for 59% of admitted
+ * persons, so this guard is now SKIPPED on the majority of pairs, and
+ * `dedupeMerged` went 8 -> 82 per 15s window the moment the tier landed.
+ * The proposed fix was to fall back to the box's centre-x. It was built
+ * and measured and it does nothing:
+ *   * `dedupeMerged` 82 -> 83. Coverage of the classroom's children was
+ *     unchanged frame for frame.
+ *   * The arithmetic says why. Two boxes only reach this guard if
+ *     containment >= 0.6, and heavy overlap drags their CENTRES together
+ *     in proportion: the R17 side-by-side pair whose HEADS sit 0.46 apart
+ *     have centres 0.246 apart against a 0.377 bar. The centre of an
+ *     overlapping box is not a weak version of a head anchor, it is a
+ *     measurement of the overlap itself.
+ * There is a better reason it did nothing, and it is the one to keep: a
+ * weak-tier box is MoveNet's raw box with no keypoint union (nothing it
+ * carries clears PERSON_KEYPOINT_MIN), so it is tight. The pathological
+ * merges this guard exists for come from personFromFace's sprawling
+ * synthetic bodies — and those all HAVE head anchors, because a face is
+ * what built them. The null-head population is precisely the population
+ * that does not need the guard.
  */
 export var MERGE_HEAD_SEP = 0.5; // in units of the narrower box's width
 

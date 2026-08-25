@@ -9,6 +9,8 @@ import {
   personFromFace,
   PERSON_MIN_SCORE,
   PERSON_HOLD_MAX,
+  PERSON_WEAK_KP15,
+  PERSON_WEAK_MAXKP,
 } from '../src/person-gate.mjs';
 
 // Keypoint layout: 17 x [y, x, score] then y1,x1,y2,x2,score.
@@ -370,4 +372,105 @@ test('hysteresis: an unheld pass does not change the ordinary gate', () => {
   assert.equal(parsePersons(closeUpMan(0.4), undefined, 16 / 9).length, 1);
   assert.equal(parsePersons(closeUpMan(0.34), undefined, 16 / 9).length, 0);
   assert.equal(parsePersons(closeUpMan(0.34), undefined, 16 / 9, []).length, 0);
+});
+
+// --- WEAK TIER: the back-turned subject (R18) -----------------------
+// Numbers taken from runs/r18b-woman, the 2nd-grade classroom: the
+// children's slots read score ~0.09, `confident` 0-1, nKp15 9-11,
+// maxKp 0.26-0.39, and were rejected by four gates at once.
+
+/** A back-turned child: plenty of skeleton, none of it over 0.3. */
+function backTurned(data, slot, cx, cy, headW, peak) {
+  const s = typeof peak === 'number' ? peak : 0.28;
+  // Head set present but weak — this is what facing away looks like.
+  setKp(data, slot, 0, cy, cx, s - 0.06);
+  setKp(data, slot, 1, cy - 0.01, cx - headW * 0.2, s - 0.1);
+  setKp(data, slot, 2, cy - 0.01, cx + headW * 0.2, s - 0.1);
+  setKp(data, slot, 3, cy, cx - headW / 2, s - 0.08);
+  setKp(data, slot, 4, cy, cx + headW / 2, s);
+  setKp(data, slot, 5, cy + 0.15, cx - headW, s - 0.05);
+  setKp(data, slot, 6, cy + 0.15, cx + headW, s - 0.05);
+  setKp(data, slot, 7, cy + 0.25, cx - headW * 1.1, s - 0.09);
+  setKp(data, slot, 8, cy + 0.25, cx + headW * 1.1, s - 0.09);
+  setKp(data, slot, 9, cy + 0.33, cx - headW, s - 0.11);
+  setKp(data, slot, 10, cy + 0.33, cx + headW, s - 0.11);
+  setKp(data, slot, 11, cy + 0.4, cx - headW * 0.7, s - 0.07);
+  setKp(data, slot, 12, cy + 0.4, cx + headW * 0.7, s - 0.07);
+}
+
+test('parsePersons: a back-turned subject with 13 weak keypoints IS a person', () => {
+  const data = new Float32Array(6 * 56);
+  setBox(data, 0, 0.6, 0.15, 1, 0.36, 0.09);
+  backTurned(data, 0, 0.25, 0.66, 0.05);
+  const out = parsePersons(data);
+  assert.equal(out.length, 1, 'the child MoveNet saw at nKp15 13 must be admitted');
+});
+
+test('parsePersons: the weak tier does not admit a noise slot', () => {
+  // R18's genuine noise band: score 0, nKp15 0, maxKp 0.02.
+  const data = new Float32Array(6 * 56);
+  setBox(data, 0, 0.25, 0.9, 0.95, 0.99, 0);
+  for (let i = 0; i < 13; i++) setKp(data, 0, i, 0.5, 0.95, 0.02);
+  assert.equal(parsePersons(data).length, 0);
+});
+
+test('parsePersons: weak tier needs BOTH axes, not either one', () => {
+  // Enough keypoints, but none of them over PERSON_WEAK_MAXKP.
+  const few = new Float32Array(6 * 56);
+  setBox(few, 0, 0.6, 0.15, 1, 0.36, 0.09);
+  backTurned(few, 0, 0.25, 0.66, 0.05, PERSON_WEAK_MAXKP - 0.05);
+  assert.equal(parsePersons(few).length, 0, 'maxKp below the floor must not admit');
+
+  // One strong joint, but almost no skeleton behind it.
+  const thin = new Float32Array(6 * 56);
+  setBox(thin, 0, 0.6, 0.15, 1, 0.36, 0.09);
+  setKp(thin, 0, 4, 0.66, 0.27, 0.5);
+  setKp(thin, 0, 9, 0.9, 0.2, 0.2);
+  assert.equal(parsePersons(thin).length, 0, 'one joint is not a person');
+});
+
+test('parsePersons: a weak-tier patch is the MODEL box, not a keypoint union', () => {
+  // This is the property that makes the weak tier safe to admit at all,
+  // and it is worth pinning because it is not obvious from the diff.
+  // The box union only takes keypoints over PERSON_KEYPOINT_MIN, so a
+  // slot whose entire skeleton sits at 0.2-0.29 contributes NOTHING to
+  // the geometry — the patch is MoveNet's own box plus PATCH_MARGIN and
+  // nothing else. The r5d failure the sprawl guard was built for
+  // (keypoints flung to opposite corners inflating a small box into a
+  // near-full-frame blur) therefore cannot happen on this tier: the
+  // keypoints that would do the flinging are all below the threshold
+  // that grows the box. Same input as the r5d garbage slot, with weak
+  // keypoints instead of confident ones.
+  const data = new Float32Array(6 * 56);
+  setBox(data, 0, 0.45, 0.45, 0.55, 0.55, 0.09);
+  for (let i = 0; i < 13; i++) {
+    setKp(data, 0, i, i % 2 ? 0.02 : 0.98, i % 3 ? 0.02 : 0.98, 0.27);
+  }
+  const out = parsePersons(data);
+  assert.equal(out.length, 1);
+  // 0.1 box + 8% margin each side, nowhere near the scattered keypoints.
+  assert.ok(out[0].x2 - out[0].x1 < 0.2, 'scattered weak keypoints must not grow the box');
+  assert.ok(out[0].y2 - out[0].y1 < 0.2);
+});
+
+test('parsePersons: a weak-tier person carries no head anchor', () => {
+  // Geometry still requires PERSON_KEYPOINT_MIN, so headX stays null and
+  // the crop's own-face disambiguation treats them like any other
+  // faceless person rather than trusting a 0.2-confidence ear.
+  const data = new Float32Array(6 * 56);
+  setBox(data, 0, 0.6, 0.15, 1, 0.36, 0.09);
+  backTurned(data, 0, 0.25, 0.66, 0.05);
+  const out = parsePersons(data);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].headX, null);
+});
+
+test('parsePersons: nKp15 is counted over the upper body only', () => {
+  // Thirteen weak LEG keypoints must not manufacture a person: the
+  // evidence window is 0-12, and legs are the hallucinated ones.
+  const data = new Float32Array(6 * 56);
+  setBox(data, 0, 0.6, 0.15, 1, 0.36, 0.09);
+  for (let i = 13; i < 17; i++) setKp(data, 0, i, 0.9, 0.25, 0.4);
+  assert.ok(PERSON_WEAK_KP15 > 4);
+  assert.equal(parsePersons(data).length, 0);
 });

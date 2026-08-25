@@ -22,6 +22,34 @@ import {
   FACE_MIN_NATIVE_PX,
 } from './gender-verdict.mjs';
 import { personCropRegion, personFromFace, lastSlotDiag } from './person-gate.mjs';
+
+// CROP-BUDGET PRIORITY. `confidence` is NOT one scale: a MoveNet person
+// carries the model's slot score and a personFromFace body carries
+// BlazeFace's face confidence. Measured on the R18 classroom, same run:
+// skeletal persons score 0.057-0.321 while synthetic bodies score
+// 0.35-0.93, so sorting the two together puts EVERY face-derived body
+// above EVERY real person, every pass. That was latent while `all.length`
+// stayed at or below ZOOM_MAX_PERSONS and everybody got a read anyway; the
+// weak tier pushes it to 5-6 and the sort starts deciding who is starved.
+//
+// Who it starves is the problem. A face-derived body already HAS its face
+// (R16 gave it faceBox, so it no longer re-detects), whereas a skeletal
+// person's read is the only way they can ever accumulate the consecutive
+// same-gender reads a clear requires. The adult woman teaching this class
+// is a skeletal person at 0.18-0.32 and she is FALSE COVER on 10 of 10
+// frames with cs:0 on every track — outranked by construction.
+//
+// So: compare within a population, not across. Skeletal persons first,
+// then synthetic bodies, each ordered by their own confidence. This is
+// not a claim that a skeleton beats a face as evidence — it is a refusal
+// to pretend two different measurements are one number.
+function cropPriority(a, b) {
+  var aSyn = a && a.fromFace ? 1 : 0;
+  var bSyn = b && b.fromFace ? 1 : 0;
+  if (aSyn !== bSyn) return aSyn - bSyn;
+  return (b.confidence || 0) - (a.confidence || 0);
+}
+
 import {
   updatePersonTracks,
   wipeIfEmpty,
@@ -1165,6 +1193,12 @@ import { planForMode } from './pipeline-plan.mjs';
                     g: pick.gender,
                     s: Math.round(pick.score * 100) / 100,
                     a: Math.round(pick.age),
+                    // Probability MASS under GENDER_ADULT_AGE, not the
+                    // mean. `a` and `pc` disagreeing is the R18 finding:
+                    // the mean of a bimodal age posterior lands between
+                    // its two modes, so a child can read `a: 22` while
+                    // most of the mass sits under 18.
+                    pc: typeof pick.childP === 'number' ? Math.round(pick.childP * 100) / 100 : null,
                     n: faces.length,
                     // Raw sigmoid and the native face size behind it:
                     // the two numbers R11's critic had to infer.
@@ -1396,6 +1430,13 @@ import { planForMode } from './pipeline-plan.mjs';
                       '/' + s.maxKp +
                       '/' + s.nKp15 +
                       '/' + s.h +
+                      // R18: the ANCHOR's own evidence. `confident` says
+                      // how many keypoints cleared 0.3; hk/sk say whether
+                      // the ones the anchor actually requires did. A
+                      // back-turned child fails on these two and on
+                      // nothing else.
+                      '/' + s.hk +
+                      '/' + s.sk +
                       '/' + (s.b ? s.b.join(',') : '')
                     );
                   }),
@@ -1406,9 +1447,7 @@ import { planForMode } from './pipeline-plan.mjs';
               // (review A8: slicing position passes to 3 let a 4th
               // flagged person's track starve and expire). Only the
               // crop/gender work is capped, highest-confidence first.
-              var byConf = persons.slice().sort(function (a, b) {
-                return (b.confidence || 0) - (a.confidence || 0);
-              });
+              var byConf = persons.slice().sort(cropPriority);
               var picked = byConf.slice(0, ZOOM_MAX_PERSONS);
               var rest = byConf.slice(ZOOM_MAX_PERSONS);
               // Position-only pass: skip the crops+gender, just move the
@@ -1567,9 +1606,7 @@ import { planForMode } from './pipeline-plan.mjs';
                     // Round-robin the crops so a large group is fully
                     // classified across a few passes instead of the
                     // same three people every time.
-                    all.sort(function (a, b) {
-                      return (b.confidence || 0) - (a.confidence || 0);
-                    });
+                    all.sort(cropPriority);
                     var start = crowdCursor % all.length;
                     var budget = [];
                     for (var c = 0; c < ZOOM_MAX_PERSONS; c++) {

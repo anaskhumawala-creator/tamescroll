@@ -106,13 +106,56 @@ test('faceMeta: child faces never clear — gender untrusted below GENDER_ADULT_
   const adult = { gender: 'male', score: 0.95, age: GENDER_ADULT_AGE + 10 };
   const m = faceMeta('man', [kid, adult]);
   // The child gate outranks the instant bar: 0.95 is far above
-  // GENDER_INSTANT_CLEAR and the child still never clears.
-  assert.deepEqual(m[0], { flagged: true, certain: false, instant: false }); // unknown => covered
+  // GENDER_INSTANT_CLEAR and the child still never clears. R18 also makes
+  // it an ABSTENTION, so it cannot buy CLEARED_TTL_MS of absorption on a
+  // track that was cleared on somebody else.
+  assert.deepEqual(m[0], { flagged: true, certain: false, abstained: true });
   assert.deepEqual(m[1], { flagged: false, certain: true, instant: true });
-  // Child opposite-gender read is also uncertain (still flagged, but it
-  // may not override a track's history as a POSITIVE reading).
+  // Child opposite-gender read: same treatment. It is still flagged, and
+  // it may not act as a POSITIVE reading in either direction.
   const k2 = faceMeta('woman', [{ gender: 'male', score: 0.95, age: 10 }]);
-  assert.deepEqual(k2[0], { flagged: true, certain: false });
+  assert.deepEqual(k2[0], { flagged: true, certain: false, abstained: true });
+});
+
+test('faceMeta: child MASS gates the read even when the mean says adult', () => {
+  // The R18 measurement: an eight-year-old whose 100-bin age posterior
+  // splits between a young mode and faceres' adult prior reads `age 22`
+  // at gender certainty 0.81 — two such reads in a row are exactly
+  // CLEAR_STREAK_N and would render him sharp in man mode.
+  const boy = { gender: 'male', score: 0.81, age: 22, childP: 0.49 };
+  assert.deepEqual(faceMeta('man', [boy])[0], {
+    flagged: true,
+    certain: false,
+    abstained: true,
+  });
+  // The teacher in the same footage: worst childP observed over 23 reads
+  // was 0.18, and she must still be able to clear.
+  const woman = { gender: 'female', score: 0.95, age: 33, childP: 0.18 };
+  const w = faceMeta('woman', [woman])[0];
+  assert.equal(w.flagged, false);
+  assert.equal(w.certain, true);
+});
+
+test('faceMeta: a read with no childP falls back to the mean, unchanged', () => {
+  // Older callers and the image path do not carry childP. They must
+  // behave exactly as they did before the mass gate existed.
+  const adult = { gender: 'female', score: 0.95, age: 33 };
+  assert.equal(faceMeta('woman', [adult])[0].flagged, false);
+  const kid = { gender: 'female', score: 0.95, age: 9 };
+  assert.deepEqual(faceMeta('woman', [kid])[0], {
+    flagged: true,
+    certain: false,
+    abstained: true,
+  });
+});
+
+test('flaggedFaceIndices: the child mass gate applies on the image path too', () => {
+  // Same defect, same fix, both call sites — the image path reads age
+  // through the same helper.
+  const boy = { gender: 'male', score: 0.9, age: 22, childP: 0.49 };
+  assert.deepEqual(flaggedFaceIndices('man', [boy]), [0]);
+  const man = { gender: 'male', score: 0.9, age: 22, childP: 0.1 };
+  assert.deepEqual(flaggedFaceIndices('man', [man]), []);
 });
 
 test('faceMeta: unset user gender flags everything as uncertain', () => {
