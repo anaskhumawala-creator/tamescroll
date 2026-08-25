@@ -76,8 +76,11 @@ Then capture, choosing a start offset likely to contain people:
 python gauntlet.py runs/r<N>-<gender> <gender> <videoId> <startSec> 10 1.5
 ```
 
-If CDP port 9223 is dead or the dev app is not running, restart it and
-say so in the round log rather than skipping the round. A skipped round
+If CDP port 9223 is dead or the dev app is not running, restart it
+DETACHED (never as a tracked background task — see WORKLIST.md; a live
+tracked task keeps the session from ever reaching idle, which silently
+kills every scheduled ping) and say so in the round log rather than
+skipping the round. A skipped round
 looks identical to a passing round in the log, which is the one thing
 the log must never allow.
 

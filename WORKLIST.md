@@ -45,7 +45,20 @@ pre-roll AD was playing (runs/r4-man f008/f009). Worth checking whether
 ad frames are a distinct failure mode — and note that fixing item 1
 removes those frames entirely.
 
-## Harness gotcha — do not repeat
+## Harness gotchas — do not repeat
+
+NEVER run the dev app as a TRACKED background task. `npx tauri dev` ran
+that way for 13 hours, and a session holding a live tracked task never
+reaches idle — which is the only state a scheduled ping can fire in. Not
+one tick fired in five attempts at four different intervals, and the
+cron expression was never the problem. Launch it DETACHED instead:
+
+    powershell -NoProfile -Command "
+      $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--remote-debugging-port=9223'
+      Start-Process cmd.exe -ArgumentList '/c','npx tauri dev > Z:\Apps\Disconnect\spikes\devapp.log 2>&1'         -WorkingDirectory 'Z:\Apps\Disconnectpp' -WindowStyle Hidden"
+
+Then poll `curl http://127.0.0.1:9223/json` in the FOREGROUND with a
+bounded loop. Log lands in spikes/devapp.log.
 
 NEVER launch `until <cond>; do sleep N; done` with run_in_background.
 One of those spun for 12h39m waiting on a condition that had already
