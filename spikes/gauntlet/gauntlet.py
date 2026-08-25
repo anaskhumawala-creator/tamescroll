@@ -145,12 +145,26 @@ PROBE = r"""
     // the measurement. R7's critic flagged this as gating its own
     // findings. Must be 1.
     samplers: window.__TS_SAMPLERS || 0,
+    // Raw MoveNet slots BEFORE parsePersons' evidence gate, as
+    // "score/confidentKeypoints/height" per slot. This is what separates
+    // "the model saw nobody" from "the model saw someone and OUR gate
+    // discarded them" — R8 hit persons:0 on ten straight frames of a man
+    // filling a third of the frame and could not tell which. The bundle
+    // has logged it all along (init-entry.js slots probe); only the
+    // harness was not reading it.
+    slots: (d.slots || []).slice(-3),
     cost: (function () {
       var c = d.cost || { verdict: [], pass: [] };
       function stat(a) {
         if (!a.length) return null;
         var s = a.slice().sort(function (x, y) { return x - y; });
-        return { n: s.length, p50: s[(s.length / 2) | 0], p95: s[Math.min(s.length - 1, (s.length * 0.95) | 0)], max: s[s.length - 1] };
+        // `first` is the UNSORTED head of the array — the very first pass
+        // of the video. The cost arrays are push-ordered and capped at
+        // 120, so while n < 120 index 0 really is pass one, and model
+        // warm-up (faceres + BlazeFace + MoveNet shader compile) lands
+        // there. Without it a one-off compile is indistinguishable from a
+        // recurring stall, and the two need opposite fixes.
+        return { n: s.length, first: a[0], p50: s[(s.length / 2) | 0], p95: s[Math.min(s.length - 1, (s.length * 0.95) | 0)], max: s[s.length - 1] };
       }
       return { verdict: stat(c.verdict), pass: stat(c.pass) };
     })(),

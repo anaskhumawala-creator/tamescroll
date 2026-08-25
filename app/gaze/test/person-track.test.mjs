@@ -341,7 +341,18 @@ test('setVerdictCadence: the blurred coast window never falls below the verdict 
   // PTRACK_MAX_COAST_MS so a slow device cannot carry a stale patch for
   // ten seconds.
   assert.ok(phone > 1500, `phone coast ${phone}ms must outlive a 1500ms verdict pass`);
-  assert.ok(phone <= pt.PTRACK_MAX_COAST_MS + 200, `phone coast ${phone}ms must respect the cap`);
+  // The cap is cadence-aware, not flat: it floors at
+  // PTRACK_MIN_COAST_PASSES verdict intervals so the window can never be
+  // shorter than the pass that refreshes it.
+  const phoneCap = Math.max(pt.PTRACK_MAX_COAST_MS, pt.PTRACK_MIN_COAST_PASSES * 1500);
+  assert.ok(phone <= phoneCap + 200, `phone coast ${phone}ms must respect the cap`);
+  // ...and the cap itself must never fall below the cadence it is capping.
+  // A flat 2000ms cap goes SHORTER THAN ONE VERDICT INTERVAL as soon as
+  // effZoom passes 2000, so one slow pass left a covered person sharp for
+  // ~7s (R8 run A measured a 5973ms verdict => effZoom 8960 vs coast
+  // 2000). Routine on a G88, impossible to see on this desktop.
+  const slow = coastFor(3000, 100);
+  assert.ok(slow > 3000, `slow-device coast ${slow}ms must outlive its own 3000ms cadence`);
   pt.setVerdictCadence(400);
 });
 
@@ -446,7 +457,10 @@ test('clearStreak decays on uncertainty but is erased by a certain opposite', ()
 
 test('coast window is capped however slow the verdict pass gets', () => {
   // effZoom is uncapped above, so without this a 4s verdict on a phone
-  // would carry a stale patch for 10-15s.
+  // would carry a stale patch for 10-15s. The cap still bounds it - but
+  // it bounds it to PTRACK_MIN_COAST_PASSES intervals, not to a flat
+  // constant, because a flat 2000 goes SHORTER than one verdict interval
+  // past effZoom 2000 and uncovers the subject entirely (R8 critic).
   pt.setVerdictCadence(4000);
   let tracks = [{
     id: 1, box: boxA, state: 'blurred', missMs: 0, hits: 5,
@@ -457,6 +471,11 @@ test('coast window is capped however slow the verdict pass gets', () => {
     tracks = updatePersonTracks(tracks, [], 100);
     elapsed += 100;
   }
-  assert.ok(elapsed <= pt.PTRACK_MAX_COAST_MS + 200, `coast ${elapsed}ms must respect the cap`);
+  const cap = Math.max(pt.PTRACK_MAX_COAST_MS, pt.PTRACK_MIN_COAST_PASSES * 4000);
+  assert.ok(elapsed <= cap + 200, `coast ${elapsed}ms must respect the cap`);
+  assert.ok(elapsed > 4000, `coast ${elapsed}ms must outlive its own 4000ms cadence`);
+  // 2.5x cadence is still what sets it below the cap - the floor only
+  // rescues the case where 2.5x would have been clipped below 1x.
+  assert.ok(elapsed <= 2.5 * 4000 + 200, 'the 2.5x rule still governs');
   pt.setVerdictCadence(400);
 });

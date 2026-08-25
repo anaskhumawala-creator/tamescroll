@@ -454,7 +454,17 @@ function matchedStep(t, obs, dt) {
     // and CLEAR_STREAK_N consecutive ones clear outright (fast clear).
     clearMs += vdt;
     clearStreak += 1;
-    if (state === 'blurred' && (clearMs >= CLEAR_HOLD_MS || clearStreak >= CLEAR_STREAK_N)) {
+    // A read at GENDER_INSTANT_CLEAR is enough on its own. Measured in
+    // R9: every gender read of a two-man interview was male at 0.71-0.99
+    // and three of ten frames were STILL falsely covered, because a fresh
+    // track needs a second consecutive read and handheld two-shots mint
+    // fresh tracks constantly (7 newTrack in 10 frames). Waiting a second
+    // pass to re-ask a question already answered at 0.97 is what the
+    // owner sees as "it keeps blurring me".
+    if (
+      state === 'blurred' &&
+      (obs.instant || clearMs >= CLEAR_HOLD_MS || clearStreak >= CLEAR_STREAK_N)
+    ) {
       state = 'cleared';
     }
   } else if (state === 'blurred') {
@@ -567,12 +577,30 @@ var blurredCoastMs = PTRACK_MAX_MISS_BLURRED_MS;
 // cadence may lengthen the window but not without limit.
 export var PTRACK_MAX_COAST_MS = 2000;
 
+// ...but the CAP cannot be a flat constant, because it is capping a
+// number the cadence produces. R8's critic found the interaction and the
+// arithmetic checks out: once effZoom exceeds 800ms, 2.5*effZoom exceeds
+// the 2000 cap, and once effZoom exceeds 2000ms the coast window is
+// SHORTER THAN ONE VERDICT INTERVAL. A single 5973ms verdict pass (R8
+// run A, measured) puts the next verdict 8960ms away with every blurred
+// track's coast pinned at 2000ms — and `sampling` blocks position passes
+// for the whole verdict, so nothing refreshes them either. The covered
+// opposite-gender person is sharp for ~7 seconds. That is EXPOSURE, the
+// worst class, produced purely by two constants disagreeing, and it
+// fires ROUTINELY on a G88 (p95 2-3s) while never once firing on this
+// desktop — which is exactly why nine rounds of desktop frames missed it.
+//
+// So the cap floors at two verdict intervals: the window may never be
+// too short to reach the next pass. On desktop (effZoom 400) the floor
+// is 800, well under 2000, so the desktop-measured ghost tuning is
+// untouched — the change only opens up where the pass is genuinely slow,
+// which is where the exposure was.
+export var PTRACK_MIN_COAST_PASSES = 2;
+
 export function setVerdictCadence(effZoomMs) {
   var ms = typeof effZoomMs === 'number' && effZoomMs > 0 ? effZoomMs : 0;
-  blurredCoastMs = Math.min(
-    PTRACK_MAX_COAST_MS,
-    Math.max(PTRACK_MAX_MISS_BLURRED_MS, Math.round(2.5 * ms))
-  );
+  var cap = Math.max(PTRACK_MAX_COAST_MS, Math.round(PTRACK_MIN_COAST_PASSES * ms));
+  blurredCoastMs = Math.min(cap, Math.max(PTRACK_MAX_MISS_BLURRED_MS, Math.round(2.5 * ms)));
 }
 
 function coastStep(t, dt) {

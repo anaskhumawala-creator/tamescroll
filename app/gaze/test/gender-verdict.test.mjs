@@ -78,9 +78,12 @@ test('flaggedFaceIndices: unset gender flags every face', () => {
 
 test('faceMeta: certain same-gender clears, certain opposite flags, low score flags UNCERTAIN', () => {
   const m = faceMeta('man', [male(0.9), female(0.9), male(0.1)]);
-  assert.deepEqual(m[0], { flagged: false, certain: true });
+  // 0.9 is exactly GENDER_INSTANT_CLEAR, so the same-gender read also
+  // carries `instant` - one read this confident clears without waiting
+  // for CLEAR_STREAK_N. `instant` is never set on the flag side.
+  assert.deepEqual(m[0], { flagged: false, certain: true, instant: true });
   assert.deepEqual(m[1], { flagged: true, certain: true });
-  assert.deepEqual(m[2], { flagged: true, certain: false });
+  assert.deepEqual(m[2], { flagged: true, certain: false, instant: false });
 });
 
 test('faceMeta: the CLEAR direction pays the high bar (asymmetric certainty)', () => {
@@ -88,8 +91,9 @@ test('faceMeta: the CLEAR direction pays the high bar (asymmetric certainty)', (
   // confident clear (owner frame 2026-08-24: a misread child cleared at
   // the old shared 0.25 bar) — it stays covered, uncertain.
   const m = faceMeta('man', [male(GENDER_CLEAR_SCORE - 0.05), male(GENDER_CLEAR_SCORE)]);
-  assert.deepEqual(m[0], { flagged: true, certain: false });
-  assert.deepEqual(m[1], { flagged: false, certain: true });
+  assert.deepEqual(m[0], { flagged: true, certain: false, instant: false });
+  // At the clear bar but well below the instant bar: certain, not instant.
+  assert.deepEqual(m[1], { flagged: false, certain: true, instant: false });
   // The flag direction keeps the LOW bar: a 0.3-certain opposite read
   // still flags with certainty (fail-safe stays cheap).
   const f = faceMeta('man', [female(0.3)]);
@@ -100,8 +104,10 @@ test('faceMeta: child faces never clear — gender untrusted below GENDER_ADULT_
   const kid = { gender: 'male', score: 0.95, age: GENDER_ADULT_AGE - 6 };
   const adult = { gender: 'male', score: 0.95, age: GENDER_ADULT_AGE + 10 };
   const m = faceMeta('man', [kid, adult]);
-  assert.deepEqual(m[0], { flagged: true, certain: false }); // unknown => covered
-  assert.deepEqual(m[1], { flagged: false, certain: true });
+  // The child gate outranks the instant bar: 0.95 is far above
+  // GENDER_INSTANT_CLEAR and the child still never clears.
+  assert.deepEqual(m[0], { flagged: true, certain: false, instant: false }); // unknown => covered
+  assert.deepEqual(m[1], { flagged: false, certain: true, instant: true });
   // Child opposite-gender read is also uncertain (still flagged, but it
   // may not override a track's history as a POSITIVE reading).
   const k2 = faceMeta('woman', [{ gender: 'male', score: 0.95, age: 10 }]);

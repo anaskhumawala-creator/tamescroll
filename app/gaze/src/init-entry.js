@@ -1042,6 +1042,9 @@ import { planForMode } from './pipeline-plan.mjs';
               box: person,
               flagged: mine.flagged,
               certain: mine.certain,
+              // One read confident enough to clear on its own — see
+              // GENDER_INSTANT_CLEAR. Never set on the flag side.
+              instant: !!mine.instant,
               faceFound: true,
               desc: faceDesc,
             };

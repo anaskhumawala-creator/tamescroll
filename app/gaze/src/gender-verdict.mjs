@@ -47,6 +47,46 @@ export var GENDER_CLEAR_SCORE_FEMALE = 0.45;
 export function clearScoreFor(gender) {
   return gender === 'female' ? GENDER_CLEAR_SCORE_FEMALE : GENDER_CLEAR_SCORE;
 }
+
+// INSTANT clear: the bar above which ONE read is enough, so the tracker
+// does not have to wait for CLEAR_STREAK_N consecutive reads.
+//
+// Measured in gauntlet R9 (runs/r9-man, a post-match interview between
+// two men): every single gender read in the run was `male` at 0.71-0.99,
+// perfect direction, perfect certainty — and three of ten frames still
+// carried FALSE COVER, because a fresh track starts blurred and needs a
+// SECOND consecutive read to clear. f000 id3 and f009 id7 both sat
+// covered at `clearStreak 1, lastVerdict 'clear-certain'`: a man read as
+// male at 0.97 was blurred because we had only asked once. Track churn
+// mints new ids constantly in a handheld two-shot, so this is not a
+// first-frame curiosity — it recurs all run.
+//
+// The streak exists because a read at the 0.6 bar is weak evidence. A
+// read at 0.9 is not weak evidence, and treating them the same is what
+// costs the frames. The faceres distribution measured in R6 backs this:
+// male reads 0.87-0.97 median 0.94, and the model was never once
+// observed calling a man female or a woman male — only its CERTAINTY
+// varies, not its direction. So 0.9 is inside the male distribution and
+// essentially unreachable by a female face.
+//
+// The child gate still applies independently (see GENDER_ADULT_AGE):
+// instant or not, a face read as under 18 is never certain.
+export var GENDER_INSTANT_CLEAR = 0.9;
+// The female bar is deliberately set ABOVE every female read observed in
+// R6 (0.22-0.67, median 0.54, n=5), which means it effectively never
+// fires in woman mode. That is honest rather than symmetric: five
+// samples is not a distribution, and guessing a female instant bar low
+// enough to be useful would risk clearing a MISREAD MAN instantly, which
+// is EXPOSURE — the worst class — in the direction we have least data
+// for. Woman mode therefore keeps the two-read streak until a
+// woman-direction run on female-heavy footage measures the real band.
+// Registered as R10's calibration item.
+export var GENDER_INSTANT_CLEAR_FEMALE = 0.7;
+
+/** Certainty bar above which a SINGLE same-gender read clears a track. */
+export function instantClearScoreFor(gender) {
+  return gender === 'female' ? GENDER_INSTANT_CLEAR_FEMALE : GENDER_INSTANT_CLEAR;
+}
 // faceres age head (age_pred/Softmax, expected value over 0-99): below
 // this age the gender read is UNTRUSTED entirely — adult-trained gender
 // models are unreliable on children, and a child misread as same-gender
@@ -117,7 +157,13 @@ export function faceMeta(userGender, faces) {
       // The clear direction pays the high bar (GENDER_CLEAR_SCORE) and
       // must be an adult read.
       certain = directed && adult && f.score >= clearScoreFor(f.gender);
-      out.push({ flagged: !certain, certain: certain });
+      out.push({
+        flagged: !certain,
+        certain: certain,
+        // One read this confident is enough on its own — see
+        // GENDER_INSTANT_CLEAR. Always a strict superset of `certain`.
+        instant: certain && f.score >= instantClearScoreFor(f.gender),
+      });
     } else {
       certain = directed && adult && f.score >= GENDER_MIN_SCORE;
       out.push({ flagged: true, certain: certain });

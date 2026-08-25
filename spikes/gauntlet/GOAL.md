@@ -715,3 +715,107 @@ Owner constraint: nothing indecent. Queries stay ordinary.
     INVALID — those rects are post-EMA, post-PTRACK_PAD and
     post-mergeTracks. Two of its own early attempts to do that produced
     contradictions.
+
+- **R9** — rotation entry 7 (`sports post match interview`, **man**),
+  video 1L_R0MB2W5A t=61-75: a Premier League post-match interview, TWO MEN
+  in a handheld two-shot. In `man` direction both must be completely sharp,
+  so every patch in this run is a failure by definition.
+
+  | class | before (r9) | after (r9b / r9c) |
+  |---|---|---|
+  | FALSE COVER frames | **3/10** (f000, f006, f009) | **2/10 / 1/10** |
+  | EXPOSURE / PARTIAL / GHOST / DRIFT | 0 | 0 |
+  | verdict first / p50 / p95 / max | 2220 / 120 / 325 / **2220** | 2911 / 120 / 196 / **2911** |
+  | newTrack per 10 frames | 7 | 6 / 8 |
+
+  **THE FINDING OF THE ROUND, and it retires four rounds of chasing the
+  wrong thing: `cost.verdict.first === cost.verdict.max`, in every run.**
+  R9 2220 = 2220. r9b 2740 = 2740. r9c 2911 = 2911. R8 run A 5973 = 5973,
+  run B 4360 = 4360. The FIRST verdict pass of a video is the WORST pass of
+  that video, every time. The cost arrays are push-ordered and capped at
+  120 and every run had n < 120, so index 0 really is pass one. The
+  standing "verdict-pass cost tail" target — p95 974, max 3818 — is
+  therefore in large part **one-off model warm-up** (faceres + BlazeFace +
+  MoveNet shader compile), not a recurring stall. p50 is 120 and p95 is
+  196-411 once the models are hot. The honest number to optimise is the
+  warm-up, and the honest fix is to pay it where nothing is on screen. The
+  harness now captures `cost.*.first` so no future round can confuse the
+  two again.
+
+  **FALSE COVER root cause: we were re-asking a question already answered.**
+  Every single gender read in the run was `male` at 0.71-0.99, ages 23-37 —
+  not one misread, not one weak direction. And three of ten frames still
+  carried a patch, because a fresh track starts blurred and CLEAR_STREAK_N
+  demands a SECOND consecutive read. f000 id3 and f009 id7 both sat covered
+  at `clearStreak 1, lastVerdict 'clear-certain'`: a man read as male at
+  0.97 was blurred because we had only asked once. A handheld two-shot
+  mints fresh tracks constantly (7 newTrack per 10 frames with two humans
+  present), so this recurs all run rather than being a first-frame
+  curiosity. This is the owner's oldest complaint, measured.
+  FIXED: GENDER_INSTANT_CLEAR — one read at >=0.9 clears without waiting.
+  The streak exists because a read at the 0.6 bar is weak evidence; a read
+  at 0.9 is not, and R6 measured male reads at 0.87-0.97 with the model
+  never once reversing direction. Verified firing: r9b f001 id4 cleared at
+  `cs 1`, which was impossible before.
+  SYMMETRY, stated plainly rather than papered over: the female bar
+  (GENDER_INSTANT_CLEAR_FEMALE 0.7) is set ABOVE every female read ever
+  observed (R6: 0.22-0.67, n=5), so it effectively never fires in woman
+  mode. Deliberate — five samples is not a distribution, and guessing it
+  low enough to be useful would risk instantly clearing a MISREAD MAN,
+  which is EXPOSURE in the direction we have least data for. Woman mode
+  keeps the two-read streak. **R10 must run woman-direction on
+  female-heavy footage and measure the real female certainty band.**
+
+  **Second fix, from R8's critic, verified by arithmetic before shipping:**
+  the coast cap was a flat PTRACK_MAX_COAST_MS 2000, which goes SHORTER
+  THAN ONE VERDICT INTERVAL once effZoom passes 2000. A 5973ms verdict puts
+  the next verdict 8960ms away with coast pinned at 2000ms, and `sampling`
+  blocks position passes for the whole verdict — so a covered
+  opposite-gender person is sharp for ~7 seconds. EXPOSURE produced purely
+  by two constants disagreeing, routine on a G88 (p95 2-3s), impossible to
+  observe on this desktop. The cap now floors at PTRACK_MIN_COAST_PASSES
+  (2) verdict intervals. Desktop behaviour is untouched (effZoom 400 =>
+  floor 800, well under 2000), so the desktop-measured ghost tuning does
+  not regress.
+
+  **R8's top open item is SETTLED, and the answer is "both, at the
+  boundary".** The new slots probe (raw MoveNet slots BEFORE our gate, as
+  score/confidentKeypoints/height) on the same podium video, runs/r9d-woman:
+  the best slot scores **0.06-0.30 with 0-7 confident keypoints**, against
+  **0.31-0.46 with 4-10 keypoints** on the interview footage. So MoveNet is
+  not blind in general — it is weak on THAT footage, and our gate sits
+  exactly where that weakness lands. f001 slot0 is `0.26/6/0.82`: score
+  0.26 is below PERSON_MIN_SCORE 0.35, and 6 confident keypoints is one
+  short of PERSON_STRONG_KEYPOINTS 7, so it misses BOTH tiers by a hair.
+  NOT acted on this round: moving either threshold on the evidence of one
+  video is exactly the change that produced R5's GHOST regression, and the
+  numbers are now in the log for R10 to decide with a crowd frame in hand.
+  It also supports R8's critic on the squash — a truncated podium subject
+  is the geometrically atypical case an anisotropic 1.78x compression
+  should hurt most.
+
+  **Measured incidentally, and it is a better lever than any threshold:**
+  gender certainty depends on how many faces share the crop. In r9c f000
+  the reads with `n:1` scored 0.97-0.98 while the reads with `n:2-3` scored
+  0.78-0.86 — the SAME men. So crowded crops systematically read ~0.15
+  lower, which is what puts them under the instant bar. The fix is to make
+  crowded crops read like clean ones (tighter per-person cropping), not to
+  lower the bar.
+
+  STILL OPEN:
+  * **R7 critic's F1 is no longer a hypothesis — r9b f006 is the frame.**
+    A hard cut to a wider shot of the SAME two men demoted both earned
+    clears to `blurred / cs 0 / 'uncertain'` and painted nearly the whole
+    frame. The identical timestamp in r9c is completely clean, so the
+    failure is cut-timing dependent, which is why it has survived nine
+    rounds of sampling. demote-on-EVIDENCE (keep state for a track
+    re-matched at iou>=0.5 and size-compatible) is R10's first item.
+  * warm-up: pay the 2200-5900ms first pass during idle on a dummy tensor,
+    before the user's first real frame. Nothing else in the log is worth
+    this many milliseconds.
+  * the cold-start window itself is UNMEASURED and the harness is
+    structurally blind to it — it seeks and waits before capturing, so a
+    video that autoplays with people in frame while the first verdict is
+    still 2-6s away has never once been scored.
+  * personFromFace units (R8 critic, verified), MERGE_MAX_FILL, the
+    identity-memory override at person-track.mjs:486, crowd EXPOSURE.
