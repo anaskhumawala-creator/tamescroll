@@ -697,10 +697,34 @@ export function setVerdictCadence(effZoomMs) {
   clearedCoastMs = Math.min(cap, Math.max(PTRACK_MAX_MISS_MS, Math.round(2.5 * ms)));
 }
 
+// A BOX FROM THE PREVIOUS SHOT IS WORTH ONE PASS, NOT THREE.
+// demoteTracks keeps the geometry across a cut so coverage survives the
+// gap between the cut and the forced pass. It was never meant to keep
+// painting the OLD shot's people over the new one, and R15 measured
+// exactly that: Hell's Kitchen cuts from a 16-person studio wide shot to
+// a one-man close-up, the full-frame pass on the new shot returns ONE
+// face (h 0.364) and zero MoveNet persons for two consecutive passes,
+// and five patches from the old shot are still on screen — over a
+// cloche, an appliance, blue tile, and the man's own eyes.
+// The ordinary coast (2.5 verdict passes, ~1000ms) is calibrated for a
+// detector MISS, where the box is still probably right. Across a cut the
+// box is probably wrong, so the two cases must not share a budget.
+// The flag clears itself: matchedStep builds a fresh track object, so a
+// demoted track that gets re-observed loses `demoted` and goes straight
+// back to the normal budget.
+export var PTRACK_CUT_COAST_MS = 400;
+
 function coastStep(t, dt) {
   var missMs = t.missMs + dt;
-  var limit = t.state === 'blurred' ? blurredCoastMs : clearedCoastMs;
-  if (missMs > limit) return null;
+  var limit = t.demoted
+    ? PTRACK_CUT_COAST_MS
+    : t.state === 'blurred'
+      ? blurredCoastMs
+      : clearedCoastMs;
+  if (missMs > limit) {
+    if (t.demoted) bump('cutCoastExpired');
+    return null;
+  }
   // R10 shipped the cadence-aware cleared coast claiming `clearAge`
   // bounded it via CLEARED_TTL_MS. It did not: clearAge was advanced here
   // and then tested only in matchedStep, which a COASTING track by
@@ -744,6 +768,10 @@ function coastStep(t, dt) {
     flagStreak: t.flagStreak || 0,
     desc: t.desc || null,
     lastVerdict: t.lastVerdict || 'uncertain',
+    // Carried, or a demoted track would silently regain the full coast
+    // budget on its second missed pass — the exact behaviour this is here
+    // to remove.
+    demoted: !!t.demoted,
   };
 }
 
@@ -774,6 +802,8 @@ export function demoteTracks(tracks) {
       flagStreak: 0,
       desc: null,
       lastVerdict: 'uncertain',
+      // ...and this box is now on borrowed time: see PTRACK_CUT_COAST_MS.
+      demoted: true,
     });
   }
   return out;

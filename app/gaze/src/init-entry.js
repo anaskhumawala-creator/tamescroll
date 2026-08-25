@@ -15,7 +15,12 @@
 // sampling — never its AGPL-3.0 source; see NOTICE / VISION.md).
 import * as dom from './dom.js';
 import * as detector from './detector.js';
-import { flaggedFaceIndices, faceMeta, isNullRead } from './gender-verdict.mjs';
+import {
+  flaggedFaceIndices,
+  faceMeta,
+  isNullRead,
+  FACE_MIN_NATIVE_PX,
+} from './gender-verdict.mjs';
 import { personCropRegion, personFromFace, lastSlotDiag } from './person-gate.mjs';
 import {
   updatePersonTracks,
@@ -43,6 +48,22 @@ import { planForMode } from './pipeline-plan.mjs';
   // string literal — esbuild won't rename it) so the Rust side can prove
   // this exact bundle is what got injected. See lib.rs gaze tests.
   window.__TS_GAZE_BUNDLE__ = 'v7'; // v7: crowd path (faces past MoveNet's 6) + no cut blackout
+
+  // EFFECTIVE VALUES OF THE GATING CONSTANTS, published once at boot.
+  // R15 found FACE_MIN_NATIVE_PX emitted by the minifier as `var IY;` with
+  // no initializer, so the size gate compared against `undefined` and had
+  // never fired in any shipped bundle — invisible for six rounds because
+  // nothing in the artifact said what the thresholds actually WERE, only
+  // what the source claimed. A constant that goes dead now shows up as
+  // `null` in the next round's meta.json. Wrapped because a probe must
+  // never be able to throw inside the pipeline.
+  try {
+    var dbgC = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+    dbgC.cfg = {
+      faceMinPx: FACE_MIN_NATIVE_PX,
+      faceMinConf: detector.FACE_MIN_CONFIDENCE,
+    };
+  } catch (e) {}
 
   // Compulsory tier (handoff decision #1): the pipeline boots in every
   // launcher mode so NSFW media can be removed outright; what else runs
@@ -852,18 +873,12 @@ import { planForMode } from './pipeline-plan.mjs';
           nativePx: side,
         };
       }
-      // Below this many NATIVE pixels on a side, do not ask the model.
-      // faceres is a 224px VGGFace2-family network and the literature
-      // floor for gender/attribute heads of that class is ~64-100px of
-      // face; R10 measured the collapse at 33px and R6's own working
-      // footage sat at 58-79px, so 64 is above every read that has ever
-      // worked in this log and below the band that produced only noise.
-      // Asking anyway is worse than not asking: the null answer arrives
-      // labelled `male` with score ~0.27, which clears GENDER_MIN_SCORE
-      // 0.25 and therefore counts as CERTAIN — certain enough to condemn a
-      // woman, revoke an earned clear, and be written into identity
-      // memory, all on zero information.
-      var FACE_MIN_NATIVE_PX = 64;
+      // Asking below FACE_MIN_NATIVE_PX is worse than not asking: the null
+      // answer arrives labelled `male` with a score that clears
+      // GENDER_MIN_SCORE and therefore counts as CERTAIN — certain enough
+      // to condemn a woman or revoke an earned clear, all on zero
+      // information. The constant itself lives in gender-verdict.mjs; see
+      // the comment there for why a function-local `var` could not.
 
       function genderFromNativeFace(faceBox) {
         var fr = faceRegionInVideo(faceBox);
@@ -874,7 +889,13 @@ import { planForMode } from './pipeline-plan.mjs';
         // (blur-first is unchanged); what changes is that an unresolvable
         // face may no longer revoke a clear or poison memory.
         if (fr.nativePx && fr.nativePx < FACE_MIN_NATIVE_PX) {
-          return Promise.resolve([{ gender: 'unknown', score: 0, age: 0, desc: null }]);
+          // Stamp px on the REFUSAL too. R15 turned this gate on and the
+          // artifact promptly lost the very number that justifies it —
+          // sixteen reads came back `px: null`, so the next round could
+          // not have re-derived the threshold from its own evidence.
+          return Promise.resolve([
+            { gender: 'unknown', score: 0, age: 0, desc: null, px: Math.round(fr.nativePx) },
+          ]);
         }
         // The face box already carries FACE_ENLARGE context; keep it.
         return cropPersonPixels(fr).then(function (fpix) {
@@ -1007,7 +1028,9 @@ import { planForMode } from './pipeline-plan.mjs';
                 // Identity descriptor comes from the natively-cropped
                 // primary face (index 0 when it was the only face).
                 var ownI = ownFaceIndex(faces);
-                var pick = genders.length > 1 ? genders[ownI === -1 ? bestIndex(faces) : ownI] : genders[0];
+                var pickI = genders.length > 1 ? (ownI === -1 ? bestIndex(faces) : ownI) : 0;
+                var pick = genders[pickI];
+                var pickFace = faces[pickI] || null;
                 if (pick) faceDesc = pick.desc || null;
                 // Calibration probe: the raw model reads behind every
                 // verdict, so a CDP run can say WHY someone stays
@@ -1031,6 +1054,30 @@ import { planForMode } from './pipeline-plan.mjs';
                     // throw in here (instrumentation has killed two
                     // releases; it does not get to kill a third).
                     ab: isNullRead(pick) ? 1 : 0,
+                    // BlazeFace's own confidence in the box this read came
+                    // from. detectFaceBoxes has always returned it and
+                    // nothing has ever looked at it; R15's dominant failure
+                    // is patches built on faces that are not faces, and the
+                    // detector's opinion of them is the one number that
+                    // could separate those from small REAL faces without a
+                    // second model. Measure before tuning FACE_MIN_CONFIDENCE.
+                    fc:
+                      pickFace && typeof pickFace.confidence === 'number'
+                        ? Math.round(pickFace.confidence * 100) / 100
+                        : null,
+                    // The region this read came from, so a read can be
+                    // JOINED to a patch. Fifteen rounds of artifacts have
+                    // carried reads and patches side by side with no way to
+                    // say which produced which — R15's f007 has one read at
+                    // score 0.97, above GENDER_INSTANT_CLEAR, and a man
+                    // covered anyway, and the artifact cannot say whether
+                    // those are the same person.
+                    b: [
+                      Math.round(region.x1 * 1000) / 1000,
+                      Math.round(region.y1 * 1000) / 1000,
+                      Math.round(region.x2 * 1000) / 1000,
+                      Math.round(region.y2 * 1000) / 1000,
+                    ],
                   });
                   if (dbgR.reads.length > 300) dbgR.reads.shift();
                 }
@@ -1196,7 +1243,14 @@ import { planForMode } from './pipeline-plan.mjs';
                   // saw nothing" and "MoveNet saw a wrist at 0.28 and the
                   // threshold ate it", and those want opposite fixes.
                   raw: lastSlotDiag.map(function (s) {
-                    return s.score + '/' + s.confident + '/' + s.maxKp + '/' + s.nKp15 + '/' + s.h;
+                    return (
+                      s.score +
+                      '/' + s.confident +
+                      '/' + s.maxKp +
+                      '/' + s.nKp15 +
+                      '/' + s.h +
+                      '/' + (s.b ? s.b.join(',') : '')
+                    );
                   }),
                 });
                 if (dbgS.slots.length > 40) dbgS.slots.shift();
@@ -1242,9 +1296,45 @@ import { planForMode } from './pipeline-plan.mjs';
                 .detectFaceBoxes(model, directPersonOk ? video : personPixelSource())
                 .then(function (faces) {
                   var extra = [];
-                  for (var f = 0; f < faces.length; f++) {
-                    if (!faceInsideAny(faces[f], persons)) extra.push(personFromFace(faces[f], video.videoWidth / (video.videoHeight || 1)));
+                  // Tallest face this pass found — the free scale
+                  // reference the fallback needs to tell a close-up's
+                  // neighbouring TEXTURE from a genuinely distant person.
+                  var maxFaceH = 0;
+                  for (var mf = 0; mf < faces.length; mf++) {
+                    var fh = faces[mf].y2 - faces[mf].y1;
+                    if (fh > maxFaceH) maxFaceH = fh;
                   }
+                  for (var f = 0; f < faces.length; f++) {
+                    if (faceInsideAny(faces[f], persons)) continue;
+                    extra.push(personFromFace(faces[f], video.videoWidth / (video.videoHeight || 1)));
+                  }
+                  try {
+                    var dbgT = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+                    dbgT.life = dbgT.life || {};
+                    // THE HEIGHTS THE RULE ACTUALLY USES. R15 first
+                    // calibrated the threshold against `reads.px`, which is
+                    // the face found INSIDE a crop and mapped back — a
+                    // different number from the full-frame face that built
+                    // the crop in the first place. The rule then fired zero
+                    // times and the artifact could not say why. Record the
+                    // full-frame heights, whether each was inside a person,
+                    // and the max, so the constant is derived from its own
+                    // input.
+                    dbgT.ff = (dbgT.ff || [])
+                      .concat([
+                        {
+                          mx: Math.round(maxFaceH * 1000) / 1000,
+                          hs: faces.map(function (fb) {
+                            return Math.round((fb.y2 - fb.y1) * 1000) / 1000;
+                          }),
+                          in: faces.map(function (fb) {
+                            return faceInsideAny(fb, persons) ? 1 : 0;
+                          }),
+                          np: persons.length,
+                        },
+                      ])
+                      .slice(-12);
+                  } catch (e) {}
                   // Everyone is TRACKED; only the verdict budget is
                   // capped. Unverdicted people keep their existing
                   // state, and a brand-new one starts covered.

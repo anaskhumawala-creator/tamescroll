@@ -158,6 +158,18 @@ export function parsePersons(data, minScore, aspect) {
       maxKp: Math.round(maxKp * 100) / 100,
       nKp15: nKp15,
       h: Math.round((data[o + 53] - data[o + 51]) * 100) / 100,
+      // The MODEL box, before any gate. R15's critic could not tell
+      // whether f005's four rejected h=1.00 slots were localised on the
+      // real man (in which case face-corroborated admission fixes the
+      // frame) or were the sprawl noise LOW_TIER_MAX_SPRAWL exists to
+      // reject (in which case admitting one paints a full-frame patch).
+      // A height alone cannot answer that; four numbers can.
+      b: [
+        Math.round(data[o + 52] * 100) / 100,
+        Math.round(data[o + 51] * 100) / 100,
+        Math.round(data[o + 54] * 100) / 100,
+        Math.round(data[o + 53] * 100) / 100,
+      ],
     });
 
     // TWO-TIER FLOOR, measured in gauntlet R5 (runs/r5c-man slot probe).
@@ -310,6 +322,17 @@ export function parsePersons(data, minScore, aspect) {
  * Deliberately modest: the old +6.0 face-heights turned one false face
  * detection into a full-frame patch.
  */
+// TRIED AND REMOVED IN THE SAME ROUND: a relative-size floor on the
+// fallback (drop a face-derived person under a tenth of the tallest face
+// in the pass). It was calibrated against `reads.px` — the face found
+// INSIDE a crop and mapped back to video — which is NOT the full-frame
+// face that builds a synthetic body. On its own input, measured with the
+// `ff` probe added this round, the two populations do not exist: a pass
+// returns either ONE big face (a close-up) or a set of similar small
+// faces (a wide shot), so every ratio is either 1.0 or ~0.5 and the rule
+// fired zero times. The ghosts it was built for were stale tracks
+// coasting across a scene cut — see PTRACK_CUT_COAST_MS in person-track.
+// Do not rebuild it from `reads.px`; use `ff` if it is ever revisited.
 export function personFromFace(face, aspect) {
   var cx = (face.x1 + face.x2) / 2;
   var cy = (face.y1 + face.y2) / 2;

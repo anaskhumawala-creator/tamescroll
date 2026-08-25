@@ -682,3 +682,38 @@ test('abstention on a blurred track is indistinguishable from plain uncertain', 
   assert.equal(abstained.clearMs, plain.clearMs);
   assert.equal(abstained.clearStreak, plain.clearStreak);
 });
+
+// ---------------------------------------------------------------------
+// R15: a box that survived a scene cut is worth ONE pass, not three.
+// Measured failure: a cut from a 16-person studio wide shot to a one-man
+// close-up left five patches from the old shot painting furniture for at
+// least two verdict passes after the new shot's pass returned a single
+// face and zero MoveNet persons.
+test('a cut-demoted track dies at PTRACK_CUT_COAST_MS, not the full coast window', () => {
+  pt.setVerdictCadence(400);
+  const box = { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.9 };
+  let tracks = pt.updatePersonTracks([], [{ box, flagged: true, certain: true }], 400);
+  assert.equal(tracks.length, 1);
+  tracks = pt.demoteTracks(tracks);
+  assert.equal(tracks[0].demoted, true);
+  // One pass of grace: coverage holds through the gap after the cut.
+  tracks = pt.updatePersonTracks(tracks, [], 300);
+  assert.equal(tracks.length, 1, 'still covered one pass after the cut');
+  // Past the cut budget, and gone — where the ordinary blurred coast
+  // (2.5 x 400 = 1000ms) would still be painting it.
+  tracks = pt.updatePersonTracks(tracks, [], 200);
+  assert.equal(tracks.length, 0, 'dropped at 500ms, well inside the 1000ms miss coast');
+});
+
+test('re-observing a demoted track restores the full coast budget', () => {
+  pt.setVerdictCadence(400);
+  const box = { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.9 };
+  let tracks = pt.updatePersonTracks([], [{ box, flagged: true, certain: true }], 400);
+  tracks = pt.demoteTracks(tracks);
+  // Somebody really is standing there in the new shot.
+  tracks = pt.updatePersonTracks(tracks, [{ box, flagged: true, certain: true }], 100);
+  assert.equal(tracks.length, 1);
+  assert.equal(!!tracks[0].demoted, false, 'evidence clears the cut flag');
+  tracks = pt.updatePersonTracks(tracks, [], 700);
+  assert.equal(tracks.length, 1, 'back on the ordinary 1000ms miss coast');
+});

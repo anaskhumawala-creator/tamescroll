@@ -192,6 +192,28 @@ export function faceVerdict(userGender, faces) {
 // memory. In MAN mode it is inert by construction: a null folds to ~0.27,
 // far below GENDER_CLEAR_SCORE 0.6, so it could never clear anyone
 // anyway. There is no configuration of this that exposes somebody.
+// MINIMUM NATIVE FACE PIXELS BEFORE WE ASK faceres ANYTHING.
+// faceres is a 224px VGGFace2-family network; the literature floor for
+// gender/attribute heads of that class is ~64-100px of face, R10 measured
+// the collapse at 33px, and R6's own working footage sat at 58-79px. So 64
+// is above every read that has ever worked in this log and below the band
+// that produced only noise.
+//
+// THIS CONSTANT LIVES IN A MODULE FOR A MEASURED REASON, not for tidiness.
+// It was a function-local `var FACE_MIN_NATIVE_PX = 64;` inside the boot
+// closure in init-entry.js, and esbuild's MINIFIER emitted the declaration
+// with NO INITIALIZER — `var IY;` — while the unminified build of the same
+// source emitted it correctly. `nativePx < undefined` is false for every
+// input, so the gate has never fired in any shipped bundle. R15 caught it
+// by reading the emitted bundle after the artifact showed 19 of 55 reads
+// below the supposed floor, several of them scoring high enough to CLEAR.
+// Module-scope exports here are provably emitted with their values in the
+// same bundle (`YE=18` for GENDER_ADULT_AGE), so this is the shape that
+// survives. The effective value is also published on the cfg probe, so a
+// constant that goes dead again shows up in the next round's artifact
+// instead of hiding for six rounds.
+export var FACE_MIN_NATIVE_PX = 64;
+
 export var NULL_V_LO = 0.53;
 export var NULL_V_HI = 0.72;
 export var NULL_AGE_LO = 34;

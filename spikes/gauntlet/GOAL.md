@@ -1884,3 +1884,153 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   computes. (4) The render lerp is still symmetric (exposure direction,
   ~100ms of lagging leading edge). (5) Re-capture the R8 podium footage
   and narrow `k` from 3.911 with evidence.
+
+- **R15** — rotation entry 5 (`cooking show episode`, **man**), resolved
+  live to `KAWvDsghyc8` (Hell's Kitchen S19 E1), t=620, 10 frames @1.5s.
+  The rotation note promised "hands and objects — the GHOST trap" and it
+  delivered, but not by the mechanism the note (or I, or the critic)
+  expected. Same footage in `woman` for symmetry, plus the baseline video
+  as a regression check. Build `6572a32-dirty`; app PID changed on every
+  rebuild (22352 -> 43212 -> 45524 -> 42864 -> 38164 -> 45256), which is
+  the only proof of a reload. The dev WATCHER was dead this round —
+  `touch lib.rs` did nothing for ten minutes — so every rebuild was an
+  explicit stop / `cargo build` / detached relaunch.
+
+  **SHIPPED 1: `FACE_MIN_NATIVE_PX` had never executed. Not once, in any
+  round, in any shipped bundle.** The artifact said so first: 19 of 55
+  unique reads sat below a supposed 64px floor, several scoring high
+  enough to CLEAR (px 40 -> score 0.62, px 32 -> 0.69). Reading the
+  emitted bundle showed `var IY;` with no initializer and `IY=64`
+  appearing zero times in 23MB, so every comparison was `px < undefined`
+  — false for all input. The unminified build of the same source is
+  correct, which is what makes it invisible.
+  **Cause (the critic's, and it is the whole answer): the `var` sits
+  AFTER a `return` inside the boot closure — unreachable code,
+  dead-code-eliminated.** I had independently narrowed it to "the
+  minifier drops the initializer" and was wrong about why; the fix I had
+  already applied (move it to a module) is right for the reason the
+  critic gives, and it dodges the trap it warned about — my first attempt
+  changed `var` to `const`, which after a `return` is TDZ, and would have
+  thrown inside `genderFromNativeFace`, been swallowed by
+  `classifyBest`'s catch, and silently degraded EVERY gender read in the
+  pipeline. Third time an instrumentation-shaped change has come close to
+  killing the verdict chain.
+  **This retroactively corrects R12**, which concluded the 64px floor was
+  "very nearly unreachable" on the footage. It was unreachable in the
+  control flow.
+  **Measured effect: ZERO patches changed.** Frame-for-frame identical
+  before and after (r15-man vs r15b-man). An unreadable face is still a
+  covered face, so a size gate cannot remove a patch — what it removes is
+  16 of 53 reads per window and their ability to condemn or clear.
+
+  **SHIPPED 2: the round's real bug — tracks survive a scene cut and
+  paint the old shot over the new one.** `demoteTracks` keeps the boxes
+  on a cut (deliberately, review C2: coverage must hold through the gap
+  before the forced pass lands) and its comment justifies that by saying
+  "identity memory, not stale association, decides who re-clears".
+  **Identity memory was deleted in R13.** The justification went; the
+  behaviour stayed. So a kept box coasts the ordinary blurred budget —
+  2.5 verdict passes, ~1000ms — on geometry belonging to a shot that no
+  longer exists. New `PTRACK_CUT_COAST_MS = 400`: a demoted box lives one
+  pass, and the flag self-clears because `matchedStep` builds a fresh
+  object, so a box that IS re-observed returns to the normal budget.
+  `cutCoastExpired` counts it.
+
+  **TRIED, BUILT, AND REVERTED IN THE SAME ROUND: a relative-size floor
+  on the fallback.** The critic ranked "face height / tallest face in the
+  pass" first and proposed 0.15 from this round's two frames. I checked
+  0.15 against four earlier runs and REFUSED it — it would have dropped
+  real people at ratios 0.116 (r12-ted audience), 0.128 (r12-man), 0.137
+  and 0.152 (R14 insets), and dropping a real person is an EXPOSURE. I
+  derived 0.10 instead, shipped it, and it fired ZERO times. The reason
+  is the important part: **I calibrated it on `reads.px`, which is the
+  face found INSIDE a crop and mapped back to video — not the full-frame
+  face that builds a synthetic body.** Adding the `ff` probe (the actual
+  input: every full-frame face height, whether each is inside a person,
+  and the max) showed the two populations do not exist on this footage —
+  a pass returns either ONE big face (close-up, h 0.36-0.52) or a set of
+  SIMILAR small faces (wide shot, h 0.030-0.059), so every ratio is 1.0
+  or ~0.5. The "six phantoms at 29-52px" I had measured were the tracker
+  re-cropping coasted ghost boxes and reading whatever texture was inside
+  them. Reverted rather than left in place: unfired code carrying a
+  five-run derivation computed from the wrong quantity is worse than no
+  code, and the next round would have trusted it. The lesson is written
+  into person-gate.mjs so the diff alone cannot lose it.
+
+  **SHIPPED 3: instrumentation, five pieces, each from a specific
+  blindness this round hit.** `cfg` publishes the EFFECTIVE value of the
+  gating constants as the bundle sees them (a dead constant now shows up
+  as `null` in the artifact instead of hiding for six rounds); `fc`
+  carries BlazeFace's own confidence per read; `b` carries the region a
+  read came from, so a read can finally be JOINED to a patch; `ff`
+  records the full-frame face pass; and `lastSlotDiag` now carries the
+  model BOX, not just its height, which is the capture the critic asked
+  for before anyone builds face-corroborated slot admission.
+  **`fc` immediately killed the critic's rank-3 candidate.** Raising
+  FACE_MIN_CONFIDENCE cannot separate anything here: the 16 gated small
+  faces run fc 0.40-0.75 and the real faces run 0.46-0.91 — a real face
+  at 0.46 sits below phantoms at 0.71 and 0.75. Measured, not assumed.
+
+  **HARNESS: the paired capture can straddle a scene change, and did.**
+  r15-man f004's two shots showed different scenes; 44.8% of the pixels
+  OUTSIDE every patch differed, against 0.00% on all nine other frames.
+  `pause()` is a request, not a state, and the `play()` issued at the end
+  of the previous frame can resolve after it. The pair is now polled to
+  `paused===true` and bracketed by `currentTime`; a pair whose clock
+  moved is stamped `pairSkew` instead of being scored. Zero skew in the
+  four runs since.
+
+  **SCORES, every frame read against its truth pair, both directions.**
+  * man, the nine frames scoreable BEFORE and after (f004's baseline pair
+    was skewed): **FALSE COVER 2 -> 1, GHOST 3 -> 2, EXPOSURE 0 -> 0,
+    PARTIAL 0, DRIFT 0.** f005 carried the whole improvement and went
+    from the worst frame in the run to a **perfect** one: it was a
+    close-up of one bearded man wearing FIVE patches — four over kitchen
+    furniture and one over his own eyes and glasses — and is now zero
+    patches, fully sharp. f007 is unchanged in character: Gordon Ramsay
+    carries a FALSE COVER and the empty studio floor carries GHOST, both
+    from `personFromFace` sprawl (y2 = cy + 6.0h on a 0.04-tall face),
+    which is R14's geometry finding and not this round's.
+  * **f004 is a regression in the worst class, and it is the honest cost
+    of the fix.** With the harness guard it became scoreable for the
+    first time, and it shows **EXPOSURE**: a blonde woman and a second
+    woman standing sharp in a studio wide shot. Before the cut fix that
+    same frame carried a single patch covering 83% of the frame — a
+    frame-wide GHOST that happened to cover them. So the exposure is
+    pre-existing (wide-shot women at ~40px faces, which the detector
+    catches on f007 and misses on f004), it was being masked by a ghost,
+    and removing the ghost revealed it. Trading a ghost for an exposure
+    is a bad trade by the owner's own ordering, and the underlying miss
+    is R16's first target.
+  * woman (r15f), same footage: cleanly inverted. The woman close-up
+    (f000) goes to ZERO patches and stays sharp; the bearded man is
+    covered on all seven of his frames, head to frame edge, no PARTIAL.
+    Symmetry holds.
+  * regression check on the baseline video (r15g, NWoT1ZVd1Lo, woman):
+    the cut change is nearly inert there — `birthNearMiss 0`,
+    `coastExpired 3`, `cutCoastExpired 2` across the window, 1-2 patches
+    per frame, the girl covered. Pre-existing and untouched: people
+    entering at the FRAME EDGE (f007 has a man's beard at x<0.06 and
+    another at x>0.94, both sharp in woman mode).
+  * churn, deltas over the 15s window: `coastExpired` 14 -> 13 with
+    `cutCoastExpired` 12 alongside, i.e. most expiries are now the cut
+    path retiring stale geometry on purpose rather than the miss path
+    timing it out. `birthNearMiss` 9 -> 7. verdict p50 75ms, p95 155,
+    pass p50 33ms.
+
+  gaze 122/122, cargo 36/36.
+
+  **R16's queue.** (1) The f004 exposure: women at ~40px in a wide shot,
+  detected on one frame and missed on the next — this is now the top
+  class and it is the one the owner's bar names first. Start from the
+  `ff` probe, which finally records what the full-frame pass actually
+  returns. (2) `preferred()` must prefer evidence over extrapolation
+  (carried from R15, still the prerequisite for retrying the person-gate
+  recall change). (3) `PTRACK_PAD_TOP` is 0.12 of BOX height, so a
+  0.51-tall synthetic gets 66px of headroom above a head needing ~10px.
+  (4) The render lerp is still symmetric (~100ms of lagging leading edge,
+  exposure direction). (5) Face-corroborated MoveNet slot admission — the
+  critic's F4, which it flagged as its own least-confident finding;
+  `lastSlotDiag` now carries the boxes it said were needed first. (6)
+  Still open from R14: the per-cell motion mask, and re-capturing the R8
+  podium footage to narrow `k` from 3.911.

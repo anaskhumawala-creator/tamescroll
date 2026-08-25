@@ -160,6 +160,12 @@ PROBE = r"""
     // the seek and reports the DELTA alongside the raw total, so a rate
     // can be quoted honestly or not at all.
     life: d.life || null,
+    // Effective gating constants as the BUNDLE sees them, not as the
+    // source claims. R15: FACE_MIN_NATIVE_PX was emitted unassigned by the
+    // minifier and the gate had never fired; nothing in six rounds of
+    // artifacts could have shown that.
+    cfg: d.cfg || null,
+    ff: (d.ff || []).slice(-3),
     // How many samplers are alive. __TS_GAZE_IDS is a WINDOW global while
     // videoTracks is per-element, so two live samplers would interleave
     // every snapshot above and the measured churn would be an artifact of
@@ -489,7 +495,24 @@ def run(outdir, gender, video, start, count, step):
             # a frame it was never drawn on is worse than not scoring -
             # every judgement it produces is fiction. Pausing makes the two
             # shots genuinely the same instant.
-            tab.eval("(function(){var v=document.querySelector('video');v&&v.pause();})()")
+            # ...and CONFIRM it paused. R15 f004 came back with the two
+            # shots straddling a scene change: the blur-on frame showed a
+            # studio wide shot and its "truth" twin showed something else
+            # entirely, so every judgement the pair could produce was
+            # fiction. pause() is a request, not a state - the play() this
+            # loop issues at the END of the previous frame can resolve
+            # after it and resume the video. Poll for paused===true, then
+            # bracket the pair with currentTime and refuse the pair if the
+            # clock moved between the two shots.
+            t0 = None
+            for _ in range(10):
+                t0 = tab.eval(
+                    "(function(){var v=document.querySelector('video');if(!v)return null;"
+                    "v.pause();return v.paused?v.currentTime:null;})()"
+                )
+                if t0 is not None:
+                    break
+                time.sleep(0.1)
             time.sleep(0.15)
             tab.clip_shot(os.path.join(outdir, name), p["rect"])
             tab.eval(
@@ -497,6 +520,15 @@ def run(outdir, gender, video, start, count, step):
                 "for(var i=0;i<n.length;i++)n[i].style.visibility='hidden';return n.length;})()"
             )
             tab.clip_shot(os.path.join(outdir, truth), p["rect"])
+            t1 = tab.eval(
+                "(function(){var v=document.querySelector('video');"
+                "return v?v.currentTime:null;})()"
+            )
+            # A pair whose clock moved is not a pair. Say so in the meta so
+            # scoring skips it instead of inventing a verdict from two
+            # different instants.
+            if t0 is None or t1 is None or abs(float(t1) - float(t0)) > 1e-3:
+                p["pairSkew"] = [t0, t1]
             tab.eval(
                 "(function(){var n=document.querySelectorAll('.ts-gaze-vregion-host');"
                 "for(var i=0;i<n.length;i++)n[i].style.visibility='';})()"
