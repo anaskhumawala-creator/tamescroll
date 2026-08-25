@@ -159,11 +159,23 @@ export function parsePersons(data, minScore, aspect) {
     var y2 = data[o + 53];
     var x2 = data[o + 54];
 
+    // KEYPOINT_MARGIN is a distance, and normalized coordinates are not
+    // isotropic: the same physical cushion is a BIGGER number in y on a
+    // wide frame (dy_norm = dx_norm * W/H). Shipped unscaled in both
+    // axes, so on 16:9 the vertical cushion was 1.78x smaller in real
+    // pixels than the horizontal one — 54px against 96px at 1080p. The
+    // keypoints that define the extreme y edges are exactly a raised
+    // HAND and the top of a HEAD, which is the pair that kept escaping
+    // the patch; sideways-extended arms were always fine, and that
+    // asymmetry in the reports is what this explains. The head anchor
+    // below already does this correctly and states the rule — the union
+    // simply never got it.
+    var kmY = KEYPOINT_MARGIN * ar;
     for (var u = 0; u < UNION_KEYPOINT_MAX; u++) {
       var ku = kp(data, o, u);
       if (!(ku.s >= PERSON_KEYPOINT_MIN)) continue;
-      if (ku.y - KEYPOINT_MARGIN < y1) y1 = ku.y - KEYPOINT_MARGIN;
-      if (ku.y + KEYPOINT_MARGIN > y2) y2 = ku.y + KEYPOINT_MARGIN;
+      if (ku.y - kmY < y1) y1 = ku.y - kmY;
+      if (ku.y + kmY > y2) y2 = ku.y + kmY;
       if (ku.x - KEYPOINT_MARGIN < x1) x1 = ku.x - KEYPOINT_MARGIN;
       if (ku.x + KEYPOINT_MARGIN > x2) x2 = ku.x + KEYPOINT_MARGIN;
     }

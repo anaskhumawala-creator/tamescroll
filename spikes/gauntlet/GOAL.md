@@ -1512,3 +1512,202 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   p95 = the warm-up number; and the blank-frame guard only catches a
   LEADING stall — f001 had 123 unique colours against f002's 47409, which
   would catch a blank anywhere in a run.
+
+- **R13** — rotation entry 3 (`ted talk full speech`, **man**), resolved
+  live to `arj7oStGLkU` (Tim Urban, TED): one male speaker on a lit stage
+  with an audience of dozens in the foreground rows. Plus entry 2
+  (`NWoT1ZVd1Lo`, **woman**) as the second direction, because that is the
+  footage where R12 measured the failure this round exists to remove.
+  Baseline build `914b7d9-dirty`, after build `e165c8b-dirty`; the dev app
+  PID changed 21632 -> 33832 between them, which is the only thing that
+  actually proves a reload.
+
+  **SHIPPED: identity memory is DELETED.** The owner made the call after
+  R12; this round measured it once more before pulling it, and the
+  measurement is worse than R12's.
+  * On the woman run the bank was at **MEM_MAX 8 on frame ZERO** — not
+    "saturates in 15 seconds", already saturated before the measurement
+    window opened. It stayed pinned at 8 for all ten frames while `sims`
+    ran 0.75-1.00 and included exact 1.00 self-matches.
+  * The mechanism is structural, not a bad threshold. `memBest` took a
+    MAX over a bank that only ever grew, and max-of-k is non-decreasing
+    in k, so the score rose with BANK SIZE independently of who was on
+    screen. docs/detection-engine.md already registers 17% of
+    DIFFERENT-person pairs at >=0.9 against a same-person 5th percentile
+    of 0.28 — overlapping across the whole useful range, so there is no
+    operating point to retune to. With 8 entries x 3 exemplars the
+    false-match probability is ~1-(1-0.17)^24, i.e. essentially certain.
+  * What it cost in practice, and it is the owner's oldest complaint:
+    R11 watched a woman reading a CERTAIN CLEAR stay covered for ten
+    straight frames while the bank sat at the cap. In man mode the bank
+    fills with women and then re-covers HIM.
+  * Removed: `identityMemory`, `MEM_MAX`, `memBest`, `memoryLookup`,
+    `memoryStore`, both `MEM_SIM_*` constants, the `obs.remembered`
+    override in matchedStep, and the newTrack clause that let a
+    remembered flag suppress a new track's first clear credit.
+  * The honest cost of removal, written into the code so R14 does not
+    rediscover it as a bug: a person once read as certainly opposite-
+    gender who now reads UNCERTAIN is no longer re-covered on someone
+    else's cleared track. That case is a person SWAP — an identity
+    question — and the measurement above says this descriptor cannot
+    answer it. It is instead bounded by the two mechanisms that need to
+    recognise nobody: a new track always starts blurred, and a cleared
+    track is revoked by CLEARED_TTL_MS or by two abstained reads (R12).
+  * The two tests that pinned memory's BEHAVIOUR were rewritten to pin
+    its ABSENCE — `obs.remembered` is an easy field for a future change
+    to start honouring again, and it must not.
+
+  **AND IT IS THE BIGGEST PERF WIN OF THE LOOP SO FAR.** Verdict p50,
+  same footage, same machine, memory the only difference:
+  man **105-110ms -> 89-98ms**; woman **141-150ms -> 103-108ms**, a 28%
+  cut on the two-person run. That is the removed work: up to 24 cosine
+  similarities over 1024-d descriptors per face per lookup, plus a second
+  full `memBest` per track inside `memoryStore`, ~100k multiply-adds per
+  pass in JS. Every previous round bought accuracy and paid milliseconds;
+  this one took both. On a Helio G88 that margin is the whole cadence
+  budget.
+
+  **SCORES, every frame read against its truth pair, both directions.**
+  * entry 3 (man, TED): FALSE COVER **1/10 -> 0/10** — f002's patch sat
+    on the male speaker on a re-minted track and is gone; the speaker is
+    now sharp with ZERO patches on all ten frames. GHOST 0 -> 0,
+    PARTIAL 0 -> 0. EXPOSURE 5/10 -> 6/10, and that difference is frame
+    content, NOT a regression: the audience rows are sharp in every wide
+    shot in both runs and the sampling simply landed on one more wide
+    shot the second time. MoveNet reports `persons: 1` on every single
+    frame of a hall containing dozens.
+  * entry 2 (woman): EXPOSURE 4/10 -> 4/10, PARTIAL 3/10 -> 2/10 (frame
+    content again), FALSE COVER 0 -> 0, GHOST 0 -> 0. Coverage of both
+    subjects is unchanged frame for frame. `flagStreak` also stopped
+    running away — 12 before, clamped at 2 now.
+  * So: one failure removed, nothing regressed, and a third of the pass
+    cost returned. Both directions.
+
+  **ALSO: `flagStreak` was unclamped**, observed at 12 on one track in
+  ten frames. Structurally the same shape as the `clearStreak` leak R11
+  fixed. The only thing ever asked of it is `>= 2`, so clamping there is
+  behaviour-identical — but an unbounded counter is a number nobody can
+  read in a diagnostic, and that is how R11's leak hid.
+
+  gaze 116/116 (117 minus the three memory tests, plus two pinning the
+  removal), cargo 36/36.
+
+  **STILL OPEN, and it is now unambiguously the top failure in BOTH
+  directions: EXPOSURE from people the detector never reports.** Two
+  distinct shapes, and neither is a state-machine problem:
+  (a) the audience — MoveNet returns `persons: 1` on a TED hall with
+  dozens of visible faces, so it is not even hitting its 6-person cap;
+  (b) partial bodies — the overhead workbench shot returns `persons: 0`
+  with a scalp, two hands and a forearm plainly visible.
+  R12's critic already surveyed the licence-clean options (BlazePalm,
+  Apache-2.0 code AND weights, is the leading candidate) and the correct
+  next step is the MEASUREMENT that decides between a free fix and a
+  bought one: `lastSlotDiag` (person-gate.mjs) records only a COUNT of
+  keypoints above 0.3, so nobody can say whether MoveNet had a 0.28 wrist
+  on that frame or nothing at all. Three comparisons inside an existing
+  loop, 0ms, and it decides the architecture. Do that before adding a
+  second model.
+
+  **R13, CONTINUED — the critic found that MY LAST ROUND SHIPPED DEAD
+  CODE, and it is the exact bug this whole loop exists to catch.**
+
+  **F1, CRITICAL, one line.** R12's abstention revocation never ran.
+  `faceMeta` produced `{flagged, certain, abstained}`, and the observation
+  builder in init-entry.js copied three fields and silently dropped the
+  fourth — so `obs.abstained` was never set, both consumers in
+  person-track.mjs were unreachable, and `abstainDemote` had never
+  appeared in any run ever recorded. The R12 log said the branch "did not
+  fire once on either re-verify run" and blamed the footage. It could
+  never have fired. **The unit tests passed the whole time because they
+  hand `abstained` straight to `updatePersonTracks` and never cross that
+  boundary** — a green suite over a dead product path, which is the exact
+  failure mode named at the top of this file.
+  Now wired, and PROVEN LIVE rather than by test: the reads probe carries
+  `ab`, and the runs show **12 of 80 reads abstained** on the baseline
+  footage and **20 of 80** on the TED footage. `abstainDemote` now appears
+  in `life` at all — it fired during pre-window playback, which is why
+  baselining `life` and reporting deltas matters; the in-window delta is
+  0 because no cleared track in these runs got two consecutive nulls.
+  **NEW LIVE RISK, named because it is now reachable for the first time:**
+  in MAN mode a null is labelled `male`, i.e. same-gender, so on a CLEARED
+  track it now advances the revocation streak and two consecutive nulls
+  re-cover the owner for ~800ms. That is the trade R12 chose deliberately
+  (blur-first on a face we demonstrably cannot read) but it was inert
+  until today. Evidence so far: **0 of 80 reads abstained across the
+  man run** — real male close-ups never enter the null band — so it costs
+  nothing on this footage. Watch it on the next man-direction round.
+
+  **F4, geometry, 0ms, and the round's second real bug.**
+  `KEYPOINT_MARGIN` is a DISTANCE applied unscaled in both axes, but
+  normalized coordinates are not isotropic: on 16:9 the same constant is
+  96px sideways and only 54px vertically at 1080p, a 1.78x shortfall in
+  the vertical. The keypoints that set the extreme y edges are exactly a
+  raised HAND and the crown of a HEAD — the two things the owner keeps
+  reporting outside the patch — while sideways-extended arms were always
+  fine, and that asymmetry in his reports is what this explains.
+  `person-gate.mjs` already knew the rule and states it thirty lines
+  below for the head anchor (`headH = headW * ar`); the union never got
+  it. Fixed. Test asserts it as a SYMMETRY — square frame must give a
+  square cushion — plus a direction, so it survives a change to either
+  constant. Measured cost: nothing where the MoveNet box already
+  dominates; +3.9% of frame height per edge only on head/hand-extreme
+  boxes, which is where the owner asked for it.
+
+  **REJECTED, with the counter-evidence, so R14 does not re-litigate.**
+  * The critic's own strongest finding kills my framing of the round's
+    PARTIAL failures: on the baseline footage f000-f002 have
+    `persons: 0`, every MoveNet slot at score 0.00-0.13 with zero
+    confident keypoints. There is no detected person to under-cover.
+    The patch comes from `personFromFace` on a **BlazeFace false positive
+    on the disassembled phone**, reverse-solved to a "face" at
+    (0.439, 0.318) — the PCB. So the child's hair and sleeve are not a
+    box-constant problem, and F4 cannot fix that frame.
+  * That phantom also proves **`isNullRead` is useless against this
+    class**: the reads behind it are `male s0.99 v0.997` and
+    `male s0.98 v0.990` — a false positive on hardware produces a
+    MAXIMALLY confident gender read, nowhere near the null band. Refusing
+    the model's prior does nothing when the model is certain and wrong.
+  * Do NOT lower `PERSON_LOW_SCORE` / `PERSON_STRONG_KEYPOINTS` to catch
+    the TED audience. The single-speaker close-ups (f007-f009, exactly
+    one person in frame) report slots with **6-9 confident keypoints at
+    score ~0.00** — pure noise slots. Lowering the tier admits those.
+    R11's "the low tier oscillates" is now confirmed from a second video.
+  * `mem: 8` on frame zero was NOT cross-video contamination. Full
+    document navigation re-evaluates the bundle, and `cost.verdict.n`
+    = 34 says 34 verdict passes completed before capture opened. Moot
+    now that the bank is gone, but recorded so nobody re-opens it.
+  * `flagStreak` unclamped was genuinely inert — a track can only reach
+    `cleared` through the branch that zeroes it, so the `>= 2` bound was
+    always exact. My clamp is hygiene, not a fix, and it changes no
+    behaviour.
+
+  **DEFERRED to R14, with the numbers so it starts from evidence.**
+  (1) `flagStreak` HARD-ZEROES while `clearStreak` DECAYS, so a cleared
+  track reading `flag / uncertain / flag / uncertain` never reaches 2 and
+  rides the full CLEARED_TTL_MS. Structural, and NOT observed in R13 —
+  both runs' cleared tracks read `clear-certain` steadily — so it needs
+  measuring before it is fixed. Symmetric fix is `Math.max(0, fs-1)`,
+  0ms. (2) The 60Hz render lerp is symmetric, so a moving limb's LEADING
+  edge lags ~40ms after every pass; `interpolateBox` is careful to
+  extrapolate size outward-only and `lerpRect` then throws that away.
+  Union the lerped rect with the target — grow instantly, shrink
+  smoothly. (3) `personFromFace` never applies `PATCH_MARGIN`, so a
+  face-derived person carries 8% less relative margin than a pose-derived
+  one, for no stated reason. (4) `PTRACK_PAD_TOP` is a fraction of BOX
+  height but hair is proportional to HEAD size, so a head-and-shoulders
+  box gets 39px of crown headroom where a full-body box gets 117px —
+  backwards. (5) `mergeTracks` flips a two-shot between two rects
+  (IoU 0.257, containment 0.427) and one frame-wide rect covering 72% of
+  the frame, one frame apart; hysteresis needs per-pair state so it is
+  not free.
+
+  **RE-VERIFY after all of the above, three runs, every frame read
+  against its truth pair.** man (arj7oStGLkU): FALSE COVER 0/10, GHOST 0,
+  PARTIAL 0, speaker cleared and zero patches on all ten frames,
+  verdict p50 87-99ms. woman baseline (NWoT1ZVd1Lo): EXPOSURE 4/10,
+  PARTIAL 2/10, FALSE COVER 0, GHOST 0 — unchanged, and unchanged is
+  correct since F4 does not touch the face-fallback path those frames use.
+  woman TED (H14bBuluwB8): FALSE COVER 9/10, GHOST 0, speaker clears at
+  f003 and holds to f009, f003 again a fully correct frame. No regression
+  in any direction from F1 or F4.
+  gaze 117/117, cargo 36/36.

@@ -162,20 +162,37 @@ test('blurredTracks pads the box and carries velocity', () => {
   assert.equal(typeof out[0].vx, 'number');
 });
 
-test('identity memory: a remembered FLAG re-covers a track immediately', () => {
+// R13 deleted identity memory. These two tests used to pin its behaviour;
+// they now pin its ABSENCE, which is the thing that can regress silently —
+// `obs.remembered` is still an easy field for a future change to start
+// honouring again, and the measurement says it must not (see the block in
+// init-entry.js: the bank saturates in seconds and 17% of different-person
+// descriptor pairs match above the threshold).
+test('a remembered flag no longer re-covers a cleared track', () => {
   const box = { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 };
-  // Earn a clear the normal way, then meet the remembered flag.
   let tracks = pt.updatePersonTracks([], [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
   tracks = pt.updatePersonTracks(tracks, [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
   assert.equal(tracks[0].state, 'cleared');
-  tracks = pt.updatePersonTracks(tracks, [{ box, flagged: true, certain: false, verdictDt: 250, remembered: 'blurred' }], 250);
-  assert.equal(tracks[0].state, 'blurred');
+  tracks = pt.updatePersonTracks(
+    tracks,
+    [{ box, flagged: true, certain: false, verdictDt: 250, remembered: 'blurred' }],
+    250,
+  );
+  assert.equal(
+    tracks[0].state,
+    'cleared',
+    'an uncertain read must not revoke an earned clear just because a descriptor bank recognised somebody',
+  );
 });
 
-test('identity memory: a remembered clear does not exist (memory is blur-only)', () => {
+test('a remembered flag cannot suppress the first clear credit of a new track', () => {
   const box = { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 };
-  const tracks = pt.updatePersonTracks([], [{ box, flagged: false, certain: true, remembered: 'cleared' }], 250);
-  assert.equal(tracks[0].state, 'blurred'); // first read never clears, memory or not
+  const withMem = pt.updatePersonTracks([], [{ box, flagged: false, certain: true, remembered: 'blurred' }], 250);
+  const without = pt.updatePersonTracks([], [{ box, flagged: false, certain: true }], 250);
+  // Both still start covered -- blur-first is untouched by any of this.
+  assert.equal(withMem[0].state, 'blurred');
+  assert.equal(without[0].state, 'blurred');
+  assert.equal(withMem[0].clearStreak, without[0].clearStreak, 'remembered must have no effect at all');
 });
 
 
@@ -528,24 +545,6 @@ test('a stale track loses the earned-clear protection (2 reads -> 1)', () => {
   assert.equal(f[0].state, 'cleared', 'a fresh clear still absorbs one noisy read');
 });
 
-test('identity memory cannot overrule a live confident same-gender read', () => {
-  // R11: a woman reading `female 0.59` - a certain clear - stayed covered
-  // on all ten frames because the memory override ran AFTER the clear
-  // logic and unconditionally. The descriptor cannot separate identity
-  // (17% of different-person pairs score >=0.9), so the entry vetoing her
-  // was quite possibly someone else's.
-  let t = updatePersonTracks([], [{ ...obs(boxA, false, true), verdictDt: CLEAR_HOLD_MS }], 250);
-  t = updatePersonTracks(t, [{ ...obs(boxA, false, true), verdictDt: CLEAR_HOLD_MS }], 250);
-  assert.equal(t[0].state, 'cleared');
-  // A remembered flag arrives alongside a CONFIDENT same-gender read:
-  // live evidence wins.
-  t = updatePersonTracks(t, [{ ...obs(boxA, false, true), remembered: 'blurred', verdictDt: 250 }], 250);
-  assert.equal(t[0].state, 'cleared', 'memory must not overrule a read we can actually make');
-  // But memory still does its real job: an UNREADABLE observation on a
-  // remembered person is re-covered instantly.
-  t = updatePersonTracks(t, [{ ...obs(boxA, true, false), remembered: 'blurred', verdictDt: 250 }], 250);
-  assert.equal(t[0].state, 'blurred', 'memory still re-covers someone we cannot read');
-});
 
 test('coast window is capped however slow the verdict pass gets', () => {
   // effZoom is uncapped above, so without this a 4s verdict on a phone

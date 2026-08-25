@@ -192,3 +192,45 @@ test('parsePersons: a low-scoring slot that claims most of the frame is noise', 
   coherent[55] = 0.14;
   assert.equal(parsePersons(coherent).length, 1, 'coherent low-score person is kept');
 });
+
+// The keypoint cushion is a DISTANCE, and normalized coordinates are not
+// isotropic — it shipped unscaled in y, so a raised hand and the crown of
+// a head got 1.78x less real cushion than an outstretched arm. Asserted as
+// a SYMMETRY (square frame => square cushion) plus a direction, so the
+// test survives a change to KEYPOINT_MARGIN or PATCH_MARGIN.
+test('keypoint margin is isotropic in real pixels, not in normalized units', () => {
+  // Square box, torso well inside it, and one wrist exactly on the
+  // top-left corner: that wrist is then the ONLY keypoint that can push
+  // the union outward, so the extension it produces IS the margin.
+  const build = () => {
+    const data = new Float32Array(6 * 56);
+    setBox(data, 0, 0.3, 0.3, 0.7, 0.7, 0.9);
+    upperBody(data, 0, 0.5, 0.45, 0.05);
+    setKp(data, 0, 9, 0.3, 0.3, 0.9);
+    return data;
+  };
+  const ext = (ar) => {
+    const [p] = parsePersons(build(), 0.1, ar);
+    assert.ok(p, 'setup: the slot must be accepted as a person');
+    return { dx: 0.3 - p.x1, dy: 0.3 - p.y1 };
+  };
+
+  const square = ext(1);
+  assert.ok(
+    Math.abs(square.dy - square.dx) < 1e-6,
+    `on a square frame the cushion must be square: dx ${square.dx}, dy ${square.dy}`,
+  );
+
+  const wide = ext(16 / 9);
+  assert.ok(wide.dx > 0 && wide.dy > 0, 'the union must extend past the keypoint in both axes');
+  assert.ok(
+    // Not the full 1.78: PATCH_MARGIN is applied afterwards as a
+    // fraction of the (now taller) box, which dilutes the ratio to ~1.49.
+    wide.dy / wide.dx > 1.4,
+    `on 16:9 the vertical cushion must grow with the aspect ratio, got ${(wide.dy / wide.dx).toFixed(3)}`,
+  );
+  assert.ok(
+    wide.dy > square.dy,
+    'the fix must ADD vertical cushion on a wide frame, not redistribute it',
+  );
+});

@@ -45,23 +45,6 @@ export var PTRACK_PAD = 0.05; // person box side/bottom padding at render
 // Extra headroom: MoveNet's box can crop at the hairline (v10-her-120:
 // the covered person's hair crown poked out above the patch).
 export var PTRACK_PAD_TOP = 0.12;
-
-// Identity memory thresholds (owner ask 2026-08-24: "keep the person in
-// memory and always blur her/him"). Descriptors are the faceres [1024]
-// recognition embedding, L2-normalized in detector.js, so similarity is
-// a plain dot product. Inheriting a CLEAR from memory is the risky
-// direction (under-blur) — it demands the higher bar; the blur
-// direction never needs memory (unknown ⇒ covered is the default).
-// MEASURED 2026-08-25 (live calibration run, Linus video, review B):
-// same-person consecutive reads median 0.90, but DIFFERENT people in the
-// same frame scored >=0.6 in 32% of pairs and >=0.9 in 17%. faceres'
-// descriptor does NOT separate identity at our crop quality, at ANY
-// threshold. Consequence: identity memory may never grant a CLEAR —
-// a false match there exposes a person (and the owner's daughter is
-// exactly the adversarial case). Memory keeps only the BLUR direction,
-// where a false match costs over-blur, never exposure.
-export var MEM_SIM_FLAG = 0.85; // remembered FLAG re-applies at this similarity
-export var MEM_SIM_UPDATE = 0.85;
 // Identity continuity on a live track: only a GROSS mismatch counts as
 // "someone else is standing here" (review A1). Set below the measured
 // same-person 5th percentile (0.28) so a bad crop of the same person
@@ -547,29 +530,20 @@ function matchedStep(t, obs, dt) {
       }
     }
   }
-  // Identity memory, BLUR direction only (see MEM_SIM_FLAG): a face
-  // matching someone previously read as certainly opposite-gender is
-  // covered again immediately, without re-earning the verdict.
-  // ...but memory may not OVERRULE live positive evidence. This override
-  // sits AFTER the clear logic and was unconditional, so a track that had
-  // just read confidently same-gender was slammed straight back to blurred
-  // with its streak zeroed — every pass, forever, because the memory entry
-  // never goes away. Two critics flagged the ordering; R11 measured the
-  // consequence: a woman in woman mode reading `female 0.59` (a certain
-  // clear) stayed covered on all ten frames while `mem` sat pinned at
-  // MEM_MAX 8. Worse, the descriptor cannot separate identity at all —
-  // 17% of DIFFERENT-person pairs score >=0.9 (see MEM_SIM_FLAG) — so the
-  // entry doing the overruling frequently belongs to someone else.
+  // The identity-memory override that used to sit here was DELETED in
+  // R13 (the full measurement is in init-entry.js where the bank lived).
+  // It read: a track matching a remembered certain-flag is slammed back
+  // to blurred unless the current read is a confident clear. It looked
+  // like pure fail-safe, and it was the opposite — the bank saturated
+  // within seconds and 17% of DIFFERENT-person descriptor pairs score
+  // above the threshold, so the entry doing the covering usually
+  // belonged to somebody else, and a correctly-read same-gender person
+  // was pinned covered for the rest of the video.
   //
-  // Memory keeps its real job: re-cover instantly anyone we cannot read
-  // right now. It simply loses its veto over someone we CAN read. newTrack
-  // already respects exactly this interaction; matchedStep did not.
-  var readsClear = !obs.flagged && obs.certain;
-  if (obs.remembered === 'blurred' && !readsClear) {
-    state = 'blurred';
-    clearMs = 0;
-    clearStreak = 0;
-  }
+  // `obs.remembered` is now ignored everywhere. If you are reintroducing
+  // recognition, the bar is a descriptor test whose same-person and
+  // different-person distributions actually separate — measure that
+  // FIRST, on this footage, before wiring anything to it.
   return {
     id: t.id,
     box: smoothed,
@@ -615,7 +589,12 @@ function matchedStep(t, obs, dt) {
     // The streak survives a certain flag OR an abstention — both count
     // against a clear (see the abstainDemote branch). Anything else
     // zeroes it, so only CONSECUTIVE evidence revokes.
-    flagStreak: obs.flagged && (obs.certain || obs.abstained) ? flagStreak : 0,
+    // Clamped, for the reason R11 had to fix the same shape on
+    // clearStreak: the ONLY thing ever asked of this counter is
+    // `>= 2`, so clamping there is behaviour-identical, and an
+    // unbounded counter is a number nobody can read in a diagnostic.
+    // R13 measured it at 12 on a single track in ten frames.
+    flagStreak: obs.flagged && (obs.certain || obs.abstained) ? Math.min(2, flagStreak) : 0,
     desc: obs.desc || t.desc || null,
     lastVerdict: obs.flagged && obs.certain ? 'flag-certain' : !obs.flagged && obs.certain ? 'clear-certain' : 'uncertain',
   };
@@ -813,15 +792,15 @@ function newTrack(obs) {
     vy: 0,
     vw: 0,
     vh: 0,
-    // Unknown ⇒ covered from the first observation, always. Memory
-    // cannot shortcut this (identity similarity is not separable —
-    // see MEM_SIM_FLAG); the fast-clear streak is what lifts blur off
-    // a correctly-read same-gender adult within ~0.8s.
+    // Unknown ⇒ covered from the first observation, always. Nothing
+    // shortcuts this — not recognition, not a prior sighting; the
+    // fast-clear streak is what lifts blur off a correctly-read
+    // same-gender adult within ~0.8s.
     state: 'blurred',
     clearMs: 0,
     missMs: 0,
     clearAge: 0,
-    clearStreak: !obs.flagged && obs.certain && obs.remembered !== 'blurred' ? 1 : 0,
+    clearStreak: !obs.flagged && obs.certain ? 1 : 0,
     flagStreak: 0,
     desc: obs.desc || null,
     lastVerdict:

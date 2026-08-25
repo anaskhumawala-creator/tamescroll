@@ -15,7 +15,7 @@
 // sampling — never its AGPL-3.0 source; see NOTICE / VISION.md).
 import * as dom from './dom.js';
 import * as detector from './detector.js';
-import { flaggedFaceIndices, faceMeta } from './gender-verdict.mjs';
+import { flaggedFaceIndices, faceMeta, isNullRead } from './gender-verdict.mjs';
 import { personCropRegion, personFromFace, lastSlotDiag } from './person-gate.mjs';
 import {
   updatePersonTracks,
@@ -24,8 +24,6 @@ import {
   blurredTracks,
   demoteTracks,
   cosineSim,
-  MEM_SIM_FLAG,
-  MEM_SIM_UPDATE,
 } from './person-track.mjs';
 import * as sceneGate from './scene-gate.mjs';
 import {
@@ -520,92 +518,47 @@ import { planForMode } from './pipeline-plan.mjs';
     // as unknown (⇒ covered). Registered in docs/detection-engine.md.
     var VERDICT_TIMEOUT_MS = 900;
     var lastPassAt = 0;
-    // Identity memory (owner ask 2026-08-24 "keep the person in memory
-    // and always blur her/him"): per-VIDEO list of face descriptors with
-    // the blur state their person EARNED (cleared = served the full
-    // hold; blurred = certain opposite-gender read). New/re-appearing
-    // faces that match a remembered identity inherit it — no re-serving
-    // the clear hold after every cut, no identity swap across shots.
-    // Reset on loadstart: a new video is new people.
-    var identityMemory = [];
-    var MEM_MAX = 8;
-    // Exemplar entries (review C6): 2-3 raw descriptors per identity,
-    // match = max over exemplars, update = append/replace — a blended
-    // centroid could be WALKED toward the wrong person by repeated
-    // near-threshold updates; exemplars can't drift.
-    function memBest(desc) {
-      var bestSim = 0;
-      var best = null;
-      for (var i = 0; i < identityMemory.length; i++) {
-        var descs = identityMemory[i].descs;
-        for (var d = 0; d < descs.length; d++) {
-          var sim = cosineSim(desc, descs[d]);
-          if (sim > bestSim) {
-            bestSim = sim;
-            best = identityMemory[i];
-          }
-        }
-      }
-      return { best: best, sim: bestSim };
-    }
-    function memoryLookup(desc) {
-      if (!desc) return null;
-      var m = memBest(desc);
-      // Calibration probe (review B): similarity bands are unmeasured —
-      // every lookup logs its best sim so a CDP run can histogram them.
-      // NEVER let instrumentation throw: this probe seeded __TS_GAZE_IDS
-      // with {sims: []}, while a LATER-ADDED probe upstream (the raw
-      // gender reads) seeded it as a bare {}. Whichever ran first won,
-      // and when the reads probe won, `dbg.sims.push` threw a TypeError
-      // INSIDE the verdict chain. The rejection was swallowed by the
-      // pass-level catch as a warning, so every verdict for a frame
-      // containing a person was silently discarded and no track ever
-      // received a gender read: everyone stayed at their initial
-      // blurred state for the life of the video. That is the whole of
-      // the owner's "Linus is not clearing at all". Shipped in v1013.
-      var dbg = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
-      if (!dbg.sims) dbg.sims = [];
-      dbg.mem = identityMemory.length;
-      dbg.sims.push(Math.round(m.sim * 100) / 100);
-      if (dbg.sims.length > 400) dbg.sims.shift();
-      // BLUR direction only: descriptor similarity cannot separate
-      // identities reliably (measured 2026-08-25 — see MEM_SIM_FLAG in
-      // person-track.mjs), so a match may only ADD coverage, never
-      // remove it. Recognising a previously-flagged person re-covers
-      // them instantly; everyone else is covered by default anyway.
-      if (m.best && m.best.state === 'blurred' && m.sim >= MEM_SIM_FLAG) return 'blurred';
-      return null;
-    }
-    function memoryStore(tracks) {
-      for (var i = 0; i < tracks.length; i++) {
-        var t = tracks[i];
-        if (!t.desc) continue;
-        // Memorize only EARNED states: a served clear hold, or a
-        // certain opposite-gender flag. Never a provisional blur —
-        // that would freeze "unknown ⇒ covered" into "this face is
-        // always covered".
-        var state = null;
-        // Only certain FLAGS are memorized (cleared identities are not
-        // stored at all — memory can never grant a clear, see
-        // MEM_SIM_FLAG). Provisional blurs are excluded: they would
-        // freeze "unknown ⇒ covered" into "this face is always covered".
-        if (t.state === 'blurred' && t.lastVerdict === 'flag-certain') state = 'blurred';
-        if (!state) continue;
-        var m = memBest(t.desc);
-        if (m.best && m.sim >= MEM_SIM_UPDATE) {
-          // Same identity: add this look as an exemplar (raw, never
-          // blended), capped at 3 — oldest look rotates out.
-          m.best.descs.push(t.desc);
-          if (m.best.descs.length > 3) m.best.descs.shift();
-          // A certain flag OVERWRITES a remembered clear (fail-safe);
-          // a clear only upgrades an entry that isn't certain-flagged.
-          if (state === 'blurred' || m.best.state !== 'blurred') m.best.state = state;
-        } else {
-          identityMemory.push({ descs: [t.desc], state: state });
-          if (identityMemory.length > MEM_MAX) identityMemory.shift();
-        }
-      }
-    }
+    // IDENTITY MEMORY WAS DELETED IN R13. Do not rebuild it without
+    // reading this first — it was the owner's own idea (2026-08-24,
+    // "keep the person in memory and always blur her/him"), it sounded
+    // obviously right, and it shipped. It was measured for three rounds
+    // and it does not work, for a reason that is structural rather than
+    // a bad threshold:
+    //
+    //   * The match was a MAX over a bank that only ever grew. Max of k
+    //     draws is non-decreasing in k, so the best-match score rises
+    //     with bank size BY CONSTRUCTION, independently of who is on
+    //     screen. Measured across one 15s window: the best-match FLOOR
+    //     climbed from 0.00 (bank of 2) to 0.68 (bank of 6+), against a
+    //     threshold of 0.85.
+    //   * The bank saturated at MEM_MAX 8 within ~15 seconds of two
+    //     people being on screen, and in R13's run it was already at the
+    //     cap on the FIRST captured frame.
+    //   * The descriptor cannot separate identity at this operating
+    //     point at all: docs/detection-engine.md registers 17% of
+    //     DIFFERENT-person pairs scoring >=0.9, against a same-person
+    //     5th percentile of 0.28. Those distributions overlap across
+    //     their whole useful range, so there is no threshold to move to
+    //     — with 8 entries x 3 exemplars the false-match probability is
+    //     ~1-(1-0.17)^24, i.e. essentially certain.
+    //
+    // Put together: given a few seconds of video, memory returns
+    // "blurred" for almost any face, and the entry doing the covering
+    // usually belongs to someone else. R11 measured the end state — a
+    // woman reading a CERTAIN CLEAR stayed covered for all ten frames
+    // while the bank sat pinned at the cap. That is the mechanism behind
+    // the owner's oldest complaint, "why does it keep blurring me": in
+    // man mode the bank fills with women and then re-covers HIM.
+    //
+    // What removing it costs, honestly, because it is not zero: a person
+    // who was once read as certainly opposite-gender and who now reads
+    // UNCERTAIN no longer gets re-covered on someone else's cleared
+    // track. That case is a person swap, which is an identity question,
+    // and the measurement above says this descriptor cannot answer it.
+    // It is instead bounded by the two mechanisms that do not depend on
+    // recognising anybody: a new track always starts blurred, and a
+    // cleared track is revoked by CLEARED_TTL_MS or by two abstained
+    // reads (see `abstained` in gender-verdict.mjs).
     // Face center inside any (padded) person box — used to keep the
     // full-frame face fallback from duplicating a MoveNet person.
     function faceInsideAny(face, persons) {
@@ -1071,6 +1024,13 @@ import { planForMode } from './pipeline-plan.mjs';
                     // the two numbers R11's critic had to infer.
                     v: typeof pick.raw === 'number' ? Math.round(pick.raw * 1000) / 1000 : null,
                     px: typeof pick.px === 'number' ? pick.px : null,
+                    // Was this read REFUSED as the model's prior? Without
+                    // it the abstention is invisible in the artifact —
+                    // which is exactly how it shipped dead for a round.
+                    // isNullRead is pure and type-guarded, so it cannot
+                    // throw in here (instrumentation has killed two
+                    // releases; it does not get to kill a third).
+                    ab: isNullRead(pick) ? 1 : 0,
                   });
                   if (dbgR.reads.length > 300) dbgR.reads.shift();
                 }
@@ -1122,6 +1082,22 @@ import { planForMode } from './pipeline-plan.mjs';
               // One read confident enough to clear on its own — see
               // GENDER_INSTANT_CLEAR. Never set on the flag side.
               instant: !!mine.instant,
+              // The model answered from its prior rather than from the
+              // face (isNullRead). person-track needs to tell this apart
+              // from a weak directional read, because a cleared track
+              // absorbs `uncertain` for CLEARED_TTL_MS while an
+              // abstention revokes it in two.
+              //
+              // THIS LINE IS THE WHOLE FIX. R12 shipped the abstention
+              // and both consumers, and this builder copied three fields
+              // and silently dropped the fourth — so the branch in
+              // person-track was unreachable and `abstainDemote` never
+              // appeared in any run. The unit tests passed throughout
+              // because they hand `abstained` straight to
+              // updatePersonTracks and never cross this boundary. When
+              // you add a verdict field, add it HERE too, and prove it
+              // with a life counter in a real run, not with a test.
+              abstained: !!mine.abstained,
               faceFound: true,
               desc: faceDesc,
             };
@@ -1329,17 +1305,6 @@ import { planForMode } from './pipeline-plan.mjs';
                         throw e;
                       }).then(function (obs) {
                         obs.verdictDt = verdictDt;
-                        // Identity memory: a face matching someone who
-                        // already earned a full clear this video
-                        // inherits it (person-track.mjs honors this
-                        // only when the current read agrees).
-                        try {
-                          obs.remembered = memoryLookup(obs.desc);
-                        } catch (e) {
-                          // Memory is an optimisation; a failure here
-                          // must never discard the verdict itself.
-                          obs.remembered = null;
-                        }
                         observations.push(obs);
                       });
                     });
@@ -1425,7 +1390,6 @@ import { planForMode } from './pipeline-plan.mjs';
               // covered person's patch survives to the next pass.
               setVerdictCadence(effZoom);
               videoTracks = updatePersonTracks(videoTracks, observations, dt);
-              memoryStore(videoTracks);
               // Calibration probe: per-track state after every pass, so
               // a "why is he not clearing" question is answered by
               // measurement instead of a guess.
@@ -1657,7 +1621,6 @@ import { planForMode } from './pipeline-plan.mjs';
       sceneState = 'motion';
       lastCutAt = 0;
       directPersonOk = true;
-      identityMemory = [];
       passEpoch++;
       if (!playerBlurOn) {
         playerBlurOn = true;
