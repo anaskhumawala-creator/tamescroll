@@ -19,6 +19,13 @@ ad_status.js, www.youtube.com/ptracking, /pagead/viewthroughconversion/.
 - [x] JNI entry `nativeShouldBlock` (fails open, catches panics)
 - [x] Android delegating WebViewClient wrapping wry's, blocks in
       `shouldInterceptRequest`, returns an empty 204 not an error
+- [x] Desktop WebView2 (`install_request_blocker`) — VERIFIED: 7 ad
+      requests answered 204, zero through, player still playing
+- [ ] PRE-ROLL VIDEO still plays. Its stream is googlevideo.com, which
+      is also the real content stream, so it cannot be blocked by URL.
+      The page embeds `ytInitialPlayerResponse` with `adSlots` (4 on the
+      measured page) — prune those at document start, before YouTube's
+      own script reads the object.
 - [ ] BUILD the APK and verify on-device that the four measured URLs are
       blocked and the player still plays. Not done = not fixed.
 - [ ] Desktop WebView2 equivalent (owner watches on desktop too)
@@ -37,6 +44,15 @@ Also open from R4's capture: 5-6 stacked patches appeared while a
 pre-roll AD was playing (runs/r4-man f008/f009). Worth checking whether
 ad frames are a distinct failure mode — and note that fixing item 1
 removes those frames entirely.
+
+## Harness gotcha — do not repeat
+
+NEVER launch `until <cond>; do sleep N; done` with run_in_background.
+One of those spun for 12h39m waiting on a condition that had already
+passed, and a session with a live background task never goes idle — so
+the scheduled ping could not fire even once. That, not the cron
+expression, is why the loop looked dead. Poll in the FOREGROUND with a
+bounded timeout, or just re-check on the next ping.
 
 ## 3. Deferred by the owner
 

@@ -136,6 +136,16 @@ const SCRIPTLETS: &[(&str, &[&str], &str)] = &[
         &[],
         include_str!("../scriptlets/trusted-set-request-field.js"),
     ),
+    (
+        // Our own inline-JSON pruner (not a uBO name). Strips ad slots
+        // out of the player response that YouTube EMBEDS in the watch
+        // page HTML, before the page's own inline script assigns it.
+        // Blocking requests cannot reach a pre-roll: its stream is
+        // googlevideo.com, the same origin as the real video.
+        "trusted-prune-window-json.js",
+        &[],
+        include_str!("../scriptlets/trusted-prune-window-json.js"),
+    ),
 ];
 
 /// Builds the engine the whole app shares: every vendored filter list

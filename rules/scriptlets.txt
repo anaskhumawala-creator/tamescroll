@@ -15,3 +15,15 @@
 !   pre-roll plays; video still plays (player red line).
 ! [unverified] — needs owner phone; emulator is never served real ads.
 www.youtube.com,m.youtube.com##+js(trusted-set-request-field, youtubei/v1/player, playbackContext.contentPlaybackContext.isInlinePlaybackNoAd, true)
+
+! Pre-roll video ads on a HARD navigation. Blocking ad REQUESTS (added
+! 2026-08-25) kills the tracking and serving calls but cannot touch the
+! pre-roll itself: its stream comes from googlevideo.com, the same origin
+! as the real content stream. And there is no client-side
+! /youtubei/v1/player request to reshape on a hard nav — YouTube embeds
+! the whole player response in the page HTML.
+! test: on a cold load of a www.youtube.com/watch page that serves a
+!   pre-roll, window.ytInitialPlayerResponse.adSlots is undefined (it was
+!   an array of 4 when measured 2026-08-25) and no .ytp-ad-skip-button
+!   appears; the content video plays from 0:00.
+www.youtube.com,m.youtube.com##+js(trusted-prune-window-json, ytInitialPlayerResponse, adSlots, adPlacements, playerAds, adBreakHeartbeatParams)
