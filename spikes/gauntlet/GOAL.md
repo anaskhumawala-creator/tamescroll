@@ -1711,3 +1711,176 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   f003 and holds to f009, f003 again a fully correct frame. No regression
   in any direction from F1 or F4.
   gaze 117/117, cargo 36/36.
+
+- **R14** — rotation entry 4 (`news panel discussion`, **woman**),
+  resolved live to `fFbNU0TvMH8` (India Today debate). This is a footage
+  CLASS the pipeline has never seen and has no concept of: a **composite
+  broadcast mosaic** — a banner strip, five talking-head panel windows
+  each about 0.28 of frame height, two or three vertical video insets,
+  and flat dark-red studio background filling the bottom 40% and every
+  gap. Entry 4's rotation note says "3-5 people, seated, small faces";
+  what it actually exercises is layout, and that turned out to matter far
+  more. Same footage run in `man` as the symmetry check.
+  Build `ae66ff1-dirty`; app PID changed on every rebuild
+  (43872 -> 41768 -> 30384 -> 28592), which is the only proof of a reload.
+
+  **SHIPPED: the measurement R13 asked for, and it answered.**
+  `lastSlotDiag` recorded only a COUNT of keypoints above
+  PERSON_KEYPOINT_MIN 0.3, so a slot reading `confident 0` was ambiguous
+  between two opposite worlds — MoveNet saw NOTHING, or MoveNet saw a
+  wrist at 0.28 and the threshold ate it. Those want opposite fixes (buy
+  a second model vs a free rescue tier), and three comparisons inside a
+  loop that already runs decide which. Now records `maxKp` and `nKp15`,
+  and the slots probe carries them into the artifact.
+  **Both worlds exist, and which one you are in depends on the footage.**
+  R13's overhead workbench frames were a genuine void: every slot score
+  0.00-0.13 with ZERO confident keypoints while a scalp and two hands were
+  plainly visible. This panel is the opposite: slots at score 0.13-0.21
+  with 5-6 confident keypoints, **nKp15 5-8**, box heights 0.11-0.21 —
+  panel-window sized, and every one a real panelist — sitting just under
+  the admission bar while MoveNet reported `persons: 0` on three of ten
+  frames of a frame containing five visible people. So "MoveNet is blind"
+  was too coarse a diagnosis, and the free rescue tier is at least
+  sometimes on the table. That is the round's durable result.
+
+  **TRIED, MEASURED, REVERTED: PERSON_STRONG_KEYPOINTS 7 -> 5.**
+  The case looked strong — it admits exactly the population above, and
+  R13's noise-slot warning did not apply because those slots scored
+  ~0.00-0.01 and are excluded by PERSON_LOW_SCORE, which was not moving.
+  The theory was that a real skeletal box (bounded by evidence) would
+  DISPLACE the unbounded synthetic body `personFromFace` paints for a face
+  with no person under it, and so cut the round's dominant failure.
+  Measured side by side on the same footage: persons per frame barely
+  moved, patch heights got **WORSE, 0.39-0.76 of frame height before ->
+  0.35-0.87 after**, `coastExpired` rose 6 -> 9, and the exposed man in
+  the reference frame was still exposed. Reverted, with the refutation
+  written into person-gate.mjs so the diff alone cannot lose it.
+  The lesson worth keeping: **recall at the person gate is not the lever
+  on synthetic-body sprawl — the two mechanisms stack rather than
+  substitute.**
+
+  **SCORES, every frame read against its truth pair, both directions.**
+  * woman (r14-woman): **GHOST 10/10 — the worst any round has recorded,
+    and it is the class the owner named in his own words.** Every frame
+    carries patch area over flat red studio background. Mechanism is
+    arithmetic, not a bug: `personFromFace` extends a body cy + 6.0 face
+    heights, so a face of h~0.06-0.10 inside a 0.28-tall window becomes a
+    patch 0.39-0.76 of the FRAME tall and runs straight out of its window.
+    Example rects: f003 `(0.00,0.37)-(0.29,1.00)`, f008
+    `(0.05,0.37)-(0.54,1.00)`, f009 `(0.80,0.10)-(1.00,0.86)`.
+    EXPOSURE at least 5/10 (f000, f002, f003, f006, f008) — all of it
+    inside the video insets, where people are small. f008 is the frame to
+    remember: a man and a woman stand side by side in an airport inset,
+    BOTH fully sharp, while two huge patches cover empty background to
+    either side of them. FALSE COVER 0, verdict p50 99-122ms.
+  * man (r14c-man): the gender read is working and the symmetry is clean.
+    All five male panelists CLEAR and go sharp; patches per frame fall
+    from 3-5 to 0-1; **f003 is a perfect frame** — five men sharp, zero
+    patches, zero ghosts. EXPOSURE remains, and it is the same class:
+    women inside the video insets, small, undetected. verdict p50 122-158.
+  * **The asymmetry is itself the finding.** Ghost severity scales with
+    how many people are COVERED, because a ghost is the tail of somebody's
+    synthetic body. So it is worst in exactly the direction that matters
+    most, and a round that only ever measured the man direction on this
+    footage would have called it nearly clean.
+
+  gaze 117/117.
+
+  **OPEN, and R15's question.** Is there any signal already in the
+  pipeline that separates "face inside a small window on a composite
+  layout" from "small face of a distant full-body person"? They are
+  arithmetically identical to `personFromFace` today, and the difference
+  is worth 10/10 ghost frames. Candidates, none yet measured: window
+  geometry is temporally STATIC while its contents move (the scene gate
+  already computes 16x16 luma deltas at up to 10Hz and throws the spatial
+  structure away); a real body below the face implies MoveNet torso
+  keypoints, which on this footage exist at 0.15 but not at 0.3; and
+  edge/gradient structure at a window border is strong and axis-aligned.
+  Also still open from R13 and untouched: `flagStreak` hard-zeroes while
+  `clearStreak` decays; the 60Hz render lerp is symmetric so a moving
+  limb's leading edge lags; `personFromFace` never applies PATCH_MARGIN.
+
+  **R14, CONTINUED — the critic found a coordinate-space bug with an
+  arithmetic fingerprint, and I verified the fingerprint myself before
+  touching anything.**
+
+  **`personFromFace`'s "width" was never a width.** `detectFaceBoxes`
+  squarifies the face with a SINGLE `half` scalar in MODEL space and then
+  divides both axes by INPUT_SIZE (detector.js ~:318-325), so every face
+  box satisfies `x2-x1 === y2-y1` in NORMALIZED units. Model space is a
+  256x256 resize of the frame, so equal normalized extents are not equal
+  pixel distances. `var w = (face.x2 - face.x1) / 1.4` was therefore the
+  face HEIGHT wearing a width's name, and "2.2 half-widths" silently
+  carried a hidden factor of the frame's aspect ratio.
+  **Verified independently, not taken on trust:** an unclamped synthetic
+  body has a FIXED width/height by construction, so the bug pins its own
+  value. Across runs/r14-woman's 49 patches, **28 sit between 0.553 and
+  0.561** — a band 0.008 wide. That is arithmetic, not footage.
+  **And it is an EXPOSURE bug off 16:9.** Per side, as a multiple of face
+  pixel-height, the old x-extension came to 3.91H on 16:9, 2.93H on 4:3
+  and **1.24H on a 9:16 vertical video** — three times too narrow on the
+  shape YouTube now serves most. Shoulders sharp.
+  Fixed by deriving x from the faithful axis and dividing by the aspect,
+  which is what `parsePersons` already does for its own margins and which
+  R13 threaded into that function and not this one.
+
+  **I REJECTED the critic's magnitude, and the reason is in the code.**
+  It proposed `k ≈ 2.4` from anthropometry (shoulders are ~2.5-3 face
+  widths). But 2.2 was not an anthropometric guess — R8 measured it on a
+  naval officer at a podium whose sleeve stayed sharp to x~0.79, and that
+  run put the REQUIREMENT at 2.5 half-units, which converts to **4.44H,
+  above even today's 3.91H**. Cutting to 2.4H is a 39% width reduction
+  against a constant already below its own measured requirement, and the
+  class it reopens is EXPOSURE. So I took `k = 3.911` — exactly
+  `2.2 x 16/9` — which leaves 16:9 bit-for-bit unchanged, fixes every
+  other aspect, and leaves the narrowing to a round that can re-capture
+  the R8 podium footage and measure it. **Verified neutral as designed:**
+  re-running the same footage kept the 0.557 signature (21 of 47 patches)
+  and the same frames. A fix that is inert on the footage in front of me
+  is the correct outcome when its purpose is correctness elsewhere.
+
+  **The critic also explained MY OWN REVERT, which I had recorded as an
+  unexplained refutation.** `dedupeObservations` (person-track.mjs ~:227)
+  collapses any observation pair with containment >= MERGE_CONTAIN_MIN
+  0.6, and `preferred()` breaks the tie by LARGER AREA. A newly-admitted
+  panel box (h 0.11-0.21) sitting inside a NEIGHBOUR'S synthetic body
+  (h ~0.51) has containment 1.0 — so two different people collapse into
+  one observation and **the bounded skeletal box is deleted while the
+  unbounded phantom survives**. Displacement was never possible; that is
+  why lowering PERSON_STRONG_KEYPOINTS bought nothing and added churn.
+  `personFromFace` already stamps `fromFace: true` and it survives onto
+  `obs.box` — and it is read NOWHERE. Making `preferred()` favour
+  evidence over extrapolation before falling through to area is the
+  prerequisite for ever retrying the recall change. Not done this round:
+  it is a behaviour change to the association layer and it deserves its
+  own before/after rather than riding along with two other edits.
+
+  **Also from the critic, recorded not applied.** Capping synthetic height
+  by the frame's largest MoveNet box is INERT here and I confirmed the
+  numbers: a composite frame has no single person scale — the admitted
+  boxes are the full-body inset people at h 0.30-0.52 while the panel
+  heads are 0.11-0.21, so 1.5 x 0.45 never clamps the 0.51 it would need
+  to. The scene gate is the one existing signal that could work: it
+  already rasterises a 16x16 luma grid at up to 10Hz and `meanAbsDelta`
+  collapses 256 numbers to one and discards the rest. Keeping a per-cell
+  EMA is ~256 mul-adds at 10Hz, under 0.05ms per verdict pass, and a
+  composite layout is DEFINED by having live cells and dead cells. The
+  critic simulated an ideal mask at 66.8% -> 52.7% coverage with the
+  bottom-band ghost going to zero. It needs three guards or it becomes
+  exposure: inert while `sceneState === 'static'`, trim only BELOW the
+  lowest confident keypoint, and never trust a dead cell unless the frame
+  has live cells elsewhere (a motionless person must never be trimmed).
+  Also killed one of my own standing leads: do NOT add PATCH_MARGIN to
+  `personFromFace` — given the width bug that geometry was already over,
+  and the margin moves the wrong way.
+
+  **R15's queue.** (1) `preferred()` must prefer evidence over
+  extrapolation — it gates everything else on this footage. (2) The
+  per-cell motion mask, with the three guards, measured against the
+  simulated 66.8% -> 52.7%. (3) `PTRACK_PAD_TOP` is 0.12 of BOX height,
+  which on a 0.51-tall synthetic is 66px of headroom above a head needing
+  ~10px — about a tenth of every synthetic patch is pure ghost; the
+  correct form is a multiple of head size, which `parsePersons` already
+  computes. (4) The render lerp is still symmetric (exposure direction,
+  ~100ms of lagging leading edge). (5) Re-capture the R8 podium footage
+  and narrow `k` from 3.911 with evidence.

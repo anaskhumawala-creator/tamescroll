@@ -1190,8 +1190,13 @@ import { planForMode } from './pipeline-plan.mjs';
                 if (!dbgS.slots) dbgS.slots = [];
                 dbgS.slots.push({
                   n: persons.length,
+                  // score / confident-at-0.3 / MAX keypoint / count-at-0.15
+                  // / box height. The last two are R14's question: a slot
+                  // reading `confident 0` is ambiguous between "MoveNet
+                  // saw nothing" and "MoveNet saw a wrist at 0.28 and the
+                  // threshold ate it", and those want opposite fixes.
                   raw: lastSlotDiag.map(function (s) {
-                    return s.score + '/' + s.confident + '/' + s.h;
+                    return s.score + '/' + s.confident + '/' + s.maxKp + '/' + s.nKp15 + '/' + s.h;
                   }),
                 });
                 if (dbgS.slots.length > 40) dbgS.slots.shift();
@@ -1238,7 +1243,7 @@ import { planForMode } from './pipeline-plan.mjs';
                 .then(function (faces) {
                   var extra = [];
                   for (var f = 0; f < faces.length; f++) {
-                    if (!faceInsideAny(faces[f], persons)) extra.push(personFromFace(faces[f]));
+                    if (!faceInsideAny(faces[f], persons)) extra.push(personFromFace(faces[f], video.videoWidth / (video.videoHeight || 1)));
                   }
                   // Everyone is TRACKED; only the verdict budget is
                   // capped. Unverdicted people keep their existing

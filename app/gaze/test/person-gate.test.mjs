@@ -234,3 +234,56 @@ test('keypoint margin is isotropic in real pixels, not in normalized units', () 
     'the fix must ADD vertical cushion on a wide frame, not redistribute it',
   );
 });
+
+// The synthetic body's width used to be derived from `face.x2 - face.x1`,
+// which detectFaceBoxes makes IDENTICAL to the height in normalized units
+// (it squarifies with one scalar in model space). Equal normalized extents
+// are not equal pixel distances, so the body's real width silently tracked
+// the frame's aspect ratio: measured at 3.91 face-heights per side on 16:9
+// but only 1.24 on a 9:16 vertical video -- shoulders sharp, which is
+// EXPOSURE, on the shape YouTube serves most. These pin BOTH halves: the
+// 16:9 output must not move, and the pixel width must be aspect-invariant.
+test('personFromFace: 16:9 geometry is unchanged by the aspect correction', () => {
+  // A square-in-normalized-units face box, which is the only kind
+  // detectFaceBoxes emits.
+  const face = { x1: 0.4, y1: 0.3, x2: 0.5, y2: 0.4, confidence: 0.9 };
+  const p = personFromFace(face, 16 / 9);
+  const h = (face.y2 - face.y1) / 1.4;
+  // The historical constant was 2.2 * (x2-x1)/1.4, and (x2-x1) === (y2-y1).
+  const legacyHalf = 2.2 * h;
+  const half = (p.x2 - p.x1) / 2;
+  assert.ok(
+    Math.abs(half - legacyHalf) < 1e-3,
+    `16:9 must be bit-compatible with the measured R8 podium geometry: got ${half}, wanted ${legacyHalf}`,
+  );
+});
+
+test('personFromFace: real body width is the same on any frame aspect', () => {
+  // Small and centred, so no edge clamping muddies the comparison.
+  const face = { x1: 0.48, y1: 0.3, x2: 0.52, y2: 0.34, confidence: 0.9 };
+  // Normalized width x frame aspect = width in units of frame HEIGHT,
+  // which is the aspect-independent quantity.
+  const physical = (ar) => {
+    const p = personFromFace(face, ar);
+    return (p.x2 - p.x1) * ar;
+  };
+  const wide = physical(16 / 9);
+  for (const ar of [4 / 3, 1, 9 / 16, 2.39]) {
+    assert.ok(
+      Math.abs(physical(ar) - wide) < 1e-3,
+      `a ${ar.toFixed(2)} frame must cover the same real width as 16:9: ${physical(ar)} vs ${wide}`,
+    );
+  }
+});
+
+test('personFromFace: vertical video is no longer three times too narrow', () => {
+  const face = { x1: 0.4, y1: 0.3, x2: 0.5, y2: 0.4, confidence: 0.9 };
+  const h = (face.y2 - face.y1) / 1.4;
+  const p = personFromFace(face, 9 / 16);
+  // The old code would have given 2.2*h here regardless of aspect; correct
+  // behaviour is 1.78x WIDER in normalized-x on a 9:16 frame.
+  assert.ok(
+    (p.x2 - p.x1) / 2 > 2.2 * h * 1.7,
+    'the synthetic body must widen in normalized-x as the frame narrows',
+  );
+});

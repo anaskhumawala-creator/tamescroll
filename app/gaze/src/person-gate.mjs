@@ -28,6 +28,30 @@ export var PERSON_MIN_SCORE = 0.35;
 // score measured on a wide stage shot (lowest observed 0.14 with 10
 // confident keypoints) and above the ~0-0.02 that empty slots return.
 export var PERSON_LOW_SCORE = 0.12;
+// R14 tried lowering this 7 -> 5 and REVERTED it after measuring. Do not
+// retry without new evidence; the reasoning is here so the diff alone
+// cannot lose it.
+//
+// The case looked strong. A composite broadcast layout (news debate, five
+// talking-head windows each ~0.28 of frame height) put a population of
+// slots just under the bar: score 0.13-0.21, 5-6 confident keypoints,
+// nKp15 5-8, box heights 0.11-0.21 — panel-window sized, every one a real
+// panelist, and MoveNet reported `persons: 0` on three of ten frames
+// containing five visible people. R13's noise-slot warning did not apply,
+// because those slots scored ~0.00-0.01 and are excluded by
+// PERSON_LOW_SCORE, which was not being moved.
+//
+// The THEORY was that admitting real skeletal boxes would suppress the
+// unbounded synthetic bodies personFromFace paints for faces with no
+// person under them, and so cut the round's dominant failure (patches
+// over empty studio background). Measured, side by side, same footage:
+// persons per frame barely moved, patch heights got WORSE not better
+// (0.39-0.76 of frame height before, 0.35-0.87 after), coastExpired rose
+// 6 -> 9, and the man who was exposed in the reference frame was still
+// exposed. It bought nothing and added churn.
+//
+// The lesson worth keeping: recall at the person gate is NOT the lever on
+// synthetic-body sprawl. The two mechanisms stack rather than substitute.
 export var PERSON_STRONG_KEYPOINTS = 7;
 // How much bigger than MoveNet's own box a low-scoring slot's keypoint
 // union may get before it is treated as scattered noise. A real person's
@@ -108,13 +132,31 @@ export function parsePersons(data, minScore, aspect) {
     // reject, because "was it the floor or the model?" is exactly the
     // question lastSlotDiag exists to answer. Six slots x 13 comparisons
     // is free next to one inference.
+    // R14 adds maxKp and nKp15 alongside the count, and they are the
+    // whole point of this round. `confident` is a count at ONE threshold,
+    // so a slot reading 0 is ambiguous between two completely different
+    // worlds: MoveNet saw NOTHING (0.02 everywhere), or MoveNet saw a
+    // wrist at 0.28 and PERSON_KEYPOINT_MIN threw it away. Those worlds
+    // want opposite fixes — the first needs a second model, the second
+    // needs a rescue tier that costs nothing — and three extra
+    // comparisons inside a loop that already runs decide which.
+    // MoveNet's model card says it emits all 17 keypoints even when
+    // occluded, with low confidence rather than absence, so the question
+    // is real and not rhetorical.
     var confident = 0;
+    var maxKp = 0;
+    var nKp15 = 0;
     for (var c = 0; c < EVIDENCE_KEYPOINT_MAX; c++) {
-      if (data[o + c * 3 + 2] >= PERSON_KEYPOINT_MIN) confident++;
+      var ks = data[o + c * 3 + 2];
+      if (ks >= PERSON_KEYPOINT_MIN) confident++;
+      if (ks >= 0.15) nKp15++;
+      if (ks > maxKp) maxKp = ks;
     }
     lastSlotDiag.push({
       score: Math.round(score * 100) / 100,
       confident: confident,
+      maxKp: Math.round(maxKp * 100) / 100,
+      nKp15: nKp15,
       h: Math.round((data[o + 53] - data[o + 51]) * 100) / 100,
     });
 
@@ -268,11 +310,48 @@ export function parsePersons(data, minScore, aspect) {
  * Deliberately modest: the old +6.0 face-heights turned one false face
  * detection into a full-frame patch.
  */
-export function personFromFace(face) {
+export function personFromFace(face, aspect) {
   var cx = (face.x1 + face.x2) / 2;
   var cy = (face.y1 + face.y2) / 2;
-  var w = (face.x2 - face.x1) / 1.4; // de-inflate FACE_ENLARGE
-  var h = (face.y2 - face.y1) / 1.4;
+  var h = (face.y2 - face.y1) / 1.4; // de-inflate FACE_ENLARGE
+  // THE `w` THAT USED TO BE HERE WAS NOT A WIDTH. detectFaceBoxes
+  // squarifies the face with a single `half` scalar in MODEL space and
+  // then divides BOTH axes by INPUT_SIZE (detector.js ~:318-325), so
+  // every face box satisfies `x2-x1 === y2-y1` in NORMALIZED units. But
+  // model space is a 256x256 resize of the frame, so equal normalized
+  // extents are NOT equal pixel distances: on 16:9 the box is 1.78x
+  // wider than tall in pixels. `w` was therefore the face HEIGHT wearing
+  // a width's name, and every constant multiplied by it inherited a
+  // hidden factor of the aspect ratio.
+  //
+  // Measured signature, runs/r14-woman, 49 patches: 28 of them sit in
+  // 0.553-0.561 width/height — a band 0.008 wide. That is not footage,
+  // it is arithmetic; an unclamped synthetic body has a FIXED aspect by
+  // construction, and its value pins the bug.
+  //
+  // Why this is EXPOSURE and not just untidiness: the error scales with
+  // the frame's aspect. Per side, as a multiple of face pixel-height H,
+  // the old x-extension came out at 3.91H on 16:9, 2.93H on 4:3 and
+  // **1.24H on a 9:16 vertical video** — three times too narrow on
+  // exactly the shape YouTube serves most often now. Shoulders sharp.
+  //
+  // The fix is to derive x from the faithful axis and divide by the
+  // aspect, which is what parsePersons already does for its own margins
+  // (`headH = headW * ar`) and what nobody threaded in here.
+  var ar = typeof aspect === 'number' && aspect > 0 ? aspect : 16 / 9;
+  // 3.911 = the old 2.2 x 16/9, chosen DELIBERATELY so 16:9 output is
+  // bit-for-bit what it was. R14's critic proposed 2.4 from anthropometry
+  // (shoulders are ~2.5-3 face-widths, so 2.4H per side is already
+  // generous) and it is almost certainly closer to right — but 2.2 was
+  // not an anthropometric guess, it was measured in R8 on a naval
+  // officer at a podium whose sleeve was sharp to x~0.79, and that run
+  // put the REQUIREMENT at 2.5 half-units = 4.44H, above even today's
+  // 3.91H. Cutting to 2.4H is a 39% width reduction against a constant
+  // that is already below its own measured requirement, and the class it
+  // would re-open is EXPOSURE. So: correct the anisotropy now, keep the
+  // magnitude, and let a round that can re-capture the R8 podium footage
+  // do the narrowing with evidence.
+  var halfX = (3.911 * h) / ar;
   // HEADROOM, measured in gauntlet R8 (runs/r8b-woman, a naval officer
   // in a peaked cap at a podium): y1 was `cy - h*1.0`, and since the
   // de-inflated face box only reaches `cy - h/2`, that is HALF a
@@ -294,9 +373,9 @@ export function personFromFace(face) {
   // unions genuine overlaps, so a slight over-reach costs one patch, not
   // a stack of them.
   return {
-    x1: Math.max(0, cx - w * 2.2),
+    x1: Math.max(0, cx - halfX),
     y1: Math.max(0, cy - h * 1.4),
-    x2: Math.min(1, cx + w * 2.2),
+    x2: Math.min(1, cx + halfX),
     y2: Math.min(1, cy + h * 6.0),
     confidence: face.confidence,
     headX: cx,
