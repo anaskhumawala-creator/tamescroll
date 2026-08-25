@@ -161,3 +161,34 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   Harness: frames are now captured in PAIRS, blur-on and blur-off at the
   same instant (owner idea), so scoring stops being guesswork about who
   is underneath a patch. gaze 93/93, cargo 31/31.
+- **R5** (2026-08-25) — rotation entry 3, TED talk arj7oStGLkU, `man`,
+  12 frames, bundle v7. **The failure INVERTS with subject scale.** That
+  is the finding of this round and the target of the next.
+  BEFORE (every frame read against its blur-off twin):
+  EXPOSURE 4 (f003, f004, f005, f006) · FALSE COVER 3 (f000, f004, f005)
+  · GHOST 0 · PARTIAL 0 · DRIFT 0.
+  * CLOSE-UP frames (f001, f002, f007-f011) are PERFECT: persons=1, zero
+    patches, the male speaker correctly sharp, track 10 'cleared' with
+    clearStreak 15 and lastVerdict 'clear-certain'. The pipeline is right
+    when the subject is big.
+  * WIDE frames (f003-f006 — speaker ~12% of frame height, ~40-person
+    audience) invert it: `persons` reads 0, yet f004/f005 still carry ONE
+    patch and it sits over the MALE SPEAKER, while ~40 audience members —
+    several clearly female in the lit right-hand block around x 0.78-0.90,
+    y 0.74-0.90 — are completely sharp. Both terminal classes at once, and
+    in the worst possible arrangement: the only person we track is the one
+    who should be sharp, and everyone who should be covered is invisible
+    to us. Same video, same code, seconds apart — scale is the only
+    variable.
+  * f000 is a separate, milder FALSE COVER: a new track starts BLURRED and
+    needs 2 certain clear reads, so the speaker is covered for the first
+    ~1.8s of the shot before clearing. Blur-first working as designed —
+    but the owner's bar counts it, so it is logged, not excused.
+  COST: verdict n=56 p50 97ms p95 340ms max 2416ms; position n=109 p50
+  23ms p95 37ms max 51ms. The verdict tail improved markedly against R3
+  (p95 554 -> 340, max 3856 -> 2416); the multi-second outlier survives.
+  Harness: gauntlet.py now refuses a run whose start offset is past the
+  end of the video. A seek past duration silently CLAMPS to the final
+  frame, and R5's first attempt scored 12 identical frozen frames at
+  t=76.08 while believing it was looking at a static shot.
+  AFTER: pending — critic running on the scale question.
