@@ -503,7 +503,22 @@ function matchedStep(t, obs, dt) {
   // Identity memory, BLUR direction only (see MEM_SIM_FLAG): a face
   // matching someone previously read as certainly opposite-gender is
   // covered again immediately, without re-earning the verdict.
-  if (obs.remembered === 'blurred') {
+  // ...but memory may not OVERRULE live positive evidence. This override
+  // sits AFTER the clear logic and was unconditional, so a track that had
+  // just read confidently same-gender was slammed straight back to blurred
+  // with its streak zeroed — every pass, forever, because the memory entry
+  // never goes away. Two critics flagged the ordering; R11 measured the
+  // consequence: a woman in woman mode reading `female 0.59` (a certain
+  // clear) stayed covered on all ten frames while `mem` sat pinned at
+  // MEM_MAX 8. Worse, the descriptor cannot separate identity at all —
+  // 17% of DIFFERENT-person pairs score >=0.9 (see MEM_SIM_FLAG) — so the
+  // entry doing the overruling frequently belongs to someone else.
+  //
+  // Memory keeps its real job: re-cover instantly anyone we cannot read
+  // right now. It simply loses its veto over someone we CAN read. newTrack
+  // already respects exactly this interaction; matchedStep did not.
+  var readsClear = !obs.flagged && obs.certain;
+  if (obs.remembered === 'blurred' && !readsClear) {
     state = 'blurred';
     clearMs = 0;
     clearStreak = 0;

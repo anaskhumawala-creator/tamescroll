@@ -845,20 +845,84 @@ import { planForMode } from './pipeline-plan.mjs';
       // to faceres meant classifying an upscaled blur. HaramBlur reads
       // the FACE crop; so do we now: the winning face box is mapped back
       // to video coordinates and re-cut from the source at 224px.
+      // MEASURED R10 (runs/r10-woman): a woman lecturer 33 native pixels
+      // wide was handed to faceres as a 135x68 smear inside a 224 frame,
+      // and the model answered with a CONSTANT — raw sigmoid 0.635 +- 0.02
+      // across 24 reads of four different subjects, with the age head
+      // simultaneously pinned at its training prior (36.9 +- 1.4 on a hall
+      // of undergraduates). Two heads returning their priors at once is
+      // what "no signal" looks like. That constant is labelled `male`,
+      // which is inert in man mode but a CERTAIN flag in woman mode, so
+      // every woman in the shot was covered, permanently, on all ten
+      // frames.
+      //
+      // Half of that was our own chain. The face box comes back SQUARE IN
+      // MODEL SPACE (detector.js squarifies against a 256x256 resize of a
+      // non-square crop), so composing it through rw/rh here produced a
+      // region whose native-pixel aspect was the person box's aspect —
+      // 2.36:1 on a standing figure. `cropPersonPixels` preserves that,
+      // and `classifyFaceGenders` then stretches it back to 224x224. The
+      // face arrived at the model stretched more than twice as wide as it
+      // really is.
+      //
+      // So build the region SQUARE IN NATIVE PIXELS. `min(w,h)` is the
+      // honest side: the squarify used `max` on the STRETCHED axis, so the
+      // short side is the one that survived the stretch unscaled and still
+      // carries the true FACE_ENLARGE'd face size. Centre it on the box
+      // centre and clamp to the frame.
       function faceRegionInVideo(faceBox) {
         // faceBox is normalized to the person crop; region is normalized
         // to the frame. Compose the two.
         var rw = region.x2 - region.x1;
         var rh = region.y2 - region.y1;
+        var x1 = region.x1 + faceBox.x1 * rw;
+        var y1 = region.y1 + faceBox.y1 * rh;
+        var x2 = region.x1 + faceBox.x2 * rw;
+        var y2 = region.y1 + faceBox.y2 * rh;
+        var vw = video.videoWidth || 0;
+        var vh = video.videoHeight || 0;
+        if (!vw || !vh) return { x1: x1, y1: y1, x2: x2, y2: y2 };
+        // Work in native pixels — the whole bug is that normalized units
+        // hide the frame aspect (third time in this codebase: see
+        // personFromFace and person-gate's own header).
+        var side = Math.min((x2 - x1) * vw, (y2 - y1) * vh);
+        var hx = ((x1 + x2) / 2) * vw;
+        var hy = ((y1 + y2) / 2) * vh;
+        var half = side / 2;
         return {
-          x1: region.x1 + faceBox.x1 * rw,
-          y1: region.y1 + faceBox.y1 * rh,
-          x2: region.x1 + faceBox.x2 * rw,
-          y2: region.y1 + faceBox.y2 * rh,
+          x1: Math.max(0, (hx - half) / vw),
+          y1: Math.max(0, (hy - half) / vh),
+          x2: Math.min(1, (hx + half) / vw),
+          y2: Math.min(1, (hy + half) / vh),
+          // Native side length, so the caller can decide whether there are
+          // enough real pixels to be worth asking about.
+          nativePx: side,
         };
       }
+      // Below this many NATIVE pixels on a side, do not ask the model.
+      // faceres is a 224px VGGFace2-family network and the literature
+      // floor for gender/attribute heads of that class is ~64-100px of
+      // face; R10 measured the collapse at 33px and R6's own working
+      // footage sat at 58-79px, so 64 is above every read that has ever
+      // worked in this log and below the band that produced only noise.
+      // Asking anyway is worse than not asking: the null answer arrives
+      // labelled `male` with score ~0.27, which clears GENDER_MIN_SCORE
+      // 0.25 and therefore counts as CERTAIN — certain enough to condemn a
+      // woman, revoke an earned clear, and be written into identity
+      // memory, all on zero information.
+      var FACE_MIN_NATIVE_PX = 64;
+
       function genderFromNativeFace(faceBox) {
         var fr = faceRegionInVideo(faceBox);
+        // ABSTAIN rather than guess. 'unknown' is not a third verdict —
+        // faceMeta already turns an undirected read into
+        // {flagged:true, certain:false}, i.e. exactly the honest state a
+        // person with no visible face gets. The subject stays COVERED
+        // (blur-first is unchanged); what changes is that an unresolvable
+        // face may no longer revoke a clear or poison memory.
+        if (fr.nativePx && fr.nativePx < FACE_MIN_NATIVE_PX) {
+          return Promise.resolve([{ gender: 'unknown', score: 0, age: 0, desc: null }]);
+        }
         // The face box already carries FACE_ENLARGE context; keep it.
         return cropPersonPixels(fr).then(function (fpix) {
           return detector

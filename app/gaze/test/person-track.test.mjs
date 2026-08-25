@@ -528,6 +528,25 @@ test('a stale track loses the earned-clear protection (2 reads -> 1)', () => {
   assert.equal(f[0].state, 'cleared', 'a fresh clear still absorbs one noisy read');
 });
 
+test('identity memory cannot overrule a live confident same-gender read', () => {
+  // R11: a woman reading `female 0.59` - a certain clear - stayed covered
+  // on all ten frames because the memory override ran AFTER the clear
+  // logic and unconditionally. The descriptor cannot separate identity
+  // (17% of different-person pairs score >=0.9), so the entry vetoing her
+  // was quite possibly someone else's.
+  let t = updatePersonTracks([], [{ ...obs(boxA, false, true), verdictDt: CLEAR_HOLD_MS }], 250);
+  t = updatePersonTracks(t, [{ ...obs(boxA, false, true), verdictDt: CLEAR_HOLD_MS }], 250);
+  assert.equal(t[0].state, 'cleared');
+  // A remembered flag arrives alongside a CONFIDENT same-gender read:
+  // live evidence wins.
+  t = updatePersonTracks(t, [{ ...obs(boxA, false, true), remembered: 'blurred', verdictDt: 250 }], 250);
+  assert.equal(t[0].state, 'cleared', 'memory must not overrule a read we can actually make');
+  // But memory still does its real job: an UNREADABLE observation on a
+  // remembered person is re-covered instantly.
+  t = updatePersonTracks(t, [{ ...obs(boxA, true, false), remembered: 'blurred', verdictDt: 250 }], 250);
+  assert.equal(t[0].state, 'blurred', 'memory still re-covers someone we cannot read');
+});
+
 test('coast window is capped however slow the verdict pass gets', () => {
   // effZoom is uncapped above, so without this a 4s verdict on a phone
   // would carry a stale patch for 10-15s. The cap still bounds it - but
