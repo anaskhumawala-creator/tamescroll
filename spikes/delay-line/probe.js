@@ -1,199 +1,205 @@
-// Stage 2 delay-line SPIKE (docs/plan-blur-v2.md; evidence-only, never
-// shipped). Injected via CDP eval into the desktop dev app's YouTube
-// window. Presents the player video ~DELAY_MS late on our own canvas
-// while the real <video> keeps playing hidden — detection gets a head
-// start equal to the delay, so a verdict is final before the eye sees
-// the frame.
+// Delay-line spike — plan-blur-v2 Stage 2. EVIDENCE ONLY, nothing ships
+// from this file. Injected over CDP into a live YouTube watch page.
 //
-// Critic amendments (2026-08-25 review): audio via captureStream()
-// FIRST (createMediaElementSource permanently claims the element's
-// audio — probe it last, in a throwaway session, or not at all);
-// rVFC-stall watchdog (hidden videos can stop compositing => ring
-// starves silently); mediaTime discontinuity flush covers seeks AND
-// SSAI ad boundaries.
+// The owner's bar is "not a single frame where the other gender is
+// visible". Every round so far has chased that by making detection
+// FASTER, which cannot reach zero by construction: the pipeline reacts to
+// a frame the user has already been shown. A delay line inverts that. The
+// real <video> keeps decoding at opacity 0; we capture each frame into a
+// ring and present it ~350ms later on a canvas. Detection then always has
+// a head start on what the user sees, so a frame can be held back until
+// its verdict exists rather than corrected afterwards.
 //
-// window.__TS_SPIKE.report() returns the measurements.
+// This probe answers only the questions that decide whether the approach
+// is viable at all, in the order that kills it fastest:
+//   1. does frame capture + delayed presentation work in WebView2?
+//   2. does audio survive? createMediaElementSource is PERMANENT per
+//      element and conflicting with YouTube's own graph = silent video,
+//      which is the failure that would be unrecoverable on a real user.
+//   3. does A/V stay inside the +-80ms bar?
+//   4. what does it cost in dropped frames and GPU memory?
 (function () {
-  if (window.__TS_SPIKE) return 'already running';
-  var DELAY_MS = 350;
-  var video = document.querySelector('#movie_player video');
-  if (!video) return 'no player video';
-  var player = document.querySelector('#movie_player');
+  var host = document.querySelector('#movie_player');
+  var v = document.querySelector('video');
+  if (!v || !host) return { error: 'no player' };
+  if (window.__TS_DELAY) return { error: 'already running' };
 
-  var S = (window.__TS_SPIKE = {
-    frames: 0,
+  var DELAY_MS = 350;
+  var RING_MAX = 40; // ~1.3s at 30fps; VideoFrames are GPU-backed, close() matters
+
+  var state = {
+    ring: [],
     presented: 0,
-    ringMax: 0,
-    starved: 0,
-    flushes: 0,
-    stallWatchdog: 0,
-    avOffsetsMs: [],
-    presentGapsMs: [],
-    audio: 'none',
+    dropped: 0,
+    closedForSpace: 0,
+    lastPresentedMediaTime: null,
+    audio: null,
+    encrypted: false,
+    started: Date.now(),
     errors: [],
+  };
+  window.__TS_DELAY = state;
+
+  // --- video path ----------------------------------------------------
+  var canvas = document.createElement('canvas');
+  canvas.id = 'ts-delay-canvas';
+  canvas.style.cssText =
+    'position:absolute;left:0;top:0;width:100%;height:100%;z-index:5;pointer-events:none;background:#000';
+  host.appendChild(canvas);
+  var ctx = canvas.getContext('2d');
+
+  // DRM kills canvas capture dead (black frames, no error). Detect it
+  // rather than shipping a black player.
+  v.addEventListener('encrypted', function () {
+    state.encrypted = true;
   });
 
-  // --- video ring ---------------------------------------------------
-  var ring = []; // { frame: VideoFrame, mediaTime, wallAt }
-  function closeAll() {
-    while (ring.length) {
-      var e = ring.shift();
-      try {
-        e.frame.close();
-      } catch (err) {
-        /* already closed */
-      }
+  function sizeCanvas() {
+    if (canvas.width !== v.videoWidth || canvas.height !== v.videoHeight) {
+      canvas.width = v.videoWidth || 1280;
+      canvas.height = v.videoHeight || 720;
     }
   }
 
-  // --- display canvas over the player -------------------------------
-  var canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth || 1280;
-  canvas.height = video.videoHeight || 720;
-  canvas.style.cssText =
-    'position:absolute;left:0;top:0;width:100%;height:100%;z-index:4;pointer-events:none;';
-  canvas.id = 'ts-spike-canvas';
-  player.appendChild(canvas);
-  var ctx = canvas.getContext('2d');
+  function flush(why) {
+    for (var i = 0; i < state.ring.length; i++) {
+      try {
+        state.ring[i].frame.close();
+      } catch (e) {}
+    }
+    state.ring = [];
+    state.lastFlush = why;
+  }
 
-  // Hide the real video (opacity keeps it compositing; display:none
-  // would kill rVFC — the exact watchdog case).
-  var oldOpacity = video.style.opacity;
-  video.style.opacity = '0';
+  // SEEK / ARROW KEYS / SCRUBBING — the owner's question, and the case
+  // where a delay line is most dangerous rather than least.
+  //
+  // Arrow keys jump 5s, J/L jump 10s, clicking the scrubber jumps
+  // anywhere, and each one makes mediaTime discontinuous. Two things go
+  // wrong if the ring is not handled:
+  //   1. presenting frames captured BEFORE the seek shows the user the
+  //      previous scene for up to DELAY_MS — wrong content, and content
+  //      whose verdict belongs to somewhere else entirely;
+  //   2. the ring then needs DELAY_MS to refill, and during that gap
+  //      there is nothing delayed to present.
+  //
+  // Flushing fixes (1). (2) is the interesting one, because the obvious
+  // answers are both wrong: showing the LIVE video during the gap drops
+  // us back to the reactive path we are building this to escape, and
+  // holding the last frame shows stale content. So the gap is COVERED —
+  // the same whole-blur the app already uses before models are ready.
+  // Blur-first is the house rule and a seek is exactly an "unknown"
+  // moment. It costs a third of a second of blur per arrow press, and it
+  // cannot expose anybody.
+  //
+  // `seeking` fires on every one of these (arrow keys, J/L, scrubber
+  // drag, chapter clicks, SPA restore) — it is the single choke point,
+  // which is why it is the only listener needed for the whole class.
+  var refilling = false;
+  function coverWhileRefilling(why) {
+    flush(why);
+    refilling = true;
+    canvas.style.filter = 'blur(24px)';
+  }
+  v.addEventListener('seeking', function () {
+    coverWhileRefilling('seeking');
+  });
+  v.addEventListener('loadstart', function () {
+    coverWhileRefilling('loadstart');
+  });
+  // A resolution change swaps the decoder and mediaTime keeps running,
+  // but every buffered frame is the wrong size.
+  v.addEventListener('resize', function () {
+    coverWhileRefilling('resize');
+  });
+  // Rate changes rescale how much wall-clock DELAY_MS is worth. At 2x a
+  // 350ms delay is 700ms of content, so the ring must be re-measured
+  // rather than reused.
+  v.addEventListener('ratechange', function () {
+    coverWhileRefilling('ratechange');
+  });
+  state.refills = 0;
 
-  // --- audio: captureStream() route (critic risk #1) ----------------
+  var useVideoFrame = typeof VideoFrame === 'function';
+  state.useVideoFrame = useVideoFrame;
+
+  function onFrame(now, meta) {
+    try {
+      sizeCanvas();
+      if (state.ring.length >= RING_MAX) {
+        var old = state.ring.shift();
+        try {
+          old.frame.close();
+        } catch (e) {}
+        state.closedForSpace++;
+      }
+      var f = useVideoFrame ? new VideoFrame(v) : null;
+      if (f) {
+        state.ring.push({ frame: f, mediaTime: meta.mediaTime, at: now });
+      }
+      // Present the oldest frame that is at least DELAY_MS old.
+      var cutoff = now - DELAY_MS;
+      var pick = -1;
+      for (var i = 0; i < state.ring.length; i++) {
+        if (state.ring[i].at <= cutoff) pick = i;
+        else break;
+      }
+      if (pick >= 0) {
+        var entry = state.ring[pick];
+        if (refilling) {
+          // The ring has reached DELAY_MS of fresh content again, so the
+          // frame we are about to present is genuinely from after the
+          // seek. Uncover.
+          refilling = false;
+          canvas.style.filter = '';
+          state.refills++;
+        }
+        ctx.drawImage(entry.frame, 0, 0, canvas.width, canvas.height);
+        state.presented++;
+        state.lastPresentedMediaTime = entry.mediaTime;
+        // Everything up to and including `pick` is now spent.
+        for (var j = 0; j <= pick; j++) {
+          try {
+            state.ring[j].frame.close();
+          } catch (e) {}
+        }
+        state.ring = state.ring.slice(pick + 1);
+      }
+    } catch (e) {
+      state.errors.push(String(e && e.message));
+    }
+    v.requestVideoFrameCallback(onFrame);
+  }
+
+  if (typeof v.requestVideoFrameCallback !== 'function') {
+    return { error: 'no requestVideoFrameCallback' };
+  }
+  v.requestVideoFrameCallback(onFrame);
+  v.style.opacity = '0';
+
+  // --- audio path ----------------------------------------------------
+  // THE DANGEROUS PART. createMediaElementSource() is permanent for the
+  // lifetime of the element and there can be only one; if YouTube already
+  // holds one, or if taking it breaks their graph, the page goes silent
+  // and nothing here can undo it. So: try, and record exactly what
+  // happened, on a page we are willing to throw away.
+  state.audioAttempted = false;
   try {
-    var ac = new (window.AudioContext || window.webkitAudioContext)();
-    var stream = video.captureStream ? video.captureStream() : null;
-    if (stream && stream.getAudioTracks().length) {
-      var src = ac.createMediaStreamSource(stream);
-      var delay = ac.createDelayNode ? ac.createDelayNode(1) : ac.createDelay(1);
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) {
+      state.audioAttempted = true;
+      var ac = new AC();
+      var src = ac.createMediaElementSource(v);
+      var delay = ac.createDelay(1.0);
       delay.delayTime.value = DELAY_MS / 1000;
       src.connect(delay);
       delay.connect(ac.destination);
-      // The element's own output must be muted or audio doubles; note
-      // the critic's warning that muting may ALSO mute the capture on
-      // some Chromium versions — measured below via track state.
-      video.muted = true;
-      S.audio = 'captureStream+delay; tracks=' + stream.getAudioTracks().length;
-    } else {
-      S.audio = 'captureStream unavailable or no audio track';
+      state.audio = { ok: true, ctxState: ac.state, delay: delay.delayTime.value };
+      window.__TS_DELAY_AC = ac;
     }
   } catch (e) {
-    S.audio = 'audio setup failed: ' + e.message;
+    state.audio = { ok: false, error: String(e && e.message) };
   }
 
-  // --- capture loop (rVFC) ------------------------------------------
-  var lastMediaTime = -1;
-  var lastFrameWall = performance.now();
-  var dead = false;
-  function capture() {
-    if (dead) return;
-    video.requestVideoFrameCallback(function (nowTs, meta) {
-      lastFrameWall = performance.now();
-      S.frames++;
-      // Discontinuity (seek, quality switch, SSAI boundary): flush.
-      if (lastMediaTime >= 0 && Math.abs(meta.mediaTime - lastMediaTime) > 1.5) {
-        closeAll();
-        S.flushes++;
-      }
-      lastMediaTime = meta.mediaTime;
-      try {
-        ring.push({ frame: new VideoFrame(video), mediaTime: meta.mediaTime, wallAt: performance.now() });
-        if (ring.length > S.ringMax) S.ringMax = ring.length;
-        // Cap ring (memory): > 30 frames = ~1s @30fps, plenty for 350ms.
-        while (ring.length > 30) ring.shift().frame.close();
-      } catch (e) {
-        S.errors.push('VideoFrame: ' + e.message);
-      }
-      capture();
-    });
-  }
-  capture();
-
-  // Watchdog: rVFC stalls while playing = hidden-video compositing stop.
-  var watchdog = setInterval(function () {
-    if (!video.paused && performance.now() - lastFrameWall > 1000) S.stallWatchdog++;
-  }, 1000);
-
-  // --- present loop (rAF): draw the frame ~DELAY_MS old -------------
-  var lastPresentWall = 0;
-  function present() {
-    if (dead) return;
-    requestAnimationFrame(function () {
-      var target = performance.now() - DELAY_MS;
-      var pick = null;
-      // Newest frame captured BEFORE target wall time.
-      for (var i = ring.length - 1; i >= 0; i--) {
-        if (ring[i].wallAt <= target) {
-          pick = ring[i];
-          break;
-        }
-      }
-      if (pick) {
-        try {
-          if (canvas.width !== pick.frame.displayWidth) canvas.width = pick.frame.displayWidth;
-          if (canvas.height !== pick.frame.displayHeight) canvas.height = pick.frame.displayHeight;
-          ctx.drawImage(pick.frame, 0, 0, canvas.width, canvas.height);
-          S.presented++;
-          // A/V offset estimate: how old is the presented frame vs the
-          // intended delay (0 = perfect).
-          S.avOffsetsMs.push(Math.round(performance.now() - pick.wallAt - DELAY_MS));
-          if (S.avOffsetsMs.length > 600) S.avOffsetsMs.shift();
-          var nowW = performance.now();
-          if (lastPresentWall) {
-            S.presentGapsMs.push(Math.round(nowW - lastPresentWall));
-            if (S.presentGapsMs.length > 600) S.presentGapsMs.shift();
-          }
-          lastPresentWall = nowW;
-        } catch (e) {
-          S.errors.push('present: ' + e.message);
-        }
-      } else if (ring.length) {
-        S.starved++;
-      }
-      present();
-    });
-  }
-  present();
-
-  // DRM: bail out entirely.
-  video.addEventListener('encrypted', function () {
-    S.errors.push('encrypted stream — spike tears down');
-    S.stop();
-  });
-
-  S.stop = function () {
-    dead = true;
-    clearInterval(watchdog);
-    closeAll();
-    canvas.remove();
-    video.style.opacity = oldOpacity;
-    return 'stopped';
-  };
-  S.report = function () {
-    function stats(a) {
-      if (!a.length) return null;
-      var s = a.slice().sort(function (x, y) {
-        return x - y;
-      });
-      return { p50: s[Math.floor(s.length / 2)], p95: s[Math.floor(s.length * 0.95)], max: s[s.length - 1] };
-    }
-    var q = video.getVideoPlaybackQuality();
-    return {
-      frames: S.frames,
-      presented: S.presented,
-      ringMax: S.ringMax,
-      starved: S.starved,
-      flushes: S.flushes,
-      stallWatchdog: S.stallWatchdog,
-      offset: stats(S.avOffsetsMs),
-      presentGap: stats(S.presentGapsMs),
-      dropped: q.droppedVideoFrames,
-      total: q.totalVideoFrames,
-      audio: S.audio,
-      errors: S.errors.slice(0, 5),
-    };
-  };
-  return 'spike armed, delay ' + DELAY_MS + 'ms';
+  return { started: true, useVideoFrame: useVideoFrame, audioAttempted: state.audioAttempted };
 })();

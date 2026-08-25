@@ -1,0 +1,40 @@
+{
+ "video": "1L_R0MB2W5A",
+ "seconds": 20.0,
+ "started": {
+  "started": true,
+  "useVideoFrame": true,
+  "audioAttempted": true
+ },
+ "before": {
+  "t": 15.66146,
+  "muted": true,
+  "vol": 1,
+  "paused": false,
+  "total": 395,
+  "dropped": 2
+ },
+ "after": {
+  "t": 20.540108,
+  "paused": false,
+  "muted": true,
+  "vol": 1,
+  "total": 438,
+  "dropped": 2,
+  "presented": 0,
+  "ringDrop": 0,
+  "ring": 9,
+  "lastMediaTime": null,
+  "encrypted": false,
+  "useVideoFrame": true,
+  "refills": 0,
+  "lastFlush": null,
+  "audio": {
+   "ok": true,
+   "ctxState": "running",
+   "delay": 0.3499999940395355
+  },
+  "acState": "running",
+  "errors": []
+ }
+}
