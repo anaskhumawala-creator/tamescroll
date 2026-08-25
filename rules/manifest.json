@@ -2,7 +2,7 @@
   "version": 1,
   "files": {
     "youtube.txt": {
-      "sha256": "b0ac582775bb9e6b7ce412d9635c37d8bdf39b2c4079d0420a083433a154971a"
+      "sha256": "47c0caba402812976b4694b7ef3127384e4a41c12d4a660cf15bcc1987a48493"
     },
     "reddit.txt": {
       "sha256": "c5faab3a8bf8ef56ba2a2ac900306c8214db798882b49177949529fa9bdc3d2f"
@@ -17,7 +17,7 @@
       "sha256": "a10c377c3d1e176af4e183bbae9c879486ebf4cd1c4d31b4f51db95fd3e8d8a0"
     },
     "blur/youtube.css": {
-      "sha256": "909f3c9bfabaf62e7504bfd74c914e76054697d1d0fa552b5d20a4c8fb348e41"
+      "sha256": "02d9461505403f83ac62037a3cd7478bbe95059326dcfd0ebc0b457c901dabf1"
     },
     "blur/reddit.css": {
       "sha256": "3279bd1b167a40f0dc800b96afa0ea271e0bfc1f32acad513bc015b32a9834f3"

@@ -114,6 +114,25 @@ youtube.com##ytd-watch-next-secondary-results-renderer
 !   document.querySelectorAll('.ytp-endscreen-content').length === 1
 youtube.com##.ytp-endscreen-content
 
+! MODERN end screen. YouTube reskinned this surface: the legacy
+! .ytp-endscreen-content above still EXISTS in the DOM (count 1) and our
+! rule still hides it, but it now renders at 0x0 and the real cards are
+! drawn in a new grid instead. Hiding the old element therefore looked
+! like it worked in every DOM probe while the owner watched twelve
+! recommendation cards appear over his finished video. Only a screenshot
+! caught it — which is why coverage of a visual surface is confirmed
+! visually, not by computed style.
+! Safe to hide: .ytp-fullscreen-grid is a SIBLING of the video element,
+! not an ancestor (verified: grid.contains(video) === false), so the
+! player red line holds. The player also carries .ended-mode and
+! .ytp-fullscreen-grid-active while this is up.
+! [live 2026-08-25] .ytp-fullscreen-grid counted 1 (979x495),
+! .ytp-modern-videowall-still 12, .ytp-modern-videowall-still-image 12
+! test: let any /watch video run to its end ->
+!   document.querySelectorAll('.ytp-modern-videowall-still').length === 12
+youtube.com##.ytp-fullscreen-grid
+youtube.com##.ytp-modern-videowall-still
+
 ! Suggestion cards overlaid on the video during playback.
 ! [unverified] not present on the test video
 ! test: play a video with end cards ->

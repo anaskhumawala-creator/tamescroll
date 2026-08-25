@@ -74,6 +74,15 @@ ytm-backstage-image-renderer img {
 .ytp-videowall-still,
 .ytp-suggestion-set,
 .ytp-endscreen-content .ytp-videowall-still-image,
+/* MODERN end screen (2026-08-25). The legacy .ytp-videowall-still above
+ * still exists but renders 0x0; the cards that actually appear are these.
+ * Measured live on a finished video: 12 stills, images 300x169. Listed
+ * separately rather than folded into the line above so that if YouTube
+ * reskins again, the round that finds it can tell which generation of
+ * markup was live when. */
+.ytp-modern-videowall-still,
+.ytp-modern-videowall-still-image,
+.ytp-fullscreen-grid-stills-container,
 .ytp-ce-element,
 .ytp-ce-covering-image,
 .ytp-ce-video-thumb,

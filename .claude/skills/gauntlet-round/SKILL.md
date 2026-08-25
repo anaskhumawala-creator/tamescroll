@@ -151,6 +151,26 @@ Licences are hard limits: MIT/Apache/BSD only. Ultralytics YOLO — code
 **and** weights — and abewley/SORT are AGPL/GPL and permanently banned.
 Never copy HaramBlur.
 
+## Visual recheck is the only proof of a visual claim
+
+Owner, 2026-08-25: *"Always recheck before considering something done.
+Visual rechecking is what I want, not just thinking and assumption."*
+
+He said it the same hour it cost us. Every DOM probe reported the YouTube
+end screen hidden — `display:none`, 0x0, on the exact selector the rule
+targeted — and a screenshot showed twelve recommendation cards sitting
+over his finished video. YouTube had reskinned the surface: the legacy
+element our rule hides still exists and still measures hidden, while the
+real cards render in new markup the rule had never heard of.
+
+A computed style proves a RULE FIRED. Only a pixel proves the SURFACE IS
+COVERED. Those are different claims, and the gap between them is exactly
+where a reskin, a stacking-context bug or a z-index regression lives —
+all three have shipped here.
+
+So: capture the image and read it yourself before writing "done" about
+anything visible. This applies to rules work as much as to blur work.
+
 ## 5. Re-verify
 
 Rebuild and re-run the SAME round:

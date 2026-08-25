@@ -199,6 +199,23 @@ def run(outdir, gender, video, start, count, step):
     # run, because its frames look like evidence.
     if ('"g":"%s"' % gender) not in (boot or ""):
         raise SystemExit("BOOTED WRONG DIRECTION: wanted %s, page says %s" % (gender, boot))
+    # A SEEK PAST THE END SILENTLY CLAMPS. Ask for t=240 on a 76-second
+    # video and the player parks on the final frame, still `paused:false`
+    # and `ended:false` — indistinguishable from a healthy static shot,
+    # and it hands back N identical frames carrying the same stale
+    # patches. Caught on r5-man, where every frame sat at t=76.08 and the
+    # first diagnosis was a buffering stall. Read the duration off the
+    # element and refuse rather than guess a replacement offset: the
+    # start offset is chosen to land on people, so a silently-moved one
+    # is a different test than the round claims to be running.
+    dur = tab.eval("(function(){var v=document.querySelector('video');return v?v.duration:0;})()")
+    if not dur or dur != dur:  # 0, None or NaN — metadata never arrived
+        raise SystemExit("RUN INVALID: no video duration (player never loaded)")
+    if start > dur - 5:
+        raise SystemExit(
+            "RUN INVALID: start %ds is past the end of a %.0fs video (%s). "
+            "Pick a start inside the video." % (start, dur, video)
+        )
     tab.eval(
         "(function(){var v=document.querySelector('video');v.currentTime=%d;v.play();})()" % start
     )
