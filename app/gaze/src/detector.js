@@ -40,6 +40,30 @@ export var FACE_MIN_CONFIDENCE = 0.35;
 // faces are big — redesign, blur-pipeline-audit.)
 var FACE_IOU = 0.1;
 var FACE_MAX = 20;
+// MEASURED AND PINNED (gauntlet R26). Do not move this to buy gender
+// certainty on a small face — it is the child gate's operating point.
+//
+// R26 scored FALSE COVER on all ten frames of a classroom in `woman`
+// mode: the one adult woman, face 74 native px, reads female with
+// certainty 0.14-0.63 (one read of twelve over GENDER_CLEAR_SCORE_FEMALE
+// 0.45), so she has no path to a clear. The obvious free fix is the
+// crop, since the enlargement is a constant and costs nothing.
+// `spikes/gauntlet/facecrop.py` swept it over ALL EIGHT faces in that
+// frame (found the way the pipeline finds them — person slot, native
+// per-person crop, BlazeFace inside it — because the full-frame pass
+// finds one of ten), at 0.55/0.7/0.85/1.0/1.2/1.5/1.9 of the shipped box:
+//
+//   the adult woman   gender FLIPS with the crop: male .38 / male .63 /
+//                     male .15 / female .30 / female .38 / female .24 /
+//                     male .13. There is no scale that clears her, and
+//                     the tight end reads her confidently WRONG.
+//   two known children childP peaks at the SHIPPED scale — .751 and .746
+//                     at 1.0, falling to .199/.340 at 1.9 and .283/.285
+//                     at 0.55, against GENDER_CHILD_MASS 0.25.
+//
+// So 1.0 is where the child gate works and every other scale leaks it,
+// which is the trade S6 and R23 refused twice from the other direction.
+// A child rendered sharp is the worst outcome this project has.
 var FACE_ENLARGE = 1.4; // gender wants context around the face crop
 
 function b64ToBuffer(b64) {

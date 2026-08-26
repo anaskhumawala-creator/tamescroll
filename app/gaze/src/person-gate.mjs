@@ -1087,6 +1087,87 @@ export function personFromFace(face, aspect) {
   };
 }
 
+// THE CROP IS NOT THE PATCH (gauntlet R26).
+//
+// A person object carries two different boxes for two different jobs and
+// until this round both jobs used the widest one. The PATCH has to cover
+// a whole human with their hands and hair outside the model's box, so it
+// is deliberately inflated: model box, unioned with every confident
+// keypoint plus KEYPOINT_MARGIN, unioned with the head anchor, then
+// PATCH_MARGIN on top. The CROP has exactly one job — put this person's
+// FACE in front of BlazeFace at the largest scale available — and every
+// pixel of that inflation makes it worse at it, twice over.
+//
+// MEASURED, r26-woman (8R1hy3uHds0 t=540, ~10 people, 180 slot records):
+//
+//   MoveNet raw slot box        p50 0.110 wide
+//   + KEYPOINT_MARGIN           p50 0.173
+//   + PATCH_MARGIN              p50 0.201      <- what the crop used
+//   adjacent-person head gap    p50 0.145 (278px)
+//
+// So the crop was 1.82x the person before padding, against neighbours
+// standing 1.4 crop-widths apart: it contained them by arithmetic. The
+// reads probe agrees — faces-per-crop over the window was
+// {1:23, 2:34, 3:20, 4:3}, i.e. 57 of 80 reads saw two or more people.
+//
+// Two costs, and the second is the one that scores:
+//
+//  1. ATTRIBUTION. ownFaceIndex judges "is this face mine?" at
+//     `max(0.18, fw)` in CROP units, so a wider crop is a wider bar in
+//     frame terms — the sprawl relaxes the test that exists to contain
+//     it. Six of forty attr rows had two faces inside their own bar,
+//     winner-vs-runner-up margins 0.044-0.106 crop units.
+//  2. RESOLUTION. detectFaceBoxes stretches the crop to 256 (detector.js),
+//     so a 0.201-wide crop puts a 70px face at ~14% of the model input
+//     against BlazeFace's ~5% evaluation floor — a coarse box, and
+//     `nativePx` then lands at 64-83, right on FACE_MIN_NATIVE_PX. The
+//     gender read that decides FALSE COVER is taken from that box.
+//
+// So the crop anchors on the TIGHTEST honest evidence of where the
+// person is: the raw model box for a MoveNet slot, the face itself for a
+// synthetic body (which is the only thing personFromFace actually knew).
+// Nothing drawn changes — `obs.box` is still the inflated patch — so
+// EXPOSURE, PARTIAL, GHOST and DRIFT are all unreachable from this diff
+// by construction. It can only change verdicts, and it is CHEAPER: same
+// inference count, same 256 input, a smaller createImageBitmap resize.
+//
+// The one way it can bite is a person whose own face falls OUTSIDE the
+// tight anchor — they lose the read, go faceFound:false and stay
+// covered. That is the FALSE COVER direction, so it is measured rather
+// than assumed: over this window every owned face sat at
+// |fc_x - 0.5| <= 0.190 against the tight crop's 0.5 half-width, while
+// neighbours sat at p50 0.320. A MoveNet box that fails to contain its
+// own subject's head is not a case this can rescue anyway — the head
+// anchor that would widen it is derived from the same keypoints.
+export var FACE_CROP_HALF_WIDTHS = 1.5; // synthetic-body crop = 3x the face box
+
+/**
+ * The tightest box that still honestly locates this person, for cropping
+ * ONLY. Never use it to draw: it is the evidence box, not the patch.
+ */
+export function cropAnchor(p) {
+  var r = p && p.raw;
+  if (r && r.length === 4 && r[2] > r[0] && r[3] > r[1]) {
+    return { x1: r[0], y1: r[1], x2: r[2], y2: r[3] };
+  }
+  var f = p && p.faceBox;
+  if (f && f.x2 > f.x1 && f.y2 > f.y1) {
+    var cx = (f.x1 + f.x2) / 2;
+    var cy = (f.y1 + f.y2) / 2;
+    var hw = ((f.x2 - f.x1) / 2) * FACE_CROP_HALF_WIDTHS * 2;
+    var hh = ((f.y2 - f.y1) / 2) * FACE_CROP_HALF_WIDTHS * 2;
+    return {
+      x1: Math.max(0, cx - hw),
+      y1: Math.max(0, cy - hh),
+      x2: Math.min(1, cx + hw),
+      y2: Math.min(1, cy + hh),
+    };
+  }
+  // No evidence box (hand-built person, a test, a future source): the
+  // patch is all there is, and today's behaviour is the safe answer.
+  return { x1: p.x1, y1: p.y1, x2: p.x2, y2: p.y2 };
+}
+
 /**
  * The crop region a person's face/gender pass runs on. Multi-SCALE is
  * the pass that actually adds information — a distant person's face
@@ -1094,7 +1175,7 @@ export function personFromFace(face, aspect) {
  * the full frame.
  */
 export function personCropRegion(p) {
-  return padded(p, PERSON_GATE_PAD);
+  return padded(cropAnchor(p), PERSON_GATE_PAD);
 }
 
 function padded(p, pad) {

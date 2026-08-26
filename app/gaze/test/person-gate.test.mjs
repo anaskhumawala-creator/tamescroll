@@ -16,6 +16,8 @@ import {
   PFF_FRAME_KP_FLOOR,
   frameHasNoHumanShape,
   lastSlotDiag,
+  cropAnchor,
+  FACE_CROP_HALF_WIDTHS,
 } from '../src/person-gate.mjs';
 
 // Keypoint layout: 17 x [y, x, score] then y1,x1,y2,x2,score.
@@ -134,6 +136,42 @@ test('personCropRegion: pads the person box, clamped to the frame', () => {
   assert.equal(edge.x1, 0);
   assert.equal(edge.y1, 0);
   assert.equal(edge.y2, 1);
+});
+
+// R26: the crop is not the patch. The patch is deliberately inflated so
+// a covered person has nothing sticking out of it; the crop's only job
+// is to put THIS person's face in front of BlazeFace, and every pixel of
+// that inflation costs it both resolution and attribution.
+test('cropAnchor: a MoveNet person crops its RAW box, not its inflated patch', () => {
+  // A person whose patch has been widened by the keypoint union and the
+  // margins, exactly as parsePersons emits it.
+  const p = { x1: 0.1, y1: 0.55, x2: 0.36, y2: 1.0, raw: [0.17, 0.7, 0.28, 0.99] };
+  const a = cropAnchor(p);
+  assert.deepEqual(a, { x1: 0.17, y1: 0.7, x2: 0.28, y2: 0.99 });
+  const region = personCropRegion(p);
+  // Strictly tighter than the patch-derived crop it replaces, and it
+  // still contains the raw box with padding on every side.
+  assert.ok(region.x2 - region.x1 < p.x2 - p.x1);
+  assert.ok(region.x1 < 0.17 && region.x2 > 0.28);
+  assert.ok(region.y1 < 0.7 && region.y2 > 0.99 - 1e-9);
+});
+
+test('cropAnchor: a synthetic body crops its FACE, the only thing it knew', () => {
+  const p = personFromFace({ x1: 0.4, y1: 0.1, x2: 0.5, y2: 0.2, confidence: 0.9 }, 16 / 9);
+  const a = cropAnchor(p);
+  // Centred on the face box and FACE_CROP_HALF_WIDTHS half-widths out.
+  const w = a.x2 - a.x1;
+  assert.ok(Math.abs((a.x1 + a.x2) / 2 - 0.45) < 1e-9);
+  assert.ok(Math.abs(w - 0.1 * FACE_CROP_HALF_WIDTHS * 2) < 1e-9);
+  // The extrapolated BODY runs to the frame floor; the crop must not.
+  assert.ok(a.y2 < p.y2);
+});
+
+test('cropAnchor: no evidence box falls back to the patch (old behaviour)', () => {
+  const p = { x1: 0.3, y1: 0.1, x2: 0.6, y2: 0.7 };
+  assert.deepEqual(cropAnchor(p), p);
+  // A degenerate raw box is not evidence either.
+  assert.deepEqual(cropAnchor({ ...p, raw: [0.5, 0.5, 0.5, 0.5] }), p);
 });
 
 test('parsePersons: a full-height subject keeps a full-height patch', () => {

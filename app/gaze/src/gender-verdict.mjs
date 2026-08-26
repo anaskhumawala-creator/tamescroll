@@ -42,6 +42,26 @@ export var GENDER_CLEAR_SCORE = 0.6;
 // so he cannot sneak through a female-clear gate at 0.45 — he would have
 // to be misread as female first, which was not observed once.
 export var GENDER_CLEAR_SCORE_FEMALE = 0.45;
+// AND BOTH BARS ARE, IN PRACTICE, A FACE-SIZE BAR (gauntlet R26).
+//
+// The constants above are calibrated on certainty, but certainty is
+// dominated by how many pixels of face the model was given. Over the
+// whole stored corpus — 8,776 reads carrying both `px` and `score`
+// across 173 runs — the share of reads reaching 0.6 by native face size:
+//
+//   64-80px  0.233 | 80-100  0.206 | 100-130 0.300 | 130-180 0.487
+//   180-260  0.451 | 260-400 0.713 | 400+     0.591
+//
+// So a person under ~100px is not judged by a threshold, they are judged
+// by their distance from the camera, and CLEAR_STREAK_N 2 CONSECUTIVE
+// reads squares it: about one chance in twenty per pair at 74px. That is
+// the whole of R26's FALSE COVER 10/10, and it is why the answer is a
+// better read on a small face rather than a lower bar on a bad one —
+// person-track's S6/R23 block refuses the lower bar twice, and R26's
+// crop-scale sweep (see FACE_ENLARGE in detector.js) refuses the free
+// version of the better read. What R26 DID ship is the tight crop
+// (`cropAnchor`, person-gate), which raises `px` itself rather than
+// arguing about the bar it feeds.
 
 /** Clear-side certainty bar for the gender being cleared. */
 export function clearScoreFor(gender) {

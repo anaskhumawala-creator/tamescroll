@@ -87,7 +87,7 @@ at least once.
 | 5 | cooking show episode | man | hands and objects. R23 note: the GHOST trap never fired here — `4u3jS_cTHH0` (Laughter Chefs, 3-4 men + 1 woman in a studio kitchen, t=415) is the FALSE-COVER regime instead, and the worst on record: cuts at 0.87/s, track lifetime p50 1.91s, so nothing lives long enough to clear. Use this window to test anything about the clear ladder. `KAWvDsghyc8` (R7/R15) is the same entry's other id. |
 | 6 | graduation ceremony full ceremony | woman | crowd shots, 100+ people. R16 note: "conference keynote audience" resolves to single-speaker talking heads, not crowds, and livestreams open on a title-card slate - probe forward before capturing. R24 note: `r70mH3m4l9E` (Dhirubhai Ambani graduation, 8878s) at t=2400 is the best MULTI-PERSON STATIC window in the table - a locked-off stage with SIX MoveNet persons, 5 women and 3 men interleaved, and ZERO cuts in 15s. That is the crop-budget and occlusion regime; use it for anything about starvation, attribution or ownership. `e0HlQh-hwyE` is a 259s single-speaker commencement, not a crowd. |
 | 7 | sports post match interview | man | motion, back-turned subjects. R25 note: the query also returns WOMEN'S football interviews, and `g_2Wmzpx47I` (WSL pitchside, t=20) is the table's only EDGE-CROPPED regime — a chest-up close-up with a second woman reduced to a shoulder and an arm at x<0.12, whom MoveNet scores 0.000 and BlazeFace never sees. Use it for anything about truncated people, frame-edge geometry or the clamped-edge feather. `1L_R0MB2W5A` (R9/R17) is the same entry's two-men id. |
-| 8 | classroom lecture | woman | mixed ages — the child gate |
+| 8 | classroom lecture | woman | mixed ages — the child gate. R26 note: the literal query returns talking heads; `8R1hy3uHds0` (2nd-grade vocabulary lesson) is the entry's real id. **t=540 is the only probed offset with the adult teacher AND the children in frame together** — t=660 is children only, so it cannot score FALSE COVER in `woman` mode. This is also the table's only OVER-CAPACITY regime: ~10 people against MoveNet MultiPose's SIX slots, so use it for anything about crowds, unslotted people or `personFromFace` recall. |
 
 Owner constraint: nothing indecent. Queries stay ordinary.
 
@@ -5831,3 +5831,203 @@ analysis.
   at person-track.mjs:725 is false for them on any crowd scene. (7)
   `entry.at` is stamped at pass END while the box describes pass START, an
   alternating 25/100ms backward step locked to the verdict clock.
+
+- **R26** — rotation entry 8 (`classroom lecture`, **woman**), resolved live
+  to `8R1hy3uHds0` (a 2nd-grade vocabulary lesson, 1717s — R18's video at
+  a NEW window, per R19's rule that a rotation entry is a video, not a
+  window). t=540, probed forward from 300/420/540/660/780: **t=540 is the
+  only offset with the adult teacher AND the children in frame at once**,
+  which is what makes it scoreable in `woman` mode. 10 frames @1.5s, both
+  directions, before and after. Build `1b2659d-dirty` -> `6490e35-dirty`
+  (the marker LAGS the commit: the bundle is stamped at build time and
+  S13 was committed after its bundle was written; `git status` confirmed
+  `gaze-init.js` clean against HEAD, so the content is HEAD's).
+
+  Cast, read off the truth frames (normalized x, all standing in the
+  bottom third, heads at y 0.70-0.78): ~9 CHILDREN spread across
+  x 0.00-0.82, and ONE ADULT WOMAN — the teacher, green top — at
+  **x 0.18-0.30**. Nothing human above y~0.68. Correct output in `woman`
+  mode is "cover nine children, leave the teacher completely sharp"; in
+  `man` mode it is "cover all ten", because a child is covered in both
+  directions.
+
+  | class | woman before | woman after | man before | man after |
+  |---|---|---|---|---|
+  | EXPOSURE | 0 | 0 | 0 | 0 |
+  | PARTIAL | 0 | 0 | 0 | 0 |
+  | GHOST | 0 | 0 | 0 | 0 |
+  | DRIFT | 0 | 0 | 0 | 0 |
+  | FALSE COVER | **10** | **10** | 0 | 0 |
+
+  **THE SCORE DID NOT MOVE AND COULD NOT HAVE — that is this round's
+  finding, and it is measured rather than asserted.** The teacher is
+  covered on all ten frames in `woman` mode, before and after, and every
+  one of the six tracks held `st:blurred`, `cs:0`, `cm:0`,
+  `lv:'uncertain'` for the entire 15s window before the fix. Not one
+  track ever reached a clear.
+
+  **WHY: THE CLEAR BAR IS, IN PRACTICE, A FACE-SIZE BAR.** Her face is
+  65-83 native px. Over the WHOLE stored corpus — **8,776 reads carrying
+  both `px` and `score` across 173 runs** — the share reaching 0.6:
+
+  | px band | 64-80 | 80-100 | 100-130 | 130-180 | 180-260 | 260-400 | 400+ |
+  |---|---|---|---|---|---|---|---|
+  | frac >= 0.6 | **0.233** | 0.206 | 0.300 | 0.487 | 0.451 | **0.713** | 0.591 |
+
+  Her own twelve reads: direction correct 9 of 12 (`female`), age 27-31,
+  childP mostly under `GENDER_CHILD_MASS`, and certainty
+  `.36 .37 .63 .38 .29 .14 .14 .29 .32` — **exactly one over
+  `GENDER_CLEAR_SCORE_FEMALE` 0.45, never two in a row**, against
+  `CLEAR_STREAK_N` 2 CONSECUTIVE. Recorded in `gender-verdict.mjs` beside
+  the bars themselves.
+
+  **THE FREE FIX WAS BUILT, SWEPT AND REFUSED, and the refusal is written
+  into `detector.js` above `FACE_ENLARGE`.** New tool
+  `spikes/gauntlet/facecrop.py`: unlike `agecrop.py` it discovers faces
+  the way the PIPELINE does (person slot -> native per-person crop ->
+  BlazeFace inside it -> map back), because the full-frame pass finds
+  **one face of the eight** on this footage. It then sweeps the crop
+  enlargement 0.55-1.9x over every one of them.
+  * The teacher's read **FLIPS GENDER with the crop**: male .38 / male
+    **.63** / male .15 / female .30 / female .38 / female .24 / male .13.
+    No scale clears her, and the tight end reads her confidently WRONG.
+  * The two known children peak in `childP` at the **SHIPPED** scale —
+    **0.751 and 0.746 at 1.0**, falling to 0.199/0.340 at 1.9 and
+    0.283/0.285 at 0.55, against `GENDER_CHILD_MASS` 0.25.
+  So 1.0 is the operating point where the child gate works and every
+  other scale leaks it. Same trade S6 and R23 refused twice, arriving
+  from a new direction.
+
+  **SHIPPED: the CROP is no longer the PATCH (`cropAnchor`,
+  person-gate.mjs).** The critic's round, and its measurement over all
+  180 slot records in this run settled where the sprawl comes from —
+  **not** from MoveNet mixing people up (a slot's confident-keypoint hull
+  sits inside its own model box on 162 of 179 slots, max overhang 0.013):
+
+  | stage | p50 width | site |
+  |---|---|---|
+  | MoveNet raw slot box | **0.110** | `person-gate.mjs:568-571` |
+  | + `KEYPOINT_MARGIN` | 0.173 | `person-gate.mjs:226, 592-593` |
+  | + `PATCH_MARGIN` | **0.201** | `person-gate.mjs:71, 672` |
+  | drawn patch | 0.26 | — |
+
+  The patch is inflated on purpose (the owner's "blur them fully"), and
+  the crop was reusing it. Against an adjacent-person head gap of p50
+  **0.145 (278px)**, a 0.201-wide crop padded 15% contains its neighbours
+  by arithmetic — reads saw 2+ faces on **57 of 80** passes — and it puts
+  a 70px face at ~14% of BlazeFace's 256 input. Worse, `ownFaceIndex`
+  judges ownership at `max(0.18, fw)` in CROP units, so a wider crop is a
+  wider bar in frame terms: the sprawl relaxes the test built to contain
+  it (6 of 40 attr rows had two faces inside their own bar, margins
+  0.044-0.106). The crop now anchors on the tightest honest evidence —
+  the raw model box for a MoveNet slot, the face itself for a
+  `personFromFace` synthetic — and falls back to the patch when there is
+  neither. **Nothing drawn changes** (`obs.box` is still the inflated
+  patch), so EXPOSURE / PARTIAL / GHOST / DRIFT are unreachable from this
+  diff by construction. 3 new tests (raw preferred, synthetic centred on
+  its own face, fallback pins the old behaviour).
+
+  **EFFECT, BOTH DIRECTIONS, and one half of the prediction was refuted:**
+
+  | | man before | man after | woman before | woman after |
+  |---|---|---|---|---|
+  | faces per crop, mean | 1.825 | **1.550** | 1.925 | **1.425** |
+  | single-face crops | 15/40 | 22/40 | 13/40 | **25/40** |
+  | gender certainty p50 | 0.320 | **0.400** | 0.290 | **0.400** |
+  | reads >= 0.45 | — | — | 0.328 | **0.468** |
+  | `readClearCertain` | 0 | 1 | 2 | 3 |
+  | `readFlagCertain` | 6 | 6 | 5 | **1** |
+  | face px p50 | 73 | 79 | 84 | **77** |
+
+  **The RESOLUTION half did NOT hold**: `px` moved 73->79 one way and
+  84->77 the other, i.e. noise. The certainty win is ATTRIBUTION — fewer
+  neighbours in the crop and a tighter ownership bar — not pixels, and
+  the honest reading is that the tight crop stopped one person's face
+  being read as another's. Two tracks reached `clear-certain` (`cs:1`) in
+  the after run where every sample before was `uncertain`; neither
+  reached `CLEAR_STREAK_N` 2, which is why the score is unchanged.
+
+  **NO REGRESSION IN THE MAN DIRECTION**, which is where one would show:
+  all 10 after-frames still cover every child and the woman, and
+  `readClearCertain` 1 was a single child read as adult male that never
+  reached a second consecutive read — the child gate held.
+
+  **COST**: verdict p50 149->150 (woman) and **164->137** (man); pass p50
+  26->32 and 27->29. The pass rise is run variance, not this diff:
+  `cropAnchor` is reachable only from `personCropRegion`, which is
+  reachable only from `observePerson` on the VERDICT path, so the
+  position pass cannot see it — and S13 measured a 2.9x spread on
+  byte-identical code. Model warm-up `first` fell 2349->1426 / 2632->1256.
+  gaze **240/240** (3 new), cargo **37/37**. Dev app PID 45376 -> 41004 ->
+  47044; the mtime was never the proof. (Vite died mid-round and had to be
+  restarted before the after-capture — the launcher served
+  ERR_CONNECTION_REFUSED and `open_platform` reported `no-toggle`, which
+  is what that failure looks like from the harness.)
+
+  **STILL OPEN, ranked:**
+  1. **MoveNet MultiPose caps at SIX persons and this shot has ten.** The
+     six raw slots at t=548 account for 7 of the 8 faces the per-person
+     path finds; the boy at cx 0.038 has **no slot at all** and is covered
+     only because the neighbouring child's margins reach him. That is a
+     LATENT EXPOSURE held shut by over-coverage, and it is the interlock
+     that makes any future patch-tightening dangerous — tighten the
+     margins without first covering the unslotted people and this footage
+     starts exposing children. The path already exists and is starved:
+     `personFromFace` is fed only by the FULL-FRAME face pass, which finds
+     1 of 10 here, while the per-person crops find 8. The non-owner faces
+     inside those crops are already detected and then discarded
+     (`init-entry.js:1173`), so minting synthetics from them costs ZERO
+     extra inference. Next round's candidate.
+  2. `KEYPOINT_MARGIN` 0.05 is an ABSOLUTE distance in normalized
+     coordinates, so it is ~1.4 head-widths on this teacher and ~0.4 on a
+     close-up: too big for a distant person and too small for a near one.
+     The critic's `min(0.05, max(0.012, 0.10*w_model))` reproduces
+     close-ups exactly and takes the p50 box 0.201 -> 0.139. **Held back
+     deliberately** — it SHRINKS drawn area, which is the EXPOSURE
+     direction, and open item 1 names exactly who gets exposed. It must
+     not ride in the same diff as a change that cannot.
+  3. A multi-person track has no correct verdict and nothing in the code
+     notices: `faces.length` appears at `init-entry.js:1151/1173/1295/1385`
+     and no branch reads it. `clear` exposes the neighbour, `flag`
+     false-covers the subject. Un-clearable by construction, and correctly
+     so — the fix belongs in the geometry, not the verdict.
+  4. `ownFaceIndex` is per-crop and greedy: the same physical face can be
+     `own` for two tracks in one pass, because ownership is decided
+     without knowledge of the other persons. Arithmetic-only; the probe
+     carries no frame-space face identity, so it could not be confirmed.
+  5. Lane cx~0.59 (box 0.33 wide) returned 14 reads at a constant face
+     size alternating `age 13,14,22,18,27,27,41,...` / `childP
+     .80,.75,.50,.64,.36,.27,.10,...` — one track reading a child's face
+     and an adult's on alternate passes. Free here (both flag in `woman`
+     mode); in `man` mode this is the shape that makes `CLEAR_STREAK_N` 2
+     unreachable for a man standing beside a child.
+  6. `PTRACK_TOP_PAD_HEADS` capped the top pad, but `kmY = KEYPOINT_MARGIN
+     * ar` = 0.0889 is still ~1.25 head-heights above the topmost
+     keypoint: the blur band's top edge sits ~0.15 of frame height above
+     the highest human head on every frame of this run.
+
+  **HAZARD FOUND MID-ROUND, AND IT IS THE REASON THIS COMMIT IS PARTIAL.**
+  At round start `git status` listed two modified tracked files. By the
+  time the after-captures finished, `person-track.mjs` (22:42),
+  `video-region.mjs` (22:39), `init-entry.js` (22:43) and two of their
+  test files were modified in the working tree by something that is NOT
+  this round — the diffs DELETE R24's head-hole code (`shiftHead`,
+  `headBox`, `headAgeMs`) and large parts of S11/S12/S13's render work.
+  That is the sibling stability loop editing the same checkout: the
+  gauntlet lock does not exclude it.
+  Nothing was reverted (uncommitted work nobody in this session wrote is
+  investigated, never reset away). **This round committed ONLY the four
+  files it edited plus its own tooling and log** — in particular
+  `app/src-tauri/gaze-init.js` was deliberately NOT committed, because
+  the bundle now on disk mixes `cropAnchor` with another session's
+  in-flight experiment. HEAD therefore has the source change and a stale
+  bundle until the next build; that is the safe side of the trade, and it
+  is flagged for the owner.
+  The measurements survive it: the reverted code paths are the head hole
+  and the render damper, the hole only fires on a CLEARED track, and
+  nothing cleared in either direction of this footage. The before-runs
+  and after-runs did use different bundles by construction, so the
+  attribution table above is the weaker kind of evidence than usual —
+  read it with S13's measured 2.9x run-to-run spread in mind.
+  **Next round should take the lock and then re-check `git status` before
+  capturing, and again before committing.**
