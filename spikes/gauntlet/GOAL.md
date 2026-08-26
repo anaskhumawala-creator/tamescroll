@@ -3595,3 +3595,19 @@ analysis.
   has no seams and needs no holes. The cost spike on a Helio G88 has NOT
   been run, and no number on this project has ever come from the owner's
   phone.
+
+  **PERFORMANCE: MEASURED, AND THIS DESKTOP CANNOT ANSWER THE QUESTION.**
+  The seams were argued to be a perf cost as well as a visual one, so it
+  was benchmarked rather than assumed: a live rAF loop in the real player,
+  translating the overlays every frame the way the render loop does, four
+  small `backdrop-filter` slabs against ONE masked element, 4s per arm,
+  interleaved and repeated.
+  Result: **pieces 159.8 and 162.0 fps, masked 157.8 and 162.5 fps, empty
+  control 164.1** — the arms are inside each other's run-to-run spread.
+  On an RTX 3060 Ti four small backdrop snapshots cost nothing measurable,
+  so **the perf half of this change is UNPROVEN, not proven**. The
+  stability half stands on its own numbers. The question is only decidable
+  on the Helio G88, where fill rate and backdrop snapshots are the scarce
+  resource — and no number on this project has ever come from that device.
+  Recorded so a later round does not quote the stability win as a perf
+  win.
