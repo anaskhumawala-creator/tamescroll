@@ -1307,3 +1307,48 @@ test('weakStreak survives a position-only pass', () => {
   );
   assert.equal(tracks[0].weakStreak, 2, 'the streak is over READS, not passes');
 });
+
+// S11: a position pass is evidence about WHERE, not about HOW BIG. It
+// carries no verdict and no new information about the subject's extent,
+// yet it ran at ~8Hz with no size damper at all -- 43% of all measured
+// box size change. Grow must stay instant (a person walking toward
+// camera; PARTIAL is the failure that guards); only shrink is slowed.
+test('a position pass damps SHRINK but never damps growth', () => {
+  const start = { x1: 0.30, y1: 0.20, x2: 0.70, y2: 0.90 };
+  let tracks = updatePersonTracks([], [obs(start, true, true)], 250);
+  const w0 = tracks[0].box.x2 - tracks[0].box.x1;
+
+  // Same track, observed much SMALLER on a position-only pass.
+  const small = { x1: 0.40, y1: 0.30, x2: 0.60, y2: 0.80 };
+  const shrunk = updatePersonTracks(tracks, [{ box: small, positionOnly: true }], 120);
+  const w1 = shrunk[0].box.x2 - shrunk[0].box.x1;
+  const moved = (w0 - w1) / (w0 - (small.x2 - small.x1));
+  assert.ok(
+    Math.abs(moved - pt.PTRACK_POSITION_SHRINK_ALPHA) < 1e-6,
+    `shrink moved ${moved} of the way, expected ${pt.PTRACK_POSITION_SHRINK_ALPHA}`
+  );
+
+  // ...and observed much LARGER on a position-only pass: full alpha.
+  const big = { x1: 0.10, y1: 0.10, x2: 0.90, y2: 0.95 };
+  const grown = updatePersonTracks(tracks, [{ box: big, positionOnly: true }], 120);
+  const w2 = grown[0].box.x2 - grown[0].box.x1;
+  const grew = (w2 - w0) / ((big.x2 - big.x1) - w0);
+  assert.ok(
+    Math.abs(grew - pt.PTRACK_EMA_ALPHA) < 1e-6,
+    `grow moved ${grew} of the way, expected ${pt.PTRACK_EMA_ALPHA}`
+  );
+});
+
+test('a VERDICT pass still shrinks at full alpha, so the box converges', () => {
+  const start = { x1: 0.30, y1: 0.20, x2: 0.70, y2: 0.90 };
+  let tracks = updatePersonTracks([], [obs(start, true, true)], 250);
+  const w0 = tracks[0].box.x2 - tracks[0].box.x1;
+  const small = { x1: 0.40, y1: 0.30, x2: 0.60, y2: 0.80 };
+  const after = updatePersonTracks(tracks, [obs(small, true, true)], 250);
+  const w1 = after[0].box.x2 - after[0].box.x1;
+  const moved = (w0 - w1) / (w0 - (small.x2 - small.x1));
+  assert.ok(
+    Math.abs(moved - pt.PTRACK_EMA_ALPHA) < 1e-6,
+    `verdict shrink moved ${moved}, expected ${pt.PTRACK_EMA_ALPHA}`
+  );
+});

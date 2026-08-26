@@ -4943,3 +4943,163 @@ analysis.
      Not a bug; it means "2 consecutive" is literal, with zero tolerance.
   7. `cover_life_p50` and the count-change blindness in `jitter` /
      `breathe` (S9 F1/F11), still unfixed.
+
+- **S11** (2026-08-26) — **the biggest breathing win in the section, and
+  it came from refuting the plan S9 wrote down rather than building it.**
+
+  Input: S10, plus R23 (which took S10's #1 open item, the cut/clear
+  trade, and banked `clearStreak` across the demotion). Baseline
+  re-measured at HEAD 30a4f37 because R23 moved it.
+
+  | man, t=890, 60s | S10 before | **S11 before (R23)** | S11 after r1 | r2 |
+  |---|---|---|---|---|
+  | patches mean / MAX | 0.84 / 2 | 0.79 / **2** | 0.82 / 2 | 0.82 / 2 |
+  | dCount/s | 0.37 | **0.23** | 0.42 | 0.30 |
+  | births/s | 0.27 | 0.27 | 0.33 | 0.25 |
+  | jitter/s | 0.197 | 0.193 | **0.116** | 0.122 |
+  | breathe/s | 0.323 | 0.339 | **0.223** | 0.229 |
+  | rel breathe w | 0.342 | 0.376 | **0.257** | 0.249 |
+  | rel breathe h | — | 0.169 | **0.089** | 0.109 |
+  | patch w p50 | — | 0.561 | 0.615 | 0.616 |
+  | clamped h | — | 0.623 | 0.700 | 0.711 |
+  | stable intervals | 0.955 | 0.979 | 0.960 | 0.971 |
+
+  Paired by video time, two independent after-runs: **35 calmer / 12
+  busier (mean -0.108)** and **31 / 16 (mean -0.127)**. Against the
+  section's original baseline (8c5a2f3): patches mean 2.08 -> 0.82, MAX
+  7 -> 2, dCount 2.23 -> 0.30, jitter 0.264 -> 0.12, breathe 0.466 ->
+  0.23, stable 67% -> 96-97%.
+
+  **THE PROBE THAT KILLED THE PLAN.** S9 recorded the shrink-damper plan
+  as "sign persistence over step magnitude" — a genuine shrink is
+  monotone, detector noise alternates — and S9's critic said explicitly
+  that if the two run-length distributions overlap, the idea is dead and
+  you have learnt it for the cost of one probe rather than one round.
+  Built the probe (848 matched steps over 75s, measured on the
+  OBSERVATION sequence, never against the damped track box, which
+  self-feeds). Same-sign run lengths:
+
+  | population | n runs | p50 | p75 | p90 | max |
+  |---|---|---|---|---|---|
+  | quiet (no flip, no cut) | 274 | 1 | 2 | 3 | 8 |
+  | source flip | 77 | 1 | 1 | 2 | 3 |
+  | post-cut | 13 | 1 | 1 | 2 | 2 |
+
+  **p50 = 1 everywhere, and the LONGER runs are in the noise population,
+  which is backwards from the hypothesis. Sign persistence is refuted.**
+
+  **THE SAME PROBE FOUND THE REAL TARGET.** Magnitude separates cleanly
+  where sign does not, and splitting by pass type says where the change
+  lives:
+
+  | population | n | \|rel\| p50 | p90 | **share of ALL size change** |
+  |---|---|---|---|---|
+  | position, quiet | 531 | 0.032 | 0.175 | **43%** |
+  | verdict, quiet | 216 | 0.028 | 0.193 | 23% |
+  | verdict, flip | 46 | 0.394 | 0.653 | 18% |
+  | position, flip | 45 | 0.306 | 0.508 | 17% |
+
+  **Two thirds of all box size change carries no source flip and no cut**
+  — it is MoveNet's own box noise — and the single largest block is
+  POSITION passes, which run at ~8Hz and were **the only population with
+  no damper at all**. S5 damped the flip (35% of the change from 11% of
+  the steps) and everyone since has been tuning that 11%.
+
+  **SHIPPED: a position pass is evidence about WHERE, not about HOW BIG.**
+  It carries no verdict and no new information about the subject's extent,
+  so `PTRACK_POSITION_SHRINK_ALPHA 0.2` now damps SHRINK on position-only
+  observations. Same asymmetry and the same safety argument as S5: GROW
+  keeps the full alpha, so a person walking toward camera is covered
+  exactly as fast as before and no PARTIAL can open; only shrink is
+  slowed, and a patch that shrinks slower over-covers, which cannot
+  expose. A genuine shrink is re-confirmed by the next VERDICT pass at
+  full alpha, which is what stops it becoming a patch that never
+  converges. Pinned by two tests (position shrinks at 0.2 and grows at
+  0.6; verdict still shrinks at 0.6).
+
+  **TWO POINTS MEASURED, NOT ONE, AND THE CURVE IS IN THE SOURCE**, because
+  this constant trades breathing against SIZE and S5's finding is that
+  size is what he reads as worse:
+
+  | alpha | jitter/s | rel breathe w | patch w p50 | clamped h |
+  |---|---|---|---|---|
+  | 0.6 (no damper) | 0.193 | 0.376 | 0.561 | 0.623 |
+  | 0.35 | 0.176 | 0.308 | 0.601 | 0.632 |
+  | **0.2 (shipped)** | **0.116** | **0.257** | 0.615 | 0.700 |
+
+  **The cost is real and is stated: +10% median patch width and +8pp of
+  patches pinned at the frame edge.** 0.35 keeps size and count at
+  baseline for about half the win and is written into the constant as the
+  fallback if a later round decides the slab matters more.
+
+  **ALSO MEASURED AND REFUTED, cheaply:** the abstain population is not a
+  theft. 300 reads in 60s, 29 abstentions, **all male, raw sigmoid
+  0.532-0.701 (exactly the designed NULL band 0.53-0.72), age 34-41,
+  score p50 0.21** — against non-abstaining male reads at raw p50 0.863.
+  These are genuinely unreadable faces, not confident reads being
+  refused. S10's open item 4 stands as a code smell, not a live cost.
+
+  **ACCURACY IMPROVED.** Gate, man, t=890, 8 frames, all read: **EXPOSURE
+  0, GHOST 0, PARTIAL 0, FALSE COVER 1 of 8** — down from 2 of 8 in S9 and
+  S10. The frame that recovered is f002, where S10 had the man fully
+  covered by a merged patch; he is now sharp — face, cap, beard, shirt
+  graphic, arm — with the patch starting at his shoulder line. f000 is a
+  birth frame (blur-first, by design). The one that remains is f007, three
+  tracks on two humans with the union of two blurred ones swallowing the
+  cleared man. gaze **218/218**, cargo **37/37**.
+
+  **THE CRITIC'S ROUND, and it refuted more than it proposed.** Lens was
+  crop + attribution. Measured over 153 stored runs / 4293 `attr` rows:
+
+  - **Attribution does NOT create duplicate tracks.** The verdict returns
+    `box: person` untouched, and the only feedback path into identity is
+    `identityBroken`, which is measured inert (`IDENT_SIM_MIN 0.15`
+    against a cross-person descriptor p10 of **0.20**). A stolen face
+    poisons the verdict silently and mints nothing.
+  - **`dedupeObservations` does.** 1.13 heavily-contained observation
+    pairs per pass; `dedupeHeadSplit` 901 vs `dedupeMerged` 943, so
+    **48.9% of contained pairs become two observations**; the loser of
+    greedy IoU association re-mints — `birthContended` is the largest
+    birth bucket and **80% of all births (131/164) are re-mints of
+    someone already tracked**. Then `mergeTracks` unions them back with
+    **no head test at all**. **The split can never reduce drawn area; it
+    only adds a track and one more chance for a cleared person to be
+    covered by someone else's patch.** Two stages, contradictory rules on
+    the same pair, ~1400 lines apart. That is f007, and it is next
+    round's target.
+  - **Refuted with numbers so they are not re-proposed:** `ownFaceIndex`'s
+    fall-through fires on **0.58% of reads**, not the 59% inferred from
+    R18 (synthetics always carry a head anchor and `knownFaceInCrop`
+    short-circuits their detection, so **100% of multi-face crops are
+    MoveNet persons**); the `max(0.18, fw)` arm decides **10 of 1684 rows**
+    and has never once admitted a neighbour in a multi-face crop;
+    `preferred()` keeps the **MoveNet** box **82.7%** of the time, not the
+    synthetic — the synthetic is 0.48x its area at p50.
+  - **New, unflagged anywhere:** `ownFaceIndex`'s distance is Euclidean in
+    anisotropic crop coordinates compared against a pure crop-x width, and
+    **47.5% of crops are off-square by more than 1.3x** — the fourth
+    instance of this exact defect class. Error direction is toward
+    over-cover, so it is safe but it is FALSE COVER.
+  - **`preferred()` throws away paid work:** 342 contained pairs where
+    BOTH sides carry a gender verdict = 0.71 per verdict pass, resolved by
+    comparing box AREAS, and **37.1% of them disagree** — so a third of
+    the time the discarded object is a contradiction, not a duplicate. At
+    S10's 35-40ms/person that is ~13-25ms of a 64ms crop stage.
+  - **`faceInsideIndex` and `ownFaceIndex` answer the same question with
+    different rules 450 lines apart** (first containing person in MoveNet
+    slot order vs nearest head anchor), and MoveNet's slot order permutes
+    between passes — so a synthetic body can appear and vanish on a
+    STATIC two-shot. A patch-count change with nothing moving.
+
+  **Still open, ranked:** (1) **dedupe/merge contradiction** — the split
+  rule and the union rule disagree by construction; fix at association,
+  and the join that proves it (`dbgO.obs` -> the next `tracks` snapshot)
+  is free from stored traces. (2) `faceInsideIndex` ownership by
+  first-index. (3) `preferred()` should merge fields, not pick an object —
+  geometry from the side with a measured head, verdict by evidence with
+  `flagged` winning ties (safe direction). (4) crop starvation: 34% of
+  verdict passes starve at least one person; it delays rather than flips,
+  but the delay is spent where cuts fire. (5) the anisotropic distance.
+  (6) dead `createImageBitmap` for every synthetic (10.4% of
+  observations). (7) `cover_life_p50` still measures coverage EPISODES —
+  10.93 / 3.98 / 5.38 across three runs of the same window says so again.

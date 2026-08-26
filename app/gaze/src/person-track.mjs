@@ -27,6 +27,25 @@ export var PTRACK_IOU_MIN = 0.2; // below this, no association
 // How fast a box may SHRINK across an observation-source flip. See the
 // note in matchedStep: slower shrink only ever over-covers.
 export var PTRACK_FLIP_SHRINK_ALPHA = 0.2;
+// Shrink alpha for a POSITION-only observation. See the block in
+// matchedStep for the measurement that sized this population.
+//
+// TWO POINTS WERE MEASURED, not one, because this constant trades
+// breathing against patch SIZE and S5's finding is that size is what the
+// owner reads as "worse". Same window, man, 60s:
+//
+//   alpha   jitter/s   rel breathe w   patch w p50   clamped h
+//   0.6*      0.193        0.376          0.561        0.623
+//   0.35      0.176        0.308          0.601        0.632
+//   0.2       0.116        0.257          0.615        0.700
+//   (* 0.6 = no damper, the previous behaviour)
+//
+// 0.2 is shipped: it buys 40% of the jitter and a third of the relative
+// breathing, replicated across two runs, and the size cost is bounded and
+// reported (+10% median width, +8pp of patches pinned at the frame edge).
+// 0.35 is the fallback if a later round decides the slab matters more --
+// it keeps size and patch count at baseline for about half the win.
+export var PTRACK_POSITION_SHRINK_ALPHA = 0.2;
 export var PTRACK_EMA_ALPHA = 0.6; // new-box weight per matched sample (0.45 -> 0.6 2026-08-24: owner phone — patch trailed the person; at adaptive ~2Hz the smoothing lag dominates, snappier wins)
 export var PTRACK_MAX_MISS_MS = 1000; // a lost track coasts this long, then expires
 export var CLEAR_HOLD_MS = 1500; // accumulated confident-clear time before a patch lifts
@@ -591,6 +610,50 @@ function headShiftDist(from, to) {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
+// SIZE-STEP PROBE (S11, measurement only -- changes no decision).
+//
+// S9 recorded the plan for the shrink damper and the argument against
+// gating it on step MAGNITUDE: a genuine fast shrink (camera zoom-out, a
+// cut to a wider framing, a person walking away) produces a large step
+// that is REAL, and damping it re-creates the failure the identity SNAP
+// branch exists to prevent. The proposed discriminator is sign
+// PERSISTENCE -- a genuine shrink is monotone across passes, detector
+// noise alternates -- and the honest way to choose between them is to
+// measure both on the same population before building either.
+//
+// Recorded per matched track per pass, on the OBSERVATION sequence (not
+// against the damped track box, which self-feeds): the observed width and
+// height, the track's current width, the step, dt, and the two labels
+// that separate "real motion" from "noise" -- whether this interval
+// carried a source flip, and whether a cut has just fired.
+function sizeStepProbe(t, obs, dt, srcFlip) {
+  try {
+    var g = typeof globalThis !== 'undefined' ? globalThis.__TS_GAZE_IDS : null;
+    if (!g || !obs || !obs.box) return;
+    var ow = obs.box.x2 - obs.box.x1;
+    var oh = obs.box.y2 - obs.box.y1;
+    var tw = t.box.x2 - t.box.x1;
+    var th = t.box.y2 - t.box.y1;
+    g.step = g.step || [];
+    g.step.push({
+      id: t.id,
+      ow: Math.round(ow * 1000) / 1000,
+      oh: Math.round(oh * 1000) / 1000,
+      pw: Math.round((t.lastObsW || 0) * 1000) / 1000,
+      ph: Math.round((t.lastObsH || 0) * 1000) / 1000,
+      tw: Math.round(tw * 1000) / 1000,
+      th: Math.round(th * 1000) / 1000,
+      dt: Math.round(dt),
+      p: obs.positionOnly ? 1 : 0,
+      f: srcFlip ? 1 : 0,
+      d: t.demoted ? 1 : 0,
+    });
+    if (g.step.length > 1500) g.step.shift();
+  } catch (e) {
+    /* a probe must never throw inside the pipeline */
+  }
+}
+
 function matchedStep(t, obs, dt) {
   // Did this pass change WHICH detector is describing the person? See the
   // note on vw/vh below -- a source flip is a representation change, not
@@ -618,6 +681,7 @@ function matchedStep(t, obs, dt) {
   // tidy-up, and is the next thing to try here.
   var srcFlip = !!(obs.box && obs.box.fromFace) !== !!t.fromFace;
   if (srcFlip) bump('srcFlip');
+  sizeStepProbe(t, obs, dt, srcFlip);
   // ON A SOURCE FLIP, SMOOTH THE SIZE HARD -- BUT ONLY INWARD.
   //
   // S4 guarded the size VELOCITY on a flip and bought almost nothing
@@ -637,9 +701,37 @@ function matchedStep(t, obs, dt) {
   // a patch that over-covers for longer -- it cannot open EXPOSURE or
   // PARTIAL. The centre is untouched at full alpha, so the patch still
   // tracks motion and does not trail.
+  // A POSITION PASS IS EVIDENCE ABOUT WHERE, NOT ABOUT HOW BIG.
+  //
+  // Measured (S11 size-step probe, 848 matched steps over 75s of the
+  // two-person baseline, steps taken on the OBSERVATION sequence):
+  //
+  //   population        n    |rel| p50   p90    share of ALL size change
+  //   position, quiet  531      0.032   0.175              43%
+  //   verdict,  quiet  216      0.028   0.193              23%
+  //   verdict,  flip    46      0.394   0.653              18%
+  //   position, flip    45      0.306   0.508              17%
+  //
+  // So TWO THIRDS of all box size change carries no source flip and no
+  // cut -- it is MoveNet's own box noise -- and the single largest block
+  // is position passes, which run at ~8Hz and were the only population
+  // with no damper at all. S5 damped the flip (35% of the change from 11%
+  // of the steps); this is the rest.
+  //
+  // Same asymmetry, same safety argument: GROW keeps the full alpha, so a
+  // person walking toward camera is covered exactly as fast as before and
+  // no PARTIAL can open. Only SHRINK is slowed, and a patch that shrinks
+  // slower over-covers for longer, which cannot expose. A genuine shrink
+  // is re-confirmed by the next VERDICT pass, which keeps full alpha --
+  // that is what stops this becoming a patch that never converges.
+  //
+  // At ~8Hz, alpha 0.2 reaches 63% in about five passes (~600ms), which
+  // is deliberately the same tail the renderer's SHRINK_LERP already has.
   var smoothed = srcFlip
     ? emaAsymmetric(t.box, obs.box, PTRACK_EMA_ALPHA, PTRACK_FLIP_SHRINK_ALPHA)
-    : ema(t.box, obs.box, PTRACK_EMA_ALPHA);
+    : obs.positionOnly
+      ? emaAsymmetric(t.box, obs.box, PTRACK_EMA_ALPHA, PTRACK_POSITION_SHRINK_ALPHA)
+      : ema(t.box, obs.box, PTRACK_EMA_ALPHA);
   var tc = center(t.box);
   var sc = center(smoothed);
   var state = t.state;
@@ -693,6 +785,12 @@ function matchedStep(t, obs, dt) {
       // here it would be wiped by every fast pass and the head-scaled top
       // pad would revert to the body fraction one frame after it applied.
       headH: t.headH,
+      // Previous OBSERVED size, for the S11 size-step probe. Measured on
+      // the observation sequence, never against the damped track box --
+      // a step measured against a box that has already been damped is
+      // permanently large, which is the self-feeding trap S9 named.
+      lastObsW: obs.box ? obs.box.x2 - obs.box.x1 : t.lastObsW,
+      lastObsH: obs.box ? obs.box.y2 - obs.box.y1 : t.lastObsH,
     };
   }
   // Verdict time-step: gender reads arrive at their own (slower)
@@ -943,6 +1041,8 @@ function matchedStep(t, obs, dt) {
     headH: (obs.box && typeof obs.box.headH === 'number' && obs.box.headH > 0)
       ? obs.box.headH
       : t && typeof t.headH === 'number' ? t.headH : undefined,
+    lastObsW: obs.box ? obs.box.x2 - obs.box.x1 : t.lastObsW,
+    lastObsH: obs.box ? obs.box.y2 - obs.box.y1 : t.lastObsH,
     vx: ((sc[0] - tc[0]) / dt) * 1000,
     vy: ((sc[1] - tc[1]) / dt) * 1000,
     // SIZE VELOCITY IS MEANINGLESS ACROSS A CHANGE OF OBSERVATION SOURCE,
@@ -1254,6 +1354,8 @@ function coastStep(t, dt) {
     // origin every time a detector missed it once.
     fromFace: !!t.fromFace,
     headH: t.headH,
+    lastObsW: t.lastObsW,
+    lastObsH: t.lastObsH,
   };
 }
 
@@ -1382,6 +1484,8 @@ export function demoteTracks(tracks) {
       // missing field.
       fromFace: !!t.fromFace,
       headH: t.headH,
+      lastObsW: t.lastObsW,
+      lastObsH: t.lastObsH,
     });
   }
   return out;
@@ -1402,6 +1506,8 @@ function newTrack(obs) {
     headH: (obs.box && typeof obs.box.headH === 'number' && obs.box.headH > 0)
       ? obs.box.headH
       : undefined,
+    lastObsW: obs.box ? obs.box.x2 - obs.box.x1 : undefined,
+    lastObsH: obs.box ? obs.box.y2 - obs.box.y1 : undefined,
     vx: 0,
     vy: 0,
     vw: 0,
