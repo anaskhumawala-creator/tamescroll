@@ -1518,6 +1518,18 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       console.warn('tamescroll gaze: video unreadable, failing open (' + reason + ')', err);
     }
 
+    // See the yield block inside sampleOnce.
+    var INPUT_YIELD_MAX = 3;
+    var inputYields = 0;
+    function inputPending() {
+      try {
+        var sch = navigator.scheduling;
+        return !!(sch && typeof sch.isInputPending === 'function' && sch.isInputPending());
+      } catch (e) {
+        return false;
+      }
+    }
+
     function sampleOnce() {
       if (failed || dead || !model || video.paused || document.hidden) return;
       if (isPlayer && !playerBlurOn) return;
@@ -1546,6 +1558,39 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         : sampleInterval;
       if (now - lastSample < effInterval) return;
       if (sampling) return;
+      // YIELD TO THE FINGER. (owner 2026-08-26: "the page loads a lot and
+      // the comments or the below recommendation do not load ... just the
+      // loading icon on the page which makes it feel very sluggish")
+      //
+      // Measured on desktop, this is NOT request blocking: every YouTube
+      // endpoint the watch page needs -- /youtubei/v1/next included --
+      // returns false from should_block_request, and scrolling the live
+      // dev app loads 20 then 40 comment threads normally. What the owner
+      // sees on a Helio G88 is main-thread starvation. YouTube's comments
+      // and related rail are lazy: an IntersectionObserver fires, a fetch
+      // resolves, a callback renders. Every one of those is a task, and a
+      // verdict pass that costs 100ms here costs several hundred there,
+      // issued every 400ms. The spinner is those callbacks queued behind
+      // our inference.
+      //
+      // A pass is never urgent to the millisecond -- the tracker
+      // interpolates between them and blur-first keeps every existing
+      // patch exactly where it is while we wait. A scroll gesture IS
+      // urgent, because the user is looking at it. So when the scheduler
+      // says input is waiting, hand the thread back.
+      //
+      // BOUNDED, because a busy page could otherwise keep input pending
+      // for ever and starve the pipeline into a permanently stale patch:
+      // at most INPUT_YIELD_MAX consecutive skips, after which the pass
+      // runs regardless. Feature-detected -- isInputPending is Chromium
+      // only, and its absence simply means no yielding.
+      if (inputPending()) {
+        if (inputYields < INPUT_YIELD_MAX) {
+          inputYields++;
+          return;
+        }
+      }
+      inputYields = 0;
       lastSample = now;
       sampling = true;
       var myEpoch = passEpoch;
