@@ -502,6 +502,14 @@ export function parsePersons(data, minScore, aspect, held) {
         Math.round(data[o + 54] * 100) / 100,
         Math.round(data[o + 53] * 100) / 100,
       ],
+      // The same box UNROUNDED, and whether this slot was admitted.
+      // `b` is a printed diagnostic at 2dp; `bb` is consumed by
+      // boundBodyToSlot to size a real patch, where 2dp is ±3px on the
+      // 656-wide source this rule was measured on. `adm` is stamped at
+      // the push below, so a reader can tell a slot the gate REFUSED
+      // from one it took — the whole rule depends on that distinction.
+      bb: [data[o + 52], data[o + 51], data[o + 54], data[o + 53]],
+      adm: 0,
     });
 
     // TWO-TIER FLOOR, measured in gauntlet R5 (runs/r5c-man slot probe).
@@ -890,6 +898,11 @@ export function parsePersons(data, minScore, aspect, held) {
     });
     // Claimed only now that the slot has actually survived every gate.
     if (heldIdx !== -1) heldTaken[heldIdx] = true;
+    // Stamped HERE, not at the gate: three guards below the gate (the
+    // anchor, the sprawl ratio, the head/shoulder test) can still drop a
+    // slot, and a slot that was going to be admitted but was not is a
+    // REJECTED slot for boundBodyToSlot's purposes.
+    lastSlotDiag[p].adm = 1;
   }
   out.unionHeld = unionNow;
   return out;
@@ -1270,6 +1283,215 @@ export function personFromFace(face, aspect) {
       y2: Math.min(1, face.y2 + (face.y2 - face.y1) * 0.5),
     },
   };
+}
+
+// THE COMPOSITE FRAME (gauntlet R29).
+//
+// personFromFace's whole model is "a face implies ~7.4 face-heights of
+// body under it". That is right for one camera looking at one scene and
+// catastrophically wrong for a face that lives inside a SUB-WINDOW of a
+// composite — a TV news panel, a video-call grid, a split screen. There
+// the person is bounded by a hard rectangular border a few face-heights
+// down, and nothing in the face alone can say so.
+//
+// MEASURED, runs/r29-{man,woman} (QEG4pI2cRE8 t=475, Zee News panel,
+// native 656x480, five men in five picture-in-picture boxes, locked-off
+// shot, nobody moves for 15s):
+//
+//   MoveNet admits 3 of the 5 men. BlazeFace finds all five faces. The
+//   two unowned faces fall through faceInsideIndex, personFromFace mints
+//   a whole standing body from each -- 0.42 x 0.544 of frame for a man
+//   who occupies 0.28 x 0.33 -- those bodies reach down into the boxes
+//   BELOW them, dedupeMerged (71 fires in 15s on a shot where nothing
+//   moves) unions them with the real tracks there, and one slab covers
+//   three men and half the graphics. FALSE COVER on 10 of 10 frames in
+//   `man` mode, two to four men per frame.
+//
+// The bound is already in the artifact and nobody was reading it. Both
+// unowned men have a MoveNet slot sitting exactly on them:
+//
+//   slot2  score 0.139 confident 3 nKp15 7  box [0.10,0.18,0.29,0.43]
+//   slot4  score 0.000 confident 0 nKp15 0  box [0.44,0.19,0.55,0.42]
+//
+// slot2 is man A and his box is his PiP window almost exactly; he misses
+// PERSON_WEAK_KP15 by ONE keypoint. Neither slot is admissible as a
+// PERSON — R25 priced admitting zero-evidence slots on geometry alone at
+// 9 EXPOSURE bought for 21-31 GHOST paid, and that refusal stands. But
+// admission is not what this needs. The FACE is already the evidence
+// that a person is there; the slot box is only being asked how far down
+// they go, and it is a strictly better answer than an extrapolation.
+//
+// WHY THIS CANNOT INTRODUCE A GHOST, and it is structural rather than
+// statistical: the rule only ever runs where personFromFace was about to
+// mint a body anyway, and it is taken ONLY when the result is SMALLER.
+// The SET of patches is identical before and after; only their geometry
+// moves, and only inward. Same argument, same convention, as R28's
+// headCropRegion.
+//
+// WHAT IT CAN DO IS EXPOSE A BODY, and that is the risk that had to be
+// priced. Swapping a 7.4-face-height extrapolation for a 2.5-face-height
+// box leaves legs sharp if the legs were really there. Swept over the
+// whole corpus -- 737 synthetic bodies in 195 stored runs, 352 of them
+// invertible (a body clipped by the frame edge no longer carries the `h`
+// it was built from, so it cannot be reversed) -- a REJECTED slot box
+// contains the face on 25 of them, and the guards below leave 14. Twelve
+// of those fourteen are this round's own footage. The rule is narrow by
+// measurement, not by intention: two samples in 195 runs sit outside the
+// regime it was built for (r23after-cook, s11-gate), and both are
+// counter-height studio kitchen shots where the visible person really
+// does stop at a worktop. That residual is stated, not hidden.
+//
+// The guards, and what each one is actually refusing:
+//
+//  * REJECTED SLOTS ONLY (`adm`). If the slot was admitted, the face
+//    belongs to a person the tracker already has, and handing them the
+//    same box is a merge, not a bound. Unfiltered, the same sweep finds
+//    220 candidates instead of 25 — an order of magnitude of exactly the
+//    wrong cases.
+//  * >= SLOT_BOUND_FACE_INSIDE of the FACE's area inside the slot box.
+//    R28's F3 found the corner-overlap version of this guard admitting a
+//    face 95% outside its crop; a bound taken from a box the face barely
+//    touches is a bound taken from a stranger.
+//  * slot box at least SLOT_BOUND_MIN_FACE_HEIGHTS tall. Below head-and-
+//    shoulders it is not a bound on a body, it is noise that happens to
+//    sit on a face. Every r29 candidate measures 2.53-3.13.
+//  * the face CENTRE in the slot box's top SLOT_BOUND_FACE_TOP_FRAC. A
+//    head sits at the top of the body it belongs to; a box whose face is
+//    at its bottom is some other person's torso. Free anatomy.
+//  * SMALLER IN AREA than the body it replaces, after margins. This is
+//    the one that makes the GHOST argument structural.
+//
+// The slot box gets PATCH_MARGIN, exactly like a slot the gate DID
+// admit, is clipped to the body it is bounding (see the F2 note at the
+// clip itself), and is then unioned with the body's own `core` so a box
+// that stops at a chin can never shave the neck and shoulder
+// personFromFace already knew about.
+//
+// WHY A SLOT WITH NO KEYPOINTS IS STILL A USABLE BOX, and this is the
+// round's real discovery rather than a tolerated compromise. Twelve of
+// the 33 r29 fires come from slots at score 0.000-0.029 with `confident`
+// 0 and `nKp15` 0-3 — the exact population R25 priced and refused for
+// ADMISSION. An evidence gate here looks obligatory and would throw away
+// half the fix. It is wrong, because MoveNet's box-regression head and
+// its keypoint head are SEPARATE OUTPUTS, and on a small sub-window
+// subject the box head still localises after the keypoint head has
+// collapsed. Man B's box over ten frames, at score 0.000-0.029
+// throughout:
+//
+//   [0.46,0.19,0.56,0.42] [0.44,0.20,0.54,0.41] [0.44,0.19,0.55,0.42]
+//   [0.43,0.19,0.56,0.42] [0.42,0.20,0.56,0.41] [0.45,0.20,0.56,0.41]
+//
+// stable to +-0.02 over 15 seconds. That is a measurement, not noise,
+// and it is why this rule works on a composite without needing to know
+// it is looking at one. DO NOT add a keypoint floor here; admission and
+// bounding are different questions and R25's refusal is about the first.
+//
+// KNOWN AND LEFT ALONE: `core` is 1.4h per side against the body's
+// PFF_HALF_CAP 0.35, so above h ~0.25 the union can be wider than the
+// capped body. Pre-existing in personFromFace's own `core`; this rule
+// only surfaces it, and the clip above bounds it to the body on every
+// axis, so it cannot escape the patch that would have been drawn anyway.
+export var SLOT_BOUND_FACE_INSIDE = 0.8;
+export var SLOT_BOUND_MIN_FACE_HEIGHTS = 2.0;
+export var SLOT_BOUND_FACE_TOP_FRAC = 0.5;
+
+/**
+ * The raw model boxes of the slots parsePersons REFUSED on the last
+ * pass. Must be read synchronously next to that pass — see the R21 note
+ * on `noHumanShape` in detector.js: lastSlotDiag is module state and one
+ * detector instance serves every video element on the page.
+ */
+export function rejectedSlotBoxes(slotDiag) {
+  var out = [];
+  if (!slotDiag || !slotDiag.length) return out;
+  for (var i = 0; i < slotDiag.length; i++) {
+    var d = slotDiag[i];
+    if (!d || d.adm) continue;
+    var b = d.bb;
+    if (!b || b.length !== 4) continue;
+    if (!(b[2] > b[0]) || !(b[3] > b[1])) continue;
+    out.push({ x1: b[0], y1: b[1], x2: b[2], y2: b[3] });
+  }
+  return out;
+}
+
+/**
+ * Shrink a synthetic body onto a rejected MoveNet slot that measured the
+ * same person. Returns the body unchanged whenever no slot qualifies —
+ * which is the overwhelmingly common case. See the block above.
+ */
+export function boundBodyToSlot(body, face, boxes) {
+  if (!body || !face || !boxes || !boxes.length) return body;
+  var fw = face.x2 - face.x1;
+  var fh = face.y2 - face.y1;
+  if (!(fw > 0) || !(fh > 0)) return body;
+  // De-inflate FACE_ENLARGE, the same 1.4 personFromFace uses, so
+  // SLOT_BOUND_MIN_FACE_HEIGHTS is measured in the same unit as every
+  // other face-height constant in this file.
+  var h = fh / 1.4;
+  var cy = (face.y1 + face.y2) / 2;
+  var bodyArea = (body.x2 - body.x1) * (body.y2 - body.y1);
+  if (!(bodyArea > 0)) return body;
+  var c = body.core || { x1: face.x1, y1: face.y1, x2: face.x2, y2: face.y2 };
+  var best = null;
+  for (var i = 0; i < boxes.length; i++) {
+    var b = boxes[i];
+    if (!b || !(b.x2 > b.x1) || !(b.y2 > b.y1)) continue;
+    var ix = Math.min(face.x2, b.x2) - Math.max(face.x1, b.x1);
+    var iy = Math.min(face.y2, b.y2) - Math.max(face.y1, b.y1);
+    if (!(ix > 0) || !(iy > 0)) continue;
+    if (ix * iy < fw * fh * SLOT_BOUND_FACE_INSIDE) continue;
+    var bh = b.y2 - b.y1;
+    if (bh < h * SLOT_BOUND_MIN_FACE_HEIGHTS) continue;
+    if (cy > b.y1 + bh * SLOT_BOUND_FACE_TOP_FRAC) continue;
+    var mw = (b.x2 - b.x1) * PATCH_MARGIN;
+    var mh = bh * PATCH_MARGIN;
+    // INTERSECT WITH THE BODY FIRST, and the reason is the R29 critic's
+    // F2. The first build gated on AREA alone, and area is not
+    // containment: replayed over every corpus run carrying `ff` and
+    // `slots`, 14 of 51 fires were NOT subsets of the body they
+    // replaced — width ratio up to 1.29, height up to 1.17, one case
+    // growing DOWNWARD past the body's own foot. So the sentence this
+    // rule's whole GHOST argument rests on — "the patch SET is unchanged
+    // and only shrinks" — was false, and would have been the sentence a
+    // later round trusted. It costs the target case NOTHING: 0 of the 33
+    // r29 fires are non-subsets, so the clip is inert on the footage the
+    // rule exists for and honest everywhere else.
+    var sx1 = Math.max(b.x1 - mw, body.x1);
+    var sy1 = Math.max(b.y1 - mh, body.y1);
+    var sx2 = Math.min(b.x2 + mw, body.x2);
+    var sy2 = Math.min(b.y2 + mh, body.y2);
+    if (!(sx2 > sx1) || !(sy2 > sy1)) continue;
+    var n = {
+      x1: Math.max(0, Math.min(sx1, c.x1)),
+      y1: Math.max(0, Math.min(sy1, c.y1)),
+      x2: Math.min(1, Math.max(sx2, c.x2)),
+      y2: Math.min(1, Math.max(sy2, c.y2)),
+    };
+    var a = (n.x2 - n.x1) * (n.y2 - n.y1);
+    if (!(a < bodyArea)) continue;
+    // LARGEST qualifying, not smallest. Every candidate reaching this
+    // line has already cleared all four guards, so choosing the minimum
+    // maximises the cut for no gain — and on r24-child-man f3 the four
+    // candidates measure 3.03 / 4.15 / 5.87 / 5.93 face-heights and the
+    // first draft took 3.03. Same cost, strictly the EXPOSURE-safe side.
+    if (best === null || a > best.a) best = { a: a, n: n };
+  }
+  if (!best) return body;
+  var outp = {};
+  for (var k in body) {
+    if (Object.prototype.hasOwnProperty.call(body, k)) outp[k] = body[k];
+  }
+  outp.x1 = best.n.x1;
+  outp.y1 = best.n.y1;
+  outp.x2 = best.n.x2;
+  outp.y2 = best.n.y2;
+  // NOT `raw`. cropAnchor prefers `raw` over `faceBox`, and R26 measured
+  // that anchoring the crop on anything wider than the face costs both
+  // attribution and resolution. The bound decides what is DRAWN; the
+  // face still decides what is READ.
+  outp.boundToSlot = true;
+  return outp;
 }
 
 // THE CROP IS NOT THE PATCH (gauntlet R26).

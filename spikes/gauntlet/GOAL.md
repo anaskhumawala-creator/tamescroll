@@ -83,7 +83,7 @@ at least once.
 | 1 | (fixed) NWoT1ZVd1Lo | man | baseline: adult male + child female, known-hard. R19 note: a rotation entry is a VIDEO, not a window - every round before R19 used t=560; moving to t=901 produced the worst man-direction score on record. Move the offset. R27 note: duration is 1095.6s, so t>=1090 hands the tab to autoplay and the harness aborts; t=200 is a screen recording of a Reddit page (no live people). **t=720 is the table's only CLOSE TWO-SHOT WITH INTERLEAVED BODIES** - the man leans in from the left and puts an arm in FRONT of the girl, so MoveNet files his forearm under her slot. Use it for anything about a patch reaching a neighbour, margin direction, or association across an occluding limb. Spent offsets: 540, 560, 566, 720, 890, 901. |
 | 2 | (fixed) NWoT1ZVd1Lo | woman | same footage, inverted expectation |
 | 3 | ted talk full speech | man | single speaker, stage lighting, slow cuts. R28 note: this entry resolves to a different id every round (R5 `arj7oStGLkU`, R21 `eIho2S0ZahI`, R28 `eVFzbxmKNUw`) and they are DIFFERENT regimes - R21's was the GHOST/typography one at t=200. **`eVFzbxmKNUw` t=270 is the table's only FULL-BODY WIDE SHOT**: a woman standing head-to-boots at 0.20 x 0.85 of frame, cutting to chest-up, which is the regime where a body-shaped crop makes the face unreadable (R28's fix). Use it for anything about crop geometry, detector input, or a same-gender person who will not clear. Its t=285.5 also carries a REPRODUCIBLE typography GHOST on the TEDX letters. |
-| 4 | news panel discussion | woman | 3-5 people, seated, small faces. R19 note: news footage is half GRAPHICS - z5WBceo0bIg is a title slate at t=240 (and painted a whole-frame GHOST over it), fFbNU0TvMH8 is two men in split-screen boxes at t=600. Probe forward for actual faces, and note this is the only GHOST-regime footage in the table. |
+| 4 | news panel discussion | woman | 3-5 people, seated, small faces. R19 note: news footage is half GRAPHICS - z5WBceo0bIg is a title slate at t=240 (and painted a whole-frame GHOST over it), fFbNU0TvMH8 is two men in split-screen boxes at t=600. Probe forward for actual faces, and note this is the only GHOST-regime footage in the table. **R29 note: `QEG4pI2cRE8` t=475 is the table's only COMPOSITE regime** - a Zee News panel, FIVE men in five picture-in-picture windows, locked-off, nobody moves for 15s, native **656x480**. Use it for anything about a face inside a sub-window, merge geometry across a hard border, or a synthetic body's extent. Two standing warnings: it is ALL MALE, so `man` cannot score EXPOSURE/PARTIAL and `woman` cannot score FALSE COVER on it; and at 656x480 four of the five men deliver faces UNDER `FACE_MIN_NATIVE_PX`, so `man`-direction FALSE COVER has a hard floor no geometry change can reach (R29 F3). Other probed offsets: t=120 posters + hands, t=300 a 20-person street crowd with one woman (the entry's mixed-gender window, unscored), t=110-134 night b-roll, too dark to score. |
 | 5 | cooking show episode | man | hands and objects. R23 note: the GHOST trap never fired here — `4u3jS_cTHH0` (Laughter Chefs, 3-4 men + 1 woman in a studio kitchen, t=415) is the FALSE-COVER regime instead, and the worst on record: cuts at 0.87/s, track lifetime p50 1.91s, so nothing lives long enough to clear. Use this window to test anything about the clear ladder. `KAWvDsghyc8` (R7/R15) is the same entry's other id. |
 | 6 | graduation ceremony full ceremony | woman | crowd shots, 100+ people. R16 note: "conference keynote audience" resolves to single-speaker talking heads, not crowds, and livestreams open on a title-card slate - probe forward before capturing. R24 note: `r70mH3m4l9E` (Dhirubhai Ambani graduation, 8878s) at t=2400 is the best MULTI-PERSON STATIC window in the table - a locked-off stage with SIX MoveNet persons, 5 women and 3 men interleaved, and ZERO cuts in 15s. That is the crop-budget and occlusion regime; use it for anything about starvation, attribution or ownership. `e0HlQh-hwyE` is a 259s single-speaker commencement, not a crowd. |
 | 7 | sports post match interview | man | motion, back-turned subjects. R25 note: the query also returns WOMEN'S football interviews, and `g_2Wmzpx47I` (WSL pitchside, t=20) is the table's only EDGE-CROPPED regime — a chest-up close-up with a second woman reduced to a shoulder and an arm at x<0.12, whom MoveNet scores 0.000 and BlazeFace never sees. Use it for anything about truncated people, frame-edge geometry or the clamped-edge feather. `1L_R0MB2W5A` (R9/R17) is the same entry's two-men id. |
@@ -6398,3 +6398,238 @@ analysis.
      tracks are wiped, and two consecutive clear-certain reads at a 400ms
      cadence is >=800ms of guaranteed cover per cut. On a TED edit cutting every
      ~4s that is a ~20% FALSE-COVER floor in the same-gender direction.
+
+- **R29** — rotation entry 4 (`news panel discussion`), resolved live to
+  **`QEG4pI2cRE8`** (Zee News, "Panel discussion on clashes at JNU", 845s).
+  Probed 120/300/480/660/840 then 110/118/126/134 first: **t=475 is the table's
+  first COMPOSITE regime** — five men in five picture-in-picture windows plus a
+  title bar, four name lower-thirds and a ticker, locked off, nobody moves for
+  15s, native **656x480**. Both directions, 10 frames @1.5s. Plus rotation
+  entry 1 (`NWoT1ZVd1Lo` t=720) both directions as the regression check. Build
+  `2a3e1f9` (before) -> this diff (after). Dev app PID 48880 -> 38120 -> 24856;
+  the binary mtime was never the proof. `git status` carried nothing this round
+  did not write.
+
+  | class | man before | man after | woman before | woman after |
+  |---|---|---|---|---|
+  | EXPOSURE | 0* | 0* | **2** | **0** |
+  | PARTIAL | 0* | 0* | **4** | **1** |
+  | FALSE COVER | **10** | **10** | 0* | 0* |
+  | GHOST | 0 | 0 | 0 | 0 |
+  | DRIFT | 0 | 0 | 0 | 0 |
+
+  (*) structurally unreachable: the footage is ALL MALE, so `man` cannot score
+  EXPOSURE or PARTIAL and `woman` cannot score FALSE COVER. Same methodological
+  warning R28 raised, inverted. **`man` FALSE COVER stays 10/10 and that number
+  is not the story** — per-frame scoring cannot see a slab over four men shrink
+  to three boxes over three. Two secondary metrics that can, both measured over
+  the same instants (`covarea.py`, committed):
+
+  | | before | after |
+  |---|---|---|
+  | men covered, summed over 10 frames (of 50) | 31 | **26** |
+  | covered AREA, mean fraction of frame (`man`) | 0.612 | **0.437** |
+  | covered AREA, mean fraction of frame (`woman`) | 0.920 | 0.878 |
+
+  **THE FAILURE: A FACE INSIDE A SUB-WINDOW GETS A WHOLE STANDING BODY.**
+  `personFromFace`'s entire model is "a face implies ~7.4 face-heights of body
+  under it". That is right for one camera looking at one scene and catastrophic
+  for a composite. MoveNet admitted 3 of the 5 men; BlazeFace found all five
+  faces; the two unowned faces fell through `faceInsideIndex` and were minted
+  as bodies **0.42 x 0.544 of frame for men who occupy 0.28 x 0.33**. Those
+  bodies reach down into the windows BELOW them, `dedupeMerged` (71 fires in 15s
+  on a shot where nothing moves) unions them with the real tracks there, and one
+  slab covers three men and half the graphics.
+
+  **THE BOUND WAS ALREADY IN THE ARTIFACT AND NOBODY WAS READING IT.** Both
+  unowned men have a MoveNet slot sitting exactly on them:
+
+      slot2  score 0.139 confident 3 nKp15 7  box [0.10,0.18,0.29,0.43]
+      slot4  score 0.000 confident 0 nKp15 0  box [0.44,0.19,0.55,0.42]
+
+  slot2 is man A and his box is his PiP window almost exactly; he misses
+  `PERSON_WEAK_KP15` by ONE keypoint. Neither is admissible as a PERSON and
+  R25's refusal of zero-evidence admission stands — but admission is not what
+  this needs. The FACE is already the evidence that a person is there; the slot
+  box is only being asked how far down they go.
+
+  **SHIPPED: `boundBodyToSlot` (person-gate.mjs) + `rejectedSlotBoxes`.**
+  Before minting, a synthetic body is shrunk onto a REJECTED slot whose raw box
+  measures the same person. Captured synchronously in `detectPersons` next to
+  the pass that produced it, on the exact R21 `noHumanShape` precedent —
+  `lastSlotDiag` is module state and one detector instance serves every video
+  element on the page. Guards, each refusing a specific thing: rejected slots
+  only (`adm`, stamped at the push, after the three post-gate guards that can
+  still drop a slot); >= `SLOT_BOUND_FACE_INSIDE` 0.8 of the FACE's area inside
+  the box; >= `SLOT_BOUND_MIN_FACE_HEIGHTS` 2.0 tall; the face centre in the
+  box's top half; and smaller than the body it replaces. Then `PATCH_MARGIN`,
+  a clip to the body, and a union with the body's own `core`.
+
+  **PRICED OVER THE WHOLE CORPUS BEFORE BUILDING** (`slotbound.py`, committed):
+  737 synthetic bodies in 195 stored runs, 352 invertible — a body clipped by
+  the frame edge no longer carries the `h` it was built from — a rejected slot
+  contains the face on 25, and the guards leave 14. **Twelve of those fourteen
+  are this round's own footage.** The rule is narrow by measurement: the two
+  outside its regime are counter-height studio-kitchen shots where the visible
+  person really does stop at a worktop. Unfiltered by `adm` the same sweep finds
+  220 candidates — an order of magnitude of exactly the wrong cases, because
+  then the face belongs to a person the tracker already has and handing them the
+  same box is a merge, not a bound.
+
+  **WHY A SLOT WITH NO KEYPOINTS IS STILL A USABLE BOX**, and this is the
+  round's real discovery rather than a tolerated compromise. Twelve of the 33
+  fires come from slots at score 0.000-0.029 with `confident` 0 — exactly the
+  population R25 priced and refused for ADMISSION. An evidence gate here looks
+  obligatory and would throw away half the fix. Man B's box over ten frames, at
+  score 0.000-0.029 throughout, is stable to **+-0.02 over 15 seconds**:
+  MoveNet's box-regression head and its keypoint head are SEPARATE OUTPUTS, and
+  on a small sub-window subject the box head still localises after the keypoint
+  head has collapsed. Written into person-gate.mjs so R30 does not re-litigate.
+
+  **RESULT, same window, same instants:** `bodyFromSlot` 57/58 fires,
+  `dedupeMerged` **71 -> 45**, `srcFlip` **50 -> 31**. Men C and E go from
+  covered to sharp on 8 of 10 frames, man A on 4. Patches are confined to their
+  own PiP windows instead of spanning three.
+
+  **THE CRITIC'S ROUND (Opus, read-only, brief = "the COMPOSITE frame: which of
+  our geometric and evidential assumptions are frame-global and quietly wrong
+  when one frame contains several independently-framed sub-images"). Three
+  findings shipped, three refusals adopted, and it corrected two of my
+  premises:**
+  * **My "the regime is new" was wrong** — person-gate.mjs:34-58 already records
+    a five-window news composite (R14 tried `PERSON_STRONG_KEYPOINTS` 7->5 on it
+    and reverted), and `runs/r21d-panel-woman` is a two-up split screen. R14's
+    conclusion is the one to carry: recall at the person gate is NOT the lever
+    on synthetic-body sprawl.
+  * **My "`obs` is post-dedupe" was wrong** — it is pushed from the local
+    `observations` array at init-entry.js:2199, while `dedupeObservations` runs
+    inside `updatePersonTracks` on its own copy. Verified numerically: on every
+    r29 pass `len(obs) == np + minted` exactly. So the artifact shows the INPUT
+    to the merge and nothing in the corpus has ever shown the output.
+  * **SHIPPED F1 — `sameHuman` tested ONE AXIS, and a composite separates people
+    on the other.** person-track.mjs's head-separation guard reads
+    `headX`/`headW` only; `headY`/`headH` are computed by both sources, threaded
+    through the whole tracker, and never consulted by the one function whose job
+    is "are these two boxes two people". The X-only choice is argued in the file
+    — "two people standing shoulder to shoulder always have heads closer
+    together than half a body width" — and that is a statement about ONE camera
+    looking at ONE room. Exact, from f003: containment 0.645 >=
+    `MERGE_CONTAIN_MIN`, headX 0.200 vs 0.196 against a 0.064 bar (merged),
+    headY 0.280 vs 0.610 against a 0.087 bar (would be refused). Both
+    observations are `positionOnly`, so `preferred` falls through to AREA and
+    keeps the synthetic — man C's measured box and the gender read already paid
+    for it were discarded every pass. That is the mechanism behind the anomaly I
+    could not explain: trk24 is man C, its own MoveNet box starts at y 0.53, its
+    drawn box starts at 0.257, and it carries man A's face box in `hf`.
+    `mergeTracks` now carries `headY`/`headH` through the union as well. Safe by
+    direction — refusing a merge can only ADD a patch.
+  * **SHIPPED F2 — my own area test did not support my own safety claim.** The
+    first build gated on AREA, and area is not containment: replayed over the
+    corpus, **14 of 51 fires were NOT subsets** of the body they replaced (width
+    ratio to 1.29, height to 1.17, one growing DOWNWARD past its own foot). So
+    "the patch SET is unchanged and only shrinks" — the sentence the whole GHOST
+    argument rests on — was false, and would have been the sentence a later
+    round trusted. Now clipped to the body on every axis before the `core`
+    union. **Costs the target case nothing: 0 of the 33 r29 fires are
+    non-subsets.**
+  * **SHIPPED F2b — largest qualifying candidate, not smallest.** Every
+    candidate reaching that line has cleared all four guards, so taking the
+    minimum maximises the cut for no gain; on `r24-child-man f3` the candidates
+    are 3.03 / 4.15 / 5.87 / 5.93 face-heights and the first draft took 3.03.
+  * **SHIPPED (probe) — `obs` now records the head anchor per observation.**
+    `sameHuman` is pure, so with `hx/hy/hw/hh` the merge decision is
+    reconstructible offline and F1 can finally be priced corpus-wide. The critic
+    also asked for a post-dedupe count; **REFUSED and the reason is in the
+    code**: `dedupeObservations` bumps `dedupeMerged` and `dedupeHeadSplit`, so
+    calling it from a probe would DOUBLE every merge counter every round has
+    ever quoted.
+  * **REFUSED, on its own evidence — lowering `FACE_MIN_NATIVE_PX`.** See below.
+  * **REFUSED — a keypoint-evidence gate on `boundBodyToSlot`** (it would
+    discard man B, who is half the fix), **a composite DETECTOR of any kind**
+    (the 16x16 luma grid cannot see a 2px border at 41x30 px per cell; the
+    three-discrete-scales rule was already built from `ff` and removed for
+    firing zero times; a locked-off composite and a locked-off interview are
+    identical on staticness), and **`PERSON_WEAK_KP15` 8 -> 7** to admit man A,
+    who misses by exactly one keypoint on all ten frames — refused on R14's
+    recorded measurement of this exact regime, where admitting real skeletal
+    boxes on a five-window composite made patch heights WORSE (0.39-0.76 ->
+    0.35-0.87).
+
+  **THE CEILING, AND IT IS THE ROUND'S MOST IMPORTANT NUMBER.** 76% of gender
+  reads here come back UNCERTAIN on five well-lit, forward-facing, unobstructed
+  faces, and the cause is `FACE_MIN_NATIVE_PX` 64, not any threshold worth
+  tuning. Across both runs, 160 reads: `male` n=21 at px 64/90/115
+  (min/p50/max), `unknown` n=59 at px 49/58/64, **zero non-unknown below 64 and
+  zero unknown above it**. The source is 656x480 and the five men's full-frame
+  face heights are 0.091-0.172, i.e. 31-59 px of true face against R10's
+  measured model collapse at 33. **Four of the five men are at or below the
+  collapse point in the delivered pixels; there is no correct answer
+  available.** Lowering the floor was tested against the corpus and REFUSED:
+  over every pre-R15 read below it, **162 sub-64 reads returned `male` and 0
+  returned `female`**, against a 28% female rate above the floor, and
+  `isNullRead` catches NONE of the 50-59 band the r29 men sit in while 63 of
+  those 78 score >= 0.6 (CERTAIN). Lowering it hands `woman` mode a
+  certain-male verdict on every small woman and clears her. So: on
+  SD-delivered composite footage, `man`-direction FALSE COVER on four of five
+  men is the correct behaviour of this architecture, and **no geometry change
+  reaches that score.** Score the geometry separately or the next round spends
+  itself chasing a number that is not available.
+
+  **COST**: verdict p50 man 72 -> 71, woman 68 -> 71; pass p50 man 30 -> 30,
+  woman 27 -> 28. The rule is box arithmetic over at most six slots.
+  gaze **252/252** (13 new), cargo **37/37**.
+
+  **REGRESSION CHECK, rotation entry 1 (`NWoT1ZVd1Lo` t=720), both directions,
+  on the final build.** `bodyFromSlot` fires 5 (man) and 3 (woman) there — the
+  F2 clip lets a candidate that was previously too large pass the area test,
+  which is a shrink by construction. `man`: FALSE COVER **4 before, 4 after**
+  against R28's recorded 5 — f002 (both covered one pass after a cut), f006,
+  f008/f009 (his head or forearm inside her patch, R27's conceded crossing-arm
+  geometry). `woman`: **0 in every class**, both people covered on all ten
+  frames, before and after. Noted and NOT claimed as a regression: f006's patch
+  goes 0.49 -> 0.97 of frame between the two after-builds, and the trace says
+  the track is `blurred` while reading `clear-certain` — the clear ladder has
+  not accrued since the cut at t=730.8. That is R28's open item 6, not this
+  diff.
+
+  **STILL OPEN, ranked:**
+  1. **The clear ladder's post-cut floor is now the top scored failure on BOTH
+     videos.** Tracks are wiped at a cut and two consecutive clear-certain reads
+     at a 400ms cadence is >=800ms of guaranteed cover; on the baseline it is
+     f002 and f006, on a TED edit cutting every ~4s it is a ~20% FALSE-COVER
+     floor. R28 logged it as item 6 and nothing has touched it. It is cheaper to
+     reach than anything else on this list.
+  2. **F1 cannot be priced corpus-wide until the runs carry the new `obs` head
+     anchors.** `dedupeHeadSplit` fired 1 in the r29 window after the bound
+     landed — the Y leg is a latent guard here because the bound already shrinks
+     the synthetic out of containment. Its value shows on a composite where
+     MoveNet emits NOTHING for the upper window, and no such window has been
+     captured. R30: re-run two or three rotation entries purely to refill the
+     corpus, then sweep.
+  3. **The scene gate is one number for the whole frame** (`scene-gate.mjs`,
+     mean-abs-delta over 16x16). A single PiP cutting to a new feed changes
+     ~1/12 of the frame; at `CUT_DELTA` 28 that needs a per-cell delta of ~336,
+     which is impossible. **One window can cut with no cut ever detected** and
+     its track coasts a stale patch across the discontinuity. Untested here
+     (`cutDetected` 0/0 — nothing actually cuts), and it needs the same
+     `dbgL.luma` the harness has never read, which is R27's item 2. A
+     per-quadrant max-of-cells statistic is free; measure before shipping.
+  4. **MoveNet hallucinates legs to the frame floor for bottom-row PiP
+     subjects**: men C and D return `y2 = 1.0` on 10 of 10 frames while their
+     windows end at y 0.84. That is why the bottom patches eat the ticker. Not
+     fixable from our side; recorded so a future round does not read it as a
+     margin bug.
+  5. `wipeIfEmpty`'s `prevMaxH` is a frame-global "how big was the biggest
+     subject", and on a composite the studio anchor (0.65 tall) sets it for the
+     PiP men (0.25). Inert here only because it is gated behind `sceneCut`,
+     which per (3) cannot fire — inert for the wrong reason.
+  6. `maxFaceH` is computed on every verdict pass and reaches nothing but the
+     `ff` probe; the comment above it describes a rule that does not exist.
+  7. R28's items 1 (the reproducible typography GHOST at `eVFzbxmKNUw`
+     t=285.5), 2 (`VERDICT_TIMEOUT_MS` is not a `life` counter) and 3 (the
+     pass-level `.catch` rethrows) are untouched and still stand. So is R27's
+     item 3, the crossing arm.
+  8. The entry-4 MIXED-GENDER window is captured but unscored: `QEG4pI2cRE8`
+     t=300 is a ~20-person street crowd with at least one woman against
+     MoveNet's six slots. It is the over-capacity + EXPOSURE regime and this
+     round did not have room for it.

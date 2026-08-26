@@ -22,7 +22,12 @@ import { MODEL_JSON, MODEL_WEIGHTS_B64 } from './model-embed.js';
 import { NSFW_MODEL_JSON, NSFW_WEIGHTS_B64 } from './nsfw-model-embed.js';
 import { GENDER_MODEL_JSON, GENDER_WEIGHTS_B64 } from './gender-model-embed.js';
 import { PERSON_MODEL_JSON, PERSON_WEIGHTS_B64 } from './person-model-embed.js';
-import { parsePersons, frameHasNoHumanShape, lastSlotDiag } from './person-gate.mjs';
+import {
+  parsePersons,
+  frameHasNoHumanShape,
+  rejectedSlotBoxes,
+  lastSlotDiag,
+} from './person-gate.mjs';
 import { nonMaxSuppression } from './nms.mjs';
 
 export var INPUT_SIZE = 256; // matches the embedded face model's fixed input shape
@@ -352,6 +357,10 @@ export async function detectPersons(model, pixelSource, aspect, held, sharedImg)
   // could ever show this; a YouTube page with the player and a feed
   // preview has two. Captured synchronously, it cannot desynchronize.
   persons.noHumanShape = frameHasNoHumanShape(lastSlotDiag);
+  // R29, and captured here for exactly the reason above: the boxes of
+  // the slots this pass REFUSED, so the face fallback can bound a
+  // synthetic body onto a person MoveNet measured but would not admit.
+  persons.rejectedBoxes = rejectedSlotBoxes(lastSlotDiag);
   return persons;
 }
 

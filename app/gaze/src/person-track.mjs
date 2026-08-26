@@ -423,11 +423,52 @@ export var MERGE_HEAD_SEP = 0.5; // in units of the narrower box's width
  */
 export var MERGE_HEAD_SEP_HEADW = 1.0;
 
+// THE GUARD TESTED ONE AXIS, AND A COMPOSITE SEPARATES PEOPLE ON THE
+// OTHER (gauntlet R29). The X-only choice is argued three paragraphs up
+// -- "two people standing shoulder to shoulder always have heads closer
+// together than half a body width" -- and that is a statement about ONE
+// camera looking at ONE room. A picture-in-picture news panel is a GRID,
+// and its second axis is the one the guard could not see.
+//
+// Measured, runs/r29-man f003 (five men in five PiP windows). Man A's
+// synthetic body against man C's MoveNet observation, one window below:
+//
+//   containment            0.645  >= MERGE_CONTAIN_MIN 0.6
+//   headX  0.200 vs 0.196  |d| 0.004 <= 1.0 * max(headW) 0.064  -> merged
+//   headY  0.280 vs 0.610  |d| 0.330 vs  1.0 * max(headH) 0.087  -> refused
+//
+// Both observations are positionOnly, so `preferred` falls through to
+// area and keeps the LARGER box -- the synthetic, 0.286 against man C's
+// 0.155. Man C's measured box and the gender read already paid for it
+// were discarded on every verdict pass, which is exactly the R19 failure
+// this guard was built to stop, on the axis it does not test. `srcFlip`
+// 50 in 15s is the same event counted from the track's side.
+//
+// Same bar and the same denominator convention as the X leg, because
+// heads are rigid on both axes. Refusing a merge can only ever ADD a
+// patch, so EXPOSURE is unreachable from this change by direction --
+// the same argument the X leg carries. Falls back exactly as X does
+// when either side has no head anchor.
 export function sameHuman(a, b) {
   if (containment(a.box, b.box) < MERGE_CONTAIN_MIN) return false;
   var ax = a.box.headX;
   var bx = b.box.headX;
   if (typeof ax !== 'number' || typeof bx !== 'number') return true;
+  var ay = a.box.headY;
+  var by = b.box.headY;
+  var ah = a.box.headH;
+  var bh = b.box.headH;
+  if (
+    typeof ay === 'number' &&
+    typeof by === 'number' &&
+    typeof ah === 'number' &&
+    ah > 0 &&
+    typeof bh === 'number' &&
+    bh > 0 &&
+    Math.abs(ay - by) > MERGE_HEAD_SEP_HEADW * Math.max(ah, bh)
+  ) {
+    return false;
+  }
   var aw = a.box.headW;
   var bw = b.box.headW;
   if (typeof aw === 'number' && aw > 0 && typeof bw === 'number' && bw > 0) {
@@ -2004,6 +2045,14 @@ export function mergeTracks(list) {
           vh: ((a.vh || 0) + (b.vh || 0)) / 2,
           headX: head.headX,
           headW: head.headW,
+          // The same head on the other axis (R29). sameHuman now tests Y
+          // as well as X, and a union that drops these makes the merged
+          // box permanently untestable on the axis a composite separates
+          // people along. canMerge is plain overlap today so nothing
+          // reads them here yet — carrying them costs two assignments
+          // and closes the trap before it is stepped in.
+          headY: head.headY,
+          headH: head.headH,
           // Both subjects' evidence, so the post-merge clamp has a floor
           // that belongs to the union rather than to one of its halves.
           core: unionCore(a.core, b.core),

@@ -1277,3 +1277,64 @@ test('a STALE core stands the clamp down (coasting or cut-demoted)', () => {
   assert.equal(tracks[0].coreFresh, false);
   assert.ok(tracks[0].core, 'the hull is kept for continuity');
 });
+
+// --- R29: a composite separates people on Y, not X ---------------------
+//
+// runs/r29-man f003, exact numbers: man A's synthetic body against man C's
+// MoveNet observation one PiP window below. Containment 0.645, heads 0.004
+// apart in X and 0.330 apart in Y.
+
+test('sameHuman: two PiP windows stacked vertically are two people', () => {
+  const synthA = {
+    box: { x1: 0, y1: 0.156, x2: 0.445, y2: 0.799, headX: 0.2, headY: 0.28, headW: 0.054, headH: 0.074 },
+    positionOnly: true,
+  };
+  const manC = {
+    box: { x1: 0.079, y1: 0.434, x2: 0.352, y2: 1, headX: 0.196, headY: 0.61, headW: 0.064, headH: 0.087 },
+    positionOnly: true,
+  };
+  assert.ok(
+    pt.containment(synthA.box, manC.box) >= pt.MERGE_CONTAIN_MIN,
+    'the containment that used to merge them must still be there'
+  );
+  assert.ok(
+    Math.abs(synthA.box.headX - manC.box.headX) <=
+      pt.MERGE_HEAD_SEP_HEADW * Math.max(synthA.box.headW, manC.box.headW),
+    'and X alone must still say "one person" — otherwise the test proves nothing'
+  );
+  assert.equal(pt.sameHuman(synthA, manC), false);
+  assert.equal(pt.dedupeObservations([synthA, manC]).length, 2);
+});
+
+test('sameHuman: the Y leg does not split one person seen twice', () => {
+  // Same human, two representations: MoveNet's keypoint-averaged head
+  // against a BlazeFace face centre. Sub-head-height disagreement.
+  const body = {
+    box: { x1: 0.1, y1: 0.05, x2: 0.6, y2: 1, headX: 0.34, headY: 0.2, headW: 0.06, headH: 0.08 },
+    positionOnly: true,
+  };
+  const synth = {
+    box: { x1: 0.05, y1: 0, x2: 0.68, y2: 1, headX: 0.36, headY: 0.24, headW: 0.058, headH: 0.078 },
+    certain: true,
+  };
+  assert.equal(pt.sameHuman(body, synth), true);
+  assert.equal(pt.dedupeObservations([body, synth]).length, 1);
+});
+
+test('sameHuman: with no headH the Y leg stands down', () => {
+  const a = { box: { x1: 0, y1: 0.156, x2: 0.445, y2: 0.799, headX: 0.2, headY: 0.28, headW: 0.054 } };
+  const b = { box: { x1: 0.079, y1: 0.434, x2: 0.352, y2: 1, headX: 0.196, headY: 0.61, headW: 0.064 } };
+  assert.equal(pt.sameHuman(a, b), true, 'X-only behaviour is the documented fallback');
+});
+
+test('mergeTracks: the union carries headY and headH through', () => {
+  const out = pt.mergeTracks([
+    // mergeTracks reads the head off the TRACK; sameHuman reads it off
+    // the observation's box. Both plumbings now carry all four fields.
+    { key: '1', box: { x1: 0, y1: 0, x2: 0.5, y2: 0.6 }, headX: 0.2, headY: 0.1, headW: 0.05, headH: 0.07, vx: 0, vy: 0 },
+    { key: '2', box: { x1: 0.05, y1: 0.1, x2: 0.45, y2: 0.55 }, headX: 0.5, headY: 0.3, headW: 0.09, headH: 0.12, vx: 0, vy: 0 },
+  ]);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].headY, 0.3, 'the wider head wins, on both axes');
+  assert.equal(out[0].headH, 0.12);
+});

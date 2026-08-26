@@ -20,6 +20,9 @@ import {
   headCropRegion,
   HEAD_CROP_HALF_WIDTHS,
   FACE_CROP_HALF_WIDTHS,
+  rejectedSlotBoxes,
+  boundBodyToSlot,
+  SLOT_BOUND_MIN_FACE_HEIGHTS,
 } from '../src/person-gate.mjs';
 
 // Keypoint layout: 17 x [y, x, score] then y1,x1,y2,x2,score.
@@ -916,4 +919,113 @@ test('parsePersons: a headless body below PERSON_WEAK_MAXKP stays out', () => {
     setKp(data, 0, body[i], 0.3 + 0.05 * i, 0.3, PERSON_WEAK_MAXKP - 0.05);
   }
   assert.equal(parsePersons(data).length, 0);
+});
+
+
+// --- R29: bounding a synthetic body onto a rejected MoveNet slot ------
+//
+// The regime is a picture-in-picture news panel (QEG4pI2cRE8 t=475): the
+// numbers below are man B's real slot and face from runs/r29-man.
+
+// personFromFace inflates by FACE_ENLARGE 1.4, so a face box of height
+// `fh` stands for a head of fh/1.4.
+const pipFace = { x1: 0.468, y1: 0.223, x2: 0.535, y2: 0.326, confidence: 0.8 };
+const pipSlot = { x1: 0.44, y1: 0.19, x2: 0.55, y2: 0.42 };
+
+test('boundBodyToSlot: a PiP slot shrinks a body that spans three boxes', () => {
+  const body = personFromFace(pipFace, 656 / 480);
+  const bounded = boundBodyToSlot(body, pipFace, [pipSlot]);
+  assert.notEqual(bounded, body, 'the slot qualifies');
+  assert.ok(bounded.boundToSlot, 'marked for the probe');
+  const before = (body.x2 - body.x1) * (body.y2 - body.y1);
+  const after = (bounded.x2 - bounded.x1) * (bounded.y2 - bounded.y1);
+  assert.ok(after < before / 2, `expected a big shrink, got ${after} vs ${before}`);
+  // The face and its neck-and-shoulder core must still be inside.
+  assert.ok(bounded.x1 <= body.core.x1 && bounded.y1 <= body.core.y1);
+  assert.ok(bounded.x2 >= body.core.x2 && bounded.y2 >= body.core.y2);
+  // Nothing else about the person is lost: the crop still anchors on the
+  // face, not on the slot box (R26).
+  assert.equal(bounded.faceBox.x1, body.faceBox.x1);
+  assert.equal(bounded.headW, body.headW);
+});
+
+test('boundBodyToSlot: never grows a body', () => {
+  const body = personFromFace(pipFace, 656 / 480);
+  const huge = { x1: 0.0, y1: 0.1, x2: 1.0, y2: 0.95 };
+  assert.equal(boundBodyToSlot(body, pipFace, [huge]), body, 'a bigger box is refused');
+});
+
+test('boundBodyToSlot: a box too short to be a body is refused', () => {
+  const body = personFromFace(pipFace, 656 / 480);
+  const h = (pipFace.y2 - pipFace.y1) / 1.4;
+  const shortBox = {
+    x1: 0.44,
+    y1: 0.19,
+    x2: 0.55,
+    y2: 0.19 + h * (SLOT_BOUND_MIN_FACE_HEIGHTS - 0.1),
+  };
+  assert.equal(boundBodyToSlot(body, pipFace, [shortBox]), body);
+});
+
+test('boundBodyToSlot: a box the face only clips is refused', () => {
+  const body = personFromFace(pipFace, 656 / 480);
+  // Overlaps the face's left edge by a sliver; the rest of the face is
+  // outside. R28's F3 caught the corner-overlap version of this guard.
+  const clipped = { x1: 0.20, y1: 0.19, x2: 0.478, y2: 0.42 };
+  assert.equal(boundBodyToSlot(body, pipFace, [clipped]), body);
+});
+
+test('boundBodyToSlot: a box whose face sits at its bottom is refused', () => {
+  const body = personFromFace(pipFace, 656 / 480);
+  // Tall enough, contains the face, but the face is near the FOOT of it
+  // - that is somebody else's torso, not this face's body.
+  const below = { x1: 0.44, y1: 0.08, x2: 0.55, y2: 0.34 };
+  assert.equal(boundBodyToSlot(body, pipFace, [below]), body);
+});
+
+test('boundBodyToSlot: no boxes, no change', () => {
+  const body = personFromFace(pipFace, 656 / 480);
+  assert.equal(boundBodyToSlot(body, pipFace, []), body);
+  assert.equal(boundBodyToSlot(body, pipFace, undefined), body);
+});
+
+test('rejectedSlotBoxes: admitted slots are not candidates', () => {
+  // One admitted person and one refused slot; only the refused one may
+  // bound a face, or the rule becomes a merge.
+  const data = new Float32Array(6 * 56);
+  setBox(data, 0, 0.9, 0.1, 0.1, 0.4, 0.6);
+  for (let k = 0; k <= 12; k++) setKp(data, 0, k, 0.2 + 0.02 * k, 0.2, 0.9);
+  setBox(data, 1, 0.02, 0.6, 0.2, 0.9, 0.5);
+  const persons = parsePersons(data);
+  assert.equal(persons.length, 1, 'exactly one admitted');
+  const rej = rejectedSlotBoxes(lastSlotDiag);
+  // The four all-zero slots have degenerate boxes and are dropped, so
+  // the refused slot 1 is the only candidate — and the admitted one is
+  // not among them.
+  assert.equal(rej.length, 1);
+  assert.ok(Math.abs(rej[0].x1 - 0.6) < 1e-6 && Math.abs(rej[0].y1 - 0.02) < 1e-6);
+});
+
+test('boundBodyToSlot: the result is a SUBSET of the body, on every axis', () => {
+  // R29 critic F2: the first build gated on AREA alone, and 14 of 51
+  // corpus fires came out WIDER or TALLER than the body they replaced -
+  // one of them growing downward past its foot. `s6e-base-man f1`, the
+  // worst of them, reconstructed.
+  const body = personFromFace(pipFace, 656 / 480);
+  const wideShort = { x1: 0.10, y1: 0.20, x2: 0.90, y2: 0.30 };
+  const out = boundBodyToSlot(body, pipFace, [wideShort, pipSlot]);
+  assert.ok(out.x1 >= body.x1 - 1e-9, 'never further left');
+  assert.ok(out.y1 >= body.y1 - 1e-9, 'never higher');
+  assert.ok(out.x2 <= body.x2 + 1e-9, 'never further right');
+  assert.ok(out.y2 <= body.y2 + 1e-9, 'never lower');
+});
+
+test('boundBodyToSlot: the LARGEST qualifying candidate wins', () => {
+  const body = personFromFace(pipFace, 656 / 480);
+  const tight = { x1: 0.455, y1: 0.20, x2: 0.55, y2: 0.38 };
+  const roomier = { x1: 0.42, y1: 0.19, x2: 0.58, y2: 0.45 };
+  const out = boundBodyToSlot(body, pipFace, [tight, roomier]);
+  const alone = boundBodyToSlot(body, pipFace, [roomier]);
+  assert.equal(out.x1, alone.x1);
+  assert.equal(out.y2, alone.y2, 'the tighter cut must not be preferred');
 });

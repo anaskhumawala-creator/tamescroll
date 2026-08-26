@@ -21,7 +21,13 @@ import {
   isNullRead,
   FACE_MIN_NATIVE_PX,
 } from './gender-verdict.mjs';
-import { personCropRegion, headCropRegion, personFromFace, lastSlotDiag } from './person-gate.mjs';
+import {
+  personCropRegion,
+  headCropRegion,
+  personFromFace,
+  boundBodyToSlot,
+  lastSlotDiag,
+} from './person-gate.mjs';
 
 // CROP-BUDGET PRIORITY. `confidence` is NOT one scale: a MoveNet person
 // carries the model's slot score and a personFromFace body carries
@@ -1943,7 +1949,25 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
                       } catch (e) {}
                       continue;
                     }
-                    extra.push(personFromFace(faces[fi], video.videoWidth / (video.videoHeight || 1)));
+                    // THE COMPOSITE FRAME (R29). A face with no admitted
+                    // person still gets a body, but where MoveNet
+                    // MEASURED that person and merely refused to admit
+                    // them, the measurement bounds the extrapolation.
+                    // Only ever shrinks, so the patch SET is unchanged —
+                    // see the block above boundBodyToSlot.
+                    var synth = personFromFace(
+                      faces[fi],
+                      video.videoWidth / (video.videoHeight || 1)
+                    );
+                    var bounded = boundBodyToSlot(synth, faces[fi], persons.rejectedBoxes);
+                    if (bounded !== synth) {
+                      try {
+                        var dbgB = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+                        dbgB.life = dbgB.life || {};
+                        dbgB.life.bodyFromSlot = (dbgB.life.bodyFromSlot || 0) + 1;
+                      } catch (e) {}
+                    }
+                    extra.push(bounded);
                   }
                   try {
                     var dbgT = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
@@ -2182,9 +2206,26 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
                       b: [bx.x1, bx.y1, bx.x2, bx.y2].map(function (n) {
                         return typeof n === 'number' ? Math.round(n * 1000) / 1000 : null;
                       }),
+                      // R29: the head anchor sameHuman actually judges on.
+                      // `obs` is recorded PRE-dedupe, so the merge decision
+                      // is reconstructible offline -- but only with these
+                      // four numbers. Without them `dedupeMerged` is a
+                      // count no round can act on, and the corpus cannot
+                      // price a change to the merge bar at all.
+                      h: [bx.headX, bx.headY, bx.headW, bx.headH].map(function (n) {
+                        return typeof n === 'number' ? Math.round(n * 1000) / 1000 : null;
+                      }),
                     };
                   })
                 );
+                // NOT the post-dedupe list, and this is deliberate:
+                // dedupeObservations bumps `dedupeMerged` and
+                // `dedupeHeadSplit`, so calling it a second time from a
+                // probe would DOUBLE every merge counter every round has
+                // ever quoted. With the head anchors above, sameHuman is
+                // a pure function of what is recorded here, so the merge
+                // decision is reconstructible offline without re-running
+                // anything that counts.
                 if (dbgO.obs.length > 60) dbgO.obs = dbgO.obs.slice(-60);
               } catch (e) {
                 /* probes never break the pipeline */
