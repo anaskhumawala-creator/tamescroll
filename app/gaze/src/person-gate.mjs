@@ -68,7 +68,34 @@ export var PFF_HALF_CAP = 0.35;
 // UNCORROBORATED face may be extrapolated into a body. See
 // frameHasNoHumanShape below for the measurement that sets it.
 export var PFF_FRAME_KP_FLOOR = 0.1;
-export var PATCH_MARGIN = 0.08; // outward margin on a finished person patch
+// THE MARGIN STACK WAS FIVE CUSHIONS DEEP, AND THE OWNER SEES THE SUM.
+//
+// Owner 2026-08-26: "very messy and not smooth and very jettery ... looks
+// very low quality ... the before gauntlet blur was the best." Measured,
+// and he is right: the median drawn patch went from 0.24 x 0.41 of frame
+// pre-gauntlet to 0.51 x 0.98, with patches pinned at the frame edge
+// going 1% -> 64%. A near-full-height slab that breathes is what "low
+// quality" means.
+//
+// Measured live on the kitchen two-shot, height p50 at each stage:
+//   MoveNet model box            0.560
+//   confident-keypoint hull      0.314   (NOT the inflator here)
+//   track box                    0.817   (+46% over the model box)
+//   drawn patch                  ~0.97
+//
+// So the person the model found occupies 0.56 and we draw 0.97. The
+// difference is five independent cushions, each added by a different
+// round with the same correct local argument that a bigger patch cannot
+// expose anyone: KEYPOINT_MARGIN per keypoint, PATCH_MARGIN on the
+// finished box, PTRACK_PAD and PTRACK_PAD_TOP at render, and the
+// feather's f/2. Nobody ever added them up.
+//
+// Halved rather than deleted, because his other sentence is the bound:
+// "slight shape visible is fine in some cases, it just shouldn't be
+// super tight", and the standing bar is still to blur a covered person
+// FULLY -- no legs, hands or head left out. This is the cushion on top
+// of a full-body box that already includes every confident keypoint.
+export var PATCH_MARGIN = 0.045; // was 0.08 -- see the stage measurements above
 export var PERSON_GATE_PAD = 0.15; // person box padded by this fraction of its size for the crop
 export var PERSON_KEYPOINT_MIN = 0.3;
 // Evidence gate: this many confident keypoints AND a head/shoulder
@@ -223,7 +250,14 @@ export var PERSON_HOLD_MAX = 8;
 // Margin around every keypoint. 0.03 -> 0.05 (owner 2026-08-25: cover
 // them fully): a wrist keypoint sits at the wrist, and the HAND carries
 // on past it.
-var KEYPOINT_MARGIN = 0.05;
+var KEYPOINT_MARGIN = 0.05; // CAP on the per-keypoint cushion (was the flat value)
+// Cushion as a share of the person's own box, and the floor under it for
+// small distant subjects. 0.10 of a 0.56-tall person is 0.056 against the
+// old flat 0.089; a 0.20-tall figure lands on the 0.03 floor, which after
+// the aspect correction is 0.053 of frame height -- more relative
+// protection than they had, on the population that needs it.
+var KEYPOINT_MARGIN_FRAC = 0.10;
+var KEYPOINT_MARGIN_MIN = 0.03;
 // All 17 keypoints extend the patch: a covered person must not have
 // their legs or hands sticking out of it (owner 2026-08-25). Leg
 // keypoints are the noisiest, which is why the EVIDENCE gate below is
@@ -562,7 +596,32 @@ export function parsePersons(data, minScore, aspect, held) {
     // asymmetry in the reports is what this explains. The head anchor
     // below already does this correctly and states the rule — the union
     // simply never got it.
-    var kmY = KEYPOINT_MARGIN * ar;
+    // THE KEYPOINT CUSHION IS NOW PROPORTIONAL TO THE PERSON, NOT THE FRAME.
+    //
+    // KEYPOINT_MARGIN is an ABSOLUTE fraction of the frame, so every
+    // person got the same cushion whatever their size -- and after the
+    // aspect correction that is 0.089 of frame HEIGHT on each side,
+    // 0.178 in total, added to a model box whose own median height is
+    // 0.560. It is the single largest term in the slab the owner is
+    // objecting to: bigger than PATCH_MARGIN, bigger than both render
+    // pads, and it does not scale with anything.
+    //
+    // The error it cushions is a keypoint POSITION error, which scales
+    // with the subject: a wrist on a close-up is mislocated by far more
+    // pixels than a wrist on a distant figure. So the cushion is now a
+    // fraction of the box's own size, floored so a small distant subject
+    // keeps real protection and capped at the OLD value so nothing can
+    // get a wider cushion than it had before. Strictly non-increasing:
+    // no patch grows, so no PARTIAL and no EXPOSURE can open.
+    // Keyed to the person's HEIGHT and converted per axis, so the cushion
+    // is the same number of REAL PIXELS on both axes -- the property the
+    // aspect correction was added for, now obtained by construction
+    // instead of by multiplying a frame constant.
+    var kmY = Math.min(
+      KEYPOINT_MARGIN * ar,
+      Math.max(KEYPOINT_MARGIN_MIN * ar, (y2 - y1) * KEYPOINT_MARGIN_FRAC)
+    );
+    var kmX = kmY / ar;
     for (var u = 0; u < UNION_KEYPOINT_MAX; u++) {
       var ku = kp(data, o, u);
       // HYSTERESIS ON THE UNION GATE.
@@ -589,8 +648,8 @@ export function parsePersons(data, minScore, aspect, held) {
       if (!inU) continue;
       if (ku.y - kmY < y1) y1 = ku.y - kmY;
       if (ku.y + kmY > y2) y2 = ku.y + kmY;
-      if (ku.x - KEYPOINT_MARGIN < x1) x1 = ku.x - KEYPOINT_MARGIN;
-      if (ku.x + KEYPOINT_MARGIN > x2) x2 = ku.x + KEYPOINT_MARGIN;
+      if (ku.x - kmX < x1) x1 = ku.x - kmX;
+      if (ku.x + kmX > x2) x2 = ku.x + kmX;
     }
 
     // --- head anchor: the part that must never escape the patch -----

@@ -63,10 +63,10 @@ export var CLEAR_STREAK_N = 2;
 // hard reset meant they never cleared at all; decay still demands that
 // confident clears dominate before the patch lifts).
 export var CLEAR_DECAY = 0.5;
-export var PTRACK_PAD = 0.05; // person box side/bottom padding at render
+export var PTRACK_PAD = 0.04; // person box side/bottom padding at render (was 0.05; see PATCH_MARGIN)
 // Extra headroom: MoveNet's box can crop at the hairline (v10-her-120:
 // the covered person's hair crown poked out above the patch).
-export var PTRACK_PAD_TOP = 0.12;
+export var PTRACK_PAD_TOP = 0.06; // was 0.12 -- half the stack, see PATCH_MARGIN in person-gate
 // Identity continuity on a live track: only a GROSS mismatch counts as
 // "someone else is standing here" (review A1). Set below the measured
 // same-person 5th percentile (0.28) so a bad crop of the same person
@@ -1707,17 +1707,32 @@ function overlaps(a, b) {
 // Falls back to the plain box test whenever either side has no head
 // anchor -- the weak tier, where headX is null and the old rule is not
 // wrong about them, exactly as sameHuman does.
+// S12 SHIPPED THE HEAD TEST HERE AND THE OWNER HAS SINCE OVERRULED THE
+// TRADE IT MAKES. (2026-08-26)
+//
+// Everything in the block above is still true about the MECHANISM: two
+// tracks whose heads sit a head-width apart really are two people, and
+// refusing their union really does hand back 10-17% of drawn width. What
+// changed is the price list. That refusal was justified by the cleared
+// neighbour it stops swallowing -- and the owner's standing rule now
+// reads, in his words, that a cleared person inside someone else's patch
+// is ACCEPTED and must not be re-litigated, while what he actually
+// complains about, twice, is COUNT and motion: "multiple boxes here and
+// there", "very messy and not smooth and very jettery", "the previous
+// much more solid blur was better".
+//
+// It fired 90-99 times a minute and took patches mean 0.78 -> 1.05 and
+// dCount 0.30 -> 0.53/s with it. Two overlapping rectangles that
+// separately shimmer are the thing he is looking at. One larger
+// rectangle that sits still is what he asked for. So overlapping tracks
+// union again, unconditionally.
+//
+// The head plumbing stays: mergedHead still needs headX/headW to keep
+// the better-measured anchor across a union, and dedupeObservations
+// still splits at the association stage, where the failure being
+// prevented is a DELETED human rather than a wider patch.
 function canMerge(a, b) {
-  if (!overlaps(a.box, b.box)) return false;
-  var ax = a.headX;
-  var bx = b.headX;
-  var aw = a.headW;
-  var bw = b.headW;
-  if (typeof ax !== 'number' || typeof bx !== 'number') return true;
-  if (!(typeof aw === 'number' && aw > 0) || !(typeof bw === 'number' && bw > 0)) return true;
-  if (Math.abs(ax - bx) <= MERGE_HEAD_SEP_HEADW * Math.max(aw, bw)) return true;
-  bump('mergeHeadSplit');
-  return false;
+  return overlaps(a.box, b.box);
 }
 
 // The union of two representations of ONE person keeps the better-measured

@@ -522,8 +522,47 @@ function inward(fromEdge, toEdge, span, sign, rate) {
 }
 
 
+// A STILL PATCH ON A STILL SUBJECT. (owner 2026-08-26)
+//
+// "very messy and not smooth and very jettery ... the previous much more
+// solid blur was better." The word that matters is SOLID. Every previous
+// round read that as a size problem and spent itself on geometry; the
+// measurements say otherwise -- the drawn patch is the right size for a
+// full-body box and it will not stop MOVING. jitter 0.12-0.17 and breathe
+// 0.21-0.31 frame-widths per second, on a two-shot where nobody is
+// walking anywhere.
+//
+// SETTLE_PX exists but is a QUARTER PIXEL, so it only ever catches a
+// patch that has already converged to within a rounding error, which the
+// asymmetric dampers upstream guarantee it never does. Nothing in the
+// chain says "that is not motion, that is the detector breathing".
+//
+// This does. If every edge is within MOVE_DEADBAND of where it already
+// is, the patch does not move AT ALL -- not slower, not smoothed, not at
+// all. Relative to the patch's own span so it behaves the same on a
+// preview and a fullscreen player.
+//
+// SAFETY: the bar is a fraction of the patch, and the patch already
+// carries the keypoint cushion, PATCH_MARGIN and PTRACK_PAD on top of a
+// full-body box. A real 2%-of-patch movement is a few pixels of a person
+// who is already covered with margin to spare; anything larger than the
+// bar moves normally, at full speed, on the very same frame. So this
+// cannot let a subject walk out of their patch -- it can only refuse to
+// chase noise.
+var MOVE_DEADBAND = 0.02;
+
 export function lerpRect(from, to) {
   if (!from) return to;
+  var spanW = from.width || 1;
+  var spanH = from.height || 1;
+  if (
+    Math.abs(to.left - from.left) < spanW * MOVE_DEADBAND &&
+    Math.abs(to.top - from.top) < spanH * MOVE_DEADBAND &&
+    Math.abs(to.left + to.width - from.left - from.width) < spanW * MOVE_DEADBAND &&
+    Math.abs(to.top + to.height - from.top - from.height) < spanH * MOVE_DEADBAND
+  ) {
+    return from;
+  }
   if (
     Math.abs(from.left - to.left) < SETTLE_PX &&
     Math.abs(from.top - to.top) < SETTLE_PX &&

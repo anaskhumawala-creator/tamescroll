@@ -383,15 +383,21 @@ test('mergeTracks: a small patch sitting inside a big one merges (stacked patche
   assert.equal(pt.mergeTracks([big, small]).length, 1);
 });
 
-test('mergeTracks: a contained patch whose head is far away does NOT merge', () => {
-  // The f007 shape, and the contradiction S12 closed: dedupeObservations
-  // refuses this exact pair (heads 0.30 apart, head width 0.09) and then
-  // mergeTracks used to union them anyway, producing the rectangle that
-  // swallows a cleared neighbour.
+test('mergeTracks: overlapping patches become ONE, far heads or not', () => {
+  // The f007 shape. S12 refused this union so a cleared neighbour would
+  // not be swallowed; the owner has since ranked patch COUNT above that
+  // cost in his own words, so it unions again -- see canMerge. The
+  // association stage still splits this pair (next assertion), which is
+  // where the failure being prevented is a DELETED human.
   const big = { key: 'a', box: { x1: 0.1, y1: 0.05, x2: 0.9, y2: 1.0 }, headX: 0.25, headW: 0.09 };
   const inner = { key: 'b', box: { x1: 0.5, y1: 0.08, x2: 0.75, y2: 0.5 }, headX: 0.62, headW: 0.09 };
   assert.ok(pt.containment(big.box, inner.box) >= pt.MERGE_CONTAIN_MIN, 'precondition: contained');
-  assert.equal(pt.mergeTracks([big, inner]).length, 2);
+  assert.equal(pt.mergeTracks([big, inner]).length, 1);
+  // sameHuman reads the head off the BOX (observations), mergeTracks off
+  // the TRACK -- same numbers, two lifecycles.
+  const obsA = { box: { ...big.box, headX: big.headX, headW: big.headW } };
+  const obsB = { box: { ...inner.box, headX: inner.headX, headW: inner.headW } };
+  assert.equal(pt.sameHuman(obsA, obsB), false, 'association stage still keeps them apart');
 });
 
 test('mergeTracks: two patches on ONE person still merge, and keep the wider head', () => {
