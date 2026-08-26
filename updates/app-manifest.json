@@ -1,7 +1,7 @@
 {
-  "versionCode": 1015,
-  "versionName": "0.1.15",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.15/app-arm64-debug.apk",
-  "sha256": "b9345f6dec372d57c1486a6585e4c4b03bd80370f755e1b29adc40a3ad1d4468",
-  "notes": "13 measured blur-accuracy rounds, network-level ad blocking on Android, end-screen wall hidden."
+  "versionCode": 1016,
+  "versionName": "0.1.16",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.16/tamescroll-v0.1.16.apk",
+  "sha256": "7c8eccfcebd71133d4d276284435a6b685cb1eb2faa5e8a2f61878100d3b7dbf",
+  "notes": "Stability: one patch per person instead of split rectangles; render fixes."
 }
