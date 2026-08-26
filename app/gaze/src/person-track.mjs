@@ -505,6 +505,11 @@ function headShiftDist(from, to) {
 }
 
 function matchedStep(t, obs, dt) {
+  // Did this pass change WHICH detector is describing the person? See the
+  // note on vw/vh below -- a source flip is a representation change, not
+  // motion, and must not become a size velocity.
+  var srcFlip = !!(obs.box && obs.box.fromFace) !== !!t.fromFace;
+  if (srcFlip) bump('srcFlip');
   var smoothed = ema(t.box, obs.box, PTRACK_EMA_ALPHA);
   var tc = center(t.box);
   var sc = center(smoothed);
@@ -712,8 +717,36 @@ function matchedStep(t, obs, dt) {
     fromFace: !!(obs.box && obs.box.fromFace),
     vx: ((sc[0] - tc[0]) / dt) * 1000,
     vy: ((sc[1] - tc[1]) / dt) * 1000,
-    vw: sizeVel(t.box, smoothed, dt, 'x'),
-    vh: sizeVel(t.box, smoothed, dt, 'y'),
+    // SIZE VELOCITY IS MEANINGLESS ACROSS A CHANGE OF OBSERVATION SOURCE,
+    // and measuring it there is most of why patches breathe.
+    //
+    // One human has two legitimate representations that differ several
+    // fold in area: a MoveNet body box, and a synthetic body extrapolated
+    // from a face by personFromFace. R7 raised PTRACK_SIZE_RATIO_MAX from
+    // 3 to 6 precisely so those two would associate with each other, so a
+    // matched pass can hand ema() a box up to 6x different in area from
+    // the previous one. sizeVel turns that step into a velocity, and
+    // interpolateBox then PREDICTS MORE OF IT, outward only, for up to
+    // MAX_EXTRAPOLATE_MS. A 0.40 -> 0.70 height step over 400ms yields
+    // vh 0.75/s, which grows the patch a further 0.15 on top and bottom
+    // before the next pass snaps it back -- an inward step around 20% of
+    // the edge's span, far above SHRINK_DEADBAND, so the render-side
+    // damping cannot touch it.
+    //
+    // MEASURED, and it is the one number where the owner's "before any
+    // gauntlet run you were better" is literally true: the pre-gauntlet
+    // build (92e8fba, bundle v7) breathes 0.229/s against 0.372/s today,
+    // on the same 45s of the same video. Patch COUNT went the other way
+    // over those 55 commits (max 6 -> 2, dCount 1.22 -> 0.36/s), so the
+    // regression is specifically SIZE stability, which is what reads as
+    // "not smooth".
+    //
+    // The track already knows its provenance. A flip is not motion, so it
+    // gets no velocity. Real scaling -- someone walking toward camera,
+    // arms opening -- keeps its velocity, because there the source is
+    // unchanged. Only ever removes PREDICTED GROWTH, so it cannot expose.
+    vw: srcFlip ? 0 : sizeVel(t.box, smoothed, dt, 'x'),
+    vh: srcFlip ? 0 : sizeVel(t.box, smoothed, dt, 'y'),
     state: state,
     clearMs: clearMs,
     missMs: 0,

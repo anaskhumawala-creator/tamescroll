@@ -68,7 +68,8 @@ SAMPLE_JS = r"""
     ad: /ad-showing|ad-interrupting/.test(host.className || ''),
     n: rects.length,
     r: rects,
-    ids: ids
+    ids: ids,
+    life: d.life || null
   });
 })()
 """
@@ -177,6 +178,21 @@ def analyse(samples):
     if run_start is not None:
         lives.append(samples[-1]["wall"] - run_start)
 
+    # WHERE the churn comes from. person-track.mjs keeps `life` counters
+    # attributing every birth and death to a cause -- birthFresh (nobody
+    # was there before), birthNearMiss (the SAME person re-minted because
+    # IoU fell under PTRACK_IOU_MIN), birthSizeRejected, birthContended,
+    # coastExpired, sizeRejected. They are CUMULATIVE from page load, so
+    # only the delta across this run means anything.
+    life = {}
+    first = next((s.get("life") for s in samples if s.get("life")), None)
+    last = next((s.get("life") for s in reversed(samples) if s.get("life")), None)
+    if first and last:
+        for k in set(first) | set(last):
+            d = (last.get(k) or 0) - (first.get(k) or 0)
+            if d:
+                life[k] = d
+
     return {
         "samples": len(samples),
         "span_s": round(span, 1),
@@ -188,6 +204,7 @@ def analyse(samples):
         "breathe_per_s": round(statistics.mean(brh), 4) if brh else 0,
         "stable_frac": round(stable / pairs, 3) if pairs else 0,
         "cover_life_p50": round(statistics.median(lives), 2) if lives else 0,
+        "life": life,
     }
 
 

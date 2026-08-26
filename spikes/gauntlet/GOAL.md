@@ -3739,3 +3739,164 @@ analysis.
   S2's included -- counts a hole as covered. The figures compare to each
   other; they overstate the truth by the hole area.
 
+
+- **S4** (2026-08-26) — **the owner said "before any gauntlet run you were
+  better". He is right about one metric, and it is the one that matters
+  to him.**
+
+  Built the pre-gauntlet bundle (92e8fba, marker `v7`, 55 commits back)
+  in a worktree, swapped it into the running app, and measured it on the
+  identical 45s. Man t=890:
+
+  | | pre-gauntlet v7 | today |
+  |---|---|---|
+  | patches mean | 1.20 | **0.87** |
+  | patches MAX | 6 | **2** |
+  | dCount/s | 1.22 | **0.49** |
+  | births/s | 0.60 | **0.31** |
+  | stable-count intervals | 91.1% | **95.0%** |
+  | jitter/s | 0.206 | 0.219 |
+  | **breathe/s** | **0.229** | **0.383** |
+
+  Paired by video time, 46 buckets: 21 fewer patches, 12 more, 13 same.
+  So COUNT genuinely improved over the gauntlet — and **patch SIZE
+  stability regressed by 67%**. Breathing is what reads as "not smooth",
+  and it is the one number 22 accuracy rounds made worse while every
+  scored class improved. Nothing in the five classes measures it. That is
+  the whole lesson of this entry.
+
+  **WHERE THE CHURN IS NOT.** The birth-cause counters
+  (`birthFresh`/`birthNearMiss`/`birthSizeRejected`/`birthContended`) were
+  built rounds ago and had never been read; `stability.py` now captures
+  `life` and reports the delta across a run. Read at last: births total
+  9-10 per 45s in BOTH directions, against `dedupeMerged` 152-169 and
+  `dedupeHeadSplit` 131-144. Track minting is not the problem at the
+  current state, which retires the standing assumption that it was.
+
+  **SHIPPED 1: the axis-wise shrink tail.** Growth stays instant (R17:
+  a lerped leading edge left 7.5% of a covered man's shoulder sharp), but
+  a shrinking edge now glides on SHRINK_LERP 0.06 (~600ms) instead of
+  RENDER_LERP 0.25 (~100ms) — and only when the axis is BREATHING. The
+  discriminator needs no velocity and no tracker: on a translating axis
+  both edges move the same way, on a breathing axis they move opposite
+  ways. A translating axis keeps the old speed, so the patch cannot smear
+  into the union of where the subject was and where they are going —
+  which is exactly why S1 shipped only a deadband. Man: breathe 0.487 ->
+  0.372, jitter 0.264 -> 0.201, both -24%. Count unchanged (8 fewer / 4
+  more / 34 same).
+
+  **SHIPPED 2: soft edges, because the owner named the mechanism.**
+  Verbatim: *"the technique you're using to show the face ... through
+  cropping is not the correct one. rather we could use translucent edges
+  blur ... with the edges being more towards transparency ... the cropping
+  through the square is just not working correctly."* He is right beyond
+  taste: a hard edge advertises exactly where the subject is and what
+  shape the detector thinks they are. The patch is now a horizontal fade
+  INTERSECTed with a vertical fade (four soft edges) and each hole is a
+  radial falloff instead of a cut-out rectangle.
+  Pixel-tested in the real WebView before building
+  (`runs/feather-spike2.png`), three constructions side by side over one
+  paused frame — S2 paid for the lesson that `CSS.supports` is not
+  evidence here. The first attempt passed TWO composite operators for
+  THREE layers; the list repeated and the hole silently got `intersect`.
+  It is one operator per layer, and the computed style must read back
+  `source-over, source-in, xor`.
+
+  **THE FEATHER IS A REAL TRADE AND THE FIRST WIDTH WAS TOO BIG.** A soft
+  outer edge is only possible by painting some blur OUTSIDE the requested
+  box — ramping inward instead would under-cover the covered subject.
+  At 26px, frame `runs/s4-feather-man/f001` shows partial blur across the
+  cheek of a CLEARED man standing at the patch edge: the owner's "not a
+  single frame where the wrong gender is blurred", in its mildest form.
+  Reduced to 16px (~3% of a 500px patch), which halves the encroachment
+  and still reads as soft. Recorded in the code so it is not raised
+  blindly. Coverage percentages in this section jump accordingly — the
+  patch element is now 2x16px larger per axis than the box the pipeline
+  asked for.
+
+  **SHIPPED 3: no size velocity across a change of observation SOURCE.**
+  One human has two legitimate representations differing severalfold in
+  area — a MoveNet box and a `personFromFace` synthetic body — and R7
+  raised PTRACK_SIZE_RATIO_MAX to 6 precisely so they would associate.
+  `sizeVel` was turning that representation change into a velocity, which
+  `interpolateBox` then predicted more of. A new `srcFlip` counter says it
+  fires **53-59 times per 45s** (~1.3/s), so the mechanism is real and
+  frequent. Guarded: breathe 0.372 -> 0.359, jitter 0.201 -> 0.189.
+  Small — it is ~4% of the 67% gap, not the cause.
+
+  **BUILT, MEASURED, REFUSED: capping size extrapolation.** The obvious
+  suspect for breathing is `interpolateBox` predicting growth outward for
+  up to 1200ms. Capped at 8% of the box's own dimension it does
+  **nothing** for breathe (0.3589 -> 0.3614) and COSTS count stability
+  (dCount 0.40 -> 0.58/s, births 0.20 -> 0.36/s, stable 96.3% -> 94.0%),
+  because a patch that stops predicting growth expires and re-mints more
+  often. Reverted, with the numbers written into `interpolateBox` so the
+  next round does not re-derive it. **The breathe regression is still
+  unattributed. It is not in what CONSUMES sizeVel; look at what FEEDS
+  it.**
+
+  **Symmetry, woman t=890:** dCount 1.11 -> 0.67/s, stable intervals
+  88.5% -> 93.2%, cover life p50 44.9s (continuous). jitter 0.124 ->
+  0.138 and breathe 0.213 -> 0.233 rose slightly — the drawn rect is
+  larger by the feather, and breathe is an absolute size delta.
+
+  **ACCURACY GATE HELD.** Man t=901, frames read directly: one patch per
+  frame on every covered frame, soft-edged throughout with no rectangle
+  anywhere; f007 = the man alone, zero patches, entirely sharp. EXPOSURE
+  0, GHOST 0. gaze **182/182**, cargo **36/36**.
+
+  **SEGMENTATION, COST RESEARCHED, NOT BUILT** (owner asked whether it is
+  allowed — it is):
+  - **MediaPipe Selfie Segmentation, tfjs graph model: 332,432 bytes**
+    (general, 256x256) / 336,175 (landscape), Apache-2.0, via the Kaggle
+    `.../download` endpoint — tfhub is retired and 404s, the same gotcha
+    MoveNet already hit. Inlinable exactly like our other models. The
+    `@mediapipe/selfie_segmentation` WASM runtime is a different thing
+    entirely: 5.59MB of `.wasm` fetched at runtime, which our CSP blocks.
+    Foreground only, NOT instances.
+  - **BodyPix is deprecated** in favour of `body-segmentation`, which
+    still does true multi-person via `segmentPeople({multiSegmentation})`.
+    Smallest usable weights 2.36-2.66MB; the only sub-1MB config
+    (MobileNetV1 0.50 / quantBytes 1, 664,058 bytes) is the degraded
+    corner. Apache-2.0.
+  - **PP-HumanSeg int8bq, 1,734,724 bytes, Apache-2.0**, mIoU 0.9162 vs
+    0.9164 fp32 — best size/accuracy under the bar, but foreground-class,
+    not instances. (Its plain-int8 sibling collapses to mIoU 0.364 —
+    do not take the smaller file.)
+  - RobustVideoMatting is **GPL-3.0, banned**.
+  - **NO published latency exists for any of these on Helio G88 /
+    Mali-G52 class silicon, from anyone.** Nearest: MediaPipe
+    SelfieSegmenter 33.5ms CPU / 35.2ms GPU on a Pixel 6 (flagship);
+    PP-HumanSegV1-Lite 12.3ms on a Snapdragon 855. Both are much faster
+    chips — treat every number as a FLOOR, not a prediction. Note that
+    the PP-HumanSeg paper's own 11.5ms is a **Tesla V100**, not mobile,
+    and is easy to misread given the paper's mobile framing.
+  - Prior critic judgement stands and is reinforced: do NOT render the
+    mask. A silhouette cannot be dead-reckoned between passes and would
+    undo the zero-readback work. Use segmentation to TIGHTEN THE
+    RECTANGLE, which attacks the ~76% of blurred area that is MoveNet box
+    slop.
+
+  **Critic findings NOT acted on, ranked, for the next round:** (1) merge
+  is the only hard threshold left on a jittering input — crossing it
+  changes the merged key, so `setTracks` destroys and rebuilds the DOM
+  overlay and `lerpRect(null, target)` snaps with NO glide; wants
+  hysteresis, and a counter first. (2) `detectPersons` and
+  `detectFaceBoxes` each upload the FULL video element — ~16.6MB per
+  verdict pass at 1080p across a shared memory bus, half of it pure
+  duplication; the single biggest untaken perf win and a one-line fix.
+  (3) MoveNet's input is still squashed to a hard 256x256 square;
+  [160,256] drops the tensor 37% AND fixes the 1.78x anisotropy.
+  (4) the rAF loop never stops even when every patch has settled.
+  (5) `clearedHeadHoles` punches every cleared track's hole into EVERY
+  blurred patch with no ownership test, so a duplicate track on one
+  person puts a window over their own face. (6) `blurredCoastMs` /
+  `clearedCoastMs` are module globals written per video element — the
+  third instance of that class of bug here.
+
+  **Harness notes.** The dev app must be relaunched with a WATCHER behind
+  it — an orphaned `app.exe` makes `touch lib.rs` a no-op, and a stale
+  vite on port 1420 makes the relaunch fail silently. A worktree needs
+  `node_modules` junctioned in and `src/model-embed.js` copied before its
+  bundle will build; `NODE_PATH` does not help, esbuild resolves from the
+  file's own directory.

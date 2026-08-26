@@ -66,6 +66,18 @@ export function interpolateBox(track, elapsedMs) {
   // patch keeps growing between passes — split across both edges. Only
   // ever applied OUTWARD (shrink prediction is the exposure direction;
   // the next real pass shrinks it instead).
+  // TRIED AND REFUSED: capping this at 8% of the box's own dimension.
+  // Size extrapolation LOOKS like the obvious cause of patch breathing --
+  // one noisy size step becomes a velocity and the renderer draws more of
+  // it every frame until the next pass. It is not. Measured on the same
+  // 45s: breathe 0.3589 -> 0.3614/s, i.e. nothing, while the cap COST
+  // count stability (dCount 0.40 -> 0.58/s, births 0.20 -> 0.36/s,
+  // stable intervals 96.3% -> 94.0%) because a patch that stops
+  // predicting growth expires and re-mints more often.
+  // The breathe regression against the pre-gauntlet build (92e8fba,
+  // bundle v7: 0.229/s against our 0.372/s on identical footage) is real
+  // and is still unattributed. It is NOT here. Look at what feeds
+  // sizeVel, not at what consumes it.
   var gw = Math.max(0, (track.vw || 0) * t) / 2;
   var gh = Math.max(0, (track.vh || 0) * t) / 2;
   return {
@@ -145,24 +157,116 @@ function makeOverlay(key) {
 // `-webkit-mask-composite: xor`, and a WebView that understands neither
 // simply ignores the mask and draws the solid patch — which OVER-covers,
 // the safe direction, and never exposes anyone.
-function maskFor(rect, holes) {
-  if (!holes || !holes.length) return '';
-  var sizes = [rect.width + 'px ' + rect.height + 'px'];
-  var pos = ['0px 0px'];
-  for (var i = 0; i < holes.length; i++) {
+// SOFT EDGES, BECAUSE A RECTANGLE ANNOUNCES ITSELF.
+//
+// Owner 2026-08-26, on the hard-edged version of this: "the technique
+// you're using to show the face ... through cropping is not the correct
+// one. rather we could use translucent edges blur ... with the edges
+// being more towards transparency ... the cropping through the square is
+// just not working correctly."
+//
+// He is right about the mechanism, not only the look: a hard edge draws
+// the eye to the boundary and so advertises exactly where the subject is
+// and what shape the detector thinks they are. A gradient does not.
+//
+// Three kinds of layer, composited in one element:
+//   1+2  the patch itself, a horizontal fade INTERSECTed with a vertical
+//        fade -- a rectangle whose four edges ramp to transparent.
+//   3..  each hole, a radial falloff rather than a cut-out rectangle.
+//
+// SAFETY, and it is the whole reason this is not just prettier:
+//   - The patch is EXPANDED by the feather width before it is drawn, so
+//     the fully-opaque core still covers every pixel the hard rectangle
+//     covered. The ramp is added margin. It cannot under-cover.
+//   - The hole box is GROWN by HOLE_FEATHER_GROW with its opaque core at
+//     HOLE_CORE, so the fully-revealed area lands a hair INSIDE the old
+//     hard hole. It reveals slightly less, never more.
+// So neither change can open EXPOSURE, and neither can newly blur a
+// cleared face that was sharp before.
+//
+// VERIFIED BY PIXEL IN THE REAL WEBVIEW FIRST (runs/feather-spike2.png),
+// because S2 paid for the lesson that CSS.supports is not evidence here.
+// Three patches drawn side by side over one paused frame: today's hard
+// construction, hole-feathered, and both-feathered. The composite list
+// read back "source-over, source-in, xor" -- one operator PER LAYER; the
+// first attempt passed two operators for three layers and the list
+// repeated, silently giving the hole layer `intersect`.
+// THE FEATHER WIDTH IS A REAL TRADE, MEASURED, NOT A TASTE SETTING.
+// A soft outer edge is only possible by painting SOME blur outside the
+// requested box -- ramping inward instead would under-cover the covered
+// subject, and R17 measured that leaving 7.5% of a shoulder sharp is a
+// real PARTIAL. So the ramp lives outside, and on runs/s4-feather-man
+// f001 a 26px ramp laid partial blur across the cheek of a CLEARED man
+// standing right at the patch edge -- the owner's "not a single frame
+// where the wrong gender is blurred", in its mildest form. 16px halves
+// that encroachment (~3% of a 500px patch) while still reading as soft.
+// Do not raise this without re-reading a frame with two people close
+// together.
+var FEATHER_MAX_PX = 16;
+var FEATHER_FRAC = 0.12; // of the patch's short side, so small patches
+                         // are not entirely ramp
+var HOLE_FEATHER_GROW = 1.5;
+var HOLE_CORE = 66; // percent of the grown box that stays fully revealed
+
+/** Feather width for a patch of this size, in px. */
+export function featherFor(rect) {
+  var shortSide = Math.min(rect.width, rect.height);
+  return Math.max(0, Math.min(FEATHER_MAX_PX, shortSide * FEATHER_FRAC));
+}
+
+function maskFor(rect, holes, f) {
+  var img = [];
+  var sizes = [];
+  var pos = [];
+  var comp = [];
+  var wcomp = [];
+  var full = rect.width + 'px ' + rect.height + 'px';
+  if (f > 0) {
+    var stopA = f + 'px';
+    var stopB = 'calc(100% - ' + f + 'px)';
+    img.push(
+      'linear-gradient(to right, rgba(0,0,0,0) 0px, #000 ' + stopA + ', #000 ' + stopB + ', rgba(0,0,0,0) 100%)'
+    );
+    sizes.push(full);
+    pos.push('0px 0px');
+    comp.push('add');
+    wcomp.push('source-over');
+    img.push(
+      'linear-gradient(to bottom, rgba(0,0,0,0) 0px, #000 ' + stopA + ', #000 ' + stopB + ', rgba(0,0,0,0) 100%)'
+    );
+    sizes.push(full);
+    pos.push('0px 0px');
+    comp.push('intersect');
+    wcomp.push('source-in');
+  } else {
+    img.push('linear-gradient(#000,#000)');
+    sizes.push(full);
+    pos.push('0px 0px');
+    comp.push('add');
+    wcomp.push('source-over');
+  }
+  for (var i = 0; holes && i < holes.length; i++) {
     var h = holes[i];
     var w = Math.max(0, h.right - h.left);
     var ht = Math.max(0, h.bottom - h.top);
     if (w <= 0 || ht <= 0) continue;
-    sizes.push(w + 'px ' + ht + 'px');
-    pos.push(h.left - rect.left + 'px ' + (h.top - rect.top) + 'px');
+    var gw = w * HOLE_FEATHER_GROW;
+    var gh = ht * HOLE_FEATHER_GROW;
+    img.push(
+      'radial-gradient(ellipse closest-side at center, #000 0%, #000 ' + HOLE_CORE + '%, rgba(0,0,0,0) 100%)'
+    );
+    sizes.push(gw + 'px ' + gh + 'px');
+    pos.push(
+      Math.round(h.left - rect.left - (gw - w) / 2) + 'px ' +
+      Math.round(h.top - rect.top - (gh - ht) / 2) + 'px'
+    );
+    comp.push('exclude');
+    wcomp.push('xor');
   }
-  if (sizes.length < 2) return '';
-  var img = [];
-  for (var k = 0; k < sizes.length; k++) img.push('linear-gradient(#000,#000)');
-  return (
-    img.join(',') + '|' + sizes.join(',') + '|' + pos.join(',')
-  );
+  // Nothing to do: no feather and no hole means the plain solid patch,
+  // and writing a mask for that is pure cost.
+  if (img.length === 1 && f <= 0) return '';
+  return [img.join(','), sizes.join(','), pos.join(','), comp.join(','), wcomp.join(',')].join('|');
 }
 
 function applyMask(overlay, spec) {
@@ -185,8 +289,8 @@ function applyMask(overlay, spec) {
   st.webkitMaskPosition = parts[2];
   st.maskRepeat = 'no-repeat';
   st.webkitMaskRepeat = 'no-repeat';
-  st.maskComposite = 'exclude';
-  st.webkitMaskComposite = 'xor';
+  st.maskComposite = parts[3];
+  st.webkitMaskComposite = parts[4];
 }
 
 function place(overlay, rect) {
@@ -275,13 +379,6 @@ var RENDER_LERP = 0.25;
 // this fraction of over-cover on a settling patch.
 var SHRINK_DEADBAND = 0.05;
 
-/** One edge, moving inward: hold it if the step is noise, else glide. */
-function inward(fromEdge, toEdge, span, sign) {
-  var step = (toEdge - fromEdge) * sign;
-  if (step > 0 && step < span * SHRINK_DEADBAND) return fromEdge;
-  return fromEdge + (toEdge - fromEdge) * RENDER_LERP;
-}
-
 // Below this the glide is OVER. A 0.25 lerp is asymptotic, so without an
 // epsilon the drawn rect differs from its target for ever: the transform
 // string is rewritten 60 times a second through a completely static shot,
@@ -291,6 +388,53 @@ function inward(fromEdge, toEdge, span, sign) {
 // target rather than holding `from` keeps this from ever shrinking the
 // drawn patch below what the pipeline asked for.
 var SETTLE_PX = 0.25;
+
+// THE LONG SHRINK TAIL, AND THE REASON IT IS NOT SIMPLY A SMALLER LERP.
+//
+// Owner 2026-08-26 wants the box to stop pulsing. Growth is instant by
+// design (R17 measured that a lerped LEADING edge left 7.5% of a covered
+// man's shoulder sharp), so every noisy detection snaps the box outward
+// and it glides back at RENDER_LERP -- a visible throb at the 4-8Hz the
+// detector runs. The obvious fix is a slower inward lerp, and taken alone
+// it is WRONG: lerpRect also handles TRANSLATION, where the trailing edge
+// MUST keep up or the patch smears into the union of where the subject
+// was and where they are going. That is why S1 shipped only a deadband.
+//
+// The discriminator does not need velocity, and does not need the tracker
+// -- it is already in the two edges of each axis:
+//
+//   TRANSLATION -- both edges move the SAME way. The box slides: the
+//                  leading edge snaps out, the trailing edge must follow
+//                  at the old speed or it smears.
+//   BREATHING   -- the edges move in OPPOSITE directions (both inward =
+//                  the box is deflating, both outward = inflating). No
+//                  subject moves like this; it is detector noise on the
+//                  box regression, and it is exactly what should be
+//                  damped.
+//
+// So the tail is long ONLY on a breathing axis. A translating axis keeps
+// the behaviour every previous round measured. Both cases can only ever
+// hold the drawn patch LARGER than the target, so neither can open
+// EXPOSURE or PARTIAL.
+var SHRINK_LERP = 0.06; // ~600ms to close, vs RENDER_LERP's ~100ms
+
+/** True when this axis is deflating/inflating rather than sliding. */
+function breathingAxis(dNear, dFar) {
+  // Sub-pixel noise has no meaningful sign; treat a still edge as
+  // agreeing with whatever the other edge is doing, so a one-sided
+  // adjustment is read as breathing rather than as a slide.
+  if (Math.abs(dNear) < SETTLE_PX) return true;
+  if (Math.abs(dFar) < SETTLE_PX) return true;
+  return (dNear > 0) !== (dFar > 0);
+}
+
+/** One edge, moving inward: hold it if the step is noise, else glide. */
+function inward(fromEdge, toEdge, span, sign, rate) {
+  var step = (toEdge - fromEdge) * sign;
+  if (step > 0 && step < span * SHRINK_DEADBAND) return fromEdge;
+  return fromEdge + (toEdge - fromEdge) * rate;
+}
+
 
 export function lerpRect(from, to) {
   if (!from) return to;
@@ -306,10 +450,12 @@ export function lerpRect(from, to) {
   var fb = from.top + from.height;
   var tr = to.left + to.width;
   var tb = to.top + to.height;
-  var l = Math.min(to.left, inward(from.left, to.left, from.width, 1));
-  var t = Math.min(to.top, inward(from.top, to.top, from.height, 1));
-  var r = Math.max(tr, inward(fr, tr, from.width, -1));
-  var b = Math.max(tb, inward(fb, tb, from.height, -1));
+  var xRate = breathingAxis(to.left - from.left, tr - fr) ? SHRINK_LERP : RENDER_LERP;
+  var yRate = breathingAxis(to.top - from.top, tb - fb) ? SHRINK_LERP : RENDER_LERP;
+  var l = Math.min(to.left, inward(from.left, to.left, from.width, 1, xRate));
+  var t = Math.min(to.top, inward(from.top, to.top, from.height, 1, yRate));
+  var r = Math.max(tr, inward(fr, tr, from.width, -1, xRate));
+  var b = Math.max(tb, inward(fb, tb, from.height, -1, yRate));
   return { left: l, top: t, width: r - l, height: b - t };
 }
 
@@ -333,7 +479,19 @@ function reposition(entry, now) {
     entry.overlays[j].style.display = '';
     var target = boxToHostRect(entry.hr, vr, interpolateBox(entry.tracks[j], elapsed));
     entry.rendered[j] = lerpRect(entry.rendered[j], target);
-    var drawn = entry.rendered[j];
+    var lerped = entry.rendered[j];
+    // The feather is added OUTSIDE what the pipeline asked for, so the
+    // opaque core of the mask still covers the full requested box. Growing
+    // the element is what makes the soft edge free of under-cover.
+    var f = featherFor(lerped);
+    var drawn = f > 0
+      ? {
+          left: lerped.left - f,
+          top: lerped.top - f,
+          width: lerped.width + f * 2,
+          height: lerped.height + f * 2,
+        }
+      : lerped;
     place(entry.overlays[j], drawn);
     // Holes are pinned to the VIDEO, not to the patch, so they are
     // converted with the same rect maths and then expressed relative to
@@ -354,7 +512,7 @@ function reposition(entry, now) {
         });
       }
     }
-    applyMask(entry.overlays[j], maskFor(drawn, px));
+    applyMask(entry.overlays[j], maskFor(drawn, px, f));
   }
 }
 

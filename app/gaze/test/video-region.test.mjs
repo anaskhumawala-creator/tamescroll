@@ -255,3 +255,39 @@ test('lerpRect settles instead of chasing a target for ever', () => {
   assert.ok(r.left + r.width >= target.left + target.width);
   assert.ok(r.top + r.height >= target.top + target.height);
 });
+
+test('a BREATHING axis shrinks on the long tail, a TRANSLATING one does not', () => {
+  // The whole point of the discriminator: detector noise deflating a box
+  // must be damped, while a person walking must not smear. Both cases
+  // present as "an inward edge", so the test pins that they are treated
+  // differently -- otherwise a future simplification collapses them.
+  const from = { left: 100, top: 0, width: 100, height: 100 };
+
+  // Deflating: left moves right, right moves left. Opposite signs.
+  const breathe = { left: 130, top: 0, width: 40, height: 100 };
+  const b = vr.lerpRect(from, breathe);
+
+  // Sliding right by 30: BOTH edges move right. Same sign.
+  const slide = { left: 130, top: 0, width: 100, height: 100 };
+  const t = vr.lerpRect(from, slide);
+
+  // Same inward step of 30 on the left edge in both cases, so any
+  // difference is the rate alone.
+  const breatheStep = b.left - from.left;
+  const slideStep = t.left - from.left;
+  assert.ok(breatheStep < slideStep,
+    `breathing should lag the slide: ${breatheStep} vs ${slideStep}`);
+  assert.ok(breatheStep > 0, 'it must still move eventually');
+});
+
+test('the long tail never uncovers the leading edge of a moving patch', () => {
+  // Regression guard for the reason S1 refused a plain slower lerp.
+  let cur = { left: 100, top: 0, width: 100, height: 100 };
+  for (let i = 1; i <= 12; i++) {
+    const to = { left: 100 + i * 8, top: 0, width: 100, height: 100 };
+    cur = vr.lerpRect(cur, to);
+    assert.ok(cur.left + cur.width >= to.left + to.width,
+      `leading edge exposed at step ${i}`);
+  }
+});
+
