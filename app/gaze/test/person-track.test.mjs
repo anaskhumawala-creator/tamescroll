@@ -1189,3 +1189,32 @@ test('headH survives a position-only pass', () => {
   tracks = updatePersonTracks(tracks, [{ box, positionOnly: true }], 120);
   assert.equal(tracks[0].headH, 0.06);
 });
+
+// S9/F5: the merged key is the overlay's DOM identity. Sorting the two
+// composite strings is order-dependent once a group has three members,
+// and a permuted key destroys and rebuilds the node -- which is the one
+// renderer path that skips every shrink damper, at an unchanged patch
+// count, so no existing metric sees it.
+test('mergedKey does not depend on the order members merged in', () => {
+  const left = pt.mergedKey(pt.mergedKey('7', '9'), '12');
+  const right = pt.mergedKey(pt.mergedKey('12', '9'), '7');
+  const third = pt.mergedKey('12', pt.mergedKey('9', '7'));
+  assert.equal(left, right);
+  assert.equal(left, third);
+  assert.equal(left, '12+7+9');
+});
+
+test('mergedKey dedupes and tolerates an empty side', () => {
+  assert.equal(pt.mergedKey('7+9', '9'), '7+9');
+  assert.equal(pt.mergedKey('', '4'), '4');
+  assert.equal(pt.mergedKey('4', ''), '4');
+});
+
+test('a three-way merge yields one patch with a stable key either way', () => {
+  const mk = (id, x1, x2) => ({ key: String(id), box: { x1, y1: 0.2, x2, y2: 0.9 }, vx: 0, vy: 0 });
+  const a = pt.mergeTracks([mk(7, 0.10, 0.50), mk(9, 0.20, 0.60), mk(12, 0.30, 0.70)]);
+  const b = pt.mergeTracks([mk(12, 0.30, 0.70), mk(9, 0.20, 0.60), mk(7, 0.10, 0.50)]);
+  assert.equal(a.length, 1);
+  assert.equal(b.length, 1);
+  assert.equal(a[0].key, b[0].key);
+});

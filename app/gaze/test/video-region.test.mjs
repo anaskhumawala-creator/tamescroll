@@ -326,3 +326,22 @@ test('the feather is added OUTSIDE, so the requested box stays fully covered', (
   assert.ok(grown.left + grown.width >= rect.left + rect.width);
   assert.ok(grown.top + grown.height >= rect.top + rect.height);
 });
+
+// S9/F4: a merge, an unmerge or a re-ordered group all change the key
+// string for the SAME humans. Treated as a new key it costs a DOM
+// rebuild, and a rebuilt overlay renders with `from = null`, which is the
+// only path here that skips SHRINK_DEADBAND and SHRINK_LERP entirely.
+test('shareCount finds the overlay that carries the same people', () => {
+  const want = vr.memberSet('7+9');
+  assert.equal(vr.shareCount(want, '7'), 1);
+  assert.equal(vr.shareCount(want, '9+12'), 1);
+  assert.equal(vr.shareCount(want, '7+9'), 2);
+  assert.equal(vr.shareCount(want, '12'), 0);
+  assert.equal(vr.shareCount(want, ''), 0);
+});
+
+test('memberSet ignores empty segments', () => {
+  assert.deepEqual(vr.memberSet(''), {});
+  assert.deepEqual(vr.memberSet('4'), { 4: 1 });
+  assert.deepEqual(vr.memberSet('4+4'), { 4: 1 });
+});

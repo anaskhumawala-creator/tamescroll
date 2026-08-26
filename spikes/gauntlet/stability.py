@@ -68,7 +68,15 @@ SAMPLE_JS = r"""
   var d = window.__TS_GAZE_IDS || {};
   var tr = (d.tracks || []).slice(-1)[0] || [];
   var ids = [];
-  for (var k = 0; k < tr.length; k++) ids.push(tr[k].id);
+  // Track STATE, not just id. S9's critic found that half of all patch
+  // appear/vanish events happen with the id set unchanged and no merge
+  // signature -- it attributed those to a track's `state` flipping in
+  // blurredTracks by ELIMINATION, because nothing in the trace records
+  // state. With `st` here the attribution is direct instead of inferred.
+  var st = [];
+  var keys = [];
+  for (var k = 0; k < tr.length; k++) { ids.push(tr[k].id); st.push(tr[k].st); }
+  for (var q = 0; q < kids.length; q++) keys.push(kids[q].__tsKey || '');
   return JSON.stringify({
     t: +v.currentTime.toFixed(2),
     paused: v.paused,
@@ -76,6 +84,8 @@ SAMPLE_JS = r"""
     n: rects.length,
     r: rects,
     ids: ids,
+    st: st,
+    keys: keys,
     life: d.life || null
   });
 })()

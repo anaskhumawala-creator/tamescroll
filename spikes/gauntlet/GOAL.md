@@ -4418,3 +4418,166 @@ analysis.
   (3) the seek artifact above. (4) `mergeTracks`' hard 0.5/0.6 threshold
   still has no hysteresis and crossing it destroys and rebuilds the DOM
   overlay. (5) MoveNet's input is still squashed to 256x256.
+
+- **S9** (2026-08-26) — **three renderer/tracker fixes whose common
+  mechanism is "the same people, described differently, look like new
+  people", the segmentation cost number the owner asked for, and two
+  frames that finally name "Linus still gets blurd sometimes".**
+
+  **THE ROUND'S NUMBERS, man, t=890, 45s, paired by video time against
+  the same build immediately before the diff (two independent after-runs):**
+
+  | | before | after r1 | after r2 |
+  |---|---|---|---|
+  | dCount/s | 0.53 | 0.44 | **0.27** |
+  | jitter/s | 0.206 | 0.173 | 0.176 |
+  | breathe/s | 0.381 | 0.325 | 0.308 |
+  | rel breathe w | 0.367 | 0.386 | 0.331 |
+  | stable intervals | 0.953 | 0.956 | **0.975** |
+  | cover life p50 | 1.03s | 7.67s | 7.45s |
+
+  Pairing: r1 24 buckets calmer / 14 busier, r2 25 / 13, patch count 11
+  fewer / 1 more. Both after-runs agree in sign. Against the section's
+  original baseline (8c5a2f3): patches mean 2.08 -> 0.83, max 7 -> 3,
+  dCount 2.23 -> 0.27-0.44, jitter 0.264 -> 0.175, breathe 0.466 -> 0.32,
+  stable 67% -> 95.6-97.5%.
+
+  **SHIPPED 1: the merged key was order-dependent, and that is a DOM
+  rebuild with no metric watching.** `mergeTracks` built its key as
+  `[a.key, b.key].sort().join('+')` — sorting the two COMPOSITE strings,
+  which is not order-independent once a group has three members. Merging
+  7 and 9 first gives `12+7+9`; merging 12 and 9 first gives `12+9+7`.
+  Same three tracks, two keys. The key is the overlay's DOM identity, so
+  a permutation destroys and rebuilds the node — and `lerpRect(null, to)`
+  returns the target outright, **the only path in the renderer that skips
+  both SHRINK_DEADBAND and SHRINK_LERP**. Fixed by flattening to member
+  ids and sorting those. The merge order really does permute:
+  `updatePersonTracks` rebuilds matched-then-coasted-then-new in
+  IoU-descending order, and person-gate already documents MoveNet's slot
+  order permuting independently.
+
+  **SHIPPED 2: the overlay is ADOPTED across a key change instead of
+  rebuilt.** The same argument generalises: a merge, an unmerge and a
+  re-ordering all produce a different key for the same humans. `setTracks`
+  now adopts the unused overlay sharing the most member ids, keeping the
+  node — and with it `__tsW`/`__tsH`/`__tsTf`, the compositing layer and
+  the backdrop snapshot — and keeping its rendered rect, so an unmerge
+  GLIDES down through the damper instead of dropping from the union of
+  two boxes to one box in a single frame. Guarded so adoption can never
+  steal a node a later track will claim by exact key. **Safe by
+  direction:** inheriting a union rect starts the patch too LARGE and
+  shrinks it, which cannot expose anyone.
+
+  **SHIPPED 3: the head geometry got the hysteresis S5 gave the box.**
+  `headX`/`headW` were hard-thresholded at PERSON_KEYPOINT_MIN 0.3 while
+  the box around them enters at 0.30 and leaves at 0.22. One ear decaying
+  across 0.3 changes the head mean from `{nose, eye}` to
+  `{nose, eye, ear}` — 0.3-0.5 headW of movement with nobody moving — and
+  flips `headW`'s rung from shoulder-derived to ear-derived, tens of
+  percent in one pass. That matters twice: `headW` sets **sameHuman's
+  merge tolerance**, so the bar itself was a square wave, and since S8
+  `headH` sets the patch's **top edge** through `topPad`. The head
+  keypoints and the shoulders are all inside UNION_KEYPOINT_MAX, so the
+  union loop has already decided their hysteresed membership — reused,
+  rather than a second rule that could disagree with the box.
+  **Deliberately NOT applied to admission**: holding a decayed ear there
+  would admit a person the gate meant to refuse. dedupeHeadSplit 131 ->
+  127 over the same window.
+
+  **SEGMENTATION COST, MEASURED (target 4, owner asked whether it is even
+  allowed — it is).** MediaPipe Selfie Segmentation, Apache-2.0, tfjs
+  graph model, 332,432 bytes, handed to the page over the debug channel so
+  the shipped bundle does not grow for a spike (`spikes/gauntlet/segcost.py`,
+  `__TS_GAZE_SEG_SPIKE` in detector.js). Desktop WebView2, RTX 3060 Ti,
+  live 1080p video, including the full `[256,256,2]` download:
+
+  | | |
+  |---|---|
+  | first inference (shader compile) | **2820ms** |
+  | p50 / p90 / max after warm-up | **18.9 / 47.4 / 55.7 ms** |
+  | load from base64 | 5.9ms |
+  | input | FIXED at 256x256 — 128 is rejected by the graph |
+
+  **Against the pass budget measured the same session** (stage marks now
+  in the pipeline, p50, cumulative): a VERDICT pass is 102ms — MoveNet 23,
+  full-frame faces +12, **per-person crops + gender +64**, tracks and
+  render ~0. A POSITION pass is 25ms, all MoveNet. So segmentation is
+  **+18% on a verdict pass and +75% on a position pass** on a desktop GPU,
+  and it CANNOT replace the 64ms crop stage because identity still has to
+  come from faces and gender. It is a box-tightener, nothing more, and
+  that is now a number rather than a hope. The 2.8s first inference also
+  means it cannot be loaded lazily mid-video without a visible stall.
+
+  **THE TWO FRAMES THAT NAME "LINUS STILL GETS BLURD SOMETIMES".** Gate
+  run, man, t=890, 8 frames, every one read. EXPOSURE 0, GHOST 0,
+  PARTIAL 0. But FALSE COVER on two frames, with two DIFFERENT mechanisms,
+  and both are frame-backed for the first time:
+  - **f002 — verdict flicker.** Track 6 is `cleared` at f001, `blurred` at
+    f002, `cleared` again at f003, with the track-id set unchanged and the
+    man reading male s=0.63 on that very pass. The round's critic measured
+    this class independently at **0.17/s in the man direction against
+    0.06/s for merge churn** — i.e. in the owner's own mode, verdict
+    flicker is THREE TIMES the merge problem, and it is the thing nothing
+    this round touched.
+  - **f007 — merge over-reach from a duplicate identity.** Three tracks
+    (6 cleared, 7 and 10 blurred) on two humans; `mergeTracks` unions 7
+    and 10 into a patch spanning 0.30-1.03 which swallows the cleared man
+    entirely. His OWN track is correct; the union is what covers him.
+
+  **The critic's structural finding behind f007, measured over the stored
+  traces:** the tracker carries **3-4 tracks on a two-person scene in 16%
+  of samples** (tracks=3/patches=1 in 122 of 866), and `mergeTracks` is
+  HIDING that, not preventing it. Patch count reads stable because a hard
+  union collapses duplicates to one rectangle; every duplicate is one
+  noisy pass from drawing itself, and when the union is what draws, it
+  over-reaches onto a cleared neighbour. **89% of coexisting patch pairs
+  overlap without merging, at a criterion p50 of 0.64 of its own bar (man)
+  and 0.86 (woman).**
+
+  **NOT verified against a before-build at the same window**, so I cannot
+  call these two FALSE COVERs new or old from measurement. By construction
+  neither is reachable from this diff: verdict flicker needs no geometry
+  change, and `mergeTracks`' union rule is untouched. Stated as a limit,
+  not a claim.
+
+  **ALSO SHIPPED, off-round, owner named it with a phone screenshot** ("on
+  selection it shows the blue thing at many places making it feel
+  unpolished"): Android's WebView paints a translucent teal rectangle
+  behind every tapped element. The launcher has killed this since the #10
+  polish pass; platform pages never did, because the injected CSS only
+  ever carried rules and blur. `chrome_css()` in lib.rs now ships
+  `-webkit-tap-highlight-color: transparent` on every platform page in
+  every mode, with a test across four host/mode combinations. Verified
+  live on the dev app: the rule is in the injected sheet and a button
+  computes `rgba(0, 0, 0, 0)`. **That is a computed-style proof, not a
+  pixel proof, and the symptom is Android-only** — it needs an APK on the
+  emulator to photograph, which is the exact gap S7 was written about.
+
+  **INSTRUMENTATION LEFT FOR THE NEXT ROUND** (both settle a question
+  rather than guess at it): `stability.py` now records each track's STATE
+  and each overlay's `__tsKey` per sample, so the f002 class is attributed
+  DIRECTLY instead of by elimination; and the verdict pass carries stage
+  marks (`upload`/`persons`/`fullFaces`/`crops`/`tracks`/`end`) in
+  `__TS_GAZE_IDS.stages`, which is where the 64ms crop figure came from.
+
+  **Still open, re-ranked by the evidence above:** (1) **verdict flicker**
+  — 0.17/s in the man direction, three times the merge churn, and now with
+  a frame behind it. (2) **duplicate identities** — 3-4 tracks on 2
+  humans, 16% of samples; f007 is what happens when the union draws. Fix
+  at association, not at rendering. (3) the shrink damper: sign
+  persistence over step magnitude, with ONE probe (per-track per-pass
+  `{wObs, hObs, wTrack, dt, fromFace, cut}`) that settles both proposals
+  before either is built — a magnitude gate is wrong on a genuine fast
+  shrink (zoom-out, walk-away) where the identity check stays silent, and
+  it self-feeds if measured against the damped track instead of between
+  consecutive observations. (4) `cover_life_p50` measures coverage
+  EPISODES, not patch lifetimes — ~15 heavy-tailed samples per run, which
+  is why it reads 1.03 and 7.67 on the same behaviour; replace with a
+  greedy-IoU patch life and report births/deaths per second. (5) `jitter`
+  and `breathe` skip every interval where the count changed, so the two
+  headline geometry metrics are blind BY CONSTRUCTION to exactly the
+  births and deaths the owner described. (6) `clearedHeadHoles` still has
+  no ownership test, and with duplicate identities a cleared duplicate can
+  punch a sharp window into its twin's patch. (7) the compound-blur seam
+  between overlapping sibling patches, named in S3 and still unmeasured,
+  at 72-238 overlapping pairs per run.

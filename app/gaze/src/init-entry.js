@@ -1520,7 +1520,20 @@ import { planForMode } from './pipeline-plan.mjs';
           // directPersonOk false the person pass reads a 256px ImageData
           // and the face pass reads the video, which are different pixels
           // and must stay two uploads.
+          // STAGE TIMING (measurement only). The verdict pass is p50
+          // 109ms on this desktop against a position pass at 27ms, and
+          // every optimisation proposal so far has guessed at where that
+          // goes. Marks are cheap (performance.now), guarded, and never
+          // touch control flow.
+          var stageT0 = performance.now();
+          var stage = {};
+          function mark(name) {
+            try {
+              stage[name] = Math.round(performance.now() - stageT0);
+            } catch (e) {}
+          }
           var sharedFrame = directPersonOk ? detector.uploadFrame(video) : null;
+          mark('upload');
           var frameDone = false;
           var releaseFrame = function () {
             if (frameDone) return;
@@ -1537,6 +1550,7 @@ import { planForMode } from './pipeline-plan.mjs';
               sharedFrame
             )
             .then(function (persons) {
+              mark('persons');
               // Probe-visible pass marker (verification probes read this).
               window.__TS_GAZE_PERSONS = persons.length;
               // Hysteresis input for the NEXT pass. Stamped from the
@@ -1642,6 +1656,7 @@ import { planForMode } from './pipeline-plan.mjs';
                   directPersonOk ? sharedFrame : null
                 )
                 .then(function (faces) {
+                  mark('fullFaces');
                   var extra = [];
                   // TILE-RECALL PROBE — measurement only, off unless the
                   // harness sets the flag, and it never touches `extra`,
@@ -1864,6 +1879,7 @@ import { planForMode } from './pipeline-plan.mjs';
                 });
             })
             .then(function (observations) {
+              mark('crops');
               if (failed || dead) return;
               // Discontinuity landed while this pass was in flight:
               // these observations describe a frame that no longer
@@ -1951,6 +1967,7 @@ import { planForMode } from './pipeline-plan.mjs';
                 /* probes never break the pipeline */
               }
               videoTracks = updatePersonTracks(videoTracks, observations, dt);
+              mark('tracks');
               // Calibration probe: per-track state after every pass, so
               // a "why is he not clearing" question is answered by
               // measurement instead of a guess.
@@ -2041,6 +2058,14 @@ import { planForMode } from './pipeline-plan.mjs';
               console.warn('tamescroll gaze: person pass failed', e);
             })
             .finally(function () {
+              mark('end');
+              try {
+                var dbgSt = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+                if (!dbgSt.stages) dbgSt.stages = [];
+                stage.v = wasVerdict ? 1 : 0;
+                dbgSt.stages.push(stage);
+                if (dbgSt.stages.length > 120) dbgSt.stages.shift();
+              } catch (e) {}
               var cost = performance.now() - now;
               if (wasVerdict) lastVerdictMs = cost;
               else lastPassMs = cost;

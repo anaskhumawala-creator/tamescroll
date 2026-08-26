@@ -346,8 +346,25 @@ fn surfaces_css(platform_id: &str, shown: &[String]) -> String {
 /// always, our own surfaces next (minus whatever the user chose to show),
 /// Stage A blur appended last (same stylesheet, no separate style
 /// element) only when the launcher toggle is on.
+/// Android's WebView paints a translucent teal rectangle behind every
+/// tapped element. Owner, 2026-08-26, with a phone screenshot of
+/// m.youtube's search button wearing one: "on selection it shows the
+/// blue thing at many places making it feel unpolished".
+///
+/// The launcher has killed this since the #10 polish pass
+/// (app/src/styles.css) — platform pages never did, because our injected
+/// CSS only ever carried rules and blur. It is purely visual feedback the
+/// sites already replace with their own ripples, so removing it takes
+/// nothing away, and it is desktop-inert (the property does nothing in
+/// WebView2).
+fn chrome_css() -> &'static str {
+    "* { -webkit-tap-highlight-color: transparent !important; }
+"
+}
+
 fn page_css(url: &str, platform_id: &str, blur: bool, shown: &[String]) -> String {
     let mut css = cosmetic_css(url);
+    css.push_str(chrome_css());
     css.push_str(&surfaces_css(platform_id, shown));
     if blur {
         css.push_str(&blur_vars_css(blur_px()));
@@ -1409,6 +1426,29 @@ mod tests {
         let on = page_css("https://www.youtube.com/", "youtube", true, &[]);
         assert!(!off.contains("blur("), "blur css must be absent when off");
         assert!(on.contains("blur("), "blur css must be present when on");
+    }
+
+    /// The Android tap highlight must be killed on EVERY platform page,
+    /// in every mode — the owner's screenshot was m.youtube with blur on,
+    /// but the teal rectangle is a WebView default and appears wherever a
+    /// page is tapped, so a rule that only ships in one mode or on one
+    /// platform would leave it visible somewhere.
+    #[test]
+    fn tap_highlight_is_killed_on_every_platform_page() {
+        for (url, id) in [
+            ("https://www.youtube.com/", "youtube"),
+            ("https://m.youtube.com/", "youtube"),
+            ("https://www.reddit.com/", "reddit"),
+            ("https://x.com/home", "x"),
+        ] {
+            for blur in [false, true] {
+                let css = page_css(url, id, blur, &[]);
+                assert!(
+                    css.contains("-webkit-tap-highlight-color: transparent"),
+                    "tap highlight override missing for {id} blur={blur}"
+                );
+            }
+        }
     }
 
     /// Bring-back settings (docs/plan.md Phase 3): showing one surface

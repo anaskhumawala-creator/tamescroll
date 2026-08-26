@@ -664,12 +664,53 @@ export function setTracks(video, tracks) {
     if (k) byKey[k] = i;
   }
   var used = new Array(entry.overlays.length).fill(false);
+  // Keys some LATER track will claim exactly. Adoption must never steal
+  // a node out from under an exact match, or two patches trade places
+  // every time the merge set changes.
+  var claimedKeys = {};
+  for (var ck = 0; ck < tracks.length; ck++) {
+    if (tracks[ck].key && byKey[tracks[ck].key] !== undefined) claimedKeys[tracks[ck].key] = 1;
+  }
   for (var b = 0; b < tracks.length; b++) {
     var key = tracks[b].key;
     var idx = key && byKey[key] !== undefined && !used[byKey[key]] ? byKey[key] : -1;
     if (idx === -1) {
       // Positional fallback for keyless tracks (setBoxes shim).
       if (!key && b < entry.overlays.length && !used[b]) idx = b;
+    }
+    // ADOPT THE NODE WHEN THE KEY CHANGES BUT THE PEOPLE DID NOT.
+    //
+    // Keys are '+'-joined track ids, so a merge, an unmerge, or a
+    // re-ordered group all produce a DIFFERENT string for the same
+    // humans. Treated as a new key that costs a destroy-and-rebuild, and
+    // a rebuild pushes `null` below -- and lerpRect(null, to) returns the
+    // target outright, the ONE path in this renderer that skips both
+    // SHRINK_DEADBAND and SHRINK_LERP. Unmerging '7+9' into '7' then
+    // drops the drawn rect from the UNION of two boxes to one box in a
+    // single frame: the largest step this renderer can produce, at an
+    // UNCHANGED patch count, so dCount and stable_frac record nothing.
+    //
+    // So: if no exact key matched, adopt the unused overlay sharing the
+    // most member ids. That keeps the node (and with it __tsW/__tsH/
+    // __tsTf, the compositing layer and the backdrop snapshot) and keeps
+    // its rendered rect, so the change GLIDES through the damper like any
+    // other size change. Inheriting a union rect can only ever start the
+    // patch too LARGE and shrink it, which cannot expose anyone.
+    if (idx === -1 && key) {
+      var want = memberSet(key);
+      var bestIdx = -1;
+      var bestShare = 0;
+      for (var c = 0; c < entry.overlays.length; c++) {
+        if (used[c]) continue;
+        var have = entry.overlays[c].__tsKey;
+        if (!have || claimedKeys[have]) continue;
+        var share = shareCount(want, have);
+        if (share > bestShare) {
+          bestShare = share;
+          bestIdx = c;
+        }
+      }
+      if (bestIdx !== -1) idx = bestIdx;
     }
     if (idx !== -1) {
       used[idx] = true;
@@ -695,6 +736,22 @@ export function setTracks(video, tracks) {
   reposition(entry, entry.at);
   if (!entry.raf) loop(video);
   return true;
+}
+
+/** Track ids inside a merged key, as a lookup. */
+export function memberSet(key) {
+  var out = {};
+  var parts = String(key || '').split('+');
+  for (var i = 0; i < parts.length; i++) if (parts[i]) out[parts[i]] = 1;
+  return out;
+}
+
+/** How many track ids two keys have in common. */
+export function shareCount(want, key) {
+  var parts = String(key || '').split('+');
+  var n = 0;
+  for (var i = 0; i < parts.length; i++) if (parts[i] && want[parts[i]]) n++;
+  return n;
 }
 
 /** Back-compat shim: static boxes = tracks with zero velocity. */

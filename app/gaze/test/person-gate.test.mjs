@@ -701,3 +701,55 @@ test('union hysteresis state rides the per-video channel, not module state', () 
   assert.ok(held[0].y2 > coldAgain[0].y2,
     'the held pass must reach further than the cold one');
 });
+
+// S9/F6b: headX/headW steer sameHuman's merge TOLERANCE and, since S8,
+// the patch's top edge. S5 gave the box hysteresis and left these on a
+// hard 0.3, so one ear decaying across the threshold moved headX by a
+// third of a head and flipped headW's rung by tens of percent with the
+// subject stationary.
+test('head geometry holds a decaying ear, so headX and headW do not step', () => {
+  function pass(earScore, held) {
+    const data = new Float32Array(6 * 56);
+    setBox(data, 0, 0.1, 0.10, 0.6, 0.30, 0.5);
+    upperBody(data, 0, 0.20, 0.30, 0.05);
+    // Ears set wider than upperBody's default so the ear rung (span
+    // 0.08) is distinguishable from the eye rung (gap 0.02 x 2.5 = 0.05)
+    // -- with the default geometry both rungs return the same number and
+    // the test could not tell a held ear from a dropped one.
+    setKp(data, 0, 3, 0.30, 0.20 - 0.04, 0.9);
+    // Right ear decays; everything else is rock steady.
+    setKp(data, 0, 4, 0.30, 0.20 + 0.04, earScore);
+    return parsePersons(data, undefined, undefined, held);
+  }
+  const strong = pass(0.9, null);
+  assert.equal(strong.length, 1);
+  // 0.25 is below PERSON_KEYPOINT_MIN 0.30 but above the exit 0.22, so
+  // with continuity the ear is HELD and the geometry does not move.
+  const held = pass(0.25, strong);
+  assert.equal(held.length, 1);
+  assert.ok(
+    Math.abs(held[0].headX - strong[0].headX) < 1e-6,
+    `headX stepped ${strong[0].headX} -> ${held[0].headX}`
+  );
+  assert.ok(
+    Math.abs(held[0].headW - strong[0].headW) < 1e-6,
+    `headW stepped ${strong[0].headW} -> ${held[0].headW}`
+  );
+  // Below the exit threshold it really does leave, so this is hysteresis
+  // and not a keypoint that can never expire.
+  const gone = pass(0.05, held);
+  assert.ok(Math.abs(gone[0].headW - strong[0].headW) > 1e-6);
+});
+
+test('head geometry with no continuity behaves exactly as a cold start', () => {
+  const data = new Float32Array(6 * 56);
+  setBox(data, 0, 0.1, 0.10, 0.6, 0.30, 0.5);
+  upperBody(data, 0, 0.20, 0.30, 0.05);
+  setKp(data, 0, 3, 0.30, 0.16, 0.9);
+  setKp(data, 0, 4, 0.30, 0.24, 0.25);
+  const cold = parsePersons(data, undefined, undefined, null);
+  assert.equal(cold.length, 1);
+  // Ear below PERSON_KEYPOINT_MIN and nothing held: eye rung (0.05),
+  // not the ear span (0.08).
+  assert.ok(Math.abs(cold[0].headW - 0.05) < 1e-6, `headW ${cold[0].headW}`);
+});

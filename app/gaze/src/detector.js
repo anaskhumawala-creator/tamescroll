@@ -78,6 +78,67 @@ function embeddedIoHandler(modelJson, weightsB64) {
 
 var ioHandler = embeddedIoHandler(MODEL_JSON, MODEL_WEIGHTS_B64);
 
+// SEGMENTATION COST SPIKE (owner ask, target 4 of the stability round).
+// Measurement only, and deliberately NOT wired into any pipeline: the
+// instruction is to get the NUMBER before building on it. The model is
+// handed in as base64 over the debug channel rather than embedded,
+// because embedding it would grow the shipped bundle for a spike, and
+// the platform CSPs forbid fetching it at runtime. Guarded and wrapped:
+// instrumentation must never be able to throw inside the pipeline.
+try {
+  if (typeof window !== 'undefined') {
+    window.__TS_GAZE_SEG_SPIKE = async function (modelJsonStr, weightsB64, opts) {
+      try {
+        var o = opts || {};
+        var size = o.size || 256;
+        var iters = o.iters || 30;
+        await initBackend();
+        var t0 = (typeof performance !== 'undefined' ? performance : Date).now();
+        var m = await tfconv.loadGraphModel(embeddedIoHandler(JSON.parse(modelJsonStr), weightsB64));
+        var loadMs = (typeof performance !== 'undefined' ? performance : Date).now() - t0;
+        var video = document.querySelector('video');
+        if (!video) return { error: 'no video element' };
+        var warm = [];
+        var runs = [];
+        for (var i = 0; i < iters; i++) {
+          var a = (typeof performance !== 'undefined' ? performance : Date).now();
+          var res = tf.tidy(function () {
+            var img = tf.browser.fromPixels(video);
+            var r = tf.image.resizeBilinear(tf.expandDims(img, 0), [size, size]);
+            return m.execute(tf.div(tf.cast(r, 'float32'), 255));
+          });
+          // The download is the honest half of the cost -- a mask that
+          // never leaves the GPU cannot be intersected with a track box
+          // in JS, and every consumer we would build needs the pixels.
+          var data = await res.data();
+          tf.dispose(res);
+          var b = (typeof performance !== 'undefined' ? performance : Date).now();
+          (i < 5 ? warm : runs).push(+(b - a).toFixed(2));
+          if (i === iters - 1) warm.push(data.length);
+        }
+        runs.sort(function (x, y) { return x - y; });
+        m.dispose();
+        return {
+          loadMs: +loadMs.toFixed(1),
+          size: size,
+          iters: runs.length,
+          warmup: warm.slice(0, 5),
+          p50: runs[Math.floor(runs.length * 0.5)],
+          p90: runs[Math.floor(runs.length * 0.9)],
+          min: runs[0],
+          max: runs[runs.length - 1],
+          backend: tf.getBackend(),
+          mem: tf.memory().numTensors,
+        };
+      } catch (e) {
+        return { error: String((e && e.message) || e) };
+      }
+    };
+  }
+} catch (e) {
+  /* no window (tests) */
+}
+
 /** Picks WebGL, falls back to CPU. Throws if both fail. Idempotent:
  * every model loader awaits this, because NSFW-only modes (compulsory
  * tier in off/blur-all) load the classifier WITHOUT loadModel() —

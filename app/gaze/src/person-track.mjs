@@ -1553,6 +1553,36 @@ function overlaps(a, b) {
   return iou(a, b) >= MERGE_IOU_MIN || containment(a, b) >= MERGE_CONTAIN_MIN;
 }
 
+// THE KEY IS THE OVERLAY'S IDENTITY, so it must depend on WHICH tracks
+// merged and never on the order they merged in. Sorting the two COMPOSITE
+// strings does not do that once a group has three members: merging 7 and
+// 9 first gives "7+9", then "12+7+9"; merging 12 and 9 first gives
+// "12+9", then "12+9+7". Same three tracks, two different keys.
+//
+// That matters because setTracks keys the DOM node by this string, so a
+// permutation destroys and rebuilds the overlay -- and lerpRect(null, to)
+// returns the target outright, the ONLY path in the renderer that skips
+// both SHRINK_DEADBAND and SHRINK_LERP. The result is the largest
+// single-frame size step the renderer can produce, with the patch COUNT
+// unchanged, so dCount and stable_frac record nothing at all.
+//
+// The merge order really does permute: updatePersonTracks rebuilds its
+// list matched-then-coasted-then-new in IoU-descending order, and
+// person-gate documents MoveNet's slot order permuting independently.
+// Flatten to member ids, sort those, dedupe.
+export function mergedKey(a, b) {
+  var parts = String(a || '').split('+').concat(String(b || '').split('+'));
+  var seen = {};
+  var out = [];
+  for (var i = 0; i < parts.length; i++) {
+    var pkey = parts[i];
+    if (!pkey || seen[pkey]) continue;
+    seen[pkey] = 1;
+    out.push(pkey);
+  }
+  return out.sort().join('+');
+}
+
 export function mergeTracks(list) {
   var merged = list.slice();
   var changed = true;
@@ -1564,7 +1594,7 @@ export function mergeTracks(list) {
         var a = merged[i];
         var b = merged[j];
         merged[i] = {
-          key: [a.key, b.key].filter(Boolean).sort().join('+'),
+          key: mergedKey(a.key, b.key),
           box: {
             x1: Math.min(a.box.x1, b.box.x1),
             y1: Math.min(a.box.y1, b.box.y1),

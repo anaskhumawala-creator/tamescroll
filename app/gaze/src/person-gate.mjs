@@ -572,15 +572,44 @@ export function parsePersons(data, minScore, aspect, held) {
     // well-posed question -- see sameHuman in person-track.mjs.
     var headWOut = null;
     var headHOut = null;
+    // THE HEAD GEOMETRY GETS THE SAME HYSTERESIS THE BOX ALREADY HAS.
+    //
+    // S5 put hysteresis on the union gate and left it off these fields,
+    // and they are read by two things that both show it. `headX`/`headW`
+    // set sameHuman's merge TOLERANCE (person-track.mjs:397), so the bar
+    // itself square-waves; and since S8 `headH` sets the patch's top edge
+    // through topPad. One ear crossing 0.3 changes the mean over
+    // {nose, eye} into a mean over {nose, eye, ear} -- 0.3-0.5 headW of
+    // headX movement with nobody moving -- and flips headW's rung from
+    // shoulder-derived to ear-derived, tens of percent in one pass.
+    //
+    // Head indices 0..R_EAR and the shoulders are all inside
+    // UNION_KEYPOINT_MAX, so the union loop above has ALREADY decided
+    // their hysteresed membership; reuse it rather than run a second
+    // rule that could disagree with the box.
+    //
+    // Deliberately NOT applied to `head`/`bothShoulders` above: those
+    // drive ADMISSION, and holding a decayed ear in there would admit a
+    // person the gate meant to refuse. This block is geometry only, and
+    // geometry only ever sizes a patch we have already decided to draw.
+    function heldIn(idx) {
+      var row = unionNow[o];
+      return !!(row && row[idx]);
+    }
+    var headGeo = [];
+    for (var hg = 0; hg <= R_EAR; hg++) {
+      if (heldIn(hg)) headGeo.push(kp(data, o, hg));
+    }
+    if (!headGeo.length) headGeo = head;
     if (head.length) {
       hx = 0;
       hy = 0;
-      for (var i = 0; i < head.length; i++) {
-        hx += head[i].x;
-        hy += head[i].y;
+      for (var i = 0; i < headGeo.length; i++) {
+        hx += headGeo[i].x;
+        hy += headGeo[i].y;
       }
-      hx /= head.length;
-      hy /= head.length;
+      hx /= headGeo.length;
+      hy /= headGeo.length;
       // Head WIDTH in normalized-x: ear span, else eye gap x2.5, else
       // 60% of shoulder span, else a floor.
       var le = kp(data, o, L_EAR);
@@ -588,11 +617,11 @@ export function parsePersons(data, minScore, aspect, held) {
       var ly = kp(data, o, L_EYE);
       var ry = kp(data, o, R_EYE);
       var headW = 0;
-      if (le.s >= PERSON_KEYPOINT_MIN && re.s >= PERSON_KEYPOINT_MIN) {
+      if (heldIn(L_EAR) && heldIn(R_EAR)) {
         headW = Math.abs(le.x - re.x);
-      } else if (ly.s >= PERSON_KEYPOINT_MIN && ry.s >= PERSON_KEYPOINT_MIN) {
+      } else if (heldIn(L_EYE) && heldIn(R_EYE)) {
         headW = Math.abs(ly.x - ry.x) * 2.5;
-      } else if (bothShoulders) {
+      } else if (heldIn(L_SHOULDER) && heldIn(R_SHOULDER)) {
         headW = Math.abs(ls.x - rs.x) * 0.6;
       }
       headW = Math.max(headW, 0.04);
