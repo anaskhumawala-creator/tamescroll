@@ -1,7 +1,7 @@
 {
-  "versionCode": 1017,
-  "versionName": "0.1.17",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.17/tamescroll-v0.1.17.apk",
-  "sha256": "ce3d3d59265933040597ca100e778a9eb585c4c546f9764dfa825b4ac849ad3a",
-  "notes": "Soft gradient blur edges, union hysteresis, asymmetric size smoothing."
+  "versionCode": 1018,
+  "versionName": "0.1.18",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.18/tamescroll-v0.1.18.apk",
+  "sha256": "76f2200189942eadedae7f4d29c58b86c3b7db4b706fe0750c58d346ac4a786c",
+  "notes": "Blur patches are solid: no face cutouts, no split pieces."
 }
