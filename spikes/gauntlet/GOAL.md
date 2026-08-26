@@ -3714,3 +3714,28 @@ analysis.
   pixel test in the real WebView. Segmentation as a box-tightener. And
   the whole stability story is still desktop-only — no number on this
   project has ever come from the owner's Helio G88.
+
+  **RE-VERIFIED on a freshly built dev app** (the previous binary was an
+  ORPHAN — `app.exe` was alive with no `cargo`/`tauri dev` watcher behind
+  it, so `touch lib.rs` had rebuilt nothing for who knows how long. A
+  relaunch then failed silently on `Port 1420 is already in use` from a
+  vite left over from the previous day. Check for the WATCHER, not just
+  the app.) man t=890 45s: patches mean 0.85 / max 2, dCount **0.31/s**,
+  stable_frac **96.8%**, cover life p50 7.83s. Paired against S2 over the
+  same 46 buckets: 7 fewer, 5 more, 34 identical, mean delta -0.013 —
+  i.e. **geometry-neutral, which is exactly the claim**: these were render
+  fixes and they must not move what is covered.
+
+  Frames read directly (man t=901): f003 = ONE blurred patch with a sharp
+  rectangular window over the cleared man's face, no internal seam, the
+  second man at frame left fully sharp. f006 = a close-up filling the
+  frame, 88.4% covered and correct, the cleared man still sharp at the
+  edge. f008 = man alone, zero patches, entirely sharp. EXPOSURE 0,
+  GHOST 0. cargo 36/36.
+
+  **A limitation in the harness worth knowing before quoting a coverage
+  number:** `gauntlet.py`'s probe reads overlay RECTS from the DOM and has
+  no idea holes exist, so every coverage percentage in this section --
+  S2's included -- counts a hole as covered. The figures compare to each
+  other; they overstate the truth by the hole area.
+
