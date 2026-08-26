@@ -450,6 +450,35 @@ export function parsePersons(data, minScore, aspect, held) {
       kb: kbits,
       hk: Math.round(hk * 100) / 100,
       sk: Math.round(sk * 100) / 100,
+      // R28 PROBE — the three rungs of the headW ladder, measured side
+      // by side on the SAME slot whenever more than one is computable.
+      // R27's critic priced the shoulder rung as ~56% too large against
+      // anthropometry (biacromial breadth ~2.6 head breadths => ~0.38,
+      // not 0.6) and it is the rung that arms exactly when a head turns
+      // — i.e. when someone leans in front of someone else. A constant
+      // is not changed on a textbook: this records the ratio against
+      // the ear-derived rung on our own footage so it can be derived
+      // from its own input. Raw confidences, not the hysteresed union:
+      // the question is about the geometry the model reports, and the
+      // union's decay would smear the pairing.
+      // Cost: six reads and two subtractions per slot, no inference.
+      hwE:
+        data[o + L_EAR * 3 + 2] >= PERSON_KEYPOINT_MIN &&
+        data[o + R_EAR * 3 + 2] >= PERSON_KEYPOINT_MIN
+          ? Math.round(Math.abs(data[o + L_EAR * 3 + 1] - data[o + R_EAR * 3 + 1]) * 1000) / 1000
+          : null,
+      hwY:
+        data[o + L_EYE * 3 + 2] >= PERSON_KEYPOINT_MIN &&
+        data[o + R_EYE * 3 + 2] >= PERSON_KEYPOINT_MIN
+          ? Math.round(Math.abs(data[o + L_EYE * 3 + 1] - data[o + R_EYE * 3 + 1]) * 1000) / 1000
+          : null,
+      hwS:
+        data[o + L_SHOULDER * 3 + 2] >= PERSON_KEYPOINT_MIN &&
+        data[o + R_SHOULDER * 3 + 2] >= PERSON_KEYPOINT_MIN
+          ? Math.round(
+              Math.abs(data[o + L_SHOULDER * 3 + 1] - data[o + R_SHOULDER * 3 + 1]) * 1000
+            ) / 1000
+          : null,
       // Keypoint hull, or null when no keypoint is confident (which is
       // itself the answer: the box is then the model's alone).
       k: confident
@@ -729,6 +758,42 @@ export function parsePersons(data, minScore, aspect, held) {
       hy /= headGeo.length;
       // Head WIDTH in normalized-x: ear span, else eye gap x2.5, else
       // 60% of shoulder span, else a floor.
+      //
+      // THE THREE RUNGS DISAGREE, AND R28 FINALLY MEASURED BY HOW MUCH.
+      // R27's critic priced the shoulder rung against anthropometry
+      // (biacromial breadth ~2.6 head breadths => ~0.38, not 0.6) and
+      // R27 refused to change it blind. The R28 probe records all three
+      // rungs on the SAME slot whenever more than one is computable; over
+      // 220 paired records from two videos and four subjects (TED
+      // speaker, adult man, adult woman, child), across 8 runs and both
+      // gender directions:
+      //
+      //   hwS / hwE      p05 1.33  p25 1.80  p50 2.01  p75 2.13  p95 2.52
+      //   hwY*2.5 / hwE  p25 1.15  p50 1.21  p75 1.25   (n = 332)
+      //
+      // and the p50 is stable per run at 1.94-2.08, so it is not one
+      // subject's proportions. Our own footage therefore puts the
+      // shoulder factor at 0.6 / 2.01 = 0.299 (anthropometry said ~0.38;
+      // both agree 0.6 is about twice too large) and the eye factor at
+      // 2.5 / 1.21 = 2.07.
+      //
+      // THE CONSTANTS ARE DELIBERATELY NOT CHANGED HERE, and this is the
+      // reason so the next round does not re-litigate it: `headW` is not
+      // only crop geometry. It is `sameHuman`'s merge TOLERANCE
+      // (person-track.mjs), whose failure mode when it shrinks is two
+      // tracks for one person and stacked patches -- and R19 scored the
+      // other side of that bar as EXPOSURE. It also sets the patch's top
+      // edge through topPad, where under-reading uncovers a crown. A
+      // 2x change to a value with three consumers, justified by the needs
+      // of one of them, is how a round trades its worst class for its
+      // least-bad one.
+      //
+      // The consumer that actually needed a truthful head size is the
+      // CROP, and it now gets one at the crop site: headCropRegion floors
+      // its side against the person's raw box HEIGHT, which no rotation
+      // and no rung disagreement can move. Anyone re-opening the
+      // constants owes the other two consumers their own measurement
+      // first.
       var le = kp(data, o, L_EAR);
       var re = kp(data, o, R_EAR);
       var ly = kp(data, o, L_EYE);
@@ -1294,8 +1359,122 @@ export function cropAnchor(p) {
  * fills the model input here instead of being a handful of pixels in
  * the full frame.
  */
+export var HEAD_CROP_HALF_WIDTHS = 1.5; // head crop = 3 head-widths, square in NATIVE px
+
+/**
+ * The head-anchored crop, or null when this person has no head anchor.
+ *
+ * WHY THE BODY BOX CANNOT BE THE FACE CROP FOR A STANDING PERSON (R28).
+ *
+ * R26 tightened `cropAnchor` from the inflated patch to the raw MoveNet
+ * box and measured the win on a classroom of small SEATED boxes. It did
+ * nothing for the regime this round scored, because the raw box of a
+ * person STANDING UP is still 7-8 head-heights tall, and two multiplies
+ * downstream turn that into an unreadable face:
+ *
+ *   cropPersonPixels scales by 224 / max(sw, sh)  (init-entry.js)
+ *   detectFaceBoxes  resizes that to a SQUARE 256 (detector.js:426)
+ *
+ * MEASURED, runs/r28a-woman (eVFzbxmKNUw t=270, one woman on a stage):
+ * her raw box on the wide shots is ~0.20 x 0.85 of frame = 384 x 918
+ * native px. The first multiply makes it 94 x 224; the second stretches
+ * x by 2.72 and y by 1.14. Her ~86px native face reaches BlazeFace as
+ * roughly a 57 x 24 smear, and the detector returns NOTHING:
+ * `personNoFace` fired 29 times in the 6.1s those wide shots lasted,
+ * `readClearCertain` fired ZERO times, and in `woman` mode she was
+ * therefore FALSE COVERED on every one of those frames. The instant the
+ * shot cut to chest-up the same pipeline read her 4-6 times per frame.
+ *
+ * So the face pass gets a HEAD-shaped region. Nothing drawn changes --
+ * `obs.box` is still the patch built by parsePersons -- so EXPOSURE,
+ * PARTIAL, GHOST and DRIFT are unreachable from this diff by
+ * construction, exactly as R26 argued for its own crop change. It is
+ * also CHEAPER: same inference count, same 256 input, a much smaller
+ * createImageBitmap resize.
+ *
+ * The multiple is 3x, the same `FACE_CROP_HALF_WIDTHS` convention the
+ * synthetic-body crop has used since R26, and it is bounded on both
+ * sides: headW carries a 0.04 floor in parsePersons, so the crop can
+ * never collapse below 0.12 of frame width even when the eye rung
+ * under-reads a turned head.
+ *
+ * Null, not a guess, when there is no head anchor: a back-turned person
+ * has no head keypoints at all, and the caller keeps today's body crop
+ * for them rather than inventing a head position.
+ */
+export function headCropRegion(p) {
+  if (!p) return null;
+  var hx = p.headX;
+  var hy = p.headY;
+  var hw = p.headW;
+  var hh = p.headH;
+  if (typeof hx !== 'number' || typeof hy !== 'number') return null;
+  if (!(hw > 0) || !(hh > 0)) return null;
+  var ar = hh / hw; // headH is headW * aspect by construction
+
+  // THE RUNGS ARE HORIZONTAL PROJECTIONS, SO YAW SHRINKS THEM (R28
+  // critic F1). Ear span and eye gap both measure ACROSS the face, so a
+  // head turned to 70 degrees reports about a third of its true breadth
+  // while the head itself has not changed size; below that the 0.04
+  // floor in parsePersons takes over and the crop can end up SMALLER
+  // than the head it is meant to deliver. Measured on this round's own
+  // probe (runs/r28*, 94 slot records carrying both rungs), the shoulder
+  // rung reads 2.03x the ear rung at p50 -- the two disagree by a factor
+  // of two even on a mostly-frontal subject, which is the same
+  // instability seen from the other side.
+  //
+  // So the crop side has a floor that no rotation can touch: the
+  // person's own raw box HEIGHT. A standing adult is ~7.5 head-heights,
+  // so 3 head-heights of crop is 0.4 of the body box, and taking the
+  // larger of the two can only ever ENLARGE a crop that a collapsed rung
+  // made too small. It never shrinks one, so it cannot re-introduce the
+  // stretch this function exists to remove.
+  var ay = hh * HEAD_CROP_HALF_WIDTHS;
+  var r = p.raw;
+  if (r && r.length === 4 && r[3] > r[1]) {
+    var bodyFloor = (r[3] - r[1]) * 0.2; // half of 0.4 body-heights
+    if (bodyFloor > ay) ay = bodyFloor;
+  }
+  var ax = ay / ar;
+
+  // SLIDE, THEN CLAMP (R28 critic F2). Clamping an edge at the frame
+  // border used to halve one axis and hand the detector back exactly the
+  // anisotropy this crop exists to remove -- and it fires on nearly
+  // every close-up, because the head sits well inside 1.5 head-heights
+  // of the top of frame. Sliding the window keeps it square whenever a
+  // square of that size fits in the frame at all.
+  var x1 = hx - ax;
+  var x2 = hx + ax;
+  var y1 = hy - ay;
+  var y2 = hy + ay;
+  if (x1 < 0) { x2 -= x1; x1 = 0; }
+  if (x2 > 1) { x1 -= x2 - 1; x2 = 1; }
+  if (y1 < 0) { y2 -= y1; y1 = 0; }
+  if (y2 > 1) { y1 -= y2 - 1; y2 = 1; }
+  return {
+    x1: Math.max(0, x1),
+    y1: Math.max(0, y1),
+    x2: Math.min(1, x2),
+    y2: Math.min(1, y2),
+  };
+}
+
 export function personCropRegion(p) {
-  return padded(cropAnchor(p), PERSON_GATE_PAD);
+  var body = padded(cropAnchor(p), PERSON_GATE_PAD);
+  var head = headCropRegion(p);
+  // ONLY when it actually buys resolution. On a close-up the body box is
+  // already head-sized, and there the head anchor is the RISKIER of the
+  // two: `headW` comes off whichever rung is confident (ear span, eye
+  // gap x2.5, shoulder span x0.6), and the rungs disagree by tens of
+  // percent on a turning head -- a tighter box built on the wrong rung
+  // can clip the face it exists to deliver. Taking the smaller of the
+  // two areas keeps the tight crop where it is a large win and keeps
+  // today's behaviour where it would be a coin flip.
+  if (!head) return body;
+  var ha = (head.x2 - head.x1) * (head.y2 - head.y1);
+  var ba = (body.x2 - body.x1) * (body.y2 - body.y1);
+  if (!(ha > 0) || !(ba > 0) || ha >= ba) return body;
+  return head;
 }
 
 function padded(p, pad) {

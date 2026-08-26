@@ -21,7 +21,7 @@ import {
   isNullRead,
   FACE_MIN_NATIVE_PX,
 } from './gender-verdict.mjs';
-import { personCropRegion, personFromFace, lastSlotDiag } from './person-gate.mjs';
+import { personCropRegion, headCropRegion, personFromFace, lastSlotDiag } from './person-gate.mjs';
 
 // CROP-BUDGET PRIORITY. `confidence` is NOT one scale: a MoveNet person
 // carries the model's slot score and a personFromFace body carries
@@ -933,6 +933,18 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
     // No face at all = backside/turned-away = unknown ⇒ covered.
     function observePerson(person) {
       var region = personCropRegion(person);
+      // WHICH CROP THIS READ ACTUALLY RAN ON (R28). The head crop only
+      // wins where it is smaller, so "it shipped" and "it fired on this
+      // footage" are different claims -- R27 lost a whole rebuild cycle
+      // to exactly that ambiguity on the clamp. Counted, never thrown.
+      try {
+        var hcr = headCropRegion(person);
+        bumpLife(
+          hcr && Math.abs((hcr.x2 - hcr.x1) - (region.x2 - region.x1)) < 1e-9
+            ? 'cropHead'
+            : 'cropBody'
+        );
+      } catch (e) {}
       var obs = { box: person, flagged: true, certain: false, faceFound: false };
       var zpix = null;
       var zpixRef = null;
@@ -959,6 +971,16 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         .catch(function () {
           // Unreadable crop (taint rejects createImageBitmap, sync
           // canvas throw rejects here too): unknown ⇒ covered.
+          //
+          // COUNTED (R28 critic S1). Every throw in the whole chain --
+          // crop, detect, attribute, classify, and the inner native-crop
+          // fallback -- lands here and becomes a hard cover that is
+          // INDISTINGUISHABLE in the artifact from an honest
+          // `personNoFace`. Its volume could not be estimated at all,
+          // which is worse than it being large: no round could bound it.
+          try {
+            bumpLife('observeThrew');
+          } catch (e) {}
           return done(obs);
         })
         .then(function (r) {
@@ -1207,7 +1229,18 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         };
         // If the crop does not actually contain it, fall back to detecting
         // rather than handing the models a box outside their own pixels.
-        if (!(box.x2 > 0 && box.y2 > 0 && box.x1 < 1 && box.y1 < 1)) return null;
+        // MOST of it, not a corner (R28 critic F3): the old test passed a
+        // box 95% outside the crop, and the head crop this round ships is
+        // about an eighth the area of the body crop it replaces, so a
+        // faceBox that sat comfortably inside the old one now routinely
+        // hangs off the edge. The consequence was not a bad read but a
+        // SILENT COVER under the wrong label -- detection is skipped, the
+        // off-crop box goes to ownFaceIndex, its centre lands outside
+        // [0,1] and the person is hard-covered as `ownMissSkipped`.
+        var ix = Math.max(0, Math.min(box.x2, 1) - Math.max(box.x1, 0));
+        var iy = Math.max(0, Math.min(box.y2, 1) - Math.max(box.y1, 0));
+        var whole = (box.x2 - box.x1) * (box.y2 - box.y1);
+        if (!(whole > 0) || ix * iy < whole * 0.5) return null;
         return [box];
       }
 
@@ -1603,7 +1636,16 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       // gender, and non-persons never enter the pipeline (the entire
       // phantom class the old gates chased is excluded by construction).
       if (useRegionVideo && personModel) {
-        var effZoom = Math.max(ZOOM_INTERVAL_MS, lastVerdictMs * 1.5);
+        // CAPPED, like the position pass above (R28 critic S2). This
+        // line had no Math.min while `effInterval` has had one at 1000ms
+        // since Stage 1, and the asymmetry is self-sustaining: three
+        // persons each hitting VERDICT_TIMEOUT_MS 900 make lastVerdictMs
+        // 2.7s, which sets the next gap to 4.05s, and every blurred
+        // track holds for all of it. Desktop never sees it (p50 ~100ms
+        // parks this at the floor); a Helio G88 at 3-4x that cost is one
+        // hiccup away from the runaway. verdictBusy already forbids
+        // overlapping passes, so a cap cannot build a backlog.
+        var effZoom = Math.min(1000, Math.max(ZOOM_INTERVAL_MS, lastVerdictMs * 1.5));
         // Never a second verdict pass while one is still running: one
         // GPU queue, and a backlog is indistinguishable from a hang.
         var wasVerdict = !verdictBusy && now - lastZoomAt >= effZoom;
@@ -1717,7 +1759,15 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
                       // R20: the confident-keypoint hull beside the model
                       // box, so a round can finally attribute an over-wide
                       // patch to one or the other.
-                      '/' + (s.k ? s.k.join(',') : '')
+                      '/' + (s.k ? s.k.join(',') : '') +
+                      // R28: the three rungs of the headW ladder measured
+                      // on the SAME slot, so the shoulder rung's constant
+                      // can be derived from our own footage instead of an
+                      // anthropometry table. Empty when that pair is not
+                      // confident, which is itself the answer.
+                      '/' + (s.hwE === null ? '' : s.hwE) +
+                      '/' + (s.hwY === null ? '' : s.hwY) +
+                      '/' + (s.hwS === null ? '' : s.hwS)
                     );
                   }),
                 });

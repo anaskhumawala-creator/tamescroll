@@ -17,6 +17,8 @@ import {
   frameHasNoHumanShape,
   lastSlotDiag,
   cropAnchor,
+  headCropRegion,
+  HEAD_CROP_HALF_WIDTHS,
   FACE_CROP_HALF_WIDTHS,
 } from '../src/person-gate.mjs';
 
@@ -165,6 +167,85 @@ test('cropAnchor: a synthetic body crops its FACE, the only thing it knew', () =
   assert.ok(Math.abs(w - 0.1 * FACE_CROP_HALF_WIDTHS * 2) < 1e-9);
   // The extrapolated BODY runs to the frame floor; the crop must not.
   assert.ok(a.y2 < p.y2);
+});
+
+// R28: the crop for a STANDING person. R26's tightening stopped at the
+// raw MoveNet box, which on a full-body figure is still 7-8 head-heights
+// tall; the 224 scale plus detector.js's square 256 resize then hand
+// BlazeFace a stretched smear and it returns nothing at all
+// (`personNoFace` 29 times in 6.1s, `readClearCertain` zero, measured
+// runs/r28a-woman).
+test('headCropRegion: a standing person crops their HEAD, square in native px', () => {
+  const ar = 16 / 9;
+  const p = {
+    x1: 0.38, y1: 0, x2: 0.62, y2: 1,
+    raw: [0.4, 0.05, 0.6, 0.9],
+    // Head big enough that the rung beats the body-height floor below.
+    headX: 0.5, headY: 0.3, headW: 0.083, headH: 0.083 * ar,
+  };
+  const h = headCropRegion(p);
+  assert.ok(Math.abs((h.x1 + h.x2) / 2 - 0.5) < 1e-9, 'centred on the head');
+  assert.ok(Math.abs(h.x2 - h.x1 - 0.083 * HEAD_CROP_HALF_WIDTHS * 2) < 1e-9);
+  // Square in NATIVE pixels is the whole point: the detector resizes to
+  // a square 256, so a non-square crop arrives stretched.
+  const nativeW = (h.x2 - h.x1) * ar;
+  assert.ok(Math.abs(nativeW - (h.y2 - h.y1)) < 1e-9, 'native-square');
+  // And it is what personCropRegion actually hands out here.
+  const region = personCropRegion(p);
+  assert.ok(Math.abs(region.x2 - region.x1 - (h.x2 - h.x1)) < 1e-9);
+});
+
+// R28 critic F1: ear span and eye gap are horizontal PROJECTIONS, so a
+// yawed head under-reports its own breadth and the 0.04 floor can make
+// the crop smaller than the head. The person's raw box height cannot
+// rotate, so it is the floor.
+test('headCropRegion: a collapsed rung is floored by the body height', () => {
+  const ar = 16 / 9;
+  const p = {
+    x1: 0.15, y1: 0, x2: 0.75, y2: 1,
+    raw: [0.2, 0.05, 0.7, 1.0],
+    headX: 0.45, headY: 0.25, headW: 0.04, headH: 0.04 * ar,
+  };
+  const h = headCropRegion(p);
+  const rungHalf = 0.04 * ar * HEAD_CROP_HALF_WIDTHS;
+  assert.ok((h.y2 - h.y1) / 2 > rungHalf, 'the floor must win over the collapsed rung');
+  assert.ok(Math.abs((h.y2 - h.y1) - (1.0 - 0.05) * 0.4) < 1e-9, '0.4 body-heights');
+  // Still native-square.
+  assert.ok(Math.abs((h.x2 - h.x1) * ar - (h.y2 - h.y1)) < 1e-9);
+});
+
+// R28 critic F2: clamping an edge at the frame border halves one axis and
+// hands the detector back the exact anisotropy this crop removes.
+test('headCropRegion: a head near the frame edge SLIDES, it does not squash', () => {
+  const ar = 16 / 9;
+  const p = { raw: [0.3, 0, 0.7, 1], headX: 0.5, headY: 0.05, headW: 0.15, headH: 0.15 * ar };
+  const h = headCropRegion(p);
+  assert.equal(h.y1, 0);
+  assert.ok(Math.abs((h.x2 - h.x1) * ar - (h.y2 - h.y1)) < 1e-9, 'still native-square');
+  assert.ok(h.y2 > 0.7, 'the window slid down rather than losing its height');
+});
+
+test('headCropRegion: no head anchor keeps the body crop (back-turned person)', () => {
+  const p = { x1: 0.1, y1: 0.55, x2: 0.36, y2: 1.0, raw: [0.17, 0.7, 0.28, 0.99] };
+  assert.equal(headCropRegion(p), null);
+  const region = personCropRegion(p);
+  assert.ok(region.x1 < 0.17 && region.x2 > 0.28, 'still the padded raw box');
+});
+
+// The head crop only wins where it is SMALLER. On a close-up the body
+// box is already head-sized and the anchor is the riskier of the two --
+// headW comes off whichever rung is confident and the rungs disagree by
+// tens of percent on a turning head.
+test('personCropRegion: a close-up keeps the body crop over a larger head crop', () => {
+  const p = {
+    x1: 0.2, y1: 0.05, x2: 0.5, y2: 0.75,
+    raw: [0.25, 0.1, 0.45, 0.7],
+    headX: 0.35, headY: 0.3, headW: 0.2, headH: 0.35,
+  };
+  const h = headCropRegion(p);
+  const region = personCropRegion(p);
+  assert.ok((h.x2 - h.x1) * (h.y2 - h.y1) >= (region.x2 - region.x1) * (region.y2 - region.y1));
+  assert.ok(region.x1 < 0.25 && region.x2 > 0.45, 'body crop, not the head crop');
 });
 
 test('cropAnchor: no evidence box falls back to the patch (old behaviour)', () => {

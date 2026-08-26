@@ -82,7 +82,7 @@ at least once.
 |---|---|---|---|
 | 1 | (fixed) NWoT1ZVd1Lo | man | baseline: adult male + child female, known-hard. R19 note: a rotation entry is a VIDEO, not a window - every round before R19 used t=560; moving to t=901 produced the worst man-direction score on record. Move the offset. R27 note: duration is 1095.6s, so t>=1090 hands the tab to autoplay and the harness aborts; t=200 is a screen recording of a Reddit page (no live people). **t=720 is the table's only CLOSE TWO-SHOT WITH INTERLEAVED BODIES** - the man leans in from the left and puts an arm in FRONT of the girl, so MoveNet files his forearm under her slot. Use it for anything about a patch reaching a neighbour, margin direction, or association across an occluding limb. Spent offsets: 540, 560, 566, 720, 890, 901. |
 | 2 | (fixed) NWoT1ZVd1Lo | woman | same footage, inverted expectation |
-| 3 | ted talk full speech | man | single speaker, stage lighting, slow cuts |
+| 3 | ted talk full speech | man | single speaker, stage lighting, slow cuts. R28 note: this entry resolves to a different id every round (R5 `arj7oStGLkU`, R21 `eIho2S0ZahI`, R28 `eVFzbxmKNUw`) and they are DIFFERENT regimes - R21's was the GHOST/typography one at t=200. **`eVFzbxmKNUw` t=270 is the table's only FULL-BODY WIDE SHOT**: a woman standing head-to-boots at 0.20 x 0.85 of frame, cutting to chest-up, which is the regime where a body-shaped crop makes the face unreadable (R28's fix). Use it for anything about crop geometry, detector input, or a same-gender person who will not clear. Its t=285.5 also carries a REPRODUCIBLE typography GHOST on the TEDX letters. |
 | 4 | news panel discussion | woman | 3-5 people, seated, small faces. R19 note: news footage is half GRAPHICS - z5WBceo0bIg is a title slate at t=240 (and painted a whole-frame GHOST over it), fFbNU0TvMH8 is two men in split-screen boxes at t=600. Probe forward for actual faces, and note this is the only GHOST-regime footage in the table. |
 | 5 | cooking show episode | man | hands and objects. R23 note: the GHOST trap never fired here — `4u3jS_cTHH0` (Laughter Chefs, 3-4 men + 1 woman in a studio kitchen, t=415) is the FALSE-COVER regime instead, and the worst on record: cuts at 0.87/s, track lifetime p50 1.91s, so nothing lives long enough to clear. Use this window to test anything about the clear ladder. `KAWvDsghyc8` (R7/R15) is the same entry's other id. |
 | 6 | graduation ceremony full ceremony | woman | crowd shots, 100+ people. R16 note: "conference keynote audience" resolves to single-speaker talking heads, not crowds, and livestreams open on a title-card slate - probe forward before capturing. R24 note: `r70mH3m4l9E` (Dhirubhai Ambani graduation, 8878s) at t=2400 is the best MULTI-PERSON STATIC window in the table - a locked-off stage with SIX MoveNet persons, 5 women and 3 men interleaved, and ZERO cuts in 15s. That is the crop-budget and occlusion regime; use it for anything about starvation, attribution or ownership. `e0HlQh-hwyE` is a 259s single-speaker commencement, not a crowd. |
@@ -6194,3 +6194,207 @@ analysis.
   5. The woman-direction EXPOSURE at the cut (edge-cropped man, MoveNet 0
      persons) is UNRESOLVED, not fixed. R25 refused the frame-edge extension
      that would close it; capture t=724 at a finer step to score it properly.
+
+- **R28** — rotation entry 3 (`ted talk full speech`), resolved live to
+  **`eVFzbxmKNUw`** (R21 used `eIho2S0ZahI`, R5 `arj7oStGLkU`; the id is resolved
+  every round). Probed 150/190/230/270/310 first: **t=270 is the table's only
+  FULL-BODY WIDE-SHOT regime** — one woman standing head-to-boots on a lit
+  stage, cutting between a wide shot where she is 0.20 x 0.85 of frame and a
+  chest-up medium, with 2m-tall TEDX typography behind her. Both directions,
+  10 frames @1.5s. Plus rotation entry 1 (`NWoT1ZVd1Lo` t=720, the close
+  two-shot) both directions as the regression check. Build `762ad77` (before)
+  -> this diff (after). `git status` carried nothing this round did not write,
+  at capture and at commit. Dev app PID 18004 -> 46788 -> 41216 -> 38544 ->
+  35600; the binary mtime was never the proof.
+
+  | class | man before | man after | woman before | woman after |
+  |---|---|---|---|---|
+  | EXPOSURE | 0 | 0 | 0 | 0 |
+  | PARTIAL | 0 | 0 | 0 | 0 |
+  | FALSE COVER | 0* | 0* | **4** | **0** |
+  | GHOST | 1 | 1 | 0 | 0 |
+  | DRIFT | 0 | 0 | 0 | 0 |
+
+  (*) structurally unreachable in `man` on this footage — there is no man on
+  screen. **That is the round's methodological warning and the critic raised it
+  first: a `man`-direction score of zero on all-female footage is not a
+  control.** The detection failure below is gender-BLIND; a male speaker in the
+  same wide shot fails identically, and `man` mode hides it because "covered"
+  happens to be the right answer there for the wrong reason.
+
+  **THE FAILURE: A STANDING PERSON'S FACE NEVER REACHES THE DETECTOR AT ALL.**
+  In `woman` mode she was FALSE COVERED for **6.1 seconds** (f000-f003,
+  t=271.8-276.3) and then cleared instantly and stayed clear. The state trace
+  says exactly why, and it is not a threshold: across those four frames
+  `readClearCertain` incremented **ZERO** times while `personNoFace` incremented
+  **29** (15/5/4/5). From f004 on it inverts — `readClearCertain` 4,6,2,4,4,4 and
+  `personNoFace` 1,1,0,0,0. The only thing that changed at f004 is the SHOT: wide
+  to chest-up. There was no wrong verdict anywhere in the window. There was no
+  verdict.
+
+  **THE MECHANISM, MEASURED.** Two multiplies turn a body-shaped crop into an
+  unreadable one:
+  * `cropPersonPixels` scales by `224 / max(sw, sh)` (init-entry.js), and
+  * `detectFaceBoxes` then resizes THAT to a square 256 (detector.js:426),
+    with no aspect handling at all.
+
+  Her raw MoveNet box on the wide shots is ~384 x 918 native px. The first
+  multiply makes it 94 x 224; the second stretches x by 2.72 and y by 1.14. Her
+  ~86px native face arrives at BlazeFace as roughly a **57 x 24 smear**, and the
+  detector returns nothing. R26 already tightened `cropAnchor` from the inflated
+  patch to the raw model box and measured the win — on a CLASSROOM of small
+  seated boxes. A standing adult is still 7-8 head-heights tall, so tightening
+  to the raw box did nothing for this regime, which no round had scored before.
+
+  **SHIPPED: `headCropRegion` — the face pass crops a HEAD, not a body.**
+  `parsePersons` has published `headX/headY/headW/headH` for every admitted
+  person since R7; nothing was using them to decide where to look. The crop is
+  now `3 * headW` by `3 * headH` centred on the anchor — square in NATIVE pixels
+  by construction, so the detector's square resize is a no-op instead of a
+  2.4:1 stretch. 3x is the same `FACE_CROP_HALF_WIDTHS` convention the synthetic
+  body crop has used since R26, and the critic priced it as the MINIMUM that
+  survives this file's own recorded headX jitter (0.3-0.5 headW from one ear
+  entering the union): worst case the face's far edge sits 1.0 headW from
+  centre against 1.5 headW of half-width. 2x clips at the worst case; above 4x
+  resolution starts going back.
+  * `null`, never a guess, when there is no head anchor — a back-turned person
+    keeps today's body crop.
+  * Taken **only when it is smaller** than the body crop. On a close-up the body
+    box is already head-sized and the anchor is then the riskier of the two.
+  * Nothing drawn changes (`obs.box` is still the parsePersons patch), so
+    EXPOSURE, PARTIAL, GHOST and DRIFT are unreachable from this diff by
+    construction — the same argument R26 made for its own crop change.
+  * It is CHEAPER: same inference count, same 256 input, a smaller
+    `createImageBitmap` resize.
+
+  **RESULT, same window, same instants:** `cropHead` fires 61-77 times per run
+  against `cropBody` 3-9. `personNoFace` over the woman window **29 -> 3**.
+  `readClearCertain` fires on every frame. She is cleared on **all ten** frames
+  and carries **zero patches**. In `man` the verdict goes from `uncertain` on
+  f000-f002 to `flag-certain` on all ten — the same reads that were missing are
+  what makes the flag certain, so the fix is symmetric in fact and not only in
+  argument. Read sizes confirm it independently: `px` p50 **172 -> 196** (man)
+  and **170 -> 201** (woman), reads below FACE_MIN_NATIVE_PX 64 **2 -> 0**,
+  abstains 8 -> 4 and 5 -> 2. The gate is not being loosened into a marginal
+  band (the critic's stated risk #7); the reads it now admits are LARGER than
+  the ones it used to get.
+
+  **THE CRITIC'S ROUND (Opus, read-only, brief = "the verdict SUPPLY chain: why
+  does a plainly readable person produce no read at all, and what else turns no
+  data into a covering decision"). Five findings shipped, one refused, one
+  disproved by its own suggested test:**
+  * SHIPPED F2 — the head crop CLAMPED at the frame border halved one axis and
+    handed back the exact anisotropy it exists to remove, and it fires on nearly
+    every close-up because `1.5 * headH` exceeds the head's own distance from
+    the top of frame. It now SLIDES the window and clamps only if it still does
+    not fit.
+  * SHIPPED F1 (as a floor, not as the critic's fix) — ear span and eye gap are
+    horizontal PROJECTIONS, so a yawed head under-reports its own breadth and
+    the 0.04 floor can make the crop smaller than the head. The crop side is now
+    floored at **0.4 of the person's raw box HEIGHT** (3 of a standing adult's
+    ~7.5 head-heights), which no rotation can move. It can only ENLARGE a crop a
+    collapsed rung made too small, so it cannot reintroduce the stretch.
+    **Its own proposed test disproves the frequency**: 0 of 220 paired records
+    have the ear rung below 60% of the shoulder-calibrated estimate. Shipped
+    anyway because it is free and the argument is sound.
+  * SHIPPED F3 — `knownFaceInCrop` admitted a faceBox 95% OUTSIDE the crop
+    (the guard was only "some corner overlaps"). The head crop is ~1/8 the area
+    of the body crop it replaces, so a box that sat comfortably inside the old
+    one now hangs off the edge — and the consequence was not a bad read but a
+    silent cover under the WRONG label (`ownMissSkipped`). Now requires >=50% of
+    the box area inside.
+  * SHIPPED S2, and this one is phone-only and real — **`effZoom` had no cap
+    while the position pass has had `Math.min(1000, ...)` since Stage 1**
+    (init-entry.js, the two lines are 50 apart). Three persons each hitting
+    `VERDICT_TIMEOUT_MS` 900 sets `lastVerdictMs` to 2.7s and therefore the next
+    verdict gap to **4.05s**, with every blurred track holding for all of it —
+    self-sustaining until one fast pass runs. Desktop never sees it (p50 ~100ms
+    parks it at the 400ms floor); a Helio G88 at 3-4x that cost is one hiccup
+    away. `verdictBusy` already forbids overlapping passes, so a cap cannot
+    build a backlog. Now capped at 1000 like its sibling.
+  * SHIPPED S1 — the bare `.catch` in `observePerson` had **no counter at all**.
+    Every throw in the chain became a hard cover indistinguishable from an honest
+    `personNoFace`, and its volume could not be bounded by any round. Now
+    `observeThrew` (it fired 0 times in this round's 8 runs, which is the answer).
+  * REFUSED — letterboxing `detectFaceBoxes`. The critic priced it and then
+    argued against it, correctly: on a 16:9 source the square resize is a 1.78x
+    Y-MAGNIFIER, so padding to square would shrink a small face's largest
+    model-space dimension by 44% — on the full-frame close-up fallback that
+    exists because of a measured EXPOSURE. Making the CROPS square in native px
+    is the same fix without the loss, and that is what shipped.
+
+  **R27's OPEN ITEM 1 IS NOW MEASURED, and the constant is still not changed.**
+  New probe fields `hwE`/`hwY`/`hwS` record all three rungs on the same slot.
+  Over **220 paired records** from two videos and four subjects, 8 runs, both
+  directions:
+
+  | | p05 | p25 | p50 | p75 | p95 |
+  |---|---|---|---|---|---|
+  | `hwS / hwE` | 1.33 | 1.80 | **2.01** | 2.13 | 2.52 |
+  | `hwY*2.5 / hwE` | — | 1.15 | **1.21** | 1.25 | — |
+
+  The p50 is stable per run at 1.94-2.08, so it is not one subject's
+  proportions. Our own footage puts the shoulder factor at **0.6 / 2.01 =
+  0.299** (R27's critic's anthropometry said ~0.38 — both agree the shipped 0.6
+  is about twice too large) and the eye factor at **2.5 / 1.21 = 2.07**.
+  **They are deliberately left alone, and the reason is now written into
+  person-gate.mjs so R29 does not re-litigate it:** `headW` is also
+  `sameHuman`'s merge TOLERANCE and the patch's top pad. Shrinking it 2x moves a
+  merge bar whose failure mode R19 scored as EXPOSURE, to satisfy a third
+  consumer. The consumer that needed a truthful head size was the CROP, and it
+  now gets one at the crop site, from the box height.
+
+  **COST**: TED man verdict p50 107 -> **85**, pass 34 -> **30**; TED woman
+  121 -> **103**, pass 36 -> **34**; baseline two-shot man 119 -> 113, pass
+  28 -> 29. Cheaper on every window — the head crop is a smaller GPU resize for
+  the same inference count. gaze **239/239** (5 new), cargo **37/37**.
+
+  **REGRESSION CHECK, rotation entry 1 (`NWoT1ZVd1Lo` t=720), both directions.**
+  `man`: FALSE COVER **5 before, 5 after** — f002 (both people blurred one pass
+  after a cut, `cutDemoteCleared` + the merge, exactly R27's f002), f003/f004
+  (his hand and forearm inside her patch edge), f008/f009 (his face inside it,
+  R27's conceded crossing-arm geometry). Unchanged, as the diff predicts: it
+  changes what is READ, not what is DRAWN. `woman`: 0 in every class, both
+  people covered on all ten frames. The child is covered in both directions
+  throughout.
+
+  **STILL OPEN, ranked:**
+  1. **The typography GHOST is now the top scored failure and it is
+     REPRODUCIBLE**: at t=285.5 on this video BlazeFace finds a "face" on the
+     TEDX letters, it falls inside no person box, `personFromFace` mints a whole
+     body, the read abstains, and blur-first covers it — a patch at
+     `[0.00, 0.43, 0.47, 1.03]` over set dressing with no human in it. R21's
+     `frameHasNoHumanShape` cannot reach this: it is scoped, deliberately, to
+     frames where the person pass admitted NOBODY, and here it admitted the real
+     speaker. The per-FACE version of R21's rule is the candidate — an
+     uncorroborated synthetic body must have SOME MoveNet keypoint activity at
+     its own location — but R21 also measured that noise slots on this footage
+     reach maxKp 0.10-0.52 against real close-ups' 0.14-0.76, so the frame-level
+     separator does not obviously survive being made local. Measure before
+     building: the probe already records every slot's `kb` bitmask, `k` hull and
+     `b` box, so the question "is there anything human-shaped where this face
+     is" is answerable offline from the existing artifacts.
+  2. **`VERDICT_TIMEOUT_MS` (900) and `dbgW.timeouts` are plain globals, not
+     `life` counters**, so per-frame deltas — the thing every round scores from
+     — cannot attribute a timeout at all. Desktop needs a 7x-p50 tail to hit it;
+     a phone at p50 ~450ms needs a 2x tail, which is ordinary. Promote it to a
+     `life` counter and publish `effZoom` on the cfg probe. This is the same
+     class of blindness S1 just closed.
+  3. The chain `.catch` at the pass level RETHROWS (init-entry.js), which
+     discards every observation already collected, skips every remaining person,
+     and leaves `verdictBusy` true until the 4000ms stall timer — and it is
+     counted in `dbgP.passFails`, which is also not a `life` counter. Low
+     reachability now that S1's catch absorbs most throws, high cost per event.
+  4. R27's items 2 and 3 are untouched and still stand: the cut gate has no
+     coverage statistic (`dbgL.luma` is computed and recorded in the page and
+     the harness has never read it), and MoveNet gives one person's forearm to
+     another's slot on a crossing arm, which is what makes the baseline
+     f008/f009 unwinnable downstream.
+  5. `ZOOM_CROP_SIZE` 224 then a 256 upscale in `detectFaceBoxes` is a lossy
+     round-trip on the detection path. The gender read does its own native
+     re-crop, so 224 only has to match the gender input on THAT call. Passing
+     256 for the detection crop is +30% bitmap pixels and zero extra inference.
+  6. The clear ladder puts a floor under every cut that no crop fix can touch:
+     tracks are wiped, and two consecutive clear-certain reads at a 400ms
+     cadence is >=800ms of guaranteed cover per cut. On a TED edit cutting every
+     ~4s that is a ~20% FALSE-COVER floor in the same-gender direction.
