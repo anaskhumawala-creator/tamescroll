@@ -430,10 +430,10 @@ class MainActivity : TauriActivity() {
     val path = request.url.path.orEmpty().lowercase()
     return when {
       accept.contains("text/css") || path.endsWith(".css") -> "stylesheet"
-      accept.contains("image/") || Regex("\.(png|jpe?g|gif|webp|svg|ico)$").containsMatchIn(path) -> "image"
+      accept.contains("image/") || Regex("\\.(png|jpe?g|gif|webp|svg|ico)$").containsMatchIn(path) -> "image"
       path.endsWith(".js") || path.endsWith(".mjs") -> "script"
       accept.contains("text/html") -> "sub_frame"
-      Regex("\.(mp4|webm|m4s|ts)$").containsMatchIn(path) -> "media"
+      Regex("\\.(mp4|webm|m4s|ts)$").containsMatchIn(path) -> "media"
       accept.contains("application/json") -> "xhr"
       else -> "other"
     }

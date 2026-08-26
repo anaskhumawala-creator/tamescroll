@@ -63,7 +63,49 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-25 (YouTube ads + start-stall fixed, commit 8fd0aad).
+**Last updated:** 2026-08-26 (gauntlet R21, commit 8c6408c; v0.1.15 in flight).
+
+**Session 2026-08-26 (gauntlet R21, rotation entry 3 = TED talk, man):**
+First round scored in the regime where **MoveNet returns 0 persons and
+every patch is manufactured by the face detector alone** (8 of 10
+frames). Three GHOST frames: a patch over a text-only slide, no human
+anywhere in frame — the owner's third bar item.
+- **SHIPPED `frameHasNoHumanShape` (person-gate.mjs):** an uncorroborated
+  face is refused when MoveNet's best keypoint across all 6 slots is
+  below PFF_FRAME_KP_FLOOR 0.1, and ONLY when the person pass admitted
+  nobody. The face path is not removable (it exists because of a measured
+  child close-up EXPOSURE) and R7 settled that face confidence cannot
+  separate a graphic from a small face — so the discriminator has to come
+  from the OTHER model. GHOST 3 -> 1.
+- **HONEST LIMIT, measured, in the log:** the typography band is
+  0.05-0.11, so 0.1 LEAKS one frame in ten. 0.12 would close it and is
+  REFUSED — the nearest real case (forearms workbench, two people's hands
+  filling the lower third) is 0.120 and lastSlotDiag rounds maxKp to 2dp,
+  so that is calibrating against rounding. R22 item 1 = record 3dp, then
+  re-derive over ALL passes, not only face-bearing ones.
+- **The critic's 0.17 refused**, reason written into person-gate: three
+  frames its labelling counts as failures in the 0.12-0.16 band are
+  hands/forearms of real people. A hand is part of a person, so a patch
+  there is not GHOST and refusing the mint is EXPOSURE.
+- **Two defects fixed in the same diff:** the gate read module-global
+  `lastSlotDiag` inside a promise — one detector instance serves EVERY
+  video element, so a player + feed preview page reads the wrong pass;
+  now captured synchronously as `persons.noHumanShape` in detectPersons.
+  And refused faces still counted as evidence, so `emptyFrame` stayed
+  false (eraser stood down over a graphic) and faceHeight*3 armed
+  wipeIfEmpty's `big` shortcut.
+- **News-graphics GHOST is NOT reachable this way** (measured): a title
+  card produces MoveNet noise at maxKp 0.10-0.52 against a real
+  close-up's 0.14-0.76 — the regimes overlap on score, maxKp and nKp15
+  alike. Critic's route: BlazeFace's 6 facial landmarks are computed and
+  thrown away at detector.js:282 (wider download of a tensor already on
+  the GPU, NO extra inference, our own model, no licence question). That
+  is a PROBE ask for R22, not a fix.
+- gaze 170/170, cargo 36/36. Cost unchanged: verdict p50 75ms, pass p50
+  25ms. `first == max` again = model warm-up.
+- **RELEASE GOTCHA (cost a cycle):** the arm64 rust exclude task is
+  `:app:rustBuildArm64Debug`, NOT `rustBuildAarch64Debug` — and gradlew
+  exits **0** on that failure. Check the APK mtime, never the exit code.
 
 **Session 2026-08-25 (owner: "Again ads came" / "still ads come"):**
 Two separate causes, both measured, both fixed + live-verified on desktop.
