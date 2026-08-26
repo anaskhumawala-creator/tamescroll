@@ -152,16 +152,59 @@ var RENDER_LERP = 0.25;
 // covering a person who is meant to be covered is free; under-covering
 // them is the failure being scored. It cannot create a GHOST either:
 // every edge involved is an edge of a real target rect for a real track.
+// SHRINK DEADBAND (owner 2026-08-26: "the blurs look much annoying right
+// now with multiple boxes here and there... previous versions were
+// significantly better at feeling stable").
+//
+// MEASURED, and it is not a matter of taste: stability.py polls the LIVE
+// overlay rects at 10Hz during continuous playback, and on the baseline
+// two-person scene the drawn patches changed SIZE by a mean of 0.466
+// frame-widths per second, p90 1.084 — counted only across intervals
+// where the patch count was unchanged, so it is real motion of a real
+// box and not a mismatched pair. The boxes pulse.
+//
+// The cause is the pairing of the two rules above. Growth is instant, by
+// design and for a measured reason (R17: a lerped leading edge left 7.5%
+// of a covered man's shoulder sharp). Shrink glides at RENDER_LERP,
+// ~100ms. So every noisy detection inflates the box instantly and it
+// deflates a tenth of a second later — at the 4-8Hz the detector runs,
+// that is a visible throb.
+//
+// Fixing it by slowing the shrink is the obvious move and it is WRONG:
+// lerpRect also handles TRANSLATION, where the trailing edge shrinks. A
+// long shrink tail smears a moving patch into the union of where it was
+// and where it is going, for as long as the tail lasts.
+//
+// So the discriminator is SIZE of the inward step, not speed. Detector
+// noise moves an edge by a little; a person leaving moves it by a lot.
+// An inward step smaller than this fraction of the edge's own dimension
+// is treated as noise and the edge does not move at all, which takes the
+// throb to exactly zero rather than merely slowing it. Anything larger
+// glides as before. Scale-relative so it behaves the same on a 320px
+// preview and a fullscreen player without plumbing the video size in.
+//
+// This can only ever make a patch LARGER than it would have been, never
+// smaller, so it cannot open EXPOSURE or PARTIAL. What it costs is up to
+// this fraction of over-cover on a settling patch.
+var SHRINK_DEADBAND = 0.05;
+
+/** One edge, moving inward: hold it if the step is noise, else glide. */
+function inward(fromEdge, toEdge, span, sign) {
+  var step = (toEdge - fromEdge) * sign;
+  if (step > 0 && step < span * SHRINK_DEADBAND) return fromEdge;
+  return fromEdge + (toEdge - fromEdge) * RENDER_LERP;
+}
+
 export function lerpRect(from, to) {
   if (!from) return to;
-  var l = Math.min(to.left, from.left + (to.left - from.left) * RENDER_LERP);
-  var t = Math.min(to.top, from.top + (to.top - from.top) * RENDER_LERP);
   var fr = from.left + from.width;
   var fb = from.top + from.height;
   var tr = to.left + to.width;
   var tb = to.top + to.height;
-  var r = Math.max(tr, fr + (tr - fr) * RENDER_LERP);
-  var b = Math.max(tb, fb + (tb - fb) * RENDER_LERP);
+  var l = Math.min(to.left, inward(from.left, to.left, from.width, 1));
+  var t = Math.min(to.top, inward(from.top, to.top, from.height, 1));
+  var r = Math.max(tr, inward(fr, tr, from.width, -1));
+  var b = Math.max(tb, inward(fb, tb, from.height, -1));
   return { left: l, top: t, width: r - l, height: b - t };
 }
 

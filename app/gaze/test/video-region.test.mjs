@@ -185,3 +185,48 @@ test('lerpRect: a translating patch never uncovers its leading edge', () => {
   assert.equal(cur.left + cur.width, 240, 'leading edge is already at the target');
   assert.ok(cur.left < 140, 'trailing edge is still catching up — over-covered, never under');
 });
+
+// --- shrink deadband (owner: "multiple boxes... previous versions were
+// significantly better at feeling stable"; measured breathe 0.466
+// frame-widths/s on the baseline two-person scene) ------------------
+
+test('lerpRect: a tiny inward step is noise and does not move the edge at all', () => {
+  const from = { left: 100, top: 100, width: 200, height: 200 };
+  // 4px inward on a 200px edge = 2%, under the 5% deadband.
+  const to = { left: 104, top: 100, width: 196, height: 200 };
+  const out = vr.lerpRect(from, to);
+  assert.equal(out.left, 100, 'left edge held');
+  assert.equal(out.width, 200, 'no throb');
+});
+
+test('lerpRect: a real inward move still glides', () => {
+  const from = { left: 100, top: 100, width: 200, height: 200 };
+  // 40px inward on a 200px edge = 20%, well over the deadband.
+  const to = { left: 140, top: 100, width: 160, height: 200 };
+  const out = vr.lerpRect(from, to);
+  assert.ok(out.left > 100 && out.left < 140, 'glides rather than snapping');
+});
+
+test('lerpRect: the deadband never shrinks a patch below the target', () => {
+  // The whole safety argument: holding an edge can only make the drawn
+  // rect BIGGER than the lerped one would have been, so it cannot
+  // uncover a pixel the target wanted covered.
+  const from = { left: 100, top: 100, width: 200, height: 200 };
+  const to = { left: 103, top: 102, width: 194, height: 196 };
+  const out = vr.lerpRect(from, to);
+  assert.ok(out.left <= to.left, 'left never inside target');
+  assert.ok(out.top <= to.top, 'top never inside target');
+  assert.ok(out.left + out.width >= to.left + to.width, 'right never inside');
+  assert.ok(out.top + out.height >= to.top + to.height, 'bottom never inside');
+});
+
+test('lerpRect: growth is still instant on every edge', () => {
+  const from = { left: 100, top: 100, width: 200, height: 200 };
+  const to = { left: 90, top: 88, width: 230, height: 240 };
+  const out = vr.lerpRect(from, to);
+  assert.equal(out.left, 90);
+  assert.equal(out.top, 88);
+  assert.equal(out.left + out.width, 320);
+  assert.equal(out.top + out.height, 328);
+});
+

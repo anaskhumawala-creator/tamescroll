@@ -1224,6 +1224,23 @@ export function containment(a, b) {
   var small = Math.min(areaA, areaB);
   return small > 0 ? inter / small : 0;
 }
+// PROXIMITY MERGE: BUILT, REFUSED BY THE EXISTING TESTS, KEPT AS A NOTE.
+// Owner 2026-08-26 reported "multiple boxes here and there", and
+// stability.py measures it: 3-4 drawn patches peaking at 7 on a
+// TWO-person scene, count changing 2.23 times a second. The obvious move
+// is to also merge boxes that merely sit a hairline apart, gated on the
+// union being cheap in area so distant boxes cannot bridge.
+// It does not work, and the arithmetic says why: two full-height people
+// standing side by side with a 0.05 gap have a union of 0.72 against a
+// summed area of 0.68 -- CHEAPER, in relative terms, than two partial
+// boxes on one person. Area cannot separate "two boxes on one person"
+// from "two people", and the three tests that pin side-by-side people
+// apart failed immediately.
+// The lesson to carry: patch COUNT is not a rendering problem and must
+// not be fixed here. Two patches on one person means the tracker made
+// two tracks for one person, and merging drawn rectangles papers over
+// that at the cost of the one property this function must never break.
+// Fix it at association, or with a mask that has no rectangles at all.
 function overlaps(a, b) {
   return iou(a, b) >= MERGE_IOU_MIN || containment(a, b) >= MERGE_CONTAIN_MIN;
 }
