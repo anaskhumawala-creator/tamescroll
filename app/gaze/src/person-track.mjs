@@ -577,6 +577,27 @@ function matchedStep(t, obs, dt) {
   // Did this pass change WHICH detector is describing the person? See the
   // note on vw/vh below -- a source flip is a representation change, not
   // motion, and must not become a size velocity.
+  //
+  // S8 BUILT AND REFUTED THE OBVIOUS CLEANUP HERE. A position pass is
+  // MoveNet by construction, so on a face-derived track it reports a
+  // source change on every fast pass and again on the next verdict, for a
+  // track whose source never moved -- 105 such events in a 90s run
+  // against 51 genuine ones. Suppressing them, and carrying `fromFace`
+  // through the position return so the following verdict stopped seeing a
+  // phantom flip too, made the patch measurably BUSIER: paired by video
+  // time against S7 over 39 buckets, rel-breathe-w 28 busier against 10
+  // calmer, mean +0.133 -- several times the pairing noise this section
+  // measured in S5.
+  //
+  // The reason is that the flip is not the event; the DISAGREEMENT is. A
+  // MoveNet box and a personFromFace body describe one human and differ
+  // 49-69% in width, and that disagreement is present on EVERY pass that
+  // mixes them, not only on the transition. The phantom flips were
+  // accidentally applying the shrink damper to most of that population,
+  // and removing them handed the whole disagreement back to alpha 0.6.
+  // So this stays as it is. The correct fix is to gate the damper on the
+  // SIZE STEP rather than on provenance, which is a measurement, not a
+  // tidy-up, and is the next thing to try here.
   var srcFlip = !!(obs.box && obs.box.fromFace) !== !!t.fromFace;
   if (srcFlip) bump('srcFlip');
   // ON A SOURCE FLIP, SMOOTH THE SIZE HARD -- BUT ONLY INWARD.
@@ -630,6 +651,12 @@ function matchedStep(t, obs, dt) {
       headAgeMs: (t.headAgeMs || 0) + dt,
       headDrift: (t.headDrift || 0) + (t.headBox ? headShiftDist(t.box, smoothed) : 0),
       lastVerdict: t.lastVerdict || 'uncertain',
+      // `fromFace` is deliberately NOT carried here -- see the refuted
+      // experiment at the top of matchedStep. `headH` is, because it is a
+      // MEASUREMENT of the subject rather than a provenance flag: dropped
+      // here it would be wiped by every fast pass and the head-scaled top
+      // pad would revert to the body fraction one frame after it applied.
+      headH: t.headH,
     };
   }
   // Verdict time-step: gender reads arrive at their own (slower)
@@ -833,6 +860,15 @@ function matchedStep(t, obs, dt) {
     // unsupported — not necessarily wrong, but the probe could not have
     // shown it either way, and the next round should re-derive it.
     fromFace: !!(obs.box && obs.box.fromFace),
+    // Head HEIGHT rides the track, not the box: ema() returns a bare
+    // four-field literal, so anything hung on the box is dropped on the
+    // first frame of every track's life. Same lifecycle as fromFace --
+    // this is the field topPad() needs, and without it the head-scaled
+    // cap is silently inert. Height, not width, because the pad it caps
+    // is a y quantity and headW is normalized-x.
+    headH: (obs.box && typeof obs.box.headH === 'number' && obs.box.headH > 0)
+      ? obs.box.headH
+      : t && typeof t.headH === 'number' ? t.headH : undefined,
     vx: ((sc[0] - tc[0]) / dt) * 1000,
     vy: ((sc[1] - tc[1]) / dt) * 1000,
     // SIZE VELOCITY IS MEANINGLESS ACROSS A CHANGE OF OBSERVATION SOURCE,
@@ -1141,6 +1177,7 @@ function coastStep(t, dt) {
     // Provenance survives a coast too, or a track would appear to change
     // origin every time a detector missed it once.
     fromFace: !!t.fromFace,
+    headH: t.headH,
   };
 }
 
@@ -1185,6 +1222,7 @@ export function demoteTracks(tracks) {
       // 15s window, i.e. the anti-breathing damper was being fired by a
       // missing field.
       fromFace: !!t.fromFace,
+      headH: t.headH,
     });
   }
   return out;
@@ -1202,6 +1240,9 @@ function newTrack(obs) {
     // See matchedStep: the box literal here is exactly why this cannot
     // live on the box.
     fromFace: !!(obs.box && obs.box.fromFace),
+    headH: (obs.box && typeof obs.box.headH === 'number' && obs.box.headH > 0)
+      ? obs.box.headH
+      : undefined,
     vx: 0,
     vy: 0,
     vw: 0,
@@ -1343,6 +1384,39 @@ export function clearedHeadHoles(tracks) {
   return holes;
 }
 
+// TOP PAD, SCALED BY THE HEAD IT EXISTS TO PROTECT.
+//
+// PTRACK_PAD_TOP is a fraction of BODY height, but the defect it was built
+// for -- MoveNet cropping at the hairline -- scales with HEAD size. On a
+// close-up the head IS most of the box and 0.12 is about right. On a
+// full-body subject the head is roughly an eighth of the box, so the same
+// constant is ~8x larger than the thing it is protecting, and it is
+// largest exactly where the box is already a slab.
+//
+// MEASURED over 2,568 observation boxes from 144 stored runs: the drawn
+// patch is 1.66x the core box at p50, and the margin chain ALONE takes
+// full-height patches from 0% to 39%. The cost lands on the owner's own
+// complaint -- 71.2% of patches on multi-face passes contain two or more
+// face centres, the margins add 0.77 face-widths per side at p50, and the
+// median gap to the nearest other face is 2.5 face-widths. That is "a
+// Linus still gets blurd sometimes", in arithmetic.
+//
+// So: cap the top pad at a share of the HEAD when we know the head's
+// width, and fall back to the old body fraction when we do not. The cap
+// only ever REDUCES the pad, and only above a crown the head anchor has
+// already covered (person-gate puts headH*1.1 above the head keypoints),
+// so it cannot uncover a face. R18 measured headX null on 59% of admitted
+// persons in the weak tier -- those keep the old behaviour exactly.
+export var PTRACK_TOP_PAD_HEADS = 0.6;
+
+function topPad(t, h) {
+  var full = h * PTRACK_PAD_TOP;
+  var hh = t.headH;
+  if (!(typeof hh === 'number' && hh > 0)) return full;
+  var capped = hh * PTRACK_TOP_PAD_HEADS;
+  return capped < full ? capped : full;
+}
+
 export function blurredTracks(tracks) {
   var out = [];
   for (var i = 0; i < tracks.length; i++) {
@@ -1354,7 +1428,7 @@ export function blurredTracks(tracks) {
       key: String(t.id || 0),
       box: {
         x1: Math.max(0, t.box.x1 - w * PTRACK_PAD),
-        y1: Math.max(0, t.box.y1 - h * PTRACK_PAD_TOP),
+        y1: Math.max(0, t.box.y1 - topPad(t, h)),
         x2: Math.min(1, t.box.x2 + w * PTRACK_PAD),
         y2: Math.min(1, t.box.y2 + h * PTRACK_PAD),
       },

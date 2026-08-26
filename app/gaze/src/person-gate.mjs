@@ -571,6 +571,7 @@ export function parsePersons(data, minScore, aspect, held) {
     // scale in the pass at which "are these two boxes one human?" is a
     // well-posed question -- see sameHuman in person-track.mjs.
     var headWOut = null;
+    var headHOut = null;
     if (head.length) {
       hx = 0;
       hy = 0;
@@ -599,6 +600,7 @@ export function parsePersons(data, minScore, aspect, held) {
       // Same physical distance is a LARGER number in normalized-y on a
       // wide frame: dy_norm = dx_norm * (W/H).
       var headH = headW * ar;
+      headHOut = headH;
       if (hy - headH * 1.1 < y1) y1 = hy - headH * 1.1;
       if (hy + headH * 0.9 > y2) y2 = hy + headH * 0.9;
       if (hx - headW * 1.2 < x1) x1 = hx - headW * 1.2;
@@ -649,6 +651,10 @@ export function parsePersons(data, minScore, aspect, held) {
       // width, so a body-denominated separation test can never tell them
       // apart -- it was deleting one of three people on every pass.
       headW: headWOut,
+      // The same head on the OTHER axis. headW is normalized-x, so it
+      // cannot be compared against a y quantity without the aspect
+      // factor; carrying headH avoids threading `ar` into the tracker.
+      headH: headHOut,
       // The RAW model box and the hysteresis age, fed straight back in
       // as `held` on the next pass. Kept on the person rather than in
       // module state so parsePersons stays pure and the caller decides
@@ -964,6 +970,7 @@ export function personFromFace(face, aspect) {
     // factor of the frame aspect (see the `w` note above); h/ar is the
     // real head width in normalized-x, which is what sameHuman needs.
     headW: h / ar,
+    headH: h,
     fromFace: true,
     // THE FACE THIS BODY WAS EXTRAPOLATED FROM, kept in frame
     // coordinates. Without it the pipeline throws away a face box it

@@ -187,9 +187,63 @@ export async function loadPersonModel() {
  * space). MoveNet wants RAW int32 pixels — no normalization (unlike
  * BlazeFace's [-1,1]); output [1,6,56] parsed by person-gate.mjs.
  */
-export async function detectPersons(model, pixelSource, aspect, held) {
+// Probe only: tfjs is bundled, not global, so a leak check has no way to
+// reach tf.memory() from page scope. Wrapped and guarded -- instrumentation
+// must never be able to throw inside the pipeline (that cost two releases).
+try {
+  if (typeof window !== 'undefined') {
+    window.__TS_GAZE_MEM = function () {
+      try {
+        return tf.memory();
+      } catch (e) {
+        return null;
+      }
+    };
+  }
+} catch (e) {
+  /* no window (tests) */
+}
+
+// ONE UPLOAD PER VERDICT PASS, SHARED BY BOTH DETECTORS.
+//
+// On the fast path both the person pass and the full-frame face pass read
+// the SAME <video> element, and each uploaded it independently. At 1080p
+// that is ~8.3MB per fromPixels, so ~16.6MB per verdict pass across a
+// shared memory bus -- half of it pure duplication. Invisible on a
+// discrete GPU, which is why every previous measurement missed it; the
+// target is a Helio G88 with a Mali-G52 and LPDDR4X, where bandwidth is
+// the scarce resource, not shader throughput.
+//
+// Caller owns the tensor and must dispose it. Returns null if the source
+// cannot be uploaded, in which case each detector falls back to its own
+// upload and behaviour is exactly as before.
+export function uploadFrame(pixelSource) {
+  try {
+    return tf.browser.fromPixels(pixelSource);
+  } catch (e) {
+    return null;
+  }
+}
+
+export function disposeFrame(t) {
+  if (t) {
+    try {
+      tf.dispose(t);
+    } catch (e) {
+      /* a disposed or foreign tensor must never break the pass */
+    }
+  }
+}
+
+export async function detectPersons(model, pixelSource, aspect, held, sharedImg) {
   var out = tf.tidy(function () {
-    var img = tf.browser.fromPixels(pixelSource);
+    // `sharedImg` = a frame already uploaded by the caller. See uploadFrame:
+    // the person pass and the full-frame face pass run back to back on the
+    // SAME video element, and each was doing its own fromPixels of a full
+    // 1080p frame -- ~8.3MB across the bus, twice, per verdict pass. A
+    // tensor created OUTSIDE this tidy is not disposed by it, so ownership
+    // stays with the caller.
+    var img = sharedImg || tf.browser.fromPixels(pixelSource);
     var resized = tf.image.resizeBilinear(tf.expandDims(img, 0), [PERSON_INPUT_SIZE, PERSON_INPUT_SIZE]);
     return model.execute(tf.cast(resized, 'int32'));
   });
@@ -279,10 +333,10 @@ function ensureAnchors() {
  * squarified in model space for downstream gender crops). Empty array =
  * no faces. Decode adapted from vladmandic/human getBoxes (MIT).
  */
-export async function detectFaceBoxes(model, pixelSource) {
+export async function detectFaceBoxes(model, pixelSource, sharedImg) {
   var anchors = ensureAnchors();
   var out = tf.tidy(function () {
-    var img = tf.browser.fromPixels(pixelSource);
+    var img = sharedImg || tf.browser.fromPixels(pixelSource);
     var input = tf.expandDims(img, 0);
     var resized = tf.image.resizeBilinear(input, [INPUT_SIZE, INPUT_SIZE]);
     var norm = tf.sub(tf.div(tf.cast(resized, 'float32'), 127.5), 1);

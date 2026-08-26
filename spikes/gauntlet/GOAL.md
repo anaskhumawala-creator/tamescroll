@@ -4299,3 +4299,122 @@ analysis.
   appearance constant in the renderer should be relative to the patch or
   the player, and any that is not is a desktop-only assumption waiting
   to be found by a screenshot.
+
+- **S8** (2026-08-26) — **two shipped, one built and refuted by its own
+  measurement, and a harness artifact that has been faking a failure
+  class for every round in this section.**
+
+  **SHIPPED 1: the top pad is capped by the HEAD, not the body.**
+  `PTRACK_PAD_TOP` 0.12 is a fraction of the BODY box, so on a
+  full-height person it asks for ~0.11 of the frame above the box — about
+  eight times the hair it exists to cover — and above the frame it simply
+  clamps. The critic measured the whole margin chain at 1.66x the core box
+  at p50, with margins ALONE taking full-height patches from 0% to 39%.
+  `topPad()` now returns `min(h * PTRACK_PAD_TOP, headH * 0.6)` whenever
+  the head was actually measured, and the old body fraction when it was
+  not (R18 measured `headX` null on 59% of admitted persons in the weak
+  tier — those are unchanged, by construction). The cap only ever REDUCES
+  the pad, and only above a crown person-gate has already covered with
+  `headH * 1.1`, so it cannot uncover a face.
+
+  **THE PLUMBING WAS THE WHOLE JOB, AND IT IS THE SAME DEFECT CLASS FOR
+  THE FOURTH TIME.** `ema()` returns a bare `{x1,y1,x2,y2}` literal, so
+  every field hung on an observation's box is dropped on the first frame
+  of every track's life. `topPad` reads `t.headH`, which did not exist:
+  written the obvious way the change is **silently inert** and would have
+  measured as "no effect" rather than "not wired". `headH` now rides the
+  TRACK through all five lifecycle sites (matched, new, coast, demote,
+  and the position-only early return), exactly as `fromFace` does, with a
+  test pinning that it survives a position pass.
+
+  **Units, because they were nearly wrong:** `headW` is normalized-X and
+  the pad is a Y quantity; on 16:9 that is a 1.78x error in the quiet
+  direction. `person-gate` already computes `headH = headW * ar`, so both
+  producers (`parsePersons`, `personFromFace`) now emit it and the tracker
+  never has to know the aspect.
+
+  | man, 880s | S7 | S8 r1 | S8 r2 |
+  |---|---|---|---|
+  | patches pinned at frame edge | 0.707 | **0.610** | **0.577** |
+  | median patch height | 1.012 | 0.990 | 0.974 |
+
+  Both runs move the same way; the effect is modest because in this
+  footage `y1` is usually already at 0, where a smaller pad changes
+  nothing. It bites on the chest-up and mid-shot framings, not the slabs.
+
+  **SHIPPED 2: one frame upload per verdict pass instead of two.** On the
+  `directPersonOk` path the person pass and the full-frame face pass both
+  read the SAME `<video>`, and each ran its own `fromPixels` — ~8.3MB at
+  1080p, twice, per pass, across a shared memory bus. `uploadFrame` /
+  `disposeFrame` hand one tensor to both; a `sharedImg` of null falls back
+  to the old behaviour exactly, which is what the non-direct path (a 256px
+  ImageData for persons, the video for faces — genuinely different pixels)
+  keeps. **The gate on this was leak, not speed**, since a tensor leaked
+  once per pass is far worse than the duplication it removes: `memcheck.py`
+  samples `tf.memory()` across a minute of continuous playback, and over
+  68s / ~270 passes the drift was **-4 tensors and -24.9MB**. Ownership is
+  explicit — the tensor is created outside `tf.tidy` so the tidy cannot
+  free it, and an idempotent `releaseFrame` runs on both the resolve and
+  the reject path, before the terminal `.catch`.
+
+  **BUILT, MEASURED, REFUTED: suppressing the phantom source flip.** A
+  position pass is MoveNet by construction, so on a face-derived track it
+  reports a source change on every fast pass and again on the next verdict
+  — 105 such events against 51 genuine ones in a 90s run. Suppressing
+  them, and carrying `fromFace` through the position return so the
+  following verdict stopped seeing a phantom flip either, made the patch
+  measurably BUSIER:
+
+  | pairing | rel-breathe-w mean | calmer | busier |
+  |---|---|---|---|
+  | S7 -> S8 with suppression | **+0.133** | 10 | 28 |
+  | with suppression -> without | **-0.113** | 49 | 26 |
+  | S7 -> S8 shipped | +0.010 | 18 | 21 |
+
+  Two independent pairings agree in sign and magnitude, several times the
+  pairing noise S5 measured. **The flip is not the event; the
+  DISAGREEMENT is.** A MoveNet box and a `personFromFace` body describe
+  one human and differ 49-69% in width, and that disagreement is present
+  on every pass that MIXES them, not only on the transition — the phantom
+  flips were accidentally applying the shrink damper to most of that
+  population, and removing them handed the whole thing back to alpha 0.6.
+  Reverted, with the numbers written into `matchedStep` so the next round
+  does not re-tidy it. **The correct fix is to gate the damper on the SIZE
+  STEP instead of on provenance**, which is a measurement, not a cleanup.
+
+  **THE HARNESS HAS BEEN MANUFACTURING A FAILURE CLASS.** `f003` showed
+  the right two-thirds of the frame blurred with a hard vertical edge, and
+  `meta.json` claimed one small patch in the bottom-right corner. The
+  frame and its explanation disagreed, which the skill says means the
+  explanation is wrong — and it was, but not in the interesting direction.
+  A live probe found `getComputedStyle(video).filter = blur(42px)`: the
+  WHOLE-VIDEO blur-first state. Sampled across 45s of continuous playback
+  it is **0 of 90 samples** — it only exists in the window after a SEEK,
+  which is precisely what the gauntlet does before every screenshot.
+  **The capture can photograph a state that never occurs while watching.**
+  It is correct behaviour (unknown ⇒ covered) photographed at the one
+  instant that makes it look like a defect, and any past round that scored
+  a "whole frame blurred" frame from a seek was scoring the harness.
+  Fix for a later round: hold the shot until `videoFilter` is `none` or
+  the first post-seek pass has landed, and record which it was.
+
+  **ACCURACY GATE HELD.** Man, t=880, 8 frames read: `f002` and `f006`
+  man alone at **zero patches**, fully sharp — face, cap, shirt graphic,
+  watch, hands. `f007` the man sharp beside a covered subject with the
+  feather visible as a gradient and no rectangle boundary. `f000` covers
+  him for exactly one frame at track birth and clears on the next — that
+  is blur-first, not FALSE COVER. **EXPOSURE 0, GHOST 0.**
+  gaze **202/202**, cargo **36/36**.
+
+  **Woman direction, same window:** patches mean 1.44, cover life p50
+  29.7s, jitter 0.136, rel breathe width 0.286, stable intervals 92.5%.
+  No asymmetry against the man direction.
+
+  **Still open, ranked:** (1) size-step gating for the shrink damper, per
+  the refutation above. (2) tighten the box via segmentation — still the
+  only safe route to a median patch of 0.51 x 0.98, and the model is
+  already downloaded (`spikes/segspike/`, MediaPipe Selfie Segmentation
+  tfjs graph model, 332,432 bytes, Apache-2.0, input [-1,256,256,3]).
+  (3) the seek artifact above. (4) `mergeTracks`' hard 0.5/0.6 threshold
+  still has no hysteresis and crossing it destroys and rebuilds the DOM
+  overlay. (5) MoveNet's input is still squashed to 256x256.

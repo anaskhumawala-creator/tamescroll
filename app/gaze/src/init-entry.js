@@ -1512,12 +1512,29 @@ import { planForMode } from './pipeline-plan.mjs';
           }, VERDICT_STALL_MS);
         }
         try {
+          // ONE upload for both detectors when they read the same source.
+          // On the fast path (directPersonOk) the person pass and the
+          // full-frame face pass are both handed this <video> element, and
+          // each used to upload it separately -- ~8.3MB twice per verdict
+          // pass at 1080p. Only shared when the sources are IDENTICAL: with
+          // directPersonOk false the person pass reads a 256px ImageData
+          // and the face pass reads the video, which are different pixels
+          // and must stay two uploads.
+          var sharedFrame = directPersonOk ? detector.uploadFrame(video) : null;
+          var frameDone = false;
+          var releaseFrame = function () {
+            if (frameDone) return;
+            frameDone = true;
+            detector.disposeFrame(sharedFrame);
+            sharedFrame = null;
+          };
           detector
             .detectPersons(
               personModel,
               personPixelSource(),
               video.videoWidth / (video.videoHeight || 1),
-              heldPersons
+              heldPersons,
+              sharedFrame
             )
             .then(function (persons) {
               // Probe-visible pass marker (verification probes read this).
@@ -1619,7 +1636,11 @@ import { planForMode } from './pipeline-plan.mjs';
               // A face with no pose behind it becomes a head+torso
               // person (personFromFace) — deliberately modest geometry.
               return detector
-                .detectFaceBoxes(model, directPersonOk ? video : personPixelSource())
+                .detectFaceBoxes(
+                  model,
+                  directPersonOk ? video : personPixelSource(),
+                  directPersonOk ? sharedFrame : null
+                )
                 .then(function (faces) {
                   var extra = [];
                   // TILE-RECALL PROBE — measurement only, off unless the
@@ -1989,6 +2010,15 @@ import { planForMode } from './pipeline-plan.mjs';
                 videoRegion.clear(video);
                 regionActive = false;
               }
+            })
+            // The shared frame is the caller's to free, and a tensor leaked
+            // once per verdict pass would be far worse than the duplicate
+            // upload it exists to remove. Released on BOTH exits, and
+            // releaseFrame is idempotent, so an early return upstream that
+            // already freed it is harmless.
+            .then(releaseFrame, function (e) {
+              releaseFrame();
+              throw e;
             })
             .catch(function (e) {
               if (e && e.name === 'SecurityError') {

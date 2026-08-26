@@ -1149,3 +1149,43 @@ test('demoteTracks: provenance survives a cut, so no phantom source flip', () =>
   const demoted = pt.demoteTracks(tracks);
   assert.equal(demoted[0].fromFace, true);
 });
+
+// S8: the top pad is capped at a share of the HEAD when the head's size
+// is known. The pad exists to cover hair and a raised arm above the box;
+// PTRACK_PAD_TOP is a fraction of the BODY, so on a full-height person it
+// asks for eight times the thing it protects, and above the frame it just
+// clamps — which is how 39% of patches became full-height.
+test('topPad is capped by the head on a tall box and untouched on a short one', () => {
+  const tall = { x1: 0.3, y1: 0.20, x2: 0.7, y2: 0.95, headH: 0.06 };
+  const short = { x1: 0.3, y1: 0.40, x2: 0.7, y2: 0.55, headH: 0.06 };
+  const padded = (box) => blurredTracks(updatePersonTracks([], [obs(box, true, true)], 250))[0].box;
+
+  const tallPad = tall.y1 - padded(tall).y1;
+  const shortPad = short.y1 - padded(short).y1;
+
+  // Head cap wins on the tall box: 0.06 * 0.6 = 0.036, well under
+  // 0.75 * PTRACK_PAD_TOP.
+  assert.ok(tallPad < 0.75 * pt.PTRACK_PAD_TOP - 1e-9, `tall pad ${tallPad}`);
+  assert.ok(Math.abs(tallPad - 0.06 * pt.PTRACK_TOP_PAD_HEADS) < 1e-9, `tall pad ${tallPad}`);
+  // Short box: the body fraction is already smaller than the head cap,
+  // so a close-up keeps exactly the pad it had before this change.
+  assert.ok(Math.abs(shortPad - 0.15 * pt.PTRACK_PAD_TOP) < 1e-9, `short pad ${shortPad}`);
+});
+
+test('a track with no head measurement keeps the old body-fraction pad', () => {
+  const box = { x1: 0.3, y1: 0.20, x2: 0.7, y2: 0.95 };
+  const out = blurredTracks(updatePersonTracks([], [obs(box, true, true)], 250))[0];
+  assert.ok(Math.abs((box.y1 - out.box.y1) - 0.75 * pt.PTRACK_PAD_TOP) < 1e-9);
+});
+
+// The head measurement has to survive a POSITION pass. Those return an
+// early four-field literal, and every field not explicitly carried there
+// is wiped -- which would silently restore the full pad on the very next
+// fast pass, one frame after the cap took effect.
+test('headH survives a position-only pass', () => {
+  const box = { x1: 0.3, y1: 0.20, x2: 0.7, y2: 0.95, headH: 0.06 };
+  let tracks = updatePersonTracks([], [obs(box, true, true)], 250);
+  assert.equal(tracks[0].headH, 0.06);
+  tracks = updatePersonTracks(tracks, [{ box, positionOnly: true }], 120);
+  assert.equal(tracks[0].headH, 0.06);
+});
