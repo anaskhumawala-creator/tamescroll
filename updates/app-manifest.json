@@ -1,7 +1,7 @@
 {
-  "versionCode": 1016,
-  "versionName": "0.1.16",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.16/tamescroll-v0.1.16.apk",
-  "sha256": "7c8eccfcebd71133d4d276284435a6b685cb1eb2faa5e8a2f61878100d3b7dbf",
-  "notes": "Stability: one patch per person instead of split rectangles; render fixes."
+  "versionCode": 1017,
+  "versionName": "0.1.17",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.17/tamescroll-v0.1.17.apk",
+  "sha256": "ce3d3d59265933040597ca100e778a9eb585c4c546f9764dfa825b4ac849ad3a",
+  "notes": "Soft gradient blur edges, union hysteresis, asymmetric size smoothing."
 }
