@@ -383,6 +383,31 @@ test('mergeTracks: a small patch sitting inside a big one merges (stacked patche
   assert.equal(pt.mergeTracks([big, small]).length, 1);
 });
 
+test('mergeTracks: a contained patch whose head is far away does NOT merge', () => {
+  // The f007 shape, and the contradiction S12 closed: dedupeObservations
+  // refuses this exact pair (heads 0.30 apart, head width 0.09) and then
+  // mergeTracks used to union them anyway, producing the rectangle that
+  // swallows a cleared neighbour.
+  const big = { key: 'a', box: { x1: 0.1, y1: 0.05, x2: 0.9, y2: 1.0 }, headX: 0.25, headW: 0.09 };
+  const inner = { key: 'b', box: { x1: 0.5, y1: 0.08, x2: 0.75, y2: 0.5 }, headX: 0.62, headW: 0.09 };
+  assert.ok(pt.containment(big.box, inner.box) >= pt.MERGE_CONTAIN_MIN, 'precondition: contained');
+  assert.equal(pt.mergeTracks([big, inner]).length, 2);
+});
+
+test('mergeTracks: two patches on ONE person still merge, and keep the wider head', () => {
+  const body = { key: 'a', box: { x1: 0.1, y1: 0.05, x2: 0.6, y2: 1.0 }, headX: 0.34, headW: 0.08 };
+  const head = { key: 'b', box: { x1: 0.25, y1: 0.08, x2: 0.5, y2: 0.35 }, headX: 0.37, headW: 0.12 };
+  const merged = pt.mergeTracks([body, head]);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].headW, 0.12, 'better-measured head survives the union');
+});
+
+test('mergeTracks: with no head anchor the old box-only rule is unchanged', () => {
+  const big = { key: 'a', box: { x1: 0.1, y1: 0.05, x2: 0.9, y2: 1.0 } };
+  const inner = { key: 'b', box: { x1: 0.5, y1: 0.08, x2: 0.75, y2: 0.5 }, headX: 0.62 };
+  assert.equal(pt.mergeTracks([big, inner]).length, 1);
+});
+
 test('mergeTracks: people standing side by side still do NOT merge', () => {
   const left = { key: 'a', box: { x1: 0.05, y1: 0.1, x2: 0.45, y2: 0.95 } };
   const right = { key: 'b', box: { x1: 0.5, y1: 0.1, x2: 0.9, y2: 0.95 } };

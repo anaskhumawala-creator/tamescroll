@@ -5327,3 +5327,175 @@ analysis.
      Helio G88 that is a different app.
   8. `srcFlip` **99 in 112 passes** and `dedupeHeadSplit` 288 against
      `dedupeMerged` 144, on a shot with zero cuts and nothing moving.
+
+- **S12** (2026-08-26) — **the split rule and the union rule finally agree,
+  and the round's own measurement retracts what two rounds blamed for
+  f007.**
+
+  Input: S11, plus R24 (another session: the head hole had never punched
+  because CSS mask layers composite BOTTOM-UP and the hole layer was
+  last; and the crop budget was a confidence ranking, now a pure
+  `rotateBudget`). Baseline re-measured at HEAD 5ef5f63 because R24
+  moved it.
+
+  | man, t=890, 60s | S12 before (R24) | after r1 | after r2 |
+  |---|---|---|---|
+  | patches mean / MAX | **0.78 / 2** | 1.00 / 3 | 1.04 / 3 |
+  | dCount/s | **0.30** | 0.53 | 0.55 |
+  | births/s | 0.27 | 0.27 | 0.30 |
+  | jitter/s | 0.139 | 0.131 | **0.113** |
+  | breathe/s | 0.267 | 0.255 | **0.213** |
+  | rel breathe w | 0.313 | 0.291 | **0.244** |
+  | rel breathe h | **0.105** | 0.117 | 0.110 |
+  | patch w p50 | 0.616 | 0.555 | **0.509** |
+  | patch h p50 | 1.017 | 0.980 | **0.965** |
+  | clamped h | 0.718 | 0.593 | **0.556** |
+  | stable intervals | **0.972** | 0.953 | 0.948 |
+  | `mergeHeadSplit` | — | **96** | **90** |
+
+  Paired by video time, two independent after-runs: **+0.213 patches per
+  bucket (3 fewer / 22 more / 36 same)** and **+0.254 (2 / 23 / 36)**,
+  with rel_breathe_w **-0.039 (27 calmer / 19 busier)** and **-0.057 (27 /
+  20)**. Both runs agree in sign on every column.
+
+  **SHIPPED: `mergeTracks` now asks the question `dedupeObservations`
+  already asks.** R19 gave the association stage a head-separation rule —
+  two contained observations whose head anchors sit more than
+  `MERGE_HEAD_SEP_HEADW` head-widths apart are two people, not one, and
+  it exists because iteration order was DELETING a child. It fires
+  constantly: `dedupeHeadSplit` **143** against `dedupeMerged` **178** in
+  this baseline, so ~45% of contained pairs are deliberately kept apart.
+  Then, 1400 lines later, `mergeTracks` unioned exactly those pairs back
+  into one rectangle with **no head test at all**. The split could never
+  reduce drawn area; it bought an extra track, an extra birth and one
+  more chance for a union to swallow a cleared neighbour. `canMerge` now
+  refuses that union, `mergedHead` keeps the better-measured head across
+  a legitimate union, and `headX`/`headW` ride the TRACK at all five
+  lifecycle sites for the same reason `headH` does — `ema()` returns a
+  bare four-field literal, so anything hung on the box dies on a track's
+  first frame. Three new tests pin it (far heads refuse, one person still
+  merges and keeps the wider head, no head anchor keeps the old rule).
+
+  **SAFE BY DIRECTION, AND THE COST IS STATED.** Refusing a union can
+  only ADD a patch — both tracks still draw, so no covered pixel becomes
+  uncovered and no EXPOSURE is reachable from this diff. The cost is
+  paid in the metric the owner ranks FIRST: patches mean 0.78 -> 1.0,
+  MAX 2 -> 3, dCount 0.30 -> 0.54, stable 97.2% -> 95%. What it buys is
+  **drawn area**: median patch width **-10% to -17%**, frame-pinned
+  patches **-12 to -16 points**. That is precisely S11's stated cost
+  handed back, in the opposite currency. MAX 3 is still well inside the
+  owner's bar (3-4 on a two-person scene, MAX 7).
+
+  **THE RETRACTION, and it is the round's most useful output.** S9 and
+  S11 both attributed the surviving FALSE COVER (f007) to `mergeTracks`
+  over-reach. **It is not the merge.** In the S12 gate, f007's drawn
+  patch is 0.331-1.014 while track 7 ALONE, padded by `PTRACK_PAD` 0.05,
+  is 0.408-0.953; the union with track 11 adds only y-extent. So the
+  drawn rectangle is wider than anything the tracker asked for.
+
+  **Measured properly, for the first time in this section** — drawn
+  overlay rect against the rect `person-track` actually requested (track
+  box + PTRACK_PAD sides/bottom + PTRACK_PAD_TOP top as an upper bound),
+  10 gate frames:
+
+  | frame | f001 | f002 | f003 | f004 | f005 | f006 | f007 | f008 | f009 |
+  |---|---|---|---|---|---|---|---|---|---|
+  | drawn area / asked area | 1.48 | 1.16 | 1.18 | 1.25 | 1.32 | 1.37 | 0.98 | 1.24 | 1.34 |
+
+  **The renderer draws ~1.25x the area the tracker asked for, on 8 of 9
+  frames, and the excess lands on the leading edge — the side the
+  cleared man is on.** f009 drawn x1 **0.118** against asked **0.243**:
+  0.125 of frame width of extra cover, straight onto track 6
+  (0.095-0.684, cleared, clear-certain). f001 drawn y1 -0.043 against
+  asked 0.091. **That is the mechanism behind both surviving FALSE
+  COVERs, and it lives in `video-region.mjs`, not in the tracker.**
+
+  **ACCURACY GATE: EXPOSURE 0, GHOST 0, PARTIAL 0.** 10 frames, all read.
+  On the 8-frame window comparable to S11: **FALSE COVER 1 of 8 (f007),
+  unchanged** — the merge fix does not recover it, for the reason just
+  measured. f008/f009 are new frames past the old window and f009 adds a
+  second (his face IS sharp, so R24's head hole is punching; his torso is
+  under the neighbour's inflated patch). f000 is now fully clean — 0
+  patches, man sharp — where earlier rounds had a blur-first birth frame.
+  gaze **232/232**, cargo **37/37**.
+
+  **THE CRITIC'S ROUND: renderer and actual pixels.** Lens was "what in
+  this renderer is verified by reading a property rather than by looking
+  at a pixel, and is therefore possibly not doing anything at all?" It
+  read `video-region.mjs`, `region-blur.mjs` and their tests end to end
+  and returned 13 findings. Its **F5 independently derives the number
+  measured above** (feather `g = f/2` per side ~ +10%, `SHRINK_DEADBAND`
+  0.05 parks each inward edge permanently ~ +5% per edge, plus the
+  shrink-lerp transient) — so every size figure in this section,
+  including S5's "the median patch is the full height of the frame", is
+  **the drawn element, not the requested box**. The four that outrank
+  everything else:
+
+  1. **The frame-clamped edge is only ~43% covered.** `interpolateBox`
+     clamps to [0,1], which throws away the entire margin chain on that
+     edge; `reposition` then grows the element by only `f/2` while
+     `maskFor` ramps alpha over `f`. So at the requested edge alpha is
+     **0.43** — the subject is 57% SHARP — and S8/S11 measured **57-71%
+     of patches pinned at a frame edge**. R23's two woman-direction
+     EXPOSUREs were both at an extreme frame edge and were logged as
+     "pre-existing", never attributed. Fix is free: push the ramp
+     entirely outside the video on a clamped edge; those are letterbox
+     pixels.
+  2. **The hole is XOR'd, not subtracted.** `maskFor` pushes
+     `exclude`/`xor` per hole layer. Alpha-XOR is `s + d - 2sd`, so
+     **two overlapping holes cancel into SOLID cover over both faces**
+     (hole1 xor base = 0, then hole0 xor 0 = 1), and a hole landing in
+     the feather ramp (`d = 0.43`) comes out at **0.57 — more opaque
+     than no hole at all**. Confirmed against the source this round.
+     Correct construction is the INVERSE ellipse with
+     `intersect`/`source-in`, which multiplies. This is a defect in
+     R24's just-landed hole, and it must be settled by adding two cells
+     to `maskorder.py`, not by argument.
+  3. **The test guarding the feather's safety property is a tautology.**
+     `video-region.test.mjs:311` builds its own `grown` rect, asserts
+     four arithmetic identities, never calls `reposition` or `maskFor`,
+     and grows by `f` where the shipped code grows by `f/2`. The
+     property in its title is false in the shipped build and the test
+     passes anyway. Same shape as R24: a green check standing where a
+     pixel was needed, and it is WHY finding 1 survived.
+  4. **The two shrink dampers are in series and were never convolved.**
+     Renderer `SHRINK_LERP` 0.06 at 60Hz gives tau 0.278s; S11's
+     `PTRACK_POSITION_SHRINK_ALPHA` 0.2 at the 120ms floor gives tau
+     0.60s; cascaded that is **~1.75s to 90%** against S6's measured
+     **1.9s mean shot**. And `inward()`'s deadband is a fraction of the
+     span, so the drawn edge parks ~5% short FOR EVER — the patch never
+     converges on a genuine zoom-out.
+
+  Also from the critic, ranked below those: holes are dead-reckoned
+  nowhere while the patch is extrapolated up to 1200ms (a moving cleared
+  face slides INTO the blur while its window stays put — untestable
+  before R24 because the hole never rendered); `maskComposite` and
+  `webkitMaskComposite` are written to what is very likely one shared
+  field, so the unprefixed `comp` list is decoration and only `wcomp`
+  renders; the mask string is rebuilt with unrounded geometry and
+  rewritten **60x/s per overlay** on a `backdrop-filter` element, where
+  rounding alone would make a purely-sliding patch byte-identical and
+  skip 10 CSSOM writes per frame; `clear()` tears down the entire
+  subsystem — rAF, interval, ResizeObserver, every node — on every gap
+  in coverage, several times a minute; `vr.width === 0` sets every
+  overlay `display:none`, the only fail-OPEN in the renderer;
+  `FEATHER_MIN_PX 10` leaves **20% of each side of a 50px subject
+  partially covered**, compounding finding 1 on exactly the small distant
+  subjects that keep scoring EXPOSURE. It also derived S9's open item 7
+  away: the compound-blur seam is sigma 24 -> 34 in the overlap, a ~20%
+  contrast modulation spread across a feather width — a gradient, not
+  the 23x step S3 saw on the old hard-edged build. Retire it.
+
+  **Still open, ranked:** (1) **the clamped-edge 43% ramp** — EXPOSURE
+  direction, certain arithmetic, free fix, and it needs the checkerboard
+  alpha read that nobody has done. (2) **the XOR hole** — two cleared
+  people standing together get one solid patch; settle with two
+  `maskorder.py` cells before changing the operator, because getting the
+  chain wrong un-punches the hole R24 just fixed. (3) **drawn vs
+  requested** — add `b` to `stability.py`'s sampler and report the ratio
+  split by cut / no-cut; every size number in this section is currently
+  the wrong rect. (4) the tautological feather test. (5) hole dead
+  reckoning on a panning shot. (6) mask rounding + the 60Hz rewrite,
+  the item most likely to matter on a Mali-G52. (7) `cover_life_p50`
+  still measures coverage EPISODES — 3.62 / 5.38 / 1.64 across this
+  round's three runs of the same window says so for the fourth time.

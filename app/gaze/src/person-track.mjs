@@ -785,6 +785,8 @@ function matchedStep(t, obs, dt) {
       // here it would be wiped by every fast pass and the head-scaled top
       // pad would revert to the body fraction one frame after it applied.
       headH: t.headH,
+      headX: t.headX,
+      headW: t.headW,
       // Previous OBSERVED size, for the S11 size-step probe. Measured on
       // the observation sequence, never against the damped track box --
       // a step measured against a box that has already been damped is
@@ -1041,6 +1043,16 @@ function matchedStep(t, obs, dt) {
     headH: (obs.box && typeof obs.box.headH === 'number' && obs.box.headH > 0)
       ? obs.box.headH
       : t && typeof t.headH === 'number' ? t.headH : undefined,
+    // headX/headW ride the track for the same reason headH does, and for
+    // a new consumer: mergeTracks now asks sameHuman's question before it
+    // unions two patches, and it can only ask it if the head survives the
+    // four-field box literal ema() returns.
+    headX: (obs.box && typeof obs.box.headX === 'number')
+      ? obs.box.headX
+      : t && typeof t.headX === 'number' ? t.headX : undefined,
+    headW: (obs.box && typeof obs.box.headW === 'number' && obs.box.headW > 0)
+      ? obs.box.headW
+      : t && typeof t.headW === 'number' ? t.headW : undefined,
     lastObsW: obs.box ? obs.box.x2 - obs.box.x1 : t.lastObsW,
     lastObsH: obs.box ? obs.box.y2 - obs.box.y1 : t.lastObsH,
     vx: ((sc[0] - tc[0]) / dt) * 1000,
@@ -1354,6 +1366,8 @@ function coastStep(t, dt) {
     // origin every time a detector missed it once.
     fromFace: !!t.fromFace,
     headH: t.headH,
+    headX: t.headX,
+    headW: t.headW,
     lastObsW: t.lastObsW,
     lastObsH: t.lastObsH,
   };
@@ -1484,6 +1498,8 @@ export function demoteTracks(tracks) {
       // missing field.
       fromFace: !!t.fromFace,
       headH: t.headH,
+      headX: t.headX,
+      headW: t.headW,
       lastObsW: t.lastObsW,
       lastObsH: t.lastObsH,
     });
@@ -1506,6 +1522,8 @@ function newTrack(obs) {
     headH: (obs.box && typeof obs.box.headH === 'number' && obs.box.headH > 0)
       ? obs.box.headH
       : undefined,
+    headX: obs.box && typeof obs.box.headX === 'number' ? obs.box.headX : undefined,
+    headW: obs.box && typeof obs.box.headW === 'number' ? obs.box.headW : undefined,
     lastObsW: obs.box ? obs.box.x2 - obs.box.x1 : undefined,
     lastObsH: obs.box ? obs.box.y2 - obs.box.y1 : undefined,
     vx: 0,
@@ -1737,6 +1755,11 @@ export function blurredTracks(tracks) {
       vy: t.vy,
       vw: t.vw || 0,
       vh: t.vh || 0,
+      // Head anchor, so mergeTracks can refuse a union that
+      // dedupeObservations already refused. Not inside `box`, which is
+      // the PADDED patch and is rewritten on every union.
+      headX: t.headX,
+      headW: t.headW,
     });
   }
   var merged = mergeTracks(out);
@@ -1854,6 +1877,57 @@ function overlaps(a, b) {
   return iou(a, b) >= MERGE_IOU_MIN || containment(a, b) >= MERGE_CONTAIN_MIN;
 }
 
+// THE SPLIT RULE AND THE UNION RULE HAVE DISAGREED BY CONSTRUCTION.
+//
+// dedupeObservations refuses to collapse two contained observations when
+// their head anchors sit more than MERGE_HEAD_SEP_HEADW head-widths
+// apart -- R19's fix for a child deleted by iteration order, and it
+// fires often: dedupeHeadSplit 143 against dedupeMerged 178 in the S12
+// baseline, so ~45% of contained pairs are deliberately kept as two
+// people. Then, ~1400 lines later, mergeTracks unioned exactly those
+// pairs back into one rectangle with NO head test at all.
+//
+// So the split could never reduce drawn area. It bought an extra track,
+// an extra birth, and one more chance for the union to swallow a
+// correctly-cleared neighbour -- which is runs/*/f007: three tracks on
+// two humans, two blurred ones unioning into a patch that covers the
+// cleared man. Asking sameHuman's question here makes the two stages
+// agree.
+//
+// SAFE BY DIRECTION: refusing a union can only ADD a patch. Both tracks
+// still draw, so no pixel that was covered becomes uncovered and no
+// EXPOSURE is reachable from this. The cost is patch COUNT, which is
+// what the stability metric watches, so it is paid in the open.
+//
+// Falls back to the plain box test whenever either side has no head
+// anchor -- the weak tier, where headX is null and the old rule is not
+// wrong about them, exactly as sameHuman does.
+function canMerge(a, b) {
+  if (!overlaps(a.box, b.box)) return false;
+  var ax = a.headX;
+  var bx = b.headX;
+  var aw = a.headW;
+  var bw = b.headW;
+  if (typeof ax !== 'number' || typeof bx !== 'number') return true;
+  if (!(typeof aw === 'number' && aw > 0) || !(typeof bw === 'number' && bw > 0)) return true;
+  if (Math.abs(ax - bx) <= MERGE_HEAD_SEP_HEADW * Math.max(aw, bw)) return true;
+  bump('mergeHeadSplit');
+  return false;
+}
+
+// The union of two representations of ONE person keeps the better-measured
+// head: a wider headW comes from a rung further down person-gate's ladder
+// (ears/shoulders rather than nose alone), so it is the more reliable
+// tolerance for any later merge in the same fixed-point loop.
+function mergedHead(a, b) {
+  var aOk = typeof a.headX === 'number' && typeof a.headW === 'number' && a.headW > 0;
+  var bOk = typeof b.headX === 'number' && typeof b.headW === 'number' && b.headW > 0;
+  if (aOk && bOk) return a.headW >= b.headW ? a : b;
+  if (aOk) return a;
+  if (bOk) return b;
+  return a;
+}
+
 // THE KEY IS THE OVERLAY'S IDENTITY, so it must depend on WHICH tracks
 // merged and never on the order they merged in. Sorting the two COMPOSITE
 // strings does not do that once a group has three members: merging 7 and
@@ -1891,9 +1965,10 @@ export function mergeTracks(list) {
     changed = false;
     outer: for (var i = 0; i < merged.length; i++) {
       for (var j = i + 1; j < merged.length; j++) {
-        if (!overlaps(merged[i].box, merged[j].box)) continue;
+        if (!canMerge(merged[i], merged[j])) continue;
         var a = merged[i];
         var b = merged[j];
+        var head = mergedHead(a, b);
         merged[i] = {
           key: mergedKey(a.key, b.key),
           box: {
@@ -1906,6 +1981,8 @@ export function mergeTracks(list) {
           vy: (a.vy + b.vy) / 2,
           vw: ((a.vw || 0) + (b.vw || 0)) / 2,
           vh: ((a.vh || 0) + (b.vh || 0)) / 2,
+          headX: head.headX,
+          headW: head.headW,
         };
         merged.splice(j, 1);
         changed = true;
