@@ -268,38 +268,43 @@ function edgeStops(f) {
   );
 }
 
-function maskFor(rect, holes, f) {
+// LAYER ORDER, AND IT IS NOT COSMETIC: THE HOLES MUST COME FIRST.
+//
+// CSS mask layers composite BOTTOM-UP. The last layer in the list is
+// composited against transparent black and each layer above combines
+// with the accumulated result below it. Shipped order was
+// [h-fade, v-fade, hole...] with [source-over, source-in, xor], which
+// evaluates as: hole -> `v-fade source-in hole` (the v-fade CLIPPED to
+// the hole ellipse) -> `h-fade source-over that` = the h-fade alone.
+// The hole is annihilated, and the VERTICAL FEATHER with it.
+//
+// So `clearedHeadHoles` has never punched a hole in any shipped build,
+// and the patch has had soft left/right edges and HARD top/bottom edges
+// the whole time. R24 measured this three ways, in that order: the
+// overlay elements read back `mask-composite: source-over, source-in,
+// xor` live (which is what the earlier verification checked — the
+// OPERATOR LIST, not the RESULT); `clearedHeadHoles` reported every hole
+// healthy, `why:'ok'`, centred on the cleared speaker's face to within
+// 15px; and her face was blurred in all ten frames anyway.
+//
+// PROVEN BY PIXEL IN WEBVIEW2, not in Chrome and not by CSS.supports
+// (spikes/gauntlet/runs/maskorder-webview2.png — two identical blurred
+// cells over one paused frame, shipped order beside reversed order):
+// the shipped cell shows uniform blur with no window and hard top/bottom
+// edges; the reversed cell shows a large sharp ellipse. Same element
+// geometry, same operators, only the order differs.
+//
+// Nothing else moves: the layers, their sizes, their positions and the
+// operator PER LAYER are unchanged. Reversing is safe in the coverage
+// direction because the base layers still cover the whole patch and the
+// hole is still a subset of a DETECTED face.
+export function maskFor(rect, holes, f) {
   var img = [];
   var sizes = [];
   var pos = [];
   var comp = [];
   var wcomp = [];
   var full = rect.width + 'px ' + rect.height + 'px';
-  if (f > 0) {
-    var head = edgeStops(f);
-    var tailA = 'calc(100% - ' + f.toFixed(1) + 'px)';
-    var tailB = 'calc(100% - ' + (f * 0.78).toFixed(1) + 'px)';
-    var tailC = 'calc(100% - ' + (f * 0.45).toFixed(1) + 'px)';
-    var tail =
-      '#000 ' + tailA + ', rgba(0,0,0,0.85) ' + tailB + ', ' +
-      'rgba(0,0,0,0.35) ' + tailC + ', rgba(0,0,0,0) 100%';
-    img.push('linear-gradient(to right, ' + head + ', ' + tail + ')');
-    sizes.push(full);
-    pos.push('0px 0px');
-    comp.push('add');
-    wcomp.push('source-over');
-    img.push('linear-gradient(to bottom, ' + head + ', ' + tail + ')');
-    sizes.push(full);
-    pos.push('0px 0px');
-    comp.push('intersect');
-    wcomp.push('source-in');
-  } else {
-    img.push('linear-gradient(#000,#000)');
-    sizes.push(full);
-    pos.push('0px 0px');
-    comp.push('add');
-    wcomp.push('source-over');
-  }
   for (var i = 0; holes && i < holes.length; i++) {
     var h = holes[i];
     var w = Math.max(0, h.right - h.left);
@@ -318,9 +323,39 @@ function maskFor(rect, holes, f) {
     comp.push('exclude');
     wcomp.push('xor');
   }
+  var holeCount = img.length;
+  if (f > 0) {
+    var head = edgeStops(f);
+    var tailA = 'calc(100% - ' + f.toFixed(1) + 'px)';
+    var tailB = 'calc(100% - ' + (f * 0.78).toFixed(1) + 'px)';
+    var tailC = 'calc(100% - ' + (f * 0.45).toFixed(1) + 'px)';
+    var tail =
+      '#000 ' + tailA + ', rgba(0,0,0,0.85) ' + tailB + ', ' +
+      'rgba(0,0,0,0.35) ' + tailC + ', rgba(0,0,0,0) 100%';
+    // Vertical fade BEFORE the horizontal one: `source-in` intersects
+    // with everything below it, so it has to sit above the holes and
+    // below the `source-over` base. [hole..., v, h] is the arrangement
+    // the WebView2 pixel test showed working.
+    img.push('linear-gradient(to bottom, ' + head + ', ' + tail + ')');
+    sizes.push(full);
+    pos.push('0px 0px');
+    comp.push('intersect');
+    wcomp.push('source-in');
+    img.push('linear-gradient(to right, ' + head + ', ' + tail + ')');
+    sizes.push(full);
+    pos.push('0px 0px');
+    comp.push('add');
+    wcomp.push('source-over');
+  } else {
+    img.push('linear-gradient(#000,#000)');
+    sizes.push(full);
+    pos.push('0px 0px');
+    comp.push('add');
+    wcomp.push('source-over');
+  }
   // Nothing to do: no feather and no hole means the plain solid patch,
   // and writing a mask for that is pure cost.
-  if (img.length === 1 && f <= 0) return '';
+  if (holeCount === 0 && f <= 0) return '';
   return [img.join(','), sizes.join(','), pos.join(','), comp.join(','), wcomp.join(',')].join('|');
 }
 

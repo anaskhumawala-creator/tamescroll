@@ -58,6 +58,7 @@ import {
   demoteTracks,
   cosineSim,
   bumpLife,
+  lastHoleDiag,
 } from './person-track.mjs';
 import * as sceneGate from './scene-gate.mjs';
 import {
@@ -70,7 +71,7 @@ import {
 } from './region-blur.mjs';
 import * as videoRegion from './video-region.mjs';
 import { createTextMatcher } from './text-signals.mjs';
-import { planForMode } from './pipeline-plan.mjs';
+import { planForMode, rotateBudget } from './pipeline-plan.mjs';
 
 (function () {
   // Distinctive, minification-proof marker (property assignment with a
@@ -686,6 +687,14 @@ import { planForMode } from './pipeline-plan.mjs';
     // Round-robin cursor for crowd scenes: which slice of a large group
     // gets a gender read this pass (everyone is tracked regardless).
     var crowdCursor = 0;
+    // The SAME rotation, for the primary MoveNet pick. Separate cursor
+    // because it rotates a DIFFERENT list: `persons` (skeletal only),
+    // where crowdCursor rotates `all` (skeletal + face-derived bodies)
+    // and only ever runs when the fallback stage pushed that list past
+    // the budget. Sharing one cursor would advance it twice on a pass
+    // that took both paths, and on a 6-person list two advances of 3 is
+    // a rotation of zero -- i.e. silently no rotation at all.
+    var personCursor = 0;
     var personCanvas = null;
     function ensurePersonCanvas() {
       if (!personCanvas) {
@@ -1700,9 +1709,61 @@ import { planForMode } from './pipeline-plan.mjs';
               // (review A8: slicing position passes to 3 let a 4th
               // flagged person's track starve and expire). Only the
               // crop/gender work is capped, highest-confidence first.
+              // THE CROP BUDGET WAS A PERMANENT RANKING, NOT A BUDGET.
+              //
+              // Measured, gauntlet R24, runs/r24-woman (graduation stage,
+              // `woman` mode, SIX MoveNet persons, no cut in 15s). The
+              // slot scores were W1 0.399, speaker 0.324, W3 0.236, W4
+              // 0.140, M1 0.127, M2 0.091 -- and on a locked-off shot
+              // those scores barely move, so `sort(cropPriority)` returns
+              // the SAME order every pass and `slice(0, 3)` hands the
+              // crops to the SAME three people forever. Ranks 4, 5 and 6
+              // were never read at all: tracks 15 and 16 held `cs:0`,
+              // `cm:0`, `lv:'uncertain'` for the entire window while
+              // `readClearCertain` was 33, all of it landing on the two
+              // people who were already cleared. Blur-first then covers
+              // the starved three permanently -- two of them women, in
+              // woman mode, which is FALSE COVER on 10 of 10 frames.
+              //
+              // This is R18's lesson one level up. R18 fixed WHO the sort
+              // compares (skeletal vs synthetic are not one scale); it
+              // left in place the assumption that a sort can decide a
+              // budget at all. It cannot: confidence says who will give
+              // the BEST read, never who NEEDS one, and the person who
+              // needs one is by definition the person who has not had one.
+              //
+              // The crowd path 200 lines below already rotates for
+              // exactly this reason -- but it only runs when the face
+              // fallback pushes `all` past the budget, and here all six
+              // faces sit inside person boxes, so no synthetic is minted
+              // and that rotation never fires. Same defect, same fix,
+              // applied to the list that actually gets sliced.
+              //
+              // Ordering within the pass is still by confidence; the
+              // cursor only chooses WHERE in that order the window
+              // starts. Below the budget nothing changes at all, so every
+              // one/two/three-person round already scored is untouched.
+              //
+              // Direction of risk: everyone is read HALF as often on a
+              // six-person shot, so a cleared person is revoked one pass
+              // later. That is bounded by the verdict cadence and it is
+              // the safe side of the trade -- an unread person stays
+              // COVERED under blur-first, which is what starvation was
+              // already doing to three people permanently.
               var byConf = persons.slice().sort(cropPriority);
-              var picked = byConf.slice(0, ZOOM_MAX_PERSONS);
-              var rest = byConf.slice(ZOOM_MAX_PERSONS);
+              // The cursor advances only on a VERDICT pass: position
+              // passes run at the 120ms floor against a 400ms verdict
+              // cadence and never take a crop, so letting them turn the
+              // cursor would spin it 2-3 extra places between reads and
+              // make the window's stride depend on the cadence rather
+              // than on the budget.
+              var slice = rotateBudget(byConf, ZOOM_MAX_PERSONS, personCursor);
+              var picked = slice.take;
+              var rest = slice.rest;
+              if (wasVerdict) {
+                personCursor = slice.cursor;
+                if (rest.length) bumpLife('cropRotated');
+              }
               // Position-only pass: skip the crops+gender, just move the
               // tracks (verdict state untouched in the tracker).
               if (!wasVerdict) {
@@ -2108,6 +2169,21 @@ import { planForMode } from './pipeline-plan.mjs';
                     // of 145 across six runs reported 0, including a
                     // pass whose only observation was a synthetic body.
                     f: tk.fromFace ? 1 : 0,
+                    // Head-hole forensics (R24). `blurredTracks` runs
+                    // AFTER this snapshot is built on the previous
+                    // pass's tracks, so this carries the diag from the
+                    // most recent draw — which is the one that produced
+                    // the pixels a frame capture shows.
+                    hb: (function () {
+                      try {
+                        for (var q = 0; q < lastHoleDiag.length; q++) {
+                          if (lastHoleDiag[q].id === tk.id) return lastHoleDiag[q];
+                        }
+                      } catch (e) {
+                        /* probes never break the pipeline */
+                      }
+                      return null;
+                    })(),
                   };
                 })
               );

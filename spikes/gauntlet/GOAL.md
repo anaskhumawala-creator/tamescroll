@@ -85,7 +85,7 @@ at least once.
 | 3 | ted talk full speech | man | single speaker, stage lighting, slow cuts |
 | 4 | news panel discussion | woman | 3-5 people, seated, small faces. R19 note: news footage is half GRAPHICS - z5WBceo0bIg is a title slate at t=240 (and painted a whole-frame GHOST over it), fFbNU0TvMH8 is two men in split-screen boxes at t=600. Probe forward for actual faces, and note this is the only GHOST-regime footage in the table. |
 | 5 | cooking show episode | man | hands and objects. R23 note: the GHOST trap never fired here — `4u3jS_cTHH0` (Laughter Chefs, 3-4 men + 1 woman in a studio kitchen, t=415) is the FALSE-COVER regime instead, and the worst on record: cuts at 0.87/s, track lifetime p50 1.91s, so nothing lives long enough to clear. Use this window to test anything about the clear ladder. `KAWvDsghyc8` (R7/R15) is the same entry's other id. |
-| 6 | graduation ceremony full ceremony | woman | crowd shots, 100+ people. R16 note: "conference keynote audience" resolves to single-speaker talking heads, not crowds, and livestreams open on a title-card slate - probe forward before capturing |
+| 6 | graduation ceremony full ceremony | woman | crowd shots, 100+ people. R16 note: "conference keynote audience" resolves to single-speaker talking heads, not crowds, and livestreams open on a title-card slate - probe forward before capturing. R24 note: `r70mH3m4l9E` (Dhirubhai Ambani graduation, 8878s) at t=2400 is the best MULTI-PERSON STATIC window in the table - a locked-off stage with SIX MoveNet persons, 5 women and 3 men interleaved, and ZERO cuts in 15s. That is the crop-budget and occlusion regime; use it for anything about starvation, attribution or ownership. `e0HlQh-hwyE` is a 259s single-speaker commencement, not a crowd. |
 | 7 | sports post match interview | man | motion, back-turned subjects |
 | 8 | classroom lecture | woman | mixed ages — the child gate |
 
@@ -5103,3 +5103,227 @@ analysis.
   (6) dead `createImageBitmap` for every synthetic (10.4% of
   observations). (7) `cover_life_p50` still measures coverage EPISODES —
   10.93 / 3.98 / 5.38 across three runs of the same window says so again.
+
+- **R24** — rotation entry 6 (`graduation ceremony full ceremony`, **woman**),
+  resolved live to `r70mH3m4l9E` (Dhirubhai Ambani International School
+  graduation, 8878s), window **t=2400, 10 frames @1.5s**. The first
+  MULTI-PERSON STATIC stage ever scored, and **two mechanisms that eight
+  rounds had reasoned about turned out never to have run at all.**
+
+  Cast, read off the truth frames (normalized x): W1 0.19-0.34, W2
+  0.33-0.41, **SPEAKER 0.42-0.60** (head 0.47-0.55), M2 0.57-0.73, M1
+  0.60-0.71, W3 0.72-0.88, M3 0.74-0.85, W4 0.86-0.99, W5 0.93-1.00.
+  Locked-off, `cutDetected` **0** in 15s. Correct output in `woman` mode
+  is "cover 0.57-0.85 and nothing else". Actual output was a slab from
+  x~0.46 (twice 0.32) to 1.02.
+
+  | class | woman before | woman after | man before (8f) | man after (8f) | child check (10f) |
+  |---|---|---|---|---|---|
+  | EXPOSURE | 0 | 0 | **2** | **2** | 0 |
+  | PARTIAL | 0 | 0 | 0 | 0 | **1** |
+  | GHOST | 0 | 0 | 0 | 0 | 0 |
+  | DRIFT | 2 | 0 | 0 | 0 | 0 |
+  | FALSE COVER | **10/10** | **10/10** | 8/8 | 8/8 | improved |
+
+  **THE HEADLINE IS THAT THE PER-FRAME SCORE DID NOT MOVE AND TWO REAL
+  BUGS WERE STILL FOUND.** Both are structural, both are proven, and
+  neither could ever have been seen from a test suite or from the
+  blurred frame alone.
+
+  **SHIPPED 1 — `clearedHeadHoles` has NEVER punched a hole, in any
+  build, and the vertical feather has never rendered either.** CSS mask
+  layers composite BOTTOM-UP: the last layer in the list is composited
+  against transparent black and each layer above combines with the
+  accumulated result below it. The shipped list was
+  `[h-fade, v-fade, hole...]` with `[source-over, source-in, xor]`,
+  which evaluates as `hole` -> `v-fade source-in hole` (the v-fade
+  CLIPPED to the hole ellipse) -> `h-fade source-over that` = the h-fade
+  alone. The hole is annihilated and the vertical feather with it.
+
+  The measurement chain that found it, in order, because each step
+  looked like a pass:
+  1. Live over CDP, the overlay elements read back `mask-composite:
+     source-over, source-in, xor` with 1-2 `xor` layers — which is what
+     the comment at `video-region.mjs:191` records as its verification.
+     **That verified the OPERATOR LIST, not the RESULT.**
+  2. New forensics (`lastHoleDiag`, person-track) reported every hole
+     `why:'ok'` on 28 of 28 cleared-track samples, hole box 0.048-0.082
+     wide, inset 0-0.028, and a live probe put the hole centre within
+     15px of the cleared speaker's face.
+  3. Her face was blurred in all ten frames anyway.
+  4. **Pixel test in the REAL WEBVIEW2** (`runs/maskorder-webview2.png`,
+     `spikes/gauntlet/maskorder.py`): two identical blurred cells over
+     one paused frame, shipped order beside reversed order, same
+     geometry, same operators. Shipped cell = uniform blur, **no
+     window**, soft left/right edges and **hard top/bottom** edges.
+     Reversed cell = a large sharp ellipse. `runs/mask-shipped.png` /
+     `runs/mask-reversed.png` are the crops.
+
+  Fix: emit the holes FIRST, then the vertical fade (`source-in`), then
+  the horizontal fade (`source-over`) — `exclude, intersect, add`
+  unprefixed. Six tests pin the order, the one-operator-per-layer
+  invariant, the two-hole case, the no-feather case and the degenerate
+  hole. **Do not "fix" this by reading back the composite list again.**
+
+  **SHIPPED 2 — the crop budget was a permanent RANKING, not a budget.**
+  `init-entry.js:1704` did `persons.sort(cropPriority).slice(0, 3)` with
+  no rotation. On a locked-off shot the slot scores barely move, so the
+  same three people took the whole budget every pass, forever. Measured
+  slot scores here: **W1 .399, SPEAKER .324, W3 .236 | W4 .140, M1 .127,
+  M2 .091** — the cut lands exactly on the line, and it predicts the
+  scoreboard row for row. Tracks 15 and 16 held `cs:0`, `cm:0`,
+  `lv:'uncertain'` for the ENTIRE 15s while `readClearCertain` was 33,
+  all of it landing on people already cleared. Blur-first then covers
+  the starved three permanently.
+
+  The round-robin 200 lines below (`:1896`) exists for exactly this and
+  could not fire: it rotates `all` = the three already picked plus
+  face-derived synthetics, and here all six faces sit inside person
+  boxes so no synthetic is minted. Same defect, same fix, applied to the
+  list that actually gets sliced. `rotateBudget` is pure and lives in
+  `pipeline-plan.mjs` with 5 tests; the cursor advances only on a
+  VERDICT pass (position passes run at the 120ms floor and take no crop,
+  so letting them turn it would make the stride depend on the cadence).
+  **Below the budget it is the identity**, so every one-to-three-person
+  round already scored is bit-identical. `cropRotated` 36 per 15s.
+
+  Effect, measured: the W3/W4 region went from `cm:0` forever to
+  `cleared` with `cm` up to **7343ms**, and the speaker was fully sharp
+  on two frames that were fully covered before. **Cost, stated: everyone
+  is read half as often on a six-person shot, so the first clear takes
+  two windows instead of one — frames f000-f003 are WORSE and f004-f009
+  better.** That is the safe side (an unread person stays covered) and
+  it is strictly better than three people never being read at all.
+
+  **THE SCORE DID NOT MOVE, AND THE HONEST REASON IS A CEILING.** The
+  critic measured the men's x-span against each woman's: **75% of W3's
+  width and 17% of the speaker's body lie INSIDE the x-span of men who
+  must be covered.** With axis-aligned rectangles that FALSE COVER is
+  unavoidable on this shot. **0% of the speaker's HEAD is** (her head
+  ends at 0.55, the men start at 0.57) — every blurred pixel of her face
+  was the mask bug plus margin, not occlusion. W4 and W5 are 0% — pure
+  starvation. So 6 of the 10 FALSE COVER victims are recoverable defects
+  and W3 is not. Log the floor; do not fit a constant to it.
+
+  Run-to-run variance on this footage is LARGE and swamps a 10-frame
+  score: three captures of the identical window returned
+  `readClearCertain` **33 / 24 / 22** against `readFlagCertain`
+  **30 / 45 / 52**. Woman-direction person-frames covered were 42 / 42 /
+  47 across before / rotation-only / rotation+mask. **A single 10-frame
+  run cannot resolve a change of this size on this video** — that is a
+  fact about the harness, and the next round on a crowd should capture
+  the same window twice.
+
+  **SYMMETRY, and it cost a bundle swap to answer honestly.** The `man`
+  direction on the same window showed the SPEAKER fully sharp on one
+  frame of the rotation-only run — EXPOSURE, the worst class. Restored
+  the committed pre-round bundle (`git checkout 62894a6 --
+  gaze-init.js`), re-captured, and the answer is **PRE-EXISTING**: W3's
+  track mis-clears in `man` mode on **3 of 8 frames before** and **2 of 8
+  after**, and her arm, hand, bangles and sari are sharp on before-f001
+  and before-f006. Cause, from the reads: her crop contains M3's face —
+  they are vertically stacked at nearly the same x (M3's head 0.79/0.39
+  sits directly above hers at 0.80/0.52) — and one read of
+  `{g:"male", s:0.91, b:[0.432,0.224,0.841,0.911]}` covers the speaker
+  AND both back-row men. Attribution steal, untouched by this round.
+
+  **AND A COST OF SHIPPING 1 THAT MUST BE WRITTEN DOWN: a working hole
+  AMPLIFIES a mis-clear.** On after-f007 W3's FACE is a sharp window
+  because her (wrongly) cleared track finally punches one; before the
+  fix that hole was inert. Most of her exposed area is her own cleared
+  track drawing no patch at all — pre-existing — but the face is new.
+  Shipped anyway: the alternative is leaving `clearedHeadHoles`,
+  `HEAD_HOLE_MAX_AGE_MS`, `HEAD_HOLE_AGE_SHRINK`, `headDrift`, `headBox`
+  and the whole `holes` plumbing as dead code that eight rounds have
+  reasoned about as if live, and FALSE COVER is a terminal class in the
+  owner's own sentence too.
+
+  **CHILD CHECK — `NWoT1ZVd1Lo` t=560, `man`, 10 frames, all read.
+  EXPOSURE 0.** The daughter is covered on every frame she appears.
+  PARTIAL **1** (f006: her hair crown and brow above the patch top —
+  the SAME frame R23 recorded, unchanged, the S8 pad class). And the
+  clear win: **Linus is fully sharp on f005, f006 and f009** — face,
+  cap, beard, forearm, shirt — where R23's child check recorded FALSE
+  COVER 3 on him. That is the head hole rendering for the first time.
+
+  **COST unchanged.** Verdict p50 **164ms** (before 158), p95 223; pass
+  p50 **27ms**, p95 40. Neither change adds an inference: one is a list
+  order, the other is a cursor. `first` 1969-3259ms is model warm-up as
+  always. gaze **229/229** (11 new tests), cargo **37/37**.
+
+  **REFUTED THIS ROUND, with numbers, so they are not re-proposed:**
+  * *The hole is eroded by an anisotropic inset.* It is anisotropic —
+    `headShiftDist` is a Euclidean distance in normalized coordinates,
+    so `dy` counts 1.78x heavy on 16:9, and the same normalized inset
+    removes 19.6px in x against 11px in y on a pixel-square head box.
+    But the diag says **28 of 28 holes `why:'ok'`** and the arithmetic
+    of correcting both axes moves a 35x52px hole to 45x45px — same area.
+    It was never the reason the face was blurred. Fix it when something
+    else needs it; it is not worth a round.
+  * *`mergeTracks` is what builds the slab.* The critic rasterised f000:
+    three separate patches 0.2794 of frame area, merged 0.2886 —
+    **merging adds 3.3%**, all of it in y-corners, and the merged
+    x-union is identical to the unmerged one. Not one woman is covered
+    because of a merge. **And the invariant is provable, not empirical:**
+    `mergeTracks` only ever replaces two boxes with their union, so its
+    output always contains its input — **no merge predicate, however
+    strict, can leave a covered man's limb outside a patch.** The only
+    thing it can regress is patch COUNT.
+  * *Cap `KEYPOINT_MARGIN 0.05` by head scale.* Sound (it is the only
+    absolute in a chain where everything else is relative; the full
+    chain is ~1.9x the model box in x) and **nearly inert**: `headW` has
+    a floor of 0.04 and the distant crowd subjects sit on it, so 0.5
+    heads floors the margin at 0.02 from 0.05 while the extremity margin
+    should GROW — wrist-to-fingertip and ankle-to-toe are ~1.4 headW,
+    everything else is under 0.5. Per-keypoint or not at all.
+  * *A body-shaped hole (cleared box minus blurred cores).* **Refused,
+    and this footage disproves it: M3 has NO MoveNet slot**, so a hole
+    built from blurred-track cores lands straight on him. The head
+    hole's safety argument is a DETECTION ("a face was found here this
+    pass, so those pixels are that person's"); a body hole's would be
+    "no track box happens to be here", and a track box is not a
+    segmentation. M2's hull is a single degenerate point.
+  * *Depth ordering from MoveNet.* Degenerate, not merely noisy: the
+    ground-plane cue needs box bottoms to differ and **four of six slots
+    have `y2 = 1.0`**, clamped at the frame edge. Zero bits.
+
+  **STILL OPEN, ranked by what they would move:**
+  1. **Multi-face crops and `ownFaceIndex`.** This is now the top of the
+     list in BOTH directions: it is what mis-clears W3 in `man` mode
+     (EXPOSURE) and what flags the speaker in `woman` mode (FALSE
+     COVER). 36.7% of crops on this window contain 2+ faces and six
+     contain 5-6. The parked PROBE (BlazeFace's 6 facial landmarks,
+     computed and discarded at `detector.js:282`, our own model, MIT, no
+     extra inference) is still the only untried discriminator.
+  2. **The second budget door.** `faceInsideIndex` at `:1804` tests a
+     face against ALL persons rather than the PICKED ones, so a starved
+     person's face "claims" their own uncropped box and mints no
+     synthetic — they are invisible to the gender stage while fully
+     covered. Same shape as the R16 defect, through a different door.
+  3. **`CLEAR_STREAK_N` is the one constant in the chain that is not
+     per-gender while the bar underneath it is.** Male reads run
+     0.87-0.97 against a 0.6 bar; female run 0.22-0.67 against 0.45. Two
+     CONSECUTIVE on a decrementing counter is ~1 pass for a man and ~4
+     for a woman. And any single certain-opposite read zeroes `clearMs`
+     outright, so the hold door is shut too.
+  4. **`GENDER_INSTANT_CLEAR_FEMALE 0.7` is LIVE and its comment says it
+     is not** (`gender-verdict.mjs:119-123` claims it sits above every
+     female read ever observed; a 0.78 female read here clears it).
+     Stale reasoning next to a live constant that bypasses the streak.
+  5. **`isNullRead`'s escape is asymmetric.** A null that escapes the
+     fitted rectangle by a hair folds to `score` 0.45 labelled `male`:
+     inert in `man` mode (same-gender, needs 0.6), a CERTAIN FLAG in
+     `woman` mode (opposite, needs only 0.25) that zeroes `clearMs`.
+     Every millimetre outside that fitted box costs only the woman-mode
+     user.
+  6. **The child gate's only measured adult exemplar is a woman**, at
+     childP 0.09-0.18 against `GENDER_CHILD_MASS 0.25` — 0.07 of
+     headroom, and no adult MALE band was ever published. A child read
+     is routed to `abstained`, which REVOKES a clear in two. Cheap join,
+     no new instrumentation: the `a`/`pc` distributions of `female`- vs
+     `male`-labelled reads.
+  7. **Verdict p50 is 164ms here against R21's 75ms** with the same crop
+     cap. `stage.n` and the `mark()` calls already carry the split. On a
+     Helio G88 that is a different app.
+  8. `srcFlip` **99 in 112 passes** and `dedupeHeadSplit` 288 against
+     `dedupeMerged` 144, on a shot with zero cuts and nothing moving.

@@ -1631,20 +1631,55 @@ export function subtractBox(patch, hole) {
  */
 export var HEAD_HOLE_AGE_SHRINK = 0.25;
 
+// FORENSICS FOR THE ONE MECHANISM THAT PROTECTS A CLEARED FACE.
+//
+// R24 measured live that the mask layers ARE being emitted (the overlay
+// elements carry `mask-composite: ... xor`) while the cleared speaker's
+// face was blurred in all ten frames of the window. A boolean "holes
+// fired" cannot tell a hole that landed from a hole eroded to nothing,
+// and every field that decides it is internal to this function. So it
+// records, per cleared track per call, why the hole is the size it is.
+// Measurement only: nothing reads it back.
+export var lastHoleDiag = [];
+
 export function clearedHeadHoles(tracks) {
   var holes = [];
+  lastHoleDiag.length = 0;
   for (var i = 0; i < (tracks ? tracks.length : 0); i++) {
     var t = tracks[i];
-    if (!t || t.state !== 'cleared' || !t.headBox) continue;
+    if (!t || t.state !== 'cleared') continue;
+    if (!t.headBox) {
+      lastHoleDiag.push({ id: t.id, why: 'nohead' });
+      continue;
+    }
     var age = t.headAgeMs || 0;
-    if (age > HEAD_HOLE_MAX_AGE_MS) continue;
     var h = t.headBox;
     var w = h.x2 - h.x1;
     var hh = h.y2 - h.y1;
-    if (!(w > 0 && hh > 0)) continue;
-    var inset =
-      (t.headDrift || 0) + (age / HEAD_HOLE_MAX_AGE_MS) * HEAD_HOLE_AGE_SHRINK * Math.min(w, hh);
-    if (inset * 2 >= Math.min(w, hh)) continue; // nothing trustworthy left
+    var drift = t.headDrift || 0;
+    var inset = drift + (age / HEAD_HOLE_MAX_AGE_MS) * HEAD_HOLE_AGE_SHRINK * Math.min(w, hh);
+    var d = {
+      id: t.id,
+      age: Math.round(age),
+      dr: Math.round(drift * 1000) / 1000,
+      w: Math.round(w * 1000) / 1000,
+      h: Math.round(hh * 1000) / 1000,
+      ins: Math.round(inset * 1000) / 1000,
+      why: 'ok',
+    };
+    lastHoleDiag.push(d);
+    if (age > HEAD_HOLE_MAX_AGE_MS) {
+      d.why = 'stale';
+      continue;
+    }
+    if (!(w > 0 && hh > 0)) {
+      d.why = 'degenerate';
+      continue;
+    }
+    if (inset * 2 >= Math.min(w, hh)) {
+      d.why = 'eroded'; // nothing trustworthy left
+      continue;
+    }
     holes.push({ x1: h.x1 + inset, y1: h.y1 + inset, x2: h.x2 - inset, y2: h.y2 - inset });
   }
   return holes;
