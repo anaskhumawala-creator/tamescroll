@@ -2896,6 +2896,12 @@ Owner constraint: nothing indecent. Queries stay ordinary.
     59.2/62.1/63.0/69.1 -> 60.6/73.5/47.2/0.0/51.8/60.1/59.8/62.1/62.9/
     69.3, i.e. the cap is provably INERT on this window (no face is large
     enough), which is the regression evidence for it.
+  * **Cross-footage regression, R18's classroom in `woman`** (a different
+    video, no face anywhere near the cap): coverage frame-for-frame
+    38.6/36.5/34.7/32.2/41.6/40.8/43.8/38.6/41.4/44.4 before ->
+    39.5/36.1/36.7/32.9/42.9/42.9/44.2/37.6/41.7/43.5 after. Every frame
+    within 2 points, both directions of drift, i.e. run-to-run noise. The
+    cap does not reach footage it was not derived from.
   * GHOST 0, DRIFT 0 in every run.
   * cost unchanged — the cap is a `min()`. verdict p50 95-126ms, pass p50
     25-31ms across all six runs. gaze **161/161** (157 plus 4 on the cap:
