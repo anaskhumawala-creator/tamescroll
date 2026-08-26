@@ -3244,8 +3244,35 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   footage where both subjects are real men correctly covered in `woman`
   mode. Frames on this footage cannot carry a 16-point attribution.
 
+  **CORRECTION TO THIS ENTRY, MEASURED AFTER THE CRITIC'S TWO DEFECT
+  FIXES LANDED, AND IT DOWNGRADES THE HEADLINE. GHOST IS 3 -> 1, NOT
+  3 -> 0.** The "empty band" above is not empty. It was derived from the
+  `ff`-bearing passes only — passes where a face was actually found — and
+  the two verification runs on the final build show the SAME slide
+  reading maxKp **0.11** on passes where no face was found (r21f f003,
+  f004) and a mint slipping through at f005 in both runs. So the
+  typography distribution is 0.05-0.11 and it OVERLAPS the 0.1 floor;
+  what the earlier sweep measured was a sample, not the range.
+  **0.12 would close it and is refused anyway**, for a reason that is
+  worth more than the frame: the nearest real case is the forearms
+  workbench at maxKp **0.120**, and `lastSlotDiag` rounds maxKp to TWO
+  decimals, so a raw 0.1198 and a raw 0.1204 are the same number in every
+  artifact we have. Calibrating a floor against rounded data at the exact
+  boundary is how R7's zoom-score rule was got wrong. The floor stays at
+  0.1, which is the EXPOSURE-safe side, and R22 gets a one-line probe
+  change instead of a guess.
+  The two defect fixes themselves verified clean: `faceNoShape` still 6
+  per window, f006/f007 still 0 patches, f002-f004 still 0 patches, cost
+  unchanged (verdict p50 75ms, pass p50 25ms), gaze 170/170.
+
   **R22's queue.**
-  (1) **The scene-entry frame, now unmasked and reproducible.** A person
+  (1) **Record maxKp at THREE decimals and re-derive this floor.** The
+  whole question is 0.11 typography against 0.120 real limbs and the
+  probe cannot resolve it — the constant that decides GHOST-versus-
+  EXPOSURE is currently calibrated against rounded numbers. One line in
+  lastSlotDiag, then re-run the corpus sweep counting ALL passes, not
+  only the ones that found a face.
+  (2) **The scene-entry frame, now unmasked and reproducible.** A person
   appearing on a cut is covered for exactly one frame before their second
   read. Blur-first says that is the safe direction, but the owner's bar
   says "not a single frame where the wrong gender is blurred up", and it
@@ -3253,11 +3280,11 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   is CLEAR_STREAK_N, which R7 set to 2 deliberately because one read
   misgendered — do not move it without measuring the misgender rate of a
   FIRST read at score >= GENDER_CLEAR_SCORE across the corpus.
-  (2) **A face in near-darkness abstains, and abstention costs a man his
+  (3) **A face in near-darkness abstains, and abstention costs a man his
   sharpness.** f000/f001 here, R18's teacher in profile. Same root:
   faceres has no signal, and `isNullRead` does not catch it. Two rounds
   have now logged this class without touching it.
-  (3) **The graphics GHOST that the person pass cannot see** — answered
+  (4) **The graphics GHOST that the person pass cannot see** — answered
   in the negative above, and now the round's biggest open item. A news
   title card produces MoveNet noise indistinguishable from a real
   close-up on score, maxKp and nKp15 alike, so no threshold on the person
@@ -3267,7 +3294,7 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   an age posterior and a 1024-d descriptor, and nsfwjs is already loaded
   and already classifies "Drawing" — that class is free and nobody has
   ever looked at what it reads on a title card versus a face.
-  (4) Everything R20 left open, unchanged: the model-box-vs-hull
+  (5) Everything R20 left open, unchanged: the model-box-vs-hull
   intersection (the only live lever on the 76% of covered area that is
   MoveNet's own boxes), the figurine that outscores both humans, and
   `wipeIfEmpty`'s premise being narrower than its comment.

@@ -663,6 +663,24 @@ export function parsePersons(data, minScore, aspect, held) {
  * A floor of 0.15 would take both. 0.1 sits in an empty band with the
  * false positives 0.05 below it and the real cases 0.02 above.
  *
+ * R21's CRITIC ARGUED FOR 0.17 AND IS REFUSED, with the reason kept here
+ * so the next round does not re-litigate it. Its labelled split was
+ * failures {0.05, 0.05, 0.05, 0.14, 0.14, 0.16, 0.26} against needed
+ * {0.23, 0.28, ...}, which makes 0.17 look free. But three of those
+ * "failures" are the 0.12-0.16 band, and it labelled them hands-on-desk
+ * and arm-and-shirt. Opening r20b-woman f002 settles it: an overhead
+ * workbench with TWO people's hands and forearms filling the lower
+ * third. A patch there is not GHOST — GHOST is "a patch over no person
+ * at all", and a hand is part of a person. Under the owner's bar, "for
+ * women, blur them fully — not leaving the legs or the hands or the
+ * head", refusing that mint is EXPOSURE, which is the worst class. The
+ * critic's "zero needed coverage lost" holds only if real limbs count as
+ * failures. 0.1 keeps them covered and still takes the whole typography
+ * cluster. What 0.17 would additionally buy is one news title card at
+ * 0.26 — and that one is not reachable this way anyway: see the R21 log,
+ * where news graphics measure maxKp 0.10-0.52 against a real close-up's
+ * 0.14-0.76.
+ *
  * Deliberately frame-level and deliberately narrow: it only ever fires
  * when the person pass admitted NOBODY (the caller checks that), so a
  * frame with any admitted person keeps the close-up fallback intact for

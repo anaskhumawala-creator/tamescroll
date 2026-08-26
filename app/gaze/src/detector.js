@@ -22,7 +22,7 @@ import { MODEL_JSON, MODEL_WEIGHTS_B64 } from './model-embed.js';
 import { NSFW_MODEL_JSON, NSFW_WEIGHTS_B64 } from './nsfw-model-embed.js';
 import { GENDER_MODEL_JSON, GENDER_WEIGHTS_B64 } from './gender-model-embed.js';
 import { PERSON_MODEL_JSON, PERSON_WEIGHTS_B64 } from './person-model-embed.js';
-import { parsePersons } from './person-gate.mjs';
+import { parsePersons, frameHasNoHumanShape, lastSlotDiag } from './person-gate.mjs';
 import { nonMaxSuppression } from './nms.mjs';
 
 export var INPUT_SIZE = 256; // matches the embedded face model's fixed input shape
@@ -203,7 +203,17 @@ export async function detectPersons(model, pixelSource, aspect, held) {
   // for parsePersons' admission hysteresis (R17). Passed through rather
   // than stored here: one module instance serves every video element, so
   // module-level continuity state would leak across streams.
-  return parsePersons(data, undefined, aspect, held);
+  var persons = parsePersons(data, undefined, aspect, held);
+  // R21. Snapshot "MoveNet saw nothing human-shaped" HERE, next to the
+  // pass that produced it, and hang it on the result. lastSlotDiag is
+  // module state cleared by every parsePersons call, and ONE detector
+  // module instance serves every video element on the page — so a caller
+  // reading it later, from inside a promise, can be handed a different
+  // element's pass. The gauntlet asserts a single sampler, so no run
+  // could ever show this; a YouTube page with the player and a feed
+  // preview has two. Captured synchronously, it cannot desynchronize.
+  persons.noHumanShape = frameHasNoHumanShape(lastSlotDiag);
+  return persons;
 }
 
 /**

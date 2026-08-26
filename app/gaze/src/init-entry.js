@@ -21,12 +21,7 @@ import {
   isNullRead,
   FACE_MIN_NATIVE_PX,
 } from './gender-verdict.mjs';
-import {
-  personCropRegion,
-  personFromFace,
-  frameHasNoHumanShape,
-  lastSlotDiag,
-} from './person-gate.mjs';
+import { personCropRegion, personFromFace, lastSlotDiag } from './person-gate.mjs';
 
 // CROP-BUDGET PRIORITY. `confidence` is NOT one scale: a MoveNet person
 // carries the model's slot score and a personFromFace body carries
@@ -1622,7 +1617,7 @@ import { planForMode } from './pipeline-plan.mjs';
                   // ones MoveNet did not reach. See frameHasNoHumanShape
                   // for the corpus measurement that sets the floor and
                   // for the two neighbouring cases it must not take.
-                  var noShape = persons.length === 0 && frameHasNoHumanShape(lastSlotDiag);
+                  var noShape = persons.length === 0 && persons.noHumanShape === true;
                   var claimed = {};
                   for (var oj = 0; oj < order.length; oj++) {
                     var fi = order[oj];
@@ -1684,7 +1679,17 @@ import { planForMode } from './pipeline-plan.mjs';
                   // Negative detection (owner idea): remember that THIS
                   // verdict pass saw an empty frame, so the tracker can
                   // erase ghosts instead of coasting them.
-                  emptyFrame = persons.length === 0 && faces.length === 0;
+                  // REFUSED FACES ARE NOT EVIDENCE OF A HUMAN. Skipping
+                  // the mint is not the same as removing a patch: leave
+                  // the refused face counted here and `emptyFrame` stays
+                  // false, so wipeIfEmpty stands down and any track that
+                  // was already blurred coasts its full window over the
+                  // graphic. R21's slide got away with it only because
+                  // the ghost was a BIRTH; a cut from a person to a title
+                  // card is the common case and the gate alone would not
+                  // clear it.
+                  var faceEvidence = noShape ? 0 : faces.length;
+                  emptyFrame = persons.length === 0 && faceEvidence === 0;
                   // Largest thing this pass actually saw. It is the
                   // cheapest available read on subject scale — already
                   // computed, no extra pixels — and scale is what decides
@@ -1695,7 +1700,13 @@ import { planForMode } from './pipeline-plan.mjs';
                     var ph = persons[mb].y2 - persons[mb].y1;
                     if (ph > passMaxBoxH) passMaxBoxH = ph;
                   }
-                  for (var mf = 0; mf < faces.length; mf++) {
+                  // Same reason, and this one is sharper: a refused face
+                  // feeds faceHeight * 3 into the NEXT pass's `prevMaxH`,
+                  // so a hallucinated face 0.357 tall reports a subject
+                  // scale of 1.07 and ARMS wipeIfEmpty's one-pass `big`
+                  // shortcut. Both of that eraser's measured misfires
+                  // were it erasing people who were still there.
+                  for (var mf = 0; !noShape && mf < faces.length; mf++) {
                     var fh = (faces[mf].y2 - faces[mf].y1) * 3;
                     if (fh > passMaxBoxH) passMaxBoxH = fh;
                   }
