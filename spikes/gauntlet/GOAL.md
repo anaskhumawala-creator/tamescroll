@@ -3556,10 +3556,10 @@ analysis.
   | dCount/s | 2.49 | **0.45** |
   | births/s | 0.31 | 0.24 |
   | patches > tracks | 33% of samples | **0%** |
-  | stable-count intervals | 67% | **79%** |
+  | stable-count intervals | 84.9% | **95.4%** |
 
   **woman, same window:** patches mean 1.46 / max 3, dCount 0.87/s,
-  **patches > tracks 0%**, stable intervals **91%**, jitter 0.114,
+  **patches > tracks 0%**, stable intervals **91.3%**, jitter 0.114,
   breathe 0.185, cover life p50 44.98s (i.e. continuous coverage, no
   blinking) — the direction where everyone in frame must be covered is now
   essentially one steady patch.
@@ -3567,8 +3567,8 @@ analysis.
   **Honest note on jitter/breathe in the man direction: they read HIGHER
   after (jitter 0.189 -> 0.220, breathe 0.329 -> 0.425) and that is a
   composition change, not a regression.** Those averages only include
-  stable-count intervals, and the sample set changed underneath them: 67%
-  -> 79% of intervals now qualify, and the small static slabs that used to
+  stable-count intervals, and the sample set changed underneath them:
+  84.9% -> 95.4% of intervals now qualify, and the static slabs that used to
   dilute the average are gone, leaving the one real moving patch. The
   woman direction, where coverage is continuous, shows the true direction:
   jitter 0.114, breathe 0.185.
@@ -3611,3 +3611,106 @@ analysis.
   resource — and no number on this project has ever come from that device.
   Recorded so a later round does not quote the stability win as a perf
   win.
+
+- **S3** (2026-08-26) — **the critic caught the measurement lying, and one
+  of the two S1/S2 wins does not survive it.**
+
+  The S1 docstring said jitter and breathe were computed only across
+  intervals of unchanged patch count. **`stability.py` never did that** —
+  the filtering happened in throwaway scripts beside the tool, while the
+  tool's own numbers went into the log unfiltered. A metric whose stated
+  definition lives outside the metric is how a wrong number gets written
+  down as fact, so the filter now lives in `analyse()`, along with two
+  more corrections the critic was right about:
+
+  - **dt comes from VIDEO time, not wall clock.** The sampler is a Python
+    loop over CDP round-trips; wall spacing wanders by tens of
+    milliseconds, so a slow eval alone can inflate a per-second rate.
+  - **`births` counts TRACKS, not patches** — `__TS_GAZE_IDS.tracks`
+    includes cleared tracks that draw nothing. So "patches exceed tracks"
+    compares against a SUPERSET and under-reports splitting. The direction
+    is safe; the magnitude was a floor, not a measurement.
+
+  Recomputed through the corrected analyser, the S1/S2 stable-interval
+  figures were wrong (84.9% -> 95.4%, not 67% -> 79%) and have been fixed
+  in place above rather than left standing.
+
+  **A single 45s run cannot decide a small change.** Run-to-run spread on
+  this footage is most of the mean, so two whole-run averages only settle
+  a difference that is enormous. Both runs watch the SAME video, so
+  `stability.py compare` now pairs the traces by `currentTime` and reports
+  how many seconds of video moved which way. Applied to both shipped
+  changes, on the same 46 buckets:
+
+  | change | mean Δ patches | buckets fewer | more | same |
+  |---|---|---|---|---|
+  | one-patch-with-hole (S2) | **-1.03** | **30** | 2 | 14 |
+  | shrink deadband (S1) | +0.13 | 15 | 19 | 12 |
+
+  **S2 is real and S1's effect on patch COUNT is a coin flip.** That is
+  not a retraction of S1 — the deadband's job was breathing, and it did
+  that (breathe 0.467 -> 0.398, jitter 0.264 -> 0.206) — but S1 must never
+  be quoted as a count win, and the paired test is now the bar for every
+  future stability claim.
+
+  **THE SEAM, WHICH IS PROBABLY WHAT HE ACTUALLY SAW.** The critic
+  measured that on 96% of covered samples the patches form ONE connected
+  blob, with internal seam length averaging 1.23 frame-widths on 66% of
+  samples. So "multiple boxes here and there" was largely not floating
+  boxes at all — it was **visible LINES inside one covered region**. Two
+  abutting `backdrop-filter` elements each snapshot the backdrop
+  separately and the joint reads as a hard edge; the contrast step at the
+  seam column measured **23x**. This is the mechanism behind the owner's
+  report and it is exactly what S2 removes wherever a hole caused the
+  split. Overlapping SIBLING patches still compound their blur and still
+  seam — unmeasured, and the next thing to look at.
+
+  **THE CLIP-PATH CONFLICT, RECORDED UNRESOLVED RATHER THAN SETTLED.**
+  S2 recorded that an element with `clip-path: path(evenodd, ...)` paints
+  NOTHING in this WebView2 despite `CSS.supports` returning true, verified
+  by pixel against an unclipped control. The critic tested the same idea
+  in headless Edge 151 and found all five constructions work. The likely
+  reconciliation is that the spike used `path()` and the critic used
+  `polygon()` — different code paths in the same engine — but that is a
+  hypothesis, not a measurement, and nobody has run both forms side by
+  side in the shipping WebView. **Whoever picks this up runs the pixel
+  test first.** And a hard constraint if they do: with `polygon()` the
+  fill rule must be **nonzero, never evenodd** — 62.6% of patch pairs
+  overlap, and evenodd XORs an overlap into a TRANSPARENT HOLE over
+  someone who is meant to be covered. That is EXPOSURE manufactured by a
+  rendering choice. The shipped mask uses `exclude` over hole layers,
+  where overlapping holes compound toward MORE cover, not less.
+
+  **SEGMENTATION: use it to tighten the box, not to draw the shape.**
+  The critic's judgement, and it is right for a reason worth keeping:
+  a silhouette cannot be dead-reckoned between passes the way a rectangle
+  can, and producing one per frame means reading pixels back out of the
+  GPU — undoing the zero-readback work that took the long tasks from
+  1338ms to 247ms. The 76% of wasted blur area is MoveNet's box
+  regression, and segmentation can fix that by shrinking the RECTANGLE
+  once per pass. Same accuracy gain, none of the render cost.
+
+  **SHIPPED this round, all three in the functions S2 already touched:**
+  - `makeOverlay` now seeds `__tsW/__tsH` from `BASE_PX`. They were
+    undefined, so `place()` compared the first real rect against 0 and
+    skipped the write for any patch under 2px — leaving a **100px blurred
+    slab** at BASE_PX. Latent, never observed, but slivers are exactly
+    what this renderer produces and a smaller player reaches it.
+  - `lerpRect` settles. A 0.25 lerp is asymptotic, so the drawn rect
+    differed from its target for ever and the transform string was
+    rewritten 60 times a second through a completely static shot. It
+    settles slightly LARGER than the target (the shrink deadband parks
+    each inward edge up to 5% of its span short) — over-cover, the safe
+    direction, now asserted by test rather than left implicit.
+  - `place()` compares the transform string before assigning it. Identical
+    assignments still cross CSSOM; comparing them does not.
+
+  gaze **180/180** (one new test pins convergence AND containment
+  together, because a settle that shrank the patch would be an exposure
+  dressed as a perf win). Nothing here changes geometry the pipeline
+  asks for, so the S2 accuracy gate carries.
+
+  **Still open.** The sibling-overlap seam (unmeasured). The `polygon()`
+  pixel test in the real WebView. Segmentation as a box-tightener. And
+  the whole stability story is still desktop-only — no number on this
+  project has ever come from the owner's Helio G88.

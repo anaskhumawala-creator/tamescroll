@@ -107,6 +107,14 @@ function makeOverlay(key) {
     'will-change:transform;' +
     'backdrop-filter:blur(var(--ts-blur-strong,24px));' +
     '-webkit-backdrop-filter:blur(var(--ts-blur-strong,24px));';
+  // Seed the size cache from the size the node is BORN with. Left
+  // undefined, place() compares the first real rect against 0, so a patch
+  // narrower or shorter than 2px is never written and the overlay stays
+  // at BASE_PX: a 100px blurred slab over whatever is beneath it. Latent
+  // rather than observed, but slivers are exactly the shape this renderer
+  // produces, and a smaller player makes them reachable.
+  d.__tsW = BASE_PX;
+  d.__tsH = BASE_PX;
   return d;
 }
 
@@ -182,7 +190,15 @@ function applyMask(overlay, spec) {
 }
 
 function place(overlay, rect) {
-  overlay.style.transform = 'translate(' + rect.left + 'px,' + rect.top + 'px)';
+  // The transform write is unconditional no longer. lerpRect settles, and
+  // the shrink deadband can hold an edge indefinitely, so a static shot
+  // asks for the SAME transform 60 times a second. Assigning an identical
+  // string still crosses CSSOM every time; comparing it does not.
+  var tf = 'translate(' + rect.left + 'px,' + rect.top + 'px)';
+  if (overlay.__tsTf !== tf) {
+    overlay.style.transform = tf;
+    overlay.__tsTf = tf;
+  }
   // Size writes cost layout — skip when the change is sub-2px.
   if (Math.abs((overlay.__tsW || 0) - rect.width) >= 2) {
     overlay.style.width = rect.width + 'px';
@@ -266,8 +282,26 @@ function inward(fromEdge, toEdge, span, sign) {
   return fromEdge + (toEdge - fromEdge) * RENDER_LERP;
 }
 
+// Below this the glide is OVER. A 0.25 lerp is asymptotic, so without an
+// epsilon the drawn rect differs from its target for ever: the transform
+// string is rewritten 60 times a second through a completely static shot,
+// for sub-pixel motion nobody can see. Battery and thermal on a phone,
+// which is the machine that matters (owner 2026-08-26: "optimization is a
+// real concern btw cuz yt app already feels slow"). Snapping to the
+// target rather than holding `from` keeps this from ever shrinking the
+// drawn patch below what the pipeline asked for.
+var SETTLE_PX = 0.25;
+
 export function lerpRect(from, to) {
   if (!from) return to;
+  if (
+    Math.abs(from.left - to.left) < SETTLE_PX &&
+    Math.abs(from.top - to.top) < SETTLE_PX &&
+    Math.abs(from.width - to.width) < SETTLE_PX &&
+    Math.abs(from.height - to.height) < SETTLE_PX
+  ) {
+    return to;
+  }
   var fr = from.left + from.width;
   var fb = from.top + from.height;
   var tr = to.left + to.width;

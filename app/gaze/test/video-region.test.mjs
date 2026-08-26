@@ -230,3 +230,28 @@ test('lerpRect: growth is still instant on every edge', () => {
   assert.equal(out.top + out.height, 328);
 });
 
+test('lerpRect settles instead of chasing a target for ever', () => {
+  // An asymptotic lerp never arrives. Left ungated it rewrites the
+  // transform at 60Hz through a static shot -- the exact "already feels
+  // slow" cost the owner reported. Convergence is the property, so pin it.
+  //
+  // It does NOT converge onto the target: the shrink deadband parks each
+  // inward edge up to 5% of its span short, so the drawn patch settles
+  // slightly LARGER than asked. That is the safe direction (over-cover,
+  // never exposure) and it is asserted below rather than left implicit.
+  let r = { left: 0, top: 0, width: 100, height: 100 };
+  const target = { left: 10, top: 10, width: 100, height: 100 };
+  let steps = 0;
+  while (steps < 200) {
+    const next = vr.lerpRect(r, target);
+    if (next.left === r.left && next.top === r.top &&
+        next.width === r.width && next.height === r.height) break;
+    r = next;
+    steps++;
+  }
+  assert.ok(steps < 200, 'never settled: transform rewrites for ever');
+  assert.ok(r.left <= target.left, 'settled patch must still contain the target');
+  assert.ok(r.top <= target.top);
+  assert.ok(r.left + r.width >= target.left + target.width);
+  assert.ok(r.top + r.height >= target.top + target.height);
+});

@@ -19,6 +19,7 @@ Metrics, all per second of playback so runs of different length compare:
   births/s      new track ids per second
   jitter        mean centre movement per patch per second, in frame widths
   breathe       mean size change per patch per second, same units
+  stable_frac   fraction of intervals whose patch COUNT did not change
   life p50      how long a patch survives, seconds
 
 A patch that is correct but blinks twice a second reads as broken. These
@@ -116,6 +117,12 @@ def analyse(samples):
 
     # Track births. ids are per-video and monotonic, so a set difference
     # is enough; a track that merely MOVED keeps its id.
+    #
+    # CAVEAT, and it matters when reading the number: __TS_GAZE_IDS.tracks
+    # holds EVERY live track, including CLEARED ones that draw no patch.
+    # So births counts track churn, not patch churn, and "patches > tracks"
+    # compares patches against a SUPERSET -- i.e. it under-reports
+    # splitting. Direction is safe, magnitude is a floor.
     births = 0
     seen = set()
     for s in samples:
@@ -124,15 +131,30 @@ def analyse(samples):
                 seen.add(i)
                 births += 1
 
-    # Geometry churn. Matched greedily by nearest centre within a frame
-    # pair, because ids are not attached to rects in the probe — and the
-    # eye does the same thing: it does not know which patch is which, it
-    # just sees movement.
+    # Geometry churn, over STABLE-COUNT intervals only. Pairing rects
+    # across a count change matches unrelated boxes and inflates both
+    # metrics -- an artifact that already cost one analysis. This used to
+    # be done by hand in throwaway scripts while this docstring claimed the
+    # tool did it; now the tool does it, because a claim about a metric
+    # that lives outside the metric is how a wrong number gets into a log.
+    #
+    # dt comes from VIDEO time, not wall clock. The sampler is a Python
+    # loop over CDP round-trips, so wall spacing wanders by tens of
+    # milliseconds and a slow eval alone can double a per-second rate.
+    # currentTime is the clock the motion actually happened on.
     jit = []
     brh = []
+    stable = 0
+    pairs = 0
     for i in range(1, len(samples)):
         a, b = samples[i - 1].get("r") or [], samples[i].get("r") or []
-        dt = samples[i]["wall"] - samples[i - 1]["wall"]
+        dt = samples[i].get("t", 0) - samples[i - 1].get("t", 0)
+        if dt <= 0:
+            dt = samples[i]["wall"] - samples[i - 1]["wall"]
+        pairs += 1
+        if samples[i]["n"] != samples[i - 1]["n"]:
+            continue
+        stable += 1
         if not a or not b or dt <= 0:
             continue
         for rb in b:
@@ -164,8 +186,51 @@ def analyse(samples):
         "births_per_s": round(births / span, 2) if span else 0,
         "jitter_per_s": round(statistics.mean(jit), 4) if jit else 0,
         "breathe_per_s": round(statistics.mean(brh), 4) if brh else 0,
+        "stable_frac": round(stable / pairs, 3) if pairs else 0,
         "cover_life_p50": round(statistics.median(lives), 2) if lives else 0,
     }
+
+
+def compare(before, after, bucket=1.0):
+    """Pair two traces by VIDEO time and report the paired difference.
+
+    Run-to-run spread on a single 45s capture is most of the mean, so
+    comparing two whole-run averages cannot tell a real change from noise
+    unless the change is enormous. Both runs watched the SAME footage, so
+    the honest comparison is per-second-of-video: bucket each trace by
+    currentTime, difference the buckets that both runs cover, and report
+    how many buckets moved which way. A change that is real shows up in
+    most buckets; noise splits near 50/50.
+    """
+    def buckets(samples):
+        out = {}
+        for s in samples:
+            if s.get("paused"):
+                continue
+            k = round(s.get("t", 0) / bucket)
+            out.setdefault(k, []).append(s["n"])
+        return {k: statistics.mean(v) for k, v in out.items()}
+
+    ba, aa = buckets(before), buckets(after)
+    keys = sorted(set(ba) & set(aa))
+    if not keys:
+        return {"error": "traces share no video time"}
+    d = [aa[k] - ba[k] for k in keys]
+    down = sum(1 for x in d if x < -1e-9)
+    up = sum(1 for x in d if x > 1e-9)
+    return {
+        "buckets": len(keys),
+        "mean_delta_patches": round(statistics.mean(d), 3),
+        "buckets_fewer": down,
+        "buckets_more": up,
+        "buckets_same": len(keys) - down - up,
+    }
+
+
+def main_compare(before_json, after_json):
+    b = json.load(open(before_json))
+    a = json.load(open(after_json))
+    print(json.dumps(compare(b["samples"], a["samples"])))
 
 
 def main(out, gender, video, start, seconds):
@@ -192,6 +257,9 @@ def main(out, gender, video, start, seconds):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 4 and sys.argv[1] == "compare":
+        main_compare(sys.argv[2], sys.argv[3])
+        raise SystemExit(0)
     if len(sys.argv) < 6:
         raise SystemExit(
             "usage: stability.py <out.json> <man|woman> <videoId> <startSec> <seconds>"
