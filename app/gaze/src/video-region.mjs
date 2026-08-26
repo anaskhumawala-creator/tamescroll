@@ -202,16 +202,70 @@ function makeOverlay(key) {
 // that encroachment (~3% of a 500px patch) while still reading as soft.
 // Do not raise this without re-reading a frame with two people close
 // together.
-var FEATHER_MAX_PX = 16;
-var FEATHER_FRAC = 0.12; // of the patch's short side, so small patches
-                         // are not entirely ramp
+// FEATHER WIDTH, AND WHY THE PIXEL CAP WAS THE BUG.
+//
+// Owner, 2026-08-26, from a PHONE screenshot -- the first real-hardware
+// evidence this project has ever had: "the square edges should not have
+// been shown and a nice blur". The soft edge shipped in S4 and it is
+// almost invisible on his device, because the width was capped at 16
+// ABSOLUTE PIXELS. His patch measures roughly 460px across, so the ramp
+// was 3.5% of it: geometrically a gradient, perceptually a hard rectangle.
+// A pixel cap makes the look depend on the player's size, which is
+// exactly the thing that differs between this desktop and his phone.
+//
+// So it is a FRACTION of the patch's own short side, with a pixel FLOOR
+// (a tiny patch should not be entirely ramp) and a generous ceiling.
+//
+// HALF IN, HALF OUT -- and the measurement is what makes that safe.
+//
+// A fully OUTWARD ramp cannot under-cover, but it grows the drawn element
+// by 2f per axis, and with f now scaled the frames went to 72-99% of the
+// picture blurred: the owner's other complaint, "a Linus still gets
+// blurred sometimes", made worse. A fully INWARD ramp would eat the
+// requested box and is the EXPOSURE direction.
+//
+// So the element grows by f/2 and the ramp spans f from its edge, which
+// puts the fully-opaque core f/2 INSIDE the box the pipeline asked for.
+// That is affordable because S5 measured how much slack the box carries:
+// PATCH_MARGIN 0.08 proportional, plus PTRACK_PAD 0.10, plus a keypoint
+// margin of 0.05 (0.089 in y on 16:9) -- the drawn box is roughly twice
+// the subject, with the median patch at 0.51 x 0.98 of frame. f/2 is
+// around 5% of the short side, comfortably inside that margin, and the
+// ramp's own alpha is still 0.85 at 78% of its width, so the part that
+// loses meaningful coverage is only the outer sliver of added margin.
+//
+// Net against the hard-edged version: same total softness, HALF the
+// over-blur, and half the encroachment on a cleared neighbour.
+var FEATHER_FRAC = 0.10; // of the patch's short side
+var FEATHER_MIN_PX = 10;
+var FEATHER_MAX_PX = 64;
 var HOLE_FEATHER_GROW = 1.5;
 var HOLE_CORE = 66; // percent of the grown box that stays fully revealed
 
 /** Feather width for a patch of this size, in px. */
 export function featherFor(rect) {
   var shortSide = Math.min(rect.width, rect.height);
-  return Math.max(0, Math.min(FEATHER_MAX_PX, shortSide * FEATHER_FRAC));
+  if (!(shortSide > 0)) return 0;
+  var f = shortSide * FEATHER_FRAC;
+  if (f < FEATHER_MIN_PX) f = FEATHER_MIN_PX;
+  if (f > FEATHER_MAX_PX) f = FEATHER_MAX_PX;
+  // Never let the ramp exceed a third of the patch, or a small patch is
+  // all gradient and covers nothing firmly.
+  var lid = shortSide / 3;
+  return f > lid ? lid : f;
+}
+
+/** Gradient stops for one soft edge: opaque at `f`, front-loaded falloff. */
+function edgeStops(f) {
+  // A single linear ramp reads as a visible band edge. Three stops put
+  // most of the alpha loss in the OUTER half of the ramp, so the join to
+  // the untouched picture is gentle while the inner part stays nearly
+  // opaque -- which is also what keeps a neighbour inside the ramp from
+  // picking up much blur.
+  return (
+    'rgba(0,0,0,0) 0px, rgba(0,0,0,0.35) ' + (f * 0.45).toFixed(1) + 'px, ' +
+    'rgba(0,0,0,0.85) ' + (f * 0.78).toFixed(1) + 'px, #000 ' + f.toFixed(1) + 'px'
+  );
 }
 
 function maskFor(rect, holes, f) {
@@ -222,18 +276,19 @@ function maskFor(rect, holes, f) {
   var wcomp = [];
   var full = rect.width + 'px ' + rect.height + 'px';
   if (f > 0) {
-    var stopA = f + 'px';
-    var stopB = 'calc(100% - ' + f + 'px)';
-    img.push(
-      'linear-gradient(to right, rgba(0,0,0,0) 0px, #000 ' + stopA + ', #000 ' + stopB + ', rgba(0,0,0,0) 100%)'
-    );
+    var head = edgeStops(f);
+    var tailA = 'calc(100% - ' + f.toFixed(1) + 'px)';
+    var tailB = 'calc(100% - ' + (f * 0.78).toFixed(1) + 'px)';
+    var tailC = 'calc(100% - ' + (f * 0.45).toFixed(1) + 'px)';
+    var tail =
+      '#000 ' + tailA + ', rgba(0,0,0,0.85) ' + tailB + ', ' +
+      'rgba(0,0,0,0.35) ' + tailC + ', rgba(0,0,0,0) 100%';
+    img.push('linear-gradient(to right, ' + head + ', ' + tail + ')');
     sizes.push(full);
     pos.push('0px 0px');
     comp.push('add');
     wcomp.push('source-over');
-    img.push(
-      'linear-gradient(to bottom, rgba(0,0,0,0) 0px, #000 ' + stopA + ', #000 ' + stopB + ', rgba(0,0,0,0) 100%)'
-    );
+    img.push('linear-gradient(to bottom, ' + head + ', ' + tail + ')');
     sizes.push(full);
     pos.push('0px 0px');
     comp.push('intersect');
@@ -484,12 +539,16 @@ function reposition(entry, now) {
     // opaque core of the mask still covers the full requested box. Growing
     // the element is what makes the soft edge free of under-cover.
     var f = featherFor(lerped);
+    // Half the ramp sits outside the requested box, half inside. See the
+    // note above featherFor: outward-only tripled the blurred area once f
+    // scaled with the patch.
+    var g = f / 2;
     var drawn = f > 0
       ? {
-          left: lerped.left - f,
-          top: lerped.top - f,
-          width: lerped.width + f * 2,
-          height: lerped.height + f * 2,
+          left: lerped.left - g,
+          top: lerped.top - g,
+          width: lerped.width + g * 2,
+          height: lerped.height + g * 2,
         }
       : lerped;
     place(entry.overlays[j], drawn);

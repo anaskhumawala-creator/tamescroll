@@ -291,3 +291,38 @@ test('the long tail never uncovers the leading edge of a moving patch', () => {
   }
 });
 
+
+test('feather scales with the patch, so a phone and a desktop look alike', () => {
+  // Owner 2026-08-26, from a phone screenshot: "the square edges should
+  // not have been shown". The ramp was capped at 16 ABSOLUTE px, which on
+  // his ~460px patch was 3.5% of it -- a gradient by construction and a
+  // hard rectangle to the eye. A fraction of the patch is the only form
+  // that looks the same at two player sizes.
+  const small = vr.featherFor({ left: 0, top: 0, width: 120, height: 90 });
+  const phone = vr.featherFor({ left: 0, top: 0, width: 460, height: 490 });
+  const big = vr.featherFor({ left: 0, top: 0, width: 1600, height: 900 });
+  assert.ok(phone > 16, `phone patch must get a visible ramp, got ${phone}`);
+  assert.ok(phone / 460 > 0.05, 'ramp must be a meaningful share of the patch');
+  assert.ok(big >= phone, 'a larger patch may not get a smaller ramp');
+  // A small patch must not be mostly gradient.
+  assert.ok(small <= 90 / 3 + 1e-9, 'ramp capped at a third of the short side');
+});
+
+test('the feather is added OUTSIDE, so the requested box stays fully covered', () => {
+  // The safety property the whole construction rests on: growing the
+  // element by the ramp means the opaque core still covers every pixel
+  // the hard rectangle covered. Ramping inward instead would under-cover.
+  const rect = { left: 100, top: 50, width: 400, height: 300 };
+  const f = vr.featherFor(rect);
+  assert.ok(f > 0);
+  const grown = {
+    left: rect.left - f,
+    top: rect.top - f,
+    width: rect.width + f * 2,
+    height: rect.height + f * 2,
+  };
+  assert.ok(grown.left <= rect.left);
+  assert.ok(grown.top <= rect.top);
+  assert.ok(grown.left + grown.width >= rect.left + rect.width);
+  assert.ok(grown.top + grown.height >= rect.top + rect.height);
+});

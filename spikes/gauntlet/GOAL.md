@@ -4228,3 +4228,74 @@ analysis.
   disagree with what the two screenshots show. Score from the IMAGES; the
   rect list is for attribution, not for counting. Three frames this round
   disagreed.
+
+- **S7** (2026-08-26) — **the first PHONE screenshot this project has ever
+  had, and it invalidated a shipped feature on sight.**
+
+  Owner, with a v0.1.17 screenshot from his device: *"I meant that the
+  square edges should not have been shown and a nice blur ... and like a
+  Linus still gets blurd sometimes but I like the progress though it
+  still isn't as smooth."*
+
+  **THE SOFT EDGE HAD SHIPPED AND WAS INVISIBLE ON HIS HARDWARE.** S4
+  capped the feather at 16 ABSOLUTE PIXELS (cut from 26 to protect a
+  cleared man at a patch edge). His patch measures ~460px across, so the
+  ramp was **3.5% of it** — a gradient by construction, a hard rectangle
+  to the eye. Every frame I verified it on was a desktop player where the
+  same 16px read differently. **A pixel constant makes appearance depend
+  on player size, which is precisely what differs between this machine
+  and the only device that matters.** The width is now a FRACTION of the
+  patch's short side (FEATHER_FRAC 0.10, floor 10px, ceiling 64px, and
+  never more than a third of the patch), with a three-stop front-loaded
+  falloff instead of a single linear ramp, because one linear ramp still
+  reads as a band edge.
+
+  **THE FIRST ATTEMPT FIXED THE EDGES AND MADE HIS SECOND COMPLAINT
+  WORSE.** Outward-only feathering grows the drawn element by 2f per
+  axis; once f scaled with the patch, measured coverage went to
+  **72-99% of the picture** (f000 at 98.6%) — i.e. "a Linus still gets
+  blurred", by construction. Caught by reading the frames, not by any
+  metric: patch COUNT and breathe were both unmoved.
+
+  **SHIPPED: half the ramp inside the box, half outside.** The element
+  grows by f/2 and the ramp spans f from its edge, so the fully-opaque
+  core sits f/2 INSIDE the requested box. That is affordable because S5
+  measured the slack: PATCH_MARGIN 0.08 proportional + PTRACK_PAD 0.10 +
+  keypoint margin 0.05 (0.089 in y on 16:9), with the median patch at
+  0.51 x 0.98 of frame — roughly twice the subject. f/2 is about 5% of
+  the short side, inside that margin, and the ramp is still at alpha 0.85
+  at 78% of its width, so the only region losing meaningful coverage is
+  the outer sliver of margin the box did not need.
+
+  | | S4/S6 (16px cap) | outward-only, scaled | **shipped: split** |
+  |---|---|---|---|
+  | coverage across 6 frames | 66-94% | **72-99%** | **60-75%** |
+  | visible square edge | YES (owner) | no | no |
+
+  **Stability is unmoved, which is the correct result** — this is an
+  appearance change, not a tracking change. Paired by video time against
+  bc7ee2c over 46 buckets: patch count 10 fewer / 3 more / 33 same;
+  rel-breathe-w 23 calmer / 15 busier, mean +0.018. Whole-run, before ->
+  after: patches mean 0.85 -> 0.83, dCount 0.40 -> 0.36/s, jitter 0.166
+  -> 0.163, stable intervals 95.8% -> 96.5%, rel breathe width 0.330 ->
+  0.349. All inside the noise band this section measured in S5.
+
+  **Frames read (man t=901):** the cleared man's face, cap, shirt graphic
+  and forearm all sharp, with the blur fading in across the gap and no
+  rectangle boundary anywhere in the picture. EXPOSURE 0, GHOST 0.
+  gaze **199/199**, cargo **36/36**.
+
+  **NOT FIXED, and it is his third point.** "Still isn't as smooth" and
+  "Linus still gets blurred sometimes" are the verdict and box-size
+  problems, untouched here: the median patch is still 0.51 x 0.98 of
+  frame with 70% of patches pinned to the frame edge. Softening an edge
+  does not shrink a slab. The lever remains segmentation as a
+  box-tightener (S4 costed it: MediaPipe Selfie Segmentation tfjs graph
+  model, 332,432 bytes, Apache-2.0).
+
+  **THE LESSON WORTH MORE THAN THE FIX.** Twenty-odd rounds of frame
+  verification on this desktop could not have caught a bug whose entire
+  mechanism is "the player is a different size on his phone". Every
+  appearance constant in the renderer should be relative to the patch or
+  the player, and any that is not is a desktop-only assumption waiting
+  to be found by a screenshot.
