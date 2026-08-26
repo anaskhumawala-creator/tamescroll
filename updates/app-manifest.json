@@ -1,7 +1,7 @@
 {
-  "versionCode": 1014,
-  "versionName": "0.1.14",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.14/app-arm64-debug.apk",
-  "sha256": "b7822d5bdbfe4ca74e55853d35acb6c23082f666f4ac4567d71ee3f2a674c011",
-  "notes": "Important fix: v0.1.13 blur was invisible (rendered behind the video)"
+  "versionCode": 1015,
+  "versionName": "0.1.15",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.15/app-arm64-debug.apk",
+  "sha256": "b9345f6dec372d57c1486a6585e4c4b03bd80370f755e1b29adc40a3ad1d4468",
+  "notes": "13 measured blur-accuracy rounds, network-level ad blocking on Android, end-screen wall hidden."
 }
