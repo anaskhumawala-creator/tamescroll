@@ -727,7 +727,23 @@ import { planForMode } from './pipeline-plan.mjs';
         var d = g.getImageData(0, 0, sceneGate.GATE_SIZE, sceneGate.GATE_SIZE).data;
         var n = sceneGate.GATE_SIZE * sceneGate.GATE_SIZE;
         var cur = sceneGate.lumaGrid(d, n);
-        if (prevLuma) sceneState = sceneGate.classifyScene(sceneGate.meanAbsDelta(prevLuma, cur));
+        if (prevLuma) {
+          var lumaDelta = sceneGate.meanAbsDelta(prevLuma, cur);
+          sceneState = sceneGate.classifyScene(lumaDelta);
+          // THE DELTA BEHIND EVERY CUT DECISION (S10). S6's critic asked
+          // for CUT_DELTA to move and was refused pending a count; S10
+          // measured the cost of being wrong -- 6 of 7 revoked clears sit
+          // within 0.21s of a cutDetected -- so the calibration question
+          // is now load-bearing. A histogram separates "these are real
+          // cuts" from "the threshold is picking up camera motion", and
+          // nothing has ever recorded the value.
+          try {
+            var dbgL = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+            if (!dbgL.luma) dbgL.luma = [];
+            dbgL.luma.push(Math.round(lumaDelta * 10) / 10);
+            if (dbgL.luma.length > 600) dbgL.luma.shift();
+          } catch (e) {}
+        }
         prevLuma = cur;
       } catch (e) {
         // Tainted canvas: the gate goes inert ('motion' = no behaviour
@@ -1183,6 +1199,30 @@ import { planForMode } from './pipeline-plan.mjs';
         var facesP = known ? Promise.resolve(known) : detector.detectFaceBoxes(model, zpix);
         return facesP.then(function (faces) {
           if (!faces.length) return obs;
+          // NO ATTRIBUTABLE FACE ⇒ DECIDE BEFORE PAYING FOR THE READ.
+          //
+          // `ownFaceIndex` is pure and reads only `faces` plus this
+          // person's head anchor, so its answer is already knowable here.
+          // It was being computed at the TOP of classifyBest and again by
+          // the caller, with a full faceres inference on a fresh 224px
+          // native crop in between -- and when it comes back -1 the
+          // caller returns hard-covered without ever reading the result.
+          // The probe at the `attr` block measured `own === -1` on 25% of
+          // reads, and S9 measured the crop+gender stage at 64 of a
+          // verdict pass's 102ms, so that is a quarter of the most
+          // expensive stage computed and thrown away -- proportionally
+          // worse on a Helio G88, which is the target.
+          //
+          // It also stops a real defect, not just waste: the discarded
+          // path still salvaged `desc` from `bestIndex`, i.e. the LARGEST
+          // face in a padded crop that R19 measured as containing more
+          // than one face 19 times in 40. On a two-shot that stores the
+          // NEIGHBOUR's descriptor on this person's track, which is the
+          // one input `identityBroken` trusts.
+          if (ownFaceIndex(faces) === -1) {
+            bumpLife('ownMissSkipped');
+            return { box: person, flagged: true, certain: false, faceFound: true, desc: null };
+          }
           var faceDesc = null;
           var metaP = genderModel
             ? classifyBest(faces).then(function (genders) {
@@ -1361,8 +1401,11 @@ import { planForMode } from './pipeline-plan.mjs';
             if (dbgA.attr.length > 120) dbgA.attr.shift();
             } catch (e) {}
             if (own === -1) {
-              // No face attributable to this person's head ⇒ unknown ⇒
-              // covered, exactly as a faceless person already is.
+              // BACKSTOP. observeCropped now answers this before paying
+              // for the read, so this branch is reachable only if
+              // ownFaceIndex were non-deterministic over the same
+              // `faces`. Kept because the failure mode if it ever is
+              // would be an unattributed read clearing somebody.
               return { box: person, flagged: true, certain: false, faceFound: true, desc: faceDesc };
             }
             var mine = meta[own] || { flagged: true, certain: false };
@@ -1551,6 +1594,13 @@ import { planForMode } from './pipeline-plan.mjs';
             )
             .then(function (persons) {
               mark('persons');
+              // How many people this pass had to crop. The crop+gender
+              // stage is 64 of a verdict pass's 102ms (S9), and whether
+              // that scales with the person count decides whether
+              // ZOOM_MAX_PERSONS is the phone lever or a red herring.
+              try {
+                stage.n = persons.length;
+              } catch (e) {}
               // Probe-visible pass marker (verification probes read this).
               window.__TS_GAZE_PERSONS = persons.length;
               // Hysteresis input for the NEXT pass. Stamped from the
@@ -1987,6 +2037,18 @@ import { planForMode } from './pipeline-plan.mjs';
                     // same round) — this is how a future round sizes how
                     // often consistent sub-bar evidence actually occurs.
                     ws: tk.weakStreak || 0,
+                    // How much of flagStreak came from ABSTENTIONS (S10).
+                    // The design intent is "2 consecutive certain
+                    // opposite reads"; abstentions advance the same
+                    // counter, so a mix also revokes. Measurement only.
+                    as: tk.abstainStreak || 0,
+                    // The two fields every TTL/stale question needs and
+                    // no trace has ever carried: paths 3, 4 and `stale`
+                    // are invisible in the per-pass record, so they could
+                    // only be reasoned about from aggregates that cannot
+                    // be joined to a frame.
+                    ca: Math.round(tk.clearAge || 0),
+                    mm: Math.round(tk.missMs || 0),
                     // R19: the track's own box. Without it a patch cannot
                     // be attributed to the track that drew it, which is
                     // the join every geometry question needs.

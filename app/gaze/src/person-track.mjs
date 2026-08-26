@@ -643,6 +643,7 @@ function matchedStep(t, obs, dt) {
       facelessReads: t.facelessReads || 0,
       clearStreak: t.clearStreak || 0,
       flagStreak: t.flagStreak || 0,
+      abstainStreak: t.abstainStreak || 0,
       desc: t.desc || null,
       // The head hole rides the position pass so it stays on the face
       // between gender reads, but its AGE still advances: a position
@@ -664,6 +665,13 @@ function matchedStep(t, obs, dt) {
   // not the pass interval, so the split cadence keeps the hold honest.
   var vdt = typeof obs.verdictDt === 'number' ? obs.verdictDt : dt;
   var flagStreak = t.flagStreak || 0;
+  // How many of `flagStreak`'s contributions were ABSTENTIONS rather than
+  // certain opposite reads. Measurement only this round -- it changes no
+  // decision, it only makes the mix visible so the next round can decide
+  // whether "2 consecutive certain opposite reads" should mean two of the
+  // same kind. Carried wherever flagStreak is carried, or the mix would
+  // read as pure-certain on every pass after the first.
+  var abstainStreak = t.abstainStreak || 0;
   var clearStreak = t.clearStreak || 0;
   var clearAge = t.clearAge || 0;
   var weakStreak = t.weakStreak || 0;
@@ -705,6 +713,7 @@ function matchedStep(t, obs, dt) {
     state = 'blurred';
     clearMs = 0;
     flagStreak = 0;
+    abstainStreak = 0;
     clearStreak = 0;
     clearAge = 0;
     // Someone else is standing here: weak evidence about the previous
@@ -744,6 +753,34 @@ function matchedStep(t, obs, dt) {
     // it immediately. Without this, the weak clear would widen the
     // exposure window rather than only the false-cover one.
     if (state !== 'cleared' || flagStreak >= 2 || stale) {
+      // COUNT THE REVOCATIONS, SPLIT BY WHAT ACTUALLY REVOKED.
+      //
+      // S10 measured cleared->blurred on a SURVIVING track at 0.117/s,
+      // and this branch was the only cleared->blurred path in the file
+      // with no counter at all -- so "which path" was answered by
+      // elimination in S9 and by correlation in S10, never directly.
+      // Three-way, because the ordinary blurred-track case shares the
+      // `if` and must not be counted as a revocation:
+      //   flagBlurFresh  - a track that was not cleared. Not a revoke.
+      //   flagDemoteStale - `stale` fired: ONE read revoked an earned
+      //     clear with no streak. Must read 0 on desktop (missMs is 0 on
+      //     every matched pass and coastStep deletes above the limit) --
+      //     any nonzero here means the reachability argument at `stale`
+      //     is wrong, and on the phone that path is live because the
+      //     coast budget is cadence-scaled while PTRACK_MAX_MISS_MS is not.
+      //   flagDemote     - the streak genuinely reached 2.
+      // `mixed` records that the two contributing reads were of DIFFERENT
+      // kinds: the design intent written above says "2 consecutive
+      // certain opposite reads", but the abstain branch below advances
+      // the SAME counter, so one certain flag plus one abstention also
+      // revokes. Whether that is a meaningful share is unmeasured, and
+      // the constant is not moved until it is.
+      if (state !== 'cleared') bump('flagBlurFresh');
+      else if (stale && flagStreak < 2) bump('flagDemoteStale');
+      else {
+        bump('flagDemote');
+        if (abstainStreak > 0) bump('flagDemoteMixed');
+      }
       state = 'blurred';
       clearMs = 0;
     }
@@ -771,8 +808,10 @@ function matchedStep(t, obs, dt) {
     // returning its prior. Only the second is a face we demonstrably
     // could not read, and only the second used to be a flag.
     flagStreak += 1;
+    abstainStreak += 1;
     if (flagStreak >= 2) {
       bump('abstainDemote');
+      if (abstainStreak < flagStreak) bump('abstainDemoteMixed');
       state = 'blurred';
       clearMs = 0;
       weakStreak = 0;
@@ -945,6 +984,7 @@ function matchedStep(t, obs, dt) {
     // unbounded counter is a number nobody can read in a diagnostic.
     // R13 measured it at 12 on a single track in ten frames.
     flagStreak: obs.flagged && (obs.certain || obs.abstained) ? Math.min(2, flagStreak) : 0,
+    abstainStreak: obs.flagged && (obs.certain || obs.abstained) ? Math.min(2, abstainStreak) : 0,
     // Already clamped and reset above; carried so the next pass sees it.
     weakStreak: weakStreak,
     desc: obs.desc || t.desc || null,
@@ -1157,6 +1197,7 @@ function coastStep(t, dt) {
     facelessReads: t.facelessReads || 0,
     clearStreak: t.clearStreak || 0,
     flagStreak: t.flagStreak || 0,
+    abstainStreak: t.abstainStreak || 0,
     // A missed pass is not a contradicting read, so the weak streak is
     // CARRIED rather than zeroed — same treatment clearStreak gets. The
     // TTL above is what bounds an unrefreshed weak clear.
@@ -1192,6 +1233,16 @@ export function demoteTracks(tracks) {
   var out = [];
   for (var i = 0; i < tracks.length; i++) {
     var t = tracks[i];
+    // THE COST OF A CUT, COUNTED. `cutDetected` counts cuts; nothing has
+    // ever counted how many EARNED clears each one throws away. S10
+    // measured 6 of 7 cleared->blurred revocations landing within 0.21s
+    // of a cutDetected, which makes this the dominant re-cover path in
+    // the man direction -- and the comment at the call site still says
+    // "identity memory, not stale association, decides who re-clears",
+    // which has been false since R13 deleted identity memory. The
+    // demotion itself is correct association hygiene; what is unpriced is
+    // that nothing replaced the mechanism that made it cheap.
+    if (t.state === 'cleared') bump('cutDemoteCleared');
     out.push({
       id: t.id,
       box: t.box,
@@ -1206,6 +1257,7 @@ export function demoteTracks(tracks) {
       facelessReads: t.facelessReads || 0,
       clearStreak: 0,
       flagStreak: 0,
+      abstainStreak: 0,
       // A cut means these pixels are a different shot: every accumulated
       // verdict, weak or not, is about a frame that no longer exists.
       weakStreak: 0,
@@ -1257,6 +1309,7 @@ function newTrack(obs) {
     clearAge: 0,
     clearStreak: !obs.flagged && obs.certain ? 1 : 0,
     flagStreak: 0,
+    abstainStreak: 0,
     // A fresh track starts BLURRED regardless; this only records that its
     // first read already pointed same-direction, so the streak does not
     // restart from zero on the churn a wide shot produces.

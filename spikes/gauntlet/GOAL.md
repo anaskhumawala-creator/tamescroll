@@ -4581,3 +4581,160 @@ analysis.
   punch a sharp window into its twin's patch. (7) the compound-blur seam
   between overlapping sibling patches, named in S3 and still unmeasured,
   at 72-238 overlapping pairs per run.
+
+- **S10** (2026-08-26) — **the re-blur is the SCENE CUT, measured three
+  independent ways, and the flag streak that three rounds were spent on
+  fires ZERO times.**
+
+  **THE ROUND'S NUMBERS, man, t=890, 60s** (before = HEAD 7c3f361, after
+  = this diff; paired by video time, plus a replicate):
+
+  | | before | after r1 | after r2 |
+  |---|---|---|---|
+  | patches mean / max | 0.84 / 2 | 0.86 / 3 | 0.84 / 3 |
+  | dCount/s | 0.37 | 0.50 | 0.47 |
+  | births/s | 0.27 | 0.28 | 0.27 |
+  | jitter/s | 0.197 | **0.147** | 0.159 |
+  | breathe/s | 0.323 | **0.257** | 0.270 |
+  | rel breathe w | 0.342 | **0.288** | 0.293 |
+  | stable intervals | 0.963 | 0.955 | 0.955 |
+  | cover life p50 | 1.33s | 3.39s | 1.26s |
+
+  Paired: **33 buckets calmer / 18 busier, mean -0.060**; patch count 8
+  fewer / 6 more. `cover_life_p50` swinging 1.26-3.39 on the same build is
+  S9's F1 finding restated — it measures coverage EPISODES, ~15
+  heavy-tailed samples per run, and should be replaced.
+
+  **WHAT THE ROUND ACTUALLY ANSWERED.** S9 left "verdict flicker" as the
+  #1 open item, attributed by ELIMINATION. S10 measured it directly, from
+  the track STATE the S9 round put into the trace:
+
+  **`cleared -> blurred` on a SURVIVING track: 0.117/s** (7 events in
+  60s). Episodes last **0.42, 0.43, 0.83, 0.41s** — three of four are
+  exactly ONE verdict interval. Track ids are never reused
+  (`nextTrackId` is monotonic with no reset anywhere in the tree), so a
+  surviving id is proof this is a state flip and not a death and rebirth.
+
+  **Then the correlation: 6 of 7 revocations land within 0.21s of a
+  `cutDetected`.** The one exception carries `abstainDemote`.
+
+  **Then the counters, added this round to settle it directly rather than
+  by correlation** — the flag branch was the only `cleared -> blurred`
+  path in `person-track.mjs` with no `bump()` at all:
+
+  | counter | run 1 | run 2 |
+  |---|---|---|
+  | `cutDetected` | 10 | 9 |
+  | **`cutDemoteCleared`** | **8** | **6** |
+  | `abstainDemote` | 1 | 1 |
+  | **`flagDemote`** | **0** | **0** |
+  | `flagDemoteStale` | 0 | 0 |
+  | `flagDemoteMixed` | 0 | 0 |
+  | `flagBlurFresh` (not a revoke) | 4 | 3 |
+
+  **`demoteTracks` is the re-blur.** Every scene cut throws away every
+  earned clear, and the owner watches fast-cut footage: cuts run at
+  0.15-0.17/s here, so a correctly-cleared man is re-covered 6-8 times a
+  minute for ~0.4s each. That IS "a Linus still gets blurd sometimes",
+  and it is not a bug in the verdict — it is the documented cut policy.
+
+  **AND THE POLICY'S JUSTIFICATION NO LONGER EXISTS.** The comment at the
+  call site (`init-entry.js`, the cut branch) says: *"DEMOTE, don't wipe:
+  boxes persist so coverage holds through the pass gap, but every verdict
+  state resets to blurred — identity memory, not stale association,
+  decides who re-clears."* **R13 deleted identity memory** (the descriptor
+  bank saturated in seconds; 17% of different-person pairs matched above
+  threshold — owner decision). The demotion survived the deletion of the
+  mechanism that made it cheap. Nothing was put in its place, and nothing
+  counted the cost until now.
+
+  **THE CUTS ARE REAL — the threshold is NOT the fix.** S6's critic asked
+  for `CUT_DELTA` to move and was refused pending a count. Measured this
+  round over 532 scene-gate samples in 60s: p50 9.3, p90 16.9, p95 21.0.
+  Only **9 samples reach the 28 bar, and 8 of those are 61-80** — far
+  above it; exactly one (30.4) is near the line. The 20-28 band (21
+  samples) is ordinary camera motion, correctly rejected. **CUT_DELTA 28
+  is well calibrated on this footage**; raising it to 40 would change one
+  event a minute and risk missing a real cut. S6's proposal is refuted by
+  measurement, not by argument.
+
+  **NOT FIXED THIS ROUND, DELIBERATELY.** Surviving a cut with an earned
+  clear intact is an EXPOSURE trade: if a different person occupies the
+  same screen region after the cut, keeping `cleared` is exactly the
+  failure the demotion exists to prevent (owner 2026-08-24: subjects
+  "switching one another"). That decision deserves its own round, and it
+  now has the counter — `cutDemoteCleared` — to be measured against.
+  The re-cover window is also already at its floor: the cut branch zeroes
+  `lastSample`/`lastZoomAt`, `gateTick` runs inside `sampleOnce` on the
+  rVFC loop ahead of both early returns, so detection is frame-driven and
+  the forced VERDICT pass runs on the next tick. 0.42s at 10Hz sampling is
+  ~one verdict interval plus quantisation; nothing schedulable is left.
+
+  **SHIPPED: stop paying for a read that is thrown away.** `observeCropped`
+  now calls `ownFaceIndex(faces)` BEFORE `classifyBest`. It is pure and
+  reads only `faces` plus the person's head anchor, so the answer was
+  already knowable — yet it was computed at the top of `classifyBest`, a
+  full faceres inference on a fresh 224px native crop ran in between, and
+  when it came back -1 the caller returned hard-covered without reading
+  the result. It also stops a real defect: the discarded path still
+  salvaged `desc` from `bestIndex`, i.e. the LARGEST face in a padded crop
+  that R19 measured as containing more than one face 19 times in 40 — on a
+  two-shot that stored the NEIGHBOUR's descriptor on this person's track,
+  and that descriptor is the only input `identityBroken` trusts.
+  **HONEST SIZE: the probe comment claiming `own === -1` on 25% of reads
+  does not hold on this footage** — `ownMissSkipped` measured **3 and 2
+  per 60s**, so the saving here is small. The correctness half stands
+  regardless.
+
+  **PERFORMANCE, measured, and the crop stage now has a scaling law.**
+  Stage marks (added S9) over 39 verdict passes, crop+gender p50 by person
+  count: **0 persons 13ms · 1 person 37ms · 2 persons 78ms · 3 persons
+  95ms**. Verdict total p50 105ms, position pass 25ms (all MoveNet). So
+  the stage is **~35-40ms PER PERSON** on an RTX desktop, and
+  ZOOM_MAX_PERSONS is not the lever — the per-person cost is. That is the
+  number any future crop-batching or resolution change has to beat, and it
+  is proportionally worse on a Helio G88.
+
+  **ACCURACY GATE: EXPOSURE 0, GHOST 0, PARTIAL 0.** 8 frames, all read.
+  Steady state is right — f006 has the man fully sharp (face, cap, shirt
+  graphic, forearm) beside a covered subject, soft-edged, no rectangle.
+  FALSE COVER on two frames, unchanged from S9 and both already named:
+  f002 (t=894.8) is the revoke — and the new per-pass fields show it was
+  `abstainStreak 1` at f001 then demoted with `missMs 0`, i.e. the
+  ABSTAIN path, not `stale` and not the flag streak; f007 is merge
+  over-reach, patch 0.31-1.03 swallowing the cleared man.
+  **The gate's own distribution differs from continuous playback** because
+  it seeks before every frame (S8's harness finding): abstainDemote is 1
+  per minute in continuous play against cut demotion's 6-8.
+  gaze **209/209**, cargo **37/37**.
+
+  **INSTRUMENTATION LEFT** (all measurement, no decision changed):
+  `abstainStreak` rides the track beside `flagStreak` so the MIX behind a
+  revocation is visible — the design intent says "2 consecutive certain
+  opposite reads" but abstentions advance the same counter, so one of
+  each also revokes; `flagDemoteMixed`/`abstainDemoteMixed` count it, and
+  the constant is not moved until the share is known. The per-pass track
+  probe now carries `as`, `ca` (clearAge) and `mm` (missMs), so the TTL
+  paths and `stale` are joinable to a frame for the first time. The scene
+  gate records its luma delta.
+
+  **Still open, re-ranked:** (1) **the cut/clear trade** — 6-8 earned
+  clears destroyed per minute, now counted; any fix is an exposure
+  decision and needs the owner or a dedicated round. (2) **attribution**:
+  `ownFaceIndex`'s fall-through picks the LARGEST face in the crop with no
+  distance test when the head anchor is null (59% of weak-tier persons),
+  and its tolerance `max(0.18, fw)` scales with the CANDIDATE's width —
+  the crop geometry is stable across a verdict interval, so a stolen face
+  is stolen twice, which is how any streak-of-2 protection is defeated.
+  (3) the flag side's bar is `GENDER_MIN_SCORE 0.25` and is the only bar
+  never recalibrated, while R6 measured female reads at 0.22-0.67 median
+  0.54 — every female read above the noise floor is a certain flag; the
+  join to compute the distribution behind an actual streak increment is
+  free from stored traces. (4) `isNullRead` is male-only, so in MAN mode
+  nothing refuses a null on the revoking side. (5) `positionOnly` drops
+  `weakStreak` and `demoted`, which makes `GENDER_WEAK_STREAK_N 4`
+  structurally unreachable — `weakWouldClear` reads 0 for reasons that
+  have nothing to do with the population. (6) `setVerdictCadence` writes
+  module-global coast budgets shared by every video element — the same
+  defect class R21 fixed for `lastSlotDiag`. (7) `cover_life_p50` and the
+  count-change blindness in `jitter`/`breathe` (S9 F1/F11), still unfixed.
