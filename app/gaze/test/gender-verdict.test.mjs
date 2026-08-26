@@ -82,9 +82,10 @@ test('faceMeta: certain same-gender clears, certain opposite flags, low score fl
   // 0.9 is exactly GENDER_INSTANT_CLEAR, so the same-gender read also
   // carries `instant` - one read this confident clears without waiting
   // for CLEAR_STREAK_N. `instant` is never set on the flag side.
-  assert.deepEqual(m[0], { flagged: false, certain: true, instant: true });
+  assert.deepEqual(m[0], { flagged: false, certain: true, instant: true, weak: true });
   assert.deepEqual(m[1], { flagged: true, certain: true });
-  assert.deepEqual(m[2], { flagged: true, certain: false, instant: false });
+  // 0.1 is below GENDER_MIN_SCORE, so it is not even weak evidence.
+  assert.deepEqual(m[2], { flagged: true, certain: false, instant: false, weak: false });
 });
 
 test('faceMeta: the CLEAR direction pays the high bar (asymmetric certainty)', () => {
@@ -92,9 +93,10 @@ test('faceMeta: the CLEAR direction pays the high bar (asymmetric certainty)', (
   // confident clear (owner frame 2026-08-24: a misread child cleared at
   // the old shared 0.25 bar) — it stays covered, uncertain.
   const m = faceMeta('man', [male(GENDER_CLEAR_SCORE - 0.05), male(GENDER_CLEAR_SCORE)]);
-  assert.deepEqual(m[0], { flagged: true, certain: false, instant: false });
+  // ...but it IS weak same-direction evidence: S6 accumulates it.
+  assert.deepEqual(m[0], { flagged: true, certain: false, instant: false, weak: true });
   // At the clear bar but well below the instant bar: certain, not instant.
-  assert.deepEqual(m[1], { flagged: false, certain: true, instant: false });
+  assert.deepEqual(m[1], { flagged: false, certain: true, instant: false, weak: true });
   // The flag direction keeps the LOW bar: a 0.3-certain opposite read
   // still flags with certainty (fail-safe stays cheap).
   const f = faceMeta('man', [female(0.3)]);
@@ -110,7 +112,7 @@ test('faceMeta: child faces never clear — gender untrusted below GENDER_ADULT_
   // it an ABSTENTION, so it cannot buy CLEARED_TTL_MS of absorption on a
   // track that was cleared on somebody else.
   assert.deepEqual(m[0], { flagged: true, certain: false, abstained: true });
-  assert.deepEqual(m[1], { flagged: false, certain: true, instant: true });
+  assert.deepEqual(m[1], { flagged: false, certain: true, instant: true, weak: true });
   // Child opposite-gender read: same treatment. It is still flagged, and
   // it may not act as a POSITIVE reading in either direction.
   const k2 = faceMeta('woman', [{ gender: 'male', score: 0.95, age: 10 }]);
@@ -285,4 +287,37 @@ test('an abstained read is marked so the tracker can tell it from plain uncertai
   const [m2] = gv.faceMeta('woman', [real]);
   assert.notEqual(m2.abstained, true);
   assert.equal(m2.certain, true);
+});
+
+// --- S6: the `weak` flag ---------------------------------------------
+test('faceMeta: same-gender read below the clear bar is weak, not nothing', () => {
+  const [m] = faceMeta('man', [{ gender: 'male', score: 0.4, age: 30, raw: 0.8 }]);
+  assert.equal(m.certain, false); // 0.4 < GENDER_CLEAR_SCORE
+  assert.equal(m.flagged, true); // still covered on this read alone
+  assert.equal(m.weak, true);
+});
+
+test('faceMeta: weak is a SUPERSET of certain, so a certain read cannot reset the streak', () => {
+  const [m] = faceMeta('man', [{ gender: 'male', score: 0.95, age: 30, raw: 0.97 }]);
+  assert.equal(m.certain, true);
+  assert.equal(m.weak, true);
+});
+
+test('faceMeta: a read below GENDER_MIN_SCORE is not weak evidence at all', () => {
+  const [m] = faceMeta('man', [{ gender: 'male', score: 0.1, age: 30, raw: 0.95 }]);
+  assert.equal(m.weak, false);
+});
+
+test('faceMeta: opposite-gender and child reads never carry weak', () => {
+  const [opp] = faceMeta('man', [{ gender: 'female', score: 0.9, age: 30, raw: 0.05 }]);
+  assert.ok(!opp.weak);
+  const [kid] = faceMeta('man', [{ gender: 'male', score: 0.9, age: 30, childP: 0.6, raw: 0.95 }]);
+  assert.ok(!kid.weak);
+  assert.equal(kid.abstained, true);
+});
+
+test('faceMeta: a NULL read is abstained and never weak', () => {
+  const [n] = faceMeta('man', [{ gender: 'male', score: 0.27, age: 36, raw: 0.635 }]);
+  assert.equal(n.abstained, true);
+  assert.ok(!n.weak);
 });

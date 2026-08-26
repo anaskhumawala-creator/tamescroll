@@ -4033,3 +4033,198 @@ analysis.
   unrelated-looking `Cannot find package 'obscenity'` test failure.
   Restored with `npm ci`. **Delete the junctions before removing the
   worktree, every time.**
+- **S6** (2026-08-26) — **a fix for the round's own headline finding was
+  built, measured, and REFUSED on a frame: it exposed a child.** Rotation
+  entry 5 (`cooking show episode`), resolved live to a NEW id
+  `4u3jS_cTHH0` (Laughter Chefs, five people in a studio kitchen; R15's
+  `KAWvDsghyc8` deliberately not reused). Baseline `NWoT1ZVd1Lo` t=560
+  added mid-round as the regression check, and it is what caught the
+  exposure. Build `93916bf-dirty`; app PID confirmed changed before every
+  capture (46212 -> 44768 -> 4692 -> 38244). The dev WATCHER was alive
+  this round (`npx tauri dev` detached with the CDP env var), so
+  `touch lib.rs` really did rebuild — verified by PID each time.
+
+  **SCORE, entry 5, `man`, t=400, 10 frames @1.5s (runs/s6-cook-man ->
+  runs/s6c-cook-man).**
+
+  | class | before | after |
+  |---|---|---|
+  | EXPOSURE | 1 | **0** |
+  | PARTIAL | 0 | 0 |
+  | FALSE COVER | **16** | **16** |
+  | GHOST | 0 | 0 |
+  | DRIFT | 0 | 0 |
+
+  FALSE COVER is counted per PERSON per frame, and 16 across 10 frames is
+  the worst figure in this log. All three men in the shot are covered on
+  f001/f004/f005/f007; f000/f006/f009 cover one man each. The single
+  EXPOSURE (f002, a woman at the extreme left edge, back to camera) is
+  covered in the after run — **not attributed to anything shipped**; a
+  patch simply reached further left on the second pass over the same
+  frame. The after run is otherwise the same verdict frame for frame.
+
+  **THE MECHANISM IS NOT MISGENDERING. IT IS THAT NOTHING CLEARS.** Every
+  track on every wide frame reads `st:blurred, cs:0, cm:0, lv:uncertain`.
+  Aggregated over the window, 76 unique gender reads:
+
+  | | n | score range |
+  |---|---|---|
+  | male, not abstained | 36 | 0.03 - 0.95 |
+  | female, not abstained | 22 | 0.00 - 0.66 |
+  | abstained (null read) | 18 | all labelled male |
+
+  **Certainty tracks FACE SIZE, not correctness.** Every read at native
+  px >= 241 scored 0.84-0.95; every read at px 85-174 scored 0.03-0.58,
+  i.e. below GENDER_CLEAR_SCORE 0.6. On a five-person wide shot one track
+  in four or five ever produces a certain read and blur-first covers
+  everybody else. Direction stays right in aggregate (36 male / 22 female
+  against three men and two women in frame) — R6's finding reproduced on
+  new footage.
+
+  **BUILT: a weak-evidence clear.** `faceMeta` gained a `weak` flag for a
+  same-direction read that is directed, adult and non-null at
+  score >= GENDER_MIN_SCORE but below the clear bar; the tracker
+  accumulated GENDER_WEAK_STREAK_N = 4 consecutive such reads and cleared
+  on them, with any non-same-direction read zeroing the streak, one
+  certain opposite read revoking instantly (no two-read grace), and a
+  short 2s TTL. Two iterations were needed: the first zeroed the streak
+  on every pass that carried no face, which made it unreachable (`ws`
+  never exceeded 1 on any track, measured runs/s6b-cook-man) — **the
+  streak is over READS, not over PASSES**, because a track on a
+  five-person shot is attributed a face on roughly one pass in three.
+
+  **REFUSED, on runs/s6e-base-man, and this is the round's real result.**
+  On the canonical baseline video in `man` mode, track 7 reached the
+  streak and cleared at f001 (`ws:4`), and **f001 and f002 show the
+  owner's daughter FULLY SHARP — f002 with no patch anywhere in the
+  frame.** The child gate cannot stop this: it demands
+  childP < GENDER_CHILD_MASS 0.25, and R18 measured a known 8-year-old at
+  childP 0.15-0.72 (median 0.42), so a minority of her reads pass it. The
+  CERTAIN path has survived that for six rounds only because it ALSO
+  demands score >= 0.6, which those same reads do not reach. **The two
+  gates are not independent, and the weak band is exactly where the child
+  reads live.** Lowering the certainty bar removes the second lock while
+  leaving the first one leaky. Reverted the same round; the whole
+  derivation is written into `person-track.mjs` above
+  GENDER_WEAK_STREAK_N so the next round cannot re-propose it from the
+  diff alone.
+
+  **What survives is measurement.** The streak is still counted and
+  reported (`ws` on the tracks probe, `weakBump` / `weakZero` /
+  `weakWouldClear` in `life`) and moves no state — pinned by a test that
+  30 consecutive weak reads never clear a track. First numbers:
+  `weakWouldClear 2` per 15s on the baseline video at `weakBump 27`; on
+  the cook footage `weakBump 31` with the streak never reaching 4,
+  because tracks do not live long enough (below).
+
+  **RE-VERIFIED after the revert (runs/s6f-base-man, same window):
+  EXPOSURE 0, PARTIAL 2, FALSE COVER 8, GHOST 0, DRIFT 0.** The daughter
+  is fully covered on all ten frames, including the two that exposed her.
+  The two PARTIALs are her shoulder and sleeve outside the patch on
+  f007/f008 — torso-only framings where MoveNet returns 0 persons and the
+  patch is a `personFromFace` synthetic. FALSE COVER 8 is the man covered
+  on eight frames: his face is out of frame or downcast through most of
+  this window, so he is a faceless person and blur-first covers him by
+  design. **The before-state on this video was not separately captured** —
+  it was added mid-round as the check that caught the exposure, and the
+  run it replaces is the exposed build. Symmetry (runs/s6g-base-woman,
+  same window): **EXPOSURE 0**, everything covered, `ws` 0 on every track
+  because female weak reads are far rarer than male ones. On the cook
+  footage `woman` (runs/s6d-cook-woman) covers every person in frame just
+  as `man` does — the failure is symmetric, which is what the mechanism
+  predicts.
+
+  **ALSO SHIPPED — three findings from this round's critic, whose brief
+  was the pipeline as a SCHEDULING system** (a lens no previous critic
+  has had: cadence, coast budgets, the rAF loop, and every budget
+  expressed in milliseconds while the thing it budgets is counted in
+  passes).
+  1. **`headAgeMs` was double-counted.** The position-only branch adds
+     `dt` per position pass and the verdict branch added `vdt` — the gap
+     between GENDER READS, which already spans those same position
+     passes. So a cleared man's head hole aged at ~2x real time and
+     expired after ~500ms against HEAD_HOLE_MAX_AGE_MS 1000, and he was
+     covered again by his neighbour's patch. One token.
+  2. **`demoteTracks` dropped `fromFace`.** `coastStep` carries
+     provenance with an explicit comment about why; the demote path has
+     the identical hazard and had no carry, so every face-derived
+     observation after a cut registered as a source FLIP that never
+     happened — and a flip selects S5's asymmetric damper, shrinking the
+     box 5x slower on manufactured evidence. Measured srcFlip 15 against
+     10 cut-demotions in one 15s window. One line.
+  3. **`PTRACK_CUT_COAST_MS` is the only budget `setVerdictCadence` never
+     rescaled.** Flat 400ms against `missMs`, which accrues in PASS
+     intervals — and a track supported only by a face is invisible to
+     position passes, so it can only be refreshed by a verdict. At the
+     target's stated verdict range (600-1000ms) a demoted track dies
+     ~500ms BEFORE the next verdict could see it: one chance, every cut.
+     Now `min(cap, max(400, effZoom))` — **1.0x, not the 2.5x the other
+     two use, and byte-identical at the desktop cadence by construction**
+     (max(400,400) = 400), so R15's Hell's Kitchen calibration cannot
+     regress here and the change is only ever visible on slower hardware.
+     Pinned by a test in both directions.
+  4. **`cutDetected` life counter** at the one place a cut is accepted.
+     Everything downstream of that branch is sized by how often it fires
+     and nothing had ever recorded it. First numbers: **8 cuts per 15s on
+     the cook footage (a 1.9s mean shot), 5-6 on the baseline video.**
+     The critic's proposed changes to CUT_DELTA and to the forced-pass
+     gap are deliberately NOT taken until this number exists on real
+     footage.
+
+  **THE STRUCTURAL FINDING THIS ROUND ADDS, with numbers.** On the cook
+  footage `birthFresh` is **0-1** against 14 births and 23-25 track
+  deaths per 15s: the system is not detecting new people, it is losing
+  and re-minting the same ones. `demoteTracks` zeroes `clearStreak` on
+  every cut, and CLEAR_STREAK_N needs 2 CONSECUTIVE certain reads on ONE
+  track. At 8 cuts per 15s the mean shot is 1.9s, and a given track is
+  attributed a face on roughly one verdict pass in three — so it gets
+  **~1.6 attributed reads per shot against a bar of 2.** Clearing is
+  structurally unreachable on fast-cut multi-person footage, on THIS
+  desktop, before any mobile penalty. That is the ceiling behind FALSE
+  COVER 16, and no threshold change reaches it.
+
+  **COST.** Cook `man` verdict p50 136 -> 126ms, pass p50 26 -> 25ms;
+  baseline `man` verdict p50 96ms, pass p50 30ms; baseline `woman`
+  verdict p50 113ms, pass p50 31ms. `first == max` on verdict again
+  (1383-3156ms) = model warm-up. Everything shipped is arithmetic inside
+  loops that already run. gaze **197/197**, cargo **36/36**.
+
+  **Still open, ranked.**
+  1. **Clear evidence does not survive a cut, and shots are 1.9s.** The
+     measured ceiling above. Any fix is EXPOSURE-adjacent — the reason
+     `demoteTracks` wipes the verdict is that the box may now be over
+     somebody else — so it needs its own round with a per-track
+     re-identification argument, not a constant.
+  2. **A better read on a small face** is the only route to the FALSE
+     COVER 16 that this round could not take. A lower bar on a bad read
+     is now measured to be the wrong answer.
+  3. Critic finding 3, unmeasured and NOT taken: `applyMask` is called
+     per overlay per rAF frame with UNROUNDED geometry while `place()`
+     uses a 2px deadband, so the mask string differs every frame for any
+     moving patch and 10 CSSOM writes land on a `backdrop-filter` layer
+     60x/s. It also means mask and element geometry are out of register
+     by up to 2px. The fix is four `Math.round`s; the magnitude needs a
+     pixel measurement in the real WebView first, per this repo's own
+     history with CSS reasoning.
+  4. Critic finding 4, NOT taken: `entry.at` is stamped at pass END while
+     the box describes pass START, so the drawn patch is short by
+     `v * passCost` — and that deficit ALTERNATES between the 26ms
+     position cost and the 126ms verdict cost, i.e. a periodic backward
+     step locked to the verdict clock. One argument to fix; measure
+     `breathe` and median patch area either side, because it also
+     increases outward extrapolation.
+  5. Critic finding 2, instrumented only: the cut path bypasses BOTH
+     adaptive throttles, and the gate compares a VIDEO-clock luma delta
+     against a wall-clock tick interval that has a floor and no ceiling,
+     so a busy main thread or `playbackRate > 1` inflates the delta and
+     manufactures cuts — a closed loop with no damper.
+  6. Unchanged from S5: tighten the box via segmentation; `mergeTracks`
+     has no hysteresis; `detectPersons` and `detectFaceBoxes` each upload
+     the full video element; MoveNet's input is squashed to 256x256; the
+     rAF loop never stops.
+
+  **HARNESS NOTE.** The probe reads overlay rects BEFORE the pause/shot
+  pair, so on fast-cutting footage the reported `patches` list can
+  disagree with what the two screenshots show. Score from the IMAGES; the
+  rect list is for attribution, not for counting. Three frames this round
+  disagreed.

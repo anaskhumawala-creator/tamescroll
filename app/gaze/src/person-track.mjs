@@ -59,6 +59,43 @@ export var IDENT_SIM_MIN = 0.15;
 // confident same-gender read reverts it to blurred (review A1 backstop —
 // bounds every absorption hole, not just the child one).
 export var CLEARED_TTL_MS = 5000;
+// WEAK-EVIDENCE CLEAR (S6): BUILT, MEASURED, AND REFUSED ON A FRAME.
+// Do not propose it again without reading this.
+//
+// The idea: on a wide multi-person shot faceres' certainty collapses with
+// face size while its DIRECTION stays right (measured, runs/s6-cook-man,
+// 76 unique reads: every read at native px >= 241 scored 0.84-0.95, every
+// read at px 85-174 scored 0.03-0.58, i.e. below the clear bar). So one
+// track in four or five ever produced a certain read and blur-first
+// covered everybody else: 16 FALSE COVER instances across 10 frames, all
+// three men in shot, on the owner's OWN direction. The proposed fix was
+// to accumulate this many CONSECUTIVE same-direction reads that are
+// directed, adult and non-null but BELOW the clear bar, and clear on
+// them; any read that was not same-direction zeroed the streak.
+//
+// IT EXPOSED A CHILD, ON THE CANONICAL BASELINE VIDEO, IN TWO FRAMES.
+// runs/s6e-base-man, NWoT1ZVd1Lo t=560, `man`: track 7 reached the streak
+// and cleared at f001 (`ws:4`), and f001/f002 show the owner's daughter
+// FULLY SHARP, f002 with no patch anywhere in the frame. The child gate
+// cannot stop this: it demands childP < GENDER_CHILD_MASS 0.25, and R18
+// measured a known 8-year-old's childP at 0.15-0.72 (median 0.42), so a
+// minority of her reads pass it. The CERTAIN path survived that for six
+// rounds only because it ALSO demands score >= GENDER_CLEAR_SCORE 0.6,
+// and those same reads do not reach it. Lowering the certainty bar
+// removes the second lock while leaving the first one leaky.
+//
+// So consistency does NOT substitute for certainty here, and the reason
+// is structural rather than a mis-set constant: the two gates are not
+// independent, and the weak band is exactly where the child reads live.
+// The FALSE COVER problem above is real and still open, but its fix has
+// to come from a better read on a small face, not from a lower bar on a
+// bad one.
+//
+// What survives is measurement only: the streak is still counted and
+// still reported (`ws` on the tracks probe, `weakBump`/`weakZero`/
+// `weakWouldClear` in `life`), so a future round can size the population
+// this rule would have touched without shipping it.
+export var GENDER_WEAK_STREAK_N = 4;
 
 // Monotonic track ids (review A9): overlays key on identity, not array
 // index, so same-count churn cannot smear one person's patch onto
@@ -71,6 +108,15 @@ var nextTrackId = 1;
 // say WHICH path is ending the identity instead of leaving it to guesswork.
 // Plain increments on a plain object, guarded by existence: a probe must
 // never be able to throw inside the pipeline.
+/**
+ * Life counter from outside this module (S6). Same guarded increment,
+ * same `life` bag, so the harness's existing `life_window` delta picks it
+ * up with no harness change — and a probe still cannot throw.
+ */
+export function bumpLife(key) {
+  bump(key);
+}
+
 function bump(key) {
   var g = typeof globalThis !== 'undefined' ? globalThis.__TS_GAZE_IDS : null;
   if (!g) return;
@@ -593,6 +639,7 @@ function matchedStep(t, obs, dt) {
   var flagStreak = t.flagStreak || 0;
   var clearStreak = t.clearStreak || 0;
   var clearAge = t.clearAge || 0;
+  var weakStreak = t.weakStreak || 0;
   var facelessReads = obs.faceFound ? 0 : (t.facelessReads || 0) + 1;
   // Identity continuity check FIRST (review A1): if this read's face
   // descriptor contradicts the track's, someone else is standing here —
@@ -633,6 +680,9 @@ function matchedStep(t, obs, dt) {
     flagStreak = 0;
     clearStreak = 0;
     clearAge = 0;
+    // Someone else is standing here: weak evidence about the previous
+    // occupant is evidence about nobody.
+    weakStreak = 0;
   }
   if (obs.flagged && obs.certain) {
     // Positive opposite-gender reading: instant blur — EXCEPT on a
@@ -644,6 +694,12 @@ function matchedStep(t, obs, dt) {
     // someone who already passed the bar — bounded, and a child can
     // never be on this path: the age gate blocks earning a clear).
     flagStreak += 1;
+    // A certain opposite read is the strongest contradiction there is, so
+    // it kills the weak streak outright — and it must, or the block below
+    // would re-clear on the very pass this one blurred (the streak is not
+    // zeroed by `faceFound` here because callers on this path do not all
+    // set it).
+    weakStreak = 0;
     // ...but a track NOBODY HAS SEEN for over a verdict interval has no
     // claim to that protection. The streak exists to absorb one noisy
     // read on THE SAME PERSON; a track that has been coasting is exactly
@@ -654,6 +710,12 @@ function matchedStep(t, obs, dt) {
     // revoke, roughly doubling the exposure window it opened with.
     // missMs is 0 on every matched pass, so this is inert on desktop.
     var stale = (t.missMs || 0) > PTRACK_MAX_MISS_MS;
+    // A WEAK clear never buys the two-read protection. That protection is
+    // for a track that served the full hold on confident reads; a weak
+    // clear is held on sub-bar evidence, so one CERTAIN opposite read —
+    // strictly stronger evidence than anything that granted it — re-blurs
+    // it immediately. Without this, the weak clear would widen the
+    // exposure window rather than only the false-cover one.
     if (state !== 'cleared' || flagStreak >= 2 || stale) {
       state = 'blurred';
       clearMs = 0;
@@ -686,6 +748,7 @@ function matchedStep(t, obs, dt) {
       bump('abstainDemote');
       state = 'blurred';
       clearMs = 0;
+      weakStreak = 0;
     }
   } else if (!obs.flagged && obs.certain) {
     // Confident same-gender reading accumulates toward the clear hold —
@@ -709,6 +772,17 @@ function matchedStep(t, obs, dt) {
     // Uncertain while blurred: not evidence either way — decay the
     // accumulated credit rather than zero it (see CLEAR_DECAY).
     clearMs = Math.max(0, clearMs - vdt * CLEAR_DECAY);
+  }
+  // WEAK-EVIDENCE STREAK (S6) — MEASUREMENT ONLY: this deliberately changes no state. See the
+  // GENDER_WEAK_STREAK_N note: the clear transition that used to sit here
+  // exposed a child on the baseline video and was removed the same round.
+  if (obs.weak) {
+    weakStreak = Math.min(GENDER_WEAK_STREAK_N, weakStreak + 1);
+    bump('weakBump');
+    if (weakStreak >= GENDER_WEAK_STREAK_N) bump('weakWouldClear');
+  } else if (obs.faceFound) {
+    if (weakStreak) bump('weakZero');
+    weakStreak = 0;
   }
   // Uncertain while cleared: absorbed — but only for so long. A cleared
   // track must re-prove itself with a confident same-gender read within
@@ -835,11 +909,22 @@ function matchedStep(t, obs, dt) {
     // unbounded counter is a number nobody can read in a diagnostic.
     // R13 measured it at 12 on a single track in ten frames.
     flagStreak: obs.flagged && (obs.certain || obs.abstained) ? Math.min(2, flagStreak) : 0,
+    // Already clamped and reset above; carried so the next pass sees it.
+    weakStreak: weakStreak,
     desc: obs.desc || t.desc || null,
     // A fresh face square resets the age to zero; a verdict pass that
     // found no attributable face keeps the last one and lets it age out.
     headBox: obs.headBox || shiftHead(t.headBox, t.box, smoothed),
-    headAgeMs: obs.headBox ? 0 : (t.headAgeMs || 0) + vdt,
+    // `dt`, NOT `vdt` (S6 critic finding 5). `vdt` is the gap between
+    // GENDER READS; the position-only branch (:608) already added its own
+    // `dt` for each of the ~3 position passes inside that gap, so using
+    // `vdt` here re-counts them and the hole ages at ~2x real time.
+    // Against HEAD_HOLE_MAX_AGE_MS 1000 that retires a cleared man's face
+    // window after ~500ms of wall clock, and he is covered by his
+    // neighbour's patch again — the owner's second bar, from one token.
+    // `headDrift` on the next line is correct as it stands: distance
+    // genuinely accrues on both cadences.
+    headAgeMs: obs.headBox ? 0 : (t.headAgeMs || 0) + dt,
     headDrift: obs.headBox ? 0 : (t.headDrift || 0) + (t.headBox ? headShiftDist(t.box, smoothed) : 0),
     lastVerdict: obs.flagged && obs.certain ? 'flag-certain' : !obs.flagged && obs.certain ? 'clear-certain' : 'uncertain',
   };
@@ -940,6 +1025,25 @@ export function setVerdictCadence(effZoomMs) {
   var cap = Math.max(PTRACK_MAX_COAST_MS, Math.round(PTRACK_MIN_COAST_PASSES * ms));
   blurredCoastMs = Math.min(cap, Math.max(PTRACK_MAX_MISS_BLURRED_MS, Math.round(2.5 * ms)));
   clearedCoastMs = Math.min(cap, Math.max(PTRACK_MAX_MISS_MS, Math.round(2.5 * ms)));
+  // THE CUT BUDGET IS THE ONE THAT NEVER GOT THIS TREATMENT (S6 critic
+  // finding 1). It is compared against `missMs`, which accrues in PASS
+  // intervals, so a flat 400ms silently means "fewer passes" the slower
+  // the device gets — and a track whose only support is a face (a
+  // close-up, or anyone MoveNet drops) is invisible to position passes
+  // and can ONLY be refreshed by a verdict. At the target's stated
+  // verdict range of 600-1000ms a demoted track therefore dies ~500ms
+  // BEFORE the next verdict could see it: one chance, every cut,
+  // guaranteed. Measured cost on this desktop: cutCoastExpired 10 of 15
+  // total track deaths in a 15s window, against birthFresh 1 — i.e. the
+  // system is re-minting people it already had.
+  //
+  // 1.0x, not the 2.5x above, because a box from the previous shot is
+  // genuinely worth less than one from a detector miss (see
+  // PTRACK_CUT_COAST_MS). At the desktop cadence (effZoom 400) this
+  // evaluates to max(400, 400) = 400, i.e. BYTE-IDENTICAL to the flat
+  // constant, so R15's Hell's Kitchen calibration cannot regress here;
+  // the change is only ever visible on hardware slower than this.
+  cutCoastMs = Math.min(cap, Math.max(PTRACK_CUT_COAST_MS, Math.round(ms)));
 }
 
 // A BOX FROM THE PREVIOUS SHOT IS WORTH ONE PASS, NOT THREE.
@@ -958,11 +1062,17 @@ export function setVerdictCadence(effZoomMs) {
 // demoted track that gets re-observed loses `demoted` and goes straight
 // back to the normal budget.
 export var PTRACK_CUT_COAST_MS = 400;
+// Live value, rescaled by setVerdictCadence. Read the note there.
+var cutCoastMs = PTRACK_CUT_COAST_MS;
+/** Effective cut-coast budget after cadence scaling (test/diagnostic). */
+export function cutCoastBudgetMs() {
+  return cutCoastMs;
+}
 
 function coastStep(t, dt) {
   var missMs = t.missMs + dt;
   var limit = t.demoted
-    ? PTRACK_CUT_COAST_MS
+    ? cutCoastMs
     : t.state === 'blurred'
       ? blurredCoastMs
       : clearedCoastMs;
@@ -1011,6 +1121,10 @@ function coastStep(t, dt) {
     facelessReads: t.facelessReads || 0,
     clearStreak: t.clearStreak || 0,
     flagStreak: t.flagStreak || 0,
+    // A missed pass is not a contradicting read, so the weak streak is
+    // CARRIED rather than zeroed — same treatment clearStreak gets. The
+    // TTL above is what bounds an unrefreshed weak clear.
+    weakStreak: t.weakStreak || 0,
     desc: t.desc || null,
     // Coasting moves the box by velocity, so the head moves with it —
     // and ages, which is what eventually retires the hole.
@@ -1055,10 +1169,22 @@ export function demoteTracks(tracks) {
       facelessReads: t.facelessReads || 0,
       clearStreak: 0,
       flagStreak: 0,
+      // A cut means these pixels are a different shot: every accumulated
+      // verdict, weak or not, is about a frame that no longer exists.
+      weakStreak: 0,
       desc: null,
       lastVerdict: 'uncertain',
       // ...and this box is now on borrowed time: see PTRACK_CUT_COAST_MS.
       demoted: true,
+      // PROVENANCE SURVIVES A CUT, for the same reason coastStep carries
+      // it (S6 critic finding 7). Without this the field comes back
+      // `undefined`, so the next face-derived observation reads as a
+      // source FLIP that never happened — and a flip selects S5's
+      // asymmetric damper, shrinking the box 5x slower on manufactured
+      // evidence. Measured: srcFlip 15 against 10 cut-demotions in one
+      // 15s window, i.e. the anti-breathing damper was being fired by a
+      // missing field.
+      fromFace: !!t.fromFace,
     });
   }
   return out;
@@ -1090,6 +1216,10 @@ function newTrack(obs) {
     clearAge: 0,
     clearStreak: !obs.flagged && obs.certain ? 1 : 0,
     flagStreak: 0,
+    // A fresh track starts BLURRED regardless; this only records that its
+    // first read already pointed same-direction, so the streak does not
+    // restart from zero on the churn a wide shot produces.
+    weakStreak: obs.weak ? 1 : 0,
     desc: obs.desc || null,
     headBox: obs.headBox || null,
     headAgeMs: 0,

@@ -57,6 +57,7 @@ import {
   blurredTracks,
   demoteTracks,
   cosineSim,
+  bumpLife,
 } from './person-track.mjs';
 import * as sceneGate from './scene-gate.mjs';
 import {
@@ -735,6 +736,15 @@ import { planForMode } from './pipeline-plan.mjs';
       }
       if (sceneState === 'cut' && now - lastCutAt >= sceneGate.CUT_MIN_GAP_MS) {
         lastCutAt = now;
+        // COUNT THE CUTS (S6 critic finding 2). Everything downstream of
+        // this branch — demoteTracks, the forced verdict, both throttle
+        // bypasses below — is sized by how often it fires, and nothing
+        // has ever recorded it. `cutCoastExpired` cannot be interpreted
+        // without it: 10 expiries is a different story at 4 cuts than at
+        // 40. Deliberately just the counter this round; the critic's
+        // proposed changes to CUT_DELTA and the forced-pass gap are NOT
+        // taken until this number exists on real footage.
+        bumpLife('cutDetected');
         // A cut is where new people appear: bypass the interval AND
         // force the next pass to re-read gender, not just positions.
         lastSample = 0;
@@ -1415,6 +1425,14 @@ import { planForMode } from './pipeline-plan.mjs';
               // you add a verdict field, add it HERE too, and prove it
               // with a life counter in a real run, not with a test.
               abstained: !!mine.abstained,
+              // Weak same-direction evidence (S6). Added HERE at the same
+              // time as its producer and consumer, per the warning above:
+              // R12 shipped `abstained` in gender-verdict and person-track
+              // and forgot this line, so the branch was unreachable for
+              // two releases and no unit test could see it. `weakClear` is
+              // its life counter — if it never appears in a run, this
+              // line is the first place to look.
+              weak: !!mine.weak,
               faceFound: true,
               desc: faceDesc,
             };
@@ -1926,6 +1944,11 @@ import { planForMode } from './pipeline-plan.mjs';
                     fs: tk.flagStreak,
                     cm: Math.round(tk.clearMs || 0),
                     lv: tk.lastVerdict,
+                    // S6 weak-evidence streak. Measurement only (the clear
+                    // it was built for exposed a child and was removed the
+                    // same round) — this is how a future round sizes how
+                    // often consistent sub-bar evidence actually occurs.
+                    ws: tk.weakStreak || 0,
                     // R19: the track's own box. Without it a patch cannot
                     // be attributed to the track that drew it, which is
                     // the join every geometry question needs.

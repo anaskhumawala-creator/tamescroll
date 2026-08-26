@@ -1062,3 +1062,90 @@ test('updatePersonTracks: a measured track never claims to be extrapolated', () 
   assert.equal(tracks.length, 1, 'still coasting');
   assert.equal(tracks[0].fromFace, false);
 });
+
+// --- S6: the weak-evidence streak (measurement only) -----------------
+// The CLEAR transition this streak was built for was measured to expose a
+// child on the baseline video and was removed the same round; see the
+// GENDER_WEAK_STREAK_N note in person-track.mjs. What these pin is that
+// the counter still measures what it claims to, and — the part that
+// matters — that it moves NO state.
+const weakObs = (box) => ({ box, flagged: true, certain: false, weak: true, faceFound: true });
+const oppUncertain = (box) => ({ box, flagged: true, certain: false, faceFound: true });
+// A pass that attributed NO face to this track: not part of the read
+// sequence at all, so it must neither advance nor reset the streak.
+const noFace = (box) => ({ box, flagged: true, certain: false });
+
+test('weak streak: any number of weak reads NEVER clears a track', () => {
+  let tracks = updatePersonTracks([], [weakObs(boxA)], 250);
+  for (let i = 0; i < 30; i++) {
+    tracks = updatePersonTracks(tracks, [weakObs(boxA)], 250);
+    assert.equal(tracks[0].state, 'blurred', `weak evidence cleared at read ${i}`);
+  }
+  assert.equal(tracks[0].weakStreak, pt.GENDER_WEAK_STREAK_N); // clamped
+});
+
+test('weak streak: counts consecutive same-direction reads, zeroed by a contradicting one', () => {
+  let tracks = updatePersonTracks([], [weakObs(boxA)], 250);
+  tracks = updatePersonTracks(tracks, [weakObs(boxA)], 250);
+  tracks = updatePersonTracks(tracks, [weakObs(boxA)], 250);
+  assert.equal(tracks[0].weakStreak, 3);
+  tracks = updatePersonTracks(tracks, [oppUncertain(boxA)], 250);
+  assert.equal(tracks[0].weakStreak, 0);
+});
+
+test('weak streak: a pass with no attributed face neither advances nor resets it', () => {
+  let tracks = updatePersonTracks([], [weakObs(boxA)], 250);
+  tracks = updatePersonTracks(tracks, [weakObs(boxA)], 250);
+  assert.equal(tracks[0].weakStreak, 2);
+  for (let i = 0; i < 6; i++) {
+    tracks = updatePersonTracks(tracks, [noFace(boxA)], 250);
+    assert.equal(tracks[0].weakStreak, 2, `no-face pass ${i} moved the streak`);
+  }
+});
+
+test('weak streak: an ABSTAINED read zeroes it', () => {
+  let tracks = updatePersonTracks([], [weakObs(boxA)], 250);
+  tracks = updatePersonTracks(tracks, [weakObs(boxA)], 250);
+  tracks = updatePersonTracks(
+    tracks,
+    [{ box: boxA, flagged: true, certain: false, abstained: true, faceFound: true }],
+    250
+  );
+  assert.equal(tracks[0].weakStreak, 0);
+});
+
+test('weak streak: with no `weak` on any obs the tracker behaves exactly as before S6', () => {
+  let tracks = updatePersonTracks([], [obs(boxA, true, false)], 250);
+  for (let i = 0; i < 20; i++) {
+    tracks = updatePersonTracks(tracks, [obs(boxA, true, false)], 250);
+    assert.equal(tracks[0].state, 'blurred');
+  }
+  assert.equal(tracks[0].weakStreak, 0);
+});
+
+// --- S6: the cut-coast budget is cadence-relative ---------------------
+// It is compared against missMs, which accrues in PASS intervals, so a
+// flat 400ms means fewer and fewer passes as the device slows. Desktop
+// behaviour must be byte-identical or R15's calibration regresses.
+test('cut coast: desktop cadence leaves the budget exactly at PTRACK_CUT_COAST_MS', () => {
+  pt.setVerdictCadence(400);
+  assert.equal(pt.cutCoastBudgetMs(), pt.PTRACK_CUT_COAST_MS);
+  pt.setVerdictCadence(250);
+  assert.equal(pt.cutCoastBudgetMs(), pt.PTRACK_CUT_COAST_MS);
+});
+
+test('cut coast: a slow device gets a proportionally longer budget, capped', () => {
+  pt.setVerdictCadence(900);
+  assert.equal(pt.cutCoastBudgetMs(), 900);
+  pt.setVerdictCadence(1500);
+  assert.equal(pt.cutCoastBudgetMs(), 1500);
+  // ...and never past the shared cap.
+  pt.setVerdictCadence(400);
+});
+
+test('demoteTracks: provenance survives a cut, so no phantom source flip', () => {
+  let tracks = updatePersonTracks([], [{ box: { ...boxA, fromFace: true }, flagged: true, certain: false }], 250);
+  assert.equal(tracks[0].fromFace, true);
+  const demoted = pt.demoteTracks(tracks);
+  assert.equal(demoted[0].fromFace, true);
+});

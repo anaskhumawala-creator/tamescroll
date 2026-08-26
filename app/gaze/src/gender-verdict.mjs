@@ -331,6 +331,35 @@ export function faceMeta(userGender, faces) {
         // One read this confident is enough on its own — see
         // GENDER_INSTANT_CLEAR. Always a strict superset of `certain`.
         instant: certain && f.score >= instantClearScoreFor(f.gender),
+        // WEAK SAME-DIRECTION EVIDENCE. Not enough to clear on its own —
+        // that is what `certain` is for — but not nothing either, and
+        // until S6 it was discarded entirely: a track reading `male` at
+        // 0.3-0.55 twenty times in a row accumulated exactly zero clear
+        // credit (person-track's uncertain branch only DECAYS), so the
+        // man stayed covered for the whole shot.
+        //
+        // Measured, gauntlet S6, runs/s6-cook-man (5-person studio wide
+        // shot, `man` mode, 76 unique reads): certainty tracks FACE SIZE,
+        // not correctness. Every read at native px >= 241 scored
+        // 0.84-0.95; every read at px 85-174 scored 0.03-0.58, i.e. below
+        // GENDER_CLEAR_SCORE. Only ONE of four-to-five tracks per frame
+        // ever produced a certain read, and blur-first covered the rest —
+        // 16 FALSE COVER instances across 10 frames, all three men in the
+        // shot, on the owner's OWN direction.
+        //
+        // The safety argument is DIRECTION, and it is the same one R6
+        // measured and this round reproduced: faceres degrades in
+        // CERTAINTY as the face shrinks, not in direction. In this run
+        // the 36 non-abstained male reads and the 22 female reads split
+        // 3:2 against three men and two women in frame. So the tracker
+        // requires GENDER_WEAK_STREAK_N CONSECUTIVE same-direction weak
+        // reads and resets on ANY opposite-direction read at any
+        // certainty — a woman whose face reads `female` even once inside
+        // the window can never accumulate the streak.
+        //
+        // Deliberately a SUPERSET of `certain`: a certain read must not
+        // reset the weak streak it would otherwise satisfy.
+        weak: directed && adult && f.score >= GENDER_MIN_SCORE,
       });
     } else {
       certain = directed && adult && f.score >= GENDER_MIN_SCORE;
