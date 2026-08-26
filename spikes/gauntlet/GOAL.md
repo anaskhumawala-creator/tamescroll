@@ -2971,3 +2971,129 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   (8) Frames f000-f002 at t=901 swing 25-30 points of coverage between
   identical runs. Whatever is doing that is upstream of every score in
   this log.
+
+  **THE CRITIC'S ROUND, FOLDED IN AFTER THE FIRST COMMIT.** Its lens was
+  "coverage that is correct by accident", and it used the `man` re-runs as
+  an A/B against this entry's `woman` runs — same build, same window, one
+  flag apart. Two of its findings were shipped here; the rest are R21's.
+
+  **SHIPPED 3: R19's track-provenance probe was structurally dead, and it
+  retroactively corrects a claim in R19's own log.** `newTrack`, `ema` and
+  `coastStep` each construct a bare four-field box literal, so every
+  property an observation's box carried — `fromFace`, `headX`, `headY`,
+  `headW` — is dropped on the first frame of a track's life. The reader
+  asked for `tk.box.fromFace`, which is never there. **Measured by the
+  critic: 145 of 145 tracks across six runs reported `f: 0`, including a
+  pass whose ONLY observation was a synthetic body.** R19's log used that
+  always-zero field to rule out `preferred` keeping a synthetic body over
+  a measured one; that conclusion was unsupported — not necessarily
+  wrong, but the probe could not have shown it either way. The flag now
+  lives on the TRACK, is set at birth and on every match, and is carried
+  through a coast so a track cannot appear to change origin because a
+  detector missed it for one pass. Verified live: **4 of 25 tracks report
+  `f: 1`.** Three unit tests pin birth, match and coast.
+
+  **SHIPPED 4: `lastSlotDiag` now carries the confident-keypoint HULL
+  beside the model box, and it answered the critic's main question on the
+  first run.** The emitted person box is `model box UNION confident
+  keypoints UNION head margin`, and the probe recorded only the model box,
+  so no artifact had ever been able to say whether an over-wide patch was
+  MoveNet's box regression or our own union. The critic could settle it on
+  exactly one frame, by back-calculation, and only because that frame
+  happened to be arithmetically invertible inside the 2dp rounding. Four
+  numbers, in a loop that already runs, no extra inference.
+  **First run with it: on 67 of 68 admitted slots (99%) the MODEL box is
+  WIDER than the hull, by a median of 0.197 of frame width and up to
+  0.493.** Our union can only widen a box, so the sprawl is MoveNet's own
+  regression — the critic's F1 conclusion, now corpus-wide rather than
+  single-frame. NOT acted on this round: intersecting the model box with
+  the hull plus a relative margin can only NARROW patches, which is the
+  EXPOSURE direction, and it deserves its own round with before/after
+  frames rather than riding along with two other changes.
+  No regression from either probe: f007/f008/f009 still 0.0% covered.
+
+  **THE CRITIC'S QUANTIFICATION OF BRIEF 1, worth keeping verbatim.**
+  Covered area attributed by stage, on frames where slot-to-observation
+  alignment is unambiguous: raw admitted MoveNet boxes **55.8-69.6%**,
+  parsePersons' union + head anchor + PATCH_MARGIN **+7.0 to +11.5
+  points**, tracker EMA **-1.3**, PTRACK_PAD **+6.7**, mergeTracks
+  **+1.2** (range 0.0-6.6), render lerp and outward-only size velocity
+  **+1.5**. So **~24% of the covered area is our geometry and ~76% is
+  MoveNet's boxes**, and `mergeTracks` — which I would have chased first,
+  and the critic did — is the SMALLEST of the five terms. Trimming our
+  constants buys almost nothing; reducing the box COUNT, or intersecting
+  the boxes we are given, is the lever.
+
+  **AND IT KILLED R20's queue item 7 AS A FINDING.** `dedupeHeadSplit`
+  bumps inside the inner loop, once per contained pair EXAMINED and before
+  the `break`, so a pair that is later merged anyway still bumps it. Per
+  dedupe call it is 1.90 at t=901 and 1.17 at t=300, and replaying
+  `containment >= 0.6` over the same observations **with no head rule at
+  all** reproduces 1.87 and 1.27. The 93-vs-27 gap is entirely that one
+  window carries 3-6 observations per pass and the other 2-3. R19's rule
+  is not over-refusing; it is a pair-comparison counter and I read it as a
+  refusal counter. What the counter DOES point at: max containment among
+  verdict observations is **1.00 on 20 of 24 frames** — one observation
+  entirely nested inside another — and deflating PATCH_MARGIN back off
+  changes it by 0.00 on 16 of 24. Margins are not the lever on nesting
+  either.
+
+  **ON THE HANDS, the critic reached the same impasse and then improved
+  the argument against fixing it.** To admit that frame you need
+  `maxKp >= 0.12` with no count requirement, which admits +2.07 to +2.60
+  slots per pass across the corpus and on the frame itself lets in a box
+  60% x 83% of frame. But two things I did not have: **BlazeFace is not
+  blind there — on f002 it returned a face at cx 0.55, cy 0.40, h 0.273,
+  confidence 0.80, and cropping those pixels shows it is the MAN'S HAND**,
+  knuckles and finger gaps read as a face, firing on 3 of the 7
+  `persons==0` passes in that window. That false positive is what built
+  the body covering 85% of f002 — so the coverage I scored as "a track
+  still coasting" is partly a detector error being right by accident.
+  And the reason not to reach for MediaPipe Hands is not bundle cost: **a
+  hand carries no gender and no age, so every hand-only track is
+  `uncertain`, and `uncertain` means blurred. Two of the three windows
+  sampled from this video are hands-heavy. In `man` mode that buys the
+  owner his own hands blurred through an entire teardown** — the loudest
+  FALSE COVER there is. Finally, the separability question **cannot be
+  answered from this corpus at all**: all 79 `persons==0` passes in the
+  R18+ runs are on footage containing a human. There is no hands-as-noise
+  run anywhere, and person-gate's comment motivating the phantom gate
+  ("on hand/desk close-ups the empty ones come back with scattered
+  keypoints") is not backed by anything in `runs/` — R15 is a wide
+  cooking-stage shot, not a desk close-up. Capture a genuine no-human
+  hands/desk window before spending anything here.
+
+  **REJECTED, and the critic named it as its own least-confident finding:
+  a score floor on the weak tier.** `weak` is deliberately score-blind and
+  on this footage admits slots at score 0.004 and 0.026, inside the
+  0.00-0.13 noise band R13 measured; a `>= 0.05` floor is free on the
+  classroom runs the tier exists for (4.33 and 4.13 admits per pass,
+  unchanged) and removes 0.13-0.24/pass here. Not taken, for the reason
+  the critic gave against its own finding: **R14's lesson is that recall
+  at the person gate is not the lever on sprawl, because the two
+  mechanisms STACK** — drop a slot and the full-frame face pass may mint a
+  synthetic body over the same face instead, which is exactly how R14's
+  experiment made patch heights worse. The sweep counts SLOTS, not
+  resulting patch AREA. It needs a covered-fraction measurement first.
+
+  **R21's queue gains, from the critic.**
+  (9) **The model-box-vs-hull intersection**, now measurable and the only
+  live lever on the 76% of covered area that is MoveNet's own boxes.
+  Guard it with the EXPOSURE direction: it can only narrow.
+  (10) **The figurine outscores both humans.** On r20-woman f005 MoveNet's
+  highest-scoring slot is **0.406 with 11 confident keypoints** on the
+  printed Linus figurine at x 0.58-0.99, against 0.294/9 for the real man.
+  It sustains a track that in `man` covers 13-24% of the cleared man on 4
+  of 10 frames and takes `flag-certain` male reads. Under the bar as
+  written that is GHOST, and this round scored it as a pass only because
+  in `woman` everything is supposed to be covered. Score it, whatever is
+  decided about fixing it. This is R19's queue 6 with a number attached.
+  (11) **`wipeIfEmpty`'s premise is narrower than its comment.** R5
+  justified the two-pass corroboration as guarding small subject scale
+  "where both detectors fail for the SAME reason". The overhead workbench
+  is a second correlated blind spot at FULL subject scale — no torso for
+  MoveNet, no face for BlazeFace — so the eraser fires on a frame where
+  two people fill the bottom third.
+  (12) The daughter never gets a box that is HERS in the t=901 window:
+  MoveNet emits the man, the figurine, and two bridge boxes spanning both
+  subjects and a prop. That is upstream of every patch in this entry.

@@ -1511,7 +1511,11 @@ import { planForMode } from './pipeline-plan.mjs';
                       // nothing else.
                       '/' + s.hk +
                       '/' + s.sk +
-                      '/' + (s.b ? s.b.join(',') : '')
+                      '/' + (s.b ? s.b.join(',') : '') +
+                      // R20: the confident-keypoint hull beside the model
+                      // box, so a round can finally attribute an over-wide
+                      // patch to one or the other.
+                      '/' + (s.k ? s.k.join(',') : '')
                     );
                   }),
                 });
@@ -1853,7 +1857,13 @@ import { planForMode } from './pipeline-plan.mjs';
                           return typeof n === 'number' ? Math.round(n * 1000) / 1000 : null;
                         })
                       : null,
-                    f: tk.box && tk.box.fromFace ? 1 : 0,
+                    // Read off the TRACK, not its box. The box is
+                    // reconstructed as a bare four-field literal by
+                    // newTrack, ema and coastStep, so `tk.box.fromFace`
+                    // was undefined on every track ever recorded — 145
+                    // of 145 across six runs reported 0, including a
+                    // pass whose only observation was a synthetic body.
+                    f: tk.fromFace ? 1 : 0,
                   };
                 })
               );

@@ -979,3 +979,31 @@ test('sameHuman: with no head width the body rule still applies', () => {
   const b = { box: { x1: 0.26, y1: 0.02, x2: 0.76, y2: 1, headX: 0.54 } };
   assert.equal(pt.sameHuman(a, b), true);
 });
+
+// --- track provenance (R20) -----------------------------------------
+
+test('updatePersonTracks: a track remembers whether its box was measured', () => {
+  // R19 added this flag and read it off `track.box.fromFace`. newTrack,
+  // ema and coastStep each build a bare four-field box literal, so it was
+  // undefined on every track ever recorded: 145 of 145 across six runs
+  // reported 0, including a pass whose only observation was a synthetic
+  // body. The flag lives on the TRACK now.
+  const synth = { box: { x1: 0.2, y1: 0.1, x2: 0.6, y2: 0.9, fromFace: true } };
+  let tracks = pt.updatePersonTracks([], [synth], 400);
+  assert.equal(tracks.length, 1);
+  assert.equal(tracks[0].fromFace, true, 'a synthetic body must say so at birth');
+
+  // And it must survive a match, which is where ema rebuilds the box.
+  tracks = pt.updatePersonTracks(tracks, [synth], 400);
+  assert.equal(tracks[0].fromFace, true, 'and after ema rebuilds the box');
+});
+
+test('updatePersonTracks: a measured track never claims to be extrapolated', () => {
+  const measured = { box: { x1: 0.2, y1: 0.1, x2: 0.6, y2: 0.9 } };
+  let tracks = pt.updatePersonTracks([], [measured], 400);
+  assert.equal(tracks[0].fromFace, false);
+  // A coast must not change a track's origin either.
+  tracks = pt.updatePersonTracks(tracks, [], 400);
+  assert.equal(tracks.length, 1, 'still coasting');
+  assert.equal(tracks[0].fromFace, false);
+});

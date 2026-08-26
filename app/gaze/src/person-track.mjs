@@ -696,6 +696,20 @@ function matchedStep(t, obs, dt) {
   return {
     id: t.id,
     box: smoothed,
+    // PROVENANCE, on the TRACK and not on the box (gauntlet R20).
+    // R19 added a `fromFace` flag so a round could ask whether an
+    // offending patch came from a MEASURED MoveNet person or from a body
+    // extrapolated off a face — and it read it off `track.box.fromFace`,
+    // which is never there. `ema` below and `newTrack` both construct a
+    // fresh four-field box literal, so every property the observation's
+    // box carried is dropped on the first frame of every track's life.
+    // Measured by R20's critic: 145 of 145 tracks across six runs report
+    // `f: 0`, including a pass whose ONLY observation was `{f:1}`.
+    // R19's log used that always-zero field to rule out `preferred`
+    // keeping a synthetic body over a measured one. That conclusion was
+    // unsupported — not necessarily wrong, but the probe could not have
+    // shown it either way, and the next round should re-derive it.
+    fromFace: !!(obs.box && obs.box.fromFace),
     vx: ((sc[0] - tc[0]) / dt) * 1000,
     vy: ((sc[1] - tc[1]) / dt) * 1000,
     vw: sizeVel(t.box, smoothed, dt, 'x'),
@@ -933,6 +947,9 @@ function coastStep(t, dt) {
     // budget on its second missed pass — the exact behaviour this is here
     // to remove.
     demoted: !!t.demoted,
+    // Provenance survives a coast too, or a track would appear to change
+    // origin every time a detector missed it once.
+    fromFace: !!t.fromFace,
   };
 }
 
@@ -979,6 +996,9 @@ function newTrack(obs) {
       x2: obs.box.x2,
       y2: obs.box.y2,
     },
+    // See matchedStep: the box literal here is exactly why this cannot
+    // live on the box.
+    fromFace: !!(obs.box && obs.box.fromFace),
     vx: 0,
     vy: 0,
     vw: 0,

@@ -294,9 +294,33 @@ export function parsePersons(data, minScore, aspect, held) {
     // hk = best of the five head keypoints, sk = the WEAKER shoulder
     // (both are required, so the weaker one is the binding number).
     var hk = 0;
+    // THE HULL OF THE CONFIDENT KEYPOINTS, for the diagnostic only
+    // (gauntlet R20). The emitted person box is `model box UNION confident
+    // keypoints UNION head margin`, and `lastSlotDiag` recorded only the
+    // MODEL box — so no artifact has ever been able to say whether an
+    // over-wide patch was MoveNet's own box regression or our union
+    // widening it. R20's critic could settle that on exactly one frame,
+    // by back-calculating, and only because that frame happened to be
+    // arithmetically invertible inside the 2dp rounding.
+    // It matters because the two answers have opposite fixes: a sprawling
+    // MODEL box can only be attacked by intersecting it with something
+    // we trust, and a sprawling UNION is ours to bound. Four extra
+    // numbers in a loop that already runs, no inference, no tensor.
+    var kx1 = 1;
+    var ky1 = 1;
+    var kx2 = 0;
+    var ky2 = 0;
     for (var c = 0; c < EVIDENCE_KEYPOINT_MAX; c++) {
       var ks = data[o + c * 3 + 2];
-      if (ks >= PERSON_KEYPOINT_MIN) confident++;
+      if (ks >= PERSON_KEYPOINT_MIN) {
+        confident++;
+        var ky = data[o + c * 3];
+        var kxx = data[o + c * 3 + 1];
+        if (kxx < kx1) kx1 = kxx;
+        if (kxx > kx2) kx2 = kxx;
+        if (ky < ky1) ky1 = ky;
+        if (ky > ky2) ky2 = ky;
+      }
       if (ks >= 0.15) nKp15++;
       if (ks > maxKp) maxKp = ks;
       if (c <= R_EAR && ks > hk) hk = ks;
@@ -313,6 +337,16 @@ export function parsePersons(data, minScore, aspect, held) {
       nKp15: nKp15,
       hk: Math.round(hk * 100) / 100,
       sk: Math.round(sk * 100) / 100,
+      // Keypoint hull, or null when no keypoint is confident (which is
+      // itself the answer: the box is then the model's alone).
+      k: confident
+        ? [
+            Math.round(kx1 * 1000) / 1000,
+            Math.round(ky1 * 1000) / 1000,
+            Math.round(kx2 * 1000) / 1000,
+            Math.round(ky2 * 1000) / 1000,
+          ]
+        : null,
       h: Math.round((data[o + 53] - data[o + 51]) * 100) / 100,
       // The MODEL box, before any gate. R15's critic could not tell
       // whether f005's four rejected h=1.00 slots were localised on the
