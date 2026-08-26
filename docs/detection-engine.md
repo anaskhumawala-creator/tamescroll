@@ -215,3 +215,44 @@ otherwise it is absorbed for `CLEARED_TTL_MS` by a track that was cleared
 on somebody else, which is the maximum-duration absorption case the
 pipeline can produce.
 
+## personFromFace close-up cap (gauntlet R20)
+
+| Constant | Value | Where |
+|---|---|---|
+| `PFF_CLOSEUP_H` | 0.18 | person-gate.mjs |
+| `PFF_HALF_CAP` | 0.35 | person-gate.mjs |
+
+`halfX = 3.911 * h / ar` is a constant number of face-widths per side,
+and that is only the right SHAPE of rule while the whole body is in
+frame. Measured over 1246 faces that fall inside an admitted MoveNet box
+across 56 runs, MoveNet's own half-width for the same person — expressed
+in face-widths — falls monotonically as the face grows, because in a
+close-up the shoulders are cropped by the frame (`h` de-inflated):
+
+| face h | n | MoveNet width p50/p90/max | half-width in face-widths p90 |
+|---|---|---|---|
+| 0.00-0.05 | 39 | 0.280 / 0.430 / 0.430 | 11.63 |
+| 0.05-0.08 | 298 | 0.250 / 0.410 / 0.650 | 5.89 |
+| 0.08-0.12 | 396 | 0.280 / 0.420 / 0.560 | 3.48 |
+| 0.12-0.18 | 322 | 0.390 / 0.500 / 0.920 | 3.04 |
+| 0.18-0.28 | 173 | 0.470 / 0.550 / 0.650 | 2.12 |
+| 0.28-1.00 | 18 | 0.585 / 0.590 / 0.590 | 1.87 |
+
+This reconciles R8 (constant too NARROW on a podium subject, h ~0.064
+de-inflated) with R19/R20 (whole-frame bodies at h 0.35-0.56). One
+constant cannot serve both ends. Past h ~0.23 the uncapped half-width
+exceeds the frame, so every face that large produced a whole-frame body:
+7 of 86 synthetic bodies in the `obs` corpus, every one from a face of
+0.485-0.79 inflated.
+
+The cap binds only at h >= 0.18, leaving R8's regime and the 0.12-0.18
+band (widest observed MoveNet box 0.920, wider than the cap) bit-for-bit
+unchanged. Where it binds, the 0.70-wide result still exceeds the widest
+MoveNet box ever observed in those bands (0.650, 0.590), so it cannot
+introduce EXPOSURE relative to a successful person pass. Horizontal only
+— the vertical clamp is correct for a close-up.
+
+`h` here is DE-INFLATED (the detector's box is FACE_ENLARGE-inflated by
+1.4). Getting that wrong is a factor of 1.4 and it is the fourth hidden
+unit in this function's neighbourhood.
+

@@ -1260,14 +1260,52 @@ import { planForMode } from './pipeline-plan.mjs';
             dbgA.attr.push({
               own: own,
               nf: faces.length,
-              hx: person.headX === null ? null : Math.round(person.headX * 100) / 100,
-              hy: person.headY === null ? null : Math.round(person.headY * 100) / 100,
+              // CROP-SPACE, which is the space ownFaceIndex actually
+              // compares in. R18's critic caught this logging person.headX
+              // in FRAME coordinates against face centres in CROP
+              // coordinates, so the artifact could not check a single one
+              // of the function's decisions — an example from that run
+              // read `hx 0.62` against a face centre `0.65`, an apparent
+              // distance of 0.036 against a 0.18 floor, which "should"
+              // have matched and did not, because the two numbers were
+              // not in the same space. `own === -1` hard-returns a
+              // covered verdict and ran at 25% of reads, so this is a
+              // first-order FALSE COVER source that has been unauditable
+              // for two rounds.
+              hx: person.headX === null ? null : Math.round(((person.headX - region.x1) / (region.x2 - region.x1)) * 100) / 100,
+              hy: person.headY === null ? null : Math.round(((person.headY - region.y1) / (region.y2 - region.y1)) * 100) / 100,
               fc: faces.map(function (f) {
                 return [
                   Math.round(((f.x1 + f.x2) / 2) * 100) / 100,
                   Math.round(((f.y1 + f.y2) / 2) * 100) / 100,
                 ];
               }),
+              // The DECISION, not just its inputs: distance to each face
+              // and the bar that face was judged against. R19's queue
+              // asks the next round to recompute `d` and a proposed
+              // `0.5 * fw` for every attr row and confirm that every
+              // currently-correct attribution survives before narrowing
+              // the tolerance. That cannot be done from centres alone —
+              // the bar is per-CANDIDATE (`max(0.18, fw)` uses the
+              // candidate face's own width), which is the suspected
+              // defect, so it has to be recorded per candidate.
+              d: (function () {
+                if (person.headX === null || person.headY === null) return null;
+                var rw = region.x2 - region.x1;
+                var rh = region.y2 - region.y1;
+                if (!(rw > 0) || !(rh > 0)) return null;
+                var qx = (person.headX - region.x1) / rw;
+                var qy = (person.headY - region.y1) / rh;
+                return faces.map(function (f) {
+                  var cx = (f.x1 + f.x2) / 2;
+                  var cy = (f.y1 + f.y2) / 2;
+                  return [
+                    Math.round(Math.sqrt((cx - qx) * (cx - qx) + (cy - qy) * (cy - qy)) * 1000) / 1000,
+                    Math.round(Math.max(0.18, f.x2 - f.x1) * 1000) / 1000,
+                    Math.round((f.x2 - f.x1) * 1000) / 1000,
+                  ];
+                });
+              })(),
               meta: meta.map(function (m) {
                 return (m.flagged ? 'F' : 'c') + (m.certain ? '!' : '?');
               }),

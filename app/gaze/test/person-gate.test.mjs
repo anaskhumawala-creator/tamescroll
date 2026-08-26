@@ -11,6 +11,8 @@ import {
   PERSON_HOLD_MAX,
   PERSON_WEAK_KP15,
   PERSON_WEAK_MAXKP,
+  PFF_CLOSEUP_H,
+  PFF_HALF_CAP,
 } from '../src/person-gate.mjs';
 
 // Keypoint layout: 17 x [y, x, score] then y1,x1,y2,x2,score.
@@ -473,4 +475,68 @@ test('parsePersons: nKp15 is counted over the upper body only', () => {
   for (let i = 13; i < 17; i++) setKp(data, 0, i, 0.9, 0.25, 0.4);
   assert.ok(PERSON_WEAK_KP15 > 4);
   assert.equal(parsePersons(data).length, 0);
+});
+
+// --- personFromFace close-up cap (R20) ------------------------------
+
+/**
+ * `h` here is the DE-INFLATED face height personFromFace works in; the
+ * detector's box is FACE_ENLARGE-inflated by 1.4, so build the box at
+ * 1.4h. The first draft of these tests skipped that and failed, which is
+ * the whole reason the factor is spelled out in both places.
+ */
+function faceBox(cx, cy, h) {
+  const s = h * 1.4;
+  return { x1: cx - s / 2, y1: cy - s / 2, x2: cx + s / 2, y2: cy + s / 2, confidence: 0.9 };
+}
+
+test('personFromFace: a close-up face no longer claims the whole frame', () => {
+  // runs/r19*-man f007 and runs/r20-woman f006: BlazeFace returns one
+  // face at h 0.563-0.594 inflated (0.402-0.424 de-inflated), MoveNet
+  // returns nobody, and the synthetic body
+  // came back as the entire frame. In `man` mode that blurred the whole
+  // video of a lone man; over a news title card it was a whole-frame
+  // GHOST.
+  const p = personFromFace(faceBox(0.5, 0.58, 0.402), 16 / 9);
+  const width = p.x2 - p.x1;
+  assert.ok(width <= 2 * PFF_HALF_CAP + 1e-9, 'width ' + width + ' must respect the cap');
+  assert.ok(width < 0.95, 'must not be the whole frame');
+  // Still centred on the face, and still generous: the widest MoveNet box
+  // ever measured for a face this large is 0.65.
+  assert.ok(width > 0.65, 'must still over-cover the measured person');
+  assert.ok(p.x1 < 0.5 && p.x2 > 0.5);
+});
+
+test('personFromFace: the cap is vertical-free — a close-up still reaches both edges', () => {
+  // The clamp to [0,1] in y is CORRECT for a close-up and must not be
+  // touched: the head reaches the top of frame and the chest fills to the
+  // bottom. Capping it would open EXPOSURE at the hair and chin.
+  const h = 0.402;
+  const p = personFromFace(faceBox(0.5, 0.58, h), 16 / 9);
+  // Uncapped, bit-for-bit: y1 is cy - 1.4h and y2 clamps at the frame.
+  assert.ok(Math.abs(p.y1 - (0.58 - h * 1.4)) < 1e-9);
+  assert.equal(p.y2, 1);
+});
+
+test('personFromFace: a small face is bit-for-bit unchanged by the cap', () => {
+  // R8 measured this constant as too NARROW on a podium subject whose
+  // face was ~0.09 of frame height inflated (0.064 de-inflated), and R19
+  // refused a narrowing for that reason. Nothing below PFF_CLOSEUP_H may
+  // move.
+  const h = 0.064;
+  const p = personFromFace(faceBox(0.5, 0.4, h), 16 / 9);
+  const expectedHalf = (3.911 * h) / (16 / 9);
+  assert.ok(Math.abs(p.x1 - (0.5 - expectedHalf)) < 1e-9);
+  assert.ok(Math.abs(p.x2 - (0.5 + expectedHalf)) < 1e-9);
+  assert.ok(h < PFF_CLOSEUP_H);
+});
+
+test('personFromFace: the widest band below the cap threshold is untouched', () => {
+  // h 0.12-0.18 de-inflated is the band whose widest observed MoveNet box
+  // is 0.92 — wider than the cap — so the cap must not reach into it,
+  // even though the raw arithmetic would start binding at h 0.159.
+  const h = 0.175;
+  const p = personFromFace(faceBox(0.5, 0.4, h), 16 / 9);
+  const expectedHalf = (3.911 * h) / (16 / 9);
+  assert.ok(Math.abs(p.x2 - p.x1 - 2 * expectedHalf) < 1e-9);
 });

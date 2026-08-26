@@ -2782,3 +2782,186 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   `male` 24 times of 29, max score 0.51 in BOTH directions — faceres has
   no signal on a profile and `isNullRead` is not catching it), the
   front-row frame-edge band, and the square-256 person-pass resize.
+
+- **R20** — rotation entry 2 (baseline `NWoT1ZVd1Lo`, **woman**), the
+  inverted expectation of R19's entry. Two windows, because R19's own
+  lesson is that a rotation entry is a video and not a window: **t=901**
+  (the window R19 scored in `man`, so the two directions are directly
+  comparable) and **t=300** (never captured). Ten frames @1.5s each, plus
+  both windows re-run after the change and the `man` direction twice for
+  variance. Build `e0c8b52-dirty`; PID changed on every rebuild
+  (28868 -> 46072 -> 44468). The dev watcher is still dead — every
+  rebuild was an explicit stop / `cargo build` / detached relaunch.
+
+  **THE WOMAN DIRECTION IS ALMOST ALL CORRECT ON THIS FOOTAGE, AND THAT
+  IS THE TRAP.** Both subjects — an adult man and his ten-year-old
+  daughter — are supposed to be covered in `woman`, so "cover everything"
+  is the right answer and the pipeline duly covers 50-76% of every frame.
+  R19 measured the SAME shots in `man` and found the man blurred on 8 of
+  10. So a patch that covers a person because it SPRAWLS scores
+  identically to one that covers them because they were measured, in this
+  direction, and becomes FALSE COVER the moment the user's gender flips.
+  This round went looking for the sprawl rather than the score.
+
+  **SHIPPED: personFromFace's horizontal extrapolation is scale-dependent
+  and nobody knew, and that single line is R19's last full-frame FALSE
+  COVER and its whole-frame GHOST.** `halfX = 3.911 * h / ar` is a
+  constant number of face-widths per side. Measured across the corpus —
+  **1246 faces that fall inside an admitted MoveNet box, 56 runs** —
+  MoveNet's own half-width for the same person, expressed in face-widths,
+  is not constant at all and falls monotonically as the face grows
+  (de-inflated `h`, the units the function actually works in):
+
+  | face h | n | MoveNet width p50/p90/max | half-width in face-widths p90 |
+  |---|---|---|---|
+  | 0.00-0.05 | 39 | 0.280 / 0.430 / 0.430 | 11.63 |
+  | 0.05-0.08 | 298 | 0.250 / 0.410 / 0.650 | 5.89 |
+  | 0.08-0.12 | 396 | 0.280 / 0.420 / 0.560 | 3.48 |
+  | 0.12-0.18 | 322 | 0.390 / 0.500 / 0.920 | 3.04 |
+  | 0.18-0.28 | 173 | 0.470 / 0.550 / 0.650 | 2.12 |
+  | 0.28-1.00 | 18 | 0.585 / 0.590 / 0.590 | 1.87 |
+
+  The reason is not subtle once the numbers are in front of you: **in a
+  close-up the shoulders are CROPPED BY THE FRAME**, so the visible person
+  really is narrower measured in face-widths. A wide shot has the whole
+  body plus outstretched arms and the ratio is large.
+  **THIS RECONCILES TWO MEASUREMENTS THAT LOOKED LIKE A CONTRADICTION.**
+  R8 measured this constant as too NARROW (a naval officer at a podium,
+  sleeve sharp past the patch, requirement 4.44 face-heights); R14's
+  critic proposed narrowing it to 2.4 on anthropometry; R19 refused that
+  narrowing for the R8 reason and was right to. Both are correct, **at
+  opposite ends of a scale dependence.** R8's officer sits in the
+  0.05-0.08 band where 3.911 is well below the p90 requirement of 5.89.
+  The failures R19 and R20 hit sit at h 0.35-0.56 de-inflated, where the
+  same constant is 2-3x the measured person — and there the result is
+  arithmetic rather than statistical: past h ~0.23 the half-width exceeds
+  the frame, so **every** face that large produces a whole-frame body. Of
+  every synthetic body in every run carrying the `obs` probe, **7 of 86
+  (8%) claim the entire frame, and each one traces to a face of h
+  0.485-0.79 inflated** — that is R19's f007 (a lone man in close-up,
+  whole video blurred in his own direction) and R19's whole-frame GHOST
+  over a news title card, from one line.
+  So: cap the HALF-WIDTH, in the band where the corpus says the
+  extrapolation exceeds the measured person, and nowhere else.
+  `PFF_CLOSEUP_H` 0.18, `PFF_HALF_CAP` 0.35.
+  * Below h 0.18 nothing changes, bit-for-bit. That protects R8's regime
+    AND the 0.12-0.18 band, whose widest observed MoveNet box is 0.920 —
+    wider than the cap. The raw arithmetic would have started binding at
+    0.159; the gate at 0.18 is that band's protection, put there
+    deliberately rather than by accident.
+  * The cap gives a 0.70-wide body, and the WIDEST MoveNet box ever
+    observed in the two bands where it binds is 0.650 and 0.590. Against
+    the maximum, not the p90, the capped body still over-covers the
+    measured person, so it cannot introduce EXPOSURE relative to what a
+    successful MoveNet pass would have drawn.
+  * **Horizontal only.** The vertical clamp is CORRECT for a close-up —
+    the head really does reach the top of frame and the chest really does
+    fill to the bottom — and inventing a vertical bound would open
+    EXPOSURE at the one edge where hair and chins live.
+
+  **A UNIT SLIP, CAUGHT BY THE TESTS BEFORE IT SHIPPED, AND IT IS THE
+  FOURTH IN THIS FUNCTION'S NEIGHBOURHOOD.** The first derivation used
+  the `ff` probe's face heights, which are the detector's
+  FACE_ENLARGE-inflated box, while `personFromFace` works in `h / 1.4`.
+  A factor of 1.4 on the threshold and on every band boundary. The three
+  regression tests failed immediately and the whole table was recomputed
+  in de-inflated units. Both the constant's comment and the test helper
+  now spell the factor out. (Previous three: the aspect factor in `w`,
+  the aspect factor in `headW`, PTRACK_PAD_TOP.)
+
+  **SCORES.**
+  * **`man`, the direction the change targets, at the identical window:
+    f007 was covered 59.9% / 71.1% / 69.7% / 73.0% across FOUR R19-era
+    runs and is 0.0% / 0.0% across two runs after — zero patches, a lone
+    man fully sharp in his own direction.** R19's log named that frame as
+    the one its head-hole structurally could not help. f008 and f009 were
+    already 0.0% before and after, so nothing regressed there. f004/f005
+    stay fully sharp with the child covered beside him.
+  * Whole-frame synthetic bodies: **1 of 18 observations before, 0 of 28
+    after.**
+  * `man` f000-f002 and f006 are still FALSE COVER and are NOT
+    attributable this round: repeating the same run moved f001 65.1 ->
+    37.8% and f002 66.8 -> 40.8% covered. Those frames are too unstable
+    run-to-run to score a change against, which is worth knowing before
+    the next round tries.
+  * **`woman` t=901: EXPOSURE 1/10, unchanged by the cap.** f006 is the
+    only failure and it is the frame-edge class open since R15 — Linus
+    enters at the left with his cheek, beard and mouth in frame at
+    x 0-0.13, the patch starts at 0.10, and his face is sharp. MoveNet's
+    slot there reads score 0.000 / nKp15 0 / hk 0.03; the full-frame face
+    pass returns one face and it is the girl's. **Neither detector sees a
+    face cropped by the frame edge**, so no gate change reaches it.
+  * **`woman` t=300: EXPOSURE 1/10 (f003), PARTIAL 1/10 (f002).**
+    Coverage per frame before -> after: 61.6/72.5/49.6/0.0/51.8/60.2/
+    59.2/62.1/63.0/69.1 -> 60.6/73.5/47.2/0.0/51.8/60.1/59.8/62.1/62.9/
+    69.3, i.e. the cap is provably INERT on this window (no face is large
+    enough), which is the regression evidence for it.
+  * GHOST 0, DRIFT 0 in every run.
+  * cost unchanged — the cap is a `min()`. verdict p50 95-126ms, pass p50
+    25-31ms across all six runs. gaze **161/161** (157 plus 4 on the cap:
+    the close-up no longer claims the frame, the vertical stays uncapped,
+    a small face is bit-for-bit unchanged, and the 0.12-0.18 band is not
+    reached). cargo 36/36.
+
+  **MEASURED AND REPORTED AS AN IMPASSE, NOT FIXED: the human with no
+  head.** runs/r20b-woman f003 is an overhead workbench shot — two
+  people, FOUR hands and forearms, no face, no head, no torso — and it
+  scores **zero persons, zero patches, 0.0% covered**, which under the
+  owner's bar ("not leaving legs, hands or head") is EXPOSURE. f002 is the
+  same composition and is 50% covered only because a track from f001 was
+  still coasting; when the coast expires the coverage vanishes. This is
+  NOT a threshold problem and the artifact says so: across all three
+  passes of f003 every MoveNet slot reads score <= 0.068, nKp15 0-2,
+  maxKp 0.13-0.20, head keypoint <= 0.13, weaker shoulder <= 0.09, and
+  BlazeFace returns **0 faces**. R18's weak tier needs nKp15 >= 9 and
+  maxKp >= 0.25 and is nowhere near firing. **MoveNet does not produce a
+  person from forearms alone, and no gate we own can invent one.**
+  person-gate.mjs's own comment treats hands as the NOISE case ("on
+  hand/desk close-ups the empty ones come back with scattered
+  keypoints"), which is true of the R15 cooking-show runs; this footage
+  is the same geometry as the signal case. Both regimes read the same to
+  every number we currently record.
+
+  **NEW INSTRUMENTATION: the `attr` probe now logs in the space
+  ownFaceIndex actually compares in, plus the decision.** R18's critic
+  caught it logging `person.headX` in FRAME coordinates against face
+  centres in CROP coordinates, so for two rounds the artifact could not
+  check a single one of that function's decisions — and `own === -1`
+  hard-returns a covered verdict on ~25% of reads, which makes it a
+  first-order FALSE COVER source. hx/hy are now mapped through the crop
+  region, and each row carries `d` — per candidate face, the distance,
+  the bar `max(0.18, fw)` it was judged against, and `fw` itself. That is
+  exactly what R19's queue asks R21 to recompute before narrowing the
+  tolerance, and it could not be done from centres alone because the bar
+  is per-CANDIDATE, which is the suspected defect.
+
+  **R21's queue.**
+  (1) **`ownFaceIndex`'s tolerance, now auditable.** R19 measured on its
+  f003 that the child's head anchor sat 0.040 from her own face and 0.236
+  from Linus's against a tolerance of 0.296 — his face was ELIGIBLE to
+  supply her verdict, and she won only by being nearer. Two such passes
+  and a child is cleared, which is EXPOSURE. The proposed `d <= 0.5 * fw`
+  also deletes the 0.18 floor, so recompute `d` against both bars for
+  every `attr` row now that the probe records them, and confirm every
+  currently-correct attribution survives first.
+  (2) **The frame-edge face** (woman f006 above), open since R15 and now
+  the only failure at t=901 in the direction this entry tests. Neither
+  detector sees it; say whether that is a model limit like the hands or
+  something the full-frame pass could be asked for.
+  (3) **The hands impasse.** If it is to be attacked at all the only
+  licence-clean route is MediaPipe Hands (Apache-2.0), and the question
+  is not whether it detects hands but whether the R15 cooking-show frames
+  and the r20b f002/f003 frames separate under it — they do not separate
+  under anything we record today.
+  (4) `preferred` still keeps the guess and destroys a paid verdict
+  (R19's queue 3), and it still has not been exercised by footage.
+  (5) The R19 alpha clamp, still waiting on a second two-shot.
+  (6) The mannequin outranking real people (R19's queue 6).
+  (7) `dedupeHeadSplit` ran **93** over ten frames at t=901 against 27 at
+  t=300 — roughly three refusals per pass on a two-person shot. A refused
+  merge can only ADD a patch so it cannot cause EXPOSURE, but over-cover
+  in `woman` is FALSE COVER in `man` on the identical geometry, and
+  nobody has looked at what is being refused.
+  (8) Frames f000-f002 at t=901 swing 25-30 points of coverage between
+  identical runs. Whatever is doing that is upstream of every score in
+  this log.

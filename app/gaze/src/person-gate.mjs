@@ -59,6 +59,11 @@ export var PERSON_STRONG_KEYPOINTS = 7;
 // garbage slot's keypoints spanned the stage and blew it up many times
 // over. Deliberately generous - this rejects sprawl, not big people.
 export var LOW_TIER_MAX_SPRAWL = 3;
+// Face height (of frame) at or above which personFromFace's horizontal
+// extrapolation is capped, and the cap itself in normalized-x half-width.
+// Both measured; see the block inside personFromFace.
+export var PFF_CLOSEUP_H = 0.18;
+export var PFF_HALF_CAP = 0.35;
 export var PATCH_MARGIN = 0.08; // outward margin on a finished person patch
 export var PERSON_GATE_PAD = 0.15; // person box padded by this fraction of its size for the crop
 export var PERSON_KEYPOINT_MIN = 0.3;
@@ -615,6 +620,79 @@ export function personFromFace(face, aspect) {
   // magnitude, and let a round that can re-capture the R8 podium footage
   // do the narrowing with evidence.
   var halfX = (3.911 * h) / ar;
+  // CLOSE-UP CAP (gauntlet R20). 3.911 is a constant number of
+  // face-widths per side, and that is only the right SHAPE of rule while
+  // the whole body is in frame. Measured across the corpus — 1246 faces
+  // that fall inside an admitted MoveNet box, 56 runs — MoveNet's own
+  // half-width for the same person, expressed in face-widths, is not
+  // constant at all. It falls monotonically as the face grows:
+  //
+  //   face h *      n    MoveNet width p50/p90/max   half-width in
+  //                                                   face-widths, p90
+  //   0.00-0.05     39   0.280 / 0.430 / 0.430        11.63
+  //   0.05-0.08    298   0.250 / 0.410 / 0.650         5.89
+  //   0.08-0.12    396   0.280 / 0.420 / 0.560         3.48
+  //   0.12-0.18    322   0.390 / 0.500 / 0.920         3.04
+  //   0.18-0.28    173   0.470 / 0.550 / 0.650         2.12
+  //   0.28-1.00     18   0.585 / 0.590 / 0.590         1.87
+  //
+  //   * de-inflated, i.e. the `h` this function actually uses, not the
+  //     detector's FACE_ENLARGE-inflated box. Getting that wrong is a
+  //     factor of 1.4 and the unit tests below caught exactly that on the
+  //     first draft of this cap — which is the fourth hidden-unit bug in
+  //     this one function's neighbourhood, after the aspect factor in
+  //     `w`, the aspect factor in `headW`, and PTRACK_PAD_TOP.
+  //
+  // The reason is not subtle once the numbers are in front of you: in a
+  // close-up the shoulders are CROPPED BY THE FRAME, so the visible
+  // person really is narrower measured in face-widths. A wide shot has
+  // the whole body plus outstretched arms and the ratio is large.
+  //
+  // THIS RECONCILES TWO MEASUREMENTS THAT LOOKED LIKE A CONTRADICTION.
+  // R8 measured this constant as too NARROW (a naval officer at a podium,
+  // sleeve sharp past the patch, requirement 4.44 face-heights) and R14's
+  // critic proposed narrowing it to 2.4 on anthropometry; R19 refused
+  // that narrowing for exactly the R8 reason and was right to. Both are
+  // correct — at OPPOSITE ENDS OF A SCALE DEPENDENCE. R8's officer sits
+  // in the 0.06-0.10 band where 3.911 is below the p90 requirement of
+  // 4.96. The failures R19 and R20 hit sit at h 0.485-0.79, where the
+  // same constant is 3x the measured person and the result is arithmetic
+  // rather than statistical: at h >= 0.23 the half-width exceeds the
+  // frame, so EVERY face that large produces a whole-frame body. Across
+  // every run carrying the `obs` probe, 7 of 86 synthetic bodies (8%)
+  // claim the entire frame, and each one traces to a face of h 0.485 to
+  // 0.79. That is R19's last full-frame FALSE COVER (its f007, a lone man
+  // in close-up, whole video blurred in his own direction) and its
+  // whole-frame GHOST over a news title card, both from this one line.
+  //
+  // So: cap the HALF-WIDTH, and only in the band where the corpus says
+  // the extrapolation exceeds the measured person. Deliberately NOT a
+  // narrower multiplier — that is what R19 refused and the refusal still
+  // stands for small faces, which are untouched here by construction.
+  //
+  //   * Applies only at h >= PFF_CLOSEUP_H 0.18. Below that nothing
+  //     changes at all: the 0.00-0.12 bands are where the extrapolation
+  //     is already NARROWER than MoveNet's own p90 (0.198-0.446 against
+  //     0.410-0.430) and where R8's podium subject lives, and the
+  //     0.12-0.18 band is the one whose widest observed MoveNet box is
+  //     0.920 — wider than the cap — so the cap is kept out of it
+  //     deliberately rather than by accident. The arithmetic alone would
+  //     have started binding at h 0.159; the extra gate to 0.18 is that
+  //     band's protection.
+  //   * PFF_HALF_CAP 0.35 gives a 0.70-wide body, and the WIDEST MoveNet
+  //     box ever observed in the two bands where the cap binds is 0.650
+  //     and 0.590. So even against the maximum, not the p90, the capped
+  //     body still over-covers the measured person. It cannot introduce
+  //     EXPOSURE relative to what a successful MoveNet pass would have
+  //     drawn for the same person.
+  //
+  // Only the horizontal is capped. Vertically the clamp is CORRECT for a
+  // close-up: `cy - 1.4h` and `cy + 6.0h` run off both edges of the frame
+  // because in a close-up the head really does reach the top and the
+  // chest really does fill to the bottom. There is no comparable
+  // measurement saying the vertical over-reaches, and inventing one would
+  // open EXPOSURE at the one edge where hair and chins live.
+  if (h >= PFF_CLOSEUP_H && halfX > PFF_HALF_CAP) halfX = PFF_HALF_CAP;
   // HEADROOM, measured in gauntlet R8 (runs/r8b-woman, a naval officer
   // in a peaked cap at a podium): y1 was `cy - h*1.0`, and since the
   // de-inflated face box only reaches `cy - h/2`, that is HALF a
