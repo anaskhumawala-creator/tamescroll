@@ -3097,3 +3097,141 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   (12) The daughter never gets a box that is HERS in the t=901 window:
   MoveNet emits the man, the figurine, and two bridge boxes spanning both
   subjects and a prop. That is upstream of every patch in this entry.
+
+- **R21** — rotation entry 3 (`ted talk full speech`, **man**), resolved
+  live to `eIho2S0ZahI` (R5 used this same rotation entry and got
+  arj7oStGLkU; the id is resolved every round, so the footage is fresh).
+  t=200, 10 frames @1.5s, then the same window twice more after the
+  change plus the `woman` direction. Build `1ae6ebb-dirty`; app PID
+  38284 -> 45592, confirmed before capturing. The dev watcher is still
+  dead — the rebuild was an explicit stop / `cargo build` / detached
+  relaunch.
+
+  **THE ROUND'S REGIME IS ONE NO PREVIOUS ROUND HAS SCORED: 8 of the 10
+  frames report `persons: 0`.** Every patch on screen was manufactured by
+  the FACE detector alone, with no corroboration from MoveNet at all.
+  Nineteen rounds of tuning have gone into the person path; this window
+  never touches it. The footage is a TED talk that cuts between a dim
+  audience shot, a text-only slide, and the speaker.
+
+  **SCORE, before: EXPOSURE 0, PARTIAL 0, FALSE COVER 2, GHOST 3,
+  DRIFT 0.** The GHOST is the headline and it is the owner's third bar
+  item verbatim: **f005, f006 and f007 carry a patch sitting on a
+  text-only slide, over the word "Authenticity". No human anywhere in the
+  frame.** GHOST has now recurred in R0 (half-frame patch), R19 (a
+  whole-frame patch over a news title card) and here, and every instance
+  is the same regime.
+
+  **SHIPPED: an uncorroborated face is not a person if MoveNet found
+  nothing human-SHAPED anywhere in the frame.** The mechanism was not a
+  mistuned threshold — every stage behaved as designed. BlazeFace returns
+  a face on typography; that face falls inside no person box, so
+  `personFromFace` extrapolates it into a whole body; the gender read on
+  the crop abstains, which is `uncertain`; and blur-first covers it.
+  The path itself is NOT removable and no face-side threshold separates
+  the two cases:
+  * it exists because of a measured EXPOSURE — a child in close-up,
+    MoveNet 0 persons, rendered fully sharp;
+  * R7 settled that face CONFIDENCE cannot separate them (logo letters
+    zoomed to 0.59 while real distant faces zoomed to 0), and R20's
+    critic found a face at confidence 0.80 on a man's HAND.
+  So the discriminator has to come from the OTHER model, and MoveNet has
+  one that costs nothing: it emits all 17 keypoints ALWAYS, with low
+  confidence rather than absence, so "how sure is it of its single best
+  keypoint, over all six slots" is a free frame-level readout of whether
+  anything human-shaped is present — and it is orthogonal to the detector
+  that just failed. New pure export `frameHasNoHumanShape`, consulted
+  only when the person pass admitted NOBODY, so a frame with even one
+  admitted person keeps the close-up fallback intact for everyone else
+  in it.
+
+  **THE FLOOR IS MEASURED, AND THE CORPUS LEFT AN EMPTY BAND TO PUT IT
+  IN.** 47 runs carry the `ff`+`slots` probes; 1109 face-bearing passes,
+  split by whether MoveNet admitted anyone:
+
+  | | n | p05 | p25 | p50 | min |
+  |---|---|---|---|---|---|
+  | corroborated (np>0) | 961 | 0.57 | 0.68 | 0.75 | **0.49** |
+  | uncorroborated (np==0) | 148 | 0.05 | 0.38 | 0.56 | 0.05 |
+
+  The uncorroborated tail is where both regimes live and it separates
+  cleanly. Sorted, the bottom is **NINE passes at maxKp 0.050 with nKp15
+  0 on all six slots — every one of them this round's slide — and then a
+  gap straight to 0.120. Nothing in 47 runs lands between.**
+  `PFF_FRAME_KP_FLOOR = 0.1` sits in that empty band. A floor at 0.08,
+  0.10 or 0.12 blocks the same 6.1% of uncorroborated passes and **0.0%
+  of corroborated ones**.
+  **What fixes it at 0.1 rather than higher is the three cases just above
+  the gap, all of which must keep their coverage:**
+  * **the close-up the fallback exists for.** r18f-base-man t=561-574 is
+    the baseline video's close-up regime, uncorroborated on every pass,
+    maxKp 0.14-0.76 median ~0.36 — but its worst single pass is
+    **0.14 at t=566.3 on a face 0.387 of frame height**. A floor at 0.15
+    kills exactly the frame this whole path was built for.
+  * r20b-woman t=304.7, maxKp **0.120**: the overhead workbench, two
+    people present as forearms only. R20 scored the uncovered version of
+    that frame as EXPOSURE under "not leaving the hands".
+  * r21-man t=201.7-203.2, maxKp **0.130-0.330**: the dim audience shot
+    where the synthetic body is the ONLY thing covering a woman.
+
+  **SCORE, after — two full re-runs of the identical window, frame for
+  frame IDENTICAL to each other, so this is not run-to-run variance:**
+  **GHOST 3 -> 0.** f005/f006/f007 now carry zero patches and measure
+  0.0% covered against their truth pairs. `faceNoShape` fired 6 times per
+  window. EXPOSURE stayed 0, PARTIAL stayed 0, DRIFT stayed 0.
+
+  **AND IT COST ONE FRAME, WHICH IS THE HONEST PART OF THIS ENTRY.
+  FALSE COVER went 2 -> 3.** f008, the cut back to the speaker, now
+  renders him covered for a single frame; he is sharp again by f009. The
+  artifact says exactly why, and it is not the gate: **in the BEFORE run
+  the slide's GHOST track (id 8, born on the typography at f005) was
+  re-associated onto the speaker at f008 and rendered him `cleared` on
+  its first human read.** With the ghost gone he is a NEW track, and a
+  new track starts covered and needs its second read. So the before-run's
+  "clean" f008 was a ghost laundering a clear onto a human — R20's critic
+  called this class "correct by accident" and this is the sharpest
+  example yet. Reproduced in both post-fix runs.
+
+  **SYMMETRY, and the gate is direction-blind as intended.** Same video,
+  `woman`: `faceNoShape` 6, slide frames 0 patches, audience frames still
+  covered at 11.4%/14.5% (the same geometry as `man`), and the speaker
+  correctly BLURRED at f008/f009 with `flag-certain`. Nothing the gate
+  touches differs between directions.
+
+  **NOT FIXED, and NOT attributable to anything shipped here.**
+  * `man` f000/f001 FALSE COVER: the patch that covers the woman at
+    centre-frame is a synthetic body built from the **top-right MAN's**
+    face (`ff` cx 0.79, h 0.226-0.278). It covers the man it was built
+    from, and a second man in a tan jacket. The read on it abstains at
+    gender score 0.25-0.42 in near-darkness — the same "faceres has no
+    signal" class as R18's teacher in profile, not a threshold.
+  * `woman` f000/f001 EXPOSURE 2/10: the two men at frame-left are sharp,
+    because that one patch starts at x 0.41. Pre-existing, unchanged.
+  * cost: verdict p50 76 -> 79/88ms, pass p50 29 -> 28/30ms, i.e. inside
+    noise. The gate is a loop over six numbers and it SKIPS a crop and a
+    gender inference when it fires. `first == max` on verdict again
+    (1004-1101ms) — model warm-up, consistent with that target's
+    retirement. gaze **170/170** (163 plus 7 on the gate), cargo 36/36.
+
+  **R22's queue.**
+  (1) **The scene-entry frame, now unmasked and reproducible.** A person
+  appearing on a cut is covered for exactly one frame before their second
+  read. Blur-first says that is the safe direction, but the owner's bar
+  says "not a single frame where the wrong gender is blurred up", and it
+  is now measurable on demand (f008 of this window, both runs). The lever
+  is CLEAR_STREAK_N, which R7 set to 2 deliberately because one read
+  misgendered — do not move it without measuring the misgender rate of a
+  FIRST read at score >= GENDER_CLEAR_SCORE across the corpus.
+  (2) **A face in near-darkness abstains, and abstention costs a man his
+  sharpness.** f000/f001 here, R18's teacher in profile. Same root:
+  faceres has no signal, and `isNullRead` does not catch it. Two rounds
+  have now logged this class without touching it.
+  (3) The nine typography passes were all ONE slide. The gate is proven
+  against the corpus but has seen exactly one instance of the thing it
+  refuses. Capture a second graphics-heavy window — R19's news-panel
+  title card is the obvious one, and it is already in the rotation — and
+  confirm the floor separates there too before trusting the constant.
+  (4) Everything R20 left open, unchanged: the model-box-vs-hull
+  intersection (the only live lever on the 76% of covered area that is
+  MoveNet's own boxes), the figurine that outscores both humans, and
+  `wipeIfEmpty`'s premise being narrower than its comment.

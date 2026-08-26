@@ -13,6 +13,8 @@ import {
   PERSON_WEAK_MAXKP,
   PFF_CLOSEUP_H,
   PFF_HALF_CAP,
+  PFF_FRAME_KP_FLOOR,
+  frameHasNoHumanShape,
 } from '../src/person-gate.mjs';
 
 // Keypoint layout: 17 x [y, x, score] then y1,x1,y2,x2,score.
@@ -539,4 +541,52 @@ test('personFromFace: the widest band below the cap threshold is untouched', () 
   const p = personFromFace(faceBox(0.5, 0.4, h), 16 / 9);
   const expectedHalf = (3.911 * h) / (16 / 9);
   assert.ok(Math.abs(p.x2 - p.x1 - 2 * expectedHalf) < 1e-9);
+});
+
+// --- R21: the uncorroborated-face gate ----------------------------
+// Numbers below are the corpus measurement recorded on
+// frameHasNoHumanShape: the text slide read maxKp 0.05 on all six
+// slots, and the two nearest real cases that must keep their coverage
+// read 0.12 (forearms-only workbench) and 0.13 (dim audience).
+
+const slots = (...maxKps) => maxKps.map((maxKp) => ({ maxKp }));
+
+test('frameHasNoHumanShape: the text slide that produced R21 GHOST is caught', () => {
+  assert.equal(frameHasNoHumanShape(slots(0.05, 0.05, 0.05, 0.05, 0.05, 0.05)), true);
+});
+
+test('frameHasNoHumanShape: the forearms-only frame keeps its coverage', () => {
+  // r20b-woman t=304.7. Two people present as hands and forearms; R20
+  // scored the uncovered version EXPOSURE under "not leaving the hands".
+  assert.equal(frameHasNoHumanShape(slots(0.12, 0.09, 0.07, 0.05, 0.04, 0.02)), false);
+});
+
+test('frameHasNoHumanShape: the dim audience frame keeps its coverage', () => {
+  // r21-man t=201.7, where the synthetic body is the ONLY thing covering
+  // a woman. A floor at 0.15 would have taken this frame.
+  assert.equal(frameHasNoHumanShape(slots(0.13, 0.3, 0.3, 0.12, 0.15, 0.28)), false);
+});
+
+test('frameHasNoHumanShape: one confident slot is enough, wherever it sits', () => {
+  assert.equal(frameHasNoHumanShape(slots(0.01, 0.01, 0.01, 0.01, 0.01, 0.9)), false);
+});
+
+test('frameHasNoHumanShape: no diagnostics fails OPEN, toward coverage', () => {
+  // The person model may not have loaded yet. Absence of evidence is not
+  // evidence of absence, and the safe direction is to keep covering.
+  assert.equal(frameHasNoHumanShape([]), false);
+  assert.equal(frameHasNoHumanShape(null), false);
+  assert.equal(frameHasNoHumanShape(undefined), false);
+});
+
+test('frameHasNoHumanShape: a malformed slot never reads as evidence', () => {
+  // A probe must not be able to change a verdict by throwing or by
+  // arriving half-built (this cost two releases).
+  assert.equal(frameHasNoHumanShape([{}, null, { maxKp: null }]), true);
+  assert.equal(frameHasNoHumanShape([{ maxKp: 'x' }, { maxKp: 0.9 }]), false);
+});
+
+test('frameHasNoHumanShape: the floor sits in the empty band the corpus left', () => {
+  assert.ok(PFF_FRAME_KP_FLOOR > 0.05, 'above the slide false positives');
+  assert.ok(PFF_FRAME_KP_FLOOR < 0.12, 'below the nearest real case');
 });

@@ -21,7 +21,12 @@ import {
   isNullRead,
   FACE_MIN_NATIVE_PX,
 } from './gender-verdict.mjs';
-import { personCropRegion, personFromFace, lastSlotDiag } from './person-gate.mjs';
+import {
+  personCropRegion,
+  personFromFace,
+  frameHasNoHumanShape,
+  lastSlotDiag,
+} from './person-gate.mjs';
 
 // CROP-BUDGET PRIORITY. `confidence` is NOT one scale: a MoveNet person
 // carries the model's slot score and a personFromFace body carries
@@ -1609,12 +1614,29 @@ import { planForMode } from './pipeline-plan.mjs';
                       (faces[a].x2 - faces[a].x1) * (faces[a].y2 - faces[a].y1)
                     );
                   });
+                  // NOTHING HUMAN-SHAPED IN FRAME => a face here is a
+                  // graphic, not a person MoveNet missed (R21). Only
+                  // consulted when the person pass admitted NOBODY: with
+                  // even one admitted person the frame demonstrably
+                  // contains humans and the fallback keeps covering the
+                  // ones MoveNet did not reach. See frameHasNoHumanShape
+                  // for the corpus measurement that sets the floor and
+                  // for the two neighbouring cases it must not take.
+                  var noShape = persons.length === 0 && frameHasNoHumanShape(lastSlotDiag);
                   var claimed = {};
                   for (var oj = 0; oj < order.length; oj++) {
                     var fi = order[oj];
                     var owner = faceInsideIndex(faces[fi], persons);
                     if (owner !== -1 && !claimed[owner]) {
                       claimed[owner] = 1;
+                      continue;
+                    }
+                    if (noShape) {
+                      try {
+                        var dbgN = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+                        dbgN.life = dbgN.life || {};
+                        dbgN.life.faceNoShape = (dbgN.life.faceNoShape || 0) + 1;
+                      } catch (e) {}
                       continue;
                     }
                     extra.push(personFromFace(faces[fi], video.videoWidth / (video.videoHeight || 1)));

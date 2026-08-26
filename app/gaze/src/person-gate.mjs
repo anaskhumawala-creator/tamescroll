@@ -64,6 +64,10 @@ export var LOW_TIER_MAX_SPRAWL = 3;
 // Both measured; see the block inside personFromFace.
 export var PFF_CLOSEUP_H = 0.18;
 export var PFF_HALF_CAP = 0.35;
+// R21. Minimum keypoint confidence ANYWHERE in the frame before an
+// UNCORROBORATED face may be extrapolated into a body. See
+// frameHasNoHumanShape below for the measurement that sets it.
+export var PFF_FRAME_KP_FLOOR = 0.1;
 export var PATCH_MARGIN = 0.08; // outward margin on a finished person patch
 export var PERSON_GATE_PAD = 0.15; // person box padded by this fraction of its size for the crop
 export var PERSON_KEYPOINT_MIN = 0.3;
@@ -612,6 +616,71 @@ export function parsePersons(data, minScore, aspect, held) {
 // fired zero times. The ghosts it was built for were stale tracks
 // coasting across a scene cut — see PTRACK_CUT_COAST_MS in person-track.
 // Do not rebuild it from `reads.px`; use `ff` if it is ever revisited.
+/**
+ * True when MoveNet produced no keypoint evidence ANYWHERE in the frame.
+ *
+ * R21 scored three GHOST frames: a patch sitting on a text-only slide,
+ * over the word "Authenticity". No human in the frame at all, which is
+ * the owner's third bar item verbatim. The mechanism is not a threshold
+ * anyone had tuned - it is that BlazeFace returns a face on typography
+ * (R7 measured logo letters zooming to 0.59 while real distant faces
+ * zoomed to 0, and R20's critic found a face at confidence 0.80 on a
+ * man's HAND), that face falls inside no person box, personFromFace
+ * turns it into a whole body, and the read on it abstains, so blur-first
+ * covers it. Every stage behaved as designed.
+ *
+ * The face path is NOT removable and no confidence threshold separates
+ * the two cases:
+ *  - it exists because of a measured EXPOSURE (a child in close-up,
+ *    MoveNet 0 persons, rendered fully sharp);
+ *  - R7 settled that BlazeFace-128 alone cannot tell a face-like graphic
+ *    from a small face.
+ * So the discriminator has to come from the OTHER model. MoveNet emits
+ * all 17 keypoints always, with low confidence rather than absence, so
+ * "how sure is it about its single best keypoint, over all six slots" is
+ * a free frame-level readout of whether anything human-SHAPED is present
+ * - and it is orthogonal to the face detector that just failed.
+ *
+ * MEASURED over the whole corpus, 47 runs carrying the ff+slots probes,
+ * 1109 face-bearing passes, split by whether MoveNet admitted anyone:
+ *
+ *   corroborated (np > 0), n=961 : maxKp p05 0.57, p50 0.75, MIN 0.49
+ *   uncorroborated (np == 0), n=148 : p05 0.05, p25 0.38, p50 0.56
+ *
+ * The uncorroborated tail is where both regimes live, and it separates
+ * cleanly. Sorted, the bottom of that tail is NINE passes at maxKp 0.050
+ * with nKp15 0 on all six slots - every one of them this round's slide -
+ * and then a gap to 0.120. Nothing in the corpus lands between.
+ *
+ * The two nearest neighbours ABOVE the gap are both cases that must keep
+ * their coverage, which is what fixes the constant at 0.1 rather than
+ * higher:
+ *  - r20b-woman t=304.7, maxKp 0.120: the overhead workbench, two people
+ *    present as forearms only. R20 scored the uncovered version of that
+ *    frame as EXPOSURE under "not leaving the hands".
+ *  - r21-man t=201.7-203.2, maxKp 0.130-0.330: a dim audience shot where
+ *    the only thing covering a woman IS a synthetic body.
+ * A floor of 0.15 would take both. 0.1 sits in an empty band with the
+ * false positives 0.05 below it and the real cases 0.02 above.
+ *
+ * Deliberately frame-level and deliberately narrow: it only ever fires
+ * when the person pass admitted NOBODY (the caller checks that), so a
+ * frame with any admitted person keeps the close-up fallback intact for
+ * everyone else in it. Empty diagnostics return false - if the person
+ * model has not loaded there is no evidence of absence, and the
+ * fail-open direction is coverage.
+ */
+export function frameHasNoHumanShape(slotDiag) {
+  if (!slotDiag || !slotDiag.length) return false;
+  var best = 0;
+  for (var i = 0; i < slotDiag.length; i++) {
+    var d = slotDiag[i];
+    var m = d && d.maxKp;
+    if (typeof m === 'number' && m > best) best = m;
+  }
+  return best < PFF_FRAME_KP_FLOOR;
+}
+
 export function personFromFace(face, aspect) {
   var cx = (face.x1 + face.x2) / 2;
   var cy = (face.y1 + face.y2) / 2;
