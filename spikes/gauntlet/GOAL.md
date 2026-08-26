@@ -3213,6 +3213,37 @@ Owner constraint: nothing indecent. Queries stay ordinary.
     (1004-1101ms) — model warm-up, consistent with that target's
     retirement. gaze **170/170** (163 plus 7 on the gate), cargo 36/36.
 
+  **THE SECOND GRAPHICS WINDOW, RUN BEFORE THE ROUND CLOSED, AND IT
+  BOUNDS THE FIX RATHER THAN CONFIRMING IT.** R22's queue item 3 asked
+  for a second instance of the class before trusting a constant fitted to
+  one slide, so I re-captured R19's news-panel window (z5WBceo0bIg,
+  t=240, `woman`) on the new build. **`faceNoShape` fired ZERO times, and
+  f002 is still a GHOST** — a patch over a Zee News title card, 10.0% of
+  the frame covered, no human in it.
+  The gate cannot reach it, and the artifact says why: on news graphics
+  MoveNet does NOT go silent. It emits weak keypoint noise on the logo
+  shapes at maxKp 0.24-0.26 with nKp15 4-5, four to five times the
+  0.05 the slide produced.
+  **So I measured whether MoveNet's slot SCORE separates the two, and it
+  does not** — the two regimes overlap on every axis the person pass has:
+
+  | | maxScore | maxKp | nKp15 |
+  |---|---|---|---|
+  | news-graphics ghost (8 passes) | 0.000-0.174 | 0.10-0.52 | 0-7 |
+  | baseline close-up, REAL human (18) | 0.030-0.303 | 0.14-0.76 | 0-9 |
+  | text slide (9 passes) | **0.000** | **0.05** | **0** |
+
+  The typography case is uniquely identifiable because MoveNet returned
+  literally nothing; the news-graphics case is not identifiable from the
+  person pass at all, at any threshold, because a real close-up produces
+  the same numbers. That is a different problem needing a different
+  signal, and it is now R22's first item rather than a hope.
+  Also worth recording from that window, because it is the third time:
+  f008 measured 79.1% covered on R19's build and 62.5% on this one **with
+  the gate firing zero times**, so that is run-to-run variance again, on
+  footage where both subjects are real men correctly covered in `woman`
+  mode. Frames on this footage cannot carry a 16-point attribution.
+
   **R22's queue.**
   (1) **The scene-entry frame, now unmasked and reproducible.** A person
   appearing on a cut is covered for exactly one frame before their second
@@ -3226,11 +3257,16 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   sharpness.** f000/f001 here, R18's teacher in profile. Same root:
   faceres has no signal, and `isNullRead` does not catch it. Two rounds
   have now logged this class without touching it.
-  (3) The nine typography passes were all ONE slide. The gate is proven
-  against the corpus but has seen exactly one instance of the thing it
-  refuses. Capture a second graphics-heavy window — R19's news-panel
-  title card is the obvious one, and it is already in the rotation — and
-  confirm the floor separates there too before trusting the constant.
+  (3) **The graphics GHOST that the person pass cannot see** — answered
+  in the negative above, and now the round's biggest open item. A news
+  title card produces MoveNet noise indistinguishable from a real
+  close-up on score, maxKp and nKp15 alike, so no threshold on the person
+  pass reaches it. It needs a signal neither detector currently provides.
+  Cheap candidates worth measuring before anything is built: the crop we
+  ALREADY compute per person goes through faceres, which already returns
+  an age posterior and a 1024-d descriptor, and nsfwjs is already loaded
+  and already classifies "Drawing" — that class is free and nobody has
+  ever looked at what it reads on a title card versus a face.
   (4) Everything R20 left open, unchanged: the model-box-vs-hull
   intersection (the only live lever on the 76% of covered area that is
   MoveNet's own boxes), the figurine that outscores both humans, and
