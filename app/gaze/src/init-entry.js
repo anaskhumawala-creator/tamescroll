@@ -1198,7 +1198,24 @@ import { planForMode } from './pipeline-plan.mjs';
         var known = knownFaceInCrop();
         var facesP = known ? Promise.resolve(known) : detector.detectFaceBoxes(model, zpix);
         return facesP.then(function (faces) {
-          if (!faces.length) return obs;
+          // WHY A TRACK IS COVERED, COUNTED AT THE SOURCE (R23).
+          //
+          // A 60s continuous trace of rotation entry 5 in `man` mode put
+          // 75.7% of all blurred track-samples on `lv:'uncertain'` --
+          // i.e. the overwhelming majority of false cover is not a wrong
+          // verdict, it is NO VERDICT. But `uncertain` has three
+          // completely different producers with three different fixes,
+          // and nothing in six rounds of artifacts could tell them apart:
+          // the detector found no face in the crop at all; a face was
+          // found but none of them belongs to this person; or a face was
+          // read and its certainty fell short. Guessing which dominates
+          // is how S6 spent a round building the wrong thing.
+          //
+          // One counter per outcome, on a path that already branches.
+          if (!faces.length) {
+            bumpLife('personNoFace');
+            return obs;
+          }
           // NO ATTRIBUTABLE FACE ⇒ DECIDE BEFORE PAYING FOR THE READ.
           //
           // `ownFaceIndex` is pure and reads only `faces` plus this
@@ -1409,6 +1426,21 @@ import { planForMode } from './pipeline-plan.mjs';
               return { box: person, flagged: true, certain: false, faceFound: true, desc: faceDesc };
             }
             var mine = meta[own] || { flagged: true, certain: false };
+            // The read HAPPENED and was attributed -- so this is the one
+            // place that can say what the evidence actually was. See the
+            // note at `personNoFace`. `readClearCertain` is the only
+            // outcome of the four that can ever lift a patch.
+            bumpLife(
+              !mine.flagged && mine.certain
+                ? 'readClearCertain'
+                : mine.abstained
+                  ? 'readAbstain'
+                  : mine.certain
+                    ? 'readFlagCertain'
+                    : mine.weak
+                      ? 'readWeak'
+                      : 'readUncertain'
+            );
             // THE PIXELS THIS VERDICT WAS READ FROM, in frame
             // coordinates (gauntlet R19). `faceRegionInVideo` is the
             // square the gender model actually saw, so it is not a guess
@@ -1938,6 +1970,18 @@ import { planForMode } from './pipeline-plan.mjs';
               if (myEpoch !== passEpoch) {
                 var dbgD = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
                 dbgD.dropped = (dbgD.dropped || 0) + 1;
+                bumpLife('passDropped');
+                // ...AND DO NOT MAKE THE REPLACEMENT WAIT A FULL CADENCE
+                // FOR IT (R23). `lastZoomAt` was advanced before the crops
+                // ran, so a pass discarded here pushed the next verdict a
+                // full effZoom (400ms) into the future -- and these drops
+                // are not uniformly distributed, they land preferentially
+                // in the ~200ms after a cut, which is exactly the moment
+                // the clear ladder needs its first rung. Zeroing it makes
+                // the forced pass genuinely immediate. Costs nothing: the
+                // in-flight guard (`verdictBusy`) still prevents a second
+                // pass while one is running.
+                lastZoomAt = 0;
                 return;
               }
               var dbgK = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});

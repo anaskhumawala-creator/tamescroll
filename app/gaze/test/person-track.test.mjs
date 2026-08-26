@@ -1218,3 +1218,92 @@ test('a three-way merge yields one patch with a stable key either way', () => {
   assert.equal(b.length, 1);
   assert.equal(a[0].key, b[0].key);
 });
+
+// --- R23: an earned clear is worth ONE RUNG after a cut ---------------
+// Rotation entry 5 scored FALSE COVER on 9 frames of 10 in the owner's
+// own direction, and the mechanism was that `demoteTracks` reset
+// `clearStreak` to 0 faster than two consecutive certain reads could be
+// re-earned (cuts at 0.87/s against a 400ms verdict cadence and a
+// per-person read rate well under 1). Banking one rung keeps the price of
+// a clear at exactly two certain reads; it stops the cut confiscating the
+// first one. Pinned in all four directions so a future round has to face
+// the frames rather than the diff.
+test('a cut-demoted CLEARED track re-clears on ONE certain read', () => {
+  pt.setVerdictCadence(400);
+  let tracks = pt.updatePersonTracks([], [obs(boxA, false, true)], 400);
+  tracks = pt.updatePersonTracks(tracks, [obs(boxA, false, true)], 400);
+  assert.equal(tracks[0].state, 'cleared', 'earned the clear before the cut');
+  tracks = pt.demoteTracks(tracks);
+  assert.equal(tracks[0].state, 'blurred', 'the cut still covers, blur-first');
+  assert.equal(tracks[0].clearStreak, 1, 'one rung banked, not two');
+  tracks = pt.updatePersonTracks(tracks, [obs(boxA, false, true)], 400);
+  assert.equal(tracks[0].state, 'cleared', 'one read pays the second rung');
+});
+
+test('a cut-demoted BLURRED track still owes TWO certain reads', () => {
+  pt.setVerdictCadence(400);
+  let tracks = pt.updatePersonTracks([], [obs(boxA, false, true)], 400);
+  assert.equal(tracks[0].state, 'blurred', 'never earned a clear');
+  tracks = pt.demoteTracks(tracks);
+  assert.equal(tracks[0].clearStreak, 0, 'nothing earned, nothing banked');
+  tracks = pt.updatePersonTracks(tracks, [obs(boxA, false, true)], 400);
+  assert.equal(tracks[0].state, 'blurred', 'still owes the second read');
+  tracks = pt.updatePersonTracks(tracks, [obs(boxA, false, true)], 400);
+  assert.equal(tracks[0].state, 'cleared');
+});
+
+// The bank is not a licence, it is a rung: the first read after the cut
+// that is NOT a certain clear spends it. This is what bounds the exposure
+// the bank opens to a single verdict read.
+test('the banked rung decays on the first non-clear read after the cut', () => {
+  pt.setVerdictCadence(400);
+  let tracks = pt.updatePersonTracks([], [obs(boxA, false, true)], 400);
+  tracks = pt.updatePersonTracks(tracks, [obs(boxA, false, true)], 400);
+  assert.equal(tracks[0].state, 'cleared');
+  tracks = pt.demoteTracks(tracks);
+  // Somebody is standing there, but we cannot read them.
+  tracks = pt.updatePersonTracks(tracks, [obs(boxA, true, false)], 400);
+  assert.equal(tracks[0].clearStreak, 0, 'the rung is spent');
+  tracks = pt.updatePersonTracks(tracks, [obs(boxA, false, true)], 400);
+  assert.equal(tracks[0].state, 'blurred', 'back to owing two reads');
+});
+
+// A CHILD CAN NEVER BANK, and this is the line that keeps S6's derivation
+// intact: banking requires having reached `cleared`, reaching `cleared`
+// requires certain reads, and a child read is never certain (the age gate
+// in gender-verdict returns it as an abstention). The tracker sees that
+// as `{flagged, !certain}`, which cannot clear at any streak length.
+test('a track fed only child-shaped reads never clears, so never banks', () => {
+  pt.setVerdictCadence(400);
+  let tracks = pt.updatePersonTracks([], [obs(boxA, true, false)], 400);
+  for (let i = 0; i < 12; i++) {
+    tracks = pt.updatePersonTracks(tracks, [obs(boxA, true, false)], 400);
+  }
+  assert.equal(tracks[0].state, 'blurred');
+  tracks = pt.demoteTracks(tracks);
+  assert.equal(tracks[0].clearStreak, 0);
+});
+
+// S10 open item 5, fixed in R23: the position pass dropped `weakStreak`,
+// so GENDER_WEAK_STREAK_N could never be reached and every artifact since
+// S6 reported a structural zero rather than a population. Behaviour is
+// unchanged (S6 removed the clear this counter fed); the measurement is
+// not. Position passes outnumber verdict passes 2-3 to 1, so a single
+// dropped carry is enough to make the counter dead.
+test('weakStreak survives a position-only pass', () => {
+  pt.setVerdictCadence(400);
+  let tracks = pt.updatePersonTracks(
+    [],
+    [{ box: boxA, flagged: true, certain: false, weak: true, faceFound: true }],
+    400
+  );
+  assert.equal(tracks[0].weakStreak, 1);
+  tracks = pt.updatePersonTracks(tracks, [{ box: boxA, positionOnly: true }], 120);
+  assert.equal(tracks[0].weakStreak, 1, 'a position pass is not evidence against it');
+  tracks = pt.updatePersonTracks(
+    tracks,
+    [{ box: boxA, flagged: true, certain: false, weak: true, faceFound: true }],
+    400
+  );
+  assert.equal(tracks[0].weakStreak, 2, 'the streak is over READS, not passes');
+});

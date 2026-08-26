@@ -71,7 +71,47 @@ export function clearScoreFor(gender) {
 //
 // The child gate still applies independently (see GENDER_ADULT_AGE):
 // instant or not, a face read as under 18 is never certain.
-export var GENDER_INSTANT_CLEAR = 0.9;
+//
+// R23 MOVED THIS FROM 0.9 TO 0.8, AND THE BAR IS NOW DERIVED FROM A
+// DISTRIBUTION RATHER THAN ASSERTED. Rotation entry 5 (`4u3jS_cTHH0`,
+// Laughter Chefs, 3-4 men + 1 woman in a studio kitchen, `man` mode)
+// scored FALSE COVER on 9 of 10 frames -- the worst same-direction score
+// in the log -- and a 60s continuous trace put a number on why: 89.7% of
+// all track-samples sit `blurred`, and of those only 8.9% carry
+// `lv:'clear-certain'`, in episodes whose p50 is 0.41s, i.e. EXACTLY one
+// verdict interval. That population is a track that read certain-clear
+// and is waiting for a partner read it may not live to receive: track
+// lifetime p50 is 1.91s against cuts at 0.87/s.
+//
+// The two bands over 135 non-abstained reads from that window:
+//
+//   male score   n    childP range
+//   [0.90, 1]    20   0.01 - 0.05
+//   [0.85,0.90)   9   0.02 - 0.08
+//   [0.80,0.85)   9   0.01 - 0.05
+//   [0.75,0.80)  12   0.02 - 0.07
+//   [0.70,0.75)   5   0.04 - 0.19   <- the child band starts here
+//   [0.60,0.70)  12   0.04 - 0.17
+//
+// 0.8 is the LOWEST bar at which the band's maximum childP (0.08) still
+// sits below the minimum childP ever measured on a known 8-year-old
+// (0.15-0.72, median 0.42, gauntlet R18). 0.75 is REFUSED: [0.70,0.75)
+// reaches childP 0.19, which is inside that child band, and S6's whole
+// derivation is that the age gate and the certainty gate are not
+// independent. This move keeps them independent -- it is a change
+// strictly ABOVE the `certain` bar of 0.6, not a relaxation into the
+// weak band S6 measured a child living in.
+//
+// The opposite-gender margin on the same corpus: no `female`-labelled
+// read anywhere in the window exceeds 0.59. Nothing was within 0.2 of
+// the new bar in the wrong direction.
+//
+// The cost of being wrong is bounded and named: a woman misread `male`
+// at >= 0.8 with childP < 0.25 clears on one read instead of two, so the
+// exposure window is one verdict interval (~400ms) longer than it was.
+// That is why the bar was not taken to 0.75 for the extra 12 reads.
+// Effect on the population: instant-eligible male reads go 18% -> 34%.
+export var GENDER_INSTANT_CLEAR = 0.8;
 // The female bar is deliberately set ABOVE every female read observed in
 // R6 (0.22-0.67, median 0.54, n=5), which means it effectively never
 // fires in woman mode. That is honest rather than symmetric: five

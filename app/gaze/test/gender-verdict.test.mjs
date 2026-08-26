@@ -321,3 +321,38 @@ test('faceMeta: a NULL read is abstained and never weak', () => {
   assert.equal(n.abstained, true);
   assert.ok(!n.weak);
 });
+
+// --- R23: the instant bar moved 0.9 -> 0.8, derived from a band --------
+// The bar is the lowest at which the band's maximum childP (0.08 over
+// 18 reads in [0.80,0.90) on rotation entry 5) still sits below the
+// MINIMUM childP ever measured on a known 8-year-old (0.15, R18). The
+// band below, [0.70,0.75), reaches childP 0.19 and is inside that child
+// range, which is why 0.75 was refused. Pinned so a future round cannot
+// slide the bar down from the diff alone.
+test('R23 instant bar: 0.82 clears on one read, 0.72 still owes the streak', () => {
+  const m = faceMeta('man', [
+    { gender: 'male', score: 0.82, age: 31, childP: 0.05 },
+    { gender: 'male', score: 0.72, age: 31, childP: 0.05 },
+  ]);
+  assert.equal(m[0].certain, true);
+  assert.equal(m[0].instant, true, '0.82 is above the R23 bar');
+  assert.equal(m[1].certain, true);
+  assert.equal(m[1].instant, false, '0.72 is below it and pays CLEAR_STREAK_N');
+});
+
+// The age gate is the OTHER lock and it outranks the certainty bar in
+// both directions. Lowering the instant bar must not make a child
+// reachable through it: S6 pulled a whole feature for exactly this.
+test('R23 instant bar: a child read at 0.85 is still never certain', () => {
+  // A child read never reaches the instant BRANCH at all -- it is routed
+  // to an abstention upstream (R18), which carries no `instant` field.
+  // Asserting the whole object is the point: the guarantee is that this
+  // read can never be mistaken for evidence, not merely that one flag on
+  // it is false.
+  const m = faceMeta('man', [{ gender: 'male', score: 0.85, age: 9, childP: 0.42 }]);
+  assert.deepEqual(m[0], { flagged: true, certain: false, abstained: true });
+  assert.ok(!m[0].instant);
+  const byMass = faceMeta('man', [{ gender: 'male', score: 0.85, age: 31, childP: 0.3 }]);
+  assert.deepEqual(byMass[0], { flagged: true, certain: false, abstained: true });
+  assert.ok(!byMass[0].instant, 'childP mass alone blocks it too');
+});

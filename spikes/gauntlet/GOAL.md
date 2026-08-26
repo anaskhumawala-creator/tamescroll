@@ -84,7 +84,7 @@ at least once.
 | 2 | (fixed) NWoT1ZVd1Lo | woman | same footage, inverted expectation |
 | 3 | ted talk full speech | man | single speaker, stage lighting, slow cuts |
 | 4 | news panel discussion | woman | 3-5 people, seated, small faces. R19 note: news footage is half GRAPHICS - z5WBceo0bIg is a title slate at t=240 (and painted a whole-frame GHOST over it), fFbNU0TvMH8 is two men in split-screen boxes at t=600. Probe forward for actual faces, and note this is the only GHOST-regime footage in the table. |
-| 5 | cooking show episode | man | hands and objects — the GHOST trap |
+| 5 | cooking show episode | man | hands and objects. R23 note: the GHOST trap never fired here — `4u3jS_cTHH0` (Laughter Chefs, 3-4 men + 1 woman in a studio kitchen, t=415) is the FALSE-COVER regime instead, and the worst on record: cuts at 0.87/s, track lifetime p50 1.91s, so nothing lives long enough to clear. Use this window to test anything about the clear ladder. `KAWvDsghyc8` (R7/R15) is the same entry's other id. |
 | 6 | graduation ceremony full ceremony | woman | crowd shots, 100+ people. R16 note: "conference keynote audience" resolves to single-speaker talking heads, not crowds, and livestreams open on a title-card slate - probe forward before capturing |
 | 7 | sports post match interview | man | motion, back-turned subjects |
 | 8 | classroom lecture | woman | mixed ages — the child gate |
@@ -4738,3 +4738,208 @@ analysis.
   module-global coast budgets shared by every video element — the same
   defect class R21 fixed for `lastSlotDiag`. (7) `cover_life_p50` and the
   count-change blindness in `jitter`/`breathe` (S9 F1/F11), still unfixed.
+
+- **R23** — rotation entry 5 (`cooking show episode`, **man**), resolved
+  live to a NEW id `4u3jS_cTHH0` (Laughter Chefs S2 — Indian studio
+  kitchen, 3-4 men + 1 woman, fast cuts, hands and objects; R7/R15's
+  `KAWvDsghyc8` deliberately not reused). Window t=415, 10 frames @1.5s.
+  Build before `7c3f361-dirty`, after `9a39353-dirty` — the dev watcher
+  was ALIVE this round and app PID changed 37360 -> 30232 on the rebuild,
+  which is the only proof of a reload. Symmetry run on the same window in
+  `woman`, plus the baseline video `NWoT1ZVd1Lo` t=560 in `man` as the
+  CHILD check, because that is the exact frame S6 refused a feature on.
+
+  **THIS ROUND REPRODUCED S6 INDEPENDENTLY AND THEN REMOVED A THIRD OF IT.**
+
+  | class (per PERSON per frame) | before | after r1 | after r2 |
+  |---|---|---|---|
+  | EXPOSURE | 0 | 0 | 0 |
+  | PARTIAL | 0 | 0 | 0 |
+  | **FALSE COVER** | **20** | **13** | **14** |
+  | GHOST | 0 | 0 | 0 |
+  | frames with any FALSE COVER | 9/10 | 8/10 | 8/10 |
+  | frames fully clean | 1 | 2 | 2 |
+
+  Per frame, men covered (before -> r1 / r2): f000 1->1/1, f001 3->3/3,
+  f002 2->**0**/1, f003 3->**1**/3, f004 1->1/1, f005 2->2/2,
+  f006 3->**2**/**0**, f007 3->**0**/**0**, f008 **0->1/1** (the one
+  regression, and it REPRODUCES), f009 2->2/2. Frame-level variance on
+  this footage is large — f003 scored 1 and 3 on two runs of the same
+  build — so single-frame claims are worthless here and only the totals
+  are quoted.
+
+  **THE MECHANISM, MEASURED THREE WAYS, AND IT IS NOT MISGENDERING.**
+  A 60s CONTINUOUS trace (`stability.py`, which never pauses; `lv` added
+  to its sampler this round beside `st`) over 2644 track-samples:
+
+  | st / lv | share |
+  |---|---|
+  | blurred / uncertain | 67.9% |
+  | blurred / flag-certain | 13.8% |
+  | **cleared** / clear-certain | **8.3%** |
+  | blurred / **clear-certain** | 8.0% |
+  | cleared / other | 2.0% |
+
+  **89.7% of all track-samples are `blurred`**, and track lifetime p50 is
+  **1.91s** against `cutDetected` **52 in 60s (0.87/s)** with
+  `cutDemoteCleared` **21**. Of the blurred samples only 8.9% carry
+  `lv:'clear-certain'` — evidence that arrived and did not become a state
+  — in episodes of p50 **0.41s**, i.e. EXACTLY one verdict interval.
+  Every one of those 7 tracks in the gauntlet artifact reads `cs:1`,
+  which is what the critic predicted and asked to be checked.
+
+  So the ladder (`obs.instant || clearMs >= CLEAR_HOLD_MS ||
+  clearStreak >= CLEAR_STREAK_N`) has only its streak rung live on this
+  footage, `demoteTracks` was zeroing that rung 0.87 times a second, and
+  two CONSECUTIVE certain reads cost more shot than the shot contains.
+
+  **SHIPPED 1 — an earned clear is worth ONE RUNG after a cut** (it was
+  worth zero). `demoteTracks` banks `clearStreak: 1` when the track was
+  `cleared`, keeping `state:'blurred'`, `clearMs:0` and `desc:null`. The
+  price of a clear is still exactly two certain reads; the cut simply
+  stops confiscating the first one. **DELIBERATELY NARROWER THAN THE
+  CRITIC ASKED** — it wanted `state==='cleared' || lastVerdict===
+  'clear-certain'`, which banks for a track that never cleared and makes
+  a cut cost nothing at all; the narrowing and its reason are written at
+  the line. A CHILD CAN NEVER BANK: banking needs `cleared`, `cleared`
+  needs certain reads, certain needs the age gate — S6's derivation is
+  untouched. The exposure is bounded to ONE verdict read, because the
+  first non-clear read spends the rung (`max(0, cs-1)`), and that bound
+  is pinned by a test. `cutBankKept` counts every bank.
+
+  **SHIPPED 2 — `GENDER_INSTANT_CLEAR` 0.9 -> 0.8, derived from a band
+  rather than asserted.** 135 non-abstained reads on this window:
+
+  | male score | n | childP range |
+  |---|---|---|
+  | [0.90,1] | 20 | 0.01-0.05 |
+  | [0.85,0.90) | 9 | 0.02-0.08 |
+  | [0.80,0.85) | 9 | 0.01-0.05 |
+  | [0.75,0.80) | 12 | 0.02-0.07 |
+  | [0.70,0.75) | 5 | 0.04-**0.19** |
+
+  0.8 is the LOWEST bar whose band maximum childP (0.08) stays below the
+  minimum childP ever measured on a known 8-year-old (0.15, R18). **0.75
+  is refused**: [0.70,0.75) reaches 0.19, inside the child band. No
+  `female`-labelled read anywhere in the window exceeds 0.59, so nothing
+  came within 0.2 of the new bar in the wrong direction. Instant-eligible
+  male reads 18% -> 34%.
+
+  **SHIPPED 3 — `weakStreak` was the ONE field the `positionOnly` return
+  dropped**, so `GENDER_WEAK_STREAK_N` was structurally unreachable
+  (S10 open item 5, CONFIRMED). Position passes run at the 120ms floor
+  against a 400ms verdict cadence, so 2-3 of them wiped the carry between
+  every pair of reads. The proof needs no code: `weakBump 50` against
+  `weakZero 1`. Behaviour unchanged (S6 removed the clear this counter
+  fed) — but the number stops being a structural zero, and it is LARGE:
+  `weakWouldClear` went 0 -> **16 per 14s window**. Any future sizing of
+  that population now has a real denominator.
+
+  **SHIPPED 4 — a verdict pass discarded by a mid-pass cut no longer
+  costs a full cadence.** `lastZoomAt` was advanced before the crops ran,
+  so a pass dropped on `myEpoch !== passEpoch` pushed the replacement
+  400ms out — and those drops land preferentially in the 200ms after a
+  cut, exactly when the ladder needs its first rung. Now zeroed;
+  `passDropped` counts them (2-3 per window).
+
+  **SHIPPED 5 — population (B) is now counted at the source.** 75.7% of
+  blurred samples read `uncertain` and NOTHING could say which of three
+  producers made them. One counter per outcome in `observeCropped`:
+  `personNoFace` 8, `ownMissSkipped` 4, `readClearCertain` 42,
+  `readWeak` 24, `readAbstain` 13, `readUncertain` 10, `readFlagCertain`
+  5 per 14s. **The answer is that it is NOT a detector miss** — only ~11%
+  of person-observations fail to produce a read. It is the weak band
+  (26%) plus abstentions (14%). That is the population S6 refused to
+  clear, and it is where the remaining FALSE COVER lives.
+
+  **TWO PROPOSALS BUILT UP AND REFUSED, both written into the source with
+  their measurements so a fourth round does not re-derive them.**
+  * *A descriptor-gated post-cut re-clear* (keep a `clearedDesc` across
+    the demotion, re-clear on the first matching certain read). The
+    bundle has logged both bands all along and no round had read them:
+    `intra` (same person, consecutive) n=70 p50 **0.74**; `cross` (two
+    persons in the SAME frame) n=111 p50 **0.38**. The tails overlap
+    through the whole useful range — at 0.90 the rule fires on 20% of
+    same-person pairs while still false-matching **5.4%** of
+    different-person pairs, and it would spend that on the EXPOSURE side.
+    R13's deletion of identity memory is reproduced here by a different
+    measurement on new footage.
+  * *A weak-evidence clear with a TIGHTER age gate* (childP < 0.15
+    excludes 100% of R18's child reads and admits 9 of 16 weak adult male
+    reads). Refused: that is a constant fitted to one child's observed
+    minimum, from one round, on one video — the shape R22 refused twice —
+    and the failure mode is a child rendered SHARP, silently, with
+    nothing in the pipeline able to report it.
+
+  **REFUTED, and the critic agreed with the reasoning and generalised
+  it:** R22 shipped `nm` (the faceres descriptor's L2 magnitude) as a
+  free null test in the hope it could separate direction-trustworthy weak
+  reads. It cannot — weak-band male reads carry nm 4.69-11.43 and female
+  4.67-11.89, fully overlapping, and every read at score >= 0.6 has
+  nm >= 8.08. `nm` is a CONFIDENCE proxy, and a confidence proxy is
+  structurally incapable of answering a DIRECTION question on a
+  population already conditioned on low confidence. The same one-line
+  argument kills `fc`, `px` and the age entropy.
+
+  **SYMMETRY — `woman` on the same window, and the diff is PROVABLY inert
+  there.** `cutBankKept` and `cutDemoteCleared` are both **0** (nothing
+  ever reached `cleared`: `readClearCertain` **1** against
+  `readFlagCertain` **64**), and woman mode uses
+  `GENDER_INSTANT_CLEAR_FEMALE 0.7`, untouched. Score: **EXPOSURE 2**
+  (f000 the red-jacket man's torso at the extreme right edge, f008 the
+  blue-tank man at the extreme left edge — both back-turned, faceless,
+  frame-edge, both pre-existing), FALSE COVER 8 (the woman covered on
+  every frame she appears — female clear reads top out at ~0.59 against
+  `GENDER_CLEAR_SCORE_FEMALE 0.45`), GHOST 0, PARTIAL 0. The woman
+  direction remains the weaker one and is NOT improved by this round.
+
+  **CHILD CHECK — baseline `NWoT1ZVd1Lo` t=560, `man`, all 10 pairs read.
+  EXPOSURE 0. The daughter is covered on every frame she appears.**
+  `cutBankKept 1`, so the new path DID execute on this video without
+  exposing her — S6's refusal frame does not recur. PARTIAL **3**
+  (f006 her hair crown above the patch top, f007 her right sleeve past
+  the patch edge, f008 her left sleeve) — all the S8 pad class, all
+  pre-existing, none of them new this round. FALSE COVER 3 (Linus).
+
+  **COST — unchanged, and the round bought accuracy for free.** Verdict
+  p50 **129ms** after against 142ms before, p95 225 vs 245; position pass
+  p50 **25ms** both. `first` 2310/2423ms is model warm-up as always.
+  Every one of the five changes is a constant or a carried field on a
+  branch that already executes; nothing added an inference. gaze
+  **216/216** (7 new tests), cargo **37/37**.
+
+  **STILL OPEN, re-ranked by this round's evidence:**
+  1. **The weak band is now the whole problem.** 26% of reads are weak
+     and 14% abstain; both keep a man covered, and both are refused from
+     clearing for a reason that is about CHILDREN, not about men. The
+     only route that does not fit a constant to n=1 is a child signal
+     that is not `childP` — and R22's parked PROBE (BlazeFace's 6 facial
+     landmarks, already computed at `detector.js:282` and thrown away, no
+     extra inference, our own model, MIT) is the only candidate on the
+     table. That is the next round's question.
+  2. **f008 regressed and it REPRODUCES** across both after-runs: at that
+     timestamp the tracks are mid-recovery from a cut carrying a banked
+     rung with no verdict read yet, where the before-build happened to
+     carry a cleared track through. It is the one place the bank changed
+     the trajectory for the worse and it deserves a dedicated look.
+  3. **Population (C), named by the critic and confirmed in the
+     artifact**: a track reading `cleared` whose person is nonetheless
+     covered by a merged neighbour's patch (before-run f002/f006;
+     after-run baseline f005). `clearedHeadHoles` needs `headBox` with
+     `headAgeMs <= 1000` and still has no OWNERSHIP test. The (A)/(B)
+     split does not capture this population at all.
+  4. `ZOOM_MAX_PERSONS 3` against 4-5 people means P(read per person per
+     pass) ~= 0.67. The critic sized a fourth person at 21-40ms, which
+     stays under the 267ms cadence knee on THIS desktop and is not free
+     on a Helio G88. Needs a phone number before it moves.
+  5. `dedupeObservations` deletes whole observations (`preferred` picks
+     one object; there is no field merge) at `dedupeMerged 31` +
+     `dedupeHeadSplit 19` per 14s, and `birthContended` is the LARGEST
+     birth bucket. The join that sizes it (`dbgO.obs` -> next `tracks`)
+     is free from stored traces.
+  6. The `clearStreak` decrement hysteresis is provably inert for a
+     blurred track (R11's clamp to `CLEAR_STREAK_N` made decrement-by-1
+     identical to zeroing, because a blurred track can never hold 2).
+     Not a bug; it means "2 consecutive" is literal, with zero tolerance.
+  7. `cover_life_p50` and the count-change blindness in `jitter` /
+     `breathe` (S9 F1/F11), still unfixed.

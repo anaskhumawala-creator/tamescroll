@@ -95,6 +95,24 @@ export var CLEARED_TTL_MS = 5000;
 // still reported (`ws` on the tracks probe, `weakBump`/`weakZero`/
 // `weakWouldClear` in `life`), so a future round can size the population
 // this rule would have touched without shipping it.
+//
+// R23 RE-PROPOSED THIS WITH A TIGHTER AGE GATE AND REFUSED IT AGAIN, for
+// a different reason than S6 gave, so the next round does not think it
+// has found a loophole. The proposal: since S6's failure was the child
+// gate leaking (`childP < GENDER_CHILD_MASS 0.25` against an 8-year-old
+// measured at 0.15-0.72), require every read in the weak streak to sit
+// below the child's measured MINIMUM instead -- childP < 0.15 excludes
+// 100% of R18's child reads and still admits 9 of 16 weak adult male
+// reads measured on rotation entry 5.
+//
+// Refused because that constant is fitted to one child's observed
+// minimum, from one round, on one video. R22 refused two person-gate
+// rules on exactly this shape (a 10px gap in 17 samples from two videos;
+// a 0.001-wide empty band) and the cost of being wrong here is strictly
+// worse: the failure mode is a child rendered SHARP, which is the worst
+// outcome this project has. A second child reading childP 0.08 defeats
+// it silently and nothing in the pipeline would ever report that it had.
+// The clear side does not get a threshold fitted to n=1.
 export var GENDER_WEAK_STREAK_N = 4;
 
 // Monotonic track ids (review A9): overlays key on identity, not array
@@ -644,6 +662,23 @@ function matchedStep(t, obs, dt) {
       clearStreak: t.clearStreak || 0,
       flagStreak: t.flagStreak || 0,
       abstainStreak: t.abstainStreak || 0,
+      // `weakStreak` WAS THE ONE FIELD THIS RETURN DROPPED, AND IT MADE
+      // GENDER_WEAK_STREAK_N STRUCTURALLY UNREACHABLE (S10 open item 5,
+      // confirmed by R23's critic and by the counters). Position passes
+      // run at the 120ms floor against a 400ms verdict cadence, so 2-3 of
+      // them land between every pair of gender reads and each one handed
+      // back `undefined`; the next verdict then read `t.weakStreak || 0`
+      // as 0. The independent proof needs no code: `weakBump 50` against
+      // `weakZero 1` in one window -- if a streak were ever carried, the
+      // 12 female and 11 abstained reads in the same window would have
+      // fired `weakZero` many times over.
+      //
+      // BEHAVIOUR IS UNCHANGED BY RESTORING IT: S6 removed the clear this
+      // counter fed (it exposed a child) and left the counter as pure
+      // measurement. What changes is that the measurement stops reporting
+      // on a mechanism that could not run, so a future round sizing that
+      // population gets a real number instead of a structural zero.
+      weakStreak: t.weakStreak || 0,
       desc: t.desc || null,
       // The head hole rides the position pass so it stays on the face
       // between gender reads, but its AGE still advances: a position
@@ -1242,7 +1277,15 @@ export function demoteTracks(tracks) {
     // which has been false since R13 deleted identity memory. The
     // demotion itself is correct association hygiene; what is unpriced is
     // that nothing replaced the mechanism that made it cheap.
-    if (t.state === 'cleared') bump('cutDemoteCleared');
+    var wasCleared = t.state === 'cleared';
+    if (wasCleared) bump('cutDemoteCleared');
+    // IDENTICAL TO THE LINE ABOVE TODAY, ON PURPOSE. `cutDemoteCleared`
+    // is "what the cut destroyed"; `cutBankKept` is "what the bank
+    // below preserved". They are the same population only because the
+    // bank's gate is exactly `wasCleared` — narrow that gate and the two
+    // diverge, and the divergence is the number that prices the change.
+    // A run where these differ is a run where the gate moved.
+    if (wasCleared) bump('cutBankKept');
     out.push({
       id: t.id,
       box: t.box,
@@ -1255,12 +1298,76 @@ export function demoteTracks(tracks) {
       missMs: 0,
       clearAge: 0,
       facelessReads: t.facelessReads || 0,
-      clearStreak: 0,
+      // AN EARNED CLEAR IS WORTH ONE RUNG AFTER A CUT. IT USED TO BE
+      // WORTH ZERO, AND THAT IS ARITHMETICALLY UNPAYABLE (R23).
+      //
+      // The clear ladder is `obs.instant || clearMs >= CLEAR_HOLD_MS ||
+      // clearStreak >= CLEAR_STREAK_N`, and on fast-cut footage only the
+      // streak is live. Measured on rotation entry 5 (`4u3jS_cTHH0`,
+      // studio kitchen, 3-4 men + 1 woman, `man` mode): cuts at 0.87/s
+      // over 60s, so the mean shot is 1.15s; a person is gender-read on
+      // about two of the ~3 verdict passes that fit in one; and the
+      // expected number of reads to land TWO CONSECUTIVE successes at
+      // that hit rate is several times the shot length. The score was
+      // FALSE COVER on 9 frames of 10, and 89.7% of all track-samples
+      // sat `blurred` -- in the owner's OWN direction.
+      //
+      // So the demotion was not merely resetting the counter, it was
+      // resetting it faster than it could ever be re-paid. Banking one
+      // rung makes the cost of a clear TWO certain reads exactly as
+      // before; it just stops the cut from confiscating the first one.
+      //
+      // GATED ON `state === 'cleared'`, AND THIS IS A DELIBERATE
+      // NARROWING OF WHAT R23'S CRITIC PROPOSED. It asked for
+      // `state === 'cleared' || lastVerdict === 'clear-certain'`. The
+      // second half banks a rung for a track that had paid ONE read and
+      // never cleared, which makes a cut cost nothing at all and leaves
+      // no earned precondition to point at. A track that reached
+      // `cleared` demonstrably paid the full price in the previous shot,
+      // and -- this is the part that matters -- reaching `cleared`
+      // requires certain reads, which require the age gate, so a CHILD
+      // can never bank. S6's derivation is untouched by this line.
+      //
+      // The exposure it opens, named: a woman who lands on a demoted box
+      // (IoU + area gates) and reads `male`, adult, score >= 0.6 ONCE is
+      // cleared, where before she owed two such reads. That is the same
+      // single-read risk `GENDER_INSTANT_CLEAR` already accepts on a
+      // never-seen track, conditioned additionally on a certain read
+      // having happened at this screen position in the previous shot.
+      // `cutBankKept` counts every bank so the next round can price it.
+      clearStreak: wasCleared ? 1 : 0,
       flagStreak: 0,
       abstainStreak: 0,
       // A cut means these pixels are a different shot: every accumulated
       // verdict, weak or not, is about a frame that no longer exists.
       weakStreak: 0,
+      // R23 PROPOSED AND REFUSED: keep a SEPARATE `clearedDesc` here (not
+      // `desc`, so `identityBroken` stays inert across a cut as designed)
+      // and let a demoted track re-clear on the FIRST certain-clear read
+      // whose descriptor matches it, instead of paying CLEAR_STREAK_N
+      // again. The argument was that R13's 17% false-match figure was a
+      // MAX over a growing bank of up to 8 exemplars, and a single
+      // exemplar compared once is a different statistic.
+      //
+      // It is not a different statistic. The bundle has logged both bands
+      // all along (`intra` = consecutive reads of the SAME tracked
+      // person, `cross` = two persons in the SAME frame, who are
+      // definitionally different people) and no round had ever read them.
+      // Measured on rotation entry 5, `man`, 60s: intra n=70 p50 0.74,
+      // cross n=111 p50 0.38 -- and the tails overlap through the whole
+      // useful range:
+      //
+      //   bar   intra pass (recall)   cross pass (FALSE MATCH)
+      //   0.60      0.729                 0.180
+      //   0.75      0.471                 0.126
+      //   0.90      0.200                 0.054
+      //
+      // At 0.9 the rule would fire on one same-person pair in five while
+      // still false-matching one different-person pair in eighteen -- and
+      // it would be spending that false-match rate on the EXPOSURE side.
+      // R13's deletion of identity memory is reproduced here on new
+      // footage by a different measurement. Do not propose a descriptor
+      // shortcut again without a new descriptor.
       desc: null,
       lastVerdict: 'uncertain',
       // ...and this box is now on borrowed time: see PTRACK_CUT_COAST_MS.

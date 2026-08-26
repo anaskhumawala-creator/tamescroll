@@ -74,8 +74,15 @@ SAMPLE_JS = r"""
   // blurredTracks by ELIMINATION, because nothing in the trace records
   // state. With `st` here the attribution is direct instead of inferred.
   var st = [];
+  // R23: the track's LAST VERDICT beside its STATE. The gauntlet's
+  // seek-paused frames showed tracks sitting `st:blurred, lv:clear-certain`
+  // -- correct evidence that never became a cleared state -- but the
+  // paused harness cannot say how much of continuous playback that is.
+  // With `lv` here the two populations of false cover (evidence arrived
+  // and was discarded vs evidence never arrived) are separable directly.
+  var lv = [];
   var keys = [];
-  for (var k = 0; k < tr.length; k++) { ids.push(tr[k].id); st.push(tr[k].st); }
+  for (var k = 0; k < tr.length; k++) { ids.push(tr[k].id); st.push(tr[k].st); lv.push(tr[k].lv); }
   for (var q = 0; q < kids.length; q++) keys.push(kids[q].__tsKey || '');
   return JSON.stringify({
     t: +v.currentTime.toFixed(2),
@@ -85,6 +92,7 @@ SAMPLE_JS = r"""
     r: rects,
     ids: ids,
     st: st,
+    lv: lv,
     keys: keys,
     life: d.life || null
   });

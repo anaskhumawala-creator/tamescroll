@@ -148,6 +148,15 @@ PROBE = r"""
     // a clear" from "he earned one and memory took it away".
     sims: (d.sims || []).slice(-8),
     mem: d.mem || 0,
+    // DESCRIPTOR CALIBRATION, both bands, already computed by the bundle
+    // and read by nothing until R23. `intra` = consecutive reads of the
+    // SAME tracked person; `cross` = pairwise sim of two persons in the
+    // SAME frame, who are definitionally different people. R13 deleted
+    // identity memory on a 17% false-match figure that was a MAX over a
+    // growing bank of 8 exemplars — a single pair compared once is a
+    // different statistic, and no round has ever read these two arrays.
+    intra: (d.intra || []).slice(-400),
+    cross: (d.cross || []).slice(-400),
     // Track lifecycle counters (person-track.mjs bump()): newTrack,
     // sizeReject, identityBroke, ... Churn conclusions are worthless
     // without them.
