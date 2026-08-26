@@ -753,3 +753,48 @@ test('head geometry with no continuity behaves exactly as a cold start', () => {
   // not the ear span (0.08).
   assert.ok(Math.abs(cold[0].headW - 0.05) < 1e-6, `headW ${cold[0].headW}`);
 });
+
+// --- WEAK TIER REACHABILITY (R25) -----------------------------------
+// The tier's premise is a subject with no countable head keypoints, and
+// `nKp15` counts thirteen: five head plus eight body. A bar above eight
+// therefore requires a head keypoint, which is the one thing this tier
+// was built to do without. These pin the arithmetic so it cannot drift
+// back: PERSON_WEAK_KP15 must stay reachable without a head.
+
+/** A headless body: every countable BODY keypoint strong, head absent. */
+function headlessBody(data, slot, strongBody) {
+  for (let i = 0; i < 5; i++) setKp(data, slot, i, 0.2, 0.3, 0);
+  const body = [5, 6, 7, 8, 9, 10, 11, 12];
+  for (let i = 0; i < body.length; i++) {
+    setKp(data, slot, body[i], 0.3 + 0.05 * i, 0.3 + 0.01 * (i % 3), i < strongBody ? 0.9 : 0);
+  }
+  for (let i = 13; i < 17; i++) setKp(data, slot, i, 0.9, 0.3, 0.9);
+}
+
+test('parsePersons: a headless body with every countable body keypoint IS a person', () => {
+  const data = new Float32Array(6 * 56);
+  setBox(data, 0, 0.2, 0.1, 1, 0.5, 0.1);
+  headlessBody(data, 0, 8);
+  assert.ok(PERSON_WEAK_KP15 <= 8, 'the weak tier must be reachable without a head');
+  assert.equal(parsePersons(data).length, 1, 'back-turned + head out of frame is still a person');
+});
+
+test('parsePersons: a headless body one keypoint short stays out', () => {
+  const data = new Float32Array(6 * 56);
+  setBox(data, 0, 0.2, 0.1, 1, 0.5, 0.1);
+  headlessBody(data, 0, 7);
+  assert.equal(parsePersons(data).length, 0, 'the count still has to be met');
+});
+
+test('parsePersons: a headless body below PERSON_WEAK_MAXKP stays out', () => {
+  // Lowering the count must not open the other axis: eight body
+  // keypoints that are all noise-grade are still noise.
+  const data = new Float32Array(6 * 56);
+  setBox(data, 0, 0.2, 0.1, 1, 0.5, 0.1);
+  headlessBody(data, 0, 8);
+  const body = [5, 6, 7, 8, 9, 10, 11, 12];
+  for (let i = 0; i < body.length; i++) {
+    setKp(data, 0, body[i], 0.3 + 0.05 * i, 0.3, PERSON_WEAK_MAXKP - 0.05);
+  }
+  assert.equal(parsePersons(data).length, 0);
+});

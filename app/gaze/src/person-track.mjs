@@ -1736,6 +1736,35 @@ function topPad(t, h) {
   return capped < full ? capped : full;
 }
 
+// BUILT, PRICED AND REFUSED (gauntlet R25): closing the gap between a
+// patch and the frame edge.
+//
+// R25's nine EXPOSURE frames are a woman wedged between a covered
+// person's patch and the left edge of the frame, invisible to both
+// models (see the refusal block in person-gate.mjs). The obvious
+// geometric answer is to extend any patch that comes within EPS of a
+// frame edge out to that edge, guarded so it never swallows a CLEARED
+// track. It is safe in the EXPOSURE direction by construction — it only
+// ever adds covered pixels — and it was still refused, on two numbers:
+//
+//   * BLAST RADIUS. Over 155 stored runs / 2230 drawn patches, 26.3% of
+//     blurred patches already sit within 0.10 of a side edge in the
+//     coordinates this function produces, and 46.8% within 0.12. At the
+//     epsilon that actually closes R25's frames (0.12, because the
+//     REQUESTED box is ~0.05 further in than the drawn one) the median
+//     patch grows 12.5% in area and the p90 grows 31%. S11 and S12 spent
+//     two rounds buying 10-17% of median patch WIDTH back for the owner
+//     ("multiple boxes here and there... make it much stable"); this
+//     hands most of it straight back, everywhere, to fix one shot.
+//   * IT DOES NOT EVEN CLOSE THE CASE. Requiring a MoveNet slot inside
+//     the strip as evidence drops the blast radius to 3.8% of patches —
+//     and to 4 of the 9 exposure frames, because on the other five the
+//     gap is wider than any epsilon a narrow strip can justify.
+//
+// And the symmetry cost is real: the same strip in `woman` mode covers
+// the same unread woman, who should be sharp. Blur-first is the
+// tiebreaker for genuinely unknown pixels, but it does not buy a
+// corpus-wide 12% area regression for a 44% recall on one composition.
 export function blurredTracks(tracks) {
   var out = [];
   for (var i = 0; i < tracks.length; i++) {

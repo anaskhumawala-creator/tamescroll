@@ -86,7 +86,7 @@ at least once.
 | 4 | news panel discussion | woman | 3-5 people, seated, small faces. R19 note: news footage is half GRAPHICS - z5WBceo0bIg is a title slate at t=240 (and painted a whole-frame GHOST over it), fFbNU0TvMH8 is two men in split-screen boxes at t=600. Probe forward for actual faces, and note this is the only GHOST-regime footage in the table. |
 | 5 | cooking show episode | man | hands and objects. R23 note: the GHOST trap never fired here — `4u3jS_cTHH0` (Laughter Chefs, 3-4 men + 1 woman in a studio kitchen, t=415) is the FALSE-COVER regime instead, and the worst on record: cuts at 0.87/s, track lifetime p50 1.91s, so nothing lives long enough to clear. Use this window to test anything about the clear ladder. `KAWvDsghyc8` (R7/R15) is the same entry's other id. |
 | 6 | graduation ceremony full ceremony | woman | crowd shots, 100+ people. R16 note: "conference keynote audience" resolves to single-speaker talking heads, not crowds, and livestreams open on a title-card slate - probe forward before capturing. R24 note: `r70mH3m4l9E` (Dhirubhai Ambani graduation, 8878s) at t=2400 is the best MULTI-PERSON STATIC window in the table - a locked-off stage with SIX MoveNet persons, 5 women and 3 men interleaved, and ZERO cuts in 15s. That is the crop-budget and occlusion regime; use it for anything about starvation, attribution or ownership. `e0HlQh-hwyE` is a 259s single-speaker commencement, not a crowd. |
-| 7 | sports post match interview | man | motion, back-turned subjects |
+| 7 | sports post match interview | man | motion, back-turned subjects. R25 note: the query also returns WOMEN'S football interviews, and `g_2Wmzpx47I` (WSL pitchside, t=20) is the table's only EDGE-CROPPED regime — a chest-up close-up with a second woman reduced to a shoulder and an arm at x<0.12, whom MoveNet scores 0.000 and BlazeFace never sees. Use it for anything about truncated people, frame-edge geometry or the clamped-edge feather. `1L_R0MB2W5A` (R9/R17) is the same entry's two-men id. |
 | 8 | classroom lecture | woman | mixed ages — the child gate |
 
 Owner constraint: nothing indecent. Queries stay ordinary.
@@ -5499,3 +5499,164 @@ analysis.
   the item most likely to matter on a Mali-G52. (7) `cover_life_p50`
   still measures coverage EPISODES — 3.62 / 5.38 / 1.64 across this
   round's three runs of the same window says so for the fourth time.
+
+- **R25** — rotation entry 7 (`sports post match interview`, **man**),
+  resolved live to `g_2Wmzpx47I` (Sky Sports WSL pitchside, Arsenal 2-1
+  Liverpool: Olivia Smith interviewed, Stina Blackstenius standing beside
+  her), window **t=20, 10 frames @1.5s**, plus the same window in
+  **woman**, plus a second `man` capture of the identical window for
+  variance. Entry 7 also yields WOMEN'S football interviews, which is a
+  new regime for the table: a **chest-up close-up with a second person
+  cropped to a sliver at the frame edge**.
+
+  | class | man before | man after | woman before | woman after |
+  |---|---|---|---|---|
+  | EXPOSURE | **9** | **9** | 0 | 0 |
+  | PARTIAL | 0 | 0 | 0 | 0 |
+  | GHOST | 0 | 0 | 0 | 0 |
+  | DRIFT | 0 | 0 | 0 | 0 |
+  | FALSE COVER | 0 | 0 | **10** | **10** |
+
+  **BOTH SCORES ARE MODEL CEILINGS, AND BOTH ARE NOW MEASURED RATHER
+  THAN ASSERTED.** The round's output is two proofs and one fix in a
+  third place; the per-frame score did not move and could not have.
+
+  **THE 9 EXPOSURE FRAMES: a person neither model can see.** Blackstenius
+  stands at frame left with only her right shoulder and upper arm in shot
+  (x 0.00-0.12, no face, back to camera — confirmed by f009, where the
+  shot cuts to a two-shot and she is plainly her). She is sharp on
+  f000-f008. Measured coverage of her visible sliver: **4-26%**, and the
+  leftmost blurred column sits at x 0.037-0.051 while she runs to 0.065.
+  Her MoveNet slot is PRESENT on every pass and carries **score
+  0.000-0.009, confident 0, nKp15 0, maxKp 0.007-0.119** while the woman
+  beside her scores 0.50 in the same pass. Reproduced in a second capture
+  of the same window (patch x1 within 0.016 of the first run on every
+  frame) — this footage, unlike R24's crowd, has almost no run-to-run
+  variance.
+
+  **Three routes to her were measured and all three are refused, with
+  the numbers written into `person-gate.mjs` beside
+  `frameHasNoHumanShape` so they are not re-proposed:**
+  * *Aspect / tiling.* A new bench hook (`__TS_BENCH_API.persons`) let
+    the SAME model run on the SAME paused frame three ways
+    (`spikes/gauntlet/personaspect.py`): the shipped 256x256 SQUASH gives
+    her maxKp **0.009**, an aspect-preserving letterbox **0.05**, and a
+    left-half tile — a real 2x zoom — **0.185 with nKp15 2**, against
+    `PERSON_MIN_KEYPOINTS` 5. Zoom does not admit her; it enlarges the
+    noise, and costs 2-3x the person pass. (Side result worth keeping:
+    letterboxing raised the REAL person's slot score 0.543 -> 0.649 on
+    the same frame. That is R8's unshipped `[160,256]` item with a number
+    on it at last, and it is now the top open item.)
+  * *Admitting a zero-evidence slot because it touches a frame edge.*
+    Priced over the corpus by the critic: it buys 4 of these 9 frames and
+    pays 9 news-slate + 12-22 kitchen-counter frames. **9 EXPOSURE for
+    21-31 GHOST.**
+  * *Closing the gap between a patch and the frame edge geometrically.*
+    My own corpus sweep, 155 runs / 2230 drawn patches: 26.3% of blurred
+    patches already sit within 0.10 of a side edge in requested
+    coordinates and 46.8% within 0.12; at the epsilon that actually
+    closes these frames the median patch grows **12.5% in area, p90 31%**
+    — S11 and S12 spent two rounds buying 10-17% of median width back for
+    the owner. Requiring a slot inside the strip drops the blast radius
+    to 3.8% and the recall to 4 of 9. Refused in `person-track.mjs`,
+    above `blurredTracks`, where the numbers live.
+
+  What WOULD reach her is per-pixel person SEGMENTATION (MediaPipe Selfie
+  Segmentation or BodyPix — **Apache-2.0 code AND weights**, so both are
+  licence-clean; S9 benched that class at p50 18.9ms warm on desktop:
+  verdict-pass only, never the 120ms position pass). That is a milestone
+  and an owner decision, not a round. Every occlusion-robust detector in
+  the literature is CrowdHuman-trained, and CrowdHuman is
+  non-commercial-only — the same tier as the AGPL ban.
+
+  **THE 10 FALSE COVER FRAMES: the child gate is INVERTED on the one pair
+  ever measured next to it.** In `woman` mode the video's primary subject
+  — a 21-year-old professional footballer — is covered on all ten frames
+  with `cs 0`, `cm 0`, `lv uncertain` throughout, i.e. no path to a clear
+  at all. `readAbstain` is **37** against `readClearCertain` 2 in the
+  window. Cause: 48 distinct live reads give `g:female` (correct) with
+  **childP 0.49-0.94, median ~0.79, age 10-22**, and the age posterior is
+  PEAKED, not diffuse (peak bin 9-14 carrying 0.20-0.48 of the mass,
+  entropy 2.1-3.3). `GENDER_CHILD_MASS` is 0.25 and the comment above it
+  claims an adult ceiling of 0.18.
+  **The control settles it.** `spikes/gauntlet/agecrop.py` sweeps the age
+  head over seven crop enlargements (0.55x-1.9x) of the same detected
+  face. The adult woman reads childP 0.416 / 0.520 / 0.607 / 0.507 /
+  0.359 / 0.242 / 0.163 across the sweep. A KNOWN 12-year-old
+  (`NWoT1ZVd1Lo` t=566, the child this project has covered since R10)
+  reads **0.146-0.194 at every scale**, age 28-35, and the adult male in
+  the same frame reads 0.02-0.11. **The adult reads child and the child
+  reads adult, same model, same day.** So this is not a threshold that
+  wants nudging: any move that frees her also frees R18's classroom boy,
+  which is the trade R18 explicitly refused. Recorded in
+  `gender-verdict.mjs`, NOT acted on — it is the owner's call.
+  In `man` mode the identical reads are invisible, because the gate
+  agrees with the answer. That is why eleven rounds never saw it.
+
+  **SHIPPED — `PERSON_WEAK_KP15` was unreachable by exactly one keypoint
+  for exactly the person it was built for.** `nKp15` counts keypoints
+  0-12: **five head + eight body**. The weak tier's bar was **9**, so it
+  could not be cleared without at least one HEAD keypoint over 0.15 —
+  and the tier's own header says its premise is a subject whose head
+  keypoints are not there to count. Verified against the shipped module,
+  not argued: a slot with all eight body keypoints AND all four legs at
+  0.90 is REFUSED at 9, and adding a single head keypoint admits it.
+  Now **8**. R18's own corpus method re-run over 3789 passes in 155 runs,
+  counting only slots the current gate rejects: **0.036 -> 0.055 extra
+  slots per pass**, and the extra **0.019 lands nowhere near the GHOST
+  regimes** — title card (r22c-slide), news slate (r22e/z5WBceo0bIg) and
+  every R21 typography run are **0 at both thresholds**; the gain is in
+  dense-people footage (R23 studio kitchen 6->10 and 8->11 per 30
+  passes). Three tests pin the arithmetic (headless-with-8 admitted,
+  headless-with-7 refused, eight noise-grade keypoints still refused).
+  It does NOT recover this round's edge woman (nKp15 0) and it was never
+  claimed to.
+  **Exercised and checked in real footage**: a fresh capture of the R23
+  kitchen window (`runs/r25after-cook-man`, 4u3jS_cTHH0 t=415, 8 frames)
+  admitted **2 slots in 24 passes that the old bar refused** (0.083/pass,
+  as predicted), and the frames are clean — f006 covers the woman and
+  leaves all three men sharp; **no GHOST on any frame**.
+
+  **NO REGRESSION, measured not assumed.** Main subject coverage is
+  identical before and after in BOTH directions (89-93% of her body box
+  on every frame, same numbers to the point), patch geometry moves by
+  <=0.02, and the woman direction still clears Blackstenius at f009 and
+  still covers Smith. gaze **235/235** (3 new), cargo **37/37**.
+  **COST unchanged**: verdict p50 **98ms** (before 105/101), p95 193-218;
+  pass p50 **27ms**, p95 35. Dev app PID changed 29560 -> 39840 -> 21932;
+  the mtime was never the proof.
+
+  **STILL OPEN, ranked:**
+  1. **The person pass squashes 16:9 into a square** (`detector.js:308`,
+     `init-entry.js:711`) where MoveNet's documented preprocessing pads.
+     Measured this round to be worth **+0.106 of slot score on a real
+     person** (0.543 -> 0.649) — which is the currency R17's whole
+     hysteresis was invented to fake, since those slots sit ON the 0.35
+     floor. `[160,256]` is the legal shape (multiples of 32) and cuts the
+     anisotropy from 1.78x to 1.11x. Corpus-wide, so it needs its own
+     round and both directions on at least three regimes.
+  2. **The count gates cannot see a truncated person AT ALL** — with the
+     head out of frame the ceiling on `confident`/`nKp15` is 8, against
+     `PERSON_MIN_KEYPOINTS` 5 (reachable) but `PERSON_STRONG_KEYPOINTS` 7
+     = 7-of-8 (87.5% of what exists, against 54% for a whole person). The
+     same constant is a different bar depending on where the frame edge
+     falls. Not touched this round; the fix is a per-availability
+     denominator, and it wants its own measurement.
+  3. **`frameHasNoHumanShape` is a GHOST gate that becomes an EXPOSURE
+     gate on this footage class**: the edge woman's maxKp is under
+     `PFF_FRAME_KP_FLOOR` on 13 of 15 passes, so on a frame whose only
+     human is edge-cropped it would refuse the face fallback too. Safe
+     here only because the other woman lifts the frame-wide max.
+  4. **`sizeCompatible`'s `PTRACK_SIZE_RATIO_MAX` 6 is an AREA ratio**, so
+     a person walking out of frame (w 0.5 -> 0.08, ratio 7.1) fails
+     association and re-mints — and a re-mint starts BLURRED, i.e. a man
+     gets re-blurred on his way out of frame, by construction. Unobserved
+     this round; arithmetic only.
+  5. `faceRegionInVideo` takes `Math.min` of the two axes for
+     `nativePx`, and at a frame edge the CLAMPED axis is the min — so a
+     face entering frame loses its gender read on geometry alone
+     (`FACE_MIN_NATIVE_PX` 64).
+  6. S12's clamped-edge 43% alpha ramp is a **prerequisite** for this
+     whole class: every patch on an edge-cropped person is clamped on
+     one side by definition, so even a perfect detection fix leaves the
+     outermost strip 57% sharp.

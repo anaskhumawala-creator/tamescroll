@@ -172,7 +172,37 @@ export var PERSON_MIN_KEYPOINTS = 5;
 // why this is not R14's reverted PERSON_STRONG_KEYPOINTS 7 -> 5: that
 // change moved a GLOBAL threshold and fired everywhere; this one is
 // orthogonal and fires only where the existing axes have collapsed.
-export var PERSON_WEAK_KP15 = 9;
+// 9 -> 8 (gauntlet R25), and the reason is arithmetic, not taste.
+//
+// `nKp15` counts keypoints 0..EVIDENCE_KEYPOINT_MAX-1 = 13 of them, and
+// that set is FIVE HEAD (nose, both eyes, both ears) plus EIGHT BODY
+// (shoulders, elbows, wrists, hips). So a bar of 9 cannot be cleared
+// without at least one HEAD keypoint over 0.15 — and this tier's entire
+// stated premise, three paragraphs up, is a subject whose head keypoints
+// are not there to count. Verified against this module, not argued: a
+// slot with ALL EIGHT body keypoints AND all four leg keypoints at 0.90
+// is refused at 9, and adding a single head keypoint admits it. The
+// tier built for the head-invisible person was unreachable by exactly
+// one keypoint for exactly that person.
+//
+// R18's own corpus re-run at 8, counting only slots the current gate
+// rejects (score < PERSON_MIN_SCORE, confident < PERSON_MIN_KEYPOINTS)
+// that nKp15 >= N AND maxKp >= PERSON_WEAK_MAXKP would admit, over 3789
+// passes in 155 stored runs:
+//
+//   nKp15 >= 9  ->  0.036 extra slots/pass      (what ships today)
+//   nKp15 >= 8  ->  0.055 extra slots/pass
+//
+// and the extra 0.019 does NOT land in the GHOST regimes. Title card
+// (r22c-slide), news slate (r22e / z5WBceo0bIg) and every R21 typography
+// run are 0 at both thresholds. The gain is in the dense-people footage:
+// the R23 studio kitchen 6 -> 10 and 8 -> 11 slots per 30 passes, which
+// is the footage with 3-4 men and a woman standing in it.
+//
+// What it does NOT do is recover R25's own failure: the woman at the
+// frame edge there has nKp15 0 and maxKp 0.007-0.119, so no count-based
+// tier reaches her at any threshold. See the refusal block below.
+export var PERSON_WEAK_KP15 = 8;
 export var PERSON_WEAK_MAXKP = 0.25;
 // The anchor a weak-tier slot must clear, in place of
 // PERSON_KEYPOINT_MIN. 0.20 rather than 0.15: 77 of the 78 R18
@@ -840,6 +870,48 @@ export function parsePersons(data, minScore, aspect, held) {
  * model has not loaded there is no evidence of absence, and the
  * fail-open direction is coverage.
  */
+// R25 — THE EDGE-CROPPED PERSON, AND THE THREE FIXES THAT WERE MEASURED
+// AND REFUSED. Written here so the next round does not re-propose them.
+//
+// The footage: g_2Wmzpx47I t=20-35, `man`. A second woman stands at
+// frame left with only her right shoulder and upper arm in shot (x
+// 0.00-0.12, no face, back to camera). She is sharp on 9 of 10 frames —
+// EXPOSURE, the worst class — and her MoveNet slot is present on every
+// pass carrying score 0.000-0.009, confident 0, nKp15 0, maxKp
+// 0.007-0.119. The frame's other person scores 0.50 in the same pass.
+//
+//  1. TILING / A HIGHER-RESOLUTION PERSON PASS. Measured on this exact
+//     frame through the bench hook (spikes/gauntlet/personaspect.py),
+//     same model, same paused frame, three inputs: the shipped 256x256
+//     SQUASH gives her maxKp 0.009; an ASPECT-PRESERVING letterbox gives
+//     0.05; a LEFT-HALF tile — a genuine 2x zoom — gives maxKp 0.185 and
+//     nKp15 2, against PERSON_MIN_KEYPOINTS 5. Zooming does not admit
+//     her, it only makes the noise bigger, and it costs 2-3x the person
+//     pass (p50 26ms measured) on a Helio G88. R7 measured the same
+//     asymmetry the other way: zoomed logo letters scored 0.59 while
+//     real distant faces zoomed to 0.
+//  2. ADMITTING A ZERO-EVIDENCE SLOT BECAUSE IT TOUCHES A FRAME EDGE.
+//     Priced over the corpus: `score<0.05 & confident==0 & nKp15==0 &
+//     edge-touching & tall & narrow` buys 4 of this round's 9 exposure
+//     frames and pays 9 news-slate frames plus 12-22 kitchen-counter
+//     frames. It trades 9 EXPOSURE for 21-31 GHOST — both terminal.
+//  3. CLOSING THE GAP BETWEEN A PATCH AND THE FRAME EDGE geometrically.
+//     Refused in person-track.mjs, where the numbers are.
+//
+// What WOULD reach her is a per-pixel person SEGMENTATION (MediaPipe
+// Selfie Segmentation or BodyPix, both Apache-2.0 code AND weights, so
+// both are licence-clean): a shoulder at the frame edge needs no box
+// score, no instance count and no anatomy. S9 benched that class of
+// model at p50 18.9ms warm on desktop — tolerable on a verdict pass,
+// NOT on the 120ms position pass. That is a milestone, not a round, and
+// it is the owner's call.
+//
+// LATENT, and this is the one to watch: `frameHasNoHumanShape` below is
+// a GHOST gate that becomes an EXPOSURE gate on this class of footage.
+// Her slot's maxKp is under PFF_FRAME_KP_FLOOR on 13 of 15 passes, so on
+// a frame whose ONLY human is edge-cropped it would refuse the face
+// fallback as well. She is safe here only because the other woman's slot
+// lifts the frame-wide maximum.
 export function frameHasNoHumanShape(slotDiag) {
   if (!slotDiag || !slotDiag.length) return false;
   var best = 0;

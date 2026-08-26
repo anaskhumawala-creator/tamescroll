@@ -159,6 +159,34 @@ export var GENDER_ADULT_AGE = 18;
 // catches the unambiguous young reads (age 7, 9, 15) and a gate on child
 // protection should widen, never narrow. A read with no childP (older
 // callers, the image path) falls back to the mean exactly as before.
+// THE HEADROOM ABOVE IS GONE, AND THE RANKING IS INVERTED ON THE ONE
+// PAIR THAT WAS MEASURED NEXT (gauntlet R25). Recorded, not acted on —
+// changing this constant trades an adult woman against an eight-year-old
+// and that is the owner's call, not a round's.
+//
+// R25, g_2Wmzpx47I t=20-35, an adult woman (a 21-year-old professional
+// footballer), 48 distinct live reads through the shipped crop path:
+// childP 0.49-0.94, median ~0.79, age 10-22, and the age posterior is
+// PEAKED, not diffuse (peak bin 9-14 carrying 0.20-0.48 of the mass,
+// entropy 2.1-3.3 nats). That is five times the 0.18 this comment calls
+// the adult ceiling. In `woman` mode it covered her on 10 of 10 frames
+// with cs 0 / cm 0 throughout — she has no path to a clear at all,
+// which is bar item 2 ("not a single frame where the wrong gender is
+// blurred up") failing on the video's primary subject, permanently.
+//
+// The control, same build, same sweep, run against a KNOWN 12-year-old
+// (NWoT1ZVd1Lo t=566, the child this project has covered since R10),
+// over seven crop enlargements from 0.55x to 1.9x of the detected face:
+// childP 0.146-0.194, age 28-35. The adult reads CHILD and the child
+// reads ADULT, on the same model, on the same day. GENDER_CHILD_MASS
+// separates them the wrong way round, and the classroom band this
+// comment is calibrated on (boy 0.15-0.72, teacher 0.09-0.18) sits
+// entirely inside the adult woman's range.
+//
+// So it is not a threshold that wants nudging: the age head's answer on
+// these two faces is not ordered by age. Any move of this constant that
+// frees her also frees the classroom boy, which is the exact trade R18
+// refused. Sweep in spikes/gauntlet/agecrop.py if it is ever revisited.
 export var GENDER_CHILD_MASS = 0.25;
 
 var OPPOSITE = { man: 'female', woman: 'male' };

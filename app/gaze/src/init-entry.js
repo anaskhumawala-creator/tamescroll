@@ -110,6 +110,15 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       detect: detector.detectFaceBoxes,
       nsfw: detector.isNsfw,
       genders: detector.classifyFaceGenders,
+      // R25: the person pass too. The round measured a woman standing at
+      // the frame edge whose MoveNet slot carried maxKp 0.03-0.12 while
+      // the person beside her scored 0.50, and the first question that
+      // asks is whether the SQUASH in personPixelSource (a 16:9 frame
+      // drawn into a 256x256 square, i.e. 1.78x horizontal compression)
+      // is what costs her the evidence. That cannot be answered without
+      // running the same model on the same frame two ways.
+      loadPerson: detector.loadPersonModel,
+      persons: detector.detectPersons,
       tf: detector.tfHandle,
       loadUrl: detector.loadModelUrl,
     };
