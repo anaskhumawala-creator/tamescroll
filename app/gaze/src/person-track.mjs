@@ -762,7 +762,10 @@ function matchedStep(t, obs, dt) {
       // pad would revert to the body fraction one frame after it applied.
       headH: t.headH,
       headX: t.headX,
+      headY: pickHeadY(obs, t),
       headW: t.headW,
+      core: pickCore(obs, t),
+      coreFresh: coreFresh(obs),
       // Previous OBSERVED size, for the S11 size-step probe. Measured on
       // the observation sequence, never against the damped track box --
       // a step measured against a box that has already been damped is
@@ -1026,9 +1029,13 @@ function matchedStep(t, obs, dt) {
     headX: (obs.box && typeof obs.box.headX === 'number')
       ? obs.box.headX
       : t && typeof t.headX === 'number' ? t.headX : undefined,
+    headY: pickHeadY(obs, t),
     headW: (obs.box && typeof obs.box.headW === 'number' && obs.box.headW > 0)
       ? obs.box.headW
       : t && typeof t.headW === 'number' ? t.headW : undefined,
+    // Evidence hull + whether it came from THIS pass. See pickCore.
+    core: pickCore(obs, t),
+    coreFresh: coreFresh(obs),
     lastObsW: obs.box ? obs.box.x2 - obs.box.x1 : t.lastObsW,
     lastObsH: obs.box ? obs.box.y2 - obs.box.y1 : t.lastObsH,
     vx: ((sc[0] - tc[0]) / dt) * 1000,
@@ -1324,7 +1331,13 @@ function coastStep(t, dt) {
     fromFace: !!t.fromFace,
     headH: t.headH,
     headX: t.headX,
+    headY: t.headY,
     headW: t.headW,
+    // The box has moved by velocity and the evidence hull has not, so a
+    // coasted core is a floor for a position the subject has left. Kept
+    // for continuity, marked STALE so the clamp stands down.
+    core: t.core,
+    coreFresh: false,
     lastObsW: t.lastObsW,
     lastObsH: t.lastObsH,
   };
@@ -1456,7 +1469,12 @@ export function demoteTracks(tracks) {
       fromFace: !!t.fromFace,
       headH: t.headH,
       headX: t.headX,
+      headY: t.headY,
       headW: t.headW,
+      // A cut is exactly the moment the geometry stops describing what is
+      // on screen, so the clamp stands down until a fresh pass lands.
+      core: t.core,
+      coreFresh: false,
       lastObsW: t.lastObsW,
       lastObsH: t.lastObsH,
     });
@@ -1480,7 +1498,10 @@ function newTrack(obs) {
       ? obs.box.headH
       : undefined,
     headX: obs.box && typeof obs.box.headX === 'number' ? obs.box.headX : undefined,
+    headY: pickHeadY(obs, null),
     headW: obs.box && typeof obs.box.headW === 'number' ? obs.box.headW : undefined,
+    core: pickCore(obs, null),
+    coreFresh: coreFresh(obs),
     lastObsW: obs.box ? obs.box.x2 - obs.box.x1 : undefined,
     lastObsH: obs.box ? obs.box.y2 - obs.box.y1 : undefined,
     vx: 0,
@@ -1580,21 +1601,177 @@ function topPad(t, h) {
 // the same unread woman, who should be sharp. Blur-first is the
 // tiebreaker for genuinely unknown pixels, but it does not buy a
 // corpus-wide 12% area regression for a 44% recall on one composition.
+function pickHeadY(obs, t) {
+  if (obs && obs.box && typeof obs.box.headY === 'number') return obs.box.headY;
+  return t && typeof t.headY === 'number' ? t.headY : undefined;
+}
+
+/**
+ * The cushion-free evidence hull person-gate published for this
+ * observation, or the one the track already had. See `core` in
+ * person-gate.mjs: model box + confident keypoints + head anchor, with
+ * none of the margins the patch carries.
+ */
+function pickCore(obs, t) {
+  var c = obs && obs.box && obs.box.core;
+  if (c && c.x2 > c.x1 && c.y2 > c.y1) return c;
+  return t && t.core ? t.core : undefined;
+}
+
+function coreFresh(obs) {
+  var c = obs && obs.box && obs.box.core;
+  return !!(c && c.x2 > c.x1 && c.y2 > c.y1);
+}
+
+/** The face box of a track that carries a head anchor, in frame coords. */
+export var CLEARED_FACE_HALF = 0.6; // half-widths of the head anchor
+
+export function clearedFaceBox(t) {
+  if (!t) return null;
+  var hx = t.headX;
+  var hy = t.headY;
+  var hw = t.headW;
+  var hh = t.headH;
+  if (typeof hx !== 'number' || typeof hy !== 'number') return null;
+  if (!(hw > 0) || !(hh > 0)) return null;
+  return {
+    x1: hx - hw * CLEARED_FACE_HALF,
+    y1: hy - hh * CLEARED_FACE_HALF,
+    x2: hx + hw * CLEARED_FACE_HALF,
+    y2: hy + hh * CLEARED_FACE_HALF,
+  };
+}
+
+function overlapArea(a, b) {
+  var w = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1);
+  var h = Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1);
+  return w > 0 && h > 0 ? w * h : 0;
+}
+
+/**
+ * DIRECTIONAL MARGIN (gauntlet R27). The patch keeps its cushion where
+ * nothing is standing and gives it back where a CLEARED person's face
+ * is — by moving ONE edge inward, never by cutting a hole and never by
+ * splitting. The result is still one solid rectangle.
+ *
+ * THE INVARIANT, and it is what makes this safe to ship: an edge may
+ * only travel as far as `core`, the cushion-free evidence hull (model
+ * box + every confident keypoint + the head anchor). So the patch after
+ * the clamp still contains every pixel the models actually reported for
+ * this subject; only margin is removed. EXPOSURE and PARTIAL of the
+ * COVERED subject are unreachable from here except for a body part that
+ * lies outside the model's box AND beyond every confident keypoint AND
+ * outside the head anchor — fingers past a wrist, a heel past an ankle —
+ * and then only on the one side that faces a cleared face.
+ *
+ * PARTIAL RELIEF IS THE POINT, and requiring a COMPLETE one is what the
+ * first build of this got wrong. Measured on runs/r27c-man: the cleared
+ * man's face ends 0.026 and 0.010 to the RIGHT of the covered child's
+ * evidence hull on f003/f004 — his cheek and her shoulder abut — so a
+ * rule that only fired when an edge could clear the face outright did
+ * nothing on those frames, and left the patch 0.13 deep into his face
+ * instead of 0.01. So the edge travels as far as it legally can,
+ * `min(face.x2, core.x1)`, and stops.
+ *
+ * The face's CENTRE must lie outside `core` on that side. That is what
+ * keeps this from pulling an edge toward a face standing in the middle
+ * of our own subject's evidence — the near edge of a patch is not
+ * allowed to chase something we cannot get away from anyway.
+ *
+ * Measured on runs/r27a-man: this cushion was 0.081-0.143 of frame width
+ * on the side facing the cleared man, and on 3 of the 5 frames where his
+ * face was inside the child's patch, his face did not touch her core at
+ * all — the whole failure was cushion.
+ */
+export function clampPatchOffFaces(box, core, faces) {
+  if (!core || !faces || !faces.length) return box;
+  if (!(core.x2 > core.x1) || !(core.y2 > core.y1)) return box;
+  var b = { x1: box.x1, y1: box.y1, x2: box.x2, y2: box.y2 };
+  for (var i = 0; i < faces.length; i++) {
+    var f = faces[i];
+    if (!f || overlapArea(b, f) <= 0) continue;
+    var fcx = (f.x1 + f.x2) / 2;
+    var fcy = (f.y1 + f.y2) / 2;
+    var best = null;
+    // Four one-edge moves, each capped at the matching edge of `core`.
+    var cand = [
+      fcx < core.x1 ? { x1: Math.min(f.x2, core.x1), y1: b.y1, x2: b.x2, y2: b.y2 } : null,
+      fcx > core.x2 ? { x1: b.x1, y1: b.y1, x2: Math.max(f.x1, core.x2), y2: b.y2 } : null,
+      fcy < core.y1 ? { x1: b.x1, y1: Math.min(f.y2, core.y1), x2: b.x2, y2: b.y2 } : null,
+      fcy > core.y2 ? { x1: b.x1, y1: b.y1, x2: b.x2, y2: Math.max(f.y1, core.y2) } : null,
+    ];
+    for (var c = 0; c < cand.length; c++) {
+      var n = cand[c];
+      if (!n || n.x2 <= n.x1 || n.y2 <= n.y1) continue;
+      var area = (n.x2 - n.x1) * (n.y2 - n.y1);
+      var full = (b.x2 - b.x1) * (b.y2 - b.y1);
+      if (area >= full) continue; // no movement at all
+      var freed = overlapArea(b, f) - overlapArea(n, f);
+      if (freed <= 0) continue;
+      var lost = full - area;
+      // Most of the face uncovered wins; the cheaper move breaks ties.
+      if (!best || freed > best.freed + 1e-9 ||
+        (Math.abs(freed - best.freed) <= 1e-9 && lost < best.lost)) {
+        best = { box: n, freed: freed, lost: lost };
+      }
+    }
+    if (best) b = best.box;
+  }
+  return b;
+}
+
 export function blurredTracks(tracks) {
   var out = [];
+  // Faces of tracks that have EARNED a clear. Collected before the loop
+  // so a blurred patch can be told what is standing beside it — the
+  // seam blurredTracks did not have until R27.
+  var clearedFaces = [];
+  for (var c = 0; c < tracks.length; c++) {
+    if (tracks[c].state !== 'cleared') continue;
+    var cf = clearedFaceBox(tracks[c]);
+    if (cf) clearedFaces.push(cf);
+  }
+  // ORDER-INDEPENDENT (R27 critic F4). The clamp folds faces one at a
+  // time into a shrinking box, so two cleared people flanking a covered
+  // one give two different rectangles depending on the order `tracks`
+  // happens to be in — and that array reorders as tracks are born and
+  // dropped. An edge alternating between two values at 4-8Hz is the
+  // square wave this file has already fixed three times.
+  clearedFaces.sort(function (p, q) {
+    return p.x1 - q.x1 || p.y1 - q.y1;
+  });
   for (var i = 0; i < tracks.length; i++) {
     var t = tracks[i];
     if (t.state !== 'blurred') continue;
     var w = t.box.x2 - t.box.x1;
     var h = t.box.y2 - t.box.y1;
+    var padded = {
+      x1: Math.max(0, t.box.x1 - w * PTRACK_PAD),
+      y1: Math.max(0, t.box.y1 - topPad(t, h)),
+      x2: Math.min(1, t.box.x2 + w * PTRACK_PAD),
+      y2: Math.min(1, t.box.y2 + h * PTRACK_PAD),
+    };
+    // Only a core from THIS pass may pull an edge in: a coasted or
+    // cut-demoted hull describes a position the subject has left.
+    var drawn = padded;
+    if (clearedFaces.length) {
+      if (!t.coreFresh) {
+        bumpLife('clampNoCore');
+      } else {
+        drawn = clampPatchOffFaces(padded, t.core, clearedFaces);
+        // COUNTED, so the next round can tell "it fired and did not
+        // help" from "it never fired" — the ambiguity R27's first
+        // after-capture spent a whole rebuild on (critic F1).
+        bumpLife(drawn === padded ? 'clampNoLegalEdge' : 'clampFired');
+      }
+    }
     out.push({
       key: String(t.id || 0),
-      box: {
-        x1: Math.max(0, t.box.x1 - w * PTRACK_PAD),
-        y1: Math.max(0, t.box.y1 - topPad(t, h)),
-        x2: Math.min(1, t.box.x2 + w * PTRACK_PAD),
-        y2: Math.min(1, t.box.y2 + h * PTRACK_PAD),
-      },
+      box: drawn,
+      // The evidence hull rides the render entry so mergeTracks can
+      // re-apply the clamp to a union (critic F3): a per-track clamp is
+      // handed straight back by any merge that follows it.
+      core: t.coreFresh ? t.core : null,
       vx: t.vx,
       vy: t.vy,
       vw: t.vw || 0,
@@ -1606,26 +1783,50 @@ export function blurredTracks(tracks) {
       headW: t.headW,
     });
   }
-  // NO HOLES. THE PATCH IS SOLID. (owner 2026-08-26, said twice)
-  //
-  // "I do not want weird face cutouts in the blur ... All I need is to
-  // blur the subject so well that its shape is not visible", then
-  // "slight shape visible is fine in some cases, just shouldn't be super
-  // tight."
-  //
-  // Two mechanisms used to keep a patch off a CLEARED person's head:
-  // subtractBox, which split it into up to four sibling rectangles and IS
-  // his "multiple boxes here and there"; and a mask hole, which R24 found
-  // had never rendered in any shipped build and fixed -- the first build
-  // where it worked is the one he objected to. Both are deleted.
-  //
-  // STATED, NOT HIDDEN: a cleared person standing inside someone else's
-  // patch is now covered, which is FALSE COVER. That is the trade he
-  // chose, and the remedy is a patch that does not reach him --
-  // association, merge refusal, tighter observation geometry -- never a
-  // window cut into the blur.
-  return mergeTracks(out);
+  var merged = mergeTracks(out);
+  // RE-CLAMP AFTER THE MERGE (critic F3). mergeTracks unions two boxes
+  // and the union re-covers whatever either clamp had just uncovered.
+  // The unioned core is the honest floor for a unioned patch: it is the
+  // evidence for both subjects, so this can no more shave one of them
+  // than the per-track pass could.
+  if (clearedFaces.length) {
+    for (var k = 0; k < merged.length; k++) {
+      if (!merged[k].core) continue;
+      merged[k].box = clampPatchOffFaces(merged[k].box, merged[k].core, clearedFaces);
+    }
+  }
+  return merged;
 }
+
+function unionCore(a, b) {
+  if (!a) return b || null;
+  if (!b) return a;
+  return {
+    x1: Math.min(a.x1, b.x1),
+    y1: Math.min(a.y1, b.y1),
+    x2: Math.max(a.x2, b.x2),
+    y2: Math.max(a.y2, b.y2),
+  };
+}
+
+// NO HOLES. THE PATCH IS SOLID. (owner 2026-08-26, said twice)
+//
+// "I do not want weird face cutouts in the blur ... All I need is to
+// blur the subject so well that its shape is not visible", then
+// "slight shape visible is fine in some cases, just shouldn't be super
+// tight."
+//
+// Two mechanisms used to keep a patch off a CLEARED person's head:
+// subtractBox, which split it into up to four sibling rectangles and IS
+// his "multiple boxes here and there"; and a mask hole, which R24 found
+// had never rendered in any shipped build and fixed -- the first build
+// where it worked is the one he objected to. Both are deleted.
+//
+// STATED, NOT HIDDEN: a cleared person standing inside someone else's
+// patch is now covered, which is FALSE COVER. That is the trade he
+// chose, and the remedy is a patch that does not reach him --
+// association, merge refusal, tighter observation geometry -- never a
+// window cut into the blur.
 
 
 // Overlapping patches union into ONE (owner 2026-08-24: "if there are
@@ -1803,6 +2004,9 @@ export function mergeTracks(list) {
           vh: ((a.vh || 0) + (b.vh || 0)) / 2,
           headX: head.headX,
           headW: head.headW,
+          // Both subjects' evidence, so the post-merge clamp has a floor
+          // that belongs to the union rather than to one of its halves.
+          core: unionCore(a.core, b.core),
         };
         merged.splice(j, 1);
         changed = true;

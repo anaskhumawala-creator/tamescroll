@@ -55,6 +55,7 @@ import {
   wipeIfEmpty,
   setVerdictCadence,
   blurredTracks,
+  clearedFaceBox,
   demoteTracks,
   cosineSim,
   bumpLife,
@@ -2186,6 +2187,25 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
                     // of 145 across six runs reported 0, including a
                     // pass whose only observation was a synthetic body.
                     f: tk.fromFace ? 1 : 0,
+                    // R27 directional margin: the clamp's three inputs.
+                    // Without them a patch that did NOT move is
+                    // indistinguishable from a clamp that never fired,
+                    // which is exactly the ambiguity the first
+                    // after-capture ran into.
+                    cf: tk.coreFresh ? 1 : 0,
+                    co: tk.core
+                      ? [tk.core.x1, tk.core.y1, tk.core.x2, tk.core.y2].map(function (n) {
+                          return typeof n === 'number' ? Math.round(n * 1000) / 1000 : null;
+                        })
+                      : null,
+                    hf: (function () {
+                      var fb = clearedFaceBox(tk);
+                      return fb
+                        ? [fb.x1, fb.y1, fb.x2, fb.y2].map(function (n) {
+                            return Math.round(n * 1000) / 1000;
+                          })
+                        : null;
+                    })(),
                   };
                 })
               );

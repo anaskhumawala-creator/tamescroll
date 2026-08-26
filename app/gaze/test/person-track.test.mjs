@@ -1185,3 +1185,95 @@ test('a VERDICT pass still shrinks at full alpha, so the box converges', () => {
     `verdict shrink moved ${moved}, expected ${pt.PTRACK_EMA_ALPHA}`
   );
 });
+
+// --- R27: directional margin ------------------------------------------
+// The patch keeps its cushion into empty air and gives it back where a
+// CLEARED person's face is. One solid rectangle throughout: an edge
+// moves, nothing is cut out and nothing is split.
+
+test('clampPatchOffFaces pulls the edge off a cleared face, but only to core', () => {
+  const patch = { x1: 0.30, y1: 0.10, x2: 1.0, y2: 1.0 };
+  const core = { x1: 0.50, y1: 0.40, x2: 0.90, y2: 0.99 };
+  // A cleared face wholly left of core: the left edge may travel to it.
+  const face = { x1: 0.33, y1: 0.20, x2: 0.48, y2: 0.45 };
+  const out = pt.clampPatchOffFaces(patch, core, [face]);
+  assert.equal(out.x1, 0.48);
+  assert.equal(out.y1, patch.y1);
+  assert.equal(out.x2, patch.x2);
+  assert.equal(out.y2, patch.y2);
+});
+
+test('clampPatchOffFaces stops at the evidence hull, never inside it', () => {
+  const patch = { x1: 0.30, y1: 0.10, x2: 1.0, y2: 1.0 };
+  const core = { x1: 0.43, y1: 0.40, x2: 0.90, y2: 0.99 };
+  // The face reaches PAST core.x1 (the neighbour's cheek and the
+  // subject's shoulder abut). Partial relief: the edge travels to the
+  // hull and stops, so 0.12 of cushion comes off his face and not one
+  // pixel of her evidence is given up.
+  const face = { x1: 0.30, y1: 0.45, x2: 0.50, y2: 0.70 };
+  const out = pt.clampPatchOffFaces(patch, core, [face]);
+  assert.equal(out.x1, core.x1);
+  assert.equal(out.y1, patch.y1);
+  assert.equal(out.x2, patch.x2);
+});
+
+test('a face CENTRED inside the evidence hull moves nothing', () => {
+  const patch = { x1: 0.30, y1: 0.10, x2: 1.0, y2: 1.0 };
+  const core = { x1: 0.43, y1: 0.40, x2: 0.90, y2: 0.99 };
+  // Standing inside the covered subject's own evidence. Nothing an edge
+  // can do reaches him, and chasing him would only shave her.
+  const face = { x1: 0.55, y1: 0.50, x2: 0.70, y2: 0.70 };
+  assert.deepEqual(pt.clampPatchOffFaces(patch, core, [face]), patch);
+});
+
+test('clampPatchOffFaces picks the cheapest of the four edges', () => {
+  const patch = { x1: 0.0, y1: 0.0, x2: 1.0, y2: 1.0 };
+  const core = { x1: 0.40, y1: 0.40, x2: 0.60, y2: 0.60 };
+  // Clearing this face costs 0.34 of area from the top edge or 0.38
+  // from the left. The top edge wins; the left one never moves.
+  const face = { x1: 0.02, y1: 0.30, x2: 0.38, y2: 0.34 };
+  const out = pt.clampPatchOffFaces(patch, core, [face]);
+  assert.equal(out.y1, 0.34);
+  assert.equal(out.x1, 0.0);
+});
+
+test('a cleared neighbour pulls the blurred patch off his face end to end', () => {
+  // Two people side by side. The right one is covered; the left one has
+  // earned a clear. The covered subject's evidence starts at 0.50, his
+  // face ends at 0.44, and the cushion used to reach past it.
+  const covered = { x1: 0.50, y1: 0.40, x2: 0.90, y2: 1.0 };
+  const clear = { x1: 0.05, y1: 0.10, x2: 0.45, y2: 1.0 };
+  const core = { x1: 0.50, y1: 0.40, x2: 0.90, y2: 1.0 };
+  const head = { headX: 0.25, headY: 0.30, headW: 0.16, headH: 0.28 };
+  let tracks = [];
+  for (let i = 0; i < 4; i++) {
+    tracks = pt.updatePersonTracks(tracks, [
+      { box: { ...covered, core }, flagged: true, certain: true, verdictDt: 250 },
+      { box: { ...clear, ...head }, flagged: false, certain: true, verdictDt: 250 },
+    ], 250);
+  }
+  const cleared = tracks.filter((t) => t.state === 'cleared');
+  assert.equal(cleared.length, 1);
+  const out = blurredTracks(tracks);
+  assert.equal(out.length, 1);
+  const face = pt.clearedFaceBox(cleared[0]);
+  assert.ok(face, 'the cleared track carries a head anchor');
+  // No part of his face is under the patch, and the patch still contains
+  // every pixel of the covered subject's evidence.
+  assert.ok(out[0].box.x1 >= face.x2 - 1e-9, `${out[0].box.x1} vs ${face.x2}`);
+  assert.ok(out[0].box.x1 <= core.x1 + 1e-9);
+  assert.ok(out[0].box.x2 >= core.x2);
+});
+
+test('a STALE core stands the clamp down (coasting or cut-demoted)', () => {
+  const covered = { x1: 0.50, y1: 0.40, x2: 0.90, y2: 1.0 };
+  const core = { x1: 0.50, y1: 0.40, x2: 0.90, y2: 1.0 };
+  let tracks = pt.updatePersonTracks([], [
+    { box: { ...covered, core }, flagged: true, certain: true, verdictDt: 250 },
+  ], 250);
+  assert.equal(tracks[0].coreFresh, true);
+  // A pass with no observation for it: the box coasts, the hull does not.
+  tracks = pt.updatePersonTracks(tracks, [], 250);
+  assert.equal(tracks[0].coreFresh, false);
+  assert.ok(tracks[0].core, 'the hull is kept for continuity');
+});

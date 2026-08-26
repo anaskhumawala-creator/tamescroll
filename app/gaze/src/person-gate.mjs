@@ -585,6 +585,29 @@ export function parsePersons(data, minScore, aspect, held) {
     var y2 = data[o + 53];
     var x2 = data[o + 54];
 
+    // THE EVIDENCE BOX, tracked alongside the patch (gauntlet R27).
+    //
+    // Everything below adds CUSHION to the patch: a per-keypoint margin,
+    // a head anchor sized past the real crown, PATCH_MARGIN, and later
+    // PTRACK_PAD/topPad at render. Measured on runs/r27a-man, that stack
+    // is 0.081-0.143 of frame WIDTH on each side of a close-up subject —
+    // and it is isotropic, so it grows just as hard toward a CLEARED
+    // person standing next to the subject as it does into empty air. On
+    // 5 of 10 frames it was the ENTIRE reason a cleared man's face was
+    // inside a child's patch: his face did not intersect her model box
+    // on any of them.
+    //
+    // `core` is the same union WITHOUT any cushion: the model's own box,
+    // every confident keypoint at its measured position, and the head
+    // anchor (which is not cushion — it is the rule that hair must not
+    // escape). Nothing draws it. Its only job is to be the floor that
+    // clampPatchOffFaces in person-track.mjs may never shrink past, so
+    // that removing cushion can never remove EVIDENCE.
+    var cx1 = x1;
+    var cy1 = y1;
+    var cx2 = x2;
+    var cy2 = y2;
+
     // KEYPOINT_MARGIN is a distance, and normalized coordinates are not
     // isotropic: the same physical cushion is a BIGGER number in y on a
     // wide frame (dy_norm = dx_norm * W/H). Shipped unscaled in both
@@ -650,6 +673,11 @@ export function parsePersons(data, minScore, aspect, held) {
       if (ku.y + kmY > y2) y2 = ku.y + kmY;
       if (ku.x - kmX < x1) x1 = ku.x - kmX;
       if (ku.x + kmX > x2) x2 = ku.x + kmX;
+      // Same keypoint, no cushion — see `core` above.
+      if (ku.y < cy1) cy1 = ku.y;
+      if (ku.y > cy2) cy2 = ku.y;
+      if (ku.x < cx1) cx1 = ku.x;
+      if (ku.x > cx2) cx2 = ku.x;
     }
 
     // --- head anchor: the part that must never escape the patch -----
@@ -723,6 +751,14 @@ export function parsePersons(data, minScore, aspect, held) {
       if (hy + headH * 0.9 > y2) y2 = hy + headH * 0.9;
       if (hx - headW * 1.2 < x1) x1 = hx - headW * 1.2;
       if (hx + headW * 1.2 > x2) x2 = hx + headW * 1.2;
+      // The head anchor is EVIDENCE, not cushion: it is the rule that a
+      // crown and hair must not escape the patch, and MoveNet's own box
+      // routinely stops at the hairline. So `core` gets it at the same
+      // factors — the clamp must never be able to shave a head.
+      if (hy - headH * 1.1 < cy1) cy1 = hy - headH * 1.1;
+      if (hy + headH * 0.9 > cy2) cy2 = hy + headH * 0.9;
+      if (hx - headW * 1.2 < cx1) cx1 = hx - headW * 1.2;
+      if (hx + headW * 1.2 > cx2) cx2 = hx + headW * 1.2;
     }
 
     // Final outward margin. Over-covering a person who is meant to be
@@ -778,6 +814,13 @@ export function parsePersons(data, minScore, aspect, held) {
       // module state so parsePersons stays pure and the caller decides
       // when continuity ends (cut, seek, loadstart, stream change).
       raw: [data[o + 52], data[o + 51], data[o + 54], data[o + 53]],
+      // The cushion-free evidence hull. Never drawn — see `core` above.
+      core: {
+        x1: Math.max(0, Math.min(cx1, cx2)),
+        y1: Math.max(0, Math.min(cy1, cy2)),
+        x2: Math.min(1, Math.max(cx1, cx2)),
+        y2: Math.min(1, Math.max(cy1, cy2)),
+      },
       hold: heldIdx === -1 ? 0 : (heldList[heldIdx].hold || 0) + 1,
     });
     // Claimed only now that the slot has actually survived every gate.
@@ -1143,6 +1186,24 @@ export function personFromFace(face, aspect) {
     // When that re-detect fails the track gets `faceFound:false`, sits
     // blurred on no evidence, and has spent one of three verdict slots.
     faceBox: { x1: face.x1, y1: face.y1, x2: face.x2, y2: face.y2 },
+    // EVIDENCE HULL for a body nobody measured (R27 critic F2). Without
+    // it `coreFresh` is false for the whole life of every synthetic
+    // track, so the directional margin is structurally OFF for exactly
+    // the patches most likely to sit on a cleared neighbour — this
+    // file's own measurement is that 7 of 86 synthetic bodies claim the
+    // entire frame.
+    //
+    // NOT the bare face box, which would let an edge travel to the chin
+    // and leave a shoulder sharp. The evidence for a face-derived person
+    // is the face plus the half-face of neck and shoulder that any human
+    // has under it, which is the same shape personFromFace already draws,
+    // only without its outward reach.
+    core: {
+      x1: Math.max(0, face.x1 - (face.x2 - face.x1) * 0.5),
+      y1: Math.max(0, face.y1 - (face.y2 - face.y1) * 0.4),
+      x2: Math.min(1, face.x2 + (face.x2 - face.x1) * 0.5),
+      y2: Math.min(1, face.y2 + (face.y2 - face.y1) * 0.5),
+    },
   };
 }
 

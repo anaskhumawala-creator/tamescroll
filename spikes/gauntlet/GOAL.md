@@ -80,7 +80,7 @@ at least once.
 
 | # | query | gender | why this one |
 |---|---|---|---|
-| 1 | (fixed) NWoT1ZVd1Lo | man | baseline: adult male + child female, known-hard. R19 note: a rotation entry is a VIDEO, not a window - every round before R19 used t=560; moving to t=901 produced the worst man-direction score on record. Move the offset. |
+| 1 | (fixed) NWoT1ZVd1Lo | man | baseline: adult male + child female, known-hard. R19 note: a rotation entry is a VIDEO, not a window - every round before R19 used t=560; moving to t=901 produced the worst man-direction score on record. Move the offset. R27 note: duration is 1095.6s, so t>=1090 hands the tab to autoplay and the harness aborts; t=200 is a screen recording of a Reddit page (no live people). **t=720 is the table's only CLOSE TWO-SHOT WITH INTERLEAVED BODIES** - the man leans in from the left and puts an arm in FRONT of the girl, so MoveNet files his forearm under her slot. Use it for anything about a patch reaching a neighbour, margin direction, or association across an occluding limb. Spent offsets: 540, 560, 566, 720, 890, 901. |
 | 2 | (fixed) NWoT1ZVd1Lo | woman | same footage, inverted expectation |
 | 3 | ted talk full speech | man | single speaker, stage lighting, slow cuts |
 | 4 | news panel discussion | woman | 3-5 people, seated, small faces. R19 note: news footage is half GRAPHICS - z5WBceo0bIg is a title slate at t=240 (and painted a whole-frame GHOST over it), fFbNU0TvMH8 is two men in split-screen boxes at t=600. Probe forward for actual faces, and note this is the only GHOST-regime footage in the table. |
@@ -6031,3 +6031,166 @@ analysis.
   read it with S13's measured 2.9x run-to-run spread in mind.
   **Next round should take the lock and then re-check `git status` before
   capturing, and again before committing.**
+
+- **R27** — rotation entry 1 (baseline `NWoT1ZVd1Lo`, **man**) plus entry 2
+  (**woman**) for symmetry, at a **NEW window t=720** (R19's rule: a rotation
+  entry is a video, not a window; 540/560/566/890/901 were all spent).
+  Probed 200/380/720/1100/1400 first — t=200 is a screen recording of a
+  Reddit page, t=1100 is the end of the video (duration 1095.6s, and probing
+  past it hands the tab to autoplay, which is what the harness's "playback
+  jumped backwards" abort caught). **t=720 is the table's only CLOSE TWO-SHOT
+  WITH INTERLEAVED BODIES**: an adult man and a ~10-year-old girl at 0.16-0.35
+  face-heights, and several times he leans in from the left and extends an arm
+  horizontally in FRONT of her. Correct output in `man` is "cover her, leave
+  him completely sharp"; in `woman` it is "cover both", because a child is
+  covered in both directions.
+  Build `3185b99` (before) -> `752d286` + this diff (after). Two sibling-loop
+  commits (`ba6ef23` sampling-pass yield, `752d286` version bump) landed
+  mid-round; `git status` was clean of anything this round did not write, both
+  at capture time and at commit.
+
+  | class | man before | man after | woman before | woman after |
+  |---|---|---|---|---|
+  | EXPOSURE | 0 | 0 | **1** | 0 |
+  | PARTIAL | 0 | 0 | 0 | 0 |
+  | GHOST | 0 | 0 | 0 | 0 |
+  | DRIFT | 0 | 0 | 0 | 0 |
+  | FALSE COVER | **6** | **5** | 0 | 0 |
+
+  **THE STRICT COUNT MOVED ONE FRAME AND THE SEVERITY MOVED FOUR, and the
+  second number is the honest one.** Before, the man's FACE was inside the
+  girl's patch on f003/f004/f008/f009 and his raised hand and forearm on f005.
+  After: f005 is completely clean, f003/f004 have his whole face, beard and cap
+  sharp with only the FINGERTIPS of the hand at his forehead still inside the
+  patch edge, and f008/f009 are unchanged. Face-covered frames **4 -> 2**.
+  f002 is unchanged and is a different mechanism (see below). The woman
+  direction's one EXPOSURE (before-run f002, t=724.1: an edge-cropped man at
+  x<0.08 with MoveNet reporting 0 persons) was NOT sampled by the after-run's
+  grid, which straddled the same cut 0.7s later — so it is scored 0 because
+  nothing exposed appears in the after frames, NOT because it was demonstrated
+  fixed. The clamp never fired in that direction, so this diff cannot have
+  moved it either way.
+
+  **THE MECHANISM: THE MARGIN STACK IS ISOTROPIC AND BLIND.** Five terms
+  inflate a patch — the per-keypoint cushion, the head anchor, PATCH_MARGIN,
+  PTRACK_PAD/topPad, and the render feather — and not one of them knows what is
+  on the other side of the edge it is pushing. Measured on runs/r27a-man, the
+  drawn patch stood **0.081-0.143 of frame WIDTH** left of the girl's own
+  MoveNet box, i.e. 155-275px at 1920, straight through his face. On f008 the
+  decomposition is exact: her model box `[0.43, 0.40, 0.90, 0.99]`, her track
+  box `[0.409, 0.218, ...]`, the drawn patch `[0.333, 0.110, ...]`, and his
+  face centred `(0.46, 0.28)` — **his face does not intersect her model box at
+  all**. 100% of that failure was cushion.
+
+  **SHIPPED: `core` + `clampPatchOffFaces` — a DIRECTIONAL margin.** The patch
+  keeps its cushion where nothing is standing and gives it back where a CLEARED
+  person's face is, by moving ONE EDGE inward. It is still one solid rectangle:
+  no hole, no split, nothing subtracted (the owner's rule, said twice, is
+  quoted at the call site).
+  * `core` (person-gate.mjs) is the same union the patch is built from with
+    NONE of the cushion: model box + every confident keypoint at its measured
+    position + the head anchor at its full 1.1/0.9/1.2 factors. Nothing draws
+    it.
+  * **THE INVARIANT:** an edge may travel only as far as `core`. So the patch
+    after the clamp still contains every pixel either model reported for the
+    covered subject, and EXPOSURE/PARTIAL of that subject are unreachable
+    except for a body part outside the model box AND beyond every confident
+    keypoint AND outside the head anchor — and then only on the one side facing
+    a cleared face.
+  * A stale hull stands the clamp down: `coreFresh` is false on a coast and on
+    a cut demotion, because a coasted box has moved by velocity and the hull
+    has not.
+
+  **THE FIRST BUILD OF THIS SCORED ZERO AND THE PROBE IS WHY IT WAS FOUND.**
+  It only fired when an edge could clear a face OUTRIGHT. Measured in
+  runs/r27c-man after adding `cf`/`co`/`hf` to the track probe: the cleared
+  man's face ends **0.026 and 0.010 to the RIGHT** of the girl's hull on
+  f003/f004 — his cheek and her shoulder abut — so a complete-relief rule was
+  illegal on every frame it was written for. **Partial relief is the point**:
+  the edge now travels to `min(face.x2, core.x1)` and stops. Without the probe
+  fields, "it fired and did not help" and "it never fired" are the same
+  observation, and that ambiguity cost a full rebuild cycle. `clampFired` /
+  `clampNoLegalEdge` / `clampNoCore` are now life counters: **97 fires** in the
+  15s man window, **0 in the woman window** — the clamp is inert with no
+  cleared track, which is the symmetry property.
+
+  **THE CRITIC'S ROUND (Opus, read-only, brief = "where is the cheapest seam to
+  make growth directional"). Three findings shipped, one refused:**
+  * SHIPPED F2 — `personFromFace` emitted no `core`, so the clamp was
+    STRUCTURALLY OFF for every synthetic body, which is exactly the 8% of them
+    this file measures as claiming the entire frame. Given the face box plus
+    half a face of neck and shoulder, not the bare face box, so an edge cannot
+    travel to a chin and leave a shoulder sharp.
+  * SHIPPED F4 — `clearedFaces` is now sorted. The clamp folds faces one at a
+    time into a shrinking box, so two cleared people flanking a covered one
+    produced a different rectangle depending on the order `tracks` happened to
+    be in, and that array reorders as tracks are born. An edge alternating
+    between two values at 4-8Hz is the square wave this file has fixed three
+    times already.
+  * SHIPPED F3 — the clamp ran BEFORE `mergeTracks`, and a union hands back
+    everything the clamp took. It is now re-applied to each merged box against
+    the UNION of both inputs' cores.
+  * REFUSED — cutting the head anchor's `1.1`, or dropping it out of `core`.
+    The critic priced it: on this footage the girl's inflated face box top is
+    ABOVE her model box top, so a patch at her model top leaves her forehead
+    and hair sharp. That trades the worst class for the least-bad one. Its own
+    decomposition also shows the anchor sits 0.60 face-heights above her crown
+    against `personFromFace`'s calibrated 0.9, so it is already the tighter of
+    the two.
+  * ITS BEST UNSHIPPED FINDING, for R28: **`headW` from the shoulder fallback
+    is 56% too large.** person-gate.mjs uses `shoulderSpan * 0.6`;
+    anthropometry puts biacromial breadth at ~2.6 head breadths, so the factor
+    should be ~0.38. On this frame the shoulder-derived `headW` is **2.5x** the
+    ear-derived one, which would put the anchor's top at the frame edge — a
+    latent whole-frame FALSE COVER that arms exactly when neither ear pair nor
+    eye pair is held, i.e. when a head turns, i.e. when someone leans in front
+    of someone else. Record `headW_shoulder / headW_ear` over the corpus and
+    derive the constant from its own input; do not change it blind.
+
+  **WHAT IS CONCEDED, and it is geometry rather than a bug:** f008/f009 are
+  unwinnable by any clamp. His arm crosses in front of her, MoveNet puts his
+  forearm keypoints in HER slot, and his head CENTRE ends up right of her
+  cushion-free hull — so every edge move is illegal by the invariant. Fixing
+  those needs the association to stop giving his arm to her skeleton, not more
+  geometry downstream. f005's forearm was winnable and is now clean;
+  f003/f004's fingertips are the same class and are not.
+
+  **f002 IS THE MERGE, NOT THE CLAMP.** One pass after a cut both tracks are
+  blurred (`cutDemoteCleared`), and the critic reconstructed the union exactly:
+  containment 0.702 >= 0.6 merges `[0.113,0.046,0.774,1.0]` with
+  `[0.428,0.285,0.92,1.0]` into a near-whole-frame slab. With nothing cleared
+  there is no face to clamp against, so this diff cannot touch it. Related and
+  unmeasured: **4 `cutDetected` in 13.8s of one unbroken conversation** —
+  `meanAbsDelta` cannot tell a shot change from a large foreground object
+  crossing the frame, and a man swinging an arm across a close-up is that
+  object. The free discriminator is a coverage statistic over the 256 luma
+  cells already computed (a real cut changes nearly every cell; an object
+  changes a connected minority), and `dbgL.luma` has been recorded in the page
+  since S10 and has never been read by the harness.
+
+  **COST**: verdict p50 man 187 -> 134, woman 143 -> 137; pass p50 man 42 -> 30,
+  woman 31 -> 28. The clamp is O(blurred x cleared) box arithmetic on at most a
+  handful of each — nothing measurable — and the man-direction fall is mostly
+  `ba6ef23` (the sibling loop's input-yield) landing between the two captures,
+  so read it as "no regression", not as a win.
+  gaze **234/234** (6 new), cargo **37/37**. Dev app PID 21224 -> 48612 ->
+  26068 -> 47308 -> 18004; the binary mtime was never the proof.
+
+  **STILL OPEN, ranked:**
+  1. `headW` shoulder fallback 0.6 vs the anthropometric ~0.38 (above). Probe
+     first.
+  2. The cut gate has no coverage statistic, and the luma grid it needs is
+     already computed and already recorded — the harness just never reads it.
+     Add `luma` to the probe return, then derive `changedFraction`.
+  3. MoveNet gives one person's forearm to another person's slot on a crossing
+     arm, and nothing downstream can notice: it is what makes f008/f009
+     unwinnable. R26's open item 1 (mint synthetics from the non-owner faces
+     already detected inside per-person crops, at zero extra inference) is
+     still the standing candidate and is untouched.
+  4. Whatever a fresh window makes of `CLEARED_FACE_HALF` 0.6. It was not tuned
+     this round on purpose — with the clamp capped at `core`, widening it can
+     only ever clamp harder, and the frames it would newly reach are the ones
+     the invariant already refuses.
+  5. The woman-direction EXPOSURE at the cut (edge-cropped man, MoveNet 0
+     persons) is UNRESOLVED, not fixed. R25 refused the frame-edge extension
+     that would close it; capture t=724 at a finer step to score it properly.
