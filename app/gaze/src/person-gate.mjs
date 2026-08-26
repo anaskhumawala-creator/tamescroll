@@ -286,6 +286,19 @@ export function parsePersons(data, minScore, aspect, held) {
     var confident = 0;
     var maxKp = 0;
     var nKp15 = 0;
+    // WHICH keypoints fired, not just how many (R22). `confident` is a
+    // COUNT, and a count cannot tell a contiguous anatomical set from a
+    // scattered one — which is the difference between a person MoveNet
+    // half-saw and letterforms exciting the eye/ear detectors. Measured
+    // on r22-woman, the cleanest side-by-side this corpus has (a real man
+    // in close-up against a wall of large typography, both in every
+    // frame): the typography slots reach hk 0.68, the same as the real
+    // man's best, while their `sk` sits at 0.00-0.04 against his
+    // 0.62-0.89. Eyes and ears are small high-contrast blob-and-counter
+    // features and that is exactly what letterforms are made of;
+    // shoulders are a large low-frequency silhouette with no typographic
+    // analogue. One integer, one OR inside a loop that already runs.
+    var kbits = 0;
     // R18 adds the ANCHOR's own evidence to the diagnostic, and it is a
     // different question from `confident`. The gate below rejects a slot
     // outright unless it has a head keypoint OR both shoulders above
@@ -318,6 +331,7 @@ export function parsePersons(data, minScore, aspect, held) {
       var ks = data[o + c * 3 + 2];
       if (ks >= PERSON_KEYPOINT_MIN) {
         confident++;
+        kbits |= 1 << c;
         var ky = data[o + c * 3];
         var kxx = data[o + c * 3 + 1];
         if (kxx < kx1) kx1 = kxx;
@@ -337,8 +351,14 @@ export function parsePersons(data, minScore, aspect, held) {
       // could not answer the question it was built to answer.
       score: Math.round(score * 1000) / 1000,
       confident: confident,
-      maxKp: Math.round(maxKp * 100) / 100,
+      // 3dp for the same reason `score` is (R22): PFF_FRAME_KP_FLOOR is
+      // decided by 0.11 typography against 0.120 real forearms, and at
+      // 2dp a raw 0.1198 and a raw 0.1204 print identically — the probe
+      // could not resolve the constant it exists to calibrate.
+      maxKp: Math.round(maxKp * 1000) / 1000,
       nKp15: nKp15,
+      // Bitmask of the confident keypoint indices (see `kbits` above).
+      kb: kbits,
       hk: Math.round(hk * 100) / 100,
       sk: Math.round(sk * 100) / 100,
       // Keypoint hull, or null when no keypoint is confident (which is
@@ -680,6 +700,56 @@ export function parsePersons(data, minScore, aspect, held) {
  * 0.26 — and that one is not reachable this way anyway: see the R21 log,
  * where news graphics measure maxKp 0.10-0.52 against a real close-up's
  * 0.14-0.76.
+ *
+ * R22 RE-DERIVED THIS AT THREE DECIMALS AND THE ANSWER IS THAT THE
+ * CONSTANT CANNOT BE IMPROVED. Everything above was measured at 2dp, and
+ * R21's own correction noted that "0.05 vs 0.120" might be a rounding
+ * artifact at exactly the boundary that decides GHOST-versus-EXPOSURE.
+ * The probe now records 3dp and both boundary windows were re-captured
+ * on the same build:
+ *
+ *   r22c-slide-man (TED text slide, no human, np==0, 18 passes)
+ *     maxKp over slots: 0.045 0.047 0.048 0.049 0.049 0.050 0.050
+ *                       0.054 0.054 0.054 0.063 0.063 0.074 x5
+ *                       0.108 x2                      -> MAX 0.108
+ *   r22d-bench-woman (overhead workbench, two people as forearms only,
+ *                     np==0, 8 passes)
+ *     maxKp over slots: 0.109 0.133 0.140 0.161 0.163 0.168 0.195 0.225
+ *                                                     -> MIN 0.109
+ *
+ * So the "empty band" is real but it is 0.001 wide. The ONLY floor that
+ * blocks all typography AND keeps all forearms lies in (0.108, 0.109].
+ * That is not a threshold, it is a coincidence, and calibrating on it is
+ * how R7's zero-score rule was got wrong. THE FLOOR STAYS AT 0.1, on the
+ * EXPOSURE-safe side, and the honest cost is stated rather than hidden:
+ * the two typography passes at 0.108 are above it and are NOT blocked.
+ * Do not re-open this by moving the number; the leak is structural.
+ *
+ * TWO RULES MEASURED AND REFUSED IN R22, recorded so they are not
+ * proposed a fourth time:
+ *
+ *  (a) "refuse to mint from a face too small to gender-read"
+ *      (nativePx < FACE_MIN_NATIVE_PX). It looks decisive on the news
+ *      panel: every ghost face there is 32-48px while the real men in
+ *      the same window read 91-389px. It is REFUSED because the corpus
+ *      contains the counter-case. Sweeping every run's ff probe, there
+ *      are 17 uncorroborated sub-64px faces in the whole corpus; twelve
+ *      are the Zee News title card, and the other FIVE are
+ *      PYgPUAR9jNw t=2701 at 58-62px - a graduation crowd, thirteen to
+ *      fifteen real faces on one frame with MoveNet admitting nobody.
+ *      Refusing that mint uncovers a crowd of real people, which is
+ *      EXPOSURE. A cut at ~55px would separate the two, and it would be
+ *      a constant fitted to a 10px gap in 17 samples from two videos.
+ *
+ *  (b) "admit a slot only if its weaker shoulder clears a floor" (`sk`).
+ *      The separation is genuinely large where it applies - on
+ *      r22-woman, typography slots sit at sk 0.00-0.04 against the real
+ *      man's 0.62-0.89, a gap of 0.58 with no overlap - but a hard floor
+ *      is an EXPOSURE machine elsewhere: over all runs carrying slot
+ *      data, 12.1% of real-person slots at score >= 0.20 read sk < 0.30,
+ *      and the r21d title-card ghosts it is aimed at read sk 0.09-0.16,
+ *      above where the typography sits anyway. `sk` is a corroborator
+ *      for the large-graphics case only. It is already recorded.
  *
  * Deliberately frame-level and deliberately narrow: it only ever fires
  * when the person pass admitted NOBODY (the caller checks that), so a

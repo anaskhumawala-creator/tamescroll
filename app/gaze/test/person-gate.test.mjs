@@ -15,6 +15,7 @@ import {
   PFF_HALF_CAP,
   PFF_FRAME_KP_FLOOR,
   frameHasNoHumanShape,
+  lastSlotDiag,
 } from '../src/person-gate.mjs';
 
 // Keypoint layout: 17 x [y, x, score] then y1,x1,y2,x2,score.
@@ -589,4 +590,64 @@ test('frameHasNoHumanShape: a malformed slot never reads as evidence', () => {
 test('frameHasNoHumanShape: the floor sits in the empty band the corpus left', () => {
   assert.ok(PFF_FRAME_KP_FLOOR > 0.05, 'above the slide false positives');
   assert.ok(PFF_FRAME_KP_FLOOR < 0.12, 'below the nearest real case');
+});
+
+// --- R22 diagnostics ---------------------------------------------------
+// These lock the probe fields the next round has to calibrate against.
+// A probe that silently changes units or precision is how R15's
+// FACE_MIN_NATIVE_PX gate shipped dead and how R21 calibrated a floor
+// against rounded numbers; both cost a round.
+
+test('lastSlotDiag: kb is the bitmask of the CONFIDENT keypoint indices', () => {
+  const data = new Float32Array(6 * 56);
+  setBox(data, 0, 0.1, 0.2, 0.6, 0.4, 0.5);
+  upperBody(data, 0, 0.3, 0.2, 0.05);
+  // A wrist well above the confidence floor, and an ankle well below:
+  // the mask must contain the one and not the other, which `confident`
+  // (a count) cannot express.
+  setKp(data, 0, 9, 0.5, 0.2, 0.9); // left wrist
+  setKp(data, 0, 15, 0.9, 0.2, 0.01); // left ankle
+  parsePersons(data);
+  const kb = lastSlotDiag[0].kb;
+  for (const idx of [0, 1, 2, 3, 4, 5, 6, 9]) {
+    assert.equal((kb >> idx) & 1, 1, `keypoint ${idx} should be set`);
+  }
+  assert.equal((kb >> 15) & 1, 0, 'a sub-threshold keypoint must not be set');
+  // And it must agree with the count it sits beside, or the two
+  // diagnostics disagree and neither can be trusted.
+  let bits = 0;
+  for (let i = 0; i < 32; i++) bits += (kb >> i) & 1;
+  assert.equal(bits, lastSlotDiag[0].confident);
+});
+
+test('lastSlotDiag: maxKp is recorded at THREE decimals', () => {
+  // The floor that decides GHOST-versus-EXPOSURE is 0.1, typography
+  // measures up to 0.108 and the nearest real case (forearms) 0.109.
+  // At 2dp those are the same number and the constant is uncheckable.
+  // 0.1084 and 0.1086 are BOTH 0.11 at two decimals — the exact
+  // collapse that made R21's calibration uncheckable.
+  const lo = new Float32Array(6 * 56);
+  setBox(lo, 0, 0.1, 0.2, 0.6, 0.4, 0.5);
+  setKp(lo, 0, 0, 0.3, 0.2, 0.1084);
+  parsePersons(lo);
+  assert.equal(lastSlotDiag[0].maxKp, 0.108);
+  const hi = new Float32Array(6 * 56);
+  setBox(hi, 0, 0.1, 0.2, 0.6, 0.4, 0.5);
+  setKp(hi, 0, 0, 0.3, 0.2, 0.1086);
+  parsePersons(hi);
+  assert.equal(lastSlotDiag[0].maxKp, 0.109);
+});
+
+test('frameHasNoHumanShape: the 0.108 typography leak is a KNOWN, not a bug', () => {
+  // Recorded as a test so that a future round moving PFF_FRAME_KP_FLOOR
+  // has to face this frame rather than discover it. 0.108 is the highest
+  // maxKp measured on a text-only slide (r22c-slide-man) and it is above
+  // the floor, so the gate does NOT fire on it.
+  assert.equal(PFF_FRAME_KP_FLOOR, 0.1);
+  assert.equal(frameHasNoHumanShape([{ maxKp: 0.108 }]), false);
+  // 0.109 is the LOWEST maxKp measured on two real people present as
+  // forearms only (r22d-bench-woman). It must stay covered.
+  assert.equal(frameHasNoHumanShape([{ maxKp: 0.109 }]), false);
+  // The typography cluster proper is taken.
+  assert.equal(frameHasNoHumanShape([{ maxKp: 0.05 }, { maxKp: 0.074 }]), true);
 });

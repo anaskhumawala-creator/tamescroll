@@ -3298,3 +3298,171 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   intersection (the only live lever on the 76% of covered area that is
   MoveNet's own boxes), the figurine that outscores both humans, and
   `wipeIfEmpty`'s premise being narrower than its comment.
+
+- **R22** — rotation entry 4 (`news panel discussion`, **woman**), resolved
+  live to four ids of which `z86LGEFyQpo` was new and `z5WBceo0bIg` is
+  R19's known graphics window. Build `ada32d1-dirty`; app PID
+  34276 -> 11284 -> 46516, confirmed by PID change before every capture.
+  The dev watcher is still dead — each rebuild was an explicit stop /
+  `cargo build` / detached relaunch.
+
+  **THE ROTATION ENTRY SCORED CLEAN IN BOTH DIRECTIONS, WHICH MEANS THE
+  WINDOW WAS TOO EASY, NOT THAT THE PROBLEM IS SOLVED.** `z86LGEFyQpo`
+  t=300, 10 frames @1.5s: a single adult man in close-up filling centre
+  frame against a Bloomberg logo wall. **`woman`: EXPOSURE 0, PARTIAL 0,
+  FALSE COVER 0, GHOST 0, DRIFT 0** — covered on all ten, hands included.
+  **`man`: the same, inverted** — zero patches on all ten, `st:cleared,
+  lv:clear-certain`, gender reads male 0.65-0.98 at childP 0.01-0.03.
+  Per GOAL's own rule that is a signal to move to harder footage, so the
+  round did, to the one regime this table has that the person pass
+  cannot see.
+
+  **SCORE on the hard window** (`z5WBceo0bIg` t=240, `woman`, r22b):
+  **EXPOSURE 1, PARTIAL 1, FALSE COVER 0, GHOST 2, DRIFT 0.**
+  * GHOST f002/f003 — a patch on the show logo of a title card. No human
+    in frame. R19's finding, reproduced.
+  * EXPOSURE f008 — a split-screen of two men; only the right one is
+    covered, the left man is fully sharp, because the full-frame face
+    pass found both of its faces on the right half (`ff` cx 0.52/0.64)
+    and missed his entirely. He is looking down, in shadow.
+  * PARTIAL f009 — both men covered, and the left man's bald crown sits
+    ABOVE his patch. Mechanism, from the artifact: his synthetic body
+    was built from a face box of de-inflated height 0.097 while his
+    actual head spans ~0.43 of frame height. Head bowed, so BlazeFace
+    boxed the eye/glasses region only, 4x undersized. `personFromFace`'s
+    headroom is 0.9 face-heights and his crown is 2.5 above the box —
+    NO sane headroom constant reaches that. It is a detector undersizing,
+    not a geometry constant, and widening the constant would be
+    over-fitting.
+
+  **QUEUE ITEM 1 IS ANSWERED, AND THE ANSWER IS THAT THE CONSTANT CANNOT
+  BE IMPROVED.** `lastSlotDiag.maxKp` now records 3dp (it was 2), and both
+  boundary windows were re-captured on the same build:
+
+  | | n | maxKp range |
+  |---|---|---|
+  | r22c-slide-man — TED text slide, no human, np==0 | 18 | 0.045 – **0.108** |
+  | r22d-bench-woman — workbench, two people as forearms only, np==0 | 8 | **0.109** – 0.225 |
+
+  R21 refused 0.12 because the forearms read `0.120` at 2dp and suspected
+  rounding. It was rounding: the forearms MINIMUM is 0.109 and the
+  typography MAXIMUM is 0.108. **The empty band is real and it is 0.001
+  wide.** The only floor that blocks all typography and keeps all
+  forearms lies in (0.108, 0.109], which is a coincidence rather than a
+  threshold — calibrating on it is how R7's zoom-score rule was got
+  wrong. **PFF_FRAME_KP_FLOOR stays at 0.1, on the EXPOSURE-safe side,
+  and the two typography passes at 0.108 are NOT blocked. The leak is
+  structural, not a mis-set constant.** Pinned in three tests so a future
+  round has to face the frame rather than rediscover it.
+
+  **TWO RULES MEASURED AND REFUSED, both written into person-gate.mjs
+  with their evidence so they are not proposed a fourth time.**
+  * *"Refuse to mint a synthetic body from a face too small to
+    gender-read."* It looks decisive here — every ghost face on this
+    window reads `px 32-48` (below FACE_MIN_NATIVE_PX 64, so gender
+    abstains `unknown` FOREVER and the track can only ever sit
+    `uncertain`), while the real men in the same window read px 91-389.
+    **Refused on a corpus sweep.** Across every run's `ff` probe there
+    are 17 uncorroborated sub-64px faces in the whole corpus; twelve are
+    this title card, and the other FIVE are `PYgPUAR9jNw` t=2701 at
+    58-62px — the graduation crowd, 13-15 real faces on one frame with
+    MoveNet admitting nobody. That rule uncovers a crowd of real people.
+    A cut at ~55px separates them and would be a constant fitted to a
+    10px gap in 17 samples from two videos.
+  * *"Admit a MoveNet slot only if its weaker shoulder `sk` clears a
+    floor."* The separation is real where it applies — on r22-woman,
+    typography slots sit at `sk 0.00-0.04` against the real man's
+    `0.62-0.89`, a 0.58 gap with no overlap, and the mechanism is
+    physical (eyes and ears are blob-and-counter features, which is what
+    letterforms are made of; shoulders are a low-frequency silhouette
+    with no typographic analogue). **Refused**: 12.1% of real-person
+    slots at score >= 0.20 read `sk < 0.30`, and the r21d title-card
+    ghosts it is aimed at read `sk 0.09-0.16` anyway. Corroborator, never
+    a gate.
+
+  **SHIPPED, and it is deliberately all measurement plus one real
+  defect — no behaviour change survived scrutiny this round.**
+  1. `maxKp` at 3dp (above), plus a confident-keypoint **bitmask** `kb`
+     on every slot: `confident` is a COUNT and a count cannot tell a
+     contiguous anatomical set from scattered letterform hits. One OR in
+     a loop that already runs.
+  2. **THE `reads` AND `attr` PROBES WERE UNGUARDED INSIDE THE VERDICT
+     PROMISE CHAIN** (critic's find, verified). That is the exact shape
+     of the bug that silently discarded every gender read for two
+     releases; the `slots` probe beside them has always been wrapped,
+     these two never were, and `attr`'s `hx`/`hy` divide by
+     `region.x2 - region.x1` with no positive guard while the `d` IIFE
+     directly beneath them has one. Both wrapped BEFORE anything was
+     added to them.
+  3. Two free null tests that were being computed and thrown away, now
+     recorded on every read, because R23 cannot decide the graphics
+     question without them:
+     * `nm` — the faceres descriptor's **L2 magnitude**, discarded by the
+       very line that computes it (`detector.js`). The descriptor is
+       global-average-pooled trunk output; a crop with no face excites the
+       trunk weakly, and normalising is precisely the step that erases
+       that. It is a 1024-dim null test ORTHOGONAL to the 1-dim one
+       `isNullRead` already runs on the gender sigmoid, whose band R11
+       measured at a gap of only 0.035. First live values: 13.08 / 13.18
+       on the real man, 8.35 / 5.86 on the news panel.
+     * `ap` — the age posterior's **shape** (peak bin / peak mass /
+       entropy) beside its mean. The mean provably does not separate
+       (title cards read age 33-56, the real man 33-45, fully
+       overlapping). Free: the loop over all 100 bins already runs.
+  4. The floor measurement and both refusals written into the source as
+     comments, per the standing rule that a decision reverted by someone
+     holding only the diff is a decision that was never recorded.
+
+  **RE-VERIFY, both halves.** Man direction on the clean window
+  (r22f-man): 0 patches on all 10, `clear-certain` throughout — no FALSE
+  COVER regression on the owner's own direction. Woman direction
+  (r22g-woman): all 10 still fully covered. Graphics window (r22e-woman)
+  scored **EXPOSURE 0, PARTIAL 2, GHOST 1** — and that is **NOT
+  attributable to anything shipped**, because nothing shipped changes
+  behaviour. It is run-to-run variance on footage R21 already logged as
+  variable (79.1% vs 62.5% coverage on the same frame across builds with
+  the gate firing zero times). f002's GHOST reproduced exactly; f003's
+  did not recur; f008 flipped from EXPOSURE to PARTIAL because the patch
+  happened to be built wide enough that pass to reach the left man and
+  then clipped the right man's ear. **Frames on this footage cannot carry
+  a single-frame attribution and this round does not give them one.**
+
+  **COST unchanged.** verdict p50 93 -> 92 (woman) / 105 (man) / 68
+  (panel) ms; pass p50 29 -> 29 / 34 / 32 ms; pass p95 <= 45. `first ==
+  max` on verdict again (967-1631ms) — model warm-up. Everything shipped
+  is arithmetic inside loops that already run, except the two try/catch
+  wrappers. gaze **177/177** (174 plus 3 on the new diagnostics), cargo
+  36/36.
+
+  **R23's queue.**
+  (1) **Measure `nm` and `ap` against the labelled ghosts.** They are now
+  in every artifact. Join r22e/r21d/r19c title-card reads against
+  r22-woman and r22d real-face reads and see whether either separates. If
+  neither does, findings 1 and 3 die and the next candidate is
+  BlazeFace's **6 landmarks**, computed on the GPU and sliced off before
+  the download (`detector.js`, `[896,17]` -> `[896,5]`). Decode is
+  Apache-2.0 and already vendored in node_modules; cost is a WIDER
+  READBACK on the same fence (+43KB/call), no extra inference. The
+  predicate to test first is ordering — `eye_y < nose_y < mouth_y` —
+  which is scale-free and needs no calibration. Guard the slice on
+  `shape[2] === 16` or a throw kills face detection outright.
+  (2) **The f008 EXPOSURE class: a face the full-frame pass simply does
+  not find.** Two frames apart, the same man is found (f009 `ff` cx 0.21)
+  and not found (f008). Downcast, in shadow, split-screen. This is not a
+  threshold — FACE_MIN_CONFIDENCE never saw a candidate. Measure how
+  often the full-frame pass loses a face it found one pass earlier before
+  proposing anything.
+  (3) **`personFromFace` headroom is not the f009 bug** — recorded so the
+  next round does not spend itself there. A bowed head gives a face box
+  4x smaller than the head; the fix, if any, is on the detector side.
+  (4) Unchanged from R21/R20: the scene-entry frame (CLEAR_STREAK_N, do
+  not move it without measuring first-read misgender rate), the face in
+  near-darkness that abstains and costs a man his sharpness (now three
+  rounds logged without a fix), the model-box-vs-hull intersection, and
+  `wipeIfEmpty`'s premise being narrower than its comment.
+  (5) **nsfwjs "Drawing" is dead per-pass and the critic said so itself**:
+  the video path never calls `isNsfw`, so adding it is a whole extra
+  224x224 inference — ~17ms on an RTX 3060 Ti, plausibly 100-170ms on a
+  Helio G88 against a verdict p50 of 93ms. Once per scene CUT is the only
+  framing that survives, and a cut is already the most contended tick in
+  the pipeline. Reach for it only if (1) fails entirely.

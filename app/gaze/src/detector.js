@@ -427,12 +427,35 @@ export async function classifyFaceGenders(model, pixelSource, boxes) {
     // this face is a child — and it costs nothing: the loop over all 100
     // bins already runs. `age` stays, because it is what the artifact has
     // recorded for eleven rounds and the probes join on it.
+    //
+    // R22 carries the posterior's SHAPE out alongside its mean, for the
+    // same reason and at the same price: the loop over all 100 bins
+    // already runs, and `ageData` is already in CPU memory from the
+    // download above, so `maxBin`/`maxMass`/entropy are three more
+    // accumulators in a loop of 100 rather than any new work. The
+    // question they exist to answer is R22's open item — separating a
+    // NEWS TITLE CARD from a real close-up, which no threshold on the
+    // person pass can do (measured: the two regimes overlap on MoveNet
+    // score, maxKp and nKp15 alike). The premise is that faceres answers
+    // with its training PRIOR when handed a crop containing no face, and
+    // a prior is broad where a real read is a narrow peak. That premise
+    // is established for the gender head (it is what `isNullRead` and
+    // the [0.545,0.705] null band ship against) and is INFERENCE for the
+    // age head — which is why this is a measurement and not yet a gate.
     var age = 0;
     var childP = 0;
+    var ageMaxBin = 0;
+    var ageMaxMass = 0;
+    var ageEnt = 0;
     for (var a = 0; a < 100; a++) {
       var pa = ageData[k * 100 + a];
       age += a * pa;
       if (a < 18) childP += pa;
+      if (pa > ageMaxMass) {
+        ageMaxMass = pa;
+        ageMaxBin = a;
+      }
+      if (pa > 1e-9) ageEnt -= pa * Math.log(pa);
     }
     // L2-normalized descriptor slice so identity matching is a plain
     // dot product downstream.
@@ -451,10 +474,23 @@ export async function classifyFaceGenders(model, pixelSource, boxes) {
     // v = 0.74 — a 1-D gap of 0.035, too thin to threshold alone, which
     // is exactly why the raw value has to survive to where age and the
     // descriptor are also in scope.
+    // `norm` IS THE DESCRIPTOR'S MAGNITUDE AND IT WAS BEING DISCARDED BY
+    // THE VERY LINE THAT COMPUTES IT (R22 critic). The descriptor is
+    // global-average-pooled trunk output; a crop with no face excites the
+    // trunk weakly, and L2-normalising is precisely the step that erases
+    // that difference before anything downstream can see it. Carrying the
+    // scalar out costs nothing — it is already a live local — and it is a
+    // 1024-dimensional null test that is ORTHOGONAL to the 1-dimensional
+    // one `isNullRead` already performs on the gender sigmoid.
+    // Recorded, not acted on: whether it separates a graphic from a face
+    // is R23's measurement, and the magnitude-as-quality result it is
+    // borrowed from comes from margin-trained recognition embeddings,
+    // which faceres's pooled feature is not.
+    var shape = { norm: norm, ageBin: ageMaxBin, ageMass: ageMaxMass, ageEnt: ageEnt };
     verdicts.push(
       v <= 0.5
-        ? { gender: 'female', score: confidence, age: age, childP: childP, desc: desc, raw: v }
-        : { gender: 'male', score: confidence, age: age, childP: childP, desc: desc, raw: v }
+        ? { gender: 'female', score: confidence, age: age, childP: childP, desc: desc, raw: v, shape: shape }
+        : { gender: 'male', score: confidence, age: age, childP: childP, desc: desc, raw: v, shape: shape }
     );
   }
   return verdicts;

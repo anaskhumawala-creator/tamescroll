@@ -1186,6 +1186,14 @@ import { planForMode } from './pipeline-plan.mjs';
                 // Calibration probe: the raw model reads behind every
                 // verdict, so a CDP run can say WHY someone stays
                 // covered (wrong direction vs low certainty vs age).
+                // WRAPPED (R22). This block sits directly inside the
+                // verdict promise chain: anything that throws in here
+                // rejects the verdict for the whole person, and a probe
+                // throwing inside this exact chain silently discarded
+                // every gender read for two releases. The `slots` probe
+                // below has always been guarded; these two were not, and
+                // R22 adds fields to both — so they get the guard first.
+                try {
                 if (pick) {
                   var dbgR = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
                   dbgR.reads = dbgR.reads || [];
@@ -1235,9 +1243,33 @@ import { planForMode } from './pipeline-plan.mjs';
                       Math.round(region.x2 * 1000) / 1000,
                       Math.round(region.y2 * 1000) / 1000,
                     ],
+                    // THE TWO FREE NULL TESTS NOBODY HAS EVER LOOKED AT
+                    // (R22). `nm` is the faceres descriptor's magnitude
+                    // before L2-normalisation; `ab`/`v` already carry the
+                    // 1-D null test on the gender sigmoid, and R11
+                    // measured that band at a 1-D gap of 0.035 — too thin
+                    // to threshold alone, which is why an orthogonal one
+                    // matters. `ap` is the age posterior's SHAPE
+                    // (peak bin / peak mass / entropy) beside its mean;
+                    // the mean demonstrably does NOT separate a graphic
+                    // from a face (title-card reads age 33-56 against a
+                    // real man's 33-45, fully overlapping). Both are
+                    // computed inside loops that already run.
+                    nm:
+                      pick.shape && typeof pick.shape.norm === 'number'
+                        ? Math.round(pick.shape.norm * 100) / 100
+                        : null,
+                    ap: pick.shape
+                      ? [
+                          pick.shape.ageBin,
+                          Math.round(pick.shape.ageMass * 1000) / 1000,
+                          Math.round(pick.shape.ageEnt * 100) / 100,
+                        ]
+                      : null,
                   });
                   if (dbgR.reads.length > 300) dbgR.reads.shift();
                 }
+                } catch (e) {}
                 return faceMeta(userGender, genders);
               })
             : Promise.resolve(
@@ -1255,6 +1287,12 @@ import { planForMode } from './pipeline-plan.mjs';
             // OWN person track and is covered by it — vetoing here
             // covered the wrong people, it never added protection.
             var own = ownFaceIndex(faces);
+            // WRAPPED (R22), same reason as the `reads` probe above: this
+            // is inside the verdict chain, and `hx`/`hy` below divide by
+            // `region.x2 - region.x1` with no positive guard while the
+            // `d` IIFE right beneath them has one. `own` is read AFTER
+            // the block, so the guard must not swallow its assignment.
+            try {
             var dbgA = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
             dbgA.attr = dbgA.attr || [];
             dbgA.attr.push({
@@ -1311,6 +1349,7 @@ import { planForMode } from './pipeline-plan.mjs';
               }),
             });
             if (dbgA.attr.length > 120) dbgA.attr.shift();
+            } catch (e) {}
             if (own === -1) {
               // No face attributable to this person's head ⇒ unknown ⇒
               // covered, exactly as a faceless person already is.
@@ -1511,6 +1550,11 @@ import { planForMode } from './pipeline-plan.mjs';
                       // nothing else.
                       '/' + s.hk +
                       '/' + s.sk +
+                      // R22: WHICH keypoints were confident, as a
+                      // bitmask, so a round can ask whether a slot's
+                      // evidence is an anatomical set or scattered
+                      // letterform hits. `confident` is only a count.
+                      '/' + s.kb +
                       '/' + (s.b ? s.b.join(',') : '') +
                       // R20: the confident-keypoint hull beside the model
                       // box, so a round can finally attribute an over-wide
