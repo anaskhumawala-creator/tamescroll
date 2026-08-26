@@ -58,7 +58,6 @@ import {
   demoteTracks,
   cosineSim,
   bumpLife,
-  lastHoleDiag,
 } from './person-track.mjs';
 import * as sceneGate from './scene-gate.mjs';
 import {
@@ -1459,44 +1458,8 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
                       ? 'readWeak'
                       : 'readUncertain'
             );
-            // THE PIXELS THIS VERDICT WAS READ FROM, in frame
-            // coordinates (gauntlet R19). `faceRegionInVideo` is the
-            // square the gender model actually saw, so it is not a guess
-            // about where the head is — it is a detection, and a face
-            // that was DETECTED is by definition not occluded. That makes
-            // it the one region of a cleared person which provably shows
-            // that person and nobody behind them, which is what
-            // `blurredTracks` needs to stop drawing a neighbour's patch
-            // across a cleared man's face. Deliberately the SQUARE and
-            // not the enlarged detector box: the square is a subset of
-            // what the detector claimed, so subtracting it can never
-            // uncover someone the detector never asserted was there.
-            // ONLY FROM AN ANCHORED ATTRIBUTION (R19 critic, F1).
-            // `ownFaceIndex` has two branches: with a head keypoint it
-            // picks the face nearest that anchor; WITHOUT one it falls
-            // through to `bestIndex`, the largest face in the crop —
-            // which in a two-shot is routinely the NEIGHBOUR's, and R18
-            // measured headX null on 59% of weak-tier admits. A stolen
-            // face already mis-supplies this person's verdict; letting it
-            // also punch a subtraction hole would put a sharp window over
-            // the very person it was stolen from. The verdict half of
-            // that bug is real and is R20's, with the critic's numbers in
-            // GOAL.md — this only refuses to build NEW geometry on it.
-            var anchored = typeof person.headX === 'number' && typeof person.headY === 'number';
-            var headSq = null;
-            try {
-              if (!anchored) throw new Error('unanchored');
-              var hb = faceRegionInVideo(faces[own]);
-              if (hb && hb.x2 > hb.x1 && hb.y2 > hb.y1) {
-                headSq = { x1: hb.x1, y1: hb.y1, x2: hb.x2, y2: hb.y2 };
-              }
-            } catch (e) {
-              /* geometry is optional; a missing head hole only means the
-                 old, over-wide behaviour for this pass */
-            }
             return {
               box: person,
-              headBox: headSq,
               flagged: mine.flagged,
               certain: mine.certain,
               // One read confident enough to clear on its own — see
@@ -2178,21 +2141,6 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
                     // of 145 across six runs reported 0, including a
                     // pass whose only observation was a synthetic body.
                     f: tk.fromFace ? 1 : 0,
-                    // Head-hole forensics (R24). `blurredTracks` runs
-                    // AFTER this snapshot is built on the previous
-                    // pass's tracks, so this carries the diag from the
-                    // most recent draw — which is the one that produced
-                    // the pixels a frame capture shows.
-                    hb: (function () {
-                      try {
-                        for (var q = 0; q < lastHoleDiag.length; q++) {
-                          if (lastHoleDiag[q].id === tk.id) return lastHoleDiag[q];
-                        }
-                      } catch (e) {
-                        /* probes never break the pipeline */
-                      }
-                      return null;
-                    })(),
                   };
                 })
               );

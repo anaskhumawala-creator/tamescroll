@@ -811,3 +811,21 @@ this machine, so rules can only ship [unverified] until someone outside
 India verifies (Phase 6 community, or owner VPN — owner-gated). GitHub
 LIVE 2026-08-20 (owner approved): github.com/anaskhumawala-creator/
 tamescroll, PUBLIC, origin=main. Rules-OTA raw URL base now exists.
+
+## Blur patches are SOLID (owner, 2026-08-26, said twice)
+
+Never punch holes, windows, cut-outs or sharp regions into a blur patch,
+and never split a patch into pieces around someone. Both forms have
+shipped and both were rejected: `subtractBox` (four sibling rectangles)
+is the owner's "multiple boxes here and there", and the mask hole R24
+finally made render is "weird face cutouts in the blur".
+
+The requirement in his words: *"blur the subject so well that its shape
+is not visible"*, qualified as *"slight shape visible is fine in some
+cases, it just shouldn't be super tight"* — so a loose, solid,
+soft-edged patch. A silhouette-tight mask is the wrong direction too.
+
+The cost is accepted and must not be re-litigated: a cleared person
+inside someone else's patch gets covered. Fix that upstream — better
+association, refusing a merge, tighter observation geometry — never by
+cutting a window in the blur.

@@ -346,14 +346,14 @@ test('memberSet ignores empty segments', () => {
   assert.deepEqual(vr.memberSet('4+4'), { 4: 1 });
 });
 
-// --- mask layer ORDER (gauntlet R24) ---------------------------------
+// --- mask construction -----------------------------------------------
 //
-// CSS mask layers composite bottom-up, so a hole listed AFTER the base
-// layers is annihilated by the `source-in` above it. That is what shipped
-// for eight rounds: `clearedHeadHoles` reported healthy holes, the DOM
-// read back the right operator list, and no hole was ever drawn. Proven
-// by pixel in WebView2 (runs/maskorder-webview2.png). These pin the order
-// so the operator list alone can never again be mistaken for the result.
+// The patch is SOLID (owner 2026-08-26: no face cutouts). Only the two
+// feather fades remain, and they are still order-dependent: CSS mask
+// layers composite bottom-up, so `source-in` must sit above the
+// `source-over` base or it clips nothing. R24 proved by pixel that an
+// operator list read back from the DOM is not evidence that the mask
+// RESULT is what you meant.
 
 // Top-level comma split: gradients carry commas inside parentheses, and
 // a naive split reports 18 layers for 2.
@@ -385,20 +385,34 @@ function parseMask(spec) {
 }
 
 const RECT = { left: 0, top: 0, width: 400, height: 300 };
-const HOLE = { left: 100, top: 80, right: 180, bottom: 160 };
 
 test('a patch that only TRANSLATES produces a byte-identical mask string', () => {
   // The perf claim S13 ships on: applyMask early-outs on an unchanged
-  // string, so a sliding patch must not rebuild the mask. Hole offsets are
-  // expressed relative to the rect and the size is an integer, so a pure
-  // translation of both must cancel exactly.
-  const a = vr.maskFor({ left: 0, top: 0, width: 400, height: 300 }, [HOLE], 20);
-  const b = vr.maskFor(
-    { left: 37, top: -11, width: 400, height: 300 },
-    [{ left: HOLE.left + 37, top: HOLE.top - 11, right: HOLE.right + 37, bottom: HOLE.bottom - 11 }],
-    20
-  );
+  // string, so a sliding patch must not rebuild the mask. The mask is
+  // built from the rect's SIZE only, so translation cannot touch it.
+  const a = vr.maskFor({ left: 0, top: 0, width: 400, height: 300 }, 20);
+  const b = vr.maskFor({ left: 37, top: -11, width: 400, height: 300 }, 20);
+  assert.ok(a, 'precondition: a feathered patch does write a mask');
   assert.equal(a, b);
+});
+
+test('the two feather fades keep source-in ABOVE the source-over base', () => {
+  // Bottom-up compositing: reverse these and the vertical fade clips
+  // nothing, which is how the patch had hard top/bottom edges for eight
+  // rounds while every DOM probe read back the right operators.
+  const m = parseMask(vr.maskFor(RECT, 20));
+  assert.equal(m.img.length, 2);
+  assert.match(m.img[0], /to bottom/);
+  assert.match(m.img[1], /to right/);
+  assert.deepEqual(m.wcomp, ['source-in', 'source-over']);
+});
+
+test('the patch mask has no cut-out layer of any kind', () => {
+  // Owner 2026-08-26, twice: no face cutouts in the blur. A radial
+  // gradient or an exclude/xor operator here means a hole came back.
+  const spec = vr.maskFor(RECT, 20);
+  assert.ok(!/radial-gradient/.test(spec), 'no hole layer');
+  assert.ok(!/xor|exclude/.test(spec), 'no subtracting operator');
 });
 
 test('a sub-pixel SIZE wobble no longer changes the mask string', () => {
@@ -411,53 +425,20 @@ test('a sub-pixel SIZE wobble no longer changes the mask string', () => {
   const b = vr.drawnRect({ left: 0, top: 0, width: 400.37, height: 299.72 }, f);
   assert.equal(a.width, b.width, 'rounded width absorbs the wobble');
   assert.equal(a.height, b.height, 'rounded height absorbs the wobble');
-  assert.equal(vr.maskFor(a, [HOLE], f), vr.maskFor(b, [HOLE], f));
-});
-
-test('a hole is listed BEFORE the base layers, or it never punches', () => {
-  const m = parseMask(vr.maskFor(RECT, [HOLE], 20));
-  assert.equal(m.img.length, 3);
-  assert.match(m.img[0], /radial-gradient/, 'the hole must be the bottom layer');
-  assert.match(m.img[1], /to bottom/, 'vertical fade sits above the hole');
-  assert.match(m.img[2], /to right/, 'horizontal fade is the top layer');
-  assert.deepEqual(m.wcomp, ['xor', 'source-in', 'source-over']);
-  assert.deepEqual(m.comp, ['exclude', 'intersect', 'add']);
+  assert.equal(vr.maskFor(a, f), vr.maskFor(b, f));
 });
 
 test('every operator list stays one entry per layer', () => {
-  for (const holes of [[], [HOLE], [HOLE, { left: 220, top: 40, right: 260, bottom: 90 }]]) {
-    for (const f of [0, 20]) {
-      const spec = vr.maskFor(RECT, holes, f);
-      if (!spec) continue;
-      const m = parseMask(spec);
-      assert.equal(m.comp.length, m.img.length, 'a short list silently repeats and re-composites');
-      assert.equal(m.wcomp.length, m.img.length);
-      assert.equal(m.size.length, m.img.length);
-      assert.equal(m.pos.length, m.img.length);
-    }
+  for (const f of [10, 20, 64]) {
+    const m = parseMask(vr.maskFor(RECT, f));
+    assert.equal(m.comp.length, m.img.length, 'a short list silently repeats and re-composites');
+    assert.equal(m.wcomp.length, m.img.length);
+    assert.equal(m.size.length, m.img.length);
+    assert.equal(m.pos.length, m.img.length);
   }
 });
 
-test('two holes both sit below the base layers', () => {
-  const m = parseMask(vr.maskFor(RECT, [HOLE, { left: 220, top: 40, right: 260, bottom: 90 }], 20));
-  assert.equal(m.img.length, 4);
-  assert.deepEqual(m.wcomp, ['xor', 'xor', 'source-in', 'source-over']);
+test('no feather writes nothing at all', () => {
+  assert.equal(vr.maskFor(RECT, 0), '', 'a plain patch must not pay for a mask');
 });
 
-test('a hole alone still writes a mask when there is no feather', () => {
-  const m = parseMask(vr.maskFor(RECT, [HOLE], 0));
-  assert.equal(m.img.length, 2);
-  assert.match(m.img[0], /radial-gradient/);
-  assert.deepEqual(m.wcomp, ['xor', 'source-over']);
-});
-
-test('no holes and no feather writes nothing at all', () => {
-  assert.equal(vr.maskFor(RECT, [], 0), '', 'a plain patch must not pay for a mask');
-  assert.equal(vr.maskFor(RECT, null, 0), '');
-});
-
-test('a degenerate hole is dropped, not emitted as a zero-size layer', () => {
-  const m = parseMask(vr.maskFor(RECT, [{ left: 100, top: 80, right: 100, bottom: 160 }], 20));
-  assert.equal(m.img.length, 2, 'only the two base layers survive');
-  assert.deepEqual(m.wcomp, ['source-in', 'source-over']);
-});

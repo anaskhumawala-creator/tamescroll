@@ -120,13 +120,9 @@ function resolveHost(video) {
 
 function makeOverlay(key) {
   var d = document.createElement('div');
-  // A patch SPLIT around a cleared person's head (person-track's
-  // subtractBox) meets its siblings along four straight seams, and the
-  // 8px corner radius below rounds every piece AWAY from those
-  // junctions — leaving four ~16px squares of the covered person sharp
-  // at the hole's corners on a 1080p player, which is the very class the
-  // split exists to reduce. Pieces are square-cornered; only whole
-  // patches keep the rounding.
+  // Dead since S2 deleted the patch split: no key can contain '#' any
+  // more. Kept as a guard only because a stray composite key would round
+  // a corner it should not.
   var pieceKey = typeof key === 'string' && key.indexOf('#') !== -1;
   // Near-rectangular patch. z-index MEASURED against the live player
   // (2026-08-25): .html5-video-container is z-index 10, the bottom
@@ -157,31 +153,31 @@ function makeOverlay(key) {
 
 // A HOLE, WITHOUT A SECOND ELEMENT.
 //
-// A blurred patch has to stay off a CLEARED person's head, and until now
-// that was done by SPLITTING it into up to four sibling rectangles. That
-// split is what the owner sees as "multiple boxes here and there"
-// (2026-08-26): drawn patches exceeded live tracks on 44% of samples,
-// most often 3 patches from 2 tracks on a two-person scene. Every piece
-// is also its own node with its own backdrop-filter, so the seams cost
-// frame time too, and he raised performance in the same message.
+// NO HOLES. THE PATCH IS SOLID. (owner 2026-08-26, twice)
 //
-// Two mask layers composited with `exclude` punch the hole in ONE
-// element: layer 1 covers the whole patch, layer 2 covers each hole, and
-// `exclude` subtracts the second from the first.
+// "I do not want weird face cutouts in the blur ... All I need is to blur
+// the subject so well that its shape is not visible", and then: "slight
+// shape visible is fine in some cases, just shouldn't be super tight."
 //
-// MEASURED LIVE IN THE REAL WEBVIEW BEFORE THIS WAS BUILT, because
-// CSS.supports is not evidence here — it returns true for
-// `clip-path: path(evenodd, ...)` and an element carrying one paints
-// NOTHING, side by side with an identical unclipped control that blurs
-// correctly. The mask construction was verified by pixel instead
-// (spikes/gauntlet/runs/clip-spike2.png: one element, blurred, with a
-// genuinely sharp rectangle inside it).
+// Two mechanisms have existed for keeping a blurred patch off a CLEARED
+// person's head: splitting it into four sibling rectangles (which IS his
+// "multiple boxes here and there"), and punching a hole with a mask
+// layer. R24 found the hole had never actually rendered in any shipped
+// build, fixed the layer order, and the first build in which it worked is
+// the one he is objecting to. Both are gone. A patch is now one solid,
+// soft-edged rectangle and nothing is subtracted from it.
 //
-// Both the unprefixed and -webkit- forms are written: WebView2 takes
-// `mask-composite: exclude`, older Android WebViews take
-// `-webkit-mask-composite: xor`, and a WebView that understands neither
-// simply ignores the mask and draws the solid patch — which OVER-covers,
-// the safe direction, and never exposes anyone.
+// The consequence is stated rather than hidden: a cleared person standing
+// inside someone else's patch is now covered. That is FALSE COVER, the
+// class this machinery existed to prevent, and it is the trade he chose.
+// The fix for it is a patch that does not reach him -- association and
+// geometry -- not a window cut in the blur.
+//
+// Both the unprefixed and -webkit- forms are still written for the
+// feather: WebView2 takes `mask-composite`, older Android WebViews take
+// `-webkit-mask-composite`, and a WebView that understands neither
+// ignores the mask and draws the solid patch -- which OVER-covers, the
+// safe direction, and never exposes anyone.
 // SOFT EDGES, BECAUSE A RECTANGLE ANNOUNCES ITSELF.
 //
 // Owner 2026-08-26, on the hard-edged version of this: "the technique
@@ -194,28 +190,23 @@ function makeOverlay(key) {
 // the eye to the boundary and so advertises exactly where the subject is
 // and what shape the detector thinks they are. A gradient does not.
 //
-// Three kinds of layer, composited in one element:
-//   1+2  the patch itself, a horizontal fade INTERSECTed with a vertical
-//        fade -- a rectangle whose four edges ramp to transparent.
-//   3..  each hole, a radial falloff rather than a cut-out rectangle.
+// Two layers, composited in one element: a horizontal fade INTERSECTed
+// with a vertical fade -- a rectangle whose four edges ramp to
+// transparent.
 //
-// SAFETY, and it is the whole reason this is not just prettier:
-//   - The patch is EXPANDED by the feather width before it is drawn, so
-//     the fully-opaque core still covers every pixel the hard rectangle
-//     covered. The ramp is added margin. It cannot under-cover.
-//   - The hole box is GROWN by HOLE_FEATHER_GROW with its opaque core at
-//     HOLE_CORE, so the fully-revealed area lands a hair INSIDE the old
-//     hard hole. It reveals slightly less, never more.
-// So neither change can open EXPOSURE, and neither can newly blur a
-// cleared face that was sharp before.
+// SAFETY, and it is the whole reason this is not only prettier: the patch
+// is EXPANDED by the feather width before it is drawn, so the
+// fully-opaque core still covers every pixel the hard rectangle covered.
+// The ramp is added margin. It cannot under-cover, so it cannot open
+// EXPOSURE.
 //
 // VERIFIED BY PIXEL IN THE REAL WEBVIEW FIRST (runs/feather-spike2.png),
 // because S2 paid for the lesson that CSS.supports is not evidence here.
-// Three patches drawn side by side over one paused frame: today's hard
-// construction, hole-feathered, and both-feathered. The composite list
-// read back "source-over, source-in, xor" -- one operator PER LAYER; the
-// first attempt passed two operators for three layers and the list
-// repeated, silently giving the hole layer `intersect`.
+// Patches drawn side by side over one paused frame, hard construction
+// against feathered. The composite list is one operator PER LAYER; an
+// early attempt passed fewer operators than layers and the list repeated,
+// silently giving a layer the wrong operator. Keep the arrays in
+// lockstep.
 // THE FEATHER WIDTH IS A REAL TRADE, MEASURED, NOT A TASTE SETTING.
 // A soft outer edge is only possible by painting SOME blur outside the
 // requested box -- ramping inward instead would under-cover the covered
@@ -264,8 +255,6 @@ function makeOverlay(key) {
 var FEATHER_FRAC = 0.10; // of the patch's short side
 var FEATHER_MIN_PX = 10;
 var FEATHER_MAX_PX = 64;
-var HOLE_FEATHER_GROW = 1.5;
-var HOLE_CORE = 66; // percent of the grown box that stays fully revealed
 
 /** Feather width for a patch of this size, in px. */
 export function featherFor(rect) {
@@ -293,94 +282,43 @@ function edgeStops(f) {
   );
 }
 
-// LAYER ORDER, AND IT IS NOT COSMETIC: THE HOLES MUST COME FIRST.
+// LAYER ORDER IS NOT COSMETIC, AND IT COST EIGHT ROUNDS.
 //
-// CSS mask layers composite BOTTOM-UP. The last layer in the list is
-// composited against transparent black and each layer above combines
-// with the accumulated result below it. Shipped order was
-// [h-fade, v-fade, hole...] with [source-over, source-in, xor], which
-// evaluates as: hole -> `v-fade source-in hole` (the v-fade CLIPPED to
-// the hole ellipse) -> `h-fade source-over that` = the h-fade alone.
-// The hole is annihilated, and the VERTICAL FEATHER with it.
+// CSS mask layers composite BOTTOM-UP: the last layer in the list is
+// composited against transparent black and each layer above combines with
+// the accumulated result below it. A shipped order of
+// [h-fade, v-fade, hole] with [source-over, source-in, xor] evaluated as
+// `h-fade` ALONE -- the hole annihilated and the vertical feather with
+// it, so the patch had soft left/right edges and HARD top/bottom edges in
+// every build for eight rounds while every DOM probe reported the
+// operators present and correct. R24 proved it by pixel in WebView2
+// (spikes/gauntlet/runs/maskorder-webview2.png), not in Chrome and not
+// with CSS.supports.
 //
-// So `clearedHeadHoles` has never punched a hole in any shipped build,
-// and the patch has had soft left/right edges and HARD top/bottom edges
-// the whole time. R24 measured this three ways, in that order: the
-// overlay elements read back `mask-composite: source-over, source-in,
-// xor` live (which is what the earlier verification checked — the
-// OPERATOR LIST, not the RESULT); `clearedHeadHoles` reported every hole
-// healthy, `why:'ok'`, centred on the cleared speaker's face to within
-// 15px; and her face was blurred in all ten frames anyway.
-//
-// PROVEN BY PIXEL IN WEBVIEW2, not in Chrome and not by CSS.supports
-// (spikes/gauntlet/runs/maskorder-webview2.png — two identical blurred
-// cells over one paused frame, shipped order beside reversed order):
-// the shipped cell shows uniform blur with no window and hard top/bottom
-// edges; the reversed cell shows a large sharp ellipse. Same element
-// geometry, same operators, only the order differs.
-//
-// Nothing else moves: the layers, their sizes, their positions and the
-// operator PER LAYER are unchanged. Reversing is safe in the coverage
-// direction because the base layers still cover the whole patch and the
-// hole is still a subset of a DETECTED face.
-export function maskFor(rect, holes, f) {
-  var img = [];
-  var sizes = [];
-  var pos = [];
-  var comp = [];
-  var wcomp = [];
+// The holes are gone now (see the note above makeOverlay), but the two
+// fades are still order-dependent for the same reason: `source-in` must
+// sit ABOVE the `source-over` base or it clips nothing. Read a pixel
+// before believing any change here.
+export function maskFor(rect, f) {
+  if (!(f > 0)) return '';
   var full = rect.width + 'px ' + rect.height + 'px';
-  for (var i = 0; holes && i < holes.length; i++) {
-    var h = holes[i];
-    var w = Math.max(0, h.right - h.left);
-    var ht = Math.max(0, h.bottom - h.top);
-    if (w <= 0 || ht <= 0) continue;
-    var gw = w * HOLE_FEATHER_GROW;
-    var gh = ht * HOLE_FEATHER_GROW;
-    img.push(
-      'radial-gradient(ellipse closest-side at center, #000 0%, #000 ' + HOLE_CORE + '%, rgba(0,0,0,0) 100%)'
-    );
-    sizes.push(gw + 'px ' + gh + 'px');
-    pos.push(
-      Math.round(h.left - rect.left - (gw - w) / 2) + 'px ' +
-      Math.round(h.top - rect.top - (gh - ht) / 2) + 'px'
-    );
-    comp.push('exclude');
-    wcomp.push('xor');
-  }
-  var holeCount = img.length;
-  if (f > 0) {
-    var head = edgeStops(f);
-    var tailA = 'calc(100% - ' + f.toFixed(1) + 'px)';
-    var tailB = 'calc(100% - ' + (f * 0.78).toFixed(1) + 'px)';
-    var tailC = 'calc(100% - ' + (f * 0.45).toFixed(1) + 'px)';
-    var tail =
-      '#000 ' + tailA + ', rgba(0,0,0,0.85) ' + tailB + ', ' +
-      'rgba(0,0,0,0.35) ' + tailC + ', rgba(0,0,0,0) 100%';
-    // Vertical fade BEFORE the horizontal one: `source-in` intersects
-    // with everything below it, so it has to sit above the holes and
-    // below the `source-over` base. [hole..., v, h] is the arrangement
-    // the WebView2 pixel test showed working.
-    img.push('linear-gradient(to bottom, ' + head + ', ' + tail + ')');
-    sizes.push(full);
-    pos.push('0px 0px');
-    comp.push('intersect');
-    wcomp.push('source-in');
-    img.push('linear-gradient(to right, ' + head + ', ' + tail + ')');
-    sizes.push(full);
-    pos.push('0px 0px');
-    comp.push('add');
-    wcomp.push('source-over');
-  } else {
-    img.push('linear-gradient(#000,#000)');
-    sizes.push(full);
-    pos.push('0px 0px');
-    comp.push('add');
-    wcomp.push('source-over');
-  }
-  // Nothing to do: no feather and no hole means the plain solid patch,
-  // and writing a mask for that is pure cost.
-  if (holeCount === 0 && f <= 0) return '';
+  var head = edgeStops(f);
+  var tailA = 'calc(100% - ' + f.toFixed(1) + 'px)';
+  var tailB = 'calc(100% - ' + (f * 0.78).toFixed(1) + 'px)';
+  var tailC = 'calc(100% - ' + (f * 0.45).toFixed(1) + 'px)';
+  var tail =
+    '#000 ' + tailA + ', rgba(0,0,0,0.85) ' + tailB + ', ' +
+    'rgba(0,0,0,0.35) ' + tailC + ', rgba(0,0,0,0) 100%';
+  // Vertical fade BEFORE the horizontal one: `source-in` intersects with
+  // everything below it. Two layers, two operators, nothing else.
+  var img = [
+    'linear-gradient(to bottom, ' + head + ', ' + tail + ')',
+    'linear-gradient(to right, ' + head + ', ' + tail + ')',
+  ];
+  var sizes = [full, full];
+  var pos = ['0px 0px', '0px 0px'];
+  var comp = ['intersect', 'add'];
+  var wcomp = ['source-in', 'source-over'];
   return [img.join(','), sizes.join(','), pos.join(','), comp.join(','), wcomp.join(',')].join('|');
 }
 
@@ -692,26 +630,7 @@ function reposition(entry, now) {
     // scaled with the patch.
     var drawn = drawnRect(lerped, f);
     place(entry.overlays[j], drawn);
-    // Holes are pinned to the VIDEO, not to the patch, so they are
-    // converted with the same rect maths and then expressed relative to
-    // wherever the patch was actually drawn this frame. A hole that
-    // travelled with the patch would slide off the head it exists to
-    // keep sharp.
-    var hs = entry.tracks[j].holes;
-    var px = null;
-    if (hs && hs.length) {
-      px = [];
-      for (var q = 0; q < hs.length; q++) {
-        var hr2 = boxToHostRect(entry.hr, vr, hs[q]);
-        px.push({
-          left: hr2.left,
-          top: hr2.top,
-          right: hr2.left + hr2.width,
-          bottom: hr2.top + hr2.height,
-        });
-      }
-    }
-    applyMask(entry.overlays[j], maskFor(drawn, px, f));
+    applyMask(entry.overlays[j], maskFor(drawn, f));
   }
 }
 
