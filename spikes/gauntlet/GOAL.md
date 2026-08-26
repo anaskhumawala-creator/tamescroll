@@ -3900,3 +3900,136 @@ analysis.
   `node_modules` junctioned in and `src/model-embed.js` copied before its
   bundle will build; `NODE_PATH` does not help, esbuild resolves from the
   file's own directory.
+
+- **S5** (2026-08-26) — **S4's headline was largely a measurement error,
+  and the bisect that found it also found the real number.**
+
+  **THE METRIC WAS WRONG, AND IT WAS WRONG IN THE FLATTERING DIRECTION.**
+  `breathe` is an ABSOLUTE size change in frame-width units, so it cannot
+  tell "the box jitters more" from "the box is bigger" — and across the
+  gauntlet the box roughly doubled on both axes. `analyse()` now also
+  reports `breathe_w`/`breathe_h`, `rel_breathe_w`/`rel_breathe_h`
+  (normalised by the patch's own size) and `patch_w_p50`/`patch_h_p50`
+  with `clamped_h_frac`. Recomputed over every stored trace:
+
+  | | pre-gauntlet v7 | today |
+  |---|---|---|
+  | median patch WIDTH | 0.24 | **0.51** |
+  | median patch HEIGHT | 0.41 | **0.98** |
+  | patches pinned at frame edge | 1% | **64%** |
+  | rel breathe, width | 0.29 (3 runs) | 0.39 (2 runs) |
+  | rel breathe, height | 0.49 | 0.20 |
+
+  So the honest statement is **not** "breathing regressed 67%". It is:
+  **the patch doubled in each axis, relative width stability degraded by
+  roughly a third, and relative HEIGHT stability improved only because
+  64% of patches now hit the frame edge — a clamp is a perfect
+  stabiliser.** S4's 0.229 -> 0.383 is corrected in place by these rows,
+  not deleted, because the absolute figure is still what the owner's eye
+  integrates. But the size is the story: **the median patch is now the
+  full height of the frame**, which is what "much better before" means.
+
+  **RUN-TO-RUN NOISE IS LARGER THAN ANY ONE ROUND'S EFFECT, PROVEN BY
+  ACCIDENT.** The bisect measured commits 3 and 4 (`a9c22df`, `c3bcbee`)
+  at breathe 0.255 and 0.331 — **a 30% spread on byte-identical bundle
+  code**, since neither commit touches `app/gaze`. Every single-run
+  before/after in this section, S4's included, is inside that band.
+  Bisect points are therefore NOT separable at n=1, and the bisect below
+  is reported as a direction, not a verdict.
+
+  **THE BISECT.** `bisect-breathe.sh` builds any historical commit's
+  bundle in a worktree, swaps it into the running dev app, waits for a
+  PID change and measures. Absolute breathe across the 56 commits:
+  #2 0.255 · #4 0.331 · #5 0.362 · #14 0.313 · #28 0.402 · HEAD 0.372.
+  Median patch height over the same points: 0.67 · 0.65 · 0.71 · 0.74 ·
+  0.86 · 0.97. **The size grows monotonically and the "breathing" tracks
+  it** — which is the same finding as the metric correction, arrived at
+  independently.
+
+  **SHIPPED 1: hysteresis on the keypoint union gate.** A hard threshold
+  on a noisy score is a SQUARE WAVE. A hallucinated ankle crossing
+  PERSON_KEYPOINT_MIN 0.3 on a chest-up shot moves y2 from ~0.60 to ~0.99
+  in one pass — after the margins, a drawn height step near 0.46 with no
+  motion behind it; a wrist crossing with the arm 0.12 outside the box is
+  ~0.22 of drawn width. A keypoint now ENTERS at 0.30 and only LEAVES
+  below PERSON_KEYPOINT_EXIT 0.22. **This cannot regress any accuracy
+  class**: holding a keypoint in only ever keeps the box LARGER.
+  Deliberately NOT module state — `detectPersons` already documents that
+  one detector instance serves every video element, and this file has
+  shipped that bug twice; the flags ride the same per-video `held`
+  channel the admission hysteresis already uses, and a test pins that a
+  null `held` behaves as a cold start.
+
+  **SHIPPED 2: asymmetric size smoothing across an observation-source
+  flip.** S4 guarded the size VELOCITY on a flip and bought almost
+  nothing (0.372 -> 0.359) because the velocity is the derivative and the
+  STEP is the event. Measured over the S4 trace: flip intervals are 11.5%
+  of intervals and carry **30.3% of ALL absolute size change**, mean
+  |dw| 3.17x the non-flip intervals — because a MoveNet box and a
+  `personFromFace` body now disagree about WIDTH by 49-69% in this
+  footage's face-height band, where pre-gauntlet they agreed to 12%. At
+  alpha 0.6 that whole disagreement enters in one pass. Now: GROW keeps
+  the full alpha, SHRINK drops to PTRACK_FLIP_SHRINK_ALPHA 0.2, centre
+  untouched. Asymmetry is what makes it safe — a patch that shrinks
+  slower over-covers for longer and cannot open EXPOSURE or PARTIAL,
+  while a person who genuinely got wider is covered exactly as fast.
+
+  **RESULTS, paired by video time (the only form that beats the noise),
+  two independent before/after pairs:**
+
+  | pair | rel-breathe-w mean delta | buckets calmer | busier |
+  |---|---|---|---|
+  | S4 r1 -> S5 r1 | -0.047 | 22 | 16 |
+  | S4 replicate -> S5 r2 | -0.052 | 27 | 11 |
+
+  Combined **49 buckets calmer against 27 busier**, both pairs agreeing
+  in sign and magnitude. Whole-run means, n=2 each: rel breathe width
+  0.391 -> 0.330, height 0.195 -> 0.156. **The means alone are NOT
+  separable from the noise measured above; the pairing is what carries
+  this claim.** Patch count unchanged (13/5/28 and 11/7/28).
+
+  **Woman, same window:** jitter 0.138 -> 0.094, breathe 0.233 -> 0.162,
+  rel breathe width 0.203, cover life p50 45.0s — continuous coverage for
+  the entire run. dCount 0.87/s, stable intervals 91.2%.
+
+  **ACCURACY GATE HELD.** Man t=901, frames read: one patch per covered
+  frame, soft-edged, no rectangle; the cleared man sharp beside a covered
+  subject including his face and shirt; f007 man-alone at zero patches.
+  EXPOSURE 0, GHOST 0. gaze **184/184**, cargo **36/36**.
+
+  **THE REAL TARGET IS NOW NAMED, AND IT IS NOT JITTER.** A median patch
+  of 0.51 x 0.98 is a near-full-height slab, and five additive changes
+  built it, every one with a measured EXPOSURE or PARTIAL case behind it:
+  PATCH_MARGIN 0.08 (new, proportional, multiplies box AND every size
+  step by 1.16x); UNION_KEYPOINT_MAX 13 -> 17 with the hip clamp deleted
+  in the same commit (the bottom edge used to be anchored to hip-y, one
+  of MoveNet's smoothest outputs; it is now the box regression unioned
+  with a threshold-gated ankle); KEYPOINT_MARGIN 0.03 -> 0.05, which is
+  0.089 in y on 16:9, a 2.96x cushion; and `personFromFace` growing to
+  7.4h tall by 4.4h wide, which makes a full-height slab for any face
+  height >= 0.135. **Do not shrink these to buy the metric** — that
+  trades the gate for a number. The correct lever is the one two critics
+  have now named independently: **use segmentation to TIGHTEN the
+  rectangle** (S4 costed it: MediaPipe Selfie Segmentation tfjs graph
+  model, 332,432 bytes, Apache-2.0), so the margins sit on a smaller and
+  correct box rather than on MoveNet's slop.
+
+  **Still open, ranked:** (1) tighten the box via segmentation — the only
+  safe route to the size problem. (2) `mergeTracks`' hard 0.5/0.6
+  threshold has no hysteresis, and crossing it changes the merged key, so
+  `setTracks` destroys and rebuilds the DOM overlay and
+  `lerpRect(null, target)` snaps with no glide; it changes patch COUNT so
+  it is invisible to breathe by construction. (3) `detectPersons` and
+  `detectFaceBoxes` each upload the FULL video element — ~16.6MB per
+  verdict pass at 1080p, half of it pure duplication; still the biggest
+  untaken perf win. (4) MoveNet's input is still squashed to 256x256.
+  (5) the rAF loop never stops. (6) `PFF_HALF_CAP` is a hard step worth
+  13% of the capped body width at h = 0.18 — ramp it.
+
+  **HARNESS DAMAGE, AND THE RULE THAT PREVENTS IT.** Removing a git
+  worktree that has `node_modules` JUNCTIONED into it deletes THROUGH the
+  junction and empties the real directory — this emptied
+  `app/gaze/node_modules` in the main checkout and only surfaced as an
+  unrelated-looking `Cannot find package 'obscenity'` test failure.
+  Restored with `npm ci`. **Delete the junctions before removing the
+  worktree, every time.**

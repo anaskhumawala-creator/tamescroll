@@ -24,6 +24,9 @@
 // is GPL and was never read — see NOTICE).
 
 export var PTRACK_IOU_MIN = 0.2; // below this, no association
+// How fast a box may SHRINK across an observation-source flip. See the
+// note in matchedStep: slower shrink only ever over-covers.
+export var PTRACK_FLIP_SHRINK_ALPHA = 0.2;
 export var PTRACK_EMA_ALPHA = 0.6; // new-box weight per matched sample (0.45 -> 0.6 2026-08-24: owner phone — patch trailed the person; at adaptive ~2Hz the smoothing lag dominates, snappier wins)
 export var PTRACK_MAX_MISS_MS = 1000; // a lost track coasts this long, then expires
 export var CLEAR_HOLD_MS = 1500; // accumulated confident-clear time before a patch lifts
@@ -96,6 +99,26 @@ export function iou(a, b) {
   var areaA = Math.max(0, a.x2 - a.x1) * Math.max(0, a.y2 - a.y1);
   var areaB = Math.max(0, b.x2 - b.x1) * Math.max(0, b.y2 - b.y1);
   return inter / (areaA + areaB - inter);
+}
+
+// Grow at `a`, shrink at `shrinkA`, per edge. "Grow" means the edge moves
+// OUTWARD from the box's own centre, so this is a size test and not a
+// direction test -- a translating box moves both edges the same way and
+// so gets one grow and one shrink, which is correct: it converges at the
+// mean of the two rates and keeps its extent.
+function emaAsymmetric(prev, next, a, shrinkA) {
+  var cx = (prev.x1 + prev.x2) / 2;
+  var cy = (prev.y1 + prev.y2) / 2;
+  function edge(p, n, outwardIsLess) {
+    var grows = outwardIsLess ? n < p : n > p;
+    return p + (n - p) * (grows ? a : shrinkA);
+  }
+  return {
+    x1: edge(prev.x1, next.x1, true),
+    y1: edge(prev.y1, next.y1, true),
+    x2: edge(prev.x2, next.x2, false),
+    y2: edge(prev.y2, next.y2, false),
+  };
 }
 
 function ema(prev, next, a) {
@@ -510,7 +533,28 @@ function matchedStep(t, obs, dt) {
   // motion, and must not become a size velocity.
   var srcFlip = !!(obs.box && obs.box.fromFace) !== !!t.fromFace;
   if (srcFlip) bump('srcFlip');
-  var smoothed = ema(t.box, obs.box, PTRACK_EMA_ALPHA);
+  // ON A SOURCE FLIP, SMOOTH THE SIZE HARD -- BUT ONLY INWARD.
+  //
+  // S4 guarded the size VELOCITY on a flip and bought almost nothing
+  // (breathe 0.372 -> 0.359), because the velocity is the derivative and
+  // the STEP is the event. A MoveNet box and a personFromFace synthetic
+  // body describe one human and, measured against the corpus table in
+  // person-gate, now disagree about WIDTH by 49-69% in the face-height
+  // band this footage lives in -- they used to agree to within 12%.
+  // At alpha 0.6 that whole disagreement lands in the box in ONE pass.
+  // Measured over the S4 trace: intervals carrying a flip are 11.5% of
+  // all intervals and carry 30.3% of ALL absolute size change, with mean
+  // |dw| 3.17x the non-flip intervals.
+  //
+  // ASYMMETRIC, and that is what makes it safe: GROWING keeps the full
+  // alpha, so a person who genuinely got wider is covered as fast as
+  // before. Only SHRINKING is slowed, and a patch that shrinks slower is
+  // a patch that over-covers for longer -- it cannot open EXPOSURE or
+  // PARTIAL. The centre is untouched at full alpha, so the patch still
+  // tracks motion and does not trail.
+  var smoothed = srcFlip
+    ? emaAsymmetric(t.box, obs.box, PTRACK_EMA_ALPHA, PTRACK_FLIP_SHRINK_ALPHA)
+    : ema(t.box, obs.box, PTRACK_EMA_ALPHA);
   var tc = center(t.box);
   var sc = center(smoothed);
   var state = t.state;

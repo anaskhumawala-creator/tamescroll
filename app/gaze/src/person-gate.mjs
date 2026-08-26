@@ -250,10 +250,35 @@ function boxIou(a, b) {
   return ua > 0 ? inter / ua : 0;
 }
 
+// Hysteresis floor for the keypoint union: once a keypoint is IN, it
+// stays in until its score drops below this. See the note at the union
+// loop -- the gap is what stops a threshold crossing becoming a square
+// wave in patch size.
+export var PERSON_KEYPOINT_EXIT = 0.22;
+
+// Which keypoints are currently held in the union, PER SLOT.
+//
+// Deliberately NOT module state. detectPersons' own comment says why:
+// one detector module instance serves every video element on the page,
+// so module-level continuity leaks across streams -- this file has been
+// bitten by that twice (lastSlotDiag, __TS_GAZE_IDS). The admission
+// hysteresis already solved it by threading the previous pass in as
+// `held`, so this rides the same channel: read off `held.unionHeld`,
+// written onto the returned array. Per-video by construction, and it
+// dies with the stream instead of outliving it.
+function heldUnion(held, slot, k) {
+  var m = held && held.unionHeld;
+  var row = m && m[slot];
+  return !!(row && row[k]);
+}
+
 export function parsePersons(data, minScore, aspect, held) {
   var floor = typeof minScore === 'number' ? minScore : PERSON_MIN_SCORE;
   var ar = typeof aspect === 'number' && aspect > 0 ? aspect : 16 / 9;
   var out = [];
+  // Collected as the union runs, handed back on the result so the NEXT
+  // pass for THIS video can apply the exit threshold. See heldUnion.
+  var unionNow = [];
   // Previous pass's admitted persons, for the hysteresis above. Each may
   // be claimed by at most ONE slot this pass, or a single lingering
   // person could hold two noise slots open at once.
@@ -510,7 +535,28 @@ export function parsePersons(data, minScore, aspect, held) {
     var kmY = KEYPOINT_MARGIN * ar;
     for (var u = 0; u < UNION_KEYPOINT_MAX; u++) {
       var ku = kp(data, o, u);
-      if (!(ku.s >= PERSON_KEYPOINT_MIN)) continue;
+      // HYSTERESIS ON THE UNION GATE.
+      //
+      // A hard threshold on a noisy score is a SQUARE WAVE, and a square
+      // wave in box size is exactly what "the blur keeps pulsing" is. A
+      // hallucinated ankle crossing 0.3 on a chest-up shot moves y2 from
+      // ~0.60 to ~0.99 in ONE pass -- after the margins, a drawn height
+      // step near 0.46 with no motion behind it. A wrist crossing with
+      // the arm 0.12 outside the box is ~0.22 of drawn width.
+      //
+      // So a keypoint ENTERS the union at PERSON_KEYPOINT_MIN and only
+      // LEAVES below PERSON_KEYPOINT_EXIT. Holding one in can only ever
+      // keep the box LARGER, so no accuracy class can regress: not
+      // EXPOSURE, not PARTIAL, and a slightly wider patch on a person we
+      // are already covering is not FALSE COVER either.
+      //
+      // Per-slot, because slots are MoveNet's own person indices; the
+      // state is wiped whenever the detector is re-created.
+      var inU = ku.s >= PERSON_KEYPOINT_MIN ||
+        (heldUnion(held, o, u) && ku.s >= PERSON_KEYPOINT_EXIT);
+      if (!unionNow[o]) unionNow[o] = [];
+      unionNow[o][u] = inU;
+      if (!inU) continue;
       if (ku.y - kmY < y1) y1 = ku.y - kmY;
       if (ku.y + kmY > y2) y2 = ku.y + kmY;
       if (ku.x - KEYPOINT_MARGIN < x1) x1 = ku.x - KEYPOINT_MARGIN;
@@ -613,6 +659,7 @@ export function parsePersons(data, minScore, aspect, held) {
     // Claimed only now that the slot has actually survived every gate.
     if (heldIdx !== -1) heldTaken[heldIdx] = true;
   }
+  out.unionHeld = unionNow;
   return out;
 }
 

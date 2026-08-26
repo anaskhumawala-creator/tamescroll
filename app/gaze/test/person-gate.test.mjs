@@ -651,3 +651,53 @@ test('frameHasNoHumanShape: the 0.108 typography leak is a KNOWN, not a bug', ()
   // The typography cluster proper is taken.
   assert.equal(frameHasNoHumanShape([{ maxKp: 0.05 }, { maxKp: 0.074 }]), true);
 });
+
+test('a keypoint held in the union survives a dip below the entry gate', () => {
+  // A hard threshold on a noisy score is a square wave, and a square wave
+  // in box size is what the owner reads as pulsing. Entry at 0.30, exit
+  // at 0.22: the dip in between must not drop the limb.
+  const mk = (score) => {
+    const d = new Float32Array(6 * 56);
+    // slot 0: a plausible torso so the person is admitted at all
+    for (let k = 0; k < 17; k++) {
+      d[k * 3] = 0.4;          // y
+      d[k * 3 + 1] = 0.5;      // x
+      d[k * 3 + 2] = 0.9;      // score
+    }
+    // keypoint 15 (an ankle) low and far down, at the score under test
+    d[15 * 3] = 0.9;
+    d[15 * 3 + 1] = 0.5;
+    d[15 * 3 + 2] = score;
+    d[51] = 0.0; d[52] = 0.0; d[53] = 0.55; d[54] = 1.0; d[55] = 0.9;
+    return d;
+  };
+  const high = parsePersons(mk(0.35), undefined, 16 / 9, null);
+  const dipped = parsePersons(mk(0.26), undefined, 16 / 9, high);
+  const gone = parsePersons(mk(0.10), undefined, 16 / 9, dipped);
+  assert.ok(high.length > 0 && dipped.length > 0 && gone.length > 0);
+  // While held, the box still reaches down to the ankle.
+  assert.ok(dipped[0].y2 >= high[0].y2 - 1e-6,
+    'a dip inside the hysteresis band must not shrink the box');
+  // Below the exit threshold it is released.
+  assert.ok(gone[0].y2 < high[0].y2,
+    'below the exit threshold the keypoint must leave the union');
+});
+
+test('union hysteresis state rides the per-video channel, not module state', () => {
+  // One detector module instance serves every video element on the page.
+  // This file has shipped that bug twice; passing null as `held` must
+  // therefore behave as a cold start, with no memory of the last call.
+  const d = new Float32Array(6 * 56);
+  for (let k = 0; k < 17; k++) { d[k * 3] = 0.4; d[k * 3 + 1] = 0.5; d[k * 3 + 2] = 0.9; }
+  d[15 * 3] = 0.9; d[15 * 3 + 1] = 0.5; d[15 * 3 + 2] = 0.35;
+  d[51] = 0.0; d[52] = 0.0; d[53] = 0.55; d[54] = 1.0; d[55] = 0.9;
+  const warm = parsePersons(d, undefined, 16 / 9, null);
+  assert.ok(Array.isArray(warm.unionHeld), 'state must be returned on the result');
+
+  const d2 = d.slice();
+  d2[15 * 3 + 2] = 0.26;
+  const coldAgain = parsePersons(d2, undefined, 16 / 9, null);
+  const held = parsePersons(d2, undefined, 16 / 9, warm);
+  assert.ok(held[0].y2 > coldAgain[0].y2,
+    'the held pass must reach further than the cold one');
+});

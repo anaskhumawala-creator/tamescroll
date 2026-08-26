@@ -20,6 +20,13 @@ Metrics, all per second of playback so runs of different length compare:
   jitter        mean centre movement per patch per second, in frame widths
   breathe       mean size change per patch per second, same units
   stable_frac   fraction of intervals whose patch COUNT did not change
+  breathe_w/h   the same, split per axis
+  rel_breathe_* breathe as a FRACTION of the patch's own size -- the only
+                form that compares two builds whose patches differ in size
+  patch_w/h_p50 median drawn patch size, so a size change cannot masquerade
+                as a stability change
+  clamped_h_frac  share of patches pinned at the frame edge; a clamp is a
+                perfect stabiliser and will flatter breathe_h
   life p50      how long a patch survives, seconds
 
 A patch that is correct but blinks twice a second reads as broken. These
@@ -145,6 +152,12 @@ def analyse(samples):
     # currentTime is the clock the motion actually happened on.
     jit = []
     brh = []
+    brhW = []
+    brhH = []
+    relW = []
+    relH = []
+    wid = []
+    hei = []
     stable = 0
     pairs = 0
     for i in range(1, len(samples)):
@@ -165,6 +178,24 @@ def analyse(samples):
             jit.append((abs(ca[0] - cb[0]) + abs(ca[1] - cb[1])) / dt)
             sa, sb = size(best), size(rb)
             brh.append((abs(sa[0] - sb[0]) + abs(sa[1] - sb[1])) / dt)
+            # PER AXIS, AND RELATIVE TO THE PATCH'S OWN SIZE.
+            #
+            # The absolute figure above cannot tell "the box jitters more"
+            # from "the box is bigger", and on the comparison that started
+            # this section it was mostly reporting the latter: median patch
+            # width went 0.255 -> 0.506 and height 0.453 -> 0.975 across the
+            # gauntlet, so breathe would rise ~2x at IDENTICAL relative
+            # stability. Per-axis matters too, because 63% of today's
+            # patches are pinned against the frame edge -- a clamp is a
+            # perfect stabiliser, and it scored as an improvement.
+            brhW.append(abs(sa[0] - sb[0]) / dt)
+            brhH.append(abs(sa[1] - sb[1]) / dt)
+            if sa[0] > 0:
+                relW.append((abs(sa[0] - sb[0]) / sa[0]) / dt)
+            if sa[1] > 0:
+                relH.append((abs(sa[1] - sb[1]) / sa[1]) / dt)
+            wid.append(sa[0])
+            hei.append(sa[1])
 
     # Patch lifetime, approximated by how long the count stayed >= k.
     lives = []
@@ -202,6 +233,13 @@ def analyse(samples):
         "births_per_s": round(births / span, 2) if span else 0,
         "jitter_per_s": round(statistics.mean(jit), 4) if jit else 0,
         "breathe_per_s": round(statistics.mean(brh), 4) if brh else 0,
+        "breathe_w": round(statistics.mean(brhW), 4) if brhW else 0,
+        "breathe_h": round(statistics.mean(brhH), 4) if brhH else 0,
+        "rel_breathe_w": round(statistics.mean(relW), 4) if relW else 0,
+        "rel_breathe_h": round(statistics.mean(relH), 4) if relH else 0,
+        "patch_w_p50": round(statistics.median(wid), 3) if wid else 0,
+        "patch_h_p50": round(statistics.median(hei), 3) if hei else 0,
+        "clamped_h_frac": round(sum(1 for h in hei if h >= 0.95) / len(hei), 3) if hei else 0,
         "stable_frac": round(stable / pairs, 3) if pairs else 0,
         "cover_life_p50": round(statistics.median(lives), 2) if lives else 0,
         "life": life,
@@ -228,6 +266,41 @@ def compare(before, after, bucket=1.0):
             out.setdefault(k, []).append(s["n"])
         return {k: statistics.mean(v) for k, v in out.items()}
 
+    def relBuckets(samples):
+        # Relative width breathe, bucketed by video time. Same interval
+        # filter as analyse(): unchanged patch count only.
+        out = {}
+        prev = None
+        for s in samples:
+            if s.get("paused"):
+                prev = None
+                continue
+            if prev is not None and prev["n"] == s["n"] and s["n"]:
+                dt = s.get("t", 0) - prev.get("t", 0)
+                a, b = prev.get("r") or [], s.get("r") or []
+                if dt > 0 and a and b:
+                    for rb in b:
+                        cb = centre(rb)
+                        best = min(a, key=lambda ra: abs(centre(ra)[0] - cb[0]) + abs(centre(ra)[1] - cb[1]))
+                        wa = size(best)[0]
+                        if wa > 0:
+                            k = round(s.get("t", 0) / bucket)
+                            out.setdefault(k, []).append((abs(wa - size(rb)[0]) / wa) / dt)
+            prev = s
+        return {k: statistics.mean(v) for k, v in out.items()}
+
+    rb_, ra_ = relBuckets(before), relBuckets(after)
+    rkeys = sorted(set(rb_) & set(ra_))
+    rel = None
+    if rkeys:
+        rd = [ra_[k] - rb_[k] for k in rkeys]
+        rel = {
+            "buckets": len(rkeys),
+            "mean_delta": round(statistics.mean(rd), 4),
+            "buckets_calmer": sum(1 for x in rd if x < 0),
+            "buckets_busier": sum(1 for x in rd if x > 0),
+        }
+
     ba, aa = buckets(before), buckets(after)
     keys = sorted(set(ba) & set(aa))
     if not keys:
@@ -241,6 +314,7 @@ def compare(before, after, bucket=1.0):
         "buckets_fewer": down,
         "buckets_more": up,
         "buckets_same": len(keys) - down - up,
+        "rel_breathe_w": rel,
     }
 
 
