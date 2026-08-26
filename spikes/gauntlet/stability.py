@@ -94,6 +94,16 @@ SAMPLE_JS = r"""
     st: st,
     lv: lv,
     keys: keys,
+    // S13: the render loop's own work per second. Every renderer number
+    // in this section is a SIZE read off the DOM; nothing has counted
+    // what the loop DOES. rs.raf/maskWrites/tfWrites are cumulative from
+    // page load, so the analysis reports deltas, same as `life`.
+    rs: (function () { try { return window.__TS_GAZE_RENDER ? window.__TS_GAZE_RENDER() : null; } catch (e) { return null; } })(),
+    // S13: the rect the PIPELINE asked for, beside the rect that is
+    // drawn. S12 measured the drawn element at ~1.25x the requested area
+    // and nothing in this harness could see it, because both this
+    // sampler and the gauntlet's probe read the ELEMENT.
+    b: (function () { var o = []; for (var m = 0; m < tr.length; m++) { var bb = tr[m].b; if (bb) o.push(bb); } return o; })(),
     life: d.life || null
   });
 })()
@@ -242,6 +252,60 @@ def analyse(samples):
             if d:
                 life[k] = d
 
+    # S13: the render loop's own work, per second of wall clock. Same
+    # cumulative-delta treatment as `life`. `mask_write_frac` is the share
+    # of applyMask calls that actually crossed CSSOM -- the mask string is
+    # rebuilt every rAF frame for every overlay, and the __tsMask guard is
+    # the only thing between that and 10 style writes per overlay per
+    # frame on a backdrop-filter element.
+    rs = {}
+    rfirst = next((s.get("rs") for s in samples if s.get("rs")), None)
+    rlast = next((s.get("rs") for s in reversed(samples) if s.get("rs")), None)
+    if rfirst and rlast and span:
+        for k in set(rfirst) | set(rlast):
+            d = (rlast.get(k) or 0) - (rfirst.get(k) or 0)
+            rs[k + "_per_s"] = round(d / span, 1)
+        mc = (rlast.get("maskCalls") or 0) - (rfirst.get("maskCalls") or 0)
+        mw = (rlast.get("maskWrites") or 0) - (rfirst.get("maskWrites") or 0)
+        rs["mask_write_frac"] = round(mw / mc, 3) if mc else 0
+        ofr = (rlast.get("overlayFrames") or 0) - (rfirst.get("overlayFrames") or 0)
+        tw = (rlast.get("tfWrites") or 0) - (rfirst.get("tfWrites") or 0)
+        rs["tf_write_frac"] = round(tw / ofr, 3) if ofr else 0
+
+    # S13: drawn element area against the area the pipeline asked for.
+    # S12 measured ~1.25x off 9 gate frames by hand; this makes it a
+    # continuous-playback number. Only samples where the drawn patch count
+    # and the requested box count agree are used -- otherwise a merge is
+    # being compared against its own members.
+    # `b` is the track's CORE box; the pipeline then pads it before it ever
+    # reaches the renderer, so the padded box is what "asked for" means.
+    # PTRACK_PAD 0.05 sides+bottom and PTRACK_PAD_TOP 0.12 top are
+    # duplicated here from person-track.mjs -- the top pad is capped by
+    # head size at run time, so this is an UPPER bound on the asked area
+    # and the ratio it produces is a LOWER bound on the inflation.
+    PAD, PAD_TOP = 0.05, 0.12
+    ratios = []
+    for s0 in samples:
+        rr = s0.get("r") or []
+        bb = s0.get("b") or []
+        stl = s0.get("st") or []
+        if len(bb) != len(stl):
+            continue
+        asked = []
+        for bx, stv in zip(bb, stl):
+            if stv != "blurred":
+                continue
+            w, h = bx[2] - bx[0], bx[3] - bx[1]
+            asked.append((bx[0] - w * PAD, bx[1] - h * PAD_TOP, bx[2] + w * PAD, bx[3] + h * PAD))
+        # A merge draws one rect for several tracks; comparing then pits a
+        # union against its own members. Only unmerged samples count.
+        if not rr or len(rr) != len(asked):
+            continue
+        da = sum(max(0.0, x[2] - x[0]) * max(0.0, x[3] - x[1]) for x in rr)
+        ra = sum(max(0.0, x[2] - x[0]) * max(0.0, x[3] - x[1]) for x in asked)
+        if ra > 0:
+            ratios.append(da / ra)
+
     return {
         "samples": len(samples),
         "span_s": round(span, 1),
@@ -260,6 +324,9 @@ def analyse(samples):
         "clamped_h_frac": round(sum(1 for h in hei if h >= 0.95) / len(hei), 3) if hei else 0,
         "stable_frac": round(stable / pairs, 3) if pairs else 0,
         "cover_life_p50": round(statistics.median(lives), 2) if lives else 0,
+        "drawn_over_asked_p50": round(statistics.median(ratios), 3) if ratios else 0,
+        "drawn_over_asked_n": len(ratios),
+        "render": rs,
         "life": life,
     }
 

@@ -387,6 +387,33 @@ function parseMask(spec) {
 const RECT = { left: 0, top: 0, width: 400, height: 300 };
 const HOLE = { left: 100, top: 80, right: 180, bottom: 160 };
 
+test('a patch that only TRANSLATES produces a byte-identical mask string', () => {
+  // The perf claim S13 ships on: applyMask early-outs on an unchanged
+  // string, so a sliding patch must not rebuild the mask. Hole offsets are
+  // expressed relative to the rect and the size is an integer, so a pure
+  // translation of both must cancel exactly.
+  const a = vr.maskFor({ left: 0, top: 0, width: 400, height: 300 }, [HOLE], 20);
+  const b = vr.maskFor(
+    { left: 37, top: -11, width: 400, height: 300 },
+    [{ left: HOLE.left + 37, top: HOLE.top - 11, right: HOLE.right + 37, bottom: HOLE.bottom - 11 }],
+    20
+  );
+  assert.equal(a, b);
+});
+
+test('a sub-pixel SIZE wobble no longer changes the mask string', () => {
+  // lerpRect is asymptotic and the shrink deadband parks an edge without
+  // ever reaching it, so the lerped size wobbles by a fraction of a pixel
+  // for ever. drawnRect is what stops that reaching the mask, so the test
+  // goes through drawnRect rather than asserting an identity of its own.
+  const f = 20;
+  const a = vr.drawnRect({ left: 0, top: 0, width: 400, height: 300 }, f);
+  const b = vr.drawnRect({ left: 0, top: 0, width: 400.37, height: 299.72 }, f);
+  assert.equal(a.width, b.width, 'rounded width absorbs the wobble');
+  assert.equal(a.height, b.height, 'rounded height absorbs the wobble');
+  assert.equal(vr.maskFor(a, [HOLE], f), vr.maskFor(b, [HOLE], f));
+});
+
 test('a hole is listed BEFORE the base layers, or it never punches', () => {
   const m = parseMask(vr.maskFor(RECT, [HOLE], 20));
   assert.equal(m.img.length, 3);

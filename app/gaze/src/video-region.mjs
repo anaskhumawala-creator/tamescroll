@@ -39,6 +39,31 @@ var BASE_PX = 100;
 // video -> { host, video, tracks, at, overlays, raf, timer, ro, hr, vr }
 var entries = new Map();
 
+// RENDER COST COUNTERS (S13). Every number this project has about the
+// renderer is a size or a rate read off the DOM; nothing has ever counted
+// what the render loop actually DOES per second. These are plain integer
+// increments on a hot path and are read through a guarded window hook, so
+// they can be left in: instrumentation that throws inside the pipeline has
+// already cost two releases (GOAL.md standing rule).
+var renderStats = { raf: 0, overlayFrames: 0, maskCalls: 0, maskWrites: 0, tfWrites: 0, sizeWrites: 0, dispWrites: 0 };
+try {
+  if (typeof window !== 'undefined') {
+    window.__TS_GAZE_RENDER = function () {
+      return {
+        raf: renderStats.raf,
+        overlayFrames: renderStats.overlayFrames,
+        maskCalls: renderStats.maskCalls,
+        maskWrites: renderStats.maskWrites,
+        tfWrites: renderStats.tfWrites,
+        sizeWrites: renderStats.sizeWrites,
+        dispWrites: renderStats.dispWrites,
+      };
+    };
+  }
+} catch (e) {
+  /* probe is optional; the pipeline is not */
+}
+
 /**
  * Pure mapping: a normalized (0..1) box on the video -> a rect in the
  * PLAYER's coordinate space. Both rects come from getBoundingClientRect,
@@ -360,7 +385,9 @@ export function maskFor(rect, holes, f) {
 }
 
 function applyMask(overlay, spec) {
+  renderStats.maskCalls++;
   if (overlay.__tsMask === spec) return; // style writes cost recalc
+  renderStats.maskWrites++;
   overlay.__tsMask = spec;
   var st = overlay.style;
   if (!spec) {
@@ -390,15 +417,24 @@ function place(overlay, rect) {
   // string still crosses CSSOM every time; comparing it does not.
   var tf = 'translate(' + rect.left + 'px,' + rect.top + 'px)';
   if (overlay.__tsTf !== tf) {
+    renderStats.tfWrites++;
     overlay.style.transform = tf;
     overlay.__tsTf = tf;
   }
-  // Size writes cost layout — skip when the change is sub-2px.
-  if (Math.abs((overlay.__tsW || 0) - rect.width) >= 2) {
+  // Size writes cost layout. The old 2px deadband was the wrong lever now
+  // that the caller hands us an integer: it let the ELEMENT sit up to 2px
+  // away from the geometry the MASK was built for, which truncates the
+  // outer strip of the ramp under `mask-repeat: no-repeat`. Compare
+  // exactly instead -- an integer size only changes when it really does,
+  // and the writes it costs (measured 15-51/s) are an order of magnitude
+  // cheaper than the mask rewrites keeping them in register saves.
+  if (overlay.__tsW !== rect.width) {
+    renderStats.sizeWrites++;
     overlay.style.width = rect.width + 'px';
     overlay.__tsW = rect.width;
   }
-  if (Math.abs((overlay.__tsH || 0) - rect.height) >= 2) {
+  if (overlay.__tsH !== rect.height) {
+    renderStats.sizeWrites++;
     overlay.style.height = rect.height + 'px';
     overlay.__tsH = rect.height;
   }
@@ -467,6 +503,28 @@ var RENDER_LERP = 0.25;
 // This can only ever make a patch LARGER than it would have been, never
 // smaller, so it cannot open EXPOSURE or PARTIAL. What it costs is up to
 // this fraction of over-cover on a settling patch.
+// S13 PROBE: SET TO 0, MEASURED TWICE, REFUTED. The round's critic derived
+// that this parks every settled edge at D = T/(1-2*0.05) = 1.111x target
+// per axis (1.234x in area) for ever, and proposed deleting it as the
+// single biggest source of over-cover. Measured on this build, man t=890,
+// two 60s runs each way:
+//
+//                     0.05 (shipped)      0.0 (probe)
+//   drawn/asked p50   1.236 / 1.238       1.159 / 1.163
+//   patch w p50       0.538 / 0.546       0.524 / 0.517
+//   jitter/s          0.135 / 0.118       0.176 / 0.184
+//   breathe/s         0.309 / 0.313       0.328 / 0.343
+//   dCount/s          0.52  / 0.53        0.62  / 0.63
+//   stable_frac       0.952 / 0.948       0.943 / 0.938
+//   tf_write_frac     0.425 / 0.403       0.907 / 0.921
+//
+// The park is NOT saturated in live footage: removing it returns only
+// 7.5 points of the 1.24 drawn/asked ratio, not the 23 the arithmetic
+// predicts, because the box is almost never settled long enough to reach
+// the fixed point. What it costs is every stability metric -- jitter +40
+// to +55%, dCount +19%, and the transform is rewritten on 90% of rAF
+// frames instead of 42%, which doubles the renderer's CSSOM traffic on
+// the phone we cannot measure. Keep it.
 var SHRINK_DEADBAND = 0.05;
 
 // Below this the glide is OVER. A 0.25 lerp is asymptotic, so without an
@@ -558,34 +616,81 @@ function refreshRects(entry) {
   entry.vr = entry.video.getBoundingClientRect();
 }
 
+/**
+ * The element rect for a lerped patch: grown by half the feather on each
+ * side, with an INTEGER size so the mask string is stable under pure
+ * translation and under the sub-pixel wobble lerpRect never stops making.
+ * Exported so the stability claim is testable rather than asserted.
+ */
+export function drawnRect(lerped, f) {
+  var g = f > 0 ? f / 2 : 0;
+  return {
+    left: lerped.left - g,
+    top: lerped.top - g,
+    width: Math.round(lerped.width + g * 2),
+    height: Math.round(lerped.height + g * 2),
+  };
+}
+
 function reposition(entry, now) {
   var vr = entry.vr;
   if (!vr || vr.width === 0 || vr.height === 0) {
-    for (var i = 0; i < entry.overlays.length; i++) entry.overlays[i].style.display = 'none';
+    for (var i = 0; i < entry.overlays.length; i++) {
+      if (entry.overlays[i].__tsDisp !== 0) {
+        renderStats.dispWrites++;
+        entry.overlays[i].style.display = 'none';
+        entry.overlays[i].__tsDisp = 0;
+      }
+    }
     return;
   }
   var elapsed = now - entry.at;
   for (var j = 0; j < entry.tracks.length; j++) {
-    entry.overlays[j].style.display = '';
+    renderStats.overlayFrames++;
+    // `display` was assigned unconditionally 60x/s per overlay, one line
+    // below the transform-string compare that exists precisely because an
+    // identical assignment still crosses CSSOM. Measured at 140-160
+    // writes/s on this build, all but a handful of them redundant.
+    if (entry.overlays[j].__tsDisp !== 1) {
+      renderStats.dispWrites++;
+      entry.overlays[j].style.display = '';
+      entry.overlays[j].__tsDisp = 1;
+    }
     var target = boxToHostRect(entry.hr, vr, interpolateBox(entry.tracks[j], elapsed));
     entry.rendered[j] = lerpRect(entry.rendered[j], target);
     var lerped = entry.rendered[j];
     // The feather is added OUTSIDE what the pipeline asked for, so the
     // opaque core of the mask still covers the full requested box. Growing
     // the element is what makes the soft edge free of under-cover.
-    var f = featherFor(lerped);
+    // INTEGER MASK GEOMETRY, AND IT IS A PERFORMANCE FIX WITH A NUMBER.
+    //
+    // maskFor rebuilds ~20 strings from `drawn` every rAF frame for every
+    // overlay, and applyMask writes TEN CSSOM properties when the string
+    // differs -- on a backdrop-filter element, the most expensive class in
+    // the tree to invalidate. Measured on this build, man t=890, 60s
+    // continuous: 140-160 maskFor calls/s with mask_write_frac 0.56-0.58,
+    // i.e. ~85 full mask rewrites a second, ~850 style writes.
+    //
+    // Almost none of that is real. lerpRect is asymptotic and SHRINK_DEADBAND
+    // parks an edge without ever equalling the target, so `drawn.width`
+    // changes by a sub-pixel amount essentially every frame for ever, and
+    // the string changes with it. Hole offsets were already rounded and are
+    // invariant under pure translation, so with the SIZE rounded too a
+    // patch that is merely sliding or settling produces a byte-identical
+    // string and applyMask early-outs.
+    //
+    // Rounding `f` first keeps the ramp, the grow and the element in exact
+    // register: the previous code grew the element by f/2 unrounded while
+    // place() wrote a size only on a >=2px change, so mask and element were
+    // out of register by up to 2px and `mask-repeat: no-repeat` left the
+    // outermost strip of the ramp truncated.
+    //
+    // Cannot change coverage by more than half a pixel in either direction.
+    var f = Math.round(featherFor(lerped));
     // Half the ramp sits outside the requested box, half inside. See the
     // note above featherFor: outward-only tripled the blurred area once f
     // scaled with the patch.
-    var g = f / 2;
-    var drawn = f > 0
-      ? {
-          left: lerped.left - g,
-          top: lerped.top - g,
-          width: lerped.width + g * 2,
-          height: lerped.height + g * 2,
-        }
-      : lerped;
+    var drawn = drawnRect(lerped, f);
     place(entry.overlays[j], drawn);
     // Holes are pinned to the VIDEO, not to the patch, so they are
     // converted with the same rect maths and then expressed relative to
@@ -613,6 +718,7 @@ function reposition(entry, now) {
 function loop(video) {
   var entry = entries.get(video);
   if (!entry) return;
+  renderStats.raf++;
   reposition(entry, performance.now());
   entry.raf = requestAnimationFrame(function () {
     loop(video);

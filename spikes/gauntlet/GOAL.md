@@ -5660,3 +5660,174 @@ analysis.
      whole class: every patch on an edge-cropped person is clamped on
      one side by definition, so even a perfect detection fix leaves the
      outermost strip 57% sharp.
+
+- **S13** (2026-08-26) — **the renderer's own work per second is now a
+  number, the critic's biggest proposal was measured and refuted, and
+  three runs of one build showed a breathing spread wider than any fix
+  this section has ever shipped.**
+
+  Input: S12, plus R25 (another session: `PERSON_WEAK_KP15` 9 -> 8, the
+  headless tier needed a head keypoint). Baseline re-measured at HEAD
+  1b2659d.
+
+  **FIRST, THE THING THAT INVALIDATES SINGLE-PAIR CLAIMS.** Three 60s
+  captures of the SAME build at the SAME window, before touching
+  anything:
+
+  | run | patches mean | jitter/s | breathe/s | rel breathe w | verdict reads |
+  |---|---|---|---|---|---|
+  | before-1 | 1.03 | 0.117 | 0.217 | 0.250 | 113 |
+  | before-2 | 0.80 | 0.058 | 0.098 | **0.144** | 62 |
+  | before-3 | 0.97 | 0.124 | 0.266 | **0.416** | 124 |
+
+  **rel_breathe_w spans 0.144 to 0.416 — a factor of 2.9 — on byte-identical
+  code.** before-2 also ran the pipeline at HALF rate (62 verdict reads
+  against 113 and 124 in the same 60s), which is the adaptive throttle in
+  its warm-up regime. Every breathing figure in S1-S12 that rests on one
+  before/after pair should be read with that spread in mind; only the
+  paired-by-video-time comparison and multiple after-runs survive it.
+
+  **SHIPPED (target 3, PERFORMANCE, and it is measured rather than
+  assumed): integer mask geometry, a guarded `display` write, and an exact
+  size compare.** `maskFor` rebuilds ~20 strings from the drawn rect every
+  rAF frame for every overlay and `applyMask` writes TEN CSSOM properties
+  when the string differs, on a `backdrop-filter` element. `lerpRect` is
+  asymptotic and `SHRINK_DEADBAND` parks an edge without ever equalling
+  the target, so `drawn.width` changed by a sub-pixel amount essentially
+  every frame for ever and the string changed with it. Hole offsets were
+  already rounded and are invariant under pure translation, so rounding
+  the SIZE (and `f`) makes a sliding or settling patch produce a
+  byte-identical string that `applyMask` early-outs on. `place()` now
+  compares the integer exactly instead of using a 2px deadband, which also
+  closes the up-to-2px register error between the element and the mask it
+  was built for — under `mask-repeat: no-repeat` that truncated the outer
+  strip of the ramp. And `display` was being assigned unconditionally 60x/s
+  per overlay, one line below the transform-string compare that exists
+  precisely because an identical assignment still crosses CSSOM.
+
+  | per second, man t=890, 60s | before-2 | before-3 | after r1 | after r2 |
+  |---|---|---|---|---|
+  | rAF ticks | 117.8 | 122.6 | 125.2 | 119.7 |
+  | overlay-frames | 140.2 | 159.9 | 172.4 | 156.5 |
+  | **mask REWRITES** | 81.5 | 89.9 | **73.3** | **66.0** |
+  | mask write fraction | 0.581 | 0.562 | **0.425** | **0.422** |
+  | transform writes | 78.5 | 79.5 | 73.2 | 63.0 |
+  | size writes | 14.7 | 50.9 | 90.7 | 81.2 |
+  | **`display` writes** | 140.2 | 159.9 | **0.3** | **0.3** |
+  | **total CSSOM writes** (mask x10 + tf + size + disp) | **1048** | **1189** | **897** | **805** |
+
+  **-14% and -32% of all style writes, and the `display` write — 140-160
+  a second, every one of them redundant — is gone outright.** Size writes
+  rise by design: they are an order of magnitude cheaper than the mask
+  rewrites that keeping element and mask in register saves. Stability is
+  neutral, as it must be for a render-cost change: paired against
+  before-3, **+0.061 patches/bucket (10 fewer / 15 more / 36 same) with
+  rel_breathe_w -0.129 (23 calmer / 26 busier)** and **-0.028 (14 / 10 /
+  37) with -0.019 (28 / 19)**. Two tests pin the claim, and the second
+  goes through the new exported `drawnRect` rather than asserting an
+  identity of its own — S12's critic caught `video-region.test.mjs:311`
+  doing exactly that.
+
+  **INSTRUMENTATION, and it closes S12's open item 3.** `__TS_GAZE_RENDER`
+  exposes the loop's counters (guarded, so a probe can never throw inside
+  the pipeline), `stability.py` reports them as per-second deltas, and the
+  sampler now carries the track's REQUESTED box `b` beside the drawn
+  rects. So the ratio S12 measured by hand off nine gate frames is now a
+  continuous-playback number: **drawn area / asked area p50 = 1.203,
+  1.249, 1.236, 1.238 across four runs, over 378-433 samples each.**
+  Every size figure in this section is the drawn element and is ~24% above
+  what the pipeline asked for.
+
+  **THE CRITIC'S ROUND: the pipeline as a control system.** Lens was "if I
+  inject a unit step into the detector, how long until the drawn rectangle
+  reflects it, and how much of that latency is deliberate?" It enumerated
+  every damper, deadband, streak, hysteresis, cadence floor and coast in
+  the chain with file:line and a time constant. The three findings that
+  matter:
+
+  1. **Five rectifiers in series are a peak-hold detector.** Every
+     asymmetry in the chain — `PTRACK_EMA_ALPHA` 0.6 grow against
+     `PTRACK_POSITION_SHRINK_ALPHA` 0.2, `PTRACK_FLIP_SHRINK_ALPHA` 0.2,
+     `SHRINK_LERP` 0.06, `SHRINK_DEADBAND`, `PERSON_KEYPOINT_EXIT` — is
+     one-sided in the SAME direction, each justified by the same correct
+     local argument that a bigger patch cannot expose. Composed, a single
+     +20% detector impulse reaches the screen at **+23%** (`sizeVel` feeds
+     `interpolateBox`, which predicts MORE of it, outward only) and the
+     drawn box does not fully return. Noise impulses arrive at ~0.6/s
+     against 0.27 births/s, so the box lives near its ceiling. That is a
+     structural explanation for S5's bisect, where the median patch grew
+     monotonically 0.24x0.41 -> 0.51x0.98 across 56 commits.
+  2. **Time constants expressed in PASSES or FRAMES silently change
+     meaning on the phone.** `RENDER_LERP` and `SHRINK_LERP` are per rAF
+     FRAME and their comments quote milliseconds that hold only at 60Hz;
+     the three tracker alphas are per SAMPLE (tau 131ms desktop, ~590ms at
+     a phone cadence); `CLEAR_STREAK_N` and the flag/abstain/wipe streaks
+     are counted in verdict READS, so clearing costs 800ms here and
+     1.8-3.0s on a G88 — on 1.9s mean-shot footage that makes clearing
+     structurally unreachable on the owner's device while working fine on
+     this desktop. `setVerdictCadence` already scales every coast budget
+     for exactly this reason and scales none of the streaks.
+  3. **`breathingAxis` mis-classifies a frame-clamped axis.** It opens
+     with `if (Math.abs(dNear) < SETTLE_PX) return true`, and
+     `interpolateBox` clamps to [0,1], so a clamped edge has delta exactly
+     0 and forces the whole axis to "breathing" — the trailing edge then
+     trims at `SHRINK_LERP` instead of `RENDER_LERP`, which is verbatim
+     the smear the discriminator was built to prevent. `clamped_h_frac` is
+     0.51-0.60 on this build.
+
+  **THE CRITIC'S #1 PROPOSAL, BUILT, MEASURED TWICE AND REFUTED.** It
+  derived that `SHRINK_DEADBAND` 0.05 parks every settled edge at
+  `T/(1-2*0.05)` = 1.111x per axis, 1.234x in area, for ever, and ranked
+  deleting it first. Set to 0, two 60s runs each way:
+
+  | | 0.05 (shipped) | 0.0 (probe) |
+  |---|---|---|
+  | drawn/asked p50 | 1.236 / 1.238 | **1.159 / 1.163** |
+  | patch w p50 | 0.538 / 0.546 | 0.524 / 0.517 |
+  | clamped h | 0.542 / 0.555 | 0.524 / 0.513 |
+  | jitter/s | **0.135 / 0.118** | 0.176 / 0.184 |
+  | breathe/s | **0.309 / 0.313** | 0.328 / 0.343 |
+  | dCount/s | **0.52 / 0.53** | 0.62 / 0.63 |
+  | stable intervals | **0.952 / 0.948** | 0.943 / 0.938 |
+  | transform write fraction | **0.425 / 0.403** | 0.907 / 0.921 |
+
+  **The park is not saturated in live footage.** Removing it returns 7.5
+  points of the 1.24 ratio, not the 23 the arithmetic predicts, because
+  the box is almost never settled long enough to reach the fixed point.
+  What it costs is every stability metric — jitter +40 to +55%, dCount
+  +19%, stable intervals down — and the transform is rewritten on **90% of
+  rAF frames instead of 42%**, which doubles the renderer's CSSOM traffic
+  on precisely the device nobody can measure. The deadband is also, on
+  these numbers, the main reason the renderer is quiet at all. Kept, with
+  the measurement written into the constant so it is not re-proposed.
+
+  **ACCURACY GATE, TWO RUNS, all 20 frames read.** EXPOSURE 0, GHOST 0,
+  PARTIAL 0 in both directions of the gate. FALSE COVER 2 of 10 and 3 of
+  10 — and the difference between the runs is the whole story: f000 is
+  clean in one run and the man fully covered in the other, f007 is a
+  right-side patch in one run and a whole-frame blur-first in the other,
+  both at the same video time on the same build. Those are seek-induced
+  births, the harness artifact S9 documented, not a property of this diff.
+  The steady-state frames (f001-f006, f008) have the man sharp — face,
+  cap, beard, shirt graphic, forearm — beside a covered subject in both
+  runs, and f009 shows R24's head hole punching a clean sharp ellipse
+  around his face inside the neighbour's patch. gaze **237/237** (5 new),
+  cargo **37/37**. Verdict p50 125ms, pass p50 26ms, `first` 1722ms =
+  model warm-up again.
+
+  **Still open, ranked:** (1) **the peak-hold cascade** — the round's
+  structural finding, and the fix is not a constant: make every per-sample
+  alpha dt-aware (`1 - exp(-dt/tau)`), which is a no-op on desktop and
+  roughly halves the phone's settling. The 1E filter (Casiez, Roussel &
+  Vogel, CHI 2012) is the published prior art; the reference repo states
+  NO licence, so it must be written from the paper, never copied. (2)
+  **streaks counted in reads, not milliseconds** — derivable today that
+  clearing is unreachable on a G88, which is "why does it keep blurring
+  me" on his device. (3) `breathingAxis` on a clamped axis. (4) the
+  clamped-edge 43% mask ramp (S12 open item 1, untouched). (5) the XOR
+  hole (S12 open item 2, untouched — settle it with two `maskorder.py`
+  cells before changing the operator). (6) crop-budget-starved persons
+  never receive a full-alpha geometry read, so the safety argument written
+  at person-track.mjs:725 is false for them on any crowd scene. (7)
+  `entry.at` is stamped at pass END while the box describes pass START, an
+  alternating 25/100ms backward step locked to the verdict clock.
