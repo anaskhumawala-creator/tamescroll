@@ -1159,36 +1159,63 @@ export function blurredTracks(tracks) {
   }
   var merged = mergeTracks(out);
   var holes = clearedHeadHoles(tracks);
-  if (!holes.length) return merged;
-  // Subtract AFTER the merge, not before: mergeTracks unions boxes, so a
-  // hole punched first would be filled straight back in by the union.
-  var cut = [];
-  for (var m = 0; m < merged.length; m++) {
-    var parts = [{ side: '', box: merged[m].box }];
-    for (var hI = 0; hI < holes.length; hI++) {
-      var nextParts = [];
-      for (var pI = 0; pI < parts.length; pI++) {
-        var pieces = subtractBox(parts[pI].box, holes[hI]);
-        for (var q = 0; q < pieces.length; q++) {
-          nextParts.push({ side: parts[pI].side + pieces[q].side, box: pieces[q].box });
-        }
-      }
-      parts = nextParts;
-    }
-    for (var c = 0; c < parts.length; c++) {
-      cut.push({
-        // Side-derived, so a piece keeps the same overlay across passes
-        // however many of its siblings come and go.
-        key: merged[m].key + (parts[c].side ? '#' + parts[c].side : ''),
-        box: parts[c].box,
-        vx: merged[m].vx,
-        vy: merged[m].vy,
-        vw: merged[m].vw || 0,
-        vh: merged[m].vh || 0,
-      });
-    }
+  // Same shape either way: every patch carries a `holes` array, empty in
+  // the common case, so no caller has to guard the field.
+  if (!holes.length) {
+    for (var e = 0; e < merged.length; e++) merged[e].holes = [];
+    return merged;
   }
-  return cut;
+  // ONE PATCH WITH A HOLE, NOT FOUR PATCHES AROUND ONE (owner
+  // 2026-08-26: "multiple boxes here and there"). Splitting a blurred
+  // patch into up to four rectangles around each cleared head is what
+  // that complaint IS: stability.py measured drawn patches exceeding
+  // live tracks on 44% of covered samples, most commonly 3 patches from
+  // 2 tracks, on a scene with exactly two people in it. Each piece is
+  // also its own DOM node with its own backdrop-filter, so the seams
+  // cost frame time as well as looking broken -- and the owner raised
+  // performance in the same breath ("yt app already feels slow").
+  //
+  // The holes are still SUBTRACTED, pixel for pixel; they are just
+  // subtracted by the renderer instead of by the geometry. Coverage is
+  // unchanged, so no accuracy class can move: the same pixels are
+  // covered and the same cleared head stays sharp.
+  //
+  // Holes ride along on the patch, clipped to it, and video-region turns
+  // them into a two-layer mask. MEASURED LIVE in WebView2 before this
+  // was built, because CSS.supports lies about this: it reports true for
+  // `clip-path: path(evenodd, ...)`, and an element carrying one paints
+  // NOTHING AT ALL next to an identical unclipped control. Two mask
+  // layers composited with `exclude` do work, verified by pixel
+  // (spikes/gauntlet/runs/clip-spike2.png).
+  var withHoles = [];
+  for (var m = 0; m < merged.length; m++) {
+    var box = merged[m].box;
+    var mine = [];
+    for (var hI = 0; hI < holes.length; hI++) {
+      var clipped = intersectBox(box, holes[hI]);
+      if (clipped) mine.push(clipped);
+    }
+    withHoles.push({
+      key: merged[m].key,
+      box: box,
+      holes: mine,
+      vx: merged[m].vx,
+      vy: merged[m].vy,
+      vw: merged[m].vw || 0,
+      vh: merged[m].vh || 0,
+    });
+  }
+  return withHoles;
+}
+
+/** Overlap of two boxes, or null when they do not meet. */
+export function intersectBox(a, b) {
+  var x1 = Math.max(a.x1, b.x1);
+  var y1 = Math.max(a.y1, b.y1);
+  var x2 = Math.min(a.x2, b.x2);
+  var y2 = Math.min(a.y2, b.y2);
+  if (!(x2 > x1) || !(y2 > y1)) return null;
+  return { x1: x1, y1: y1, x2: x2, y2: y2 };
 }
 
 // Overlapping patches union into ONE (owner 2026-08-24: "if there are

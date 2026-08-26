@@ -833,6 +833,19 @@ test('clearedHeadHoles: only CLEARED tracks, only fresh evidence', () => {
   assert.equal(pt.clearedHeadHoles([{ state: 'cleared', headBox: null, headAgeMs: 0 }]).length, 0);
 });
 
+// Is this point actually covered? A patch covers a point when the point
+// is inside its box AND not inside one of the holes punched in it.
+function coveredAt(patches, x, y) {
+  return patches.some(
+    (p) =>
+      x > p.box.x1 &&
+      x < p.box.x2 &&
+      y > p.box.y1 &&
+      y < p.box.y2 &&
+      !(p.holes || []).some((h) => x > h.x1 && x < h.x2 && y > h.y1 && y < h.y2)
+  );
+}
+
 test('blurredTracks: a covered neighbour cannot cover a cleared face', () => {
   const covered = {
     id: 11,
@@ -859,13 +872,45 @@ test('blurredTracks: a covered neighbour cannot cover a cleared face', () => {
     'precondition: without the cleared track his face IS covered'
   );
   const after = pt.blurredTracks([covered, clearedMan]);
-  assert.ok(
-    !after.some((r) => cx > r.box.x1 && cx < r.box.x2 && cy > r.box.y1 && cy < r.box.y2),
-    'his face must be sharp once his track is cleared'
-  );
-  // Every piece keeps a distinct, stable key so video-region does not
-  // lerp one piece's rect onto another's overlay.
+  // The patch is no longer SPLIT into pieces around his head - it is one
+  // patch carrying a hole, subtracted by the renderer's mask instead of
+  // by the geometry (owner 2026-08-26: "multiple boxes here and there").
+  // So the property to assert is the PIXEL one, which is what it always
+  // meant: is that point actually covered.
+  assert.ok(!coveredAt(after, cx, cy), 'his face must be sharp once his track is cleared');
+  assert.equal(after.length, 1, 'one patch, not four pieces');
+  assert.ok(after[0].holes.length >= 1, 'the hole is carried, not cut');
   assert.equal(new Set(after.map((r) => r.key)).size, after.length);
+});
+
+test('blurredTracks: a hole is clipped to the patch that carries it', () => {
+  // A hole hanging outside its patch would translate into mask layers
+  // with negative offsets, and the renderer would be subtracting from
+  // pixels the patch never covered.
+  const covered = { id: 1, state: 'blurred', box: { x1: 0.4, y1: 0.2, x2: 0.7, y2: 0.9 }, vx: 0, vy: 0 };
+  const cleared = {
+    id: 2,
+    state: 'cleared',
+    box: { x1: 0.0, y1: 0.0, x2: 0.5, y2: 1 },
+    headBox: { x1: 0.1, y1: 0.1, x2: 0.45, y2: 0.4 },
+    headAgeMs: 0,
+    vx: 0,
+    vy: 0,
+  };
+  const out = pt.blurredTracks([covered, cleared]);
+  for (const p of out) {
+    for (const h of p.holes) {
+      assert.ok(h.x1 >= p.box.x1 - 1e-9 && h.x2 <= p.box.x2 + 1e-9, 'hole inside horizontally');
+      assert.ok(h.y1 >= p.box.y1 - 1e-9 && h.y2 <= p.box.y2 + 1e-9, 'hole inside vertically');
+    }
+  }
+});
+
+test('blurredTracks: a patch with nothing cleared near it carries no holes', () => {
+  const covered = { id: 1, state: 'blurred', box: { x1: 0.4, y1: 0.2, x2: 0.7, y2: 0.9 }, vx: 0, vy: 0 };
+  const out = pt.blurredTracks([covered]);
+  assert.equal(out.length, 1);
+  assert.deepEqual(out[0].holes, [], 'no mask work for the common case');
 });
 
 test('blurredTracks: a cleared track with no head evidence changes nothing', () => {
@@ -914,9 +959,17 @@ test('a hole that has drifted on unverified evidence shrinks instead of switchin
   );
 });
 
-test('piece keys survive a sibling disappearing', () => {
+test('one patch and a stable key however the hole is shaped', () => {
+  // WAS 'piece keys survive a sibling disappearing'. That test existed
+  // because a hole SPLIT the patch into up to four sibling rectangles
+  // whose keys had to stay distinct and stable, or video-region would
+  // lerp one piece's rect onto another piece's overlay. The split is
+  // gone (owner 2026-08-26: "multiple boxes here and there") -- the hole
+  // is now carried and subtracted by the renderer's mask -- so the
+  // property worth pinning is the one that replaced it: the patch count
+  // does NOT change with the hole's shape, the key never churns, and the
+  // cleared head is sharp either way.
   const covered = { id: 4, state: 'blurred', box: { x1: 0.3, y1: 0.2, x2: 0.9, y2: 0.9 }, vx: 0, vy: 0 };
-  // Hole in the middle -> four pieces.
   const inside = {
     id: 1,
     state: 'cleared',
@@ -927,17 +980,19 @@ test('piece keys survive a sibling disappearing', () => {
     vx: 0,
     vy: 0,
   };
-  const four = pt.blurredTracks([covered, inside]);
-  assert.equal(four.length, 4);
-  // Same hole, now touching the patch top -> the top slab is gone, and
-  // the bottom slab must KEEP its key rather than inherit the top's.
+  const mid = pt.blurredTracks([covered, inside]);
+  assert.equal(mid.length, 1, 'a hole in the middle is still ONE patch');
+  assert.ok(!coveredAt(mid, 0.55, 0.45), 'his head is sharp');
+
+  // Same hole, now running off the top of the patch. Under the old code
+  // this changed four pieces into three; now nothing about the patch
+  // count or its key may move at all.
   const topped = { ...inside, headBox: { x1: 0.5, y1: 0.1, x2: 0.6, y2: 0.5 } };
-  const three = pt.blurredTracks([covered, topped]);
-  assert.equal(three.length, 3);
-  const keyOf = (list, side) => list.find((r) => r.key.endsWith('#' + side));
-  assert.ok(keyOf(four, 'b') && keyOf(three, 'b'));
-  assert.equal(keyOf(four, 'b').box.y2, keyOf(three, 'b').box.y2);
-  assert.equal(keyOf(three, 't'), undefined);
+  const over = pt.blurredTracks([covered, topped]);
+  assert.equal(over.length, 1);
+  assert.equal(over[0].key, mid[0].key, 'key does not churn with hole shape');
+  assert.ok(!coveredAt(over, 0.55, 0.45), 'still sharp');
+  assert.ok(coveredAt(over, 0.35, 0.85), 'the rest of her is still covered');
 });
 
 test('sameHuman: two people shoulder to shoulder are not one person', () => {

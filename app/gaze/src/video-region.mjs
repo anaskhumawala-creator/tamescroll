@@ -110,6 +110,77 @@ function makeOverlay(key) {
   return d;
 }
 
+// A HOLE, WITHOUT A SECOND ELEMENT.
+//
+// A blurred patch has to stay off a CLEARED person's head, and until now
+// that was done by SPLITTING it into up to four sibling rectangles. That
+// split is what the owner sees as "multiple boxes here and there"
+// (2026-08-26): drawn patches exceeded live tracks on 44% of samples,
+// most often 3 patches from 2 tracks on a two-person scene. Every piece
+// is also its own node with its own backdrop-filter, so the seams cost
+// frame time too, and he raised performance in the same message.
+//
+// Two mask layers composited with `exclude` punch the hole in ONE
+// element: layer 1 covers the whole patch, layer 2 covers each hole, and
+// `exclude` subtracts the second from the first.
+//
+// MEASURED LIVE IN THE REAL WEBVIEW BEFORE THIS WAS BUILT, because
+// CSS.supports is not evidence here — it returns true for
+// `clip-path: path(evenodd, ...)` and an element carrying one paints
+// NOTHING, side by side with an identical unclipped control that blurs
+// correctly. The mask construction was verified by pixel instead
+// (spikes/gauntlet/runs/clip-spike2.png: one element, blurred, with a
+// genuinely sharp rectangle inside it).
+//
+// Both the unprefixed and -webkit- forms are written: WebView2 takes
+// `mask-composite: exclude`, older Android WebViews take
+// `-webkit-mask-composite: xor`, and a WebView that understands neither
+// simply ignores the mask and draws the solid patch — which OVER-covers,
+// the safe direction, and never exposes anyone.
+function maskFor(rect, holes) {
+  if (!holes || !holes.length) return '';
+  var sizes = [rect.width + 'px ' + rect.height + 'px'];
+  var pos = ['0px 0px'];
+  for (var i = 0; i < holes.length; i++) {
+    var h = holes[i];
+    var w = Math.max(0, h.right - h.left);
+    var ht = Math.max(0, h.bottom - h.top);
+    if (w <= 0 || ht <= 0) continue;
+    sizes.push(w + 'px ' + ht + 'px');
+    pos.push(h.left - rect.left + 'px ' + (h.top - rect.top) + 'px');
+  }
+  if (sizes.length < 2) return '';
+  var img = [];
+  for (var k = 0; k < sizes.length; k++) img.push('linear-gradient(#000,#000)');
+  return (
+    img.join(',') + '|' + sizes.join(',') + '|' + pos.join(',')
+  );
+}
+
+function applyMask(overlay, spec) {
+  if (overlay.__tsMask === spec) return; // style writes cost recalc
+  overlay.__tsMask = spec;
+  var st = overlay.style;
+  if (!spec) {
+    st.maskImage = '';
+    st.webkitMaskImage = '';
+    st.maskComposite = '';
+    st.webkitMaskComposite = '';
+    return;
+  }
+  var parts = spec.split('|');
+  st.maskImage = parts[0];
+  st.webkitMaskImage = parts[0];
+  st.maskSize = parts[1];
+  st.webkitMaskSize = parts[1];
+  st.maskPosition = parts[2];
+  st.webkitMaskPosition = parts[2];
+  st.maskRepeat = 'no-repeat';
+  st.webkitMaskRepeat = 'no-repeat';
+  st.maskComposite = 'exclude';
+  st.webkitMaskComposite = 'xor';
+}
+
 function place(overlay, rect) {
   overlay.style.transform = 'translate(' + rect.left + 'px,' + rect.top + 'px)';
   // Size writes cost layout — skip when the change is sub-2px.
@@ -228,7 +299,28 @@ function reposition(entry, now) {
     entry.overlays[j].style.display = '';
     var target = boxToHostRect(entry.hr, vr, interpolateBox(entry.tracks[j], elapsed));
     entry.rendered[j] = lerpRect(entry.rendered[j], target);
-    place(entry.overlays[j], entry.rendered[j]);
+    var drawn = entry.rendered[j];
+    place(entry.overlays[j], drawn);
+    // Holes are pinned to the VIDEO, not to the patch, so they are
+    // converted with the same rect maths and then expressed relative to
+    // wherever the patch was actually drawn this frame. A hole that
+    // travelled with the patch would slide off the head it exists to
+    // keep sharp.
+    var hs = entry.tracks[j].holes;
+    var px = null;
+    if (hs && hs.length) {
+      px = [];
+      for (var q = 0; q < hs.length; q++) {
+        var hr2 = boxToHostRect(entry.hr, vr, hs[q]);
+        px.push({
+          left: hr2.left,
+          top: hr2.top,
+          right: hr2.left + hr2.width,
+          bottom: hr2.top + hr2.height,
+        });
+      }
+    }
+    applyMask(entry.overlays[j], maskFor(drawn, px));
   }
 }
 

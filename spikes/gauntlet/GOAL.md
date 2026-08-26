@@ -3466,3 +3466,132 @@ Owner constraint: nothing indecent. Queries stay ordinary.
   Helio G88 against a verdict p50 of 93ms. Once per scene CUT is the only
   framing that survives, and a cut is already the most contended tick in
   the pipeline. Reach for it only if (1) fails entirely.
+
+## STABILITY
+
+The objective changed on 2026-08-26. Owner, verbatim: *"the blurs look
+much annoying right now with multiple boxes here and there... previous
+versions were significantly better at feeling stable. Make it much stable
+and optimised and performance oriented"*, and separately *"optimization
+is a real concern btw cuz yt app already feels slow and annoying"*.
+
+Twenty-two rounds optimised per-frame ACCURACY and **not one of the five
+classes counts how many separate boxes appear and vanish per second**, so
+every round could improve its score while the thing he actually sees got
+worse — and several rounds deliberately added recall (the weak tier, the
+close-up face fallback, synthetic bodies), every one of which raises
+patch count. Accuracy is now a regression GATE, not the objective.
+
+The metric is `spikes/gauntlet/stability.py`. It never pauses — the
+accuracy harness pauses for its blur-on/blur-off pair, which zeroes track
+velocities and re-pins every overlay, so its own sampling FABRICATES
+churn — and polls the live overlay rects at 10Hz during continuous
+playback. Jitter and breathe are computed only across intervals where the
+patch COUNT is unchanged; pairing rects across a count change matches
+unrelated boxes and inflates both, an artifact that already cost one
+analysis.
+
+- **S1** (2026-08-26) — baseline + the shrink deadband.
+  Baseline, build 8c5a2f3, NWoT1ZVd1Lo man t=890 45s: patches mean 2.08 /
+  MAX 7 on a TWO-person scene, dCount 2.23/s, births 0.24/s, jitter 0.264,
+  breathe 0.466 p90 1.084, cover life p50 1.14s, and only 67% of intervals
+  carry a stable patch count.
+  **SHIPPED: a shrink deadband in `lerpRect`.** Growth is instant by
+  design (R17 measured a lerped leading edge leaving 7.5% of a covered
+  man's shoulder sharp) while shrink glides at ~100ms, so every noisy
+  detection inflates the box and it deflates a tenth of a second later —
+  at the 4-8Hz the detector runs, a visible throb. Slowing the shrink is
+  the obvious fix and is WRONG: `lerpRect` also handles TRANSLATION, and a
+  long tail smears a moving patch into the union of where it was and where
+  it is going. The discriminator is the SIZE of the inward step, not its
+  speed — under 5% of the edge's own dimension is noise and the edge does
+  not move at all. Breathe 0.466 -> 0.397, jitter 0.264 -> 0.206. It can
+  only ever make a patch LARGER, so it cannot open EXPOSURE or PARTIAL.
+  **BUILT AND REFUSED: merging boxes that merely sit a hairline apart**,
+  gated on the union being cheap in area. Two full-height people side by
+  side with a 0.05 gap have a union of 0.72 against a summed area of 0.68
+  — relatively CHEAPER than two partial boxes on one person. Area cannot
+  separate "two boxes on one person" from "two people", and the three
+  existing tests pinning side-by-side people apart failed at once. Patch
+  count is not fixable at the merge step; the reason is in the code.
+
+- **S2** (2026-08-26) — **the "multiple boxes" had one cause, and it is
+  gone.** Re-baselined on HEAD d44311d: patches mean 1.91 / MAX 7,
+  dCount 2.49/s, births 0.31/s, cover life p50 1.13s, 67% stable
+  intervals, and the diagnostic that named the culprit — **drawn patches
+  EXCEEDED live tracks on 33-44% of covered samples, most commonly 3
+  patches from 2 tracks, on a scene containing exactly two people.**
+  That is `subtractBox`: to keep a CLEARED person's head sharp, a blurred
+  patch was SPLIT into up to four sibling rectangles around each head
+  hole. Working exactly as designed, and it is precisely what the owner
+  reported. It is also a performance cost, because every piece is its own
+  DOM node with its own `backdrop-filter`, i.e. its own backdrop snapshot.
+
+  **SHIPPED: one patch carrying HOLES, subtracted by the renderer instead
+  of by the geometry.** `blurredTracks` now returns a single patch per
+  merged track with a `holes` array clipped to it, and `video-region`
+  turns those into a two-layer CSS mask composited with `exclude`. The
+  same pixels are covered and the same cleared head stays sharp — the
+  subtraction just moved from the geometry to the compositor.
+
+  **THE CONSTRUCTION WAS MEASURED BEFORE IT WAS BUILT, AND THE OBVIOUS
+  ONE IS DEAD.** `CSS.supports` reports **true** for
+  `clip-path: path(evenodd, ...)` in this WebView — and an element
+  carrying one paints **NOTHING AT ALL**, verified side by side against an
+  identical unclipped control that blurred correctly
+  (`runs/clip-spike.png`). `CSS.supports` tests the parser, not the
+  compositor. Two mask layers with `mask-composite: exclude` DO work and
+  were verified by pixel first (`runs/clip-spike2.png`: one element,
+  blurred, with a genuinely sharp rectangle inside it). Both the
+  unprefixed and `-webkit-` forms are written, and a WebView that
+  understands neither ignores the mask and draws the solid patch — which
+  over-covers, the safe direction, and never exposes anyone.
+
+  **RESULTS, man t=890 45s, before -> after:**
+
+  | | before | after |
+  |---|---|---|
+  | patches mean | 1.91 | **0.87** |
+  | patches MAX | 7 | **2** |
+  | dCount/s | 2.49 | **0.45** |
+  | births/s | 0.31 | 0.24 |
+  | patches > tracks | 33% of samples | **0%** |
+  | stable-count intervals | 67% | **79%** |
+
+  **woman, same window:** patches mean 1.46 / max 3, dCount 0.87/s,
+  **patches > tracks 0%**, stable intervals **91%**, jitter 0.114,
+  breathe 0.185, cover life p50 44.98s (i.e. continuous coverage, no
+  blinking) — the direction where everyone in frame must be covered is now
+  essentially one steady patch.
+
+  **Honest note on jitter/breathe in the man direction: they read HIGHER
+  after (jitter 0.189 -> 0.220, breathe 0.329 -> 0.425) and that is a
+  composition change, not a regression.** Those averages only include
+  stable-count intervals, and the sample set changed underneath them: 67%
+  -> 79% of intervals now qualify, and the small static slabs that used to
+  dilute the average are gone, leaving the one real moving patch. The
+  woman direction, where coverage is continuous, shows the true direction:
+  jitter 0.114, breathe 0.185.
+
+  **ACCURACY GATE HELD**, checked frame by frame against truth pairs on
+  the R20 window (man t=901): coverage 64.9 / 38.8 / 42.1 / 53.2 / 43.4 /
+  47.2 / 64.6 / 0.0 / 0.0 / 0.0 against R20's 56.8 / 39.3 / 44.9 / 48.3 /
+  42.2 / 46.4 / 65.8 / 0.0 / 0.0 / 0.0 — the same coverage from **one**
+  patch per frame instead of three or four. f003 read directly: a single
+  blurred patch with a sharp rectangular hole, the cleared man's face
+  crisp inside it. EXPOSURE 0, GHOST 0, and the frames that were clear
+  before are still clear. gaze **179/179**.
+
+  Two tests changed contract rather than being deleted: the one asserting
+  a cleared face is outside every patch BOX now asserts the pixel property
+  it always meant (inside no box, or inside a hole), and
+  `piece keys survive a sibling disappearing` — which existed only because
+  four sibling rectangles needed stable distinct keys — became
+  `one patch and a stable key however the hole is shaped`.
+
+  **Still open.** Patch count is now ~1 per person, so the next lever is
+  the hole itself: it is still a RECTANGLE over a face, which is visible
+  as a hard-edged notch. That is what segmentation removes — a silhouette
+  has no seams and needs no holes. The cost spike on a Helio G88 has NOT
+  been run, and no number on this project has ever come from the owner's
+  phone.
