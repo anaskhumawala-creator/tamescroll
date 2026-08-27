@@ -39,6 +39,8 @@
 ! REELS — every entry point
 ! ============================================================
 
+!surface: reels Reels
+
 ! Reels in the left rail / bottom bar.
 ! [unverified]
 ! test: signed in on facebook.com -> no Reels entry in the navigation;
@@ -59,6 +61,8 @@ facebook.com##div[role="article"]:has(a[href^="/reel/"])
 ! WATCH — the video-only algorithmic feed
 ! ============================================================
 
+!surface: watch Watch feed
+
 ! [unverified]
 ! test: no Watch entry in the navigation; /watch typed by hand still
 !   loads (we hide entry points, we never block navigation)
@@ -70,7 +74,7 @@ facebook.com##div[aria-label="Video"]
 ! MARKETPLACE — shopping bait in a social feed
 ! ============================================================
 
-! !surface: marketplace | Marketplace | Shopping surfaced inside the feed
+!surface: marketplace Marketplace
 ! [unverified]
 ! test: no Marketplace entry in the navigation
 facebook.com##a[href^="/marketplace"]
@@ -80,7 +84,7 @@ facebook.com##a[href^="/marketplace"]
 ! SUGGESTED / PEOPLE YOU MAY KNOW — the algorithmic injections
 ! ============================================================
 
-! !surface: suggested | Suggested posts | Posts from accounts you do not follow
+!surface: suggested Suggested posts
 ! Facebook labels these units for screen readers, which is the only
 ! non-rotating hook they have.
 ! [unverified]
@@ -88,7 +92,7 @@ facebook.com##a[href^="/marketplace"]
 !   the next real post from a followed account is still there
 facebook.com##div[role="article"][aria-label*="Suggested"]
 
-! !surface: pymk | People you may know | Friend suggestions in the feed
+!surface: pymk People you may know
 ! [unverified]
 ! test: the People You May Know carousel is gone from the feed
 facebook.com##div[aria-label="People you may know"]
@@ -97,6 +101,8 @@ facebook.com##div[aria-label="People you may know"]
 ! ============================================================
 ! NAGS
 ! ============================================================
+
+!surface: nags App-install nags
 
 ! App-install interstitial on mobile web. Anchored on the intent:// or
 ! app-store outlink, the same hook that worked on m.youtube.

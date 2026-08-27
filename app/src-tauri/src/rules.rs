@@ -353,6 +353,48 @@ pub fn platform_surfaces(platform_id: &str) -> Option<&'static Vec<Surface>> {
 mod tests {
     use super::*;
 
+    /// A RULE WITHOUT A SURFACE ABOVE IT IS A RULE THAT DOES NOTHING.
+    ///
+    /// parse_surfaces attaches each `domain##selector` line to the most
+    /// recent `!surface:` marker and DROPS anything before the first one,
+    /// silently. rules/facebook.txt shipped its first draft that way:
+    /// eleven selectors, zero surfaces, nothing applied, and a live probe
+    /// that looked like it passed because the vendor lists match some of
+    /// the same words. Every file we own is checked here, so a new one
+    /// cannot repeat it.
+    #[test]
+    fn every_rule_we_own_belongs_to_a_surface() {
+        for (id, _) in all_surfaces() {
+            let file = format!("{id}.txt");
+            let text = embedded(&file).unwrap_or_else(|| panic!("{file} must be embedded"));
+            let mut seen_marker = false;
+            let mut orphans = Vec::new();
+            for line in text.lines() {
+                let line = line.trim();
+                if line.starts_with("!surface:") {
+                    seen_marker = true;
+                    continue;
+                }
+                if line.is_empty() || line.starts_with('!') {
+                    continue;
+                }
+                if line.contains("##") && !seen_marker {
+                    orphans.push(line.to_string());
+                }
+            }
+            assert!(orphans.is_empty(), "{file}: rules before any !surface: marker are dropped: {orphans:?}");
+            let surfaces = platform_surfaces(id).unwrap_or_else(|| panic!("{id} surfaces"));
+            let parsed: usize = surfaces.iter().map(|s| s.rules.len()).sum();
+            let declared = text
+                .lines()
+                .map(str::trim)
+                .filter(|l| !l.starts_with('!') && l.contains("##"))
+                .count();
+            assert_eq!(parsed, declared, "{file}: {declared} rules declared, {parsed} reached a surface");
+        }
+    }
+
+
     /// The parser must actually find the sections youtube.txt declares,
     /// including one it must never let the settings pane toggle off.
     #[test]

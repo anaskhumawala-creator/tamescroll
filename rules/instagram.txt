@@ -72,6 +72,8 @@ instagram.com##a[href^="/explore"]
 ! NAGS
 ! ============================================================
 
+!surface: nags App-install nags
+
 ! "Use the app" / app-install banners on mobile web.
 ! [unverified] — anchor on the App Store / Play Store outlinks
 ! test: load on a phone-sized viewport logged in ->
