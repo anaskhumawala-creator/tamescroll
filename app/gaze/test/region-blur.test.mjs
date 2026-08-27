@@ -2,7 +2,7 @@
 // 2026-08-24: scroll briefly exposed document-anchored patches).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { boxToParentRect, sameRect, padBox, expandToBody, mergeOverlapping, isPlayerSubtree, PLAYER_SUBTREE_SELECTOR } from '../src/region-blur.mjs';
+import { boxToParentRect, sameRect, padBox, expandToBody, mergeOverlapping, isPlayerSubtree, PLAYER_SUBTREE_SELECTOR, coversRect } from '../src/region-blur.mjs';
 
 test('boxToParentRect: element inset inside its parent maps to parent space', () => {
   // parent at viewport (80, 40); img at (100, 50) sized 200x100
@@ -113,4 +113,23 @@ test('the player selector covers both names m.youtube uses', () => {
   // been seen carrying an orphaned patch in a live DOM read.
   assert.ok(PLAYER_SUBTREE_SELECTOR.includes('#movie_player'));
   assert.ok(PLAYER_SUBTREE_SELECTOR.includes('ytm-video-preview'));
+});
+
+test('coversRect: a preview only stands the still patch down when it really covers it', () => {
+  // Owner 2026-08-27: while a preview plays over a thumbnail, the still's
+  // patches and the video path's whole-video blur disagree about where
+  // the person is, and the seam reads as wrong. Standing the still down
+  // is only safe when the preview covers essentially all of it -- a
+  // partial overlap would leave a face sharp in the uncovered strip.
+  const thumb = { left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100 };
+  const exact = { left: 0, top: 0, right: 200, bottom: 100 };
+  const offByRounding = { left: -1, top: -1, right: 201, bottom: 101 };
+  const half = { left: 100, top: 0, right: 200, bottom: 100 };
+  const elsewhere = { left: 400, top: 400, right: 600, bottom: 500 };
+  assert.equal(coversRect(exact, thumb), true);
+  assert.equal(coversRect(offByRounding, thumb), true, 'a pixel of layout rounding must not count as uncovered');
+  assert.equal(coversRect(half, thumb), false, 'half a thumbnail uncovered is an exposure, not a seam');
+  assert.equal(coversRect(elsewhere, thumb), false);
+  assert.equal(coversRect(null, thumb), false);
+  assert.equal(coversRect(exact, { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }), false);
 });

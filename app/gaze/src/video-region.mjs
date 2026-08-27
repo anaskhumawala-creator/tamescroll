@@ -297,7 +297,18 @@ function makeOverlay(key) {
 // pixel cap caused stays fixed) at half the width: ~23px on his ~460px
 // patch instead of ~46px. Still a gradient, not the hard rectangle S4
 // replaced.
-var FEATHER_FRAC = 0.05; // of the patch's short side
+// SHARPER AGAIN, 2026-08-27 (owner, after seeing 0.05 on the phone: "I
+// wanted more sharper blur in video as well the outline extra so it
+// looks for polished"). Same direction as the previous halving and the
+// same reason it is affordable: the margin stack the original 0.10 was
+// sized against is gone. At 0.03 a ~460px patch ramps over ~14px --
+// still a visible soft edge rather than the hard rectangle S4 replaced,
+// but the patch now reads as a deliberate object with an edge instead
+// of a smear. Below this the ramp stops being perceptible at all and
+// the FEATHER_MIN_PX floor starts doing all the work on small patches,
+// which reintroduces the phone-vs-desktop inconsistency the fraction
+// exists to prevent.
+var FEATHER_FRAC = 0.03; // of the patch's short side
 var FEATHER_MIN_PX = 10;
 var FEATHER_MAX_PX = 64;
 

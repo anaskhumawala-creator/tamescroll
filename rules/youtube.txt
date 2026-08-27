@@ -178,6 +178,23 @@ m.youtube.com##ytm-single-column-watch-next-results-renderer ytm-video-with-cont
 !   !document.querySelector('ytd-video-preview').closest('#movie_player')
 youtube.com##ytd-video-preview
 
+! MOBILE, and the deferral above is now settled by measurement.
+! The note that kept this desktop-only said m.youtube's preview reuses
+! the shared #movie_player, so hiding it might hide the watch player.
+! Half true, and the half that matters is the opposite: in the FEED the
+! preview host DOES contain #movie_player, but on a WATCH page there is
+! no preview host at all. So the selector can never match the watch
+! player -- there is nothing to match. Read live under a mobile UA with
+! touch emulation, 2026-08-27.
+! [live] feed: ytm-video-preview counted 1, contains a playing <video>,
+!   and #movie_player.closest('ytm-video-preview') is truthy.
+!   watch: ytm-video-preview counted 0 and
+!   #movie_player.closest('ytm-video-preview') is null.
+! test: on m.youtube.com /watch ->
+!   document.querySelectorAll('ytm-video-preview').length === 0 &&
+!   !!document.querySelector('#movie_player')
+m.youtube.com##ytm-video-preview
+
 
 ! ============================================================
 ! IN-FEED ADS — belt and braces only

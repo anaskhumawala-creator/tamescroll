@@ -253,6 +253,31 @@ export function initRegionBlur(flaggedClass) {
         dropEntry(entry);
         continue;
       }
+      // A PLAYING PREVIEW OWNS THE PIXELS, SO THE STILL'S PATCH STANDS
+      // DOWN. (owner 2026-08-27: "when the video is playing in the
+      // preview the existing blur to disappear so it doesn't look
+      // incorrectly blurred")
+      //
+      // Only reachable when the user has turned the Video previews
+      // surface back ON -- hidden is the default. m.youtube moves a
+      // single preview host over whichever thumbnail is in view and
+      // plays inside it, so for a moment the same subject is covered
+      // twice: our still-image patches underneath, and the video path's
+      // own whole-video blur on top of them. The two disagree about
+      // where the person is, and the seam is what reads as wrong.
+      //
+      // Hidden, not destroyed: the preview is transient and the patches
+      // are correct for the still, so they come straight back when it
+      // moves on. NOT covered by the containment test alone -- the
+      // preview must actually be PLAYING, because a parked preview host
+      // shows nothing and hiding the patch under it would expose.
+      var hidden = previewCovers(entry.el);
+      if (hidden !== entry.previewHidden) {
+        entry.previewHidden = hidden;
+        for (var k = 0; k < entry.overlays.length; k++) {
+          entry.overlays[k].style.display = hidden ? 'none' : '';
+        }
+      }
       // Only the SIZE matters for repositioning (position changes ride
       // along with the parent for free) — but a recycled node can also
       // move within its parent, so compare the parent-relative offset.
@@ -270,6 +295,35 @@ export function initRegionBlur(flaggedClass) {
 // The patch parent: the image's own parent element, promoted to a
 // positioned box when static. Never the <html>/<body> fallback — no
 // parent means whole blur stays.
+// Is a PLAYING preview covering this element? Cheap: the preview host is
+// a singleton on m.youtube, so this is one querySelector and at most one
+// rect comparison, and it only runs for elements that already carry
+// patches. Exported for tests.
+export function coversRect(a, b) {
+  if (!a || !b || !(b.width > 0) || !(b.height > 0)) return false;
+  var w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+  var h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+  if (!(w > 0) || !(h > 0)) return false;
+  return (w * h) / (b.width * b.height) >= PREVIEW_COVER_MIN;
+}
+
+// 0.9, not 1.0: the preview host and the thumbnail are laid out
+// independently and differ by a pixel or two of rounding. Well short of
+// this and part of the still is uncovered, where a face could sit.
+var PREVIEW_COVER_MIN = 0.9;
+
+function previewCovers(el) {
+  try {
+    var host = document.querySelector('ytm-video-preview, .ytmVideoPreviewHost, ytd-video-preview');
+    if (!host) return false;
+    var vid = host.querySelector('video');
+    if (!vid || vid.paused) return false;
+    return coversRect(host.getBoundingClientRect(), el.getBoundingClientRect());
+  } catch (e) {
+    return false;
+  }
+}
+
 // The shared-player subtree, in one place because two call sites need
 // the same answer and a selector that drifts in one of them is a bug
 // that only shows up on a phone. Exported for tests.

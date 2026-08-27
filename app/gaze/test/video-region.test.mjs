@@ -314,12 +314,20 @@ test('feather scales with the patch, so a phone and a desktop look alike', () =>
   const small = vr.featherFor({ left: 0, top: 0, width: 120, height: 90 });
   const phone = vr.featherFor({ left: 0, top: 0, width: 460, height: 490 });
   const big = vr.featherFor({ left: 0, top: 0, width: 1600, height: 900 });
-  assert.ok(phone > 16, `phone patch must get a visible ramp, got ${phone}`);
+  // NOT a width assertion any more, and the history is the reason. 16 was
+  // the old absolute pixel CAP, and pinning "wider than the cap" made
+  // sense while the cap was the bug. The owner has since asked for a
+  // sharper edge twice (2026-08-27), which took the share to 0.03 and the
+  // width on his ~460px patch to ~14px -- below the number that was once
+  // the failure. Both readings are his and neither is wrong; what must
+  // stay true regardless is that the ramp SCALES, so a phone and a
+  // desktop show the same edge. That is what the next assertion pins.
+  assert.ok(phone > 0, `phone patch must get some ramp, got ${phone}`);
   // The share was halved on 2026-08-27 ("needs sharpur blur edges ...
   // looks a bit low quality") once the margin stack it was sized against
   // was cut. What this test pins is the SCALING, not the width: the ramp
   // must still be a share of the patch rather than a pixel constant.
-  assert.ok(phone / 460 >= 0.04, 'ramp must be a meaningful share of the patch');
+  assert.ok(phone / 460 >= 0.02, 'ramp must be a meaningful share of the patch');
   assert.ok(
     Math.abs(phone / 460 - big / 900) < 1e-6,
     'the same share at two player sizes -- that is the whole point',
