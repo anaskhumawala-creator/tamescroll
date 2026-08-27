@@ -63,8 +63,23 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-27 night (v0.1.29/1029 RELEASED, commits
-b0ebef1 / 245a04e, apk sha e21b57ba).
+**Last updated:** 2026-08-28 00:20 (v0.1.30/1030 RELEASED, commits
+eca278e / 3c055ca, apk sha 78ef86aa).
+
+**Session 2026-08-28 — PREVIEW STAND-DOWN NEVER FIRED.** Owner phone
+screenshot: scrolling the feed, image patches drawn across a PLAYING
+preview, describing nothing on screen. The stand-down for exactly this
+shipped the session before and looked for `ytm-video-preview` /
+`.ytmVideoPreviewHost` / `ytd-video-preview`. MEASURED on the live
+mobile-UA feed: those are 0 elements, `#movie_player` is 1 — m.youtube
+previews reuse the SHARED player (same fact rules/youtube.txt records).
+Query now includes it; a `playing`/`pause` capture listener sweeps
+immediately instead of waiting out the 500ms heartbeat (10-11ms
+measured, poll-limited). Verified on a fresh page against the real
+player: playing+covering -> display:none, paused -> back, resumed ->
+gone. probe_stray found 0 misplaced patches over 10 scrolls, and
+probe_recycle found ZERO src/srcset swaps on m.youtube search, so
+thumbnail recycling is NOT the mechanism — do not chase it again.
 
 **Session 2026-08-27 night — INFERENCE LEFT THE MAIN THREAD.** Owner's
 report was "it processes some then it halts"; the answer was not a
