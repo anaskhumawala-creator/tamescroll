@@ -63,8 +63,49 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-28 00:20 (v0.1.30/1030 RELEASED, commits
-eca278e / 3c055ca, apk sha 78ef86aa).
+**Last updated:** 2026-08-28 02:00 (v0.1.34/1034 RELEASED, commit
+70bad0e, apk sha 4cc7ca0f).
+
+**Session 2026-08-28 (overnight) — META PLATFORMS, AND THREE SILENT
+NO-OPS.** Owner asked for Facebook + Instagram overnight; three separate
+delivery bugs turned up on the way, each of which made correct rules do
+nothing.
+- **THE THUMBNAIL CROP WAS STRETCHED.** cropAndResize squashes the
+  detector box into 224x224, so faceres read a distorted face on every
+  image: a clear front-facing man read `male` at 0.06 and was covered
+  (the owner's screenshot). Aspect-preserving crop (detector.js
+  `square`) -> male median 0.76, and the genders finally separate:
+  men 0.45-0.98, WOMEN misread as male 0.16-0.28. So
+  GENDER_IMAGE_MIN_SCORE 0.12 -> 0.4; the old bar was clearing those
+  women (a yoga thumbnail fully sharp = exposure). The child gate's cost
+  went to zero for free (childP max 0.22 over 48 reads, was 0.25-0.31).
+  IG explore still over-covers small distant faces (44-67px reading
+  0.34-0.40) — safe direction, accepted.
+- **DESKTOP RULES FOLLOWED THE WINDOW, NOT THE PAGE**, and then three
+  writers fought over one style id with no precedence, so the winner was
+  whoever found document.head first. Reddit opened from the YouTube tile
+  kept 8,564 bytes of ytd-* rules and NONE of its own — measured. Fix:
+  the page-load payload stamps `data-ts-scoped` and overwrites; the
+  host-blind writers stand down. All five platforms verified in one
+  window; r/popular now hides its feed 1/1 and an ad post 1/1.
+- **A RULE WITHOUT A `!surface:` ABOVE IT IS DROPPED SILENTLY.**
+  facebook.txt's first draft had 11 rules and 0 surfaces; three headers
+  were written `! !surface: id | Label | note`, which is a comment. Test
+  added: every rule line in every file we own must reach a surface, by
+  count, per platform.
+- **INSTAGRAM IS LIVE-VERIFIED WITHOUT A LOGIN**: /explore/ renders
+  signed out under a mobile UA. blur 12/12 images, Reels nav 1/1 hidden,
+  Explore nav 1/1, smart mode 48 verdicts. Two drafted selectors were
+  wrong (live hrefs are `/reels` and `/explore`, no trailing slash).
+  Tile is READY.
+- **FACEBOOK IS WIRED, NOT VERIFIED**: signed out it is a login wall (0
+  links, 0 articles). Delivery is confirmed (our exact selectors in the
+  injected sheet, gaze bundle boots); every selector is [unverified] and
+  says so. Tile is open so it can be tested on his phone.
+- Releases: 1031 (crop), 1032 (tiles), 1033 (fb rules apply), 1034
+  (per-host ownership). gaze 272/272, cargo 42/42.
+
+**Session 2026-08-28 early (v0.1.30/1030, commits eca278e / 3c055ca).
 
 **Session 2026-08-28 — PREVIEW STAND-DOWN NEVER FIRED.** Owner phone
 screenshot: scrolling the feed, image patches drawn across a PLAYING

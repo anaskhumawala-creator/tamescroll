@@ -1,9 +1,17 @@
 # VISION — read this first, it overrides everything else in docs/
 
 One sentence: **tamescroll is ONE self-contained app that opens the feed
-platforms (YouTube, Reddit, X, Instagram) as cleaned versions of
-themselves — no ads, no Shorts, no algorithmic feed, optional gaze blur —
-on desktop, Android and iOS.**
+platforms (YouTube, Reddit, X, Instagram, Facebook) as cleaned versions
+of themselves — no ads, no Shorts, no algorithmic feed, optional gaze
+blur — on desktop, Android and iOS.**
+
+> AMENDED 2026-08-28 by the owner: Facebook joins the list. It ships with
+> its algorithmic surfaces targeted (Reels, Watch, Marketplace, suggested
+> posts, People You May Know) and NO claim about feed ads — uBlock
+> Origin's maintainers stopped chasing those on 2026-08-10 because the
+> "Sponsored" label is built to defeat static matching, and promising
+> what they conceded would be the kind of scope drift this file exists to
+> stop.
 
 The user installs ONE thing. Nothing else. Ever.
 
