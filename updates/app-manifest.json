@@ -1,7 +1,7 @@
 {
-  "versionCode": 1033,
-  "versionName": "0.1.33",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.33/app-arm64-debug.apk",
-  "sha256": "b5a895db53f790659c22bdfccad1a6226448decae70fa7550b52bea5669b934c",
-  "notes": "Facebook rules actually apply"
+  "versionCode": 1034,
+  "versionName": "0.1.34",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.34/app-arm64-debug.apk",
+  "sha256": "4cc7ca0ff2a2d4dc86f9066341f8f0935f0b9277f9c7925c595c16e0af02300d",
+  "notes": "Per-platform rules land correctly"
 }
