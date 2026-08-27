@@ -1,0 +1,66 @@
+<!doctype html>
+<!-- Where does a thumbnail's 61ms actually go?
+     The image path costs one BlazeFace pass, one faceres pass per face,
+     and one nsfwjs pass. Only the total was ever measured, so "swap the
+     face model" was a guess about which half is which. This times the
+     three shipped detector functions on real YouTube thumbnails. -->
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>face vs gender vs nsfw</title>
+<body style="font: 13px monospace; background: #141414; color: #eee; padding: 12px">
+  <div id="out">loading…</div>
+  <script>window.__TS_BENCH__ = 1;</script>
+  <script src="gaze-init.js"></script>
+  <script>
+    var out = document.getElementById('out');
+    function log(l) { console.log('TS_SPLIT ' + l); out.innerHTML += '<br>' + l; }
+    function load(src) {
+      return new Promise(function (res, rej) {
+        var i = new Image();
+        i.crossOrigin = 'anonymous';
+        i.onload = function () { res(i); };
+        i.onerror = function () { res(null); };
+        i.src = src;
+      });
+    }
+    function p50(v) { v = v.slice().sort(function (a, b) { return a - b; }); return v[Math.floor(v.length / 2)]; }
+    (async function () {
+      var api = window.__TS_BENCH_API;
+      if (!api) { log('no bench api'); return; }
+      // Real thumbnails, the kind he scrolls past: talking heads, two-shots,
+      // title cards. hqdefault is what YouTube serves the feed.
+      var IDS = ['NWoT1ZVd1Lo','dQw4w9WgXcQ','jNQXAC9IVRw','9bZkp7q19f0','kJQP7kiw5Fk',
+                 'RgKAFK5djSk','JGwWNGJdvx8','OPf0YbXqDm0','fJ9rUzIMcZQ','CevxZvSJLk8'];
+      var imgs = (await Promise.all(IDS.map(function (id) {
+        return load('https://i.ytimg.com/vi/' + id + '/hqdefault.jpg');
+      }))).filter(Boolean);
+      log(imgs.length + ' thumbnails, ' + imgs[0].naturalWidth + 'x' + imgs[0].naturalHeight);
+      var face = await api.loadFace();
+      var gender = await api.loadGender();
+      var nsfw = await api.loadNsfw();
+      log('models loaded');
+
+      var det = [], gen = [], nsf = [], nFaces = [];
+      for (var pass = 0; pass < 4; pass++) {
+        for (var i = 0; i < imgs.length; i++) {
+          var t0 = performance.now();
+          var boxes = await api.detect(face, imgs[i]);
+          var t1 = performance.now();
+          if (boxes.length) await api.genders(gender, imgs[i], boxes);
+          var t2 = performance.now();
+          await api.nsfw(nsfw, imgs[i]);
+          var t3 = performance.now();
+          if (pass === 0) continue;                    // warm-up pass
+          det.push(t1 - t0); gen.push(boxes.length ? t2 - t1 : 0); nsf.push(t3 - t2);
+          nFaces.push(boxes.length);
+        }
+      }
+      var faces = nFaces.reduce(function (a, b) { return a + b; }, 0) / nFaces.length;
+      log('faces per thumbnail: ' + faces.toFixed(2));
+      log('BlazeFace  p50 ' + p50(det).toFixed(1) + 'ms');
+      log('faceres    p50 ' + p50(gen).toFixed(1) + 'ms  (0 when no face)');
+      log('nsfwjs     p50 ' + p50(nsf).toFixed(1) + 'ms');
+      log('withFace   p50 ' + p50(gen.filter(function (x) { return x > 0; })).toFixed(1) + 'ms of gender');
+      log('DONE');
+    })().catch(function (e) { log('ERROR ' + (e && e.message || e)); });
+  </script>
+</body>

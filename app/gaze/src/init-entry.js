@@ -182,13 +182,36 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
   }
 
   // One real macrotask. scheduler.yield() is the purpose-built API and
-  // returns to the event loop at user-visible priority where it exists;
-  // setTimeout(0) is the universally available equivalent.
+  // returns to the event loop at user-visible priority where it exists.
+  //
+  // WHERE IT DOES NOT, setTimeout(0) IS NOT FREE: measured in this
+  // WebView, a setTimeout(0) yield costs 4.92ms against 0.004ms for a
+  // MessageChannel one -- the nested-timer clamp, not the work. The
+  // image path yields twice per thumbnail, so on an engine without
+  // scheduler.yield that is ~10ms of pure clamp per image. WebView2 has
+  // the API and pays neither; Android's System WebView is the platform
+  // this is for, and it is the one nothing here can measure.
+  var yieldChannel = null;
+  var yieldQueue = [];
+  function channelYield() {
+    if (!yieldChannel) {
+      yieldChannel = new MessageChannel();
+      yieldChannel.port1.onmessage = function () {
+        var next = yieldQueue.shift();
+        if (next) next();
+      };
+    }
+    return new Promise(function (resolve) {
+      yieldQueue.push(resolve);
+      yieldChannel.port2.postMessage(0);
+    });
+  }
   function yieldToBrowser() {
     try {
       if (typeof scheduler !== 'undefined' && scheduler && typeof scheduler.yield === 'function') {
         return scheduler.yield();
       }
+      if (typeof MessageChannel === 'function') return channelYield();
     } catch (e) {}
     return new Promise(function (resolve) {
       setTimeout(resolve, 0);
@@ -271,6 +294,9 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
   }
 
   var IMAGE_BATCH_MAX = 4;
+  // How many images may be in flight at once. See the lanes comment in
+  // drainImages; __TS_IMG_LANES overrides it for A/B.
+  var IMAGE_LANES = 2;
   // How far below the fold an image can be and still be worth spending
   // the thread on: two viewports, i.e. roughly what a flick brings up
   // next. imagePriority returns 0 for anything on screen, the distance
@@ -606,9 +632,29 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
             return { face: false, flagBoxes: [], nsfw: nsfw };
           });
         }
+        // NSFW IS STARTED ALONGSIDE THE FACE PASS, NOT AFTER IT.
+        //
+        // The two read the same frame and neither needs the other's
+        // answer, but they ran end to end, so every face-clear image --
+        // the large majority -- paid 13ms of nsfwjs strictly after
+        // BlazeFace and faceres had finished. Started together, the
+        // classifier's GPU readback overlaps the face pass's work
+        // instead of queueing behind it.
+        //
+        // The only thing this spends that the old order did not is one
+        // nsfw pass on a face-FLAGGED image, whose answer is then
+        // discarded (measured: 2 of 25 images on a search page). The
+        // verdict is unchanged either way -- flagged stays flagged.
+        var nsfwP = nsfwModel
+          ? detector.isNsfw(nsfwModel, el, frame).catch(function () {
+              // A failed classifier must not fail the image: face-only
+              // is the documented degrade.
+              return false;
+            })
+          : null;
         return faceCheck(el, frame).then(function (face) {
           tFace = performance.now() - tImg0 - tLoad;
-          if (face.verdict === 'flag' || !nsfwModel) {
+          if (face.verdict === 'flag' || !nsfwP) {
             return {
               face: face.verdict === 'flag',
               flagBoxes: face.flagBoxes,
@@ -616,7 +662,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
               reads: face.reads,
             };
           }
-          return detector.isNsfw(nsfwModel, el, frame).then(function (nsfw) {
+          return nsfwP.then(function (nsfw) {
             // NSFW flags are whole-image by nature — no face boxes.
             return { face: false, flagBoxes: [], nsfw: nsfw, reads: face.reads };
           });
@@ -833,17 +879,41 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         imageQueue.splice(qi, 1);
         batch.push(cand);
       }
-      var seq = Promise.resolve();
-      batch.forEach(function (img, bi) {
-        if (bi > 0) seq = seq.then(yieldToBrowser);
-        seq = seq.then(function () {
-          var at = performance.now();
-          return Promise.resolve(detectImage(img)).then(function (r) {
-            noteSpend(performance.now(), performance.now() - at);
-            return r;
-          });
-        });
-      });
+      // TWO IMAGES IN FLIGHT, NOT ONE AND NOT FOUR.
+      //
+      // Strictly serial leaves the thread idle across every GPU readback
+      // (three models per image, each ending in an await). Unbounded
+      // overlap is what produced the 11-second image and the clump the
+      // owner reported. Two lanes keep the thread busy through one
+      // image's readbacks with the other's work, and cap how far behind
+      // any single image can fall.
+      var lanes = typeof window.__TS_IMG_LANES === 'number' ? window.__TS_IMG_LANES : IMAGE_LANES;
+      if (lanes < 1) lanes = 1;
+      var runners = [];
+      for (var li = 0; li < lanes && li < batch.length; li++) {
+        runners.push(
+          (function (lane) {
+            var seq = Promise.resolve();
+            for (var bi = lane; bi < batch.length; bi += lanes) {
+              seq = seq.then(
+                (function (img, first) {
+                  return function () {
+                    return (first ? Promise.resolve() : yieldToBrowser()).then(function () {
+                      var at = performance.now();
+                      return Promise.resolve(detectImage(img)).then(function (r) {
+                        noteSpend(performance.now(), performance.now() - at);
+                        return r;
+                      });
+                    });
+                  };
+                })(batch[bi], bi === lane)
+              );
+            }
+            return seq;
+          })(li)
+        );
+      }
+      var seq = Promise.all(runners);
       seq
         .catch(function () {
           /* detectImage fails closed on its own; the queue must not stop */
