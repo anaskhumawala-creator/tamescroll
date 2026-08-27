@@ -1,7 +1,7 @@
 {
-  "versionCode": 1030,
-  "versionName": "0.1.30",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.30/app-arm64-debug.apk",
-  "sha256": "78ef86aa9b7a38f2e606dc139875d0feaa1ac3b688728e3f290f52ec072078ce",
-  "notes": "Preview blur patches stand down"
+  "versionCode": 1031,
+  "versionName": "0.1.31",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.31/app-arm64-debug.apk",
+  "sha256": "d3cf4f59fec1e19c0ab558f22db9f9be0bcd2f47d9e935d422de0d359f58cf9f",
+  "notes": "Thumbnail gender reads fixed (aspect-correct crop)"
 }
