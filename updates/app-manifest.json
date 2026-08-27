@@ -1,7 +1,7 @@
 {
-  "versionCode": 1031,
-  "versionName": "0.1.31",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.31/app-arm64-debug.apk",
-  "sha256": "d3cf4f59fec1e19c0ab558f22db9f9be0bcd2f47d9e935d422de0d359f58cf9f",
-  "notes": "Thumbnail gender reads fixed (aspect-correct crop)"
+  "versionCode": 1032,
+  "versionName": "0.1.32",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.32/app-arm64-debug.apk",
+  "sha256": "5c19cb5d991519b216139c625fa745b4ce2a9830d8791fed19a4f9627f77d9e0",
+  "notes": "Instagram + Facebook tiles"
 }
