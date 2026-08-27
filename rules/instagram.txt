@@ -2,13 +2,18 @@
 ! Description: Removes Instagram's algorithmic surfaces — Reels and
 !              Explore — while leaving the followed-accounts feed, DMs,
 !              profiles and stories untouched.
-! Version: 0 (draft)
+! Version: 1
 ! Expires: 1 day
 ! License: CC0-1.0 (see rules/LICENSE)
 !
-! STATUS: DRAFT — EVERY RULE UNVERIFIED.
-! Instagram's logged-in web DOM could not be read this session (no
-! logged-in profile available; the logged-out page is a login wall).
+! STATUS: PARTLY VERIFIED 2026-08-28.
+! instagram.com/explore/ RENDERS SIGNED OUT under a mobile UA — measured
+! in the app: 12 images (every one on scontent.cdninstagram.com), the
+! navigation present with aria-labels Home / Direct / Reels / Search and
+! explore / Profile, one a[href^="/reels"], one a[href^="/explore"].
+! So the navigation rules below are [live]; anything that needs a FEED
+! (suggested units, in-feed reels) still needs a logged-in session and
+! stays [unverified].
 ! Meta ships obfuscated, frequently-rotated class names, so
 ! class-based selectors are useless — everything below anchors on
 ! hrefs and ARIA labels, which survive rotation. Verify each rule on a
@@ -27,11 +32,17 @@
 ! REELS — every entry point
 ! ============================================================
 
-! Reels tab in the left/bottom navigation.
-! [unverified]
-! test: on a logged-in https://www.instagram.com/ ->
-!   the nav link to /reels/ must be hidden
-instagram.com##a[href^="/reels/"]
+!surface: reels Reels
+
+! Reels tab in the left/bottom navigation. The trailing slash was a
+! GUESS and it was wrong: the live nav href is "/reels" with no slash,
+! so the drafted selector matched nothing.
+! [live] measured 2026-08-28, signed out, mobile UA, /explore/:
+!   a[href^="/reels"] -> 1, [aria-label="Reels"] -> 1
+! test: on https://www.instagram.com/explore/ ->
+!   a[href^="/reels"] must be hidden; the Home, Direct, Search and
+!   Profile controls must remain
+instagram.com##a[href^="/reels"]
 
 ! Reels items surfacing inside other feeds (anchored on link).
 ! [unverified]
@@ -44,11 +55,17 @@ instagram.com##article:has(> div a[href^="/reel/"])
 ! EXPLORE — the algorithmic grid
 ! ============================================================
 
-! Explore tab in the navigation. Search stays reachable via the search
-! icon, which is a separate control.
-! [unverified]
-! test: nav link to /explore/ hidden; search still opens
-instagram.com##a[href="/explore/"]
+!surface: explore Explore grid
+
+! Explore tab in the navigation. On the live mobile nav this control is
+! labelled "Search and explore" and its href has no trailing slash --
+! a[href="/explore/"] matched 0. Search stays reachable: hiding the
+! entry point does not block navigation.
+! [live] measured 2026-08-28: a[href^="/explore"] -> 1
+! test: on https://www.instagram.com/explore/ ->
+!   a[href^="/explore"] hidden, the grid links (a[href^="/popular"])
+!   still present in the DOM
+instagram.com##a[href^="/explore"]
 
 
 ! ============================================================

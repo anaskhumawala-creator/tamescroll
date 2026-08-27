@@ -35,6 +35,8 @@ const YOUTUBE_RULES: &str = include_str!("../../../rules/youtube.txt");
 const REDDIT_RULES: &str = include_str!("../../../rules/reddit.txt");
 const X_RULES: &str = include_str!("../../../rules/x.txt");
 const TIKTOK_RULES: &str = include_str!("../../../rules/tiktok.txt");
+const INSTAGRAM_RULES: &str = include_str!("../../../rules/instagram.txt");
+const FACEBOOK_RULES: &str = include_str!("../../../rules/facebook.txt");
 
 /// Upstream filter lists. These block ads and trackers by network pattern
 /// and cosmetic selector; the scriptlet resources below are what actually
@@ -59,6 +61,8 @@ const BLUR_YOUTUBE: &str = include_str!("../../../rules/blur/youtube.css");
 const BLUR_REDDIT: &str = include_str!("../../../rules/blur/reddit.css");
 const BLUR_X: &str = include_str!("../../../rules/blur/x.css");
 const BLUR_TIKTOK: &str = include_str!("../../../rules/blur/tiktok.css");
+const BLUR_INSTAGRAM: &str = include_str!("../../../rules/blur/instagram.css");
+const BLUR_FACEBOOK: &str = include_str!("../../../rules/blur/facebook.css");
 const SCRIPTLET_RULES: &str = include_str!("../../../rules/scriptlets.txt");
 
 /// Every rules file the OTA layer may override, keyed by its
@@ -71,11 +75,15 @@ pub fn embedded(name: &str) -> Option<&'static str> {
         "reddit.txt" => Some(REDDIT_RULES),
         "x.txt" => Some(X_RULES),
         "tiktok.txt" => Some(TIKTOK_RULES),
+        "instagram.txt" => Some(INSTAGRAM_RULES),
+        "facebook.txt" => Some(FACEBOOK_RULES),
         "scriptlets.txt" => Some(SCRIPTLET_RULES),
         "blur/youtube.css" => Some(BLUR_YOUTUBE),
         "blur/reddit.css" => Some(BLUR_REDDIT),
         "blur/x.css" => Some(BLUR_X),
         "blur/tiktok.css" => Some(BLUR_TIKTOK),
+        "blur/instagram.css" => Some(BLUR_INSTAGRAM),
+        "blur/facebook.css" => Some(BLUR_FACEBOOK),
         "vendor/easylist.txt" => Some(EASYLIST),
         "vendor/easyprivacy.txt" => Some(EASYPRIVACY),
         "vendor/ubo-filters.txt" => Some(UBO_FILTERS),
@@ -307,6 +315,8 @@ fn build_surfaces() -> &'static Vec<(&'static str, Vec<Surface>)> {
         ("reddit", parse_surfaces(leaked("reddit.txt"))),
         ("x", parse_surfaces(leaked("x.txt"))),
         ("tiktok", parse_surfaces(leaked("tiktok.txt"))),
+        ("instagram", parse_surfaces(leaked("instagram.txt"))),
+        ("facebook", parse_surfaces(leaked("facebook.txt"))),
     ]))
 }
 

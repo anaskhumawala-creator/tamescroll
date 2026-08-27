@@ -1,0 +1,39 @@
+/* tamescroll — Instagram gaze blur (Stage A, CSS-only, opt-in)
+ *
+ * WHAT THIS BLURS
+ * Every photo and video Instagram renders. Instagram has no text feed:
+ * a post IS its image, so a per-surface selector list would be a list
+ * of every element on the site.
+ *
+ * WHY NOT A NARROWER SELECTOR
+ * Meta rotates class names, and the media wrappers carry no stable
+ * test id. What IS stable is that content images come from
+ * scontent.cdninstagram.com and that the chrome is SVG, not <img> --
+ * verified live 2026-08-28 (signed out, mobile UA, /explore/): 12 imgs,
+ * every one of them on scontent.cdninstagram.com, and the whole
+ * navigation drawn as <svg>. So a blanket img/video rule blurs content
+ * and leaves the interface legible, without naming a single rotating
+ * class.
+ *
+ * Cost accepted: profile avatars blur too. They are small wayfinding
+ * imagery, but they are also faces, and in Stage A (no inference) there
+ * is nothing to tell one from the other. Smart mode does that properly
+ * -- the gaze bundle skips images under 120px and clears same-gender
+ * faces.
+ *
+ * NO hover-to-reveal — a reveal gesture trains the un-blur reflex
+ * (docs/plan.md Phase 4).
+ */
+
+img,
+video {
+  filter: blur(var(--ts-blur, 16px));
+}
+
+/* PLAYER RED LINE: an opened Reel or post video is the thing the user
+ * chose to watch. Instagram plays it in a dialog; never blur it.
+ * [unverified] — needs a signed-in session to confirm the dialog role
+ * survives on the post/reel detail view. */
+[role="dialog"] video {
+  filter: none !important;
+}

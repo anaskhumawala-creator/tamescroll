@@ -1,0 +1,106 @@
+! Title: tamescroll — Facebook
+! Description: Removes Facebook's algorithmic surfaces — Reels, Watch,
+!              Marketplace bait, and the "Suggested for you" units the
+!              feed injects between the posts of people you follow.
+! Version: 1
+! Expires: 1 day
+! License: CC0-1.0 (see rules/LICENSE)
+!
+! STATUS: EVERY RULE [unverified].
+! Facebook signed out is a login wall and nothing else — measured
+! 2026-08-28 in the app on both www.facebook.com and m.facebook.com
+! (mobile UA): 0 links, 0 articles, 6 images, and aria-labels for
+! nothing but the login form. There is no way to read the real DOM from
+! this machine without a session, so every selector below is written
+! from the structure Meta exposes to assistive technology and must be
+! confirmed on a logged-in phone before any of it is tagged [live].
+!
+! WHAT THIS DOES NOT PROMISE: FEED ADS.
+! uBlock Origin's maintainers stopped chasing Facebook's ads on
+! 2026-08-10 — the "Sponsored" label is deliberately engineered so that
+! no static selector can recognise it, and Meta watches the public
+! blocklists to break whatever lands. We are not going to pretend to win
+! a fight the people who invented this work have conceded. The vendored
+! EasyList/uBO snapshots still apply whatever network-level blocking
+! they carry; our own rules target the ALGORITHMIC SURFACES, which is
+! what this app is actually about and which Meta cannot obfuscate
+! without breaking its own navigation.
+!
+! ANCHORS, AND WHY THESE ONES
+! Meta's class names are generated and rotate. Three things do not:
+!   1. hrefs — /reel/, /watch, /marketplace are the app's own routes;
+!   2. aria-label on navigation controls, because screen readers need
+!      them (they ARE localised — an English UI is assumed, and a
+!      non-English one degrades to no-op, never to a broken page);
+!   3. role="article", the feed item container.
+
+
+! ============================================================
+! REELS — every entry point
+! ============================================================
+
+! Reels in the left rail / bottom bar.
+! [unverified]
+! test: signed in on facebook.com -> no Reels entry in the navigation;
+!   Home, Friends, Profile and Menu all still present and clickable
+facebook.com##a[href^="/reel/"]
+facebook.com##a[href*="/reels/"]
+facebook.com##div[aria-label="Reels"]
+
+! Reels units injected between feed posts. The tray is a feed item that
+! contains reel links and nothing else a normal post would carry.
+! [unverified]
+! test: scroll the home feed past a Reels tray -> tray gone, the posts
+!   above and below it untouched
+facebook.com##div[role="article"]:has(a[href^="/reel/"])
+
+
+! ============================================================
+! WATCH — the video-only algorithmic feed
+! ============================================================
+
+! [unverified]
+! test: no Watch entry in the navigation; /watch typed by hand still
+!   loads (we hide entry points, we never block navigation)
+facebook.com##a[href^="/watch"]
+facebook.com##div[aria-label="Video"]
+
+
+! ============================================================
+! MARKETPLACE — shopping bait in a social feed
+! ============================================================
+
+! !surface: marketplace | Marketplace | Shopping surfaced inside the feed
+! [unverified]
+! test: no Marketplace entry in the navigation
+facebook.com##a[href^="/marketplace"]
+
+
+! ============================================================
+! SUGGESTED / PEOPLE YOU MAY KNOW — the algorithmic injections
+! ============================================================
+
+! !surface: suggested | Suggested posts | Posts from accounts you do not follow
+! Facebook labels these units for screen readers, which is the only
+! non-rotating hook they have.
+! [unverified]
+! test: scroll until a "Suggested for you" post appears -> hidden, and
+!   the next real post from a followed account is still there
+facebook.com##div[role="article"][aria-label*="Suggested"]
+
+! !surface: pymk | People you may know | Friend suggestions in the feed
+! [unverified]
+! test: the People You May Know carousel is gone from the feed
+facebook.com##div[aria-label="People you may know"]
+
+
+! ============================================================
+! NAGS
+! ============================================================
+
+! App-install interstitial on mobile web. Anchored on the intent:// or
+! app-store outlink, the same hook that worked on m.youtube.
+! [unverified]
+! test: load m.facebook.com on a phone -> no "Open in app" bar
+facebook.com##a[href^="intent://"]
+facebook.com##a[href*="play.google.com/store/apps"]

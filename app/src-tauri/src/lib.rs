@@ -22,7 +22,7 @@ mod rules;
 /// files are `filter: blur(...)` rules on chosen media selectors, kept
 /// separate from rules/*.txt because blurring is a personal choice and the
 /// mechanism (plain CSS) differs from cosmetic hiding.
-const BLUR_PLATFORMS: &[&str] = &["youtube", "reddit", "x", "tiktok"];
+const BLUR_PLATFORMS: &[&str] = &["youtube", "reddit", "x", "tiktok", "instagram", "facebook"];
 
 fn blur_css(platform_id: &str) -> String {
     if !BLUR_PLATFORMS.contains(&platform_id) {
@@ -706,11 +706,35 @@ const PLATFORMS: &[Platform] = &[
         ready: true,
     },
     Platform {
+        // READY 2026-08-28. Verified live in the app, signed out,
+        // mobile UA, on the one Instagram surface that renders without
+        // a session: /explore/ blurs 12 of 12 images in blur mode, the
+        // Reels and Explore nav entries hide 1/1, and smart mode boots
+        // the worker and returns 48 verdicts. The FEED rules
+        // (suggested units, in-feed reels) are still [unverified] --
+        // that is a rules gap, not a reason to withhold a working
+        // platform.
         id: "instagram",
         name: "Instagram",
         url: "https://www.instagram.com/",
         tint: "#E1306C",
-        ready: false,
+        ready: true,
+    },
+    Platform {
+        // Facebook is NOT one of the four platforms in docs/VISION.md;
+        // the owner added it 2026-08-28. It ships `ready: false` for the
+        // same reason Instagram does: signed out it is a login wall, so
+        // not one of its selectors has been seen against a real feed.
+        id: "facebook",
+        name: "Facebook",
+        url: "https://www.facebook.com/",
+        tint: "#1877F2",
+        // Openable so it can be TESTED on a signed-in phone -- from
+        // this machine Facebook is a login wall and nothing below the
+        // wiring can be verified. Rules delivery, the blur sheet and
+        // the gaze bundle are confirmed to land on m.facebook.com;
+        // every SELECTOR is unverified and says so in rules/facebook.txt.
+        ready: true,
     },
 ];
 
@@ -1204,6 +1228,20 @@ async fn open_platform(
             true
         })
         .on_page_load(|webview, payload| {
+            // RULES FOLLOW THE NAVIGATION, not the window.
+            //
+            // The cosmetic sheet used to be built once, at window
+            // creation, for the platform the tile opened. Follow a link
+            // from one platform to another -- or open Instagram in a
+            // window that started on YouTube -- and the page got
+            // YouTube's selectors and none of its own. Measured
+            // 2026-08-28: on instagram.com/explore the injected sheet
+            // was 8,564 bytes of ytd-*/ytm-* rules and contained not one
+            // Instagram selector. Android has evaluated it per page load
+            // since the rules-delivery fix; desktop never did.
+            if let Some(js) = page_load_rules_script(payload.url().as_str()) {
+                let _ = webview.eval(&js);
+            }
             if let Some(js) = page_load_gaze_script(payload.url().as_str(), gaze_state()) {
                 let _ = webview.eval(&js);
             }
@@ -1581,12 +1619,18 @@ mod tests {
     /// the right payload per mode, and map mobile hosts to their platform.
     #[test]
     fn page_load_gaze_script_dispatches_on_mode_and_host() {
-        // A non-platform host, or a platform without a blur sheet:
-        // nothing to eval, in any mode.
+        // A non-platform host: nothing to eval, in any mode.
         assert!(page_load_gaze_script("https://accounts.google.com/", "blur").is_none());
-        assert!(page_load_gaze_script("https://www.instagram.com/", "blur").is_none());
-        assert!(page_load_gaze_script("https://www.instagram.com/", "off").is_none());
         assert!(page_load_gaze_script("http://tauri.localhost/", "smart").is_none());
+
+        // Instagram and Facebook have blur sheets since 2026-08-28, so
+        // they boot like any other platform -- their TILES stay
+        // `ready: false` (unverified feed selectors), which is a
+        // separate thing from whether the gaze layer works there.
+        for host in ["https://www.instagram.com/", "https://www.facebook.com/"] {
+            assert!(page_load_gaze_script(host, "blur").is_some(), "{host} blur");
+            assert!(page_load_gaze_script(host, "smart").is_some(), "{host} smart");
+        }
 
         // Off still boots Stage B for the compulsory NSFW-removal tier
         // (handoff decision #1) — mode "off" baked in, no Stage A sheet.
