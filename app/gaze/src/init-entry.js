@@ -700,8 +700,18 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         }
       : idle;
     arm(function (deadline) {
-      imageDraining = false;
+      // The flag is released when the BATCH finishes, not when the
+      // callback starts (owner 2026-08-27: "it's processing multiple
+      // together but ... it processes some, then it halts"). Releasing
+      // it here let a second drain start while the first was still
+      // running, so batches interleaved: every image took longer, and
+      // they all landed together at the end instead of one at a time.
+      // Every exit below releases it -- and so does the batch promise.
+      var release = function () {
+        imageDraining = false;
+      };
       if (failed) {
+        release();
         imageQueue.length = 0;
         return;
       }
@@ -715,13 +725,17 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       // hidden tab would grind through the queue at seconds per image
       // for nobody. Park the queue; the visibilitychange listener
       // below re-arms the drain the moment the page shows again.
-      if (document.hidden) return;
+      if (document.hidden) {
+        release();
+        return;
+      }
       if (plan.faceGender ? !model || !genderSettled || !nsfwSettled : !nsfwModel) {
         // Model still loading: back off instead of re-arming the idle
         // callback immediately — the immediate re-arm was a tight loop
         // eating every idle slice for the whole model-load window,
         // exactly the INSTANT-rule violation Stage B must never commit
         // (review 2026-08-19).
+        release();
         if (imageQueue.length) setTimeout(drainImages, 250);
         return;
       }
@@ -751,6 +765,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       //     than four.
       var nowMs = performance.now();
       if (overBudget(nowMs, imageBudgetFrac(nowMs))) {
+        release();
         if (imageQueue.length) setTimeout(drainImages, SCROLL_QUIET_MS);
         return;
       }
@@ -829,11 +844,16 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
           });
         });
       });
-      seq.then(function () {
-        // Only continue for work that is actually eligible; if every
-        // remaining image is far off screen, the next scroll wakes it.
-        if (imageQueue.length > skipped) drainImages(true);
-      });
+      seq
+        .catch(function () {
+          /* detectImage fails closed on its own; the queue must not stop */
+        })
+        .then(function () {
+          release();
+          // Only continue for work that is actually eligible; if every
+          // remaining image is far off screen, the next scroll wakes it.
+          if (imageQueue.length > skipped) drainImages(true);
+        });
     });
   }
 
