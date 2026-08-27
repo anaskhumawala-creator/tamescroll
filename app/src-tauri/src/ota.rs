@@ -135,13 +135,32 @@ fn cache_file_path(dir: &Path, name: &str) -> PathBuf {
 /// Loads the cached rule set from a previous refresh, verifying every
 /// file against the cached manifest before trusting it. Corrupt or
 /// missing entries silently fall back to the embedded snapshot.
+/// The stamp that decides whether a cache belongs to THIS app build.
+///
+/// It used to be `CARGO_PKG_VERSION`, and that made the whole check
+/// inert: releases bump `tauri.conf.json` and `appupdate.rs`, never
+/// `Cargo.toml`, which has read `0.1.0` since the first commit. So the
+/// comparison was `"0.1.0" == "0.1.0"` on every build ever shipped, and
+/// a cache written by v1001 was still trusted by v1021 — exactly the
+/// staleness review 2026-08-23 #11 added the stamp to prevent. Found on
+/// 2026-08-27 by reading a live cache directory: it held rules from two
+/// days earlier under an app twenty versions newer.
+///
+/// `CURRENT_VERSION_CODE` is the right source because it is the number
+/// the updater already compares against the manifest, so it cannot drift
+/// from what "this app build" means without the update flow breaking
+/// first and loudly.
+fn cache_stamp() -> String {
+    crate::appupdate::CURRENT_VERSION_CODE.to_string()
+}
+
 pub fn load_cache(dir: &Path) {
     // A cache written by an OLDER app build can be staler than this
     // build's embedded snapshot — after an app update the embedded rules
     // are the newest thing on the device until a refresh succeeds
     // (review 2026-08-23 #11). Version-stamped: mismatch = ignore cache.
     let version_ok = std::fs::read_to_string(dir.join("app-version"))
-        .map(|v| v.trim() == env!("CARGO_PKG_VERSION"))
+        .map(|v| v.trim() == cache_stamp())
         .unwrap_or(false);
     if !version_ok {
         return;
@@ -225,7 +244,7 @@ pub fn refresh() -> Result<String, String> {
             let _ = std::fs::write(cache_file_path(dir, name), text);
         }
         let _ = std::fs::write(dir.join("manifest.json"), &manifest_json);
-        let _ = std::fs::write(dir.join("app-version"), env!("CARGO_PKG_VERSION"));
+        let _ = std::fs::write(dir.join("app-version"), cache_stamp());
     }
 
     let applied = fetched.len();
@@ -375,6 +394,23 @@ mod tests {
         assert!(validate_payload(html, &html_hash).is_err(), "error pages must be rejected");
         let empty_hash = sha256_hex(b"  \n ");
         assert!(validate_payload("  \n ", &empty_hash).is_err());
+    }
+
+    #[test]
+    /// The stamp must track the number releases actually bump. It read
+    /// CARGO_PKG_VERSION for twenty releases, which never changes, so a
+    /// cache from any older build was always accepted.
+    #[test]
+    fn cache_stamp_tracks_the_release_version_not_the_crate_version() {
+        assert_eq!(
+            super::cache_stamp(),
+            crate::appupdate::CURRENT_VERSION_CODE.to_string()
+        );
+        assert_ne!(
+            super::cache_stamp(),
+            env!("CARGO_PKG_VERSION"),
+            "a stamp equal to the crate version is the inert check this replaced"
+        );
     }
 
     #[test]
