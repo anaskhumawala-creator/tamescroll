@@ -79,7 +79,20 @@ import {
 import * as videoRegion from './video-region.mjs';
 import { createTextMatcher } from './text-signals.mjs';
 import { planForMode, rotateBudget } from './pipeline-plan.mjs';
+import { createWorkerClient } from './worker-client.mjs';
+import { startWorker } from './worker-entry.js';
 
+// ONE ARTIFACT, TWO ROLES.
+//
+// This bundle is evaluated into the page AND served (by the Rust request
+// interceptor, on the page's own origin) as the inference worker's
+// script. Building two bundles meant two copies of tfjs and four copies
+// of every model -- 17MB of APK for bytes that were identical. In a
+// worker there is no document, and none of the page pipeline below can
+// or should run.
+if (typeof importScripts === 'function' && typeof document === 'undefined') {
+  startWorker();
+} else
 (function () {
   // Distinctive, minification-proof marker (property assignment with a
   // string literal — esbuild won't rename it) so the Rust side can prove
@@ -351,6 +364,14 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
   // now waits for settlement instead; on failure this still flips true
   // and the presence-only degradation applies to everything equally.
   var genderSettled = false;
+  // THE INFERENCE WORKER (2026-08-27). Images are classified off the
+  // main thread where the platform lets us have one -- see
+  // worker-client.mjs and synthetic_resource in lib.rs. `null` means we
+  // never got one and everything below runs exactly as it did before.
+  var gazeWorker = null;
+  function workerAlive() {
+    return !!gazeWorker && gazeWorker.ready();
+  }
   // Everything that ever wore pending/flagged, for the fail-open sweep.
   // WeakRefs + a per-element tracked flag: virtualised feeds detach
   // thousands of media nodes per long scroll, and strong refs here would
@@ -568,6 +589,32 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
     }
   }
 
+  // ONE PLACE THAT TURNS A VERDICT INTO PIXELS, because there are now
+  // two paths that produce one (in page and in the worker) and a second
+  // copy of this is how they would drift.
+  //
+  // Only the FAILING faces' person-regions get patches (cleared faces in
+  // the same image stay sharp — owner 2026-08-24); the whole-blur class
+  // stays on until the first successful patch placement, so blur-first
+  // holds throughout.
+  function applyVerdictToImage(img, result) {
+    if (result.nsfw) {
+      // Compulsory tier: removed outright, every mode, no setting.
+      markRemoved(img);
+    } else if (result.face) {
+      markFlagged(img);
+      if (regionBlur && result.flagBoxes.length) {
+        var bodies = [];
+        for (var rb = 0; rb < result.flagBoxes.length; rb++) {
+          bodies.push(expandToBody(result.flagBoxes[rb]));
+        }
+        applyRegionBlur(img, bodies);
+      }
+    } else if (plan.revealClears) {
+      clearEl(img);
+    }
+  }
+
   function detectImage(img) {
     // Text pre-filter: a hit keeps the element covered without spending
     // any inference on it. Whole-element blur (no face boxes to narrow
@@ -612,6 +659,80 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         }
         bitmap = null;
       }
+    }
+    // OFF-THREAD PATH. The main thread's whole job here becomes: make an
+    // ImageBitmap, hand it over (transferred, not copied), apply the
+    // answer. The verdict rules stay HERE -- flaggedFaceIndices and the
+    // thresholds are owner-tuned policy with tests, and a second copy
+    // inside the worker is how the two would drift.
+    if (workerAlive()) {
+      return dom
+        .loadDetectable(img)
+        .then(function (el) {
+          tLoad = performance.now() - tImg0;
+          if (el && typeof el.close === 'function' && el !== img) bitmap = el;
+          return createImageBitmap(el);
+        })
+        .then(function (bmp) {
+          releaseFrame();
+          return gazeWorker.classifyImage(bmp);
+        })
+        .then(function (res) {
+          if (failed) return;
+          var faces = res.boxes || [];
+          var reads = res.reads || [];
+          var flagBoxes = [];
+          if (faces.length) {
+            if (!reads.length) {
+              // No gender model in the worker: presence-only, the same
+              // fail-safe the in-page path uses.
+              flagBoxes = faces;
+            } else {
+              var idx = flaggedFaceIndices(userGender, reads);
+              for (var i = 0; i < idx.length; i++) flagBoxes.push(faces[idx[i]]);
+            }
+          }
+          var result = {
+            face: flagBoxes.length > 0,
+            flagBoxes: flagBoxes,
+            nsfw: !flagBoxes.length && !!res.nsfw,
+            reads: reads,
+          };
+          noteImgDiag({
+            t: Math.round(performance.now()),
+            ms: Math.round(performance.now() - tImg0),
+            load: Math.round(tLoad),
+            face: res.ms,
+            w: img.naturalWidth,
+            where: 'worker',
+            src: (img.currentSrc || img.src || '').slice(0, 90),
+            why: result.nsfw ? 'nsfw' : result.face ? 'face' : 'clear',
+            faces: reads.length,
+            flagged: flagBoxes.length,
+            reads: reads.map(function (r) {
+              return {
+                g: r.gender,
+                s: Math.round((r.score || 0) * 100) / 100,
+                a: typeof r.age === 'number' ? Math.round(r.age) : null,
+                c: typeof r.childP === 'number' ? Math.round(r.childP * 100) / 100 : null,
+              };
+            }),
+          });
+          applyVerdictToImage(img, result);
+        })
+        .catch(function (e) {
+          releaseFrame();
+          // The worker refused or died mid-flight. Fail CLOSED for this
+          // image (it stays blurred, as it already is) and let the
+          // client's own death handling decide whether the in-page
+          // pipeline takes over from here.
+          noteImgDiag({
+            t: Math.round(performance.now()),
+            why: 'error',
+            where: 'worker',
+            msg: String((e && e.message) || e).slice(0, 80),
+          });
+        });
     }
     return dom
       .loadDetectable(img)
@@ -694,25 +815,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
             };
           }),
         });
-        if (result.nsfw) {
-          // Compulsory tier: removed outright, every mode, no setting.
-          markRemoved(img);
-        } else if (result.face) {
-          markFlagged(img);
-          // Only the FAILING faces' person-regions get patches (cleared
-          // faces in the same image stay sharp — owner 2026-08-24); the
-          // whole-blur class stays on until the first successful patch
-          // placement — blur-first holds throughout.
-          if (regionBlur && result.flagBoxes.length) {
-            var bodies = [];
-            for (var rb = 0; rb < result.flagBoxes.length; rb++) {
-              bodies.push(expandToBody(result.flagBoxes[rb]));
-            }
-            applyRegionBlur(img, bodies);
-          }
-        } else if (plan.revealClears) {
-          clearEl(img);
-        }
+        applyVerdictToImage(img, result);
       })
       .catch(function (e) {
         releaseFrame();
@@ -735,6 +838,16 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
   // sitting still. Nothing about that wait protects anything: the spend
   // budget and the per-image yield are what keep the thread free, and
   // both still apply. A continuation goes straight to a macrotask.
+  // Who is allowed to judge an image yet. The worker reports the same
+  // staged readiness the in-page loads do (a FAILED model counts as
+  // settled, exactly as it does in page), and while it is still loading
+  // we wait rather than starting the in-page models -- starting them
+  // would mean two copies of every model on a phone.
+  function imagesReady() {
+    if (gazeWorker && !gazeWorker.dead()) return gazeWorker.ready() && gazeWorker.settled();
+    return plan.faceGender ? !!model && genderSettled && nsfwSettled : !!nsfwModel;
+  }
+
   function drainImages(soon) {
     if (imageDraining) return;
     imageDraining = true;
@@ -775,7 +888,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         release();
         return;
       }
-      if (plan.faceGender ? !model || !genderSettled || !nsfwSettled : !nsfwModel) {
+      if (!imagesReady()) {
         // Model still loading: back off instead of re-arming the idle
         // callback immediately — the immediate re-arm was a tight loop
         // eating every idle slice for the whole model-load window,
@@ -1052,9 +1165,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
     // a known compulsory-tier gap (no NSFW sampling yet — noted for the
     // strictness spec pass).
     if (!plan.faceGender) return;
-    // A page with no video does not need the person model, and this is
-    // the moment that stops being true. See ensurePersonModel.
-    ensurePersonModel();
+
     // The WATCH PLAYER samples live too (owner decision 2026-08-23,
     // HaramBlur-parity: the old player exemption is reversed for smart
     // mode). Player videos get an in-player toggle so a wrong verdict
@@ -3124,10 +3235,19 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
 
     function start() {
       if (failed || dead) return;
-      // A played player video can't wait for post-load idle to bring the
-      // models — the deferral would hold it blur-first forever on a busy
-      // watch page. Kick the load now (idempotent).
-      if (isPlayer) ensureFaceModels();
+      // A played video can't wait for post-load idle to bring the models
+      // — the deferral would hold it blur-first forever on a busy watch
+      // page. Kick the loads now (both idempotent).
+      //
+      // ATTACHING a video is not enough to justify them, which is what
+      // this used to key off: a YouTube search page carries a hidden
+      // preview <video> that never plays, so every search loaded four
+      // models nothing on the page would use. Now that images are
+      // classified in the worker, that was also a second copy of every
+      // model in memory on a phone. PLAYING is the moment the in-page
+      // path genuinely needs them.
+      ensureFaceModels();
+      ensurePersonModel();
       if (hasRvfc) {
         // rvfcLoop's armed-flag makes the play/playing double-fire (and a
         // parked callback surviving a pause) collapse into one loop —
@@ -3471,10 +3591,63 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
   // here is exactly the "AI never in the critical path" rule from
   // VISION.md applied to failure, not just latency: if it can't run,
   // don't punish the page.
+  // THE WORKER STARTS IMMEDIATELY, the in-page models still wait.
+  //
+  // Fetching and compiling a 16MB script off-thread costs the page
+  // nothing that matters -- the whole point is that none of it lands on
+  // the thread drawing the feed -- so the sooner it starts, the sooner
+  // thumbnails resolve. The in-page path keeps its post-load-idle
+  // deferral, because that one DOES compile shaders on this thread.
+  startInferenceWorker();
+
   whenSettled(function () {
     if (failed) return;
+    // A live worker owns the image path, so the in-page models are only
+    // loaded for the PLAYER (attachVideo asks) or when the worker is
+    // not coming. Loading both would double the model memory on a phone
+    // for no gain.
+    if (workerAlive() || (gazeWorker && !gazeWorker.dead())) return;
     ensureFaceModels();
   });
+
+  function startInferenceWorker() {
+    if (!plan.boot || failed) return;
+    // Probe escape hatch, and the only way to A/B the two paths on one
+    // build. Also the switch to pull if the worker ever misbehaves on a
+    // platform we cannot reproduce here.
+    try {
+      if (window.__TS_NO_WORKER) return;
+    } catch (e) {
+      /* no window is not a case that reaches here */
+    }
+    try {
+      gazeWorker = createWorkerClient({
+        onEvent: function (ev) {
+          try {
+            var t = (window.__TS_GAZE_WORKER = window.__TS_GAZE_WORKER || {});
+            t[ev.type === 'loaded' || ev.type === 'loadFailed' ? ev.type + ':' + ev.model : ev.type] =
+              Math.round(performance.now());
+            if (ev.why) t.why = String(ev.why).slice(0, 120);
+          } catch (e) {
+            /* a probe marker must never break the boot */
+          }
+          if (ev.type === 'dead') {
+            // Whatever it was, the images still have to be judged: fall
+            // all the way back to the in-page pipeline, loading the
+            // models now because nobody has yet.
+            ensureFaceModels();
+            if (imageQueue.length) drainImages();
+            return;
+          }
+          if (ev.type === 'loaded' || ev.type === 'loadFailed' || ev.type === 'ready') {
+            if (imageQueue.length) drainImages();
+          }
+        },
+      });
+    } catch (e) {
+      gazeWorker = null;
+    }
+  }
 
   // Load the face models at most once. Called from the post-load-idle
   // deferral above AND, crucially, the moment a player video actually

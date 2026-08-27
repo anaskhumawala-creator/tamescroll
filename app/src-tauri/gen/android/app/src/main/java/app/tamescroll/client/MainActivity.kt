@@ -411,6 +411,50 @@ class MainActivity : TauriActivity() {
     resourceType: String,
   ): Boolean
 
+  /// Resources we answer ourselves on the page's own origin — today the
+  /// inference worker. Returns null for every normal request.
+  ///
+  /// This is what lets the models run off the page's main thread:
+  /// YouTube requires Trusted Types for scripts, which refuses a blob:
+  /// worker but allows a SAME-ORIGIN script url, and nothing serves such
+  /// a url but us.
+  private external fun nativeSyntheticResource(url: String): ByteArray?
+
+  /// The script is ~16MB, so it crosses JNI once per process and is then
+  /// served from a file: a cached ByteArray would sit in the heap of a
+  /// device that has none to spare, and re-reading it per page load
+  /// would copy it again.
+  private var syntheticFile: java.io.File? = null
+
+  private fun syntheticResponse(url: String): WebResourceResponse? {
+    try {
+      val cached = syntheticFile
+      if (cached != null && cached.exists()) {
+        return syntheticStream(java.io.FileInputStream(cached))
+      }
+      val bytes = nativeSyntheticResource(url) ?: return null
+      val out = java.io.File(cacheDir, "tamescroll-synthetic.js")
+      out.writeBytes(bytes)
+      syntheticFile = out
+      return syntheticStream(java.io.FileInputStream(out))
+    } catch (e: Throwable) {
+      // Falling through means the page simply does not get a worker and
+      // the in-page pipeline runs, which is the previous behaviour.
+      Log.w("tamescroll", "synthetic resource failed: " + e.message)
+      return null
+    }
+  }
+
+  private fun syntheticStream(stream: java.io.InputStream): WebResourceResponse =
+    WebResourceResponse(
+      "text/javascript",
+      "utf-8",
+      200,
+      "OK",
+      mapOf("Cache-Control" to "no-store"),
+      stream,
+    )
+
   /// A blocked request answers with an empty 204 rather than an error.
   /// A hard failure makes pages retry, log errors and sometimes show
   /// their own "content blocked" placeholder — an empty success is the
@@ -459,6 +503,11 @@ class MainActivity : TauriActivity() {
           // Never evaluate our own surfaces: a false positive there
           // bricks the app, and they cannot serve an ad.
           if (!url.startsWith("http")) return wry.shouldInterceptRequest(view, request)
+          // Ours before theirs: this url exists only because we answer
+          // it, and it must never be run past the block rules.
+          if (url.contains("/__tamescroll/")) {
+            syntheticResponse(url)?.let { return it }
+          }
           val page = view.url.orEmpty()
           if (nativeShouldBlock(url, page, resourceTypeOf(request))) return blockedResponse()
         } catch (e: Throwable) {

@@ -1750,7 +1750,7 @@ function newTrack(obs) {
 // So: cap the top pad at a share of the HEAD when we know the head's
 // width, and fall back to the old body fraction when we do not. The cap
 // only ever REDUCES the pad, and only above a crown the head anchor has
-// already covered (person-gate puts headH*1.1 above the head keypoints),
+// already covered (person-gate puts headH*HEAD_ANCHOR_UP above the head keypoints),
 // so it cannot uncover a face. R18 measured headX null on 59% of admitted
 // persons in the weak tier -- those keep the old behaviour exactly.
 export var PTRACK_TOP_PAD_HEADS = 0.6;

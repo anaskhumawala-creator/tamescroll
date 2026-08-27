@@ -427,8 +427,11 @@ fn engine() -> Arc<Engine> {
 /// exactly as it was.
 pub(crate) fn synthetic_resource(url: &str) -> Option<&'static str> {
     let path = url.split('?').next().unwrap_or(url);
-    if path.ends_with("/__tamescroll/worker-spike.js") {
-        return Some(include_str!("worker-spike.js"));
+    // The SAME artifact the page gets. It boots the worker half when it
+    // finds no `document`, so a second bundle would only be a second copy
+    // of tfjs and of all four models -- 17MB of APK for identical bytes.
+    if path.ends_with("/__tamescroll/gaze-init.js") {
+        return Some(GAZE_INIT_JS);
     }
     None
 }
@@ -612,6 +615,36 @@ pub extern "system" fn Java_app_tamescroll_client_MainActivity_nativeShouldBlock
     // A panic must never cross the JNI boundary — it would abort the app
     // mid-page-load. Anything unexpected means "allow".
     std::panic::catch_unwind(|| blocks_request(&u, &src, &ty)).unwrap_or(false) as jni::sys::jboolean
+}
+
+/// The Android half of `synthetic_resource`: hand the interceptor the
+/// bytes of a resource we answer ourselves, or null for the normal case.
+///
+/// Bytes rather than a String on purpose — the payload is a 16MB script
+/// and a Java String would hold it as UTF-16, doubling it on a device
+/// that has no memory to spare. Kotlin writes it to the cache directory
+/// once and serves the file after that, so this crosses JNI a single
+/// time per process.
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub extern "system" fn Java_app_tamescroll_client_MainActivity_nativeSyntheticResource<'a>(
+    mut env: jni::JNIEnv<'a>,
+    _class: jni::objects::JClass<'a>,
+    url: jni::objects::JString<'a>,
+) -> jni::sys::jbyteArray {
+    use jni::objects::JObject;
+    let null = JObject::null().into_raw();
+    let Ok(u) = env.get_string(&url) else {
+        return null;
+    };
+    let u: String = u.into();
+    let Some(body) = std::panic::catch_unwind(|| synthetic_resource(&u)).unwrap_or(None) else {
+        return null;
+    };
+    match env.byte_array_from_slice(body.as_bytes()) {
+        Ok(arr) => arr.into_raw(),
+        Err(_) => null,
+    }
 }
 
 /// Rebuilds engine + surfaces from the current rule set (embedded +

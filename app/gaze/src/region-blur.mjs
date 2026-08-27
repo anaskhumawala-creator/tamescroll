@@ -66,7 +66,18 @@ export function expandToBody(box) {
     // the wide box swallowed the face NEXT to the covered person;
     // biacromial width ~2.3 head-widths, 2.4 total still covers it).
     x1: Math.max(0, cx - w * 1.2),
-    y1: Math.max(0, top - h * 0.3),
+    // CROWN + HAIR, not just the crown (owner 2026-08-27: "why is the
+    // hair visible of women... I've noticed this in all blurs").
+    //
+    // The detector's box runs roughly brow-to-chin, so the crown alone
+    // already sits ~0.4 box-heights above `top`; 0.3 was covering less
+    // than the skull, and everything above it -- volume, a bun, long
+    // hair swept up -- was drawn sharp on every thumbnail. 1.0 clears a
+    // typical crown by ~0.6 box-heights, which is what hair occupies.
+    // Vertical only: the sideways number is 1.2 because 1.6 swallowed
+    // the face NEXT to the covered person, and hair does not escape
+    // sideways the way it escapes upward.
+    y1: Math.max(0, top - h * 1.0),
     x2: Math.min(1, cx + w * 1.2),
     y2: Math.min(1, bottom + h * 6.0),
     confidence: box.confidence,

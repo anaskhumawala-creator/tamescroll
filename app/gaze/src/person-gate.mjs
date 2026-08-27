@@ -96,6 +96,10 @@ export var PFF_FRAME_KP_FLOOR = 0.1;
 // FULLY -- no legs, hands or head left out. This is the cushion on top
 // of a full-body box that already includes every confident keypoint.
 export var PATCH_MARGIN = 0.045; // was 0.08 -- see the stage measurements above
+// How far above the head keypoints the patch's top edge is pinned, in
+// head-widths. This is EVIDENCE, not cushion: it is the rule that hair
+// must not escape the patch, and the clamp may never shave it.
+export var HEAD_ANCHOR_UP = 1.6; // was 1.1 -- owner 2026-08-27, hair showing
 export var PERSON_GATE_PAD = 0.15; // person box padded by this fraction of its size for the crop
 export var PERSON_KEYPOINT_MIN = 0.3;
 // Evidence gate: this many confident keypoints AND a head/shoulder
@@ -820,7 +824,18 @@ export function parsePersons(data, minScore, aspect, held) {
       // wide frame: dy_norm = dx_norm * (W/H).
       var headH = headW * ar;
       headHOut = headH;
-      if (hy - headH * 1.1 < y1) y1 = hy - headH * 1.1;
+      // HAIR, not just the skull (owner 2026-08-27, seen on every blur).
+      //
+      // `hy` is the mean of the head keypoints -- eye level, near enough
+      // -- and `headH` is the head's WIDTH carried into normalized-y. A
+      // crown sits about 0.75 head-widths above the eyes, so 1.1 left
+      // roughly a third of a head-width for everything on top of it:
+      // enough for a short cut, not for the hair the owner is looking
+      // at. 1.6 puts the same ~0.85 head-widths of hair room above the
+      // crown that ANTHRO_HAIR gives the image path. It is applied to
+      // the top edge ONLY, so no patch gets wider and no cleared face
+      // beside the subject is newly covered by it.
+      if (hy - headH * HEAD_ANCHOR_UP < y1) y1 = hy - headH * HEAD_ANCHOR_UP;
       if (hy + headH * 0.9 > y2) y2 = hy + headH * 0.9;
       if (hx - headW * 1.2 < x1) x1 = hx - headW * 1.2;
       if (hx + headW * 1.2 > x2) x2 = hx + headW * 1.2;
@@ -828,7 +843,7 @@ export function parsePersons(data, minScore, aspect, held) {
       // crown and hair must not escape the patch, and MoveNet's own box
       // routinely stops at the hairline. So `core` gets it at the same
       // factors — the clamp must never be able to shave a head.
-      if (hy - headH * 1.1 < cy1) cy1 = hy - headH * 1.1;
+      if (hy - headH * HEAD_ANCHOR_UP < cy1) cy1 = hy - headH * HEAD_ANCHOR_UP;
       if (hy + headH * 0.9 > cy2) cy2 = hy + headH * 0.9;
       if (hx - headW * 1.2 < cx1) cx1 = hx - headW * 1.2;
       if (hx + headW * 1.2 > cx2) cx2 = hx + headW * 1.2;

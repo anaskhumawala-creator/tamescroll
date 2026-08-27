@@ -59,11 +59,12 @@ test('padBox: never pushes past the element edge', () => {
   assert.ok(p.x2 <= 1 && p.y1 >= 0);
 });
 
-test('expandToBody: de-inflates the enlarged box, widens to shoulders, extends down the torso', () => {
+test('expandToBody: de-inflates the box, widens to shoulders, covers hair above and torso below', () => {
   const b = expandToBody({ x1: 0.45, y1: 0.1, x2: 0.55, y2: 0.2, confidence: 0.9 });
   assert.ok(Math.abs(b.x1 - 0.4142857) < 1e-6);
   assert.ok(Math.abs(b.x2 - 0.5857143) < 1e-6);
-  assert.ok(Math.abs(b.y1 - 0.0928571) < 1e-6);
+  // Top edge clears the crown by a whole face-height of hair room.
+  assert.ok(Math.abs(b.y1 - 0.0428571) < 1e-6);
   assert.ok(Math.abs(b.y2 - 0.6142857) < 1e-6);
   assert.equal(b.confidence, 0.9);
   // sanity: the body column must NOT balloon toward the full frame WIDTH
