@@ -202,6 +202,7 @@ fn page_load_rules_script(url: &str) -> Option<String> {
         // page-load script owns the Stage A sheet and the Stage B boot.
         &page_css(url, platform.id, false, &shown_state()),
         &resources.injected_script,
+        true,
     );
     Some(format!(
         r#"
@@ -898,12 +899,22 @@ fn rules_summary() -> HashMap<String, usize> {
 /// their own DOM without a page load, and Tauri's initialisation script is
 /// not guaranteed to run before the site's own JavaScript on remote URLs.
 /// Re-applying is cheap; missing a navigation is not.
-fn injection_script(css: &str, scriptlets: &str) -> String {
+/// `scoped` marks the payload as URL-SCOPED: built for the page being
+/// loaded rather than for the window. A scoped sheet is authoritative --
+/// it overwrites whatever is under the shared style id and stamps
+/// `data-ts-scoped`, and the two host-blind writers (the window-creation
+/// payload and the universal plugin script) stand down when they see that
+/// stamp. Without this the LAST writer won, and which one that was
+/// depended on whether `document.head` existed yet: measured 2026-08-28,
+/// reddit.com kept 8,564 bytes of ytd-*/ytm-* rules and its own never
+/// landed, while instagram.com on the same build got the right sheet.
+fn injection_script(css: &str, scriptlets: &str, scoped: bool) -> String {
     // JSON string, not a template literal: manual escaping missed `${`,
     // and one `${` in an OTA'd rule file would have been a SyntaxError
     // killing cosmetics AND scriptlets in one shot (review 2026-08-23
     // #7) — remotely triggerable once vendor lists update over the air.
     let escaped = serde_json::to_string(css).unwrap_or_else(|_| "\"\"".to_string());
+    let scoped = if scoped { "true" } else { "false" };
     format!(
         r#"
 (function () {{
@@ -916,13 +927,24 @@ fn injection_script(css: &str, scriptlets: &str) -> String {
   var CSS = {escaped};
   var STYLE_ID = "tamescroll-rules";
 
+  var SCOPED = {scoped};
   function apply() {{
-    if (document.getElementById(STYLE_ID)) return;
     var head = document.head || document.documentElement;
     if (!head) return;
-    var el = document.createElement("style");
+    var el = document.getElementById(STYLE_ID);
+    if (el) {{
+      // Someone already wrote the sheet. A scoped payload knows the URL
+      // and outranks anything that does not; an unscoped one must never
+      // overwrite a scoped sheet with another host's rules.
+      if (!SCOPED) return;
+      if (el.textContent !== CSS) el.textContent = CSS;
+      el.setAttribute("data-ts-scoped", "1");
+      return;
+    }}
+    el = document.createElement("style");
     el.id = STYLE_ID;
     el.textContent = CSS;
+    if (SCOPED) el.setAttribute("data-ts-scoped", "1");
     head.appendChild(el);
   }}
 
@@ -1069,6 +1091,9 @@ fn universal_injection_script() -> String {
   var STYLE_ID = "tamescroll-rules";
 
   function apply() {{
+    // A URL-scoped sheet (page_load_rules_script) already carries this
+    // host's full payload; this one is surfaces-only and must not
+    // replace it.
     if (document.getElementById(STYLE_ID)) return;
     var head = document.head || document.documentElement;
     if (!head) return;
@@ -1198,6 +1223,7 @@ async fn open_platform(
     let script = injection_script(
         &page_css(platform.url, platform.id, mode == "blur", &shown),
         &resources.injected_script,
+        false,
     );
 
     // The gaze bundle does NOT ride initialization_script here: on
@@ -1416,6 +1442,24 @@ mod tests {
         assert!(page_load_rules_script("https://accounts.google.com/").is_none());
     }
 
+    /// The page-load sheet OUTRANKS the window-creation one, and says so
+    /// in the markup. Reddit opened in a window created for YouTube kept
+    /// 8,564 bytes of ytd-* rules because whichever writer ran last won,
+    /// and that order depends on when document.head exists.
+    #[test]
+    fn the_url_scoped_sheet_wins() {
+        let scoped = page_load_rules_script("https://www.reddit.com/").expect("reddit rules");
+        assert!(scoped.contains("var SCOPED = true"), "page-load payload must be scoped");
+        assert!(scoped.contains("data-ts-scoped"), "scoped sheet must stamp itself");
+        assert!(
+            scoped.contains("if (!SCOPED) return;"),
+            "an unscoped payload must stand down when a sheet already exists"
+        );
+        // And the window-creation payload is the one that stands down.
+        let creation = injection_script("body{color:red}", "", false);
+        assert!(creation.contains("var SCOPED = false"));
+    }
+
     /// A hard navigation to a watch page must drop the EMBEDDED
     /// streamingData, not just the ad fields.
     ///
@@ -1498,7 +1542,7 @@ mod tests {
     
     #[test]
     fn injection_script_carries_the_home_pill() {
-        let js = injection_script("body { color: red }", "");
+        let js = injection_script("body { color: red }", "", false);
         assert!(js.contains("tamescroll-home"), "home pill element missing");
         assert!(
             js.contains(r#"location.href = "http://tauri.localhost/""#),
