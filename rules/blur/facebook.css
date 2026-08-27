@@ -1,32 +1,34 @@
 /* tamescroll — Facebook gaze blur (Stage A, CSS-only, opt-in)
  *
- * EVERY SELECTOR HERE IS [unverified]: Facebook signed out is a login
- * wall (measured 2026-08-28 in the app, desktop and mobile UA), so the
- * feed's real DOM has never been read from this machine.
+ * FAIL CLOSED, BECAUSE THIS PLATFORM CANNOT BE CHECKED FROM HERE.
+ * Facebook signed out is a login wall (measured 2026-08-28 in the app,
+ * desktop and mobile UA: 0 links, 0 articles), so no selector here has
+ * ever been seen against a real feed. The first draft scoped the blur to
+ * [role="article"] — tidier, and worth nothing if Meta's mobile web does
+ * not use that role, because "selector matched nothing" and "no media on
+ * screen" look identical from here and the difference is uncovered
+ * imagery.
  *
- * WHAT THIS BLURS
- * Photos and videos inside feed items. Facebook, unlike Instagram, is
- * still a TEXT feed with pictures in it, so a blanket img rule would
- * blur the interface — reactions, badges and the composer's icons are
- * all <img> on Meta's web build. Scoping to role="article" keeps the
- * chrome legible.
+ * So: blanket img + video, the same call the owner made for TikTok. On
+ * an unverifiable platform the cost of blurring interface imagery is a
+ * blurry icon; the cost of the narrow selector missing is the thing this
+ * app exists to prevent.
+ *
+ * Smart mode does the real work — it skips images under 120px, so
+ * avatars and reaction icons come back sharp there.
  *
  * NO hover-to-reveal — a reveal gesture trains the un-blur reflex
  * (docs/plan.md Phase 4).
  */
 
-[role="article"] img,
-[role="article"] video {
+img,
+video {
   filter: blur(var(--ts-blur, 16px));
 }
 
-/* Story tray thumbnails: imagery, outside the article containers. */
-[aria-label="Stories"] img {
-  filter: blur(var(--ts-blur, 16px));
-}
-
-/* PLAYER RED LINE: an opened video (theatre view / dialog) is the thing
- * the user chose to watch. */
+/* PLAYER RED LINE: the video the user opened. Facebook plays it in a
+ * dialog (theatre view) and on /watch/?v=.
+ * [unverified] */
 [role="dialog"] video {
   filter: none !important;
 }
