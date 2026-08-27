@@ -233,7 +233,7 @@ export function initRegionBlur(flaggedClass) {
   // heartbeat only catches IN-PLACE geometry changes (responsive
   // reflow, virtualized recycling): one rect read per entry, 500ms,
   // only while entries exist.
-  setInterval(function () {
+  function sweep() {
     if (!entries.length || document.hidden) return;
     for (var i = entries.length - 1; i >= 0; i--) {
       var entry = entries[i];
@@ -300,7 +300,20 @@ export function initRegionBlur(flaggedClass) {
         entry.lastRelRect = rel;
       }
     }
-  }, 500);
+  }
+
+  setInterval(sweep, 500);
+  // A PREVIEW STARTS BETWEEN HEARTBEATS. Half a second of patches drawn
+  // across a video that has already taken over the pixels is exactly
+  // what the owner sees while scrolling a feed, so the two events that
+  // change the answer run the sweep themselves. Capture phase: `playing`
+  // and `pause` do not bubble.
+  try {
+    document.addEventListener('playing', sweep, true);
+    document.addEventListener('pause', sweep, true);
+  } catch (e) {
+    /* listener-less environment: the heartbeat still covers it */
+  }
 }
 
 // The patch parent: the image's own parent element, promoted to a
@@ -323,13 +336,49 @@ export function coversRect(a, b) {
 // this and part of the still is uncovered, where a face could sit.
 var PREVIEW_COVER_MIN = 0.9;
 
+// THE PREVIEW HOST ON m.youtube IS #movie_player, AND ONLY #movie_player.
+//
+// Owner 2026-08-28, phone screenshot: patch rectangles sitting across a
+// playing feed preview, describing nothing that is on screen. The
+// stand-down below was written for it and never fired, because it looked
+// for `ytm-video-preview` / `.ytmVideoPreviewHost` -- MEASURED on the
+// live mobile-UA feed, both are 0 elements and #movie_player is 1. The
+// shared player IS the preview host on mobile web, which is the same
+// fact rules/youtube.txt records as the reason the preview surface
+// cannot be hidden.
+//
+// Adding it costs nothing on a watch page: the query only decides
+// whether a STILL IMAGE that already carries patches is covered by a
+// PLAYING video, and on a watch page no thumbnail sits under the player.
+var PREVIEW_HOST_QUERY = 'ytm-video-preview, .ytmVideoPreviewHost, ytd-video-preview, #movie_player';
+
+/**
+ * Should this element's patches stand down? Only when a PLAYING video
+ * owns essentially all of the element's pixels: a parked host shows the
+ * still through it, and hiding a patch under that would expose.
+ * Pure — exported for tests.
+ */
+export function shouldStandDown(hostRect, playing, elRect) {
+  if (!playing) return false;
+  return coversRect(hostRect, elRect);
+}
+
 function previewCovers(el) {
   try {
-    var host = document.querySelector('ytm-video-preview, .ytmVideoPreviewHost, ytd-video-preview');
-    if (!host) return false;
-    var vid = host.querySelector('video');
-    if (!vid || vid.paused) return false;
-    return coversRect(host.getBoundingClientRect(), el.getBoundingClientRect());
+    var hosts = document.querySelectorAll(PREVIEW_HOST_QUERY);
+    for (var i = 0; i < hosts.length; i++) {
+      var vid = hosts[i].querySelector('video');
+      if (
+        shouldStandDown(
+          hosts[i].getBoundingClientRect(),
+          !!(vid && !vid.paused && vid.readyState >= 2),
+          el.getBoundingClientRect()
+        )
+      ) {
+        return true;
+      }
+    }
+    return false;
   } catch (e) {
     return false;
   }

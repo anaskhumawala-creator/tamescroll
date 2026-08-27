@@ -2,7 +2,7 @@
 // 2026-08-24: scroll briefly exposed document-anchored patches).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { boxToParentRect, sameRect, padBox, expandToBody, mergeOverlapping, isPlayerSubtree, PLAYER_SUBTREE_SELECTOR, coversRect, imagePriority, PRIORITY_BEHIND } from '../src/region-blur.mjs';
+import { boxToParentRect, sameRect, padBox, expandToBody, mergeOverlapping, isPlayerSubtree, shouldStandDown, PLAYER_SUBTREE_SELECTOR, coversRect, imagePriority, PRIORITY_BEHIND } from '../src/region-blur.mjs';
 
 test('boxToParentRect: element inset inside its parent maps to parent space', () => {
   // parent at viewport (80, 40); img at (100, 50) sized 200x100
@@ -166,4 +166,18 @@ test('imagePriority: already-passed images park behind everything ahead', () => 
 
 test('imagePriority: a missing rect sorts last instead of throwing', () => {
   assert.equal(imagePriority(null, 800), PRIORITY_BEHIND * 2);
+});
+
+test('shouldStandDown: a PLAYING host covering the still hides its patches', () => {
+  const el = { left: 0, top: 100, right: 400, bottom: 325, width: 400, height: 225 };
+  const host = { left: 0, top: 100, right: 400, bottom: 325, width: 400, height: 225 };
+  assert.equal(shouldStandDown(host, true, el), true);
+  // Parked host: the still shows THROUGH it, so hiding the patch exposes.
+  assert.equal(shouldStandDown(host, false, el), false);
+  // A host somewhere else on the page is not this element's preview.
+  const other = { left: 0, top: 700, right: 400, bottom: 925, width: 400, height: 225 };
+  assert.equal(shouldStandDown(other, true, el), false);
+  // Barely-overlapping host leaves most of the still visible.
+  const edge = { left: 0, top: 280, right: 400, bottom: 505, width: 400, height: 225 };
+  assert.equal(shouldStandDown(edge, true, el), false);
 });
