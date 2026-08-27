@@ -749,6 +749,9 @@ fn cosmetic_css(url: &str) -> String {
 pub struct SurfaceInfo {
     id: String,
     label: String,
+    /// The settings pane seeds a fresh install from this, once, and then
+    /// never again — see `defaultShown` in main.ts.
+    default_shown: bool,
 }
 
 #[tauri::command]
@@ -761,6 +764,7 @@ fn surfaces(id: String) -> Vec<SurfaceInfo> {
                 .map(|s| SurfaceInfo {
                     id: s.id.to_string(),
                     label: s.label.to_string(),
+                    default_shown: s.default_shown,
                 })
                 .collect()
         })

@@ -302,7 +302,15 @@ test('feather scales with the patch, so a phone and a desktop look alike', () =>
   const phone = vr.featherFor({ left: 0, top: 0, width: 460, height: 490 });
   const big = vr.featherFor({ left: 0, top: 0, width: 1600, height: 900 });
   assert.ok(phone > 16, `phone patch must get a visible ramp, got ${phone}`);
-  assert.ok(phone / 460 > 0.05, 'ramp must be a meaningful share of the patch');
+  // The share was halved on 2026-08-27 ("needs sharpur blur edges ...
+  // looks a bit low quality") once the margin stack it was sized against
+  // was cut. What this test pins is the SCALING, not the width: the ramp
+  // must still be a share of the patch rather than a pixel constant.
+  assert.ok(phone / 460 >= 0.04, 'ramp must be a meaningful share of the patch');
+  assert.ok(
+    Math.abs(phone / 460 - big / 900) < 1e-6,
+    'the same share at two player sizes -- that is the whole point',
+  );
   assert.ok(big >= phone, 'a larger patch may not get a smaller ramp');
   // A small patch must not be mostly gradient.
   assert.ok(small <= 90 / 3 + 1e-9, 'ramp capped at a third of the short side');

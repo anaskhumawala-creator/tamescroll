@@ -252,7 +252,24 @@ function makeOverlay(key) {
 //
 // Net against the hard-edged version: same total softness, HALF the
 // over-blur, and half the encroachment on a cleared neighbour.
-var FEATHER_FRAC = 0.10; // of the patch's short side
+// HALVED, 2026-08-27, and the margin arithmetic above is now STALE.
+//
+// Owner, looking at the shipped 1019 build: "the in video blur I think
+// needs sharpur blur edges because right now it looks a bit low quality".
+// That is the opposite end of the same dial as the phone screenshot
+// above, and both readings are right for the build each was made
+// against: 0.10 was chosen when the drawn box carried PATCH_MARGIN 0.08
+// + PTRACK_PAD 0.10 + a flat 0.089 keypoint margin in y, i.e. roughly
+// twice the subject. This session cut all three (0.045 / 0.04 / a
+// height-proportional cushion), so the SAME fraction now spends a much
+// larger share of a much tighter box on gradient -- which is exactly
+// what a soft, washed-out, low-quality edge looks like.
+//
+// 0.05 keeps the ramp scale-relative (the phone-vs-desktop bug the
+// pixel cap caused stays fixed) at half the width: ~23px on his ~460px
+// patch instead of ~46px. Still a gradient, not the hard rectangle S4
+// replaced.
+var FEATHER_FRAC = 0.05; // of the patch's short side
 var FEATHER_MIN_PX = 10;
 var FEATHER_MAX_PX = 64;
 

@@ -1601,6 +1601,98 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       console.warn('tamescroll gaze: video unreadable, failing open (' + reason + ')', err);
     }
 
+    // A DUTY-CYCLE GOVERNOR, NOT A GUESS. (owner 2026-08-27: "the
+    // YouTube app still feels sluggish and not like how it generally
+    // feels")
+    //
+    // FIRST REAL NUMBER THIS PROJECT HAS FOR A SLOW DEVICE. The dev app
+    // was CPU-throttled 6x through CDP -- the conventional low-end-mobile
+    // factor, and it throttles the MAIN THREAD, which is exactly the
+    // resource our pipeline and YouTube's lazy comment/related callbacks
+    // compete for. 30s of playback, same page, same video position, the
+    // in-player pill as the A/B:
+    //
+    //   blur ON : 137 long tasks, 19,769ms of them, worst single 2,329ms
+    //   blur OFF: 0 long tasks
+    //
+    // Two thirds of wall-clock with the main thread blocked. That is the
+    // whole complaint, and it is ours, not YouTube's.
+    //
+    // The old multiplier was 1.5, i.e. "spend up to 67% of the main
+    // thread on inference for ever". That is a fine rule for a machine
+    // that finishes a pass in 25ms and a catastrophic one for a machine
+    // that takes 150ms, because the SAME fraction of a much scarcer
+    // thread is what the user feels. A duty cycle states the budget
+    // directly: a pass may occupy at most 1/DUTY of the time until the
+    // next one.
+    //
+    // ASYMMETRIC ON PURPOSE, because the two passes carry different
+    // risk. The POSITION pass is what discovers a new person, and
+    // blur-first means discovery is the only step that can leave someone
+    // uncovered -- so it keeps the tighter budget (50%). The VERDICT
+    // pass only decides whether someone already covered may be CLEARED;
+    // stretching it makes people stay blurred slightly longer, which is
+    // the safe direction by definition. Its ceiling is raised to 2s for
+    // the same reason: on a device where a verdict costs 600ms, the old
+    // 1s cap meant verdicts ran back-to-back with no gap at all.
+    // THE HARD BUDGET, and it is the one that actually binds.
+    //
+    // The two duty multipliers below are per-pass-TYPE, and the first
+    // throttled re-measurement showed why that is not enough: a verdict
+    // pass records into lastVerdictMs, which gates only the zoom
+    // interval, so its cost never widened the outer gate at all (review
+    // A11 split them deliberately, to stop one expensive verdict
+    // throttling the cheap position passes to 1Hz). The result was that
+    // halving the position duty moved total blocked time 19,769 ->
+    // 19,160ms out of 30,000: nothing, because position passes were
+    // never what was spending it.
+    //
+    // So the budget is enforced on the RESOURCE rather than on either
+    // pass: how many milliseconds of main thread has the pipeline used
+    // in the last second, whoever used them. Above the share, the next
+    // pass waits. This bounds the number the owner is feeling -- 66% of
+    // wall-clock blocked -- directly, on any device, without either
+    // pass type having to know about the other.
+    //
+    // 0.35 leaves roughly two thirds of the thread to YouTube, which is
+    // what has to be true for its lazy comment and related-rail
+    // callbacks to run while he scrolls. On this desktop a pass costs
+    // ~25ms against a 120ms floor (~20%), so the budget never binds and
+    // desktop behaviour is unchanged by construction.
+    // One real macrotask. scheduler.yield() is the purpose-built API and
+    // returns to the event loop at user-visible priority where it exists;
+    // setTimeout(0) is the universally available equivalent.
+    function yieldToBrowser() {
+      try {
+        if (typeof scheduler !== 'undefined' && scheduler && typeof scheduler.yield === 'function') {
+          return scheduler.yield();
+        }
+      } catch (e) {}
+      return new Promise(function (resolve) {
+        setTimeout(resolve, 0);
+      });
+    }
+
+    var SPEND_WINDOW_MS = 1000;
+    var SPEND_BUDGET_FRAC = 0.25;
+    var spends = [];
+    function noteSpend(at, ms) {
+      spends.push(at, ms);
+      if (spends.length > 80) spends.splice(0, spends.length - 80);
+    }
+    function overBudget(now) {
+      var total = 0;
+      for (var i = 0; i < spends.length; i += 2) {
+        if (now - spends[i] <= SPEND_WINDOW_MS) total += spends[i + 1];
+      }
+      return total > SPEND_WINDOW_MS * SPEND_BUDGET_FRAC;
+    }
+
+    var POSITION_DUTY = 2;
+    var POSITION_MAX_INTERVAL_MS = 1000;
+    var VERDICT_DUTY = 4;
+    var VERDICT_MAX_INTERVAL_MS = 2000;
+
     // See the yield block inside sampleOnce.
     var INPUT_YIELD_MAX = 3;
     var inputYields = 0;
@@ -1637,10 +1729,13 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       // pass-cost throttle still wins on slow devices.
       var rate = isPlayer && video.playbackRate > 1 ? Math.min(3, video.playbackRate) : 1;
       var effInterval = isPlayer
-        ? Math.min(1000, Math.max(floor / rate, lastPassMs * 1.5))
+        ? Math.min(POSITION_MAX_INTERVAL_MS, Math.max(floor / rate, lastPassMs * POSITION_DUTY))
         : sampleInterval;
       if (now - lastSample < effInterval) return;
       if (sampling) return;
+      // The rolling main-thread budget (see SPEND_BUDGET_FRAC). Checked
+      // AFTER the interval so a cheap device never pays for the lookup.
+      if (isPlayer && overBudget(now)) return;
       // YIELD TO THE FINGER. (owner 2026-08-26: "the page loads a lot and
       // the comments or the below recommendation do not load ... just the
       // loading icon on the page which makes it feel very sluggish")
@@ -1694,7 +1789,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         // parks this at the floor); a Helio G88 at 3-4x that cost is one
         // hiccup away from the runaway. verdictBusy already forbids
         // overlapping passes, so a cap cannot build a backlog.
-        var effZoom = Math.min(1000, Math.max(ZOOM_INTERVAL_MS, lastVerdictMs * 1.5));
+        var effZoom = Math.min(VERDICT_MAX_INTERVAL_MS, Math.max(ZOOM_INTERVAL_MS, lastVerdictMs * VERDICT_DUTY));
         // Never a second verdict pass while one is still running: one
         // GPU queue, and a backlog is indistinguishable from a hang.
         var wasVerdict = !verdictBusy && now - lastZoomAt >= effZoom;
@@ -2123,8 +2218,19 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
                     observations.push({ box: p, positionOnly: true });
                   });
                   var chain = Promise.resolve();
-                  all.forEach(function (p) {
+                  all.forEach(function (p, pi) {
                     // Serial, not parallel: one GPU queue, smaller bursts.
+                    //
+                    // AND SPLIT INTO SEPARATE TASKS. (2026-08-27) Serial
+                    // promises are MICROtasks, so N persons ran as ONE
+                    // main-thread task and the browser could not paint,
+                    // scroll or deliver a tap until the last of them
+                    // finished. Under a 6x throttle the worst single task
+                    // measured 2,329ms. Jank is felt as task LENGTH, not
+                    // as total cost, so yielding a real macrotask between
+                    // people is nearly free and cuts the worst case by
+                    // the number of people in frame.
+                    if (pi > 0) chain = chain.then(yieldToBrowser);
                     chain = chain.then(function () {
                       return observePerson(p).catch(function (e) {
                         var dbgE = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
@@ -2412,6 +2518,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
               var cost = performance.now() - now;
               if (wasVerdict) lastVerdictMs = cost;
               else lastPassMs = cost;
+              noteSpend(performance.now(), cost);
               // Cost telemetry for the gauntlet's mobile budget. Owner
               // 2026-08-25: "be sure to make it optimized and
               // performance oriented — that is the only way this app

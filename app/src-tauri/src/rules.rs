@@ -232,6 +232,9 @@ pub struct Surface {
     pub id: &'static str,
     pub label: &'static str,
     pub always_on: bool,
+    /// Starts SHOWN on a fresh install; the toggle still exists and the
+    /// user's own choice always wins once they make one.
+    pub default_shown: bool,
     pub rules: Vec<(&'static str, &'static str)>,
 }
 
@@ -240,6 +243,17 @@ pub struct Surface {
 /// (ads are never user-toggleable) are the same everywhere.
 fn is_always_on(id: &str) -> bool {
     matches!(id, "ads" | "mobile_nags" | "promoted")
+}
+
+/// Surfaces that ship SHOWN. Owner, 2026-08-27, looking at a watch page
+/// with an empty space where the related videos used to be: "no
+/// recommendations did we remove them keep the option but don't disable
+/// right on". Watch-page recommendations are not an algorithmic FEED --
+/// they are how you get to the next video you actually chose -- so the
+/// toggle stays and the default flips. Same list shape as is_always_on,
+/// for the same reason: one convention, all files.
+fn is_default_shown(id: &str) -> bool {
+    matches!(id, "watch_recs")
 }
 
 /// Parses one of our `!surface:`-annotated rule files into its surfaces.
@@ -259,6 +273,7 @@ fn parse_surfaces(text: &'static str) -> Vec<Surface> {
                 id,
                 label,
                 always_on: is_always_on(id),
+                default_shown: is_default_shown(id),
                 rules: Vec::new(),
             });
             continue;

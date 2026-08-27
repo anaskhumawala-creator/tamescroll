@@ -299,7 +299,7 @@ invoke<UpdateStatus>("app_update_check")
 
 // ---------- bring back (surfaces) ----------
 
-type SurfaceInfo = { id: string; label: string };
+type SurfaceInfo = { id: string; label: string; default_shown: boolean };
 
 const SHOWN_KEY = "tamescroll.shown";
 
@@ -315,6 +315,35 @@ function readShownMap(): Record<string, string[]> {
 function getShown(platformId: string): string[] {
   const shown = readShownMap()[platformId];
   return Array.isArray(shown) ? shown : [];
+}
+
+// SEED THE DEFAULTS ONCE. (owner 2026-08-27: "no recommendations did we
+// remove them keep the option but don't disable right on")
+//
+// The stored map is the user's own choice and must never be overwritten
+// by a later build's opinion, so this runs exactly once per install and
+// only for platforms the user has never touched. Everything after that
+// is theirs: flipping a default-shown surface to Hidden persists an
+// empty list, which is a real stored choice and is left alone.
+const SEEDED_KEY = "tamescroll.shown.seeded";
+
+async function seedDefaultShown(platformIds: string[]) {
+  try {
+    if (localStorage.getItem(SEEDED_KEY)) return;
+    const map = readShownMap();
+    for (const id of platformIds) {
+      if (Array.isArray(map[id])) continue;
+      const list = await invoke<SurfaceInfo[]>("surfaces", { id });
+      const defaults = list.filter((s) => s.default_shown).map((s) => s.id);
+      if (defaults.length) map[id] = defaults;
+    }
+    localStorage.setItem(SHOWN_KEY, JSON.stringify(map));
+    localStorage.setItem(SEEDED_KEY, "1");
+  } catch (error) {
+    // A failed seed must not stop the launcher rendering: the user simply
+    // gets the fully-cleaned default and can turn the surface on himself.
+    console.warn("tamescroll: could not seed default surfaces", error);
+  }
 }
 
 function setShown(platformId: string, shown: string[]) {
@@ -784,6 +813,7 @@ function refreshAll() {
 async function start() {
   try {
     allPlatforms = await invokeStartup<Platform[]>("platforms");
+    await seedDefaultShown(allPlatforms.map((p) => p.id));
 
     const chosen = readChosen();
     if (chosen === null) {
