@@ -1,7 +1,7 @@
 {
-  "versionCode": 1021,
-  "versionName": "0.1.21",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.21/app-arm64-debug.apk",
-  "sha256": "2d04516dc6463fc07be972af46788f03b44d70d47995f8c583595b46124824c5",
-  "notes": "Fixes blur patches over the player and top bar"
+  "versionCode": 1022,
+  "versionName": "0.1.22",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.22/app-arm64-debug.apk",
+  "sha256": "6ca9b088c2c43b04180b21366579c77bbbb72169b278afd6311bfef684d4464c",
+  "notes": "Previews off on mobile, sharper edges, rules-cache staleness fixed"
 }
