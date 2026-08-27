@@ -1,7 +1,7 @@
 {
-  "versionCode": 1026,
-  "versionName": "0.1.26",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.26/tamescroll-v0.1.26.apk",
-  "sha256": "0d9e899660e7fb4ecd97010be7ceffbc6d9a5048eef68ca00929b1aefe126539",
-  "notes": "Thumbnails resolve faster and the queue keeps working while you scroll."
+  "versionCode": 1027,
+  "versionName": "0.1.27",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.27/tamescroll-v0.1.27.apk",
+  "sha256": "13b6695fe08337d4b0726206aac25d84f4f657ac78c488d5e81129438bd125fb",
+  "notes": "Thumbnails land one at a time, and the queue works on what is on screen."
 }
