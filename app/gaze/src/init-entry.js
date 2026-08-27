@@ -198,12 +198,45 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
     spends.push(at, ms);
     if (spends.length > 80) spends.splice(0, spends.length - 80);
   }
-  function overBudget(now) {
+  function overBudget(now, frac) {
     var total = 0;
     for (var i = 0; i < spends.length; i += 2) {
       if (now - spends[i] <= SPEND_WINDOW_MS) total += spends[i + 1];
     }
-    return total > SPEND_WINDOW_MS * SPEND_BUDGET_FRAC;
+    return total > SPEND_WINDOW_MS * (frac > 0 ? frac : SPEND_BUDGET_FRAC);
+  }
+
+  // THE BUDGET WAS SIZED FOR THE WRONG MOMENT (owner 2026-08-27, phone
+  // screenshot of a search page with the second thumbnail still covered:
+  // "still taking long to load why should that be the case because it's
+  // only single thumbnails").
+  //
+  // Measured under a 6x throttle: ONE thumbnail costs 304ms p50 (35ms to
+  // load the CORS clone, 204ms BlazeFace + gender, the rest nsfwjs). At
+  // a flat 25% of a 1s window that is under one image per second, so six
+  // visible thumbnails take the several seconds he is looking at. The
+  // cost per image is real work on three models; the pacing is ours.
+  //
+  // But 25% was chosen to fix jank WHILE SCROLLING, and the drain
+  // already refuses to run at all during a scroll. So the cap that
+  // matters is the one applied when the page is STILL -- and a still
+  // page has nothing to be janky about: no scroll to keep smooth, no
+  // layout, usually no video. Spending most of the thread there is
+  // invisible, and it is exactly when he is waiting.
+  //
+  // The player keeps the tight cap unconditionally: its own budget gate
+  // passes no fraction, and the raised one is refused whenever a player
+  // pass has run recently, because the pool is shared and the comments
+  // starvation this budget fixed was the player's inference queued
+  // ahead of YouTube's own callbacks.
+  var IDLE_BUDGET_FRAC = 0.6;
+  var IDLE_QUIET_MS = 1000;
+  var lastPlayerPassAt = -1e9;
+  var PLAYER_ACTIVE_MS = 2000;
+  function imageBudgetFrac(now) {
+    if (now - lastPlayerPassAt < PLAYER_ACTIVE_MS) return SPEND_BUDGET_FRAC;
+    if (now - lastScrollAt < IDLE_QUIET_MS) return SPEND_BUDGET_FRAC;
+    return IDLE_BUDGET_FRAC;
   }
 
   var IMAGE_BATCH_MAX = 4;
@@ -389,9 +422,28 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
   var imageQueue = [];
   var imageDraining = false;
 
+  // AN UNBOUNDED IDLE WAIT IS NOT A DEFERRAL, IT IS A HANG (owner
+  // 2026-08-27, phone: "still taking long to load ... it's only single
+  // thumbnails").
+  //
+  // Measured on a search page under a 6x throttle: the bundle evaluates
+  // in 75ms and the four model loads cost 61 + 364 + 608 + 852ms -- but
+  // the FIRST of them did not start until 28.4s into the page. Nothing
+  // was slow; nothing had been scheduled. requestIdleCallback with no
+  // timeout waits for an idle period, and a YouTube feed under load on a
+  // slow device does not have one for half a minute. Every thumbnail
+  // stays covered for that whole window, which is exactly what he is
+  // looking at.
+  //
+  // A timeout makes the callback fire anyway once the deadline passes,
+  // with didTimeout set, which is the behaviour the deferral always
+  // meant: yield if there is a chance to, but do not wait forever.
+  var IDLE_TIMEOUT_MS = 1200;
   var idle =
     typeof requestIdleCallback === 'function'
-      ? requestIdleCallback
+      ? function (cb) {
+          return requestIdleCallback(cb, { timeout: IDLE_TIMEOUT_MS });
+        }
       : function (cb) {
           setTimeout(function () {
             cb({ timeRemaining: function () { return 8; }, didTimeout: true });
@@ -462,9 +514,13 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         /* matcher error: fall through to the visual pipeline */
       }
     }
+    var tImg0 = performance.now();
+    var tLoad = 0;
+    var tFace = 0;
     return dom
       .loadDetectable(img)
       .then(function (el) {
+        tLoad = performance.now() - tImg0;
         // Faces first (cheaper, most common hit) — smart mode only.
         // NSFW runs when the faces cleared: a gender-cleared image can
         // still be suggestive, and the compulsory tier owns that call.
@@ -479,6 +535,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
           });
         }
         return faceCheck(el).then(function (face) {
+          tFace = performance.now() - tImg0 - tLoad;
           if (face.verdict === 'flag' || !nsfwModel) {
             return {
               face: face.verdict === 'flag',
@@ -496,6 +553,11 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       .then(function (result) {
         if (failed) return;
         noteImgDiag({
+          ms: Math.round(performance.now() - tImg0),
+          load: Math.round(tLoad),
+          face: Math.round(tFace),
+          w: img.naturalWidth,
+          src: (img.currentSrc || img.src || '').slice(0, 90),
           why: result.nsfw ? 'nsfw' : result.face ? 'face' : 'clear',
           faces: result.reads ? result.reads.length : 0,
           flagged: result.flagBoxes ? result.flagBoxes.length : 0,
@@ -530,6 +592,10 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       })
       .catch(function (e) {
         // Fail-closed for imagery: could not verify, stays blurred.
+        // Counted, because a thumbnail that fails here stays covered for
+        // the life of the page and looks identical to one still waiting
+        // (owner 2026-08-27, phone: a thumbnail that never resolves).
+        noteImgDiag({ why: 'error', msg: String((e && e.message) || e).slice(0, 80) });
         // eslint-disable-next-line no-console
         console.warn('tamescroll gaze: image check failed, staying blurred', e);
       });
@@ -589,7 +655,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       //     instead of one burst, so the worst task is one image rather
       //     than four.
       var nowMs = performance.now();
-      if (scrolling(nowMs) || overBudget(nowMs)) {
+      if (scrolling(nowMs) || overBudget(nowMs, imageBudgetFrac(nowMs))) {
         if (imageQueue.length) setTimeout(drainImages, SCROLL_QUIET_MS);
         return;
       }
@@ -661,6 +727,24 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         if (plan.preBlur) markPending(img);
         imageQueue.push(img);
         drainImages();
+      } else if (img.naturalWidth) {
+        // AN IMAGE WE WILL NEVER CHECK MUST NOT STAY COVERED.
+        //
+        // Found 2026-08-27 while chasing "still taking long to load":
+        // eight elements on a search page still carried the pending
+        // class after everything had settled, and every one was a 24x24
+        // channel avatar (68px natural). retagImage pre-blurs on any src
+        // swap -- correct, blur-first, and at that moment the new image
+        // has no dimensions to judge -- but tagImage then declines to
+        // queue anything under IMAGE_MIN_SIZE. Nothing ever cleared them
+        // again, so avatars sat blurred for the life of the page. They
+        // are the brown blobs in the owner's phone screenshots.
+        //
+        // Blur-first is kept: the cover holds until the image has loaded
+        // and we can see it is below the size we check at, which is the
+        // moment the decision "we are not looking at this one" is
+        // actually made.
+        clearEl(img);
       }
     }
 
@@ -1900,6 +1984,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       if (sampling) return;
       // The rolling main-thread budget (see SPEND_BUDGET_FRAC). Checked
       // AFTER the interval so a cheap device never pays for the lookup.
+      if (isPlayer) lastPlayerPassAt = now;
       if (isPlayer && overBudget(now)) return;
       // YIELD TO THE FINGER. (owner 2026-08-26: "the page loads a lot and
       // the comments or the below recommendation do not load ... just the
@@ -3068,11 +3153,21 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       fired = true;
       idle(fn);
     };
-    if (document.readyState === 'complete') setTimeout(go, 250);
-    else {
-      window.addEventListener('load', function () { setTimeout(go, 250); }, { once: true });
-      setTimeout(go, 5000);
-    }
+    // The hard cap is unconditional now. It used to arm only when the
+    // document had not finished loading, on the assumption that `load`
+    // was the long pole -- but the measurement above put the delay after
+    // that, in the idle wait, and a page that never goes idle is exactly
+    // the page whose `load` also drags. 4s is the ceiling on how long a
+    // thumbnail may sit covered for scheduling reasons alone.
+    // Already complete when we were evaluated? Then there is nothing
+    // left to defer AROUND. Measured on desktop: the bundle is not
+    // evaluated until the page-load Finished event (eval starts at 8.1s
+    // on a throttled search page), so by the time this runs the document
+    // is as settled as it is going to get, and the extra 250ms was pure
+    // delay in front of a user who is already waiting.
+    if (document.readyState === 'complete') go();
+    else window.addEventListener('load', function () { setTimeout(go, 250); }, { once: true });
+    setTimeout(go, 4000);
   }
 
   // NSFW-only modes (off / blur-all): the face and gender models never
@@ -3143,6 +3238,39 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
     } catch (e) {}
   }
 
+  // The no-video ordering: the model the image drain is waiting on
+  // first, the player's model after it. Same loads, same failure
+  // handling, opposite order — see the comment at the swap.
+  function nsfwThenPerson() {
+    var t1 = performance.now();
+    return detector
+      .loadNsfwModel()
+      .then(
+        function (nsfw) {
+          nsfwModel = nsfw;
+          markLoad('nsfw', t1);
+        },
+        function (e) {
+          // eslint-disable-next-line no-console
+          console.warn('tamescroll gaze: nsfw model unavailable, face-only', e);
+        }
+      )
+      .then(function () {
+        nsfwSettled = true;
+        if (imageQueue.length) drainImages();
+        return detector.loadPersonModel().then(
+          function (person) {
+            personModel = person;
+            markLoad('person', t1);
+          },
+          function (e) {
+            // eslint-disable-next-line no-console
+            console.warn('tamescroll gaze: person model unavailable, whole-blur player', e);
+          }
+        );
+      });
+  }
+
   function loadFaceModels() {
   var t0 = performance.now();
   detector
@@ -3171,6 +3299,28 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         .then(function () {
           genderSettled = true;
           if (imageQueue.length) drainImages();
+          // WHICH MODEL IS THIRD DEPENDS ON THE PAGE (owner 2026-08-27,
+          // phone, on a SEARCH page: "still taking long to load").
+          //
+          // Person was unconditionally third because a playing video
+          // waits on it. But the image drain waits for nsfwSettled, and
+          // nsfw is loaded LAST -- so on a page with no video at all,
+          // every thumbnail sat covered through a 1.1s person-model load
+          // that nothing on the page could use. Measured under a 6x
+          // throttle on a search page: person 1100ms, sitting directly
+          // in front of the load that actually gates the reveal.
+          //
+          // So the two swap when the document has no video element. A
+          // feed preview creates one on demand and a watch page has one
+          // before we ever get here, so the check errs toward the old
+          // order whenever a player might be involved.
+          var playerLikely = true;
+          try {
+            playerLikely = !!document.querySelector('video');
+          } catch (e) {
+            /* keep the player-first order if the query fails */
+          }
+          if (!playerLikely) return nsfwThenPerson();
           // Person model THIRD (redesign 2026-08-24): the player's
           // region path is person-primary now, so the model a playing
           // video is waiting on outranks NSFW (which only ever ADDS
