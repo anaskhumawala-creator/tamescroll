@@ -504,18 +504,41 @@ export async function detectFaceBoxes(model, pixelSource, sharedImg) {
  * >0.5 male, and confidence is 2*|v-0.5|.
  * Returns [{ gender: 'female'|'male', score }] parallel to boxes.
  */
-export async function classifyFaceGenders(model, pixelSource, boxes, sharedImg) {
+export async function classifyFaceGenders(model, pixelSource, boxes, sharedImg, opts) {
   if (!boxes.length) return [];
+  var square = !!(opts && opts.square);
   var genderHeadFound = false;
   var outs = tf.tidy(function () {
     // `sharedImg` — see uploadFrame and isNsfw. Ownership stays with the
     // caller; a tensor made outside this tidy is not disposed by it.
     var img = sharedImg || tf.browser.fromPixels(pixelSource);
     var input = tf.expandDims(tf.cast(img, 'float32'), 0);
+    var srcH = img.shape[0];
+    var srcW = img.shape[1];
     var rects = [];
     var inds = [];
     for (var i = 0; i < boxes.length; i++) {
-      rects.push([boxes[i].y1, boxes[i].x1, boxes[i].y2, boxes[i].x2]);
+      var b = boxes[i];
+      var y1 = b.y1;
+      var x1 = b.x1;
+      var y2 = b.y2;
+      var x2 = b.x2;
+      if (square && srcW > 0 && srcH > 0) {
+        // ASPECT-PRESERVING CROP. cropAndResize squashes whatever
+        // rectangle it is given into 224x224, so a box that is not
+        // square in PIXELS reaches faceres as a stretched face. The
+        // video path learned this in v1009 (a square-stretch crop
+        // misgendered a man on frame after frame); the image path never
+        // got the same treatment.
+        var cx = ((x1 + x2) / 2) * srcW;
+        var cy = ((y1 + y2) / 2) * srcH;
+        var side = Math.max((x2 - x1) * srcW, (y2 - y1) * srcH) / 2;
+        x1 = (cx - side) / srcW;
+        x2 = (cx + side) / srcW;
+        y1 = (cy - side) / srcH;
+        y2 = (cy + side) / srcH;
+      }
+      rects.push([y1, x1, y2, x2]);
       inds.push(0);
     }
     // cropAndResize interpolates from the 0..255 float source — faceres

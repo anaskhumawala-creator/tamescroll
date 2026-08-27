@@ -90,7 +90,7 @@ export function startWorker() {
       var boxes = models.face ? await detector.detectFaceBoxes(models.face, bmp, frame) : [];
       var reads = [];
       if (boxes.length && models.gender) {
-        reads = await detector.classifyFaceGenders(models.gender, bmp, boxes, frame);
+        reads = await detector.classifyFaceGenders(models.gender, bmp, boxes, frame, { square: true });
       }
       var nsfw = await nsfwP;
       post({

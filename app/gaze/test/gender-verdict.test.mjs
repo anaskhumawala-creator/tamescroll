@@ -358,30 +358,29 @@ test('R23 instant bar: a child read at 0.85 is still never certain', () => {
   assert.ok(!byMass[0].instant, 'childP mass alone blocks it too');
 });
 
-// The image bar was split from the video bar after a live measurement:
-// 47 of 47 thumbnail face reads were directionally correct while the two
-// genders' confidence ranges overlapped almost completely, so a bar
-// inside the overlap only rejected true same-gender faces. Pinned
-// because the two surfaces must not drift back into one constant.
-test('the image gender bar is its own constant, below the video one', () => {
-  assert.equal(GENDER_IMAGE_MIN_SCORE, 0.12);
-  assert.ok(GENDER_IMAGE_MIN_SCORE < GENDER_MIN_SCORE);
+// The image bar is its own constant, and after the crop fix it is ABOVE
+// the video one: a thumbnail now gets an aspect-correct crop and a
+// separable certainty, where the video path's 0.25 is calibrated for a
+// tracker that can absorb one bad read. Pinned because the two surfaces
+// must not drift back into one constant.
+test('the image gender bar is its own constant', () => {
+  assert.equal(GENDER_IMAGE_MIN_SCORE, 0.4);
+  assert.notEqual(GENDER_IMAGE_MIN_SCORE, GENDER_MIN_SCORE);
 });
 
-test('a man read male at 0.24 is no longer covered on a thumbnail', () => {
-  // Straight from the corpus: two men in one thumbnail, read male at
-  // 0.95 and 0.24. At the old 0.25 bar the second was covered and the
-  // whole item blurred -- the owner's report.
-  const faces = [
-    { gender: 'male', score: 0.95, age: 33 },
-    { gender: 'male', score: 0.24, age: 39 },
-  ];
-  assert.deepEqual(flaggedFaceIndices('man', faces), []);
-  assert.equal(faceVerdict('man', faces), 'clear');
+test('women misread as male on a thumbnail stay covered', () => {
+  // Measured 2026-08-28 through the aspect-correct crop: six women read
+  // `male` at 0.16-0.28, one of them a yoga thumbnail that was fully
+  // sharp under the old 0.12 bar.
+  for (const s of [0.16, 0.19, 0.2, 0.25, 0.28]) {
+    assert.equal(faceVerdict('man', [{ gender: 'male', score: s, age: 34 }]), 'flag');
+  }
+  // And the men from the same measurement still clear.
+  assert.equal(faceVerdict('man', [{ gender: 'male', score: 0.45, age: 33 }]), 'clear');
+  assert.equal(faceVerdict('man', [{ gender: 'male', score: 0.91, age: 23 }]), 'clear');
 });
 
 test('the near-coin-flip regime is still refused', () => {
-  // The only inversion the sweep produced anywhere was a woman reading
-  // male at 0.04. Below the floor, so still covered.
+  // The weakest reads were always inversions; below the floor either way.
   assert.equal(faceVerdict('man', [{ gender: 'male', score: 0.04, age: 30 }]), 'flag');
 });

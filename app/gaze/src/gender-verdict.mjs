@@ -40,7 +40,25 @@ export var GENDER_MIN_SCORE = 0.25;
 // weak/certain split in the video tracker, which twenty-odd gauntlet
 // rounds calibrated at 0.25; a thumbnail gets ONE look and no tracker to
 // absorb a mistake, so the two surfaces get their own bars.
-export var GENDER_IMAGE_MIN_SCORE = 0.12;
+// RE-MEASURED 2026-08-28, AFTER THE CROP WAS FIXED.
+//
+// The corpus above was taken through a STRETCHED crop: cropAndResize
+// squashes the detector's rectangle into 224x224, so faceres was reading
+// a distorted face and its certainty collapsed. Live on m.youtube, one
+// clear front-facing man 224px wide read `male` at 0.06 and was covered
+// -- the owner's screenshot. With an aspect-preserving crop (detector.js
+// `square`) the same page reads male at a 0.76 median.
+//
+// That separates what the old bar could not. Measured the same day, man
+// mode, mobile UA:
+//   men, male-heavy queries : median 0.76, individual reads 0.45-0.98
+//   WOMEN misread as `male` : 0.16, 0.19, 0.20, 0.20, 0.25, 0.28
+// The old 0.12 cleared every one of those women (a yoga thumbnail with
+// the subject fully sharp -- exposure, the failure this app exists to
+// prevent). 0.4 sits above every observed misread and below the male
+// median: some men still get covered, which is the direction that costs
+// a blur instead of an exposure.
+export var GENDER_IMAGE_MIN_SCORE = 0.4;
 
 // CLEARING is asymmetric (owner frame 2026-08-24: the daughter — a
 // child — rendered SHARP while Linus was covered; faceres is trained on

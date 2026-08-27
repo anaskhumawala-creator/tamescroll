@@ -556,14 +556,21 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
     // the verdict changes, and a thumbnail waiting a frame longer is
     // still blurred the whole time (blur-first).
     return detector.detectFaceBoxes(model, el, sharedImg).then(function (faces) {
-      if (!faces.length) return { verdict: 'clear', flagBoxes: [], reads: [] };
-      if (!genderModel) return { verdict: 'flag', flagBoxes: faces, reads: [] };
+      if (!faces.length) return { verdict: 'clear', flagBoxes: [], reads: [], faces: [] };
+      if (!genderModel) return { verdict: 'flag', flagBoxes: faces, reads: [], faces: faces };
       return yieldToBrowser().then(function () {
-      return detector.classifyFaceGenders(genderModel, el, faces, sharedImg).then(function (genders) {
+      return detector
+        .classifyFaceGenders(genderModel, el, faces, sharedImg, { square: true })
+        .then(function (genders) {
         var idx = flaggedFaceIndices(userGender, genders);
         var flagBoxes = [];
         for (var i = 0; i < idx.length; i++) flagBoxes.push(faces[idx[i]]);
-        return { verdict: idx.length ? 'flag' : 'clear', flagBoxes: flagBoxes, reads: genders };
+        return {
+          verdict: idx.length ? 'flag' : 'clear',
+          flagBoxes: flagBoxes,
+          reads: genders,
+          faces: faces,
+        };
       });
       });
     });
@@ -709,12 +716,15 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
             why: result.nsfw ? 'nsfw' : result.face ? 'face' : 'clear',
             faces: reads.length,
             flagged: flagBoxes.length,
-            reads: reads.map(function (r) {
+            reads: reads.map(function (r, ri) {
+              var fb = res.boxes && res.boxes[ri];
               return {
                 g: r.gender,
                 s: Math.round((r.score || 0) * 100) / 100,
                 a: typeof r.age === 'number' ? Math.round(r.age) : null,
                 c: typeof r.childP === 'number' ? Math.round(r.childP * 100) / 100 : null,
+                k: fb && typeof fb.confidence === 'number' ? Math.round(fb.confidence * 100) / 100 : null,
+                p: fb ? Math.round((fb.x2 - fb.x1) * (img.naturalWidth || 0)) : null,
               };
             }),
           });
@@ -781,11 +791,12 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
               flagBoxes: face.flagBoxes,
               nsfw: false,
               reads: face.reads,
+              faces: face.faces,
             };
           }
           return nsfwP.then(function (nsfw) {
             // NSFW flags are whole-image by nature — no face boxes.
-            return { face: false, flagBoxes: [], nsfw: nsfw, reads: face.reads };
+            return { face: false, flagBoxes: [], nsfw: nsfw, reads: face.reads, faces: face.faces };
           });
         });
       })
@@ -806,12 +817,19 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
           why: result.nsfw ? 'nsfw' : result.face ? 'face' : 'clear',
           faces: result.reads ? result.reads.length : 0,
           flagged: result.flagBoxes ? result.flagBoxes.length : 0,
-          reads: (result.reads || []).map(function (r) {
+          reads: (result.reads || []).map(function (r, ri) {
+            var fb = result.faces && result.faces[ri];
             return {
               g: r.gender,
               s: Math.round((r.score || 0) * 100) / 100,
               a: typeof r.age === 'number' ? Math.round(r.age) : null,
               c: typeof r.childP === 'number' ? Math.round(r.childP * 100) / 100 : null,
+              // The DETECTOR's own confidence, and the native pixel size
+              // the gender head actually saw. A covered thumbnail with no
+              // person in it and one with a weakly-read man look
+              // identical without these two.
+              k: fb && typeof fb.confidence === 'number' ? Math.round(fb.confidence * 100) / 100 : null,
+              p: fb ? Math.round((fb.x2 - fb.x1) * (img.naturalWidth || 0)) : null,
             };
           }),
         });
