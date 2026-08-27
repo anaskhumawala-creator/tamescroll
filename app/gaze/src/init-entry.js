@@ -84,6 +84,14 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
   // string literal — esbuild won't rename it) so the Rust side can prove
   // this exact bundle is what got injected. See lib.rs gaze tests.
   window.__TS_GAZE_BUNDLE__ = 'v7'; // v7: crowd path (faces past MoveNet's 6) + no cut blackout
+  // Closes the eval clock the build opens as the artifact's first
+  // statement — see build/build.js. The delta is what evaluating 22.7MB
+  // of bundle costs on THIS device, per page load.
+  try {
+    if (typeof window.__TS_GAZE_EVAL0 === 'number') {
+      window.__TS_GAZE_EVALMS = Math.round(performance.now() - window.__TS_GAZE_EVAL0);
+    }
+  } catch (e) {}
 
   // EFFECTIVE VALUES OF THE GATING CONSTANTS, published once at boot.
   // R15 found FACE_MIN_NATIVE_PX emitted by the minifier as `var IY;` with
@@ -1659,6 +1667,25 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
     // callbacks to run while he scrolls. On this desktop a pass costs
     // ~25ms against a 120ms floor (~20%), so the budget never binds and
     // desktop behaviour is unchanged by construction.
+    // Passive, so it can never delay the scroll it is observing. Bound to
+    // the document because YouTube scrolls the window on desktop and an
+    // inner container on mobile web -- capture catches both.
+    var lastScrollAt = -1e9;
+    try {
+      document.addEventListener(
+        'scroll',
+        function () {
+          lastScrollAt = performance.now();
+        },
+        { passive: true, capture: true }
+      );
+    } catch (e) {}
+    var SCROLL_QUIET_MS = 250;
+    var SCROLL_INTERVAL_MS = 500;
+    function scrolling(now) {
+      return now - lastScrollAt < SCROLL_QUIET_MS;
+    }
+
     // One real macrotask. scheduler.yield() is the purpose-built API and
     // returns to the event loop at user-visible priority where it exists;
     // setTimeout(0) is the universally available equivalent.
@@ -1731,6 +1758,26 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       var effInterval = isPlayer
         ? Math.min(POSITION_MAX_INTERVAL_MS, Math.max(floor / rate, lastPassMs * POSITION_DUTY))
         : sampleInterval;
+      // WHILE THE PAGE IS MOVING, GET OUT OF THE WAY.
+      //
+      // MEASURED, and it is the owner's complaint verbatim. Under a 6x
+      // main-thread throttle, scrolling a watch page down to the
+      // comments: first comment thread renders at 7.1s with blur on and
+      // 2.2s with it off, and reaching 40 threads takes 38.2s against
+      // 2.2s. Seventeen times slower, on the interaction he does most.
+      // isInputPending alone does not cover this -- it is false in the
+      // gaps BETWEEN scroll events, which is exactly when YouTube's
+      // IntersectionObserver and fetch callbacks want to run.
+      //
+      // So a scroll puts the pipeline in a slow lane for a moment after
+      // the last event. Not off: a person newly on screen must still be
+      // covered, and the position pass is the cheap one that does that.
+      // What stops is the EXPENSIVE half -- crops, gender, descriptor --
+      // whose only job is deciding whether someone already covered may
+      // be CLEARED. Deferring that keeps people blurred slightly longer,
+      // which is the safe direction, and it costs nothing visible
+      // because the patches keep tracking throughout.
+      if (isPlayer && scrolling(now)) effInterval = Math.max(effInterval, SCROLL_INTERVAL_MS);
       if (now - lastSample < effInterval) return;
       if (sampling) return;
       // The rolling main-thread budget (see SPEND_BUDGET_FRAC). Checked
@@ -1790,6 +1837,9 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         // hiccup away from the runaway. verdictBusy already forbids
         // overlapping passes, so a cap cannot build a backlog.
         var effZoom = Math.min(VERDICT_MAX_INTERVAL_MS, Math.max(ZOOM_INTERVAL_MS, lastVerdictMs * VERDICT_DUTY));
+        // See the scroll gate above: while the page is moving, positions
+        // keep updating and verdicts wait.
+        if (scrolling(now)) effZoom = Math.max(effZoom, VERDICT_MAX_INTERVAL_MS);
         // Never a second verdict pass while one is still running: one
         // GPU queue, and a backlog is indistinguishable from a hang.
         var wasVerdict = !verdictBusy && now - lastZoomAt >= effZoom;
@@ -2959,10 +3009,28 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
     loadFaceModels();
   }
 
+  // MODEL LOAD TIMING. Four models load serially and every number this
+  // project has for them came from an RTX desktop, where the whole chain
+  // is under a second and invisible. Under a 6x main-thread throttle the
+  // person model -- the one a playing video is waiting on -- was not
+  // ready for 12.6s, and until it is the player falls back to blurring
+  // the WHOLE video. Ten seconds of a fully blurred video is the owner's
+  // "low quality" as much as any edge is. Guarded, and read through
+  // window.__TS_GAZE_TIMING by the perf probe.
+  function markLoad(name, at) {
+    try {
+      var t = (window.__TS_GAZE_TIMING = window.__TS_GAZE_TIMING || {});
+      t[name] = Math.round(performance.now() - at);
+      t[name + 'At'] = Math.round(performance.now());
+    } catch (e) {}
+  }
+
   function loadFaceModels() {
+  var t0 = performance.now();
   detector
     .loadModel()
     .then(function (loaded) {
+      markLoad('face', t0);
       if (failed) return;
       model = loaded;
       // Gender loads SECOND, before NSFW: the drain waits for it to
@@ -2975,6 +3043,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         .then(
           function (gender) {
             genderModel = gender;
+            markLoad('gender', t0);
           },
           function (e) {
             // eslint-disable-next-line no-console
@@ -2993,6 +3062,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
             .then(
               function (person) {
                 personModel = person;
+                markLoad('person', t0);
               },
               function (e) {
                 // eslint-disable-next-line no-console
@@ -3007,6 +3077,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
               return detector.loadNsfwModel().then(
                 function (nsfw) {
                   nsfwModel = nsfw;
+                  markLoad('nsfw', t0);
                 },
                 function (e) {
                   // Degrade to face-only, loudly but harmlessly.

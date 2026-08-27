@@ -38,6 +38,8 @@ function buildStamp() {
   }
 }
 
+const EVAL_CLOCK = 'try{window.__TS_GAZE_EVAL0=performance.now();}catch(e){}' + String.fromCharCode(10);
+
 async function main() {
   if (!fs.existsSync(path.join(__dirname, '../src/model-embed.js'))) {
     console.error('src/model-embed.js missing — run gen-embed.js first (npm run build:gaze does both).');
@@ -63,7 +65,13 @@ async function main() {
   if (stamped === built) {
     console.warn('WARNING: bundle marker not found — runs will not be attributable to a build');
   } else {
-    fs.writeFileSync(outfile, stamped);
+    // EVAL CLOCK. 93.9% of this artifact is four inlined base64 model
+    // blobs, and it is evaluated on EVERY page load. Whether that costs
+    // 25ms or two seconds on a Helio G88 was, until now, an assumption.
+    // It has to be the FIRST statement in the output, which only the
+    // build can guarantee — an import in the entry module would already
+    // be after the bundler's own module init.
+    fs.writeFileSync(outfile, EVAL_CLOCK + stamped);
   }
   console.log(`bundle marker: ${stamp}`);
 
