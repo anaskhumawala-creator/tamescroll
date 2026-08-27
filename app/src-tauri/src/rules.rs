@@ -424,3 +424,33 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod preview_surface_tests {
+    /// The mobile preview rule must land in the `previews` surface, not
+    /// somewhere else in the file — a live DOM read on 2026-08-27 showed
+    /// the injected sheet carrying the DESKTOP selector and not the
+    /// mobile one, so the question "is it parsed at all" needs an answer
+    /// that does not depend on a running app.
+    #[test]
+    fn previews_surface_carries_both_desktop_and_mobile_selectors() {
+        let surfaces = super::platform_surfaces("youtube").expect("youtube surfaces");
+        let previews = surfaces
+            .iter()
+            .find(|s| s.id == "previews")
+            .expect("previews surface");
+        let sels: Vec<String> = previews
+            .rules
+            .iter()
+            .map(|(d, s)| format!("{d}##{s}"))
+            .collect();
+        assert!(
+            sels.iter().any(|r| r == "youtube.com##ytd-video-preview"),
+            "desktop selector missing: {sels:?}"
+        );
+        assert!(
+            sels.iter().any(|r| r == "m.youtube.com##ytm-video-preview"),
+            "mobile selector missing: {sels:?}"
+        );
+    }
+}
