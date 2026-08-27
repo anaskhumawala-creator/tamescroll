@@ -1,0 +1,93 @@
+<!doctype html>
+<!-- Is batching inference ACROSS IMAGES worth the refactor?
+
+     One thumbnail now costs 61ms (39ms of it was a second decode, gone).
+     What is left is three model runs, each dispatched per image. If most
+     of that is fixed per-execute overhead, batching four images into one
+     execute is the next big cut; if it is real per-pixel work, it is not
+     worth touching the verdict path for. Measure before rewriting. -->
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>batch vs serial</title>
+<body style="font: 13px monospace; background: #141414; color: #eee; padding: 12px">
+  <div id="out">loading…</div>
+  <script>window.__TS_BENCH__ = 1;</script>
+  <script src="gaze-init.js"></script>
+  <script>
+    var out = document.getElementById('out');
+    function log(l) { console.log('TS_BATCH ' + l); out.innerHTML += '<br>' + l; }
+    function load(src) {
+      return new Promise(function (res, rej) {
+        var i = new Image(); i.onload = function () { res(i); }; i.onerror = rej; i.src = src;
+      });
+    }
+    function stats(fn, n) {
+      return (async function () {
+        for (var w = 0; w < 3; w++) await fn();          // warm-up
+        var v = [];
+        for (var i = 0; i < n; i++) { var t = performance.now(); await fn(); v.push(performance.now() - t); }
+        v.sort(function (a, b) { return a - b; });
+        return v[Math.floor(v.length / 2)];
+      })();
+    }
+    (async function () {
+      var api = window.__TS_BENCH_API;
+      if (!api) { log('no bench api'); return; }
+      var tf = api.tf;
+      var imgs = await Promise.all(['male.jpg', 'female.jpg', 'male2.jpg', 'female2.jpg'].map(load));
+      log('backend ' + tf.getBackend() + ', ' + imgs.length + ' images');
+      var face = await api.loadFace();
+      var nsfw = await api.loadNsfw();
+
+      function facePre(img, size) {
+        return tf.tidy(function () {
+          var t = tf.browser.fromPixels(img);
+          var r = tf.image.resizeBilinear(tf.expandDims(t, 0), [size, size]);
+          return tf.sub(tf.div(tf.cast(r, 'float32'), 127.5), 1);
+        });
+      }
+      var OUTS = ['Identity:0', 'Identity_1:0', 'Identity_2:0', 'Identity_3:0'];
+
+      var serialFace = await stats(async function () {
+        for (var i = 0; i < imgs.length; i++) {
+          var x = facePre(imgs[i], 256);
+          var r = face.execute(x, OUTS);
+          await r[0].data();
+          tf.dispose(r); tf.dispose(x);
+        }
+      }, 8);
+      var batchFace = await stats(async function () {
+        var parts = imgs.map(function (im) { return facePre(im, 256); });
+        var x = tf.concat(parts, 0);
+        var r = face.execute(x, OUTS);
+        await r[0].data();
+        tf.dispose(r); tf.dispose(x); parts.forEach(function (p) { tf.dispose(p); });
+      }, 8);
+      log('BlazeFace x4  serial ' + serialFace.toFixed(1) + 'ms   batched ' + batchFace.toFixed(1) + 'ms');
+
+      function nsfwPre(img) {
+        return tf.tidy(function () {
+          var t = tf.browser.fromPixels(img);
+          var r = tf.image.resizeBilinear(t, [224, 224]);
+          return tf.expandDims(tf.div(tf.cast(r, 'float32'), 255), 0);
+        });
+      }
+      var serialNsfw = await stats(async function () {
+        for (var i = 0; i < imgs.length; i++) {
+          var x = nsfwPre(imgs[i]);
+          var r = nsfw.execute(x, 'Identity:0');
+          await r.data();
+          tf.dispose(r); tf.dispose(x);
+        }
+      }, 8);
+      var batchNsfw = await stats(async function () {
+        var parts = imgs.map(nsfwPre);
+        var x = tf.concat(parts, 0);
+        var r = nsfw.execute(x, 'Identity:0');
+        await r.data();
+        tf.dispose(r); tf.dispose(x); parts.forEach(function (p) { tf.dispose(p); });
+      }, 8);
+      log('nsfwjs x4     serial ' + serialNsfw.toFixed(1) + 'ms   batched ' + batchNsfw.toFixed(1) + 'ms');
+      log('DONE');
+    })().catch(function (e) { log('ERROR ' + (e && e.message || e)); });
+  </script>
+</body>

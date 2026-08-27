@@ -293,6 +293,12 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
   // backside persons. null = no gating, no backside coverage (fail-safe
   // in the "never drop extra blur" direction).
   var personModel = null;
+  // Declared HERE, not next to ensurePersonModel: boot() scans the
+  // document -- and so can call attachVideo -- before execution ever
+  // reaches the bottom of this file, and a `var` initialiser down there
+  // would then reset a flag that had already been set.
+  var personWanted = false;
+  var personLoading = null;
   // Guards the face-model load so it runs exactly once whether it is the
   // post-load-idle deferral OR a played player video that kicks it early
   // (see ensureFaceModels).
@@ -914,6 +920,9 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
     // a known compulsory-tier gap (no NSFW sampling yet — noted for the
     // strictness spec pass).
     if (!plan.faceGender) return;
+    // A page with no video does not need the person model, and this is
+    // the moment that stops being true. See ensurePersonModel.
+    ensurePersonModel();
     // The WATCH PLAYER samples live too (owner decision 2026-08-23,
     // HaramBlur-parity: the old player exemption is reversed for smart
     // mode). Player videos get an in-player toggle so a wrong verdict
@@ -3385,17 +3394,40 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       .then(function () {
         nsfwSettled = true;
         if (imageQueue.length) drainImages();
-        return detector.loadPersonModel().then(
-          function (person) {
-            personModel = person;
-            markLoad('person', t1);
-          },
-          function (e) {
-            // eslint-disable-next-line no-console
-            console.warn('tamescroll gaze: person model unavailable, whole-blur player', e);
-          }
-        );
+        // NOT loaded here any more. A search or feed page has nothing
+        // that can use MoveNet, and loading it anyway spent 1.1s of the
+        // main thread (6x throttle) in the exact window the owner is
+        // waiting on thumbnails. attachVideo asks for it the moment a
+        // video exists -- including one that arrives by SPA navigation,
+        // where the bundle is never re-evaluated and this is the only
+        // thing that would ever ask.
+        //
+        // The wait that buys is fail-safe: until the model lands the
+        // player runs the whole-blur path, which covers rather than
+        // exposes.
+        if (personWanted) return ensurePersonModel();
       });
+  }
+
+  function ensurePersonModel() {
+    personWanted = true;
+    if (personModel || personLoading) return personLoading;
+    // Order still holds: whatever the image drain is waiting on goes
+    // first. Asking before nsfw has settled would put MoveNet back in
+    // front of the reveal, which is the bug this ordering fixed.
+    if (!nsfwSettled) return null;
+    var tp = performance.now();
+    personLoading = detector.loadPersonModel().then(
+      function (person) {
+        personModel = person;
+        markLoad('person', tp);
+      },
+      function (e) {
+        // eslint-disable-next-line no-console
+        console.warn('tamescroll gaze: person model unavailable, whole-blur player', e);
+      }
+    );
+    return personLoading;
   }
 
   function loadFaceModels() {
