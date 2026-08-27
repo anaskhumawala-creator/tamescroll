@@ -231,6 +231,21 @@ export function initRegionBlur(flaggedClass) {
         entries.splice(i, 1);
         continue;
       }
+      // A host can BECOME the player without the entry moving: on
+      // m.youtube the same subtree is recycled from a feed preview into
+      // the watch player, so a patch minted legitimately can end up
+      // orphaned inside it. resolveHost refuses the host at mint time;
+      // this catches the ones that were minted before the recycle.
+      try {
+        if (isPlayerSubtree(entry.host)) {
+          entry.el.classList.add(wholeBlurClass);
+          dropEntry(entry);
+          entries.splice(i, 1);
+          continue;
+        }
+      } catch (e) {
+        /* non-fatal */
+      }
       var r = entry.el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) {
         // Virtualized away: whole blur back on, park the patches.
@@ -255,9 +270,42 @@ export function initRegionBlur(flaggedClass) {
 // The patch parent: the image's own parent element, promoted to a
 // positioned box when static. Never the <html>/<body> fallback — no
 // parent means whole blur stays.
+// The shared-player subtree, in one place because two call sites need
+// the same answer and a selector that drifts in one of them is a bug
+// that only shows up on a phone. Exported for tests.
+export var PLAYER_SUBTREE_SELECTOR = '#movie_player, .ytmVideoPreviewHost, ytm-video-preview';
+
+export function isPlayerSubtree(node) {
+  try {
+    return !!(node && typeof node.closest === 'function' && node.closest(PLAYER_SUBTREE_SELECTOR));
+  } catch (e) {
+    return false;
+  }
+}
+
 function resolveHost(el) {
   var host = el.parentElement;
   if (!host) return null;
+  // NEVER INSIDE THE PLAYER. (owner 2026-08-27, phone screenshot: a blur
+  // rectangle floating across the playing video, anchored to nothing,
+  // plus "the blur marks end up showing on the title bar" while
+  // scrolling fast.)
+  //
+  // m.youtube reuses ONE #movie_player for the watch player AND for the
+  // feed's autoplay thumbnail previews -- that is already recorded in
+  // rules/youtube.txt as the reason the preview surface cannot be hidden.
+  // So a thumbnail that happens to be previewing puts its <img> inside
+  // the shared player subtree, we host a patch there, and when the
+  // preview ends or the element is recycled for the real player the
+  // patch is orphaned INSIDE the player: it stops tracking anything,
+  // paints over the video, and rides the sticky player up under the top
+  // bar. It also outranks page chrome, because video-region's own
+  // overlays live at z-index 20 in exactly that subtree.
+  //
+  // An image patch has no business in the player subtree at all -- the
+  // player has its own region path. Refusing the host here means whole
+  // blur stays for that element, which is the covered direction.
+  if (isPlayerSubtree(host)) return null;
   try {
     if (window.getComputedStyle(host).position === 'static') {
       host.style.position = 'relative';

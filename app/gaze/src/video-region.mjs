@@ -114,8 +114,36 @@ export function interpolateBox(track, elapsedMs) {
 }
 
 // The overlay host lives inside the player so fullscreen keeps it painted.
+// THE FEED PREVIEW IS NOT A PLAYER WE MAY DRAW IN. (owner 2026-08-27,
+// phone screenshot: a blur rectangle across the playing video, and "the
+// blur marks end up showing on the title bar" while scrolling fast.)
+//
+// m.youtube reuses ONE #movie_player for the watch player AND for the
+// feed's autoplay thumbnail preview -- that is already recorded in
+// rules/youtube.txt as the reason the preview surface cannot be hidden.
+// So resolveHost happily returns the SHARED player for a preview, and
+// our overlays go in at z-index 20 inside a subtree that scrolls: they
+// ride up under the fixed top bar, and when the preview ends or the
+// element is recycled for the real player they are left painting across
+// a video they no longer describe. Measured in a live mobile-UA DOM
+// read: two patches at y=24 with the top bar spanning 0-48, both
+// parented under .ytmVideoPreviewHost.
+//
+// Refusing the host puts the preview back on WHOLE-video blur, which is
+// where feed videos have always belonged (they are small and fast, and
+// the region path was built for the watch player). Whole blur is a
+// filter on the video element itself, so it cannot paint over page
+// chrome by construction.
+var PREVIEW_HOST_SELECTOR = '.ytmVideoPreviewHost, ytm-video-preview';
+
 function resolveHost(video) {
-  return (video.closest && video.closest('#movie_player')) || null;
+  if (!video || !video.closest) return null;
+  try {
+    if (video.closest(PREVIEW_HOST_SELECTOR)) return null;
+  } catch (e) {
+    /* non-fatal */
+  }
+  return video.closest('#movie_player') || null;
 }
 
 function makeOverlay(key) {

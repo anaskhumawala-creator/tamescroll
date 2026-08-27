@@ -2,7 +2,7 @@
 // 2026-08-24: scroll briefly exposed document-anchored patches).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { boxToParentRect, sameRect, padBox, expandToBody, mergeOverlapping } from '../src/region-blur.mjs';
+import { boxToParentRect, sameRect, padBox, expandToBody, mergeOverlapping, isPlayerSubtree, PLAYER_SUBTREE_SELECTOR } from '../src/region-blur.mjs';
 
 test('boxToParentRect: element inset inside its parent maps to parent space', () => {
   // parent at viewport (80, 40); img at (100, 50) sized 200x100
@@ -89,4 +89,28 @@ test('mergeOverlapping: overlapping boxes union, disjoint stay, chains collapse'
   const chain = merged.find((b) => b.x1 === 0.1);
   assert.equal(chain.x2, 0.6);
   assert.equal(chain.confidence, 0.7);
+});
+
+test('isPlayerSubtree: an image patch is refused a host inside the shared player', () => {
+  // Owner 2026-08-27, phone screenshot: a blur rectangle floating across
+  // the playing video, anchored to nothing. m.youtube recycles ONE
+  // #movie_player between feed previews and the watch player, so a patch
+  // hosted in a previewing thumbnail is orphaned inside the player when
+  // the element is reused -- it stops tracking, paints over the video and
+  // rides the sticky player up under the top bar.
+  const inPlayer = { closest: (sel) => (sel === PLAYER_SUBTREE_SELECTOR ? {} : null) };
+  const normal = { closest: () => null };
+  assert.equal(isPlayerSubtree(inPlayer), true);
+  assert.equal(isPlayerSubtree(normal), false);
+  // Must never throw into the pipeline, whatever it is handed.
+  assert.equal(isPlayerSubtree(null), false);
+  assert.equal(isPlayerSubtree({}), false);
+  assert.equal(isPlayerSubtree({ closest: () => { throw new Error('detached'); } }), false);
+});
+
+test('the player selector covers both names m.youtube uses', () => {
+  // The preview host and the player are separate elements and BOTH have
+  // been seen carrying an orphaned patch in a live DOM read.
+  assert.ok(PLAYER_SUBTREE_SELECTOR.includes('#movie_player'));
+  assert.ok(PLAYER_SUBTREE_SELECTOR.includes('ytm-video-preview'));
 });

@@ -76,6 +76,19 @@ test('canRegionVideo: true only when a player host resolves', () => {
   assert.equal(vr.canRegionVideo(orphan), false);
 });
 
+test('canRegionVideo: the m.youtube feed preview is refused, so it keeps whole blur', () => {
+  // The preview and the watch player are the SAME #movie_player element.
+  // Region overlays there sit at z-index 20 inside a subtree that
+  // scrolls, so they ride under the fixed top bar and outlive the
+  // preview -- the owner's phone screenshot. Whole blur is a filter on
+  // the video itself and cannot paint over chrome.
+  const { video } = playerWithVideo({ left: 0, top: 0, width: 320, height: 180 });
+  const realClosest = video.closest;
+  video.closest = (sel) =>
+    sel === '.ytmVideoPreviewHost, ytm-video-preview' ? {} : realClosest.call(video, sel);
+  assert.equal(vr.canRegionVideo(video), false);
+});
+
 test('setBoxes: creates one overlay per box inside the player host', () => {
   const { player, video } = playerWithVideo({ left: 0, top: 0, width: 640, height: 360 });
   const ok = vr.setBoxes(video, [

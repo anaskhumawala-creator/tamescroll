@@ -157,6 +157,54 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
   // check too; content thumbnails on every supported platform measure
   // well above this.
   var IMAGE_MIN_SIZE = 120;
+  // Passive, so it can never delay the scroll it is observing. Bound to
+  // the document because YouTube scrolls the window on desktop and an
+  // inner container on mobile web -- capture catches both.
+  var lastScrollAt = -1e9;
+  try {
+    document.addEventListener(
+      'scroll',
+      function () {
+        lastScrollAt = performance.now();
+      },
+      { passive: true, capture: true }
+    );
+  } catch (e) {}
+  var SCROLL_QUIET_MS = 250;
+  var SCROLL_INTERVAL_MS = 500;
+  function scrolling(now) {
+    return now - lastScrollAt < SCROLL_QUIET_MS;
+  }
+
+  // One real macrotask. scheduler.yield() is the purpose-built API and
+  // returns to the event loop at user-visible priority where it exists;
+  // setTimeout(0) is the universally available equivalent.
+  function yieldToBrowser() {
+    try {
+      if (typeof scheduler !== 'undefined' && scheduler && typeof scheduler.yield === 'function') {
+        return scheduler.yield();
+      }
+    } catch (e) {}
+    return new Promise(function (resolve) {
+      setTimeout(resolve, 0);
+    });
+  }
+
+  var SPEND_WINDOW_MS = 1000;
+  var SPEND_BUDGET_FRAC = 0.25;
+  var spends = [];
+  function noteSpend(at, ms) {
+    spends.push(at, ms);
+    if (spends.length > 80) spends.splice(0, spends.length - 80);
+  }
+  function overBudget(now) {
+    var total = 0;
+    for (var i = 0; i < spends.length; i += 2) {
+      if (now - spends[i] <= SPEND_WINDOW_MS) total += spends[i + 1];
+    }
+    return total > SPEND_WINDOW_MS * SPEND_BUDGET_FRAC;
+  }
+
   var IMAGE_BATCH_MAX = 4;
   var VIDEO_SAMPLE_INTERVAL_MS = 500; // caps inference at ~2/s per feed video
   // Player detection cadence (redesign 2026-08-24, blur-pipeline-audit,
@@ -353,14 +401,24 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
   // back). Without the gender model (still loading, or failed) every
   // face covers — the old presence behavior, which is also the fail-safe.
   function faceCheck(el) {
+    // A YIELD BETWEEN THE TWO MODELS. Measured on a search page under a
+    // 6x throttle: the worst single main-thread task was 1,724ms, and it
+    // is ONE image -- BlazeFace and the gender classifier run back to
+    // back with only a microtask between them, so the browser cannot
+    // paint or scroll across either. Yielding between them halves the
+    // worst case for free: the two are already sequential, nothing about
+    // the verdict changes, and a thumbnail waiting a frame longer is
+    // still blurred the whole time (blur-first).
     return detector.detectFaceBoxes(model, el).then(function (faces) {
       if (!faces.length) return { verdict: 'clear', flagBoxes: [] };
       if (!genderModel) return { verdict: 'flag', flagBoxes: faces };
+      return yieldToBrowser().then(function () {
       return detector.classifyFaceGenders(genderModel, el, faces).then(function (genders) {
         var idx = flaggedFaceIndices(userGender, genders);
         var flagBoxes = [];
         for (var i = 0; i < idx.length; i++) flagBoxes.push(faces[idx[i]]);
         return { verdict: idx.length ? 'flag' : 'clear', flagBoxes: flagBoxes };
+      });
       });
     });
   }
@@ -463,6 +521,35 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         if (imageQueue.length) setTimeout(drainImages, 250);
         return;
       }
+      // THE SEARCH PAGE IS WORSE THAN THE PLAYER, AND NOBODY HAD LOOKED.
+      // (owner 2026-08-27: "where the sluggishness shows out is when I
+      // click the search button and the time it takes to load or show
+      // the results")
+      //
+      // Measured under a 6x main-thread throttle, scrolling a results
+      // page for 12s: 112 long tasks, 14,532ms of them, worst single
+      // 1,416ms, over 60 result items. The thread is saturated -- worse
+      // than the player path was before its budget landed, because this
+      // drain had NONE of the three protections the player got. An idle
+      // deadline decides how many images to DEQUEUE and then hands the
+      // whole batch to Promise.all, which runs them as one unbroken
+      // burst: on a G88 that is four faces plus four gender reads plus
+      // four NSFW classifications with no gap anywhere in it.
+      //
+      // Same three levers, same reasoning as the player:
+      //   - while the page is scrolling, do nothing at all. Unlike the
+      //     player there is no exposure risk in waiting: blur-first
+      //     means every unchecked thumbnail is ALREADY blurred, so
+      //     deferring only delays a REVEAL.
+      //   - share the rolling main-thread budget with the player.
+      //   - run the batch serially with a real macrotask between images
+      //     instead of one burst, so the worst task is one image rather
+      //     than four.
+      var nowMs = performance.now();
+      if (scrolling(nowMs) || overBudget(nowMs)) {
+        if (imageQueue.length) setTimeout(drainImages, SCROLL_QUIET_MS);
+        return;
+      }
       var batch = [];
       while (
         imageQueue.length &&
@@ -471,7 +558,18 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       ) {
         batch.push(imageQueue.shift());
       }
-      Promise.all(batch.map(detectImage)).then(function () {
+      var seq = Promise.resolve();
+      batch.forEach(function (img, bi) {
+        if (bi > 0) seq = seq.then(yieldToBrowser);
+        seq = seq.then(function () {
+          var at = performance.now();
+          return Promise.resolve(detectImage(img)).then(function (r) {
+            noteSpend(performance.now(), performance.now() - at);
+            return r;
+          });
+        });
+      });
+      seq.then(function () {
         if (imageQueue.length) drainImages();
       });
     });
@@ -1667,54 +1765,6 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
     // callbacks to run while he scrolls. On this desktop a pass costs
     // ~25ms against a 120ms floor (~20%), so the budget never binds and
     // desktop behaviour is unchanged by construction.
-    // Passive, so it can never delay the scroll it is observing. Bound to
-    // the document because YouTube scrolls the window on desktop and an
-    // inner container on mobile web -- capture catches both.
-    var lastScrollAt = -1e9;
-    try {
-      document.addEventListener(
-        'scroll',
-        function () {
-          lastScrollAt = performance.now();
-        },
-        { passive: true, capture: true }
-      );
-    } catch (e) {}
-    var SCROLL_QUIET_MS = 250;
-    var SCROLL_INTERVAL_MS = 500;
-    function scrolling(now) {
-      return now - lastScrollAt < SCROLL_QUIET_MS;
-    }
-
-    // One real macrotask. scheduler.yield() is the purpose-built API and
-    // returns to the event loop at user-visible priority where it exists;
-    // setTimeout(0) is the universally available equivalent.
-    function yieldToBrowser() {
-      try {
-        if (typeof scheduler !== 'undefined' && scheduler && typeof scheduler.yield === 'function') {
-          return scheduler.yield();
-        }
-      } catch (e) {}
-      return new Promise(function (resolve) {
-        setTimeout(resolve, 0);
-      });
-    }
-
-    var SPEND_WINDOW_MS = 1000;
-    var SPEND_BUDGET_FRAC = 0.25;
-    var spends = [];
-    function noteSpend(at, ms) {
-      spends.push(at, ms);
-      if (spends.length > 80) spends.splice(0, spends.length - 80);
-    }
-    function overBudget(now) {
-      var total = 0;
-      for (var i = 0; i < spends.length; i += 2) {
-        if (now - spends[i] <= SPEND_WINDOW_MS) total += spends[i + 1];
-      }
-      return total > SPEND_WINDOW_MS * SPEND_BUDGET_FRAC;
-    }
-
     var POSITION_DUTY = 2;
     var POSITION_MAX_INTERVAL_MS = 1000;
     var VERDICT_DUTY = 4;
