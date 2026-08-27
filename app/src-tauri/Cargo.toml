@@ -40,4 +40,10 @@ jni = "0.21"
 # the desktop counterpart of Android's shouldInterceptRequest.
 [target.'cfg(target_os = "windows")'.dependencies]
 webview2-com = "0.38"
-windows = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Com"] }
+windows = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_System_Com",
+  # SHCreateMemStream: an IStream over bytes we own, which is how a
+  # WebResourceRequested handler answers with a body of its own.
+  "Win32_UI_Shell",
+] }

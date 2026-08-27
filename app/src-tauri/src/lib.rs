@@ -414,6 +414,25 @@ fn engine() -> Arc<Engine> {
 /// ""), both of which the filter lists genuinely use — a rule can be
 /// third-party-only, or script-only, so passing them through is the
 /// difference between blocking ads and breaking the site.
+/// Resources we answer ourselves, on whatever origin asked for them.
+///
+/// YouTube sends `require-trusted-types-for 'script'`, which is why
+/// every earlier attempt at moving inference into a Worker failed: a
+/// blob: url cannot be loaded as a TrustedScriptURL there. A SAME-ORIGIN
+/// url can (measured 2026-08-27: one of YouTube's own scripts runs
+/// inside a Worker on its own page). Nothing serves such a url but us.
+///
+/// The path is deliberately unmistakable and is never a real platform
+/// url; returning None is the normal case and leaves the request
+/// exactly as it was.
+pub(crate) fn synthetic_resource(url: &str) -> Option<&'static str> {
+    let path = url.split('?').next().unwrap_or(url);
+    if path.ends_with("/__tamescroll/worker-spike.js") {
+        return Some(include_str!("worker-spike.js"));
+    }
+    None
+}
+
 pub(crate) fn blocks_request(url: &str, source_url: &str, resource_type: &str) -> bool {
     // Never gamble on our own IPC or the launcher: a false positive here
     // bricks the app, and neither can serve an ad.
@@ -518,6 +537,26 @@ fn install_request_blocker(window: &tauri::WebviewWindow) {
                     } else {
                         String::new()
                     };
+                    // Our own script, on the page's own origin — see
+                    // synthetic_resource for why that is the only shape
+                    // of Worker YouTube's Trusted Types will load.
+                    if let Some(body) = synthetic_resource(&url) {
+                        if let Some(stream) =
+                            windows::Win32::UI::Shell::SHCreateMemStream(Some(body.as_bytes()))
+                        {
+                            if let Ok(response) = env.CreateWebResourceResponse(
+                                Some(&stream),
+                                200,
+                                windows::core::w!("OK"),
+                                windows::core::w!(
+                                    "Content-Type: text/javascript\r\nCache-Control: no-store"
+                                ),
+                            ) {
+                                let _ = args.SetResponse(&response);
+                            }
+                        }
+                        return Ok(());
+                    }
                     if !blocks_request(&url, &source, "other") {
                         return Ok(());
                     }
