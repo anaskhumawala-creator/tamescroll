@@ -6866,3 +6866,90 @@ analysis.
      reaches nothing but a probe) and 8 (the entry-4 mixed-gender street crowd,
      captured and unscored) are untouched. So are R28's items 1-3 and R27's
      item 3.
+
+- **R31 — NOT RUN. THE ROUNDS ARE OVER AND THE CRON IS A LEFTOVER.** The
+  scheduled `gauntlet-loop` task fired at 10:05 on 2026-08-27 and this entry
+  exists so that a skipped round can never be mistaken for a passing one. No
+  frames were scored, no fix was applied, nothing was changed in
+  `app/gaze/src`. The round was going to be rotation entry 6 (`graduation
+  ceremony full ceremony`, **woman**), resolved live to **`r70mH3m4l9E`**,
+  window t=2400 — R24's six-person static stage — because that is the
+  female-heavy footage open item 1 asks for to re-derive
+  `GENDER_CLEAR_SCORE_FEMALE` 0.45 from the contradiction rate. That item is
+  still open and unmeasured.
+
+  **WHY IT STOPPED.** The owner withdrew the loop, and the instruction is in
+  the repo, not in a peer's paraphrase: `CLAUDE.md` at HEAD, line 69 —
+  "**Session 2026-08-26 night — GAUNTLET ROUNDS ARE OVER.** Owner: *stop with
+  the gauntlet run and let's do run just based upon polishing the app and
+  making it optimized and working accordingly.*" The git history says the same
+  thing independently: R30 (`de7ece8`) is the last gauntlet commit, and every
+  commit after it today is polish — `963ad55`, `d42f349`, `54196e6`,
+  `4cf388d`, `09a7fcd` — the last of them landing at 10:27 while this round
+  was still trying to take a baseline. A sibling session (`disconnect-08`,
+  owner-directed) confirmed it killed its own hourly stability cron for the
+  same reason. **The scheduled task itself is the thing that needs the owner's
+  decision; it was left running and it will fire again.**
+
+  **THREE THINGS WERE LEARNED ANYWAY, AND ALL THREE COST CAPTURES.** They are
+  recorded because they will bite whoever next drives this harness, gauntlet
+  or not.
+
+  * **`open_platform`'s tile click does NOT re-navigate an existing YouTube
+    window, so the hard gender gate can read a STALE page.** On desktop the
+    Rust side reuses the `youtube` window label and `set_focus` is a visual
+    no-op — `devapp.log` shows `open_platform id=youtube` with no matching
+    `build`. The window therefore sits on whatever URL it already had, and
+    `gauntlet.py:415` reads `__TS_GAZE_GENDER` off THAT page, which was baked
+    at its own load. Measured: launcher toggle -> `woman`, tile click, 7s wait
+    -> the window is still on a months-old `m.youtube.com/results?search_query=
+    podcast+interview` and reports `g:"man"`, so the run aborts with BOOTED
+    WRONG DIRECTION. Delivery itself is fine and was verified directly: set
+    the toggle, navigate the window to the watch URL, and
+    `window.__TS_GAZE_GENDER === "woman"` — because `lib.rs:289` formats
+    `user_gender()` into the page-load script at NAVIGATION time, not at
+    window creation. The guard is doing its job; it is the tile click that is
+    inert. **Fix when the harness is next touched: navigate the existing
+    window before reading the gate, or close the window so the label is
+    rebuilt.**
+  * **An app relaunch resets the launcher's stored gender to `man`.** Observed
+    three times: every new `app.exe` PID came with
+    `localStorage['tamescroll.gender'] === 'man'`, including immediately after
+    a verified write of `woman` that had held for six consecutive polls.
+    Combined with the item above this is the exact trap R2 built the gate for.
+  * **A stale CDP UA override survives into the next session and silently
+    breaks `search`.** The YouTube window was still pinned to `m.youtube.com`
+    by the previous session's mobile-UA + touch emulation (the miniplayer
+    investigation). `search_ids` selects `a#video-title-link, a#video-title`,
+    which are desktop-only markup, so it returned `[]` twice with no error —
+    a resolve failure that looks exactly like "YouTube changed its DOM".
+    Closing the target and taking a fresh window restored the desktop UA and
+    the query resolved normally.
+
+  **AND THE SHARED-CHECKOUT HAZARD IS NOW MEASURED, WHICH R26 ONLY FLAGGED.**
+  `spikes/gauntlet/.round-lock` does not exclude sibling sessions. While this
+  round held it, `app/src-tauri/gaze-init.js` and `src/lib.rs` were rewritten
+  within 0.1s of each other at 10:15:50, 10:20:17 and 10:25:07 — a ~5-minute
+  cadence — each rewrite making `tauri dev` kill and relaunch `app.exe` (PIDs
+  21460 -> 38408 -> 48380). Three captures died: two with `ConnectionResetError`
+  / connection-refused mid-run, one with the wrong-direction abort above. The
+  `error: process didn't exit successfully ... (exit code 0xffffffff)` line in
+  `devapp.log` is NOT a crash and there is no Windows Application Error event
+  behind it — it is what `tauri dev` prints when it kills the running app for a
+  rebuild. Do not diagnose it as a fault again.
+
+  **NOTHING FROM THIS ROUND IS EVIDENCE.** The two capture directories left on
+  disk are renamed `runs/r31-ABORTED-warm` (3 warm-up frames) and
+  `runs/r31-ABORTED-partial-5of10-no-meta` (died at f004, no `meta.json`).
+  Neither was scored and neither may be quoted.
+
+  **STILL OPEN:** everything R30 listed, unchanged and unmeasured — item 1
+  (`GENDER_CLEAR_SCORE_FEMALE` 0.45, the only measured EXPOSURE mechanism on
+  the list), item 2 (identity churn, `birthContendedCertain`), item 3 (score
+  geometry separately from the verdict), item 4 (`cost.pass` p50 printed from
+  n=1), item 5 (R29's items 3-6 and 8, R28's 1-3, R27's 3). Plus: the
+  `gauntlet-loop` scheduled task is still armed, and the STABILITY numbers in
+  this file predate today's polish work — `disconnect-08` reports the shipped
+  pipeline is now much quieter (man / `NWoT1ZVd1Lo` t=890: patches 0.69 mean,
+  MAX 2, dCount 0.10/s, stable 0.99), so scoring a future change against this
+  log's baselines would read as a win that belongs to someone else.
