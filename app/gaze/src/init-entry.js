@@ -230,11 +230,38 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
   // starvation this budget fixed was the player's inference queued
   // ahead of YouTube's own callbacks.
   var IDLE_BUDGET_FRAC = 0.6;
+  // A SCROLL USED TO STOP THE QUEUE DEAD (owner 2026-08-27, on the phone:
+  // "it processes some, then it halts, then it takes time to process the
+  // next ... the speed is still much less compared to the speed that
+  // someone scrolls").
+  //
+  // Measured at 6x throttle on a search page, flicking every 700ms: 0.39
+  // images/s while scrolling against 1.43 still. A person scrolls past
+  // several thumbnails a second, so the queue fell permanently behind him
+  // and every halt he describes is this gate. Refusing to run at all was
+  // justified by "blur-first means waiting only delays a reveal" -- true,
+  // but the reveal IS what he is waiting for, and a delayed one is the
+  // thing he is reporting.
+  //
+  // So the scroll now caps the drain instead of stopping it: one image at
+  // a time, at a fraction small enough that the work cannot own the
+  // thread the scroll needs. The still-page budget is untouched.
+  var SCROLL_BUDGET_FRAC = 0.15;
+  var SCROLL_BATCH_MAX = 1;
   var IDLE_QUIET_MS = 1000;
   var lastPlayerPassAt = -1e9;
   var PLAYER_ACTIVE_MS = 2000;
   function imageBudgetFrac(now) {
+    // Probe override (spikes/gauntlet/probe_scrollfeel.py). Choosing
+    // these fractions is a trade between throughput and scroll
+    // smoothness, and it cannot be chosen without measuring both against
+    // each other -- which needs a rebuild per value unless the value can
+    // be set from outside. Clamped, and a number or nothing: the worst a
+    // page could do with it is spend a little more of its own thread.
+    var over = window.__TS_IMG_BUDGET;
+    if (typeof over === 'number' && over > 0) return over > 0.8 ? 0.8 : over;
     if (now - lastPlayerPassAt < PLAYER_ACTIVE_MS) return SPEND_BUDGET_FRAC;
+    if (scrolling(now)) return SCROLL_BUDGET_FRAC;
     if (now - lastScrollAt < IDLE_QUIET_MS) return SPEND_BUDGET_FRAC;
     return IDLE_BUDGET_FRAC;
   }
@@ -456,7 +483,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
   // thumbnail failed the bar — now only the failing faces' boxes come
   // back). Without the gender model (still loading, or failed) every
   // face covers — the old presence behavior, which is also the fail-safe.
-  function faceCheck(el) {
+  function faceCheck(el, sharedImg) {
     // A YIELD BETWEEN THE TWO MODELS. Measured on a search page under a
     // 6x throttle: the worst single main-thread task was 1,724ms, and it
     // is ONE image -- BlazeFace and the gender classifier run back to
@@ -465,11 +492,11 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
     // worst case for free: the two are already sequential, nothing about
     // the verdict changes, and a thumbnail waiting a frame longer is
     // still blurred the whole time (blur-first).
-    return detector.detectFaceBoxes(model, el).then(function (faces) {
+    return detector.detectFaceBoxes(model, el, sharedImg).then(function (faces) {
       if (!faces.length) return { verdict: 'clear', flagBoxes: [], reads: [] };
       if (!genderModel) return { verdict: 'flag', flagBoxes: faces, reads: [] };
       return yieldToBrowser().then(function () {
-      return detector.classifyFaceGenders(genderModel, el, faces).then(function (genders) {
+      return detector.classifyFaceGenders(genderModel, el, faces, sharedImg).then(function (genders) {
         var idx = flaggedFaceIndices(userGender, genders);
         var flagBoxes = [];
         for (var i = 0; i < idx.length; i++) flagBoxes.push(faces[idx[i]]);
@@ -517,10 +544,39 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
     var tImg0 = performance.now();
     var tLoad = 0;
     var tFace = 0;
+    // ONE UPLOAD PER THUMBNAIL. BlazeFace, the gender head and the NSFW
+    // classifier each ran their own fromPixels of the SAME element --
+    // three texture uploads of every thumbnail, two of them pure
+    // duplication. Same reasoning as the video path (detector.uploadFrame):
+    // the target is a Helio G88 where bus bandwidth, not shader
+    // throughput, is what the owner feels. `frame` is owned HERE and
+    // disposed on both exits; a null upload falls back to the old
+    // per-detector uploads, so a tainted or undrawable source behaves
+    // exactly as before.
+    var frame = null;
+    var bitmap = null;
+    function releaseFrame() {
+      if (frame) {
+        detector.disposeFrame(frame);
+        frame = null;
+      }
+      // A pixel source that owns memory until it is closed (an
+      // ImageBitmap) must be released here; nothing else will.
+      if (bitmap) {
+        try {
+          bitmap.close();
+        } catch (e) {
+          /* a closed or foreign bitmap must never break a verdict */
+        }
+        bitmap = null;
+      }
+    }
     return dom
       .loadDetectable(img)
       .then(function (el) {
         tLoad = performance.now() - tImg0;
+        if (el && typeof el.close === 'function' && el !== img) bitmap = el;
+        frame = detector.uploadFrame(el);
         // Faces first (cheaper, most common hit) — smart mode only.
         // NSFW runs when the faces cleared: a gender-cleared image can
         // still be suggestive, and the compulsory tier owns that call.
@@ -530,11 +586,11 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         // NSFW model missing degrades to face-only, never breaks page.
         if (!plan.faceGender) {
           if (!nsfwModel) return { face: false, flagBoxes: [], nsfw: false };
-          return detector.isNsfw(nsfwModel, el).then(function (nsfw) {
+          return detector.isNsfw(nsfwModel, el, frame).then(function (nsfw) {
             return { face: false, flagBoxes: [], nsfw: nsfw };
           });
         }
-        return faceCheck(el).then(function (face) {
+        return faceCheck(el, frame).then(function (face) {
           tFace = performance.now() - tImg0 - tLoad;
           if (face.verdict === 'flag' || !nsfwModel) {
             return {
@@ -544,15 +600,21 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
               reads: face.reads,
             };
           }
-          return detector.isNsfw(nsfwModel, el).then(function (nsfw) {
+          return detector.isNsfw(nsfwModel, el, frame).then(function (nsfw) {
             // NSFW flags are whole-image by nature — no face boxes.
             return { face: false, flagBoxes: [], nsfw: nsfw, reads: face.reads };
           });
         });
       })
       .then(function (result) {
+        releaseFrame();
         if (failed) return;
         noteImgDiag({
+          // Wall-clock stamp, so a probe can read the GAPS BETWEEN images
+          // and not just the cost of each. The owner's report is about
+          // the gaps ("it processes some, then it halts, then it takes
+          // time to process the next"), and nothing recorded them.
+          t: Math.round(performance.now()),
           ms: Math.round(performance.now() - tImg0),
           load: Math.round(tLoad),
           face: Math.round(tFace),
@@ -591,6 +653,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         }
       })
       .catch(function (e) {
+        releaseFrame();
         // Fail-closed for imagery: could not verify, stays blurred.
         // Counted, because a thumbnail that fails here stays covered for
         // the life of the page and looks identical to one still waiting
@@ -601,10 +664,26 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       });
   }
 
-  function drainImages() {
+  // A FINISHED BATCH WENT TO THE BACK OF THE IDLE QUEUE (same owner
+  // report as SCROLL_BUDGET_FRAC: "then it takes time to process the
+  // next"). Every re-arm went through requestIdleCallback, so after four
+  // images the queue waited for an idle slice that a busy YouTube feed
+  // does not hand out -- up to the full IDLE_TIMEOUT_MS, measured as
+  // 1,090ms at the 90th percentile between two images on a page that was
+  // sitting still. Nothing about that wait protects anything: the spend
+  // budget and the per-image yield are what keep the thread free, and
+  // both still apply. A continuation goes straight to a macrotask.
+  function drainImages(soon) {
     if (imageDraining) return;
     imageDraining = true;
-    idle(function (deadline) {
+    var arm = soon
+      ? function (cb) {
+          setTimeout(function () {
+            cb({ didTimeout: true, timeRemaining: function () { return 0; } });
+          }, 0);
+        }
+      : idle;
+    arm(function (deadline) {
       imageDraining = false;
       if (failed) {
         imageQueue.length = 0;
@@ -655,10 +734,11 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       //     instead of one burst, so the worst task is one image rather
       //     than four.
       var nowMs = performance.now();
-      if (scrolling(nowMs) || overBudget(nowMs, imageBudgetFrac(nowMs))) {
+      if (overBudget(nowMs, imageBudgetFrac(nowMs))) {
         if (imageQueue.length) setTimeout(drainImages, SCROLL_QUIET_MS);
         return;
       }
+      var batchMax = scrolling(nowMs) ? SCROLL_BATCH_MAX : IMAGE_BATCH_MAX;
       // LOOKAHEAD ORDERING. One layout read per drain (at most 4Hz, and
       // never while scrolling -- the gate above already returned), then
       // the queue runs nearest-to-the-viewport first: what is on screen,
@@ -687,7 +767,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       var batch = [];
       while (
         imageQueue.length &&
-        batch.length < IMAGE_BATCH_MAX &&
+        batch.length < batchMax &&
         (deadline.didTimeout || deadline.timeRemaining() > 0)
       ) {
         batch.push(imageQueue.shift());
@@ -704,7 +784,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         });
       });
       seq.then(function () {
-        if (imageQueue.length) drainImages();
+        if (imageQueue.length) drainImages(true);
       });
     });
   }
@@ -713,9 +793,56 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
     if (!document.hidden && imageQueue.length) drainImages();
   });
 
+  // WE WERE DECODING EVERY THUMBNAIL TWICE (owner 2026-08-27, on the
+  // phone: the queue cannot keep up with a scroll).
+  //
+  // Measured: 30 of 30 thumbnails on a search page were fetched twice.
+  // The bytes came from cache -- but the DECODE did not, and that second
+  // decode is 39ms of an 89ms image on this desktop, the largest single
+  // stage, ahead of BlazeFace and the gender head together.
+  //
+  // The clone exists because a cross-origin <img> with no crossorigin
+  // attribute taints anything it is uploaded into, whatever the server
+  // sends back. The attribute is what decides that, and it is only
+  // consulted when the image LOADS -- so setting it on an image that has
+  // not loaded yet (every lazy thumbnail he is about to scroll into)
+  // makes the page's own decode usable and deletes our second one.
+  //
+  // Two guards, because a broken thumbnail is worse than a slow one:
+  // only hosts measured to send an ACAO header, and an error handler
+  // that puts the image back exactly as it was and lets the clone path
+  // handle it. An already-loaded image is left alone -- changing the
+  // attribute there would restart a load that has already finished.
+  var CORS_SAFE_HOST = /(^|\.)(ytimg\.com|ggpht\.com|redd\.it|redditmedia\.com|twimg\.com|cdninstagram\.com)$/;
+  function preflightCors(img) {
+    try {
+      if (img.crossOrigin || img.complete) return;
+      var src = img.currentSrc || img.src;
+      if (!src) return;
+      var host = new URL(src, location.href).hostname;
+      if (!CORS_SAFE_HOST.test(host)) return;
+      img.addEventListener(
+        'error',
+        function () {
+          // CORS refused (or anything else): restore the plain load so
+          // the user still sees his thumbnail.
+          if (img.crossOrigin) {
+            img.removeAttribute('crossorigin');
+            img.src = src;
+          }
+        },
+        { once: true }
+      );
+      img.crossOrigin = 'anonymous';
+    } catch (e) {
+      /* never let this optimisation break tagging */
+    }
+  }
+
   function tagImage(img) {
     if (failed || dom.hasPlayerAncestor(img)) return;
     if (imageSeen && imageSeen.has(img)) return;
+    preflightCors(img);
 
     function check() {
       if (failed) return;

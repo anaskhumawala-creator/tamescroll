@@ -372,9 +372,13 @@ export async function detectPersons(model, pixelSource, aspect, held, sharedImg)
  * or Sexy > 0.8 — conservative start, calibration pass pending.
  * MobileNetV2 wants [0,1] input, unlike BlazeFace's [-1,1].
  */
-export async function isNsfw(model, pixelSource) {
+export async function isNsfw(model, pixelSource, sharedImg) {
   var scores = tf.tidy(function () {
-    var img = tf.browser.fromPixels(pixelSource);
+    // `sharedImg` — see uploadFrame. On the image path BlazeFace, the
+    // gender head and this classifier all read the SAME <img>, so the
+    // element was uploaded three times per thumbnail. A tensor created
+    // outside this tidy survives it; the caller disposes.
+    var img = sharedImg || tf.browser.fromPixels(pixelSource);
     img = tf.image.resizeBilinear(img, [NSFW_INPUT_SIZE, NSFW_INPUT_SIZE]);
     img = tf.cast(img, 'float32');
     img = tf.div(img, 255);
@@ -500,11 +504,13 @@ export async function detectFaceBoxes(model, pixelSource, sharedImg) {
  * >0.5 male, and confidence is 2*|v-0.5|.
  * Returns [{ gender: 'female'|'male', score }] parallel to boxes.
  */
-export async function classifyFaceGenders(model, pixelSource, boxes) {
+export async function classifyFaceGenders(model, pixelSource, boxes, sharedImg) {
   if (!boxes.length) return [];
   var genderHeadFound = false;
   var outs = tf.tidy(function () {
-    var img = tf.browser.fromPixels(pixelSource);
+    // `sharedImg` — see uploadFrame and isNsfw. Ownership stays with the
+    // caller; a tensor made outside this tidy is not disposed by it.
+    var img = sharedImg || tf.browser.fromPixels(pixelSource);
     var input = tf.expandDims(tf.cast(img, 'float32'), 0);
     var rects = [];
     var inds = [];
