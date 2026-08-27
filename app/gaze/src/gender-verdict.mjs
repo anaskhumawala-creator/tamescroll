@@ -10,6 +10,38 @@
 // blurred most same-gender faces (owner report).
 
 export var GENDER_MIN_SCORE = 0.25;
+// THE IMAGE BAR IS NOT THE VIDEO BAR (owner 2026-08-27: "sometimes these
+// thumbnail blurs blur the male character as well").
+//
+// MEASURED on live YouTube search results, 2026-08-27, at the crop scale
+// we actually ship (the padding sweep 0.7/0.85/1.0/1.2/1.45 found no
+// scale better than 1.0, so a re-read cannot rescue these):
+//
+//   male-heavy corpus  : 30 face reads, EVERY ONE read `male`
+//   female-heavy corpus: 17 face reads, EVERY ONE read `female`
+//
+// 47 of 47 directionally correct, which reproduces the R6 finding on a
+// different surface. What the two corpora do NOT do is separate: male
+// confidences ran 0.24-0.95 and female 0.27-0.97. The score is a
+// CERTAINTY, not a discriminator, so a bar placed inside the overlap
+// rejects true same-gender faces without rejecting opposite-gender ones.
+//
+// At 0.25 that cost was visible in the corpus: two men read `male` at
+// 0.24 and 0.26 -- one of them BELOW the bar by a hundredth -- and both
+// were covered. That is the owner's report, exactly.
+//
+// The one inversion seen anywhere in the sweep was a woman reading
+// `male` at confidence 0.04, and only at a crop scale we do not ship.
+// So the floor still has a job: it guards the near-coin-flip regime
+// where inversions actually live. 0.12 sits between the two -- above
+// every observed inversion, below every observed true read.
+//
+// Image-only, deliberately. GENDER_MIN_SCORE also feeds faceMeta's
+// weak/certain split in the video tracker, which twenty-odd gauntlet
+// rounds calibrated at 0.25; a thumbnail gets ONE look and no tracker to
+// absorb a mistake, so the two surfaces get their own bars.
+export var GENDER_IMAGE_MIN_SCORE = 0.12;
+
 // CLEARING is asymmetric (owner frame 2026-08-24: the daughter — a
 // child — rendered SHARP while Linus was covered; faceres is trained on
 // adults and can read a child's face as confidently wrong): a face may
@@ -321,11 +353,12 @@ export function faceVerdict(userGender, faces) {
     var same = f.gender === (opposite === 'female' ? 'male' : 'female');
     // Child gate, same as the video path (review A10: the image path
     // cleared children with no age check — same defect class). The
-    // score bar stays at GENDER_MIN_SCORE for images: raising it to the
-    // video's 0.6 would re-blur the 0.3-0.6 same-gender adults the
-    // owner already reported, and images have no tracker to absorb it.
+    // score bar is GENDER_IMAGE_MIN_SCORE: raising it to the video's 0.6
+    // would re-blur the 0.3-0.6 same-gender adults the owner already
+    // reported, and images have no tracker to absorb it. See the
+    // constant for the corpus the 0.12 floor was measured against.
     var adult = isAdultRead(f);
-    if (!same || !adult || !(f.score >= GENDER_MIN_SCORE)) return 'flag';
+    if (!same || !adult || !(f.score >= GENDER_IMAGE_MIN_SCORE)) return 'flag';
   }
   return 'clear';
 }
@@ -565,7 +598,7 @@ export function flaggedFaceIndices(userGender, faces) {
     var f = faces[i];
     var same = f.gender === (opposite === 'female' ? 'male' : 'female');
     var adult = isAdultRead(f);
-    if (!same || !adult || !(f.score >= GENDER_MIN_SCORE)) out.push(i);
+    if (!same || !adult || !(f.score >= GENDER_IMAGE_MIN_SCORE)) out.push(i);
   }
   return out;
 }

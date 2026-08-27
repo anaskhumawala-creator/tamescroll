@@ -74,6 +74,7 @@ import {
   clearRegionBlur,
   clearAllRegionBlur,
   expandToBody,
+  imagePriority,
 } from './region-blur.mjs';
 import * as videoRegion from './video-region.mjs';
 import { createTextMatcher } from './text-signals.mjs';
@@ -206,6 +207,9 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
   }
 
   var IMAGE_BATCH_MAX = 4;
+  // How many queued images get a rect read before the ordering pass
+  // gives up and leaves the tail in arrival order (see drainImages).
+  var PRIORITY_SCAN_MAX = 64;
   var VIDEO_SAMPLE_INTERVAL_MS = 500; // caps inference at ~2/s per feed video
   // Player detection cadence (redesign 2026-08-24, blur-pipeline-audit,
   // + owner "not instantaneous — HaramBlur is snappier"): the person
@@ -410,17 +414,37 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
     // the verdict changes, and a thumbnail waiting a frame longer is
     // still blurred the whole time (blur-first).
     return detector.detectFaceBoxes(model, el).then(function (faces) {
-      if (!faces.length) return { verdict: 'clear', flagBoxes: [] };
-      if (!genderModel) return { verdict: 'flag', flagBoxes: faces };
+      if (!faces.length) return { verdict: 'clear', flagBoxes: [], reads: [] };
+      if (!genderModel) return { verdict: 'flag', flagBoxes: faces, reads: [] };
       return yieldToBrowser().then(function () {
       return detector.classifyFaceGenders(genderModel, el, faces).then(function (genders) {
         var idx = flaggedFaceIndices(userGender, genders);
         var flagBoxes = [];
         for (var i = 0; i < idx.length; i++) flagBoxes.push(faces[idx[i]]);
-        return { verdict: idx.length ? 'flag' : 'clear', flagBoxes: flagBoxes };
+        return { verdict: idx.length ? 'flag' : 'clear', flagBoxes: flagBoxes, reads: genders };
       });
       });
     });
+  }
+
+  // WHY WAS THIS THUMBNAIL COVERED? (owner 2026-08-27: "sometimes these
+  // thumbnail blurs blur the male character as well")
+  //
+  // The image path had no diagnostics at all, so every explanation for a
+  // wrongly-covered man was a guess: a low gender score, the child gate
+  // firing on a small face, a text-signal hit on the title, or a
+  // neighbour's body box swallowing him. Those need different fixes, so
+  // the ring records which one actually fired. Bounded and fully
+  // guarded — instrumentation has thrown inside this pipeline before and
+  // cost two releases.
+  function noteImgDiag(entry) {
+    try {
+      var ring = (window.__TS_GAZE_IMGDIAG = window.__TS_GAZE_IMGDIAG || []);
+      ring.push(entry);
+      if (ring.length > 120) ring.splice(0, ring.length - 120);
+    } catch (e) {
+      /* never let a probe break a verdict */
+    }
   }
 
   function detectImage(img) {
@@ -431,6 +455,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       try {
         if (textMatcher.test(mediaText(img))) {
           markFlagged(img);
+          noteImgDiag({ why: 'text', faces: 0, reads: [] });
           return Promise.resolve();
         }
       } catch (e) {
@@ -455,16 +480,34 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         }
         return faceCheck(el).then(function (face) {
           if (face.verdict === 'flag' || !nsfwModel) {
-            return { face: face.verdict === 'flag', flagBoxes: face.flagBoxes, nsfw: false };
+            return {
+              face: face.verdict === 'flag',
+              flagBoxes: face.flagBoxes,
+              nsfw: false,
+              reads: face.reads,
+            };
           }
           return detector.isNsfw(nsfwModel, el).then(function (nsfw) {
             // NSFW flags are whole-image by nature — no face boxes.
-            return { face: false, flagBoxes: [], nsfw: nsfw };
+            return { face: false, flagBoxes: [], nsfw: nsfw, reads: face.reads };
           });
         });
       })
       .then(function (result) {
         if (failed) return;
+        noteImgDiag({
+          why: result.nsfw ? 'nsfw' : result.face ? 'face' : 'clear',
+          faces: result.reads ? result.reads.length : 0,
+          flagged: result.flagBoxes ? result.flagBoxes.length : 0,
+          reads: (result.reads || []).map(function (r) {
+            return {
+              g: r.gender,
+              s: Math.round((r.score || 0) * 100) / 100,
+              a: typeof r.age === 'number' ? Math.round(r.age) : null,
+              c: typeof r.childP === 'number' ? Math.round(r.childP * 100) / 100 : null,
+            };
+          }),
+        });
         if (result.nsfw) {
           // Compulsory tier: removed outright, every mode, no setting.
           markRemoved(img);
@@ -549,6 +592,31 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       if (scrolling(nowMs) || overBudget(nowMs)) {
         if (imageQueue.length) setTimeout(drainImages, SCROLL_QUIET_MS);
         return;
+      }
+      // LOOKAHEAD ORDERING. One layout read per drain (at most 4Hz, and
+      // never while scrolling -- the gate above already returned), then
+      // the queue runs nearest-to-the-viewport first: what is on screen,
+      // then what is just below it, then what he has already passed.
+      // Bounded so a page that has queued hundreds of images cannot turn
+      // the ordering itself into the jank it exists to prevent; beyond
+      // the cap the tail keeps its arrival order, which is the old
+      // behaviour and is fine -- it is far off screen by definition.
+      if (imageQueue.length > 1) {
+        try {
+          var vh = window.innerHeight || 1;
+          var scan = imageQueue.length > PRIORITY_SCAN_MAX ? PRIORITY_SCAN_MAX : imageQueue.length;
+          var head = imageQueue.slice(0, scan);
+          var keys = new WeakMap();
+          for (var pi = 0; pi < head.length; pi++) {
+            keys.set(head[pi], imagePriority(head[pi].getBoundingClientRect(), vh));
+          }
+          head.sort(function (a, b) {
+            return keys.get(a) - keys.get(b);
+          });
+          for (var pj = 0; pj < scan; pj++) imageQueue[pj] = head[pj];
+        } catch (e) {
+          /* non-fatal: fall back to arrival order */
+        }
       }
       var batch = [];
       while (

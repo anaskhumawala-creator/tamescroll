@@ -2,7 +2,7 @@
 // 2026-08-24: scroll briefly exposed document-anchored patches).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { boxToParentRect, sameRect, padBox, expandToBody, mergeOverlapping, isPlayerSubtree, PLAYER_SUBTREE_SELECTOR, coversRect } from '../src/region-blur.mjs';
+import { boxToParentRect, sameRect, padBox, expandToBody, mergeOverlapping, isPlayerSubtree, PLAYER_SUBTREE_SELECTOR, coversRect, imagePriority, PRIORITY_BEHIND } from '../src/region-blur.mjs';
 
 test('boxToParentRect: element inset inside its parent maps to parent space', () => {
   // parent at viewport (80, 40); img at (100, 50) sized 200x100
@@ -132,4 +132,37 @@ test('coversRect: a preview only stands the still patch down when it really cove
   assert.equal(coversRect(elsewhere, thumb), false);
   assert.equal(coversRect(null, thumb), false);
   assert.equal(coversRect(exact, { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }), false);
+});
+
+// Queue order is load order, which is not view order (owner 2026-08-27:
+// "can't you preload the thumbnail blurs before my scrolling"). These
+// pin the ordering the drain sorts by.
+test('imagePriority: on-screen outranks everything', () => {
+  const vh = 800;
+  assert.equal(imagePriority({ top: 100, bottom: 300 }, vh), 0);
+  // Straddling the fold still counts as on screen.
+  assert.equal(imagePriority({ top: -50, bottom: 60 }, vh), 0);
+  assert.ok(imagePriority({ top: 900, bottom: 1100 }, vh) > 0);
+});
+
+test('imagePriority: below the fold runs nearest-first', () => {
+  const vh = 800;
+  const near = imagePriority({ top: 850, bottom: 1050 }, vh);
+  const far = imagePriority({ top: 3000, bottom: 3200 }, vh);
+  assert.ok(near < far, `${near} should sort before ${far}`);
+});
+
+test('imagePriority: already-passed images park behind everything ahead', () => {
+  const vh = 800;
+  const above = imagePriority({ top: -400, bottom: -200 }, vh);
+  const veryFarBelow = imagePriority({ top: 100000, bottom: 100200 }, vh);
+  assert.ok(above > veryFarBelow);
+  // ...but they are never dropped, and the nearest one above comes first.
+  const higher = imagePriority({ top: -4000, bottom: -3800 }, vh);
+  assert.ok(above < higher);
+  assert.ok(above < PRIORITY_BEHIND * 2);
+});
+
+test('imagePriority: a missing rect sorts last instead of throwing', () => {
+  assert.equal(imagePriority(null, 800), PRIORITY_BEHIND * 2);
 });

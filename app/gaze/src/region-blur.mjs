@@ -424,3 +424,37 @@ export function clearAllRegionBlur() {
   for (var i = 0; i < entries.length; i++) dropEntry(entries[i]);
   entries.length = 0;
 }
+
+// SCROLL-ORDER PRIORITY FOR THE IMAGE QUEUE (owner 2026-08-27: "can't
+// you preload the thumbnail blurs before my scrolling so it becomes
+// more smooth").
+//
+// The queue is filled in LOAD order, which is not view order: YouTube
+// lazy-loads a screenful ahead, an SPA nav appends a whole new feed
+// behind what is already queued, and a src swap re-queues an item at
+// the back. So the thumbnail he is about to scroll onto can sit behind
+// thirty images he has already passed, and the reveal lands seconds
+// after he has gone by -- which is exactly what "not smooth" looks
+// like, even though every one of them was blurred the whole time.
+//
+// Ordering cannot make the work cheaper; it makes it land in the right
+// place. Nearest-below-the-fold first is the lookahead: by the time a
+// row reaches the viewport its verdict is usually already in.
+//
+// Above the viewport is not dropped -- blur-first means those are
+// covered, and he can scroll back up -- it is just parked behind
+// everything ahead of him.
+export var PRIORITY_BEHIND = 1e7;
+
+/** Sort key for one queued image: smaller runs sooner. */
+export function imagePriority(rect, viewportH) {
+  if (!rect) return PRIORITY_BEHIND * 2;
+  var vh = viewportH > 0 ? viewportH : 1;
+  // On screen now: he is looking at it, nothing outranks that.
+  if (rect.bottom > 0 && rect.top < vh) return 0;
+  // Below the fold: ahead of him, nearest first.
+  if (rect.top >= vh) return rect.top - vh + 1;
+  // Above the fold: already passed. Behind everything ahead, nearest
+  // first among themselves so scrolling back up also resolves in order.
+  return PRIORITY_BEHIND - rect.bottom;
+}
