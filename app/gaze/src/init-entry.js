@@ -167,6 +167,10 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       'scroll',
       function () {
         lastScrollAt = performance.now();
+        // What is near the viewport just changed, and the drain may have
+        // stood down over a queue of far-away images. Cheap: drainImages
+        // no-ops while one is already armed.
+        if (typeof imageQueue !== 'undefined' && imageQueue.length) drainImages();
       },
       { passive: true, capture: true }
     );
@@ -267,6 +271,12 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
   }
 
   var IMAGE_BATCH_MAX = 4;
+  // How far below the fold an image can be and still be worth spending
+  // the thread on: two viewports, i.e. roughly what a flick brings up
+  // next. imagePriority returns 0 for anything on screen, the distance
+  // below the fold, and a large constant for anything already passed --
+  // so this defers the passed ones too.
+  var FAR_PRIORITY_PX = 2000;
   // How many queued images get a rect read before the ordering pass
   // gives up and leaves the tail in arrival order (see drainImages).
   var PRIORITY_SCAN_MAX = 64;
@@ -753,12 +763,13 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
       // the ordering itself into the jank it exists to prevent; beyond
       // the cap the tail keeps its arrival order, which is the old
       // behaviour and is fine -- it is far off screen by definition.
+      var keys = null;
       if (imageQueue.length > 1) {
         try {
           var vh = window.innerHeight || 1;
           var scan = imageQueue.length > PRIORITY_SCAN_MAX ? PRIORITY_SCAN_MAX : imageQueue.length;
           var head = imageQueue.slice(0, scan);
-          var keys = new WeakMap();
+          keys = new WeakMap();
           for (var pi = 0; pi < head.length; pi++) {
             keys.set(head[pi], imagePriority(head[pi].getBoundingClientRect(), vh));
           }
@@ -768,15 +779,44 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
           for (var pj = 0; pj < scan; pj++) imageQueue[pj] = head[pj];
         } catch (e) {
           /* non-fatal: fall back to arrival order */
+          keys = null;
         }
       }
+      // ORDERING WAS NOT ENOUGH: THE FAR ONES STILL SPEND HIS BUDGET.
+      //
+      // The queue ran nearest-first but still ran everything, so after a
+      // few screens most of each batch was thumbnails he had already
+      // scrolled past -- work that competes with the six on his screen
+      // for the same 60%. Every image the queue skips here is one the
+      // visible screen gets instead, and nothing is lost: an image far
+      // off screen stays queued and stays blurred (blur-first), and the
+      // next drain re-sorts, so it is picked up as he approaches it.
+      //
+      // A scroll is what changes the answer, so a scroll re-arms the
+      // drain -- otherwise a queue of nothing-but-far images would sit
+      // there with no one left to wake it.
       var batch = [];
-      while (
-        imageQueue.length &&
-        batch.length < batchMax &&
-        (deadline.didTimeout || deadline.timeRemaining() > 0)
-      ) {
-        batch.push(imageQueue.shift());
+      var skipped = 0;
+      for (var qi = 0; qi < imageQueue.length; ) {
+        if (batch.length >= batchMax || !(deadline.didTimeout || deadline.timeRemaining() > 0)) break;
+        var cand = imageQueue[qi];
+        if (cand && cand.isConnected === false) {
+          // Gone from the document while it waited; nothing to reveal.
+          imageQueue.splice(qi, 1);
+          continue;
+        }
+        var pri = keys ? keys.get(cand) : 0;
+        // Probe override, same reasoning as __TS_IMG_BUDGET: this
+        // distance is a trade (visible thumbnails resolve sooner, far
+        // ones later) and A/B-ing it must not need a rebuild per side.
+        var farPx = typeof window.__TS_IMG_FAR === 'number' ? window.__TS_IMG_FAR : FAR_PRIORITY_PX;
+        if (typeof pri === 'number' && pri > farPx) {
+          skipped++;
+          qi++;
+          continue;
+        }
+        imageQueue.splice(qi, 1);
+        batch.push(cand);
       }
       var seq = Promise.resolve();
       batch.forEach(function (img, bi) {
@@ -790,7 +830,9 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
         });
       });
       seq.then(function () {
-        if (imageQueue.length) drainImages(true);
+        // Only continue for work that is actually eligible; if every
+        // remaining image is far off screen, the next scroll wakes it.
+        if (imageQueue.length > skipped) drainImages(true);
       });
     });
   }
