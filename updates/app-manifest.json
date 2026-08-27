@@ -1,7 +1,7 @@
 {
-  "versionCode": 1025,
-  "versionName": "0.1.25",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.25/tamescroll-v0.1.25.apk",
-  "sha256": "5d2a98bb34273688688db4167aaf6cb40ad007b8d88407aebf76c2605bdb6ea8",
-  "notes": "Models start on time; thumbnails resolve sooner; small avatars no longer stay blurred."
+  "versionCode": 1026,
+  "versionName": "0.1.26",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.26/tamescroll-v0.1.26.apk",
+  "sha256": "0d9e899660e7fb4ecd97010be7ceffbc6d9a5048eef68ca00929b1aefe126539",
+  "notes": "Thumbnails resolve faster and the queue keeps working while you scroll."
 }
