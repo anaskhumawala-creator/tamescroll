@@ -1,7 +1,7 @@
 {
-  "versionCode": 1023,
-  "versionName": "0.1.23",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.23/app-arm64-debug.apk",
-  "sha256": "5796a8e94d48a3ee01dab3dabe6e6febc270caa8167e7602b50cdd6a920ce742",
-  "notes": "Sharper in-video blur interior"
+  "versionCode": 1024,
+  "versionName": "0.1.24",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.24/app-arm64-debug.apk",
+  "sha256": "ee9c595c3afb1c13e1d9bc5c75a77015e9250f927f5371cc70d5ae36b08c8d66",
+  "notes": "Thumbnails resolve in scroll order; fewer wrong covers"
 }
