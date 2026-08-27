@@ -63,8 +63,57 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-27 (v0.1.19/1019 RELEASED, commits 3185b99 /
-ba6ef23 / 752d286).
+**Last updated:** 2026-08-27 evening (v0.1.25, v0.1.26, v0.1.27 RELEASED;
+commits 24ddc53 / 3ebef4e / b95f57b / fdaacda / 085aaa8 / 0a824b2).
+
+**Session 2026-08-27 evening — RESPONSIVENESS, three releases.** Owner
+was testing on the phone: "it's processing multiple together but the
+speed is still much less compared to the speed that someone scrolls ...
+it processes some, then it halts, then it takes time to process the
+next." All numbers below are DESKTOP at a 6x CPU throttle; **nothing was
+measured on his device** (no adb to it — the phone is remote).
+- **1025** shipped the previous session's uncommitted work (model
+  warm-up, model reorder, avatar un-blur, idle budget).
+- **1026, the real win: every cross-origin thumbnail was DECODED TWICE.**
+  30 of 30 fetched twice; the bytes came from cache, the decode did not
+  — 39ms of an 89ms image, bigger than BlazeFace and faceres together.
+  Fix is `preflightCors` (init-entry): set `crossOrigin='anonymous'` on
+  images that have NOT loaded yet, so the page's own decode is usable and
+  our clone disappears. Guarded by a measured-ACAO host list + an error
+  handler that restores the plain load. Verified 44 tagged / 0 broken on
+  YouTube, 110 / 0 on Reddit. One image 89 -> 61ms, duplicate fetches
+  30 -> 0. Also: one GPU upload per thumbnail instead of three; a scroll
+  caps the drain instead of stopping it; batch re-arm on a macrotask
+  instead of requestIdleCallback.
+- **1027:** the drain flag was released when the idle callback STARTED,
+  so batches interleaved — that is the clump-then-halt he described.
+  Serial now: worst single image 11,056ms -> 649ms. Plus the queue skips
+  images more than two viewports away (visible-settle A/B on 3 fresh
+  pages: 3.8-4.1s vs 4.4-4.6s, defer ahead 3/3) and a page with no video
+  no longer loads MoveNet.
+- **DEAD ENDS, both measured, do not retry blind:** (1) batching
+  inference across images is IMPOSSIBLE — BlazeFace's graph fixes its
+  batch dim ("must be [1,256,256,3], but was [4,256,256,3]",
+  spikes/perf-harness/bench-batch.html). (2) a verdict cache keyed by
+  thumbnail url serves 4-8% — YouTube's `sqp` varies the crop per
+  surface; a path-only key is only safe for CLEAR verdicts because a
+  flagged one carries boxes that would land wrong on another crop
+  (probe_cache.py). (3) the scroll-time budget fraction is NOT a lever:
+  0.02/0.15/0.35 gave 0.78/0.75/1.02 img/s and 17/16/20% dropped frames,
+  inside run-to-run variance.
+- **The ceiling is now per-image cost** (61ms desktop, ~370ms at 6x),
+  and the models are fixed-input, fixed-batch. The next real cut would be
+  a smaller face model — an accuracy call the owner has to make.
+- New probes, all in spikes/gauntlet: probe_stage (per-stage cost),
+  probe_gaps (intervals between images), probe_far_ab (visible settle,
+  A/B), probe_budget_ab, probe_scrollfeel (frames + throughput together),
+  probe_clone, probe_cache, probe_person_defer. Runtime overrides
+  `__TS_IMG_BUDGET` and `__TS_IMG_FAR` exist so both sides of an A/B run
+  on one build. imgdiag entries now carry `t` (completion wall clock).
+- gaze 271/271, cargo 40/40. Release recipe unchanged and it worked three
+  times: `npx tauri android build` still fails on the symlink AFTER
+  producing the .so, so strip that .so into jniLibs and run
+  `:app:clean :app:assembleArm64Debug -x :app:rustBuildArm64Debug`.
 
 **Session 2026-08-26 night — GAUNTLET ROUNDS ARE OVER.** Owner: "stop
 with the gauntlet run and let's do run just based upon polishing the app
