@@ -63,7 +63,59 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-26 (gauntlet R21, commit 8c6408c; v0.1.15 in flight).
+**Last updated:** 2026-08-27 (v0.1.19/1019 RELEASED, commits 3185b99 /
+ba6ef23 / 752d286).
+
+**Session 2026-08-26 night — GAUNTLET ROUNDS ARE OVER.** Owner: "stop
+with the gauntlet run and let's do run just based upon polishing the app
+and making it optimized and working accordingly." He rejected the v1018
+blur in four parts: "very messy and not smooth and very jettery... looks
+very low quality", "the before gauntlet blur was the best"; comments and
+recommendations show only a spinner; the miniplayer is gone; "map it
+out, optimize it more".
+- **The word is SOLID, not small.** Two rounds of margin cuts moved
+  patch height 0.97 -> 0.935 and stopped: MoveNet's own box is p50 0.560
+  on this footage, so geometry is not the lever. What he is looking at
+  is COUNT and MOTION. `mergeTracks` unions overlapping tracks again
+  (S12's head-split refusal fired 90-99/min): patches 1.05 -> 0.87/0.80
+  mean, MAX 3 -> 2, dCount 0.53 -> 0.48/0.27/s, stable 0.949/0.977.
+  Plus a 2%-of-span MOVE_DEADBAND in lerpRect (a still subject now gets
+  a genuinely still patch; SETTLE_PX is a quarter pixel and never
+  caught anything), PATCH_MARGIN 0.08->0.045, PTRACK_PAD 0.05->0.04,
+  PTRACK_PAD_TOP 0.12->0.06, and a per-keypoint cushion proportional to
+  the person's height instead of a flat 0.178 of frame height.
+  breathe 0.274/s against pre-gauntlet 0.229 and 0.372 at the start of
+  the stability work. Gate both directions, every frame read: EXPOSURE
+  0, GHOST 0, PARTIAL 0, DRIFT 0; FALSE COVER 3 (man inside the
+  neighbour's patch) = the cost his solid-patch rule accepts.
+- **"Comments don't load" is NOT blocking — MEASURED.** All eight watch
+  endpoints incl. /youtubei/v1/next pass should_block_request; SPA nav
+  survives (a window mark set before a thumbnail click is still there
+  after, one navigation entry); scrolling the live dev app loads 20 then
+  40 comment threads and 20 related items. It is main-thread starvation
+  on the G88: YouTube's lazy IntersectionObserver + fetch callbacks
+  queued behind our inference. FIX SHIPPED: sampleOnce yields when
+  navigator.scheduling.isInputPending() is true (verified present in
+  WebView2), bounded at 3 consecutive skips. Phone effect UNVERIFIED.
+- **MINIPLAYER: mobile web does not have one.** m.youtube ships ZERO
+  minimized-player experiment flags and no minimized element; the drag
+  gesture does nothing there. What it does have is `player-container
+  sticky-player` pinned at y=48, and that WORKS in our app (verified
+  under a mobile UA + touch emulation: player stays pinned and playing
+  across 1042px of scroll while related grows 24 -> 72). The swipe-down
+  miniplayer he is accustomed to is a NATIVE YouTube app feature. On
+  desktop the button is gone for YouTube's own reason: the
+  `ytp-delhi-modern` player renders no `.ytp-miniplayer-button` at all
+  (control bar enumerated: autonav, subtitles, settings, size,
+  remote, fullscreen, pip) even though showMiniplayerButton is true in
+  WEB_PLAYER_CONTEXT_CONFIGS, and our injected CSS matches nothing
+  miniplayer-related. Building our own shim is open, unasked, and
+  touches the player red line.
+- Release recipe run: strip 187MB -> 54MB, :app:clean + assembleArm64
+  -x :app:rustBuildArm64Debug, APK 61.2MB (entries 69.3MB), aapt2 1019,
+  gh release app-v0.1.19, manifest raw-verified sha 98ab9eb9.
+- gaze 228/228, cargo 37/37.
+
 
 **Session 2026-08-26 (gauntlet R21, rotation entry 3 = TED talk, man):**
 First round scored in the regime where **MoveNet returns 0 persons and
