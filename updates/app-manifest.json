@@ -1,7 +1,7 @@
 {
-  "versionCode": 1027,
-  "versionName": "0.1.27",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.27/tamescroll-v0.1.27.apk",
-  "sha256": "13b6695fe08337d4b0726206aac25d84f4f657ac78c488d5e81129438bd125fb",
-  "notes": "Thumbnails land one at a time, and the queue works on what is on screen."
+  "versionCode": 1028,
+  "versionName": "0.1.28",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.28/tamescroll-v0.1.28.apk",
+  "sha256": "6c2db5c218fd8359b6dfc24ec648a78fa2e9945b8a34d2dc273623266e8d26ee",
+  "notes": "Thumbnails check faster: the three models overlap, and two images run at once."
 }
