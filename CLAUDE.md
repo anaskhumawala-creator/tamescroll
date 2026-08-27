@@ -63,8 +63,45 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-27 evening (v0.1.25, v0.1.26, v0.1.27 RELEASED;
-commits 24ddc53 / 3ebef4e / b95f57b / fdaacda / 085aaa8 / 0a824b2).
+**Last updated:** 2026-08-27 night (v0.1.29/1029 RELEASED, commits
+b0ebef1 / 245a04e, apk sha e21b57ba).
+
+**Session 2026-08-27 night — INFERENCE LEFT THE MAIN THREAD.** Owner's
+report was "it processes some then it halts"; the answer was not a
+faster model.
+- **WORKER SHIPPED ON YOUTUBE.** The blocker was never Workers, it was
+  `require-trusted-types-for 'script'` refusing a blob: url. YouTube
+  sends it with NO `trusted-types` allow-list, so our own policy is
+  allowed and a SAME-ORIGIN script url loads. Our request interceptor
+  answers it: `synthetic_resource` (lib.rs) on WebView2's
+  WebResourceRequested, `shouldInterceptRequest` on Android.
+- **ONE ARTIFACT, TWO ROLES.** gaze-init.js boots its worker half when
+  it finds no `document` (src/worker-entry.js `startWorker`). A second
+  bundle cost 17MB of APK (78.1MB) for byte-identical tfjs + models;
+  collapsing it put the APK back at 61.2MB / entries 69.3MB.
+- **A PARTIAL WORKER IS A DEAD WORKER.** Any `loadFailed` kills it, or
+  it would answer "no faces, not suggestive" and images would be
+  REVEALED unchecked. No Worker / bad script / timeout all fall back to
+  the in-page pipeline. Verified both ways: probe_worker_live 12/12
+  verdicts in the worker with in-page models never loaded;
+  probe_fallback 19/19 in page with __TS_NO_WORKER.
+- Earlier in the day, measured and shipped: double decode of every
+  thumbnail removed, one GPU upload serves all three models, drain
+  no longer stops on scroll, two image lanes. One image 89ms -> 50ms,
+  worst image 11.0s -> ~1.2s, scroll throughput 0.31 -> 2.21 img/s.
+  MEASURED DEAD ENDS, do not retry: cross-image batching (BlazeFace's
+  graph fixes batch to [1,256,256,3]), URL verdict cache (4-8% hit,
+  `sqp` varies the crop per surface), scroll budget fraction.
+- **HAIR (owner: "why is the hair visible of women... in all blurs"):**
+  images got 0.3 face-heights above the detector box, which is less
+  than the crown alone -> 1.0; video pinned the top edge 1.1
+  head-widths above the head keypoints (eye level) -> HEAD_ANCHOR_UP
+  1.6. Top edge ONLY, so no patch got wider and no cleared neighbour is
+  newly covered. NOT verified on a frame where hair was previously
+  escaping — every close-up in the two runs captured is fully covered
+  either way; the change is arithmetic, monotone, and did not regress
+  the drawn output.
+- gaze 271/271, cargo 40/40.
 
 **Session 2026-08-27 evening — RESPONSIVENESS, three releases.** Owner
 was testing on the phone: "it's processing multiple together but the
