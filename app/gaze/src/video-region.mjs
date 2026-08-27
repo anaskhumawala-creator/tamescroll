@@ -312,6 +312,65 @@ var FEATHER_FRAC = 0.03; // of the patch's short side
 var FEATHER_MIN_PX = 10;
 var FEATHER_MAX_PX = 64;
 
+// BLUR RADIUS SCALES WITH THE PATCH (owner 2026-08-27, from a phone
+// frame: "the invedio blur looks very unpolished unlike the thumbnail
+// blur").
+//
+// The mechanism is the same class of bug the feather pixel-cap was. A
+// thumbnail is ~120-360px across and gets filter:blur(16px) over the
+// WHOLE element -- radius is an eighth of the picture, so nothing
+// survives it and it reads as clean frosted glass. The in-player patch
+// got the same order of radius (--ts-blur-strong, 24px at the medium
+// preset) spread over a patch measuring ~500-900px on his phone. At a
+// twentieth of the picture a gaussian removes detail but leaves
+// LARGE-SCALE STRUCTURE: two body-sized blobs, a smear where a face was.
+// That is exactly what "low quality" looks like next to a thumbnail --
+// not the edge, the interior.
+//
+// So the radius is a fraction of the patch's own short side, with the
+// user's chosen preset as a FLOOR (a small patch must never blur less
+// than the launcher promised) and a ceiling because backdrop-filter cost
+// on a mobile GPU does eventually track radius.
+//
+// 0.09 puts a ~500px patch at ~45px instead of 24 -- the same
+// radius-to-picture ratio a thumbnail gets, which is the thing he is
+// comparing against. It does NOT touch the feather: he asked for a
+// sharper edge twice and a thumbnail's edge is perfectly hard, so the
+// edge and the interior are moving in the directions he named, not
+// against each other.
+var BLUR_FRAC = 0.09; // of the patch's short side
+var BLUR_MAX_PX = 72;
+var strongPx = 0;
+var strongReadAt = -1e9;
+var STRONG_TTL_MS = 1000;
+
+/** The launcher's blur-strength preset in px, cached (set_blur_strength
+ *  can change it live, so it cannot be read once and kept forever). */
+function strongPreset() {
+  var now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  if (now - strongReadAt < STRONG_TTL_MS && strongPx > 0) return strongPx;
+  strongReadAt = now;
+  var v = 0;
+  try {
+    var raw = getComputedStyle(document.documentElement)
+      .getPropertyValue('--ts-blur-strong');
+    v = parseFloat(raw);
+  } catch (e) { /* non-fatal: fall through to the default */ }
+  strongPx = v > 0 ? v : 24;
+  return strongPx;
+}
+
+/** Backdrop blur radius for a patch of this size, in px. */
+export function blurRadiusFor(rect, presetPx) {
+  var base = presetPx > 0 ? presetPx : 24;
+  var shortSide = Math.min(rect.width, rect.height);
+  if (!(shortSide > 0)) return base;
+  var r = shortSide * BLUR_FRAC;
+  if (r < base) r = base;
+  if (r > BLUR_MAX_PX) r = BLUR_MAX_PX;
+  return Math.round(r);
+}
+
 /** Feather width for a patch of this size, in px. */
 export function featherFor(rect) {
   var shortSide = Math.min(rect.width, rect.height);
@@ -431,6 +490,16 @@ function place(overlay, rect) {
     renderStats.sizeWrites++;
     overlay.style.height = rect.height + 'px';
     overlay.__tsH = rect.height;
+  }
+  // Radius follows the patch. Written only when the rounded value really
+  // changes -- a backdrop-filter string assignment invalidates the
+  // backdrop snapshot, so writing it every frame would be the expensive
+  // mistake the transform/size caches above exist to avoid.
+  var br = blurRadiusFor(rect, strongPreset());
+  if (overlay.__tsBr !== br) {
+    overlay.style.backdropFilter = 'blur(' + br + 'px)';
+    overlay.style.webkitBackdropFilter = 'blur(' + br + 'px)';
+    overlay.__tsBr = br;
   }
 }
 

@@ -471,3 +471,24 @@ test('no feather writes nothing at all', () => {
   assert.equal(vr.maskFor(RECT, 0), '', 'a plain patch must not pay for a mask');
 });
 
+
+// Radius scales with the patch (owner 2026-08-27: the in-video blur reads
+// as low quality next to a thumbnail's). A thumbnail gets a radius worth
+// an eighth of itself; a 24px radius on a 500px patch is a twentieth, and
+// body-sized structure survives that.
+test('blurRadiusFor: a big patch gets a proportionally big radius', () => {
+  const r = vr.blurRadiusFor({ width: 900, height: 500 }, 24);
+  assert.ok(r > 24, `expected more than the preset, got ${r}`);
+  assert.equal(r, 45);
+});
+
+test('blurRadiusFor: the launcher preset is a floor, never a cap', () => {
+  // A small patch must never blur LESS than the strength the user picked.
+  assert.equal(vr.blurRadiusFor({ width: 80, height: 60 }, 24), 24);
+  assert.equal(vr.blurRadiusFor({ width: 80, height: 60 }, 42), 42);
+});
+
+test('blurRadiusFor: bounded, and degenerate rects fall back to the preset', () => {
+  assert.equal(vr.blurRadiusFor({ width: 4000, height: 3000 }, 24), 72);
+  assert.equal(vr.blurRadiusFor({ width: 0, height: 0 }, 24), 24);
+});
