@@ -1,7 +1,7 @@
 {
-  "versionCode": 1018,
-  "versionName": "0.1.18",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.18/tamescroll-v0.1.18.apk",
-  "sha256": "76f2200189942eadedae7f4d29c58b86c3b7db4b706fe0750c58d346ac4a786c",
-  "notes": "Blur patches are solid: no face cutouts, no split pieces."
+  "versionCode": 1019,
+  "versionName": "0.1.19",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.19/app-arm64-debug.apk",
+  "sha256": "98ab9eb9e5e37095454210fb7f6c42ca53da0f674b6ca38cd5fe9ae6075bba2e",
+  "notes": "Solid-patch blur + scroll yield"
 }
