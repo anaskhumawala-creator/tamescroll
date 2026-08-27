@@ -829,6 +829,49 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
     // (owner phone 2026-08-24 "very laggy").
     var ZOOM_CROP_SIZE = 224;
     var ZOOM_MAX_PERSONS = 3;
+    // R30 CRITIC F2 — THE CLEAR LADDER WAS NEVER THE BINDING CONSTRAINT
+    // ON MULTI-PERSON FOOTAGE. THIS BUDGET IS.
+    //
+    // Measured on rotation entry 5 (`4u3jS_cTHH0` t=415, studio kitchen,
+    // 3-4 men + 1 woman, `man`), replayed from the stored `obs` probe
+    // over 24 unique verdict passes:
+    //
+    //   observations per pass   1:2  2:7  3:6  4:11  5:2  6:2
+    //   VERDICT observations    1:2  2:7  3:21   <- never above 3
+    //
+    // Fifteen of thirty recorded passes carried 4-6 people and not one
+    // of them ever produced more than three gender reads. Over 60s of
+    // continuous playback, `cropRotated` fires 64 times against ~131
+    // verdict passes -- ~49% of passes are budget-limited -- and
+    // **61 of 105 tracks never received a single non-uncertain read in
+    // their entire life**, at a lifetime p50 of 1.47s and a maximum of
+    // 4.44s. A track alive for 4.4s sees ~10 verdict passes. That is not
+    // a cadence problem and no accumulation rule reaches it: the read
+    // never arrives, so there is nothing to accumulate.
+    //
+    // ONE MORE PERSON PER PASS, AND ONLY WHERE THE DEVICE HAS ALREADY
+    // PROVED IT CAN AFFORD IT. The crop+gender stage is 64 of a verdict
+    // pass's 102ms for three persons (S9) ~ 21ms/person; the desktop
+    // verdict p50 in this window is 113ms. The gate reads the LAST
+    // COMPLETED verdict cost, so a phone that is slow for any reason --
+    // thermal, a heavier shot, a debug build -- never widens, and the
+    // owner's "very laggy" report that set this cap at 3 in the first
+    // place (2026-08-24) stays honoured on the hardware it came from.
+    // `lastVerdictMs` is 0 until a verdict lands, so the first pass on
+    // every video is always the narrow budget.
+    //
+    // WHY 4 AND NOT `persons.length`: the rotation already guarantees
+    // every person is read eventually, so this buys arrival RATE, not
+    // coverage, and the tail risk of an unbounded burst is exactly what
+    // the cap exists to stop. Four covers the 4-person mode of this
+    // distribution (11 of 24 passes) at one inference of extra cost.
+    var ZOOM_MAX_PERSONS_FAST = 4;
+    var ZOOM_BUDGET_FAST_MS = 250;
+    function zoomBudget() {
+      return lastVerdictMs && lastVerdictMs < ZOOM_BUDGET_FAST_MS
+        ? ZOOM_MAX_PERSONS_FAST
+        : ZOOM_MAX_PERSONS;
+    }
     var zoomCanvas = null;
     // createImageBitmap(video, crop, {resize}) crops + scales GPU-side
     // and feeds fromPixels directly — the zoom pass's getImageData
@@ -1831,7 +1874,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
               // cursor would spin it 2-3 extra places between reads and
               // make the window's stride depend on the cadence rather
               // than on the budget.
-              var slice = rotateBudget(byConf, ZOOM_MAX_PERSONS, personCursor);
+              var slice = rotateBudget(byConf, zoomBudget(), personCursor);
               var picked = slice.take;
               var rest = slice.rest;
               if (wasVerdict) {
@@ -2046,17 +2089,22 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
                   var dbgF = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
                   dbgF.faceStage = (dbgF.faceStage || []).concat([faces.length + '/' + all.length]).slice(-40);
                   dbgF.log = (dbgF.log || []).concat(['  faceStage all=' + all.length]).slice(-60);
-                  if (all.length > ZOOM_MAX_PERSONS) {
+                  // READ THE BUDGET ONCE. The loop bound and the cursor
+                  // advance must be the same number or the round-robin
+                  // skips or repeats people whenever the device crosses
+                  // ZOOM_BUDGET_FAST_MS mid-pass.
+                  var zb = zoomBudget();
+                  if (all.length > zb) {
                     // Round-robin the crops so a large group is fully
                     // classified across a few passes instead of the
                     // same three people every time.
                     all.sort(cropPriority);
                     var start = crowdCursor % all.length;
                     var budget = [];
-                    for (var c = 0; c < ZOOM_MAX_PERSONS; c++) {
+                    for (var c = 0; c < zb; c++) {
                       budget.push(all[(start + c) % all.length]);
                     }
-                    crowdCursor = (start + ZOOM_MAX_PERSONS) % all.length;
+                    crowdCursor = (start + zb) % all.length;
                     for (var r2 = 0; r2 < all.length; r2++) {
                       if (budget.indexOf(all[r2]) === -1) rest.push(all[r2]);
                     }

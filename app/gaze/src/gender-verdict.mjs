@@ -42,6 +42,41 @@ export var GENDER_CLEAR_SCORE = 0.6;
 // so he cannot sneak through a female-clear gate at 0.45 — he would have
 // to be misread as female first, which was not observed once.
 export var GENDER_CLEAR_SCORE_FEMALE = 0.45;
+// R30 — THE SAFETY ARGUMENT DIRECTLY ABOVE DOES NOT SURVIVE THE CORPUS,
+// AND THIS IS THE HIGHEST-VALUE WOMAN-DIRECTION CALIBRATION ITEM OPEN.
+// The constant is NOT moved here: moving it blind, from a man-direction
+// round, is how a woman-mode regression ships. It is registered.
+//
+// "he would have to be misread as female first, which was not observed
+// once" was true of the window it was written from and is false of the
+// corpus. Measured over 204 stored runs (R30 critic), grouping reads
+// whose boxes mutually overlap at IoU >= 0.5 -- i.e. the same screen
+// position across consecutive passes -- and asking how often a
+// female-labelled read shares its position with a CONFIDENT male read:
+//
+//   female band      n     shares position with a male read >= 0.6
+//   [0.80, 1]       380     7.1%
+//   [0.70, 0.80)    132    11.4%
+//   [0.60, 0.70)    226    26.5%
+//   [0.45, 0.60)    427    31.4%   <- admitted by this constant
+//
+// So the band this bar opens, and ONLY this band, is one where nearly a
+// third of reads sit where the model also says male confidently. In
+// `woman` mode that band is a CLEAR, so a man read female at 0.45-0.60
+// twice is EXPOSURE -- the worst class, in the direction with the least
+// data, reachable in two reads.
+//
+// The two bars are also not symmetric in the way the note above claims.
+// Corpus percentiles, 2927 non-abstained female reads and the male
+// population beside them: female p25 0.21 / p50 0.42 / p75 0.64;
+// male p25 0.50 / p50 0.75 / p75 0.90. The male bar 0.6 sits at male
+// p25; the female bar 0.45 sits near female p28 -- close in rank, but
+// the female distribution is shifted so far left that the same rank buys
+// far weaker evidence.
+//
+// WHAT WOULD SETTLE IT, and it is a round of its own: run `woman` on
+// female-heavy footage and re-derive the bar from the contradiction rate
+// rather than from the read distribution.
 // AND BOTH BARS ARE, IN PRACTICE, A FACE-SIZE BAR (gauntlet R26).
 //
 // The constants above are calibrated on certainty, but certainty is
@@ -122,6 +157,42 @@ export function clearScoreFor(gender) {
 // strictly ABOVE the `certain` bar of 0.6, not a relaxation into the
 // weak band S6 measured a child living in.
 //
+// ^^ R30: THE SENTENCE REFUSING 0.75 IS ARITHMETICALLY WRONG AND THE BAR
+// IS STILL CORRECT AT 0.8 FOR A DIFFERENT REASON. Both halves matter,
+// because the wrong sentence was about to be used to justify moving it.
+//
+// The error: `instant` is `score >= instantClearScoreFor(...)`, so a BAR
+// of 0.75 admits [0.75, 1] and does NOT admit [0.70,0.75). The band the
+// refusal cites is a band the bar excludes. Re-derived on 5x the data
+// (639 non-abstained reads on this same video against the 135 above),
+// [0.75,0.80) is n=30, childP 0.02-0.07, with ZERO reads above the R18
+// child minimum. On the criterion as stated, 0.75 is admissible.
+//
+// The criterion itself is what fails. Corpus-wide over 204 runs, male
+// reads passing the child gate: [0.90,1] n=1731 with FOURTEEN above the
+// R18 child minimum (max childP 0.190); [0.85,0.90) n=622 with zero;
+// [0.80,0.85) n=493 with zero; [0.75,0.80) n=489 with two. The set 0.8
+// already admits contains more child-band reads than the set 0.75 would
+// add. The criterion cannot separate the two bars at all.
+//
+// AND THE REASON TO LEAVE THE CONSTANT ALONE, which the original comment
+// never stated: the score carries no accuracy signal anywhere above 0.6.
+// Grouping reads by screen position (IoU >= 0.7 across consecutive
+// passes) and asking how often a male read shares its position with a
+// CONFIDENT female read: [0.90,1] 5.0% (n=1321); [0.80,0.90) 1.4%
+// (n=622); [0.75,0.80) **0.0%** (n=317); [0.60,0.75) 1.3% (n=766). The
+// band being refused is CLEANER than the band being admitted. Lowering
+// the bar would not be more dangerous than 0.8 -- it would extend a
+// mechanism whose accuracy justification the corpus does not support.
+//
+// So: do not move this constant on band arithmetic, in either
+// direction. What would settle it is hand-labelling the ~66 high-score
+// contradiction groups (they concentrate in `NWoT1ZVd1Lo` and
+// `KAWvDsghyc8`) as one-person or two-person -- read boxes are
+// person-scale, so a group could hold two people. If they are one
+// person, the instant path is unjustified at EVERY bar and should be
+// narrowed rather than widened.
+//
 // The opposite-gender margin on the same corpus: no `female`-labelled
 // read anywhere in the window exceeds 0.59. Nothing was within 0.2 of
 // the new bar in the wrong direction.
@@ -141,6 +212,21 @@ export var GENDER_INSTANT_CLEAR = 0.8;
 // for. Woman mode therefore keeps the two-read streak until a
 // woman-direction run on female-heavy footage measures the real band.
 // Registered as R10's calibration item.
+//
+// ^^ R30: "EFFECTIVELY NEVER FIRES" IS FALSE, AND IT HAS BEEN FALSE FOR
+// TWENTY ROUNDS. It was an n=5 claim and the corpus refutes it by 574
+// reads. Over 2927 non-abstained female-labelled reads: p25 0.21, p50
+// 0.42, p75 0.64, p90 0.84, max 0.99 -- 574 of them reach 0.70, across
+// 12 videos and 77 runs. Restricted to `woman` mode: n=1345, of which
+// 298 (22.2%) are >= 0.70 and 270 of those pass the child gate. Since
+// `clearScoreFor('female')` is 0.45 every one of them is already
+// `certain`, so `instant` IS being set on roughly a fifth of woman-mode
+// same-gender reads, against R23's measured 34% in `man`.
+//
+// The constant is not moved. What changes is that no future round may
+// argue "this is a man-only path, so the fix is asymmetric" -- woman
+// mode has an instant path at about two-thirds the man-mode rate and has
+// had one all along.
 export var GENDER_INSTANT_CLEAR_FEMALE = 0.7;
 
 /** Certainty bar above which a SINGLE same-gender read clears a track. */

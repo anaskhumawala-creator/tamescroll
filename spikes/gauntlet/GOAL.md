@@ -84,7 +84,7 @@ at least once.
 | 2 | (fixed) NWoT1ZVd1Lo | woman | same footage, inverted expectation |
 | 3 | ted talk full speech | man | single speaker, stage lighting, slow cuts. R28 note: this entry resolves to a different id every round (R5 `arj7oStGLkU`, R21 `eIho2S0ZahI`, R28 `eVFzbxmKNUw`) and they are DIFFERENT regimes - R21's was the GHOST/typography one at t=200. **`eVFzbxmKNUw` t=270 is the table's only FULL-BODY WIDE SHOT**: a woman standing head-to-boots at 0.20 x 0.85 of frame, cutting to chest-up, which is the regime where a body-shaped crop makes the face unreadable (R28's fix). Use it for anything about crop geometry, detector input, or a same-gender person who will not clear. Its t=285.5 also carries a REPRODUCIBLE typography GHOST on the TEDX letters. |
 | 4 | news panel discussion | woman | 3-5 people, seated, small faces. R19 note: news footage is half GRAPHICS - z5WBceo0bIg is a title slate at t=240 (and painted a whole-frame GHOST over it), fFbNU0TvMH8 is two men in split-screen boxes at t=600. Probe forward for actual faces, and note this is the only GHOST-regime footage in the table. **R29 note: `QEG4pI2cRE8` t=475 is the table's only COMPOSITE regime** - a Zee News panel, FIVE men in five picture-in-picture windows, locked-off, nobody moves for 15s, native **656x480**. Use it for anything about a face inside a sub-window, merge geometry across a hard border, or a synthetic body's extent. Two standing warnings: it is ALL MALE, so `man` cannot score EXPOSURE/PARTIAL and `woman` cannot score FALSE COVER on it; and at 656x480 four of the five men deliver faces UNDER `FACE_MIN_NATIVE_PX`, so `man`-direction FALSE COVER has a hard floor no geometry change can reach (R29 F3). Other probed offsets: t=120 posters + hands, t=300 a 20-person street crowd with one woman (the entry's mixed-gender window, unscored), t=110-134 night b-roll, too dark to score. |
-| 5 | cooking show episode | man | hands and objects. R23 note: the GHOST trap never fired here — `4u3jS_cTHH0` (Laughter Chefs, 3-4 men + 1 woman in a studio kitchen, t=415) is the FALSE-COVER regime instead, and the worst on record: cuts at 0.87/s, track lifetime p50 1.91s, so nothing lives long enough to clear. Use this window to test anything about the clear ladder. `KAWvDsghyc8` (R7/R15) is the same entry's other id. |
+| 5 | cooking show episode | man | hands and objects. R23 note: the GHOST trap never fired here — `4u3jS_cTHH0` (Laughter Chefs, 3-4 men + 1 woman in a studio kitchen, t=415) is the FALSE-COVER regime instead, and the worst on record: cuts at 0.87/s, track lifetime p50 1.91s, so nothing lives long enough to clear. Use this window to test anything about the clear ladder. `KAWvDsghyc8` (R7/R15) is the same entry's other id. **R30 note: t=415 is also the table's only OVER-BUDGET regime that is not a crowd** - 15 of 30 recorded passes carry 4-6 people against `ZOOM_MAX_PERSONS`, so ~49% of verdict passes are budget-limited and 61 of 105 tracks never receive a single non-uncertain read. Use it for anything about read ARRIVAL. Two standing warnings: the per-frame score here is COIN-FLIP NOISE (two warm runs of the identical window disagreed on 3 of 10 frames with no code change) - score it with `stability.py` over 60s of continuous playback, not with 10 paused frames; and `woman` mode has NO certain-female evidence on this footage (`readClearCertain` 0-2 per 15s), so the woman is FALSE COVER on every frame and no ladder or budget change reaches it. |
 | 6 | graduation ceremony full ceremony | woman | crowd shots, 100+ people. R16 note: "conference keynote audience" resolves to single-speaker talking heads, not crowds, and livestreams open on a title-card slate - probe forward before capturing. R24 note: `r70mH3m4l9E` (Dhirubhai Ambani graduation, 8878s) at t=2400 is the best MULTI-PERSON STATIC window in the table - a locked-off stage with SIX MoveNet persons, 5 women and 3 men interleaved, and ZERO cuts in 15s. That is the crop-budget and occlusion regime; use it for anything about starvation, attribution or ownership. `e0HlQh-hwyE` is a 259s single-speaker commencement, not a crowd. |
 | 7 | sports post match interview | man | motion, back-turned subjects. R25 note: the query also returns WOMEN'S football interviews, and `g_2Wmzpx47I` (WSL pitchside, t=20) is the table's only EDGE-CROPPED regime — a chest-up close-up with a second woman reduced to a shoulder and an arm at x<0.12, whom MoveNet scores 0.000 and BlazeFace never sees. Use it for anything about truncated people, frame-edge geometry or the clamped-edge feather. `1L_R0MB2W5A` (R9/R17) is the same entry's two-men id. |
 | 8 | classroom lecture | woman | mixed ages — the child gate. R26 note: the literal query returns talking heads; `8R1hy3uHds0` (2nd-grade vocabulary lesson) is the entry's real id. **t=540 is the only probed offset with the adult teacher AND the children in frame together** — t=660 is children only, so it cannot score FALSE COVER in `woman` mode. This is also the table's only OVER-CAPACITY regime: ~10 people against MoveNet MultiPose's SIX slots, so use it for anything about crowds, unslotted people or `personFromFace` recall. |
@@ -6633,3 +6633,236 @@ analysis.
      t=300 is a ~20-person street crowd with at least one woman against
      MoveNet's six slots. It is the over-capacity + EXPOSURE regime and this
      round did not have room for it.
+
+- **R30** — rotation entry 5 (`cooking show episode`), resolved live to
+  **`4u3jS_cTHH0`** (Laughter Chefs, studio kitchen, 3-4 men + 1 woman),
+  window **t=415, 10 frames @1.5s**, both directions, plus rotation entry 1
+  (`NWoT1ZVd1Lo` t=720) both directions as the regression check. This is the
+  entry R23 flagged as the CLEAR-LADDER regime — cuts at 0.87/s, mean shot
+  1.15s — and open item 1 from R28/R29 named the post-cut clear floor as the
+  top scored failure on both videos. Build `2984a59` -> this diff. Dev app
+  PID 24856 -> 42524 -> 48884 -> 48792 -> 16484 -> 32704; the binary mtime was
+  never the proof.
+
+  **THE FIRST BASELINE OF THIS ROUND WAS THROWN AWAY, AND WHY MATTERS MORE
+  THAN THE NUMBER.** `runs/r30-cook-man` ran at `cost.verdict.n = 54` and
+  `cost.pass.n = 1` over 15s; every later capture of the same window ran at
+  n=94-96 verdicts and n=120 passes. **The pipeline did roughly half the work
+  in the first run**, so its per-frame score is not comparable to anything and
+  no conclusion in this entry rests on it. The baseline quoted below is
+  `runs/r30-cook-man-base` / `-woman-base`: the SHIPPED build's own source
+  restored from HEAD, rebuilt, relaunched, and captured under the identical
+  warm protocol. **Standing rule for R31: check `cost.verdict.n` on both sides
+  of a comparison BEFORE scoring a single frame.** Two runs of this window that
+  differ by 40 verdict passes are two different products.
+
+  | class | man base | man after | woman base | woman after |
+  |---|---|---|---|---|
+  | FALSE COVER (frames) | **9** | **8** | **8** | **8** |
+  | FALSE COVER (people covered, summed over 10) | **13** | **12** | 8 | 8 |
+  | EXPOSURE | 0 | 0 | **3** | **3** |
+  | PARTIAL | 0 | 0 | 0 | 0 |
+  | GHOST | 0 | 0 | 0 | 0 |
+  | DRIFT | 0 | 0 | 0 | 0 |
+
+  **THE PER-FRAME SCORE ON THIS FOOTAGE IS NOISE AND SHOULD NOT BE THE ROUND'S
+  HEADLINE.** Two warm runs of the identical window disagree about individual
+  people: the man in the grey hoodie is fully sharp on `-base` f000 and has his
+  head covered on `-f2` f000; f005 is FC 2 on `-base` and CLEAN on `-f2`; f002
+  is FC 1 on one and FC 2 on the other. Cuts at 0.87/s against a ~460ms verdict
+  cadence means which person is holding a rung when the harness pauses is close
+  to a coin flip. The instrument that CAN resolve this build is `stability.py`
+  — 60s of continuous playback, no pauses, ~3000 track-samples — and all three
+  builds were run through it back to back:
+
+  | | base | grace only | grace + F1 + F2 |
+  |---|---|---|---|
+  | blurred track-samples, fraction | 0.858 | 0.867 | **0.846** |
+  | `cleared` samples | 434 | 406 | **457** |
+  | **blurred while `lv:'clear-certain'`** | **210** | 220 | **135** |
+  | patches, mean simultaneous | 2.39 | 2.39 | **2.24** |
+  | `stable_frac` (patch count unchanged) | 0.799 | 0.815 | **0.831** |
+  | jitter/s | 0.164 | 0.153 | **0.141** |
+  | rel_breathe_w | 0.437 | 0.440 | **0.379** |
+  | `cropRotated` (budget-limited passes) | 64 | 59 | **39** |
+  | `readClearCertain` | 113 | 116 | **137** |
+
+  **THE HONEST NEGATIVE RESULT, KEPT IN THE LOG BECAUSE IT IS THE ROUND'S MOST
+  USEFUL FINDING.** The clear-ladder fix built first — the one open item 1
+  asked for — MOVED NOTHING. Middle column: `blurred_frac` 0.858 -> 0.867,
+  `cleared` 434 -> 406, `blurred+clear-certain` 210 -> 220, `ever_cleared`
+  24/104 -> 22/105. Every number is inside run noise. The mechanism is real and
+  the code is right; the POPULATION is tiny. Measured directly from the trace:
+  the pattern it targets (`clear-certain` -> `uncertain` -> `clear-certain` on
+  ONE track id) occurs **12 times per 60s across 104 tracks**, and the shipped
+  counter later priced it exactly at **`clearGraceHeld` 5, `clearGracePaid` 5
+  per minute**. Five clears a minute is not a score.
+
+  **WHAT WAS ACTUALLY BINDING, and the critic found it: 61 OF 105 TRACKS NEVER
+  RECEIVE A SINGLE NON-UNCERTAIN READ IN THEIR ENTIRE LIFE** (lifetime p50
+  1.47s, max 4.44s — ten of them live past 2.85s, i.e. 6+ verdict passes).
+  There is nothing for any accumulation rule to accumulate. `ZOOM_MAX_PERSONS`
+  has been 3 since 2026-08-24, and replayed from the stored `obs` probe over 24
+  unique verdict passes on this window:
+
+      observations per pass   1:2  2:7  3:6  4:11  5:2  6:2
+      VERDICT observations    1:2  2:7  3:21    <- never above 3
+
+  Fifteen of thirty recorded passes carried 4-6 people and not one ever
+  produced more than three gender reads. `cropRotated` 64 against ~131 verdict
+  passes = ~49% of passes budget-limited.
+
+  **SHIPPED, three things, in the order they matter:**
+  * **F2 — `zoomBudget()` (init-entry.js): 4 persons per verdict pass, but only
+    while `lastVerdictMs < 250`.** The gate reads the LAST COMPLETED verdict
+    cost, so a phone that is slow for any reason never widens and the owner's
+    2026-08-24 "very laggy" report that set the cap at 3 stays honoured on the
+    hardware it came from. `lastVerdictMs` is 0 until a verdict lands, so the
+    first pass on every video is always narrow. Read ONCE per pass at the crowd
+    site so the loop bound and the cursor advance cannot disagree.
+    Result: `cropRotated` 64 -> 39, `readClearCertain` 113 -> 137,
+    **`blurred+clear-certain` 210 -> 135 (-36%)**, patches 2.39 -> 2.24.
+  * **The clear-ladder grace itself (person-track.mjs `graceSpend`): a
+    non-certain verdict read no longer spends a rung unless the PREVIOUS read
+    was also non-certain.** The count of certain same-gender reads needed to
+    clear is unchanged at CLEAR_STREAK_N; only the requirement that they be
+    ADJACENT is relaxed. The flag direction has always had exactly this rule
+    ("only CONSECUTIVE evidence revokes", two lines below) and `clearMs`
+    already decays at half rate on the same read — this counter did neither.
+    Kept despite the null result because it is an internal inconsistency the
+    module documents against itself, it is now PRICED by its own counters, and
+    its measured cost was zero.
+  * **F1 (critic) — a pass that found NO FACE always spends the rung.** The
+    grace's safety argument is "the same person is still there, we just could
+    not read them well", which is a claim about a face that WAS found.
+    `personNoFace`, `observeThrew` and the VERDICT_TIMEOUT_MS race all emit one
+    default observation `{flagged, !certain, !faceFound}` — 28 of the 135 reads
+    the grace would otherwise cover (21%) — and a person with no face in their
+    crop is the back-turned, walked-in and SUBSTITUTED case, i.e. exactly the
+    swap the grace's own exposure note names. One term, gender-blind.
+
+  **REFUSED, each with the reason written into the code so R31 does not
+  re-litigate it:**
+  * **`GENDER_INSTANT_CLEAR` 0.8 -> 0.75.** R23's stated refusal IS
+    arithmetically wrong and the critic confirmed it on 5x the data: `instant`
+    is `score >= bar`, so a bar of 0.75 admits [0.75,0.80) (n=30, childP
+    0.02-0.07, zero above the R18 child minimum) and does NOT admit the
+    [0.70,0.75) band the comment cites. **The constant still does not move**,
+    for a reason the comment never stated: corpus-wide the criterion fails at
+    0.8 too (the [0.90,1] band alone holds 14 reads above the child minimum
+    against 2 in [0.75,0.80)), and grouping reads by screen position shows the
+    score carries NO accuracy signal above 0.6 — a male read at [0.90,1]
+    contradicts a confident female read at the same position 5.0% of the time
+    while [0.75,0.80) does so **0.0%** of the time. The band being refused is
+    cleaner than the band being admitted. Widening a mechanism whose accuracy
+    justification the corpus does not support is not a fix. What would settle
+    it: hand-label the ~66 high-score contradiction groups (they concentrate in
+    `NWoT1ZVd1Lo` and `KAWvDsghyc8`) as one-person or two-person.
+  * **Marking `personNoFace` as `abstained`** (the tidy version of F1) — it
+    routes into the `abstained && state === 'cleared'` branch, where two
+    back-turned passes DEMOTE a cleared man. FALSE COVER, the class this round
+    is fighting.
+  * **Giving the cut-banked rung the grace** (setting `lastVerdict:
+    'clear-certain'` or a `banked` flag in `demoteTracks`). R23's rejected
+    proposal through a different door: whoever stands in a demoted box would get
+    one-read clearing for ~1.5s after a cut. Instead, `cutBankSpent` now counts
+    what happens to a bank — **8 of 34 banks in 60s are destroyed by the first
+    post-cut read rather than spent on a clear.** That is the number that
+    prices any future move here and no round had it. Note also written at
+    `graceSpend`: as of R30 `lastVerdict` is no longer only a diagnostic, it is
+    a CAPABILITY — writing 'clear-certain' anywhere grants the next non-certain
+    read a free rung, and `demoteTracks` writing 'uncertain' is load-bearing.
+  * **`preferred()` breaking a verdict-vs-verdict tie by AREA** (critic F8):
+    real, replayed offline over 2712 stored passes — 2279 merges, 515
+    verdict-vs-verdict, 26 where a `clear-certain` read was discarded for a
+    non-`clear-certain` one. ~1%, and the blur-first-consistent repair would
+    make FALSE COVER worse. On record, not a target.
+
+  **TWO COMMENTS IN `gender-verdict.mjs` WERE FALSE AND ARE NOW CORRECTED IN
+  PLACE. Both were steering rounds.**
+  * **"`GENDER_INSTANT_CLEAR_FEMALE` effectively never fires in woman mode"**
+    was an n=5 claim and the corpus refutes it by 574 reads: 2927 non-abstained
+    female reads run p25 0.21 / p50 0.42 / p75 0.64 / p90 0.84, and in `woman`
+    mode 298 of 1345 (22.2%) reach 0.70 with 270 passing the child gate. Woman
+    mode has had an instant path all along, at ~two-thirds the man-mode rate.
+    No future round may argue "this is a man-only path, so the fix is
+    asymmetric".
+  * **`GENDER_CLEAR_SCORE_FEMALE` 0.45 is a measured woman-direction EXPOSURE
+    and is now the top open calibration item.** Its safety argument — "he would
+    have to be misread as female first, which was not observed once" — was true
+    of its window and false of the corpus. By the same position-grouping:
+    female reads at [0.80,1] share a position with a confident male read 7.1%
+    of the time, [0.70,0.80) 11.4%, [0.60,0.70) 26.5%, and **[0.45,0.60) —
+    the band this constant opens and only this band — 31.4%.** In `woman` mode
+    that band is a CLEAR, so a man read female at 0.45-0.60 twice is EXPOSURE.
+    The constant is NOT moved from a man-direction round; registered.
+  * **`CLEAR_HOLD_MS` is unreachable on edited footage** and the note now says
+    so. Enumerated at this window's cadence, no read pattern exists in which
+    the hold fires before `clearStreak` does; and `verdictDt` is the GLOBAL gap
+    clamped at 1000ms, so the hold gets CHEAPER IN READS as the device gets
+    slower — phone-only, invisible to every desktop round. Do not tune it.
+
+  **WOMAN DIRECTION: THE DIFF IS STRUCTURALLY INERT HERE AND THE SCORE IS A
+  MODEL CEILING.** `readClearCertain` is **0** on `-woman-base` and **2** on
+  `-woman-f2` across 15s — there is no certain-female evidence to accumulate,
+  so every track sits `blurred cs0` on all ten frames in both builds and the
+  woman is FALSE COVER on all 8 frames she appears in. The 3 EXPOSURE frames
+  are the same failure in both builds and are R25's edge-cropped regime, not
+  this diff: f000 the far-right man's sleeve at x>0.88, f008 the tank-top man's
+  bare arm at x<0.17, f009 an olive sleeve and forearm at the bottom edge — all
+  people MoveNet and BlazeFace both miss at the frame margin.
+
+  **REGRESSION CHECK, rotation entry 1 (`NWoT1ZVd1Lo` t=720), both directions,
+  final build.** `man`: FALSE COVER **2 of 10** against R29's recorded 4 —
+  f002 (both covered one pass after the cut at t=724.7) and f009 (his head
+  inside her patch, R27's conceded crossing-arm geometry). Linus fully sharp
+  and the girl fully covered on the other eight. `woman`: **0 in every class**,
+  both covered on all ten frames — matches R29 exactly. F2 is inert on this
+  video by construction (2 persons, the budget never binds): `cropRotated` is
+  absent from the whole window.
+
+  **A HARNESS DISAGREEMENT WORTH FIXING, found while scoring the regression.**
+  On `r30-reg-man` f006 the stored `patches` are two boxes that together cover
+  the entire frame, and the PNG shows Linus completely sharp. The frame is
+  right and the metadata is wrong: the harness screenshots, then reads state,
+  and 1.5s of playback plus the settle lets a later pass land in between — so
+  `tracks`/`patches` can describe a moment AFTER the pixels. R31: read the
+  state before the screenshot, or stamp both with `currentTime`.
+
+  **COST**: man verdict p50 109 -> 115, woman 106 -> 109; pass p50 26 -> 26 in
+  both. The rule is one extra crop+inference on passes where 4+ people are in
+  frame AND the previous verdict came back under 250ms. gaze **257/257**
+  (+5 net), cargo **37/37**.
+
+  **STILL OPEN, ranked:**
+  1. **`GENDER_CLEAR_SCORE_FEMALE` 0.45.** The only measured EXPOSURE mechanism
+     on this list, and it is in the direction with the least data. Needs a
+     `woman` round on female-heavy footage; re-derive the bar from the
+     contradiction rate, not the read distribution.
+  2. **Identity churn is now the biggest untouched lever.** 98-105 births per
+     60s against ~2.4 live patches — the mean identity is replaced every 1.8s
+     against a 1.15-1.5s mean shot — and `birthContended` is 51 of them, i.e.
+     an observation that DID overlap a live track above `PTRACK_IOU_MIN` and
+     lost it to a higher-IoU pair. The structural cause is in the same trace:
+     `patch_h_p50` 0.998 and `clamped_h_frac` 0.585, so every person box
+     overlaps every other vertically and greedy IoU association is effectively
+     1-D on x. No counter accumulates on an identity re-minted 1.6x/second.
+     Cheap first step the critic asked for and this round did not build: a
+     `birthContendedCertain` counter at person-track.mjs:619 when the losing
+     observation carried a certain-clear read.
+  3. **Score the geometry separately from the verdict.** Two warm runs of one
+     window disagreed on 3 of 10 frames' FALSE COVER counts with no code
+     change. Per-frame class counts cannot resolve a 10-20% effect on fast-cut
+     footage; `covarea.py`'s covered-area figure and `stability.py`'s
+     population split can. R31 should quote both or the log keeps recording
+     coin flips.
+  4. **`cost.pass` p50 is printed from `n=1` on a cold run** (critic F9). The
+     "pass p50 723ms" in this round's first capture is ONE sample and six times
+     the real per-pass cost. Make the harness refuse to print a p50 below some
+     n, or print n beside it.
+  5. R29's items 3 (the scene gate is one number for the whole frame), 4
+     (MoveNet hallucinates legs to the frame floor for bottom-row PiP
+     subjects), 5 (`wipeIfEmpty`'s frame-global `prevMaxH`), 6 (`maxFaceH`
+     reaches nothing but a probe) and 8 (the entry-4 mixed-gender street crowd,
+     captured and unscored) are untouched. So are R28's items 1-3 and R27's
+     item 3.

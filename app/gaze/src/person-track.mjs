@@ -49,6 +49,29 @@ export var PTRACK_POSITION_SHRINK_ALPHA = 0.2;
 export var PTRACK_EMA_ALPHA = 0.6; // new-box weight per matched sample (0.45 -> 0.6 2026-08-24: owner phone — patch trailed the person; at adaptive ~2Hz the smoothing lag dominates, snappier wins)
 export var PTRACK_MAX_MISS_MS = 1000; // a lost track coasts this long, then expires
 export var CLEAR_HOLD_MS = 1500; // accumulated confident-clear time before a patch lifts
+// R30 — THIS RUNG IS UNREACHABLE ON EDITED FOOTAGE. DO NOT TUNE IT
+// WITHOUT FIRST MAKING IT REACHABLE; a round that lowers it is tuning a
+// branch that `clearStreak` always wins.
+//
+// Enumerated at this window's measured verdict cadence (~460ms):
+//   c!, c!            -> clearMs 920 < 1500, but clearStreak 2 CLEARS.
+//   c!, u, c!, u, ...  -> clearMs gains 0.5*vdt per pair (CLEAR_DECAY),
+//                         so ~11 reads ~ 5s against a 1.15-1.5s mean
+//                         shot, and `demoteTracks` zeroes it at every
+//                         cut. Since R30 the streak clears this at
+//                         read 3 anyway.
+//   c!, u, u, c!, ...  -> neither rung ever arrives.
+// No read pattern exists in which the hold fires before the streak does.
+//
+// It is also cadence-dependent in the wrong direction, and that half is
+// phone-only so no desktop round can see it. `verdictDt` is clamped at
+// `Math.min(1000, ...)` (init-entry.js), and it is the GLOBAL gap since
+// the last verdict pass rather than this track's gap -- so a track the
+// crop budget skipped accrues the same credit per read as one read every
+// pass. At a Helio G88's 600-1000ms verdicts the alternating case needs
+// three pairs instead of six: THE HOLD GETS CHEAPER IN READS AS THE
+// DEVICE GETS SLOWER, then stops at the clamp. Same shape as the bugs
+// already fixed at PTRACK_MAX_COAST_MS and clearedCoastMs.
 // Fast clear (owner 2026-08-25, caps-lock: "WHY ARE YOU BLURRING A MAN
 // — I only wanted the female blur"): this many CONSECUTIVE certain
 // same-gender adult reads clear a track without waiting out the hold
@@ -674,6 +697,60 @@ function sizeStepProbe(t, obs, dt, srcFlip) {
   }
 }
 
+/**
+ * R30 — how many rungs a NON-certain-clear verdict read takes off
+ * `clearStreak`. See the long note at the `clearStreak` return field for
+ * the argument; this exists as a named function only so the grace can be
+ * COUNTED where it fires rather than inferred from a score afterwards.
+ *
+ * 1 = spend the rung (the old, unconditional behaviour).
+ * 0 = hold it for exactly this one pass.
+ */
+function graceSpend(obs, t, clearStreak) {
+  // An abstention always spends: the age gate returns a CHILD as an
+  // abstention, so any grace here would be a grace for children.
+  if (obs.abstained) return 1;
+  // R30 CRITIC F1 — A PASS THAT FOUND NO FACE ALWAYS SPENDS, and this is
+  // the term that keeps the grace's own safety argument true.
+  //
+  // The argument is "the same person is still there, we just could not
+  // read them well". That is a statement about a face that WAS found and
+  // read badly. Three producers reach here as plain non-abstained
+  // non-certain having seen no face at all -- `personNoFace`, the
+  // `observeThrew` fallback, and the VERDICT_TIMEOUT_MS race -- and all
+  // three share one default observation `{flagged, !certain, !faceFound}`.
+  // A person with no face in their crop is the back-turned, the
+  // walked-in and the SUBSTITUTED case: exactly the swap the grace's
+  // exposure note names, and without this term it would be the single
+  // most likely producer of the unreadable pass the grace forgives.
+  // Measured over the 60s trace: 28 of the 135 reads the grace would
+  // otherwise have covered (21%) saw no face.
+  //
+  // REFUSED, and recorded so it is not re-proposed: marking
+  // `personNoFace` as `abstained` instead. That routes it into the
+  // `obs.abstained && state === 'cleared'` branch, where two consecutive
+  // back-turned passes DEMOTE a cleared man -- FALSE COVER, the class
+  // this round exists to fight.
+  if (obs.faceFound === false) return 1;
+  // Only a rung that a certain clear read in THIS shot paid for is
+  // protected. `demoteTracks` re-seeds `lastVerdict:'uncertain'`, so a
+  // cut-banked rung is not — R23's bound is untouched.
+  //
+  // NOTE FOR EVERY FUTURE WRITER OF `lastVerdict`: as of R30 this field
+  // is no longer only a diagnostic, it is a CAPABILITY. Writing
+  // 'clear-certain' anywhere grants the next non-certain read a free
+  // rung. `demoteTracks` writing 'uncertain' is load-bearing.
+  if (t.lastVerdict !== 'clear-certain') {
+    // R30 CRITIC F4 — how often a cut-banked rung is DESTROYED by the
+    // first post-cut read rather than spent on a clear. `cutBankKept`
+    // counts banks; nothing counted what happened to them.
+    if (t.demoted && clearStreak === 1) bump('cutBankSpent');
+    return 1;
+  }
+  if (clearStreak > 0) bump('clearGraceHeld');
+  return 0;
+}
+
 function matchedStep(t, obs, dt) {
   // Did this pass change WHICH detector is describing the person? See the
   // note on vw/vh below -- a source flip is a representation change, not
@@ -987,6 +1064,22 @@ function matchedStep(t, obs, dt) {
       state === 'blurred' &&
       (obs.instant || clearMs >= CLEAR_HOLD_MS || clearStreak >= CLEAR_STREAK_N)
     ) {
+      // R30 — PRICE THE GRACE, DIRECTLY. This clear is one the grace at
+      // `clearStreak` below CAUSED, and the condition is exact rather
+      // than correlational: it cleared on the STREAK (not `instant`, not
+      // the hold), and the previous verdict read was NOT a certain clear.
+      // Before the grace, that previous read would have decremented the
+      // rung, so the incoming streak would have been one lower and this
+      // branch could not have fired. Anything not counted here would have
+      // cleared identically without the grace.
+      if (
+        !obs.instant &&
+        clearMs < CLEAR_HOLD_MS &&
+        clearStreak >= CLEAR_STREAK_N &&
+        t.lastVerdict !== 'clear-certain'
+      ) {
+        bump('clearGracePaid');
+      }
       state = 'cleared';
     }
   } else if (state === 'blurred') {
@@ -1138,13 +1231,70 @@ function matchedStep(t, obs, dt) {
     // Clamped to CLEAR_STREAK_N because the counter carries no
     // information above the bar — unclamped it made the decrement
     // hysteresis below a no-op for any track cleared more than twice.
+    // R30 — ONLY CONSECUTIVE NON-EVIDENCE REVOKES, WHICH IS THE RULE THE
+    // FLAG DIRECTION HAS ALWAYS HAD AND THE CLEAR DIRECTION NEVER DID.
+    //
+    // Two lines below, `flagStreak`/`abstainStreak` are documented as
+    // "only CONSECUTIVE evidence revokes". `clearMs` is documented (see
+    // CLEAR_DECAY) as decaying at HALF rate on an uncertain read because
+    // an uncertain read is non-evidence. This counter did neither: it
+    // dropped a full rung on the first non-certain read, and with
+    // CLEAR_STREAK_N 2 that makes the streak path require two STRICTLY
+    // CONSECUTIVE certain reads -- c!, unreadable, c! goes 1 -> 0 -> 1
+    // and never arrives.
+    //
+    // MEASURED, rotation entry 5 (`4u3jS_cTHH0` t=415, studio kitchen,
+    // 3-4 men + 1 woman, `man` mode, cuts at 0.87/s): of 100 stored
+    // observations in the window, 34 are `c!` and 42 are `F?` -- flagged
+    // but not certain, i.e. a person seen and not read. The interleave is
+    // the failure, not the read rate. Verbatim from the run, frame f005,
+    // one track across three passes: pass0 `c!` (streak 1), pass1 `F?`
+    // (streak 0), pass2 `c!` (streak 1) -- three certain-clear reads
+    // arrived on that man inside 1.5s and he was covered on every frame.
+    // Over 60s of continuous playback, 8.0% of all blurred track-samples
+    // carried `lv:'clear-certain'` while still blurred.
+    //
+    // WHAT THIS DOES NOT CHANGE, and it is the whole safety argument: the
+    // number of certain same-gender reads needed to clear is still
+    // exactly CLEAR_STREAK_N. Only the requirement that they be
+    // ADJACENT is relaxed, to "not separated by two consecutive
+    // non-certain reads". A track still cannot clear on one read unless
+    // `obs.instant` already allowed that.
+    //
+    // Everything that used to destroy the streak still destroys it:
+    // a certain OPPOSITE read zeroes it (branch above), an identity break
+    // zeroes it (:872), `demoteTracks` re-seeds it at the cut, and the
+    // clamp at CLEAR_STREAK_N is untouched so nothing accumulates.
+    //
+    // AN ABSTENTION IS EXEMPT AND SPENDS THE RUNG IN FULL. The file
+    // already argues (see the abstainDemote branch) that a null read is
+    // strictly stronger evidence against than an uncertain one -- "a face
+    // we demonstrably could not read" -- and, decisively, the age gate
+    // returns a CHILD as an abstention. Exempting abstentions is what
+    // keeps S6's derivation intact: a child-shaped read still cannot
+    // accumulate anything, at any cadence.
+    //
+    // A CUT-BANKED RUNG IS ALSO EXEMPT, for free rather than by a special
+    // case: `demoteTracks` sets `lastVerdict:'uncertain'`, so R23's bound
+    // -- "the first non-clear read after the cut spends the bank" -- is
+    // unchanged and its test still pins it. The grace only ever protects
+    // a rung a read in THIS shot actually paid for.
+    //
+    // THE EXPOSURE IT OPENS, NAMED AND BOUNDED: a track at streak 1 whose
+    // subject is SWAPPED during one unreadable pass, with no identity
+    // break and no cut detected, owes one certain same-gender read
+    // instead of two. That requires a misread of the newcomer, and the
+    // memory it exploits is one verdict interval long. It is the same
+    // single-read risk `GENDER_INSTANT_CLEAR` already accepts on a
+    // never-seen track, conditioned additionally on a certain read having
+    // landed at this screen position one pass earlier.
     clearStreak: Math.min(
       CLEAR_STREAK_N,
       !obs.flagged && obs.certain
         ? clearStreak
         : obs.flagged && obs.certain
           ? 0
-          : Math.max(0, clearStreak - 1)
+          : Math.max(0, clearStreak - graceSpend(obs, t, clearStreak))
     ),
     // The streak survives a certain flag OR an abstention — both count
     // against a clear (see the abstainDemote branch). Anything else
