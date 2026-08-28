@@ -1,7 +1,7 @@
 {
-  "versionCode": 1039,
-  "versionName": "0.1.39",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.39/app-arm64-debug.apk",
-  "sha256": "8fa75ea197bb4651dc4f3080cde1c659573bf79748e663c0e9a3dbbcb32bd38f",
-  "notes": "Diagnostics can now answer 'why did an ad get through'. Internal guards for the blur look and the face crop."
+  "versionCode": 1040,
+  "versionName": "0.1.40",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.40/app-arm64-debug.apk",
+  "sha256": "d0908dc5698a42fad94662958844f6ee877fdf9e22e246b17d002496e795b39e",
+  "notes": "Scrolling a feed no longer holds your finger. Profile pictures are checked like any other photo. A Bring-back toggle now reaches a window that is already open."
 }
