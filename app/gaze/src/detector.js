@@ -86,35 +86,95 @@ function b64ToBuffer(b64) {
 // model.json shape: weightSpecs (flattened, no `paths`) rather than
 // weightsManifest, plus format/signature so GraphModel can resolve
 // default outputs.
+function artifacts(modelJson, weightData) {
+  var weightSpecs = [];
+  for (var g = 0; g < modelJson.weightsManifest.length; g++) {
+    var group = modelJson.weightsManifest[g];
+    for (var w = 0; w < group.weights.length; w++) weightSpecs.push(group.weights[w]);
+  }
+  return {
+    modelTopology: modelJson.modelTopology,
+    weightSpecs: weightSpecs,
+    weightData: weightData,
+    format: modelJson.format,
+    generatedBy: modelJson.generatedBy,
+    convertedBy: modelJson.convertedBy,
+    signature: modelJson.signature,
+    userDefinedMetadata: modelJson.userDefinedMetadata,
+  };
+}
+
 function embeddedIoHandler(modelJson, weightsB64) {
   return {
     load: function () {
-      var weightSpecs = [];
-      for (var g = 0; g < modelJson.weightsManifest.length; g++) {
-        var group = modelJson.weightsManifest[g];
-        for (var w = 0; w < group.weights.length; w++) weightSpecs.push(group.weights[w]);
-      }
-      return Promise.resolve({
-        modelTopology: modelJson.modelTopology,
-        weightSpecs: weightSpecs,
-        weightData: b64ToBuffer(weightsB64),
-        format: modelJson.format,
-        generatedBy: modelJson.generatedBy,
-        convertedBy: modelJson.convertedBy,
-        signature: modelJson.signature,
-        userDefinedMetadata: modelJson.userDefinedMetadata,
-      });
+      return Promise.resolve(artifacts(modelJson, b64ToBuffer(weightsB64)));
     },
   };
 }
 
-// Built on demand, not at module init: with the page build the bytes do
-// not exist yet at import time, and with the full build this costs one
-// object per load instead of one per page.
-function faceIoHandler() {
-  var b = modelBlob('face');
-  return embeddedIoHandler(b[0], b[1]);
+// THE MODELS, FETCHED AS THEMSELVES.
+//
+// Inlined base64 was the only delivery that worked when this was
+// written; measured again 2026-08-29 on the live app, fetching our own
+// synthetic url succeeds on reddit (214ms), x (184ms) and m.youtube
+// (176ms) with no CSP violation. What inlining costs is paid on every
+// single worker start: 93.9% of a 22.7MB script is base64 that has to be
+// parsed as JS and then decoded. Raw bytes skip both.
+//
+// The inlined copy remains the fallback: if a platform ever does refuse
+// the fetch, the alternative is a pipeline with no models at all, which
+// leaves every image covered forever.
+var MODEL_ASSETS = {
+  face: 'blazeface',
+  gender: 'faceres',
+  nsfw: 'nsfw',
+  person: 'person',
+};
+
+function assetOrigin() {
+  try {
+    if (typeof location !== 'undefined' && location.origin) return location.origin;
+  } catch (e) {
+    /* a worker with no location falls through to a relative url */
+  }
+  return '';
 }
+
+async function fetchedArtifacts(kind) {
+  var base = assetOrigin() + '/__tamescroll/models/' + MODEL_ASSETS[kind];
+  var jsonRes = await fetch(base + '.json');
+  if (!jsonRes.ok) throw new Error('model json ' + jsonRes.status);
+  var modelJson = await jsonRes.json();
+  var binRes = await fetch(base + '.bin');
+  if (!binRes.ok) throw new Error('model bin ' + binRes.status);
+  var weightData = await binRes.arrayBuffer();
+  if (!weightData || !weightData.byteLength) throw new Error('model bin empty');
+  return artifacts(modelJson, weightData);
+}
+
+/**
+ * An IOHandler for one model: fetched bytes when we can get them, the
+ * inlined base64 when we cannot. Never throws for a reason the caller
+ * can do anything about -- a total failure surfaces as a load failure,
+ * which every caller already degrades from.
+ */
+async function ioHandlerFor(kind) {
+  try {
+    var a = await fetchedArtifacts(kind);
+    return {
+      load: function () {
+        return Promise.resolve(a);
+      },
+    };
+  } catch (e) {
+    await modelsReady();
+    var b = modelBlob(kind);
+    if (!b) throw e;
+    return embeddedIoHandler(b[0], b[1]);
+  }
+}
+
+
 
 // SEGMENTATION COST SPIKE (owner ask, target 4 of the stability round).
 // Measurement only, and deliberately NOT wired into any pipeline: the
@@ -233,8 +293,7 @@ export async function forceBackend(name) {
 /** Loads backend + model. Throws on total failure — caller fails open. */
 export async function loadModel() {
   await initBackend();
-  await modelsReady();
-  return tfconv.loadGraphModel(faceIoHandler());
+  return tfconv.loadGraphModel(await ioHandlerFor('face'));
 }
 
 /**
@@ -244,9 +303,7 @@ export async function loadModel() {
  */
 export async function loadNsfwModel() {
   await initBackend();
-  await modelsReady();
-  var b = modelBlob('nsfw');
-  return tfconv.loadGraphModel(embeddedIoHandler(b[0], b[1]));
+  return tfconv.loadGraphModel(await ioHandlerFor('nsfw'));
 }
 
 /**
@@ -259,9 +316,7 @@ export async function loadNsfwModel() {
  */
 export async function loadGenderModel() {
   await initBackend();
-  await modelsReady();
-  var b = modelBlob('gender');
-  return tfconv.loadGraphModel(embeddedIoHandler(b[0], b[1]));
+  return tfconv.loadGraphModel(await ioHandlerFor('gender'));
 }
 
 // Person model input dim (MoveNet MultiPose: dynamic, multiple of 32,
@@ -281,9 +336,7 @@ export var PERSON_INPUT_SIZE = 256;
  */
 export async function loadPersonModel() {
   await initBackend();
-  await modelsReady();
-  var b = modelBlob('person');
-  return tfconv.loadGraphModel(embeddedIoHandler(b[0], b[1]));
+  return tfconv.loadGraphModel(await ioHandlerFor('person'));
 }
 
 /**
@@ -327,6 +380,110 @@ try {
  * the page: routing the PLAYER's 4Hz pipeline into a worker that fell
  * back to CPU would be slower than the main thread, not faster, so the
  * page only hands the video path over when this says 'webgl'. */
+// COMPILE THE SHADERS BEFORE A USER IS WAITING ON THEM.
+//
+// Measured 2026-08-29 on a fresh m.youtube navigation: the models were
+// loaded and reporting ready at 738ms, the drain dispatched its first
+// batch at 738ms -- and the first thumbnail resolved at 1990ms. Every
+// image after it took 60-100ms. The 1.25s is WebGL kernel compilation,
+// which tfjs does lazily on the first execution of each graph, and a
+// hard navigation means a fresh worker paying it again every time.
+//
+// Running each model once on a blank frame moves that cost into the
+// window where the page is still loading anyway. Failures are ignored
+// on purpose: a warm-up is an optimisation, and a model that cannot run
+// on a blank frame will report its real error on a real one.
+export async function warmUp(models) {
+  if (typeof ImageData === 'undefined') return;
+  var pix;
+  try {
+    pix = new ImageData(WARM_SIZE, WARM_SIZE);
+  } catch (e) {
+    return;
+  }
+  var frame = uploadFrame(pix);
+  if (!frame) return null;
+  var t = {};
+  async function timed(name, run) {
+    var at = performance.now();
+    await run().catch(noop);
+    t[name] = Math.round(performance.now() - at);
+  }
+  try {
+    // A blank frame finds no faces, so the gender model has to be handed
+    // a box directly or its graph never runs.
+    var box = { x1: 0.25, y1: 0.25, x2: 0.75, y2: 0.75 };
+    await timed('compile', function () {
+      return compileOnly(models, pix, frame, box);
+    });
+    if (models.face) await timed('face', function () { return detectFaceBoxes(models.face, pix, frame); });
+    if (models.gender) {
+      await timed('gender', function () {
+        return classifyFaceGenders(models.gender, pix, [box], frame, { square: true });
+      });
+    }
+    if (models.nsfw) await timed('nsfw', function () { return isNsfw(models.nsfw, pix, frame); });
+    // The SECOND run over the same graphs: if this is small, everything
+    // above was one-time compilation and the number is worth attacking.
+    if (models.face) await timed('face2', function () { return detectFaceBoxes(models.face, pix, frame); });
+    if (models.nsfw) await timed('nsfw2', function () { return isNsfw(models.nsfw, pix, frame); });
+  } catch (e) {
+    /* see above: a warm-up never reports */
+  } finally {
+    disposeFrame(frame);
+  }
+  return t;
+}
+
+var WARM_SIZE = 256;
+function noop() {}
+
+// COMPILE EVERY SHADER AT ONCE INSTEAD OF ONE AT A TIME.
+//
+// Measured 2026-08-29: warming the three models in sequence cost
+// 1481-2047ms, and a SECOND run of the same graphs cost 9-18ms -- so
+// essentially all of it is one-time WebGL program compilation, paid
+// again by every fresh worker, which means every hard navigation.
+// tfjs can create all the programs first and then wait on them together
+// (KHR_parallel_shader_compile), so the driver compiles them in
+// parallel rather than blocking on each link in turn.
+//
+// ENGINE_COMPILE_ONLY makes every kernel build its program and return
+// WITHOUT running it, so the reads inside our own passes get nothing --
+// they are expected to fail and are swallowed. The flag is restored in a
+// finally: leaving it set would make the whole pipeline silently answer
+// with empty tensors.
+async function compileOnly(models, pix, frame, box) {
+  var env;
+  try {
+    env = tf.env();
+    if (!env || typeof env.set !== 'function') return;
+  } catch (e) {
+    return;
+  }
+  try {
+    env.set('ENGINE_COMPILE_ONLY', true);
+    if (models.face) await detectFaceBoxes(models.face, pix, frame).catch(noop);
+    if (models.gender) {
+      await classifyFaceGenders(models.gender, pix, [box], frame, { square: true }).catch(noop);
+    }
+    if (models.nsfw) await isNsfw(models.nsfw, pix, frame).catch(noop);
+    var b = tf.backend();
+    if (b && typeof b.checkCompileCompletionAsync === 'function') {
+      await b.checkCompileCompletionAsync();
+      b.getUniformLocations();
+    }
+  } catch (e) {
+    /* a failed pre-compile just means the warm-up below pays for it */
+  } finally {
+    try {
+      env.set('ENGINE_COMPILE_ONLY', false);
+    } catch (e) {
+      /* nothing left to do; the next pass would answer empty */
+    }
+  }
+}
+
 export function backendName() {
   try {
     return tf.getBackend();

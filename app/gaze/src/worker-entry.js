@@ -70,24 +70,47 @@ export function startWorker() {
   function ensureModels() {
     if (loading) return loading;
     loading = (async function () {
-      try {
-        models.face = await detector.loadModel();
-        post({ type: 'loaded', model: 'face' });
-      } catch (e) {
-        post({ type: 'loadFailed', model: 'face', message: String((e && e.message) || e) });
+      // EVERY NAVIGATION PAYS THIS AGAIN. m.youtube navigations are
+      // hard, so each one gets a fresh worker that loads all of these
+      // from scratch -- measured 2026-08-29: the first thumbnail verdict
+      // lands 2.4-3.2s after page start on a desktop, which is the
+      // owner's oldest complaint ("still taking long to load"). Timing
+      // each model is how the next cut gets chosen rather than guessed.
+      var t0 = performance.now();
+      async function stage(name, load) {
+        var at = performance.now();
+        try {
+          var m = await load();
+          post({ type: 'loaded', model: name, ms: Math.round(performance.now() - at) });
+          return m;
+        } catch (e) {
+          post({
+            type: 'loadFailed',
+            model: name,
+            ms: Math.round(performance.now() - at),
+            message: String((e && e.message) || e),
+          });
+          return null;
+        }
       }
-      try {
-        models.gender = await detector.loadGenderModel();
-        post({ type: 'loaded', model: 'gender' });
-      } catch (e) {
-        post({ type: 'loadFailed', model: 'gender', message: String((e && e.message) || e) });
-      }
-      try {
-        models.nsfw = await detector.loadNsfwModel();
-        post({ type: 'loaded', model: 'nsfw' });
-      } catch (e) {
-        post({ type: 'loadFailed', model: 'nsfw', message: String((e && e.message) || e) });
-      }
+      // STARTED TOGETHER, reported as each one lands. Since the models
+      // are fetched rather than parsed out of the script, most of a load
+      // is a request the others do not have to wait behind; each still
+      // posts its own 'loaded' the moment it is ready, which is what the
+      // drain gates on.
+      var faceP = stage('face', detector.loadModel);
+      var genderP = stage('gender', detector.loadGenderModel);
+      var nsfwP = stage('nsfw', detector.loadNsfwModel);
+      models.face = await faceP;
+      models.gender = await genderP;
+      models.nsfw = await nsfwP;
+      // Before saying ready: run each model once on a blank frame so the
+      // WebGL kernels are compiled. Measured 2026-08-29 -- without this
+      // the FIRST thumbnail of every navigation cost 1.25s against
+      // 60-100ms for every one after it.
+      var warmAt = performance.now();
+      var warmParts = await detector.warmUp(models);
+      var warmMs = Math.round(performance.now() - warmAt);
       // A worker that is missing a model answers every image with "no
       // faces, not suggestive", which the main thread would act on by
       // REVEALING it. It reports the failure instead and the client hands
@@ -95,7 +118,13 @@ export function startWorker() {
       // `backend` decides whether the PLAYER path may come here at all:
       // a CPU-backend worker is slower than the main thread it was meant
       // to unblock.
-      post({ type: 'ready', backend: detector.backendName() });
+      post({
+        type: 'ready',
+        backend: detector.backendName(),
+        ms: Math.round(performance.now() - t0),
+        warmMs: warmMs,
+        warmParts: warmParts,
+      });
     })();
     return loading;
   }
@@ -325,5 +354,16 @@ export function startWorker() {
     }
   };
 
-  post({ type: 'up' });
+  // How much of the worker's start-up is fetching and evaluating this
+  // script (EVAL_CLOCK is the artifact's first statement), against
+  // everything the page does before it gets here.
+  var evalMs = null;
+  try {
+    if (typeof globalThis.__TS_GAZE_EVAL0 === 'number') {
+      evalMs = Math.round(performance.now() - globalThis.__TS_GAZE_EVAL0);
+    }
+  } catch (e) {
+    /* no clock, no number */
+  }
+  post({ type: 'up', evalMs: evalMs });
 }

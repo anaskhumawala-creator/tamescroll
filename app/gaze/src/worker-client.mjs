@@ -11,7 +11,12 @@
 // The path our request interceptor answers on whatever origin asks
 // (lib.rs synthetic_resource). It must be same-origin: YouTube's
 // Trusted Types refuses a blob: worker and allows a same-origin script.
-export var WORKER_PATH = '/__tamescroll/gaze-init.js';
+//
+// The MODEL-FREE artifact. The worker used to boot from the full one and
+// spent 827-970ms of every navigation parsing 22.7MB of base64 before it
+// could say hello; it now fetches the model bytes as bytes
+// (detector.js ioHandlerFor).
+export var WORKER_PATH = '/__tamescroll/gaze-page.js';
 
 // A worker that never says hello is a worker that is not coming. Long
 // enough for a cold 16MB script on a slow device, short enough that the

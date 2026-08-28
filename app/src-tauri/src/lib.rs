@@ -478,15 +478,53 @@ fn engine() -> Arc<Engine> {
 /// The path is deliberately unmistakable and is never a real platform
 /// url; returning None is the normal case and leaves the request
 /// exactly as it was.
-pub(crate) fn synthetic_resource(url: &str) -> Option<&'static str> {
+pub(crate) fn synthetic_resource(url: &str) -> Option<&'static [u8]> {
     let path = url.split('?').next().unwrap_or(url);
-    // The SAME artifact the page gets. It boots the worker half when it
-    // finds no `document`, so a second bundle would only be a second copy
-    // of tfjs and of all four models -- 17MB of APK for identical bytes.
+    // The full artifact: the worker boots from it, and the in-page
+    // fallback reads model bytes out of it when it cannot fetch them.
     if path.ends_with("/__tamescroll/gaze-init.js") {
-        return Some(GAZE_INIT_JS);
+        return Some(GAZE_INIT_JS.as_bytes());
+    }
+    // The model-free artifact, which is what the WORKER boots from. The
+    // worker used to load the full one and spend 827-970ms of every
+    // navigation parsing base64 before it could accept its first image.
+    if path.ends_with("/__tamescroll/gaze-page.js") {
+        return Some(GAZE_PAGE_JS.as_bytes());
+    }
+    // THE MODELS, AS THEMSELVES.
+    //
+    // Inlining them as base64 was the only delivery believed to work
+    // -- the note in build/gen-embed.js says Reddit's CSP kills a runtime
+    // fetch. Measured again 2026-08-29 on the live app: fetching this
+    // very url succeeded on reddit (214ms), on x (184ms) and on
+    // m.youtube (176ms), with zero CSP violations. Meanwhile the cost of
+    // inlining is paid on every worker start: 93.9% of a 22.7MB script
+    // is base64 that has to be parsed and then decoded.
+    //
+    // Bytes are served with the same text/javascript content type as the
+    // script -- `arrayBuffer()` does not transcode, and the Android half
+    // of this path already crosses JNI as a byte array, so nothing about
+    // the shape changes.
+    if let Some(name) = path.split("/__tamescroll/models/").nth(1) {
+        return model_asset(name);
     }
     None
+}
+
+/// The vendored model files, by name. Same files build/gen-embed.js
+/// reads to produce the inlined base64 -- one source, two deliveries.
+fn model_asset(name: &str) -> Option<&'static [u8]> {
+    Some(match name {
+        "blazeface.json" => include_bytes!("../../gaze/models/blazeface.json").as_slice(),
+        "blazeface.bin" => include_bytes!("../../gaze/models/blazeface.bin").as_slice(),
+        "faceres.json" => include_bytes!("../../gaze/models/faceres.json").as_slice(),
+        "faceres.bin" => include_bytes!("../../gaze/models/faceres.bin").as_slice(),
+        "nsfw.json" => include_bytes!("../../gaze/models/nsfw-mobilenet-v2-mid.json").as_slice(),
+        "nsfw.bin" => include_bytes!("../../gaze/models/nsfw-mobilenet-v2-mid.bin").as_slice(),
+        "person.json" => include_bytes!("../../gaze/models/movenet-multipose.json").as_slice(),
+        "person.bin" => include_bytes!("../../gaze/models/movenet-multipose.bin").as_slice(),
+        _ => return None,
+    })
 }
 
 /// Requests this process has judged, and how many it stopped.
@@ -623,9 +661,15 @@ fn install_request_blocker(window: &tauri::WebviewWindow) {
                     // Our own script, on the page's own origin — see
                     // synthetic_resource for why that is the only shape
                     // of Worker YouTube's Trusted Types will load.
+                    // `no-store` stays. Measured 2026-08-29: marking the response
+                    // immutable for a year changed worker start-up by nothing at
+                    // all (858-998ms either way -- the cost is PARSING 22.7MB, not
+                    // fetching it, which takes 176ms), and the url is identical
+                    // between builds, so a cached copy would outlive the app update
+                    // that replaced it.
                     if let Some(body) = synthetic_resource(&url) {
                         if let Some(stream) =
-                            windows::Win32::UI::Shell::SHCreateMemStream(Some(body.as_bytes()))
+                            windows::Win32::UI::Shell::SHCreateMemStream(Some(body))
                         {
                             if let Ok(response) = env.CreateWebResourceResponse(
                                 Some(&stream),
@@ -721,7 +765,7 @@ pub extern "system" fn Java_app_tamescroll_client_MainActivity_nativeSyntheticRe
     let Some(body) = std::panic::catch_unwind(|| synthetic_resource(&u)).unwrap_or(None) else {
         return null;
     };
-    match env.byte_array_from_slice(body.as_bytes()) {
+    match env.byte_array_from_slice(body) {
         Ok(arr) => arr.into_raw(),
         Err(_) => null,
     }
@@ -2300,11 +2344,45 @@ mod tests {
             GAZE_PAGE_JS.len(),
             GAZE_INIT_JS.len()
         );
-        // And the full artifact is still the one the worker url serves,
-        // because it is also the fallback's only source of model bytes.
+        // The WORKER boots from the page artifact too -- same reason,
+        // paid on every navigation rather than every page.
+        assert_eq!(
+            synthetic_resource("https://m.youtube.com/__tamescroll/gaze-page.js").map(|s| s.len()),
+            Some(GAZE_PAGE_JS.len())
+        );
+        // The full artifact stays reachable: it is the fallback's only
+        // source of model bytes if the fetched assets ever fail.
         assert_eq!(
             synthetic_resource("https://m.youtube.com/__tamescroll/gaze-init.js").map(|s| s.len()),
             Some(GAZE_INIT_JS.len())
+        );
+    }
+
+    /// THE MODELS MUST BE FETCHABLE AS BYTES.
+    ///
+    /// Every name detector.js asks for has to resolve, or the worker
+    /// silently falls back to parsing 22.7MB of base64 on every start --
+    /// which works, and is exactly the cost this path exists to avoid.
+    #[test]
+    fn every_model_the_detector_fetches_is_served() {
+        for name in [
+            "blazeface.json",
+            "blazeface.bin",
+            "faceres.json",
+            "faceres.bin",
+            "nsfw.json",
+            "nsfw.bin",
+            "person.json",
+            "person.bin",
+        ] {
+            let url = format!("https://m.youtube.com/__tamescroll/models/{name}");
+            let body = synthetic_resource(&url)
+                .unwrap_or_else(|| panic!("no model asset served for {name}"));
+            assert!(!body.is_empty(), "{name} served empty");
+        }
+        assert!(
+            synthetic_resource("https://m.youtube.com/__tamescroll/models/nope.bin").is_none(),
+            "an unknown model name must not be answered"
         );
     }
 

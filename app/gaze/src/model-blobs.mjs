@@ -26,8 +26,11 @@ var BLOBS = {
   person: [PERSON_MODEL_JSON, PERSON_WEIGHTS_B64],
 };
 
+// Published on the GLOBAL, not on `window`: the fallback that loads this
+// artifact for its bytes runs in a page (script tag) and, since the
+// worker boots from the small artifact too, in a worker (importScripts).
 try {
-  if (typeof window !== 'undefined') window.__TS_GAZE_MODELS = BLOBS;
+  if (typeof globalThis !== 'undefined') globalThis.__TS_GAZE_MODELS = BLOBS;
 } catch (e) {
   /* publishing is for the fallback only; never break the worker over it */
 }

@@ -92,7 +92,14 @@ import { installMiniplayer } from './miniplayer.mjs';
 // of every model -- 17MB of APK for bytes that were identical. In a
 // worker there is no document, and none of the page pipeline below can
 // or should run.
-if (typeof importScripts === 'function' && typeof document === 'undefined') {
+// __TS_GAZE_MODELS_ONLY: a WORKER pulled this artifact in for its model
+// bytes (model-blobs-lazy fallback). Starting a second message handler
+// there would answer every request twice.
+if (
+  typeof importScripts === 'function' &&
+  typeof document === 'undefined' &&
+  !self.__TS_GAZE_MODELS_ONLY
+) {
   startWorker();
 } else
 (function () {
@@ -114,6 +121,13 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
   try {
     if (typeof window.__TS_GAZE_EVAL0 === 'number') {
       window.__TS_GAZE_EVALMS = Math.round(performance.now() - window.__TS_GAZE_EVAL0);
+      // WHEN, not just how long. The worker cannot start before this
+      // script runs, and measured 2026-08-29 that is ~420ms into a
+      // navigation -- which is most of the wait before the first
+      // thumbnail resolves. readyState says which page-load event
+      // delivered us, and therefore whether an earlier delivery exists.
+      window.__TS_GAZE_EVALAT = Math.round(window.__TS_GAZE_EVAL0);
+      window.__TS_GAZE_READY0 = document.readyState;
     }
   } catch (e) {}
 
@@ -600,6 +614,23 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
   // ---- image pipeline -----------------------------------------------
   var imageSeen = typeof WeakSet !== 'undefined' ? new WeakSet() : null;
   var imageQueue = [];
+
+  // THE BOOT TIMELINE, one number per milestone.
+  //
+  // "Still taking long to load" has been answered three times with a
+  // faster model and never with a measurement of where the wait actually
+  // is. Model readiness is now ~790ms after a navigation while the first
+  // thumbnail resolves at ~2.1s, so most of the wait is NOT inference.
+  // Each mark is written once; a probe reads them together.
+  function bootMark(name) {
+    try {
+      var t = (window.__TS_GAZE_BOOT = window.__TS_GAZE_BOOT || {});
+      if (t[name] === undefined) t[name] = Math.round(performance.now());
+    } catch (e) {
+      /* a marker must never break the pipeline */
+    }
+  }
+
   var imageDraining = false;
 
   // AN UNBOUNDED IDLE WAIT IS NOT A DEFERRAL, IT IS A HANG (owner
@@ -1024,6 +1055,7 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
         release();
         return;
       }
+      bootMark('firstDrain');
       if (!imagesReady()) {
         // Model still loading: back off instead of re-arming the idle
         // callback immediately — the immediate re-arm was a tight loop
@@ -1136,6 +1168,7 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
       // owner reported. Two lanes keep the thread busy through one
       // image's readbacks with the other's work, and cap how far behind
       // any single image can fall.
+      if (batch.length) bootMark('firstBatch');
       var lanes = typeof window.__TS_IMG_LANES === 'number' ? window.__TS_IMG_LANES : IMAGE_LANES;
       if (lanes < 1) lanes = 1;
       var runners = [];
@@ -1266,6 +1299,7 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
         // blur-all: the Stage A sheet already blankets the image — no
         // pending class, the queue exists only for NSFW removal.
         if (plan.preBlur) markPending(img);
+        bootMark('firstTag');
         imageQueue.push(img);
         drainImages();
       } else if (img.naturalWidth) {
@@ -4138,6 +4172,7 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
       /* no window is not a case that reaches here */
     }
     try {
+      bootMark('workerNew');
       gazeWorker = createWorkerClient({
         onEvent: function (ev) {
           try {
@@ -4145,12 +4180,24 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
             t[ev.type === 'loaded' || ev.type === 'loadFailed' ? ev.type + ':' + ev.model : ev.type] =
               Math.round(performance.now());
             if (ev.why) t.why = String(ev.why).slice(0, 120);
+            if (ev.type === 'up' && typeof ev.evalMs === 'number') t.evalMs = ev.evalMs;
+            // How long each model actually took, not just when it
+            // landed: a fresh worker loads all of them on EVERY
+            // navigation, and this is what has to come down.
+            if (typeof ev.ms === 'number') {
+              var ms = (t.ms = t.ms || {});
+              ms[ev.type === 'ready' ? 'total' : ev.model] = ev.ms;
+            }
             // WHICH BACKEND THE WORKER GOT, kept where a report can read
             // it. This is the single field that decides whether the
             // player path is off the main thread on a given device at
             // all: on CPU, workerVideo() refuses and everything runs
             // exactly as it did before -- silently.
-            if (ev.type === 'ready') t.backend = ev.backend || 'none';
+            if (ev.type === 'ready') {
+              t.backend = ev.backend || 'none';
+              if (typeof ev.warmMs === 'number') t.warmMs = ev.warmMs;
+              if (ev.warmParts) t.warmParts = ev.warmParts;
+            }
             if (ev.type === 'dead') t.dead = true;
           } catch (e) {
             /* a probe marker must never break the boot */

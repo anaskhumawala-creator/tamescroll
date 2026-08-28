@@ -38,7 +38,10 @@ function buildStamp() {
   }
 }
 
-const EVAL_CLOCK = 'try{window.__TS_GAZE_EVAL0=performance.now();}catch(e){}' + String.fromCharCode(10);
+// globalThis, not window: the same artifact is also a worker script, and
+// the worker's own eval cost is the thing that has to come down now.
+const EVAL_CLOCK =
+  'try{globalThis.__TS_GAZE_EVAL0=performance.now();}catch(e){}' + String.fromCharCode(10);
 
 async function main() {
   if (!fs.existsSync(path.join(__dirname, '../src/model-embed.js'))) {

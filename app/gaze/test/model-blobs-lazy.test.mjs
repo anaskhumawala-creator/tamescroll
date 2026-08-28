@@ -22,7 +22,7 @@ function fakeDom({ succeed = true, publish = true } = {}) {
         scripts.push(node);
         setTimeout(() => {
           if (!succeed) return node.onerror && node.onerror();
-          if (publish) global.window.__TS_GAZE_MODELS = { face: [{}, 'AAA'] };
+          if (publish) globalThis.__TS_GAZE_MODELS = { face: [{}, 'AAA'] };
           node.onload && node.onload();
         }, 0);
       },
@@ -31,13 +31,33 @@ function fakeDom({ succeed = true, publish = true } = {}) {
   };
   global.window = {};
   global.location = { origin: 'https://m.youtube.com' };
+  // The blobs live on the GLOBAL now (a worker has no window), so they
+  // survive between tests unless each case starts clean.
+  delete globalThis.__TS_GAZE_MODELS;
+  delete globalThis.importScripts;
   return scripts;
+}
+
+/** A worker: no document, importScripts instead of a script tag. */
+function fakeWorker({ publish = true, succeed = true } = {}) {
+  const calls = [];
+  delete global.document;
+  delete globalThis.__TS_GAZE_MODELS;
+  delete globalThis.__TS_GAZE_MODELS_ONLY;
+  globalThis.self = globalThis;
+  globalThis.location = { origin: 'https://m.youtube.com' };
+  globalThis.importScripts = (u) => {
+    calls.push(u);
+    if (!succeed) throw new Error('refused');
+    if (publish) globalThis.__TS_GAZE_MODELS = { face: [{}, 'AAA'] };
+  };
+  return calls;
 }
 
 test('ready() resolves without fetching anything when the blobs are already here', async () => {
   fakeDom();
   const mod = await import(`${MODULE}?case=already`);
-  global.window.__TS_GAZE_MODELS = { face: [{}, 'AAA'] };
+  globalThis.__TS_GAZE_MODELS = { face: [{}, 'AAA'] };
   await mod.ready();
   assert.deepEqual(mod.blob('face'), [{}, 'AAA']);
 });
@@ -71,5 +91,24 @@ test('a load that does not publish is a failure, not a success', async () => {
   // this resolved, the detector would call blob() and get undefined.
   fakeDom({ publish: false });
   const mod = await import(`${MODULE}?case=nopublish`);
+  await assert.rejects(mod.ready());
+});
+
+test('a WORKER gets the blobs through importScripts, flagged so it does not re-boot', async () => {
+  const calls = fakeWorker();
+  const mod = await import(`${MODULE}?case=worker`);
+  await mod.ready();
+  assert.equal(calls.length, 1);
+  assert.match(calls[0], /\/__tamescroll\/gaze-init\.js$/);
+  // Without this flag the full artifact would start a SECOND worker on
+  // top of the one asking it for bytes, and every image would be
+  // answered twice.
+  assert.equal(globalThis.__TS_GAZE_MODELS_ONLY, 1);
+  assert.ok(mod.blob('face'));
+});
+
+test('a worker whose importScripts is refused rejects, it does not resolve empty', async () => {
+  fakeWorker({ succeed: false });
+  const mod = await import(`${MODULE}?case=workerfail`);
   await assert.rejects(mod.ready());
 });

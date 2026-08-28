@@ -5,20 +5,20 @@
 // normal case since 2026-08-28 -- no model is ever loaded on this
 // thread, and ready() is never called.
 //
-// When the worker is NOT available the in-page pipeline is the
-// fail-safe, and it needs the real bytes. They come from the full
+// When neither the worker nor the fetched model assets are available,
+// the in-page pipeline is the fail-safe, and it needs the real bytes. They come from the full
 // artifact at the url our own request interceptor already answers for
 // the worker (lib.rs synthetic_resource), so the bytes ship once. That
 // url is same-origin, which is the only shape YouTube's
 // require-trusted-types-for 'script' allows (measured 2026-08-27), and
 // loading it as a page script raised no CSP violation on m.youtube
 // (measured 2026-08-29).
-var WORKER_PATH = '/__tamescroll/gaze-init.js';
+var MODELS_PATH = '/__tamescroll/gaze-init.js';
 var pending = null;
 
 function publish() {
   try {
-    return typeof window !== 'undefined' ? window.__TS_GAZE_MODELS : null;
+    return typeof globalThis !== 'undefined' ? globalThis.__TS_GAZE_MODELS : null;
   } catch (e) {
     return null;
   }
@@ -54,6 +54,16 @@ export function ready() {
   if (pending) return pending;
   pending = new Promise(function (resolve, reject) {
     try {
+      // In a worker there is no document, and importScripts is
+      // synchronous. The flag stops the full artifact from starting a
+      // SECOND worker on top of this one (init-entry).
+      if (typeof document === 'undefined' && typeof importScripts === 'function') {
+        self.__TS_GAZE_MODELS_ONLY = 1;
+        importScripts(scriptUrl(self.location.origin + MODELS_PATH));
+        if (publish()) resolve();
+        else reject(new Error('models script loaded without publishing'));
+        return;
+      }
       var s = document.createElement('script');
       s.async = true;
       s.onload = function () {
@@ -63,7 +73,7 @@ export function ready() {
       s.onerror = function () {
         reject(new Error('models script failed'));
       };
-      s.src = scriptUrl(location.origin + WORKER_PATH);
+      s.src = scriptUrl(location.origin + MODELS_PATH);
       (document.head || document.documentElement).appendChild(s);
     } catch (e) {
       reject(e);
