@@ -124,6 +124,19 @@ machine that has never been measured.
   for the one delivery that cannot fetch. gaze-init.js is DELETED -- one
   artifact, no models, pages and workers both run it. APK **55.8MB**,
   smaller than before any of tonight's work.
+- **SCROLL, RE-MEASURED HONESTLY** (m.youtube, mobile UA, 6x throttle,
+  5600px): 34 images in 7.4s = **4.62 img/s**, 0 left pending, 19% of
+  frames over 32ms, our long tasks worst 105ms. Two probe artifacts had
+  to be fixed first, both of which read a working pipeline as a dead
+  one: __TS_GAZE_IMGDIAG is a 120-entry RING so its length saturates
+  (use __TS_GAZE_IMGTOTAL), and Input.synthesizeScrollGesture moves
+  m.youtube 0px under a mobile UA (drive the scroller and print the
+  distance).
+- Audits after all of the above: youtube/mobile surface audit 0 dead
+  toggles, 0 leaks. Desktop www.youtube leaves 3 elements permanently
+  `ts-gaze-pending` -- measured, all three are 0x0: two
+  ytd-yoodle-renderer placeholders with no src and the idle shared
+  player. Nothing visible; not chased.
 - NOT DONE: SharedWorker (would keep models and compiled shaders across
   navigations, worth ~800ms) is DEAD for the owner's target -- Android
   WebView has no SharedWorker.
