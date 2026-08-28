@@ -734,6 +734,10 @@ if (
   function noteImgDiag(entry) {
     try {
       imgTotal++;
+      // The ring is capped at 120, so its LENGTH cannot count throughput
+      // -- a scroll probe reading it saw 0 images processed while the
+      // pipeline was working normally. This is the honest total.
+      window.__TS_GAZE_IMGTOTAL = imgTotal;
       var ring = (window.__TS_GAZE_IMGDIAG = window.__TS_GAZE_IMGDIAG || []);
       ring.push(entry);
       if (ring.length > 120) ring.splice(0, ring.length - 120);
