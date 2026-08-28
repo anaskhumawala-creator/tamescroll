@@ -372,6 +372,69 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
   function workerAlive() {
     return !!gazeWorker && gazeWorker.ready();
   }
+  // THE PLAYER'S INFERENCE MOVES TOO (2026-08-28), under conditions.
+  //
+  // The image path proved the shape: everything the models do belongs
+  // off the thread that draws the page. The player is the bigger half of
+  // that cost -- MoveNet plus a face crop and a gender read per person,
+  // four times a second, on a watch page that is simultaneously loading
+  // comments and a related rail. It is also the half with a red line
+  // through it, so it moves only when all three of these hold, and it
+  // comes straight back the moment one of them stops:
+  //   * the worker is alive (same test the image path uses);
+  //   * its tfjs backend is WEBGL -- a worker that fell back to CPU is
+  //     slower than the main thread it was meant to relieve, and the
+  //     player cannot absorb that;
+  //   * MoveNet loaded there. It is loaded on demand, because a feed
+  //     page has no video and it is the most expensive model we ship.
+  // Anything else -- no worker, a rejected request, a timeout -- and the
+  // video runs the in-page pipeline exactly as it always has.
+  var workerVideoBanned = false;
+  var anyVideoAttached = false;
+  // How long a playing video waits for a worker that is up but has not
+  // reported its models yet, before this page loads its own set.
+  var WORKER_VIDEO_GRACE_MS = 3000;
+  function workerVideo() {
+    if (workerVideoBanned) return false;
+    try {
+      return !!(
+        gazeWorker &&
+        gazeWorker.ready() &&
+        gazeWorker.backend() === 'webgl' &&
+        !gazeWorker.personFailed()
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+  // One-way: once the player path has fallen back it stays fallen back
+  // for the life of the page. A path that flapped between two engines
+  // mid-video would produce exactly the inconsistency the tracker reads
+  // as a person appearing and disappearing.
+  function banWorkerVideo(why) {
+    if (workerVideoBanned) return;
+    workerVideoBanned = true;
+    try {
+      var t = (window.__TS_GAZE_WORKER = window.__TS_GAZE_WORKER || {});
+      t.videoBanned = String((why && why.message) || why || '?').slice(0, 90);
+    } catch (e) {
+      /* a marker must never break the fallback it is describing */
+    }
+    ensureFaceModels();
+    if (anyVideoAttached) ensurePersonModel();
+  }
+  // Enough of the chain to hand out a verdict, wherever it lives. The
+  // in-page test is unchanged; the worker's is its own staged readiness
+  // (face + gender), which is the same pair `genderSettled` gates on.
+  function videoModelsReady() {
+    if (workerVideo()) return gazeWorker.genderReady();
+    return !!model && genderSettled;
+  }
+  // Is a gender read available at all? The crop path skips work it
+  // cannot use when it is not.
+  function genderAvailable() {
+    return workerVideo() ? gazeWorker.genderReady() : !!genderModel;
+  }
   // Everything that ever wore pending/flagged, for the fail-open sweep.
   // WeakRefs + a per-element tracked flag: virtualised feeds detach
   // thousands of media nodes per long scroll, and strong refs here would
@@ -1191,6 +1254,7 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
     var isPlayer = dom.hasPlayerAncestor(video);
     if (video.__tsGazeAttached) return;
     video.__tsGazeAttached = true;
+    anyVideoAttached = true;
     // One tap off, one tap back on — per player video. While off, the
     // video is cleared and sampling halts entirely (no spent frames).
     var playerBlurOn = true;
@@ -1381,6 +1445,101 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
       pctx.drawImage(video, 0, 0, detector.PERSON_INPUT_SIZE, detector.PERSON_INPUT_SIZE);
       return pctx.getImageData(0, 0, detector.PERSON_INPUT_SIZE, detector.PERSON_INPUT_SIZE);
     }
+    // WHOLE-FRAME VERDICT for the non-region path (feed videos, and a
+    // player whose host cannot take overlays): does any face in this
+    // frame mean the video stays covered? Same two steps as the region
+    // path -- faces, then a gender read only if there were any -- and
+    // the same two homes for them.
+    function wholeFrameFlagged(pixels) {
+      function anyFlagged(genders) {
+        var meta = faceMeta(userGender, genders);
+        for (var mi = 0; mi < meta.length; mi++) {
+          if (meta[mi].flagged) return true;
+        }
+        return false;
+      }
+      if (workerVideo()) {
+        return gazeWorker.cropFaces(pixels).then(function (r) {
+          var faces = r.faces || [];
+          if (!faces.length) {
+            gazeWorker.releaseCrop(r.cid);
+            return false;
+          }
+          return gazeWorker
+            .cropGender(r.cid, faces)
+            .then(function (g) {
+              return anyFlagged(g.reads || []);
+            })
+            .catch(function () {
+              // A read we could not get is a face we cannot clear.
+              return true;
+            })
+            .then(function (v) {
+              gazeWorker.releaseCrop(r.cid);
+              return v;
+            });
+        });
+      }
+      return detector.detectFaceBoxes(model, pixels).then(function (faces) {
+        if (!faces.length || !genderModel) return faces.length > 0;
+        return detector.classifyFaceGenders(genderModel, pixels, faces).then(anyFlagged);
+      });
+    }
+    // ONE PASS OVER THE WHOLE FRAME, wherever the models live.
+    //
+    // Persons, and on a verdict pass the full-frame face pass that reads
+    // the SAME pixels. Pairing them is not a convenience: a 1080p frame
+    // is ~8.3MB across the bus and uploading it twice per pass was a
+    // measured cost. In page that means one shared tensor; in the worker
+    // it means one message and one transferred bitmap.
+    //
+    // `keepFrame` hands the in-page tensor back to the caller, which owns
+    // releasing it after the whole chain (the crops read it too).
+    function runPass(withFaces, mark, keepFrame) {
+      var aspect = video.videoWidth / (video.videoHeight || 1);
+      if (workerVideo()) {
+        // createImageBitmap replaces the synchronous fromPixels(video)
+        // texture upload -- it is async and the bitmap is TRANSFERRED,
+        // so the only main-thread work a pass now costs is asking.
+        return createImageBitmap(video)
+          .then(function (bmp) {
+            mark('upload');
+            return gazeWorker.videoFrame(bmp, aspect, heldPersons, withFaces);
+          })
+          .then(function (r) {
+            // Structured clone copies an array's elements, not the
+            // properties detectPersons hangs on the array itself.
+            var persons = (r.persons || []).slice();
+            persons.noHumanShape = !!r.noHumanShape;
+            persons.rejectedBoxes = r.rejectedBoxes || [];
+            return { persons: persons, faces: r.faces || [] };
+          })
+          .catch(function (e) {
+            // A refused or timed-out pass is not a broken video: the
+            // page takes the path back and this pass coasts, which is
+            // the same thing a failed in-page pass has always done.
+            banWorkerVideo(e);
+            throw e;
+          });
+      }
+      var frame = directPersonOk ? detector.uploadFrame(video) : null;
+      keepFrame(frame);
+      mark('upload');
+      return detector
+        .detectPersons(personModel, personPixelSource(), aspect, heldPersons, frame)
+        .then(function (persons) {
+          if (!withFaces) return { persons: persons, faces: null };
+          return detector
+            .detectFaceBoxes(
+              model,
+              directPersonOk ? video : personPixelSource(),
+              directPersonOk ? frame : null
+            )
+            .then(function (faces) {
+              return { persons: persons, faces: faces };
+            });
+        });
+    }
     // Scene gate (scene-gate.mjs): 16x16 luma thumbnail classifies the
     // player's motion. 'cut' forces an immediate pass + gender read;
     // 'static' relaxes cadence toward 1Hz — but ONLY while no track is
@@ -1522,7 +1681,26 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
     // distribution (11 of 24 passes) at one inference of extra cost.
     var ZOOM_MAX_PERSONS_FAST = 4;
     var ZOOM_BUDGET_FAST_MS = 250;
+    // OFF THE MAIN THREAD, THIS CAP IS MEASURING THE WRONG THING.
+    //
+    // Owner 2026-08-28: "what if you drop the blur frame rate for it to
+    // work more accurately". That is the right trade and the worker
+    // makes it free to take. Every number above was chosen against ONE
+    // cost -- how long a verdict pass occupies the thread YouTube draws
+    // with -- and a crop the worker runs does not occupy it at all.
+    // What the cap still costs is accuracy: a person who does not get a
+    // crop gets no gender read, and a person with no read cannot ever
+    // accumulate the consecutive same-gender reads a CLEAR requires, so
+    // the budget is measured false-cover (R30 critic F2).
+    //
+    // Six is MoveNet MultiPose's own ceiling, so on the worker path
+    // nobody is starved. The cadence pays for it by itself and in
+    // exactly the direction he asked for: effZoom is lastVerdictMs *
+    // VERDICT_DUTY, so a pass that reads more people simply runs less
+    // often.
+    var ZOOM_MAX_PERSONS_WORKER = 6;
     function zoomBudget() {
+      if (workerVideo()) return ZOOM_MAX_PERSONS_WORKER;
       return lastVerdictMs && lastVerdictMs < ZOOM_BUDGET_FAST_MS
         ? ZOOM_MAX_PERSONS_FAST
         : ZOOM_MAX_PERSONS;
@@ -1557,6 +1735,17 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
       var zctx = zoomCanvas.getContext('2d');
       zctx.drawImage(video, region.x1 * vw, region.y1 * vh, sw, sh, 0, 0, dw, dh);
       return Promise.resolve(zctx.getImageData(0, 0, dw, dh));
+    }
+    // A gender read on pixels nothing will ask about twice: the
+    // native-resolution face re-crop, and the whole-blur fallback's
+    // frame. The worker takes ownership of the bitmap.
+    function genderOnPixels(pix, boxes) {
+      if (workerVideo()) {
+        return gazeWorker.genderOnce(pix, boxes).then(function (r) {
+          return r.reads || [];
+        });
+      }
+      return detector.classifyFaceGenders(genderModel, pix, boxes);
     }
 
     // Tile-recall probe (R16). Runs the SAME detector over a 2x2 grid of
@@ -1652,9 +1841,37 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
       var obs = { box: person, flagged: true, certain: false, faceFound: false };
       var zpix = null;
       var zpixRef = null;
+      // The worker's copy of this crop, when the worker detected in it.
+      // Kept alive there between the face pass and the gender read --
+      // the same pixels, uploaded once -- and released here, on the one
+      // path every outcome goes through.
+      var zcid = 0;
       function done(result) {
         if (zpix && typeof zpix.close === 'function') zpix.close();
+        if (zcid) {
+          try {
+            gazeWorker.releaseCrop(zcid);
+          } catch (e) {
+            /* a worker that cannot be told sweeps it on its own TTL */
+          }
+          zcid = 0;
+        }
         return result;
+      }
+      // The gender read for faces found in THIS crop. Over the worker
+      // that is the upload the face pass already made (`zcid`); when the
+      // face box came from the person instead, no upload was made and
+      // the crop is still ours to send.
+      function cropGenderReads(faces) {
+        if (!workerVideo()) return detector.classifyFaceGenders(genderModel, zpixRef, faces);
+        if (zcid) {
+          return gazeWorker.cropGender(zcid, faces).then(function (r) {
+            return r.reads || [];
+          });
+        }
+        return gazeWorker.genderOnce(zpixRef, faces).then(function (r) {
+          return r.reads || [];
+        });
       }
       // WATCHDOG (measured 2026-08-25): createImageBitmap on the live
       // <video> can hang without ever settling — not reject, HANG. The
@@ -1790,8 +2007,7 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
         }
         // The face box already carries FACE_ENLARGE context; keep it.
         return cropPersonPixels(fr).then(function (fpix) {
-          return detector
-            .classifyFaceGenders(genderModel, fpix, [{ x1: 0, y1: 0, x2: 1, y2: 1 }])
+          return genderOnPixels(fpix, [{ x1: 0, y1: 0, x2: 1, y2: 1 }])
             .then(function (g) {
               if (fpix && typeof fpix.close === 'function') fpix.close();
               // Stamp the size the model actually saw. R11's critic could
@@ -1905,7 +2121,7 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
           .catch(function () {
             // Native re-crop failed (taint/unsupported): fall back to
             // the in-crop read rather than losing the verdict.
-            return detector.classifyFaceGenders(genderModel, zpixRef, faces);
+            return cropGenderReads(faces);
           });
       }
 
@@ -1951,7 +2167,16 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
       function observeCropped(zpix) {
         zpixRef = zpix;
         var known = knownFaceInCrop();
-        var facesP = known ? Promise.resolve(known) : detector.detectFaceBoxes(model, zpix);
+        var facesP = known
+          ? Promise.resolve(known)
+          : workerVideo()
+            ? gazeWorker.cropFaces(zpix).then(function (r) {
+                // The crop is now the worker's; `zcid` is how the gender
+                // read reaches the same upload.
+                zcid = r.cid;
+                return r.faces || [];
+              })
+            : detector.detectFaceBoxes(model, zpix);
         return facesP.then(function (faces) {
           // WHY A TRACK IS COVERED, COUNTED AT THE SOURCE (R23).
           //
@@ -1996,7 +2221,7 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
             return { box: person, flagged: true, certain: false, faceFound: true, desc: null };
           }
           var faceDesc = null;
-          var metaP = genderModel
+          var metaP = genderAvailable()
             ? classifyBest(faces).then(function (genders) {
                 // Identity descriptor comes from the natively-cropped
                 // primary face (index 0 when it was the only face).
@@ -2332,13 +2557,13 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
     }
 
     function sampleOnce() {
-      if (failed || dead || !model || video.paused || document.hidden) return;
+      if (failed || dead || video.paused || document.hidden) return;
       if (isPlayer && !playerBlurOn) return;
       // Same rule as the image drain: verdicts handed out before the
       // gender load settles are presence-only — for video that is a
       // few wrongly-blurred seconds rather than a permanent flag, but
       // the pending blur already covers the wait, so just wait.
-      if (!genderSettled) return;
+      if (!videoModelsReady()) return;
       var now = performance.now();
       // Scene gate first: a hard cut zeroes lastSample/lastZoomAt so
       // the checks below let this very call through at full depth.
@@ -2426,7 +2651,7 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
       // cadence — the person is the unit of blur, the face only reads
       // gender, and non-persons never enter the pipeline (the entire
       // phantom class the old gates chased is excluded by construction).
-      if (useRegionVideo && personModel) {
+      if (useRegionVideo && (workerVideo() || personModel)) {
         // CAPPED, like the position pass above (R28 critic S2). This
         // line had no Math.min while `effInterval` has had one at 1000ms
         // since Stage 1, and the asymmetry is self-sustaining: three
@@ -2470,8 +2695,7 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
               stage[name] = Math.round(performance.now() - stageT0);
             } catch (e) {}
           }
-          var sharedFrame = directPersonOk ? detector.uploadFrame(video) : null;
-          mark('upload');
+          var sharedFrame = null;
           var frameDone = false;
           var releaseFrame = function () {
             if (frameDone) return;
@@ -2479,14 +2703,18 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
             detector.disposeFrame(sharedFrame);
             sharedFrame = null;
           };
-          detector
-            .detectPersons(
-              personModel,
-              personPixelSource(),
-              video.videoWidth / (video.videoHeight || 1),
-              heldPersons,
-              sharedFrame
-            )
+          // The full-frame face pass, when this pass asked for one. It
+          // shares the person pass's single upload -- in page that was
+          // always true and is why the two are paired; over the worker
+          // it is also why they are ONE message.
+          var passFaces = null;
+          runPass(wasVerdict, mark, function (f) {
+            sharedFrame = f;
+          })
+            .then(function (r) {
+              passFaces = r.faces;
+              return r.persons;
+            })
             .then(function (persons) {
               mark('persons');
               // How many people this pass had to crop. The crop+gender
@@ -2654,12 +2882,7 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
               //     here (owner 2026-08-25: "work with 10+ people").
               // A face with no pose behind it becomes a head+torso
               // person (personFromFace) — deliberately modest geometry.
-              return detector
-                .detectFaceBoxes(
-                  model,
-                  directPersonOk ? video : personPixelSource(),
-                  directPersonOk ? sharedFrame : null
-                )
+              return Promise.resolve(passFaces || [])
                 .then(function (faces) {
                   mark('fullFaces');
                   var extra = [];
@@ -2674,7 +2897,7 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
                   // would actually BUY on this exact footage and what it
                   // costs. Fire-and-forget so a slow probe cannot stall
                   // the pass it is measuring.
-                  if (window.__TS_TILE_PROBE) {
+                  if (window.__TS_TILE_PROBE && model) {
                     try {
                       tileProbe(faces.length);
                     } catch (e) {}
@@ -3200,20 +3423,7 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
         var ctx2d = canvas.getContext('2d');
         ctx2d.drawImage(video, 0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
         var pixels = ctx2d.getImageData(0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
-        detector
-          .detectFaceBoxes(model, pixels)
-          .then(function (faces) {
-            if (!faces.length || !genderModel) {
-              return faces.length > 0;
-            }
-            return detector.classifyFaceGenders(genderModel, pixels, faces).then(function (genders) {
-              var meta = faceMeta(userGender, genders);
-              for (var mi = 0; mi < meta.length; mi++) {
-                if (meta[mi].flagged) return true;
-              }
-              return false;
-            });
-          })
+        wholeFrameFlagged(pixels)
           .then(function (anyFlagged) {
             if (failed) return;
             if (anyFlagged) {
@@ -3264,8 +3474,27 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
       // classified in the worker, that was also a second copy of every
       // model in memory on a phone. PLAYING is the moment the in-page
       // path genuinely needs them.
-      ensureFaceModels();
-      ensurePersonModel();
+      // ...unless the worker owns the player too, in which case this
+      // page holds no models at all.
+      //
+      // A worker that is still COMING UP gets a moment: play fires
+      // around two seconds in and the worker reports its models a
+      // fraction of a second later, so loading a second set the instant
+      // a video plays would lose the saving on every watch page opened
+      // directly. Blur-first covers the wait, and a worker that never
+      // arrives times itself out and lands here anyway.
+      if (!workerVideo()) {
+        if (gazeWorker && !gazeWorker.dead()) {
+          setTimeout(function () {
+            if (dead || failed || workerVideo()) return;
+            ensureFaceModels();
+            ensurePersonModel();
+          }, WORKER_VIDEO_GRACE_MS);
+        } else {
+          ensureFaceModels();
+          ensurePersonModel();
+        }
+      }
       if (hasRvfc) {
         // rvfcLoop's armed-flag makes the play/playing double-fire (and a
         // parked callback surviving a pause) collapse into one loop —
@@ -3652,9 +3881,18 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
           if (ev.type === 'dead') {
             // Whatever it was, the images still have to be judged: fall
             // all the way back to the in-page pipeline, loading the
-            // models now because nobody has yet.
+            // models now because nobody has yet. NSFW too -- while the
+            // worker was alive its load was deliberately skipped.
             ensureFaceModels();
+            loadInPageNsfw();
             if (imageQueue.length) drainImages();
+            return;
+          }
+          if (ev.type === 'personFailed') {
+            // No MoveNet in the worker means no person pass there, and
+            // the crops only exist to serve one. The player comes back
+            // whole; images are untouched and stay where they are.
+            banWorkerVideo('person model');
             return;
           }
           if (ev.type === 'loaded' || ev.type === 'loadFailed' || ev.type === 'ready') {
@@ -3697,10 +3935,48 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
     } catch (e) {}
   }
 
+  // The worker owns the image path exactly while it is alive and not
+  // known-dead. Anything the in-page pipeline loads ONLY for images can
+  // be skipped while this holds.
+  function workerOwnsImages() {
+    try {
+      return !!(gazeWorker && !gazeWorker.dead());
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Called when the worker dies after we skipped this load.
+  function loadInPageNsfw() {
+    if (nsfwModel) return Promise.resolve(nsfwModel);
+    return detector.loadNsfwModel().then(
+      function (nsfw) {
+        nsfwModel = nsfw;
+        nsfwSettled = true;
+        if (imageQueue.length) drainImages();
+        return nsfw;
+      },
+      function (e) {
+        // eslint-disable-next-line no-console
+        console.warn('tamescroll gaze: nsfw model unavailable, face-only', e);
+        nsfwSettled = true;
+        if (imageQueue.length) drainImages();
+        return null;
+      }
+    );
+  }
+
   // The no-video ordering: the model the image drain is waiting on
   // first, the player's model after it. Same loads, same failure
   // handling, opposite order — see the comment at the swap.
   function nsfwThenPerson() {
+    if (workerOwnsImages()) {
+      // Nothing on this page is waiting for an in-page NSFW answer, so
+      // go straight to the model a player would want.
+      nsfwSettled = true;
+      if (personWanted) return Promise.resolve(ensurePersonModel());
+      return Promise.resolve();
+    }
     var t1 = performance.now();
     return detector
       .loadNsfwModel()
@@ -3820,6 +4096,17 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
               }
             )
             .then(function () {
+              // NSFW IS THE WORKER'S JOB WHEN THERE IS A WORKER.
+              //
+              // In page, this model exists for the image pipeline -- the
+              // video path has never used it. With the worker alive the
+              // images are classified there, so loading a second copy
+              // here buys nothing and costs a model's worth of memory on
+              // the device that can least afford it, on a watch page
+              // where the page ALREADY holds face, gender and MoveNet.
+              // If the worker dies, its 'dead' handler calls
+              // loadInPageNsfw() and the in-page drain waits as before.
+              if (workerOwnsImages()) return null;
               // NSFW last. Images verified face-clean before it arrives
               // were cleared under face-only rules — acceptable:
               // blur-first already held while they were pending, and the

@@ -32,6 +32,13 @@ export function createWorkerClient(opts) {
     face: false,
     gender: false,
     nsfw: false,
+    // Which tfjs backend the worker got. The player path only moves here
+    // on 'webgl' -- a CPU worker would be slower than the thread it was
+    // supposed to relieve.
+    backend: null,
+    // MoveNet is loaded on demand and can fail on its own without
+    // killing the image path, so the player gets its own veto.
+    personFailed: false,
   };
   var pending = new Map();
   var nextId = 1;
@@ -127,6 +134,12 @@ export function createWorkerClient(opts) {
       return;
     }
     if (msg.type === 'ready') {
+      state.backend = msg.backend || null;
+      onEvent(msg);
+      return;
+    }
+    if (msg.type === 'personFailed') {
+      state.personFailed = true;
       onEvent(msg);
       return;
     }
@@ -134,8 +147,8 @@ export function createWorkerClient(opts) {
     if (!p) return;
     pending.delete(msg.id);
     clearTimeout(p.timer);
-    if (msg.type === 'verdict') p.resolve(msg);
-    else p.reject(new Error(msg.message || 'worker error'));
+    if (msg.type === 'error') p.reject(new Error(msg.message || 'worker error'));
+    else p.resolve(msg);
   };
 
   function classifyImage(bitmap) {
@@ -166,6 +179,40 @@ export function createWorkerClient(opts) {
     });
   }
 
+  // One request, one reply, same pairing as classifyImage. `transfer`
+  // is the zero-copy list; anything in it is GONE from this thread the
+  // moment it is posted.
+  function request(msg, transfer) {
+    if (state.dead || !state.up) return Promise.reject(new Error('worker not ready'));
+    var id = nextId++;
+    msg.id = id;
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () {
+        pending.delete(id);
+        reject(new Error('worker timeout'));
+      }, REQUEST_TIMEOUT_MS);
+      pending.set(id, { resolve: resolve, reject: reject, timer: timer });
+      try {
+        worker.postMessage(msg, transfer || []);
+      } catch (err) {
+        pending.delete(id);
+        clearTimeout(timer);
+        reject(err);
+      }
+    });
+  }
+
+  // The whole-blur fallback hands over ImageData, which is CLONEABLE but
+  // not transferable -- listing it as a transfer throws and would take
+  // the pass with it.
+  function transferable(pix) {
+    try {
+      return typeof ImageBitmap !== 'undefined' && pix instanceof ImageBitmap ? [pix] : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
   function api() {
     return {
       // Ready to be ASKED (the script is alive). Model readiness is
@@ -177,10 +224,51 @@ export function createWorkerClient(opts) {
       settled: function () {
         return state.face && state.gender && state.nsfw;
       },
+      // The player never uses the NSFW classifier, so it must not wait
+      // for it: on a phone that model lands a second after the other
+      // two, and a second of a fully blurred video is a second the owner
+      // called "low quality".
+      genderReady: function () {
+        return state.up && !state.dead && state.face && state.gender;
+      },
       dead: function () {
         return state.dead;
       },
       classifyImage: classifyImage,
+      // --- player path -------------------------------------------------
+      backend: function () {
+        return state.backend;
+      },
+      personFailed: function () {
+        return state.personFailed;
+      },
+      // One player pass over a whole frame: persons, and (on verdict
+      // passes) the full-frame face pass that shares the same upload.
+      videoFrame: function (bitmap, aspect, held, withFaces) {
+        return request(
+          { type: 'vframe', bitmap: bitmap, aspect: aspect, held: held, withFaces: !!withFaces },
+          [bitmap]
+        );
+      },
+      // Faces in a person crop, keeping the upload alive under `cid` so
+      // the gender read does not have to upload the same pixels again.
+      cropFaces: function (pix) {
+        return request({ type: 'vfaces', bitmap: pix }, transferable(pix));
+      },
+      cropGender: function (cid, boxes) {
+        return request({ type: 'vgender', cid: cid, boxes: boxes });
+      },
+      releaseCrop: function (cid) {
+        if (state.dead || !state.up || !cid) return;
+        try {
+          worker.postMessage({ type: 'vrelease', cid: cid });
+        } catch (e) {
+          /* a worker that cannot be told will be swept by its own TTL */
+        }
+      },
+      genderOnce: function (pix, boxes) {
+        return request({ type: 'vgender1', bitmap: pix, boxes: boxes }, transferable(pix));
+      },
       terminate: function () {
         die('terminated');
       },

@@ -307,6 +307,18 @@ try {
 // Caller owns the tensor and must dispose it. Returns null if the source
 // cannot be uploaded, in which case each detector falls back to its own
 // upload and behaviour is exactly as before.
+/** Which tfjs backend actually got picked. The worker reports this to
+ * the page: routing the PLAYER's 4Hz pipeline into a worker that fell
+ * back to CPU would be slower than the main thread, not faster, so the
+ * page only hands the video path over when this says 'webgl'. */
+export function backendName() {
+  try {
+    return tf.getBackend();
+  } catch (e) {
+    return null;
+  }
+}
+
 export function uploadFrame(pixelSource) {
   try {
     return tf.browser.fromPixels(pixelSource);

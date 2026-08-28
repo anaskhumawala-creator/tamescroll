@@ -308,8 +308,30 @@ function makeOverlay(key) {
 // the FEATHER_MIN_PX floor starts doing all the work on small patches,
 // which reintroduces the phone-vs-desktop inconsistency the fraction
 // exists to prevent.
-var FEATHER_FRAC = 0.03; // of the patch's short side
-var FEATHER_MIN_PX = 10;
+// THE RAMP IS OFF. THE OWNER SETTLED THE DIAL, 2026-08-28.
+//
+// He asked for a sharper edge on 2026-08-27 (0.10 -> 0.05 -> 0.03), again
+// this morning, and then closed it outright: "I'm fine with fully hard
+// rectangle with rounded corners/edges since it looks higher quality."
+// That is his call to make and it is the end of the argument S4 started
+// -- the soft edge existed because a hard rectangle "announces itself",
+// and he has now looked at both on real hardware and preferred the hard
+// one.
+//
+// Everything downstream already handles zero: featherFor returns 0,
+// drawnRect stops growing the element, and maskFor returns '' so
+// applyMask clears the mask layers entirely. So this is not just a
+// smaller ramp, it is one less mask rewrite per frame per patch and one
+// less backdrop-filter invalidation -- the cheapest the renderer has
+// ever been.
+//
+// The corners are NOT part of this ("just handle the corners correctly
+// and not scale it weirdly -- i think that's already dialled in"): the
+// 8px border-radius stays, and it stays honest because place() writes a
+// real width/height rather than scaling the element, which is what
+// distorted them in v1011.
+var FEATHER_FRAC = 0; // of the patch's short side; 0 = hard edge
+var FEATHER_MIN_PX = 0;
 var FEATHER_MAX_PX = 64;
 
 // BLUR RADIUS SCALES WITH THE PATCH (owner 2026-08-27, from a phone
@@ -734,6 +756,35 @@ export function drawnRect(lerped, f) {
   };
 }
 
+/**
+ * A PATCH MAY NEVER LEAVE THE PICTURE.
+ *
+ * Owner 2026-08-28, phone screenshot: a scrolled watch page with the
+ * sticky player at the top and a blur patch running from inside the
+ * player down across the recommendation below it -- "the player
+ * coincides or like the background overlaze beneath".
+ *
+ * Two things produce that and this closes both. The overlays are
+ * absolutely positioned children of the player and NOTHING clipped them,
+ * so a patch taller than the visible player painted straight onto the
+ * page; and the rects behind the mapping refresh on a 250ms timer, so
+ * during a scroll -- exactly when the sticky player is changing size and
+ * position -- every patch is drawn against a stale player rect for up to
+ * a quarter of a second.
+ *
+ * Clipping to the VIDEO rect cannot expose anybody: the pixels removed
+ * are outside the picture, so there is no subject in them. Returns null
+ * when nothing is left, and the caller hides the overlay.
+ */
+export function clipToBounds(rect, bounds) {
+  var l = Math.max(rect.left, bounds.left);
+  var t = Math.max(rect.top, bounds.top);
+  var r = Math.min(rect.left + rect.width, bounds.right);
+  var b = Math.min(rect.top + rect.height, bounds.bottom);
+  if (!(r - l > 0) || !(b - t > 0)) return null;
+  return { left: l, top: t, width: Math.round(r - l), height: Math.round(b - t) };
+}
+
 function reposition(entry, now) {
   var vr = entry.vr;
   if (!vr || vr.width === 0 || vr.height === 0) {
@@ -792,16 +843,52 @@ function reposition(entry, now) {
     // Half the ramp sits outside the requested box, half inside. See the
     // note above featherFor: outward-only tripled the blurred area once f
     // scaled with the patch.
-    var drawn = drawnRect(lerped, f);
+    var drawn = clipToBounds(drawnRect(lerped, f), {
+      left: vr.left - entry.hr.left,
+      top: vr.top - entry.hr.top,
+      right: vr.left - entry.hr.left + vr.width,
+      bottom: vr.top - entry.hr.top + vr.height,
+    });
+    if (!drawn) {
+      // Entirely outside the picture: nothing to cover.
+      if (entry.overlays[j].__tsDisp !== 0) {
+        renderStats.dispWrites++;
+        entry.overlays[j].style.display = 'none';
+        entry.overlays[j].__tsDisp = 0;
+      }
+      continue;
+    }
     place(entry.overlays[j], drawn);
     applyMask(entry.overlays[j], maskFor(drawn, f));
   }
+}
+
+// A SCROLL MOVES THE PLAYER, AND THE 250ms TIMER IS TOO SLOW FOR IT.
+//
+// Reading the rects every frame is the thing this renderer was rebuilt
+// to stop doing (140-160 forced layouts a second). So the scroll only
+// marks them dirty, and the next rAF frame -- which is already running
+// -- pays for one read. Passive and capturing, because YouTube's own
+// scroller is not the window on mobile.
+var rectsDirty = false;
+function markRectsDirty() {
+  rectsDirty = true;
+}
+try {
+  addEventListener('scroll', markRectsDirty, { passive: true, capture: true });
+  addEventListener('resize', markRectsDirty, { passive: true });
+} catch (e) {
+  /* no listener is the old 250ms behaviour, not a broken patch */
 }
 
 function loop(video) {
   var entry = entries.get(video);
   if (!entry) return;
   renderStats.raf++;
+  if (rectsDirty) {
+    rectsDirty = false;
+    refreshRects(entry);
+  }
   reposition(entry, performance.now());
   entry.raf = requestAnimationFrame(function () {
     loop(video);

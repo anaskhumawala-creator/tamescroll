@@ -305,55 +305,24 @@ test('the long tail never uncovers the leading edge of a moving patch', () => {
 });
 
 
-test('feather scales with the patch, so a phone and a desktop look alike', () => {
-  // Owner 2026-08-26, from a phone screenshot: "the square edges should
-  // not have been shown". The ramp was capped at 16 ABSOLUTE px, which on
-  // his ~460px patch was 3.5% of it -- a gradient by construction and a
-  // hard rectangle to the eye. A fraction of the patch is the only form
-  // that looks the same at two player sizes.
-  const small = vr.featherFor({ left: 0, top: 0, width: 120, height: 90 });
+test('the edge is hard, and hard means exactly the requested box', () => {
+  // Owner 2026-08-28, closing a dial he had already moved three times:
+  // "I'm fine with fully hard rectangle with rounded corners/edges since
+  // it looks higher quality." The ramp is off.
+  //
+  // What this pins is not the taste, it is the two safety properties the
+  // soft edge used to carry. With no ramp the element must be EXACTLY
+  // the box the pipeline asked for -- not smaller, which is the exposure
+  // direction, and not grown by a ramp that is no longer drawn -- and no
+  // mask may be written, or a stale mask would eat the corners of a
+  // patch nothing is feathering.
   const phone = vr.featherFor({ left: 0, top: 0, width: 460, height: 490 });
   const big = vr.featherFor({ left: 0, top: 0, width: 1600, height: 900 });
-  // NOT a width assertion any more, and the history is the reason. 16 was
-  // the old absolute pixel CAP, and pinning "wider than the cap" made
-  // sense while the cap was the bug. The owner has since asked for a
-  // sharper edge twice (2026-08-27), which took the share to 0.03 and the
-  // width on his ~460px patch to ~14px -- below the number that was once
-  // the failure. Both readings are his and neither is wrong; what must
-  // stay true regardless is that the ramp SCALES, so a phone and a
-  // desktop show the same edge. That is what the next assertion pins.
-  assert.ok(phone > 0, `phone patch must get some ramp, got ${phone}`);
-  // The share was halved on 2026-08-27 ("needs sharpur blur edges ...
-  // looks a bit low quality") once the margin stack it was sized against
-  // was cut. What this test pins is the SCALING, not the width: the ramp
-  // must still be a share of the patch rather than a pixel constant.
-  assert.ok(phone / 460 >= 0.02, 'ramp must be a meaningful share of the patch');
-  assert.ok(
-    Math.abs(phone / 460 - big / 900) < 1e-6,
-    'the same share at two player sizes -- that is the whole point',
-  );
-  assert.ok(big >= phone, 'a larger patch may not get a smaller ramp');
-  // A small patch must not be mostly gradient.
-  assert.ok(small <= 90 / 3 + 1e-9, 'ramp capped at a third of the short side');
-});
-
-test('the feather is added OUTSIDE, so the requested box stays fully covered', () => {
-  // The safety property the whole construction rests on: growing the
-  // element by the ramp means the opaque core still covers every pixel
-  // the hard rectangle covered. Ramping inward instead would under-cover.
+  assert.equal(phone, 0);
+  assert.equal(big, 0);
   const rect = { left: 100, top: 50, width: 400, height: 300 };
-  const f = vr.featherFor(rect);
-  assert.ok(f > 0);
-  const grown = {
-    left: rect.left - f,
-    top: rect.top - f,
-    width: rect.width + f * 2,
-    height: rect.height + f * 2,
-  };
-  assert.ok(grown.left <= rect.left);
-  assert.ok(grown.top <= rect.top);
-  assert.ok(grown.left + grown.width >= rect.left + rect.width);
-  assert.ok(grown.top + grown.height >= rect.top + rect.height);
+  assert.deepEqual(vr.drawnRect(rect, vr.featherFor(rect)), rect);
+  assert.equal(vr.maskFor(rect, vr.featherFor(rect)), '');
 });
 
 // S9/F4: a merge, an unmerge or a re-ordered group all change the key
@@ -491,4 +460,22 @@ test('blurRadiusFor: the launcher preset is a floor, never a cap', () => {
 test('blurRadiusFor: bounded, and degenerate rects fall back to the preset', () => {
   assert.equal(vr.blurRadiusFor({ width: 4000, height: 3000 }, 24), 72);
   assert.equal(vr.blurRadiusFor({ width: 0, height: 0 }, 24), 24);
+});
+
+test('a patch never paints outside the picture', () => {
+  // Owner 2026-08-28, phone: a scrolled watch page where the blur ran
+  // from inside the sticky player down over the recommendation below it.
+  // Overlays are children of the PLAYER and nothing clipped them, so a
+  // patch taller than the visible video painted onto the page.
+  const bounds = { left: 0, top: 0, right: 400, bottom: 300 };
+  const over = vr.clipToBounds({ left: 100, top: 200, width: 200, height: 400 }, bounds);
+  assert.deepEqual(over, { left: 100, top: 200, width: 200, height: 100 });
+  // Clipping removes pixels that are OUTSIDE the video, so it can never
+  // uncover a subject: the part that survives is unchanged.
+  const inside = { left: 10, top: 10, width: 50, height: 60 };
+  assert.deepEqual(vr.clipToBounds(inside, bounds), inside);
+  // Off the picture entirely: nothing to draw, and the caller hides it
+  // rather than painting a sliver on the page.
+  assert.equal(vr.clipToBounds({ left: 500, top: 10, width: 40, height: 40 }, bounds), null);
+  assert.equal(vr.clipToBounds({ left: 10, top: 320, width: 40, height: 40 }, bounds), null);
 });
