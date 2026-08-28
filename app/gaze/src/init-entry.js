@@ -82,6 +82,7 @@ import { buildReport, reportViolations, platformOf, pageKind } from './diag-repo
 import { planForMode, rotateBudget } from './pipeline-plan.mjs';
 import { createWorkerClient } from './worker-client.mjs';
 import { startWorker } from './worker-entry.js';
+import { installMiniplayer } from './miniplayer.mjs';
 
 // ONE ARTIFACT, TWO ROLES.
 //
@@ -99,6 +100,14 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
   // string literal — esbuild won't rename it) so the Rust side can prove
   // this exact bundle is what got injected. See lib.rs gaze tests.
   window.__TS_GAZE_BUNDLE__ = 'v7'; // v7: crowd path (faces past MoveNet's 6) + no cut blackout
+
+  // Drag-to-miniplayer (owner ask, twice). Installed BEFORE the mode
+  // gate and before the bench hook: it is a player behaviour, not a
+  // gaze one, and it has to work in off mode too. Its own re-entry
+  // guard makes the Started+Finished double eval a no-op.
+  try {
+    installMiniplayer(window);
+  } catch (e) {}
   // Closes the eval clock the build opens as the artifact's first
   // statement — see build/build.js. The delta is what evaluating 22.7MB
   // of bundle costs on THIS device, per page load.
@@ -3631,6 +3640,10 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
       // sliding knob, sized for touch (36px tall hit area on mobile).
       pill = document.createElement('button');
       pill.type = 'button';
+      // Named so the miniplayer can hide it: at 0.56 scale the pill eats
+      // a third of a 231px-wide box, and it outranks the mini cover's
+      // z-index, so it would be the one thing still tappable in there.
+      pill.className = 'ts-gaze-pill';
       pill.style.cssText =
         'position:absolute;top:48px;right:8px;z-index:2147483645;' +
         'display:flex;align-items:center;gap:7px;' +
