@@ -15,6 +15,7 @@
 // extra GPU->CPU download is a fence wait, and hidden pages clamp those
 // to ~1s each (Chrome nested-timer throttling, found 2026-08-23).
 import * as tf from '@tensorflow/tfjs-core';
+import { squareBox } from './crop-geometry.mjs';
 import '@tensorflow/tfjs-backend-cpu';
 import '@tensorflow/tfjs-backend-webgl';
 import * as tfconv from '@tensorflow/tfjs-converter';
@@ -535,20 +536,17 @@ export async function classifyFaceGenders(model, pixelSource, boxes, sharedImg, 
       var x1 = b.x1;
       var y2 = b.y2;
       var x2 = b.x2;
-      if (square && srcW > 0 && srcH > 0) {
-        // ASPECT-PRESERVING CROP. cropAndResize squashes whatever
-        // rectangle it is given into 224x224, so a box that is not
-        // square in PIXELS reaches faceres as a stretched face. The
-        // video path learned this in v1009 (a square-stretch crop
-        // misgendered a man on frame after frame); the image path never
-        // got the same treatment.
-        var cx = ((x1 + x2) / 2) * srcW;
-        var cy = ((y1 + y2) / 2) * srcH;
-        var side = Math.max((x2 - x1) * srcW, (y2 - y1) * srcH) / 2;
-        x1 = (cx - side) / srcW;
-        x2 = (cx + side) / srcW;
-        y1 = (cy - side) / srcH;
-        y2 = (cy + side) / srcH;
+      if (square) {
+        // ASPECT-PRESERVING CROP -- the arithmetic and the four days it
+        // cost are in crop-geometry.mjs. Both the image path and the
+        // worker's video path reach faceres through here, so there is
+        // one implementation and one test rather than two chances to
+        // get it wrong.
+        var sq = squareBox({ x1: x1, y1: y1, x2: x2, y2: y2 }, srcW, srcH);
+        x1 = sq.x1;
+        x2 = sq.x2;
+        y1 = sq.y1;
+        y2 = sq.y2;
       }
       rects.push([y1, x1, y2, x2]);
       inds.push(0);
