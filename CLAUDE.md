@@ -66,6 +66,64 @@ Users install this one app and nothing else.
 **Last updated:** 2026-08-28 17:05 (v0.1.39/1039 RELEASED, apk sha
 8fa75ea1).
 
+**Session 2026-08-28 night — v0.1.40/1040 LIVE (sha d0908dc5, raw
+manifest verified). Four fixes, three of them his words.**
+- **A NON-PASSIVE `touchmove` ON THE DOCUMENT** (miniplayer.mjs, shipped
+  that morning) took the fast scroll path away from EVERY page in the
+  app. Owner: "when scrolling through thumbnails show a pressing
+  impression when I'm just scrolling", "make it feel like native yt
+  app". The gesture only ever acts on a touch that STARTED in the
+  player, so only the player's subtree is non-passive now (bindHost, on
+  touchstart). VERIFIED: page scrolls 325px while the main thread is
+  blocked 600ms; probe_mini_live still drags both ways. Regression test
+  greps the source for a non-passive document touch listener.
+- **THE IMAGE BUDGET WAS CHARGING THE MAIN THREAD FOR WORKER TIME.** It
+  was calibrated when the models ran in page; since inference moved off
+  thread, ONE worker image (152ms at 6x) blew the 150ms scroll budget
+  and the drain slept 250ms, repeatedly -- his old "processes some, then
+  halts", recreated by its own fix. noteSpend now subtracts the ms the
+  worker reports. Measured over one scroll: images finished 5 -> 13, our
+  real main-thread share 489ms of the page's 2,116ms of long tasks
+  (worst task 742ms, of which ours can be at most 102ms -- so the
+  remaining jank at 6x is YouTube's).
+- **PROFILE PICTURES WERE NEVER LOOKED AT** (owner: "profile pics do not
+  get blurred"). Sub-120px images were cleared unchecked as UI chrome --
+  which is also where every profile picture lives, and size cannot tell
+  a person's photo from a channel logo. IMAGE_MIN_FACE_SIZE 48: images
+  in [48,120) get the FACE question only (noNsfw through the worker
+  protocol -- nsfwjs costs the same at any source size and has nothing
+  to say about a head shot). LIVE on a search feed: 13 avatars checked,
+  13 faces found, 5 covered, 8 cleared, 0 images below the new floor.
+- **A TOGGLE COULD NOT REACH AN OPEN WINDOW (desktop).** Pressing a tile
+  for an already-open platform only focused it, so the page kept the
+  sheet from whenever it last navigated. Measured on reddit: 1,951 bytes
+  with <recent-posts> hidden while Discovery read Shown, 1,642 the
+  instant it reloaded. `rules_refresh_script` (CSS only -- no scriptlets,
+  no `__TS_RULES__` guard) is eval'd on focus. This also invalidated an
+  earlier "DEAD TOGGLE" audit finding: the audit's two passes were
+  reading one stale window.
+- **A PAGE COULD KILL OUR WINDOW.** window.close() takes the WebView2
+  controller down and leaves the label taken: get_webview_window still
+  answers, set_focus AND eval both still return Ok, so every later tile
+  press succeeded and did nothing, permanently (measured on x.com; both
+  Rust liveness signals tried first). The injected script now routes
+  window.close to the launcher. HARNESS CONSEQUENCE: probes can no
+  longer close a platform window with window.close().
+- **"home feed is not showing"** has a second half, measured: signed out,
+  m.youtube renders no feed at all -- "Start watching videos to help us
+  build a feed of videos that you'll love". The surface fix from earlier
+  today was real; the empty page is YouTube's. His phone's feed comes
+  from that WebView's own history, and could not be reproduced here.
+- Audits: probe_surface_audit + probe_leak clean on YouTube mobile AND
+  desktop (0 dead toggles, 0 leaks) and reddit desktop (0 after the fix).
+  x/instagram not yet swept. PROBE GOTCHAS FIXED, both of which invented
+  bugs: a device-metrics override from an earlier session sticks to the
+  target and survives clearDeviceMetricsOverride (a "desktop" run read
+  innerWidth 412 and called 20 healthy recommendations a dead toggle);
+  and a visibility walk must stop BELOW body -- desktop ytd-app is fixed
+  so body's box is 0 tall.
+- gaze 307/307, cargo 47/47.
+
 **Session 2026-08-28 (overnight) — META PLATFORMS, AND THREE SILENT
 NO-OPS.** Owner asked for Facebook + Instagram overnight; three separate
 delivery bugs turned up on the way, each of which made correct rules do
