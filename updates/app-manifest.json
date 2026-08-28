@@ -1,7 +1,7 @@
 {
-  "versionCode": 1037,
-  "versionName": "0.1.37",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.37/app-arm64-debug.apk",
-  "sha256": "21660c77cd5a878776272b8a28cd127892d3becdb76c8edb4cd6fe9fe400e0a1",
-  "notes": "Diagnostics in Settings, About. Blur patches can no longer paint outside the player."
+  "versionCode": 1038,
+  "versionName": "0.1.38",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.38/app-arm64-debug.apk",
+  "sha256": "22c1ea2d8e61a742bd7e97962ca28966f1259066f57c8377fa4a9120d9e47548",
+  "notes": "Corner miniplayer: drag the player down. Plus password-manager autofill on sign-in."
 }
