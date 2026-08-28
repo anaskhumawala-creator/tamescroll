@@ -490,3 +490,35 @@ test('a patch never paints outside the picture', () => {
   assert.equal(vr.clipToBounds({ left: 500, top: 10, width: 40, height: 40 }, bounds), null);
   assert.equal(vr.clipToBounds({ left: 10, top: 320, width: 40, height: 40 }, bounds), null);
 });
+
+// THE LOOK CONTRACT. These are not assertions about arithmetic; they are
+// a lock on four numbers the owner settled on his own hardware after
+// nine "low quality" reports across four dates. The audit
+// (docs/research/pain-points-2026-08-28.md #1) found one dial moved four
+// times in three days -- every time correct for the build it was tuned
+// against, and wrong after the next accuracy round changed the geometry
+// under it. A round that needs one of these has to change this test too,
+// which makes it a decision instead of something he finds on his phone.
+test('the look contract is what he settled, in his words', () => {
+  // "I'm fine with fully hard rectangle with rounded corners/edges since
+  // it looks higher quality" -- 2026-08-28.
+  assert.equal(vr.LOOK.featherFrac, 0, 'the edge is HARD; he settled this after four moves');
+  // "just handle the corners correctly and not scale it wierdly i think
+  // that's already dialled in" -- 2026-08-28.
+  assert.equal(vr.LOOK.radiusPx, 8, 'corners are dialled in; do not re-tune');
+  // "the invedio blur looks very unpolished unlike the thumbnail blur"
+  // -- 2026-08-27. A thumbnail's radius is ~1/8 of its short side.
+  assert.equal(vr.LOOK.blurFrac, 0.09);
+  assert.equal(vr.LOOK.blurMaxPx, 72);
+});
+
+test('the contract is what the renderer actually uses', () => {
+  // A frozen constant nothing reads is theatre. featherFor and
+  // blurRadiusFor are the two functions that draw with them.
+  assert.equal(vr.featherFor({ width: 400, height: 300 }), 0);
+  assert.equal(vr.blurRadiusFor({ width: 1000, height: 900 }, 24), vr.LOOK.blurMaxPx);
+  assert.equal(
+    vr.blurRadiusFor({ width: 400, height: 300 }, 1),
+    Math.round(300 * vr.LOOK.blurFrac)
+  );
+});

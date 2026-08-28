@@ -164,7 +164,7 @@ function makeOverlay(key) {
   // corners (owner 2026-08-24: "rounded edges are distorting").
   d.style.cssText =
     'position:absolute;left:0;top:0;width:' + BASE_PX + 'px;height:' + BASE_PX + 'px;' +
-    'pointer-events:none;border-radius:' + (pieceKey ? '0' : '8px') + ';' +
+    'pointer-events:none;border-radius:' + (pieceKey ? '0' : LOOK.radiusPx + 'px') + ';' +
     'will-change:transform;' +
     'backdrop-filter:blur(var(--ts-blur-strong,24px));' +
     '-webkit-backdrop-filter:blur(var(--ts-blur-strong,24px));';
@@ -330,7 +330,36 @@ function makeOverlay(key) {
 // 8px border-radius stays, and it stays honest because place() writes a
 // real width/height rather than scaling the element, which is what
 // distorted them in v1011.
-var FEATHER_FRAC = 0; // of the patch's short side; 0 = hard edge
+// THE LOOK CONTRACT (owner-settled 2026-08-28, on his own hardware).
+//
+// These four numbers are not tuning parameters any more. Every one of
+// them moved because a gauntlet ACCURACY round changed the geometry
+// underneath it, and he screenshotted the result and called it "low
+// quality" -- nine times across four dates, one dial moved four times
+// in three days. The comment at :283 says it outright: a feather width
+// correct for the build it was tuned against was wrong in the next one,
+// because accuracy work and look work share one rectangle.
+//
+// So they are gathered, named, dated, and pinned by a test that quotes
+// him. A future round that needs to move one has to move the test too,
+// which is the point: the change becomes a decision instead of a side
+// effect he finds on his phone.
+//
+//   FEATHER  "I'm fine with fully hard rectangle with rounded
+//             corners/edges since it looks higher quality"
+//   RADIUS   "just handle the corners correctly and not scale it
+//             weirdly i think that's already dialled in"
+//   BLUR     "the invedio blur looks very unpolished unlike the
+//             thumbnail blur" -- radius scales with the patch so a
+//             body-sized one is not two blobs.
+export var LOOK = {
+  featherFrac: 0, // hard edge. NOT a dial.
+  radiusPx: 8,
+  blurFrac: 0.09, // of the patch's short side
+  blurMaxPx: 72,
+};
+
+var FEATHER_FRAC = LOOK.featherFrac; // of the patch's short side; 0 = hard edge
 var FEATHER_MIN_PX = 0;
 var FEATHER_MAX_PX = 64;
 
@@ -360,8 +389,8 @@ var FEATHER_MAX_PX = 64;
 // sharper edge twice and a thumbnail's edge is perfectly hard, so the
 // edge and the interior are moving in the directions he named, not
 // against each other.
-var BLUR_FRAC = 0.09; // of the patch's short side
-var BLUR_MAX_PX = 72;
+var BLUR_FRAC = LOOK.blurFrac; // of the patch's short side
+var BLUR_MAX_PX = LOOK.blurMaxPx;
 var strongPx = 0;
 var strongReadAt = -1e9;
 var STRONG_TTL_MS = 1000;

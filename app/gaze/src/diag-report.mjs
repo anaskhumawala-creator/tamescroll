@@ -294,6 +294,11 @@ export function buildReport(snap) {
       otaAgeH: num(s.otaAgeH),
       activeRules: num(s.activeRules),
       cssBytes: num(s.cssBytes),
+      // seen == 0 means page request interception is not wired at all;
+      // seen > 0 with blocked == 0 means it is wired and nothing
+      // matched. Four "ads came back" reports could not tell those
+      // apart, and one of them turned out to be the first.
+      seen: num(s.seen),
       blocked: num(s.blocked),
     },
     boot: {

@@ -40,6 +40,7 @@ function snap(over = {}) {
     otaAgeH: 3,
     activeRules: 8564,
     cssBytes: 35484,
+    seen: 1180,
     blocked: 41,
     evalMs: 2210,
     timing: { face: 900, faceAt: 3100, gender: 1400, genderAt: 4500, person: 4100 },
@@ -170,6 +171,23 @@ test('platformOf names the platform without keeping the host', () => {
   assert.equal(d.platformOf('x.com'), 'x');
   assert.equal(d.platformOf('www.instagram.com'), 'instagram');
   assert.equal(d.platformOf('example.net'), 'other');
+});
+
+test('the engine block can tell "not wired" from "nothing matched"', () => {
+  // The 2026-08-25 finding was that network blocking had NEVER been
+  // wired, and it was invisible for weeks because the emulator was never
+  // served an ad. `seen` is the field that would have said so in one
+  // screenshot.
+  const notWired = d.buildReport(snap({ seen: 0, blocked: 0 }));
+  assert.equal(notWired.engine.seen, 0);
+  const wiredNothingMatched = d.buildReport(snap({ seen: 1180, blocked: 0 }));
+  assert.equal(wiredNothingMatched.engine.seen, 1180);
+  assert.equal(wiredNothingMatched.engine.blocked, 0);
+  const working = d.buildReport(snap());
+  assert.equal(working.engine.blocked, 41);
+  // And the rules generation travels, so two devices are comparable.
+  assert.equal(working.engine.rulesGen, 'ab12cd34');
+  assert.deepEqual(d.reportViolations(working, HREF), []);
 });
 
 test('gaps are the "it halts" number, and they come from the ring', () => {

@@ -69,6 +69,31 @@ const SCRIPTLET_RULES: &str = include_str!("../../../rules/scriptlets.txt");
 /// repo-relative name under `rules/` — the same names
 /// `rules/manifest.json` uses. `None` for anything else, which is how
 /// ota.rs knows a manifest entry is not for this build.
+/// Every OTA-able rules file, in a fixed order. The one list; the
+/// generation hash in ota.rs walks it, so a file added to `embedded`
+/// and forgotten here would silently not affect the generation -- which
+/// is what the test below is for.
+pub const FILES: &[&str] = &[
+    "youtube.txt",
+    "reddit.txt",
+    "x.txt",
+    "tiktok.txt",
+    "instagram.txt",
+    "facebook.txt",
+    "scriptlets.txt",
+    "blur/youtube.css",
+    "blur/reddit.css",
+    "blur/x.css",
+    "blur/tiktok.css",
+    "blur/instagram.css",
+    "blur/facebook.css",
+    "vendor/easylist.txt",
+    "vendor/easyprivacy.txt",
+    "vendor/ubo-filters.txt",
+    "vendor/ubo-quick-fixes.txt",
+    "vendor/ubo-unbreak.txt",
+];
+
 pub fn embedded(name: &str) -> Option<&'static str> {
     match name {
         "youtube.txt" => Some(YOUTUBE_RULES),

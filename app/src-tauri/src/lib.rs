@@ -283,10 +283,26 @@ fn diag_app_json(px: u32) -> String {
     // the version lockstep in this project lives in tauri.conf.json and
     // appupdate.rs, so the crate version would put a wrong number in
     // every report and wrong numbers are worse than missing ones.
+    //
+    // The engine half answers "ads came back" from his phone instead of
+    // from a mechanism hunt. `seen`/`blocked` are cumulative for the
+    // process and stamped at THIS page load, not at report time -- which
+    // is the honest limit of a value baked into an injected script, and
+    // enough for the question that matters: seen == 0 means page
+    // interception is not wired at all (the 2026-08-25 bug, invisible
+    // for weeks because the emulator was never served an ad).
+    let (seen, blocked) = request_counts();
     format!(
-        r#"{{"versionCode":{},"blurPx":{}}}"#,
+        r#"{{"versionCode":{},"blurPx":{},"rulesGen":"{}","otaLast":"{}","otaAgeH":{},"seen":{},"blocked":{}}}"#,
         appupdate::CURRENT_VERSION_CODE,
-        px
+        px,
+        ota::generation(),
+        ota::last_outcome(),
+        ota::last_age_ms()
+            .map(|ms| (ms / 3_600_000).to_string())
+            .unwrap_or_else(|| "null".into()),
+        seen,
+        blocked
     )
 }
 
@@ -462,12 +478,35 @@ pub(crate) fn synthetic_resource(url: &str) -> Option<&'static str> {
     None
 }
 
+/// Requests this process has judged, and how many it stopped.
+///
+/// "Ads came back" has arrived four times and, on 2026-08-25, the answer
+/// turned out to be that the engine had NEVER done network blocking --
+/// invisible for weeks because the emulator was never served an ad. Two
+/// counters make that class of failure answerable from his phone instead
+/// of from a mechanism hunt: SEEN == 0 means the interceptor is not
+/// wired at all; SEEN > 0 with BLOCKED == 0 means it is wired and
+/// nothing matched.
+static REQ_SEEN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+static REQ_BLOCKED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+pub(crate) fn request_counts() -> (u64, u64) {
+    (
+        REQ_SEEN.load(std::sync::atomic::Ordering::Relaxed),
+        REQ_BLOCKED.load(std::sync::atomic::Ordering::Relaxed),
+    )
+}
+
 pub(crate) fn blocks_request(url: &str, source_url: &str, resource_type: &str) -> bool {
     // Never gamble on our own IPC or the launcher: a false positive here
-    // bricks the app, and neither can serve an ad.
+    // bricks the app, and neither can serve an ad. Not counted either:
+    // these are our own plumbing, and counting them would make SEEN > 0
+    // true even on a build where page interception is dead -- the exact
+    // reading the counter exists to give.
     if url.starts_with("tauri://") || url.starts_with("ipc://") || url.contains("tauri.localhost") {
         return false;
     }
+    REQ_SEEN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     // An unparseable URL is not something we can reason about, and this
     // runs inside every page load: degrade to "allow" rather than panic.
     let Ok(req) = adblock::request::Request::new(url, source_url, resource_type, "GET") else {
@@ -477,7 +516,11 @@ pub(crate) fn blocks_request(url: &str, source_url: &str, resource_type: &str) -
     // be cancelled by an exception rule, and the unbreak lists exist
     // precisely to cancel over-broad blocks. Reading the raw match would
     // ignore every one of them and break the sites we are cleaning.
-    engine().check_network_request(&req).should_block()
+    let blocked = engine().check_network_request(&req).should_block();
+    if blocked {
+        REQ_BLOCKED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+    blocked
 }
 
 /// Bridge for the Android WebViewClient (`shouldInterceptRequest`) and
@@ -1697,6 +1740,12 @@ mod tests {
         assert_eq!(v["versionCode"], appupdate::CURRENT_VERSION_CODE);
         assert_eq!(v["blurPx"], 24);
         assert!(v.get("versionName").is_none(), "the crate version is not the app version");
+        // The engine block: a generation the device can be compared by,
+        // and the two counters that separate "nothing matched" from
+        // "the interceptor is not wired".
+        assert_eq!(v["rulesGen"].as_str().unwrap().len(), 8, "8 hex, stable per rules build");
+        assert!(["ok", "fail", "never"].contains(&v["otaLast"].as_str().unwrap()));
+        assert!(v["seen"].is_u64() && v["blocked"].is_u64());
         // And it reaches the page it was written for.
         let script = page_load_gaze_script("https://m.youtube.com/", "smart").unwrap();
         assert!(script.contains("window.__TS_DIAG_APP = {\"versionCode\""));
@@ -1766,6 +1815,49 @@ mod tests {
         // now still means the compulsory tier boots on platform hosts.
         let js = page_load_gaze_script("https://x.com/home", "nonsense").expect("normalised off");
         assert!(js.contains("__TS_GAZE_MODE = \"off\""));
+    }
+
+    /// The two counters behind "why did an ad get through". A judged
+    /// request must move `seen`; a blocked one must move both; and our
+    /// own IPC must move neither, or `seen > 0` would be true on a build
+    /// where page interception is dead -- the exact reading the counter
+    /// exists to give.
+    #[test]
+    fn request_counters_separate_not_wired_from_nothing_matched() {
+        // The counters are process-global and the suite runs in
+        // parallel, so this asserts on DELTAS across a batch rather than
+        // on exact values -- 200 of our own IPC urls must move `seen` by
+        // strictly less than 200 judged ones would, and the cleanest
+        // form of that is: they move it by no more than the other tests
+        // happen to in the same window, while judged ones move it by at
+        // least their own count.
+        let (s0, _) = request_counts();
+        for _ in 0..200 {
+            assert!(!blocks_request(
+                "tauri://localhost/index.html",
+                "tauri://localhost",
+                "document"
+            ));
+        }
+        let (s1, b1) = request_counts();
+        assert!(
+            s1 - s0 < 200,
+            "our own plumbing must not be counted as judged requests"
+        );
+
+        let mut blocked_now = 0u64;
+        for _ in 0..200 {
+            if blocks_request(
+                "https://doubleclick.net/pagead/ads",
+                "https://www.youtube.com/",
+                "script",
+            ) {
+                blocked_now += 1;
+            }
+        }
+        let (s2, b2) = request_counts();
+        assert!(s2 - s1 >= 200, "every judged request must be counted");
+        assert!(b2 - b1 >= blocked_now, "blocked count must track the verdicts");
     }
 
     /// The Rust-side mode mirror the Android page loads read.

@@ -3937,6 +3937,16 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
     }
   }
 
+  /// Bytes of the rules sheet this page actually received.
+  function injectedCssBytes() {
+    try {
+      var el = document.getElementById('tamescroll-rules');
+      return el && el.textContent ? el.textContent.length : 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
   function diagSnapshot() {
     var app = window.__TS_DIAG_APP || {};
     var ua = navigator.userAgent || '';
@@ -3975,7 +3985,13 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
       otaLast: app.otaLast,
       otaAgeH: app.otaAgeH,
       activeRules: app.activeRules,
-      cssBytes: app.cssBytes,
+      // Measured HERE, not stamped by Rust: the injected sheet is what
+      // this page actually received, and a page that got the wrong
+      // platform's rules (the 2026-08-28 per-host ownership bug) shows
+      // up as a byte count that does not match its platform.
+      cssBytes: injectedCssBytes(),
+      seen: app.seen,
+      blocked: app.blocked,
       evalMs: window.__TS_GAZE_EVALMS,
       timing: window.__TS_GAZE_TIMING || {},
       worker: window.__TS_GAZE_WORKER || {},
