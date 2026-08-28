@@ -6,14 +6,18 @@
 // thread, and ready() is never called.
 //
 // When neither the worker nor the fetched model assets are available,
-// the in-page pipeline is the fail-safe, and it needs the real bytes. They come from the full
-// artifact at the url our own request interceptor already answers for
-// the worker (lib.rs synthetic_resource), so the bytes ship once. That
-// url is same-origin, which is the only shape YouTube's
-// require-trusted-types-for 'script' allows (measured 2026-08-27), and
-// loading it as a page script raised no CSP violation on m.youtube
-// (measured 2026-08-29).
-var MODELS_PATH = '/__tamescroll/gaze-init.js';
+// the in-page pipeline is the fail-safe, and it needs the real bytes.
+// They come from a script our own request interceptor builds out of the
+// same raw model files the fetch path serves (lib.rs models_script), so
+// the models ship exactly once in the binary. Same-origin, which is the
+// only shape YouTube's require-trusted-types-for 'script' allows.
+//
+// On a host where that interceptor is unreachable at all -- a service
+// worker answers our urls itself, measured on www.youtube.com -- this
+// cannot work either, and nothing here would fix it: there the page is
+// injected with the models directly and publish() finds them before any
+// of this runs.
+var MODELS_PATH = '/__tamescroll/models.js';
 var pending = null;
 
 function publish() {

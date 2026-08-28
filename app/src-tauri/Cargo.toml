@@ -25,6 +25,9 @@ serde_json = "1"
 adblock = { version = "0.13.2", default-features = false, features = ["content-blocking", "embedded-domain-resolver", "full-regex-handling"] }
 ureq = "2"
 sha2 = "0.10"
+# The models ship as raw bytes and are base64-encoded on demand for
+# the one delivery that cannot fetch them (see models_script in lib.rs).
+base64 = "0.22"
 
 
 # JNI so the Android WebViewClient can ask the adblock engine about a

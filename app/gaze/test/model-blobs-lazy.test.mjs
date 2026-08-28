@@ -73,7 +73,7 @@ test('ready() loads the full artifact once and publishes the blobs', async () =>
   const mod = await import(`${MODULE}?case=load`);
   await mod.ready();
   assert.equal(scripts.length, 1, 'exactly one fetch');
-  assert.match(scripts[0].src, /\/__tamescroll\/gaze-init\.js$/);
+  assert.match(scripts[0].src, /\/__tamescroll\/models\.js$/);
   assert.ok(mod.blob('face'), 'blobs are readable after ready()');
   // A second caller must not start a second 22MB load.
   await mod.ready();
@@ -99,7 +99,7 @@ test('a WORKER gets the blobs through importScripts, flagged so it does not re-b
   const mod = await import(`${MODULE}?case=worker`);
   await mod.ready();
   assert.equal(calls.length, 1);
-  assert.match(calls[0], /\/__tamescroll\/gaze-init\.js$/);
+  assert.match(calls[0], /\/__tamescroll\/models\.js$/);
   // Without this flag the full artifact would start a SECOND worker on
   // top of the one asking it for bytes, and every image would be
   // answered twice.

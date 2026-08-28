@@ -1,9 +1,12 @@
-// Bundles tfjs (core+cpu+webgl+converter, Apache-2.0) + the embedded
-// BlazeFace model + our runtime into one self-contained minified IIFE,
-// written straight to app/src-tauri/gaze-init.js — a committed generated
-// artifact, `include_str!`-ed into the Rust binary, same treatment as the
-// vendored EasyList/EasyPrivacy rule snapshots. Zero runtime network/fetch
-// deps: this has to run unmodified under Reddit's `default-src 'none'`.
+// Bundles tfjs (core+cpu+webgl+converter, Apache-2.0) + our runtime into
+// one self-contained minified IIFE, written straight to
+// app/src-tauri/gaze-page.js — a committed generated artifact,
+// `include_str!`-ed into the Rust binary, same treatment as the vendored
+// EasyList/EasyPrivacy rule snapshots.
+//
+// The MODELS are not in here. They ship as the raw files lib.rs serves
+// (model_asset), which the worker fetches and, where a service worker
+// makes that impossible, lib.rs hands to the page as models_script.
 const esbuild = require('esbuild');
 const path = require('path');
 const fs = require('fs');
@@ -25,7 +28,7 @@ function buildStamp() {
       .trim();
     // A dirty tree is the normal state mid-round, and it is exactly when
     // the marker matters most — say so rather than implying the commit.
-    const dirty = execSync('git status --porcelain -- . ../src-tauri/gaze-init.js', {
+    const dirty = execSync('git status --porcelain -- . ../src-tauri/gaze-page.js', {
       cwd: path.join(__dirname, '..'),
       stdio: ['ignore', 'pipe', 'ignore'],
     })
@@ -44,24 +47,17 @@ const EVAL_CLOCK =
   'try{globalThis.__TS_GAZE_EVAL0=performance.now();}catch(e){}' + String.fromCharCode(10);
 
 async function main() {
-  if (!fs.existsSync(path.join(__dirname, '../src/model-embed.js'))) {
-    console.error('src/model-embed.js missing — run gen-embed.js first (npm run build:gaze does both).');
-    process.exit(1);
-  }
-
-  // TWO ARTIFACTS, ONE COPY OF THE MODELS.
+  // ONE ARTIFACT, NO MODELS.
   //
-  // gaze-init.js is the full one: the worker loads it from
-  // /__tamescroll/gaze-init.js, and it is also where the in-page
-  // fallback gets model bytes from (model-blobs.mjs publishes them on
-  // window when this artifact runs in a page).
-  //
-  // gaze-page.js is what the PAGE is injected with. Same entry, same
-  // code, no models: model-blobs.mjs is swapped for model-blobs-lazy.mjs,
-  // which fetches the full artifact only if the worker is unavailable.
+  // Pages, and the worker they start, all run this. model-blobs.mjs is
+  // swapped for model-blobs-lazy.mjs, so nothing here carries a model:
+  // the worker fetches them as raw bytes and the fallback asks lib.rs
+  // for /__tamescroll/models.js. The models used to be inlined here AND
+  // shipped raw, which cost 22MB of APK for a second copy of the same
+  // four files.
   // The page was parsing 22MB on every single navigation for bytes it
   // does not use once inference moved off-thread.
-  async function build(outfile, pageBuild) {
+  async function build(outfile) {
     return esbuild.build({
       entryPoints: [path.join(__dirname, '../src/init-entry.js')],
       bundle: true,
@@ -71,25 +67,11 @@ async function main() {
       outfile,
       legalComments: 'none',
       metafile: true,
-      plugins: pageBuild
-        ? [
-            {
-              name: 'ts-page-models',
-              setup(b) {
-                b.onResolve({ filter: /\/model-blobs\.mjs$/ }, () => ({
-                  path: path.join(__dirname, '../src/model-blobs-lazy.mjs'),
-                }));
-              },
-            },
-          ]
-        : [],
     });
   }
 
-  const outfile = path.join(__dirname, '../../src-tauri/gaze-init.js');
   const pagefile = path.join(__dirname, '../../src-tauri/gaze-page.js');
-  const result = await build(outfile, false);
-  await build(pagefile, true);
+  const result = await build(pagefile);
   // Rewrite the marker in the built artifact rather than the source, so
   // the source stays a stable string and the stamp cannot drift.
   const stamp = buildStamp();
@@ -98,7 +80,7 @@ async function main() {
   // guarantee the position -- an import in the entry module would
   // already be after the bundler's own module init. It is also how the
   // page/full split gets to prove itself rather than be assumed.
-  for (const f of [outfile, pagefile]) {
+  for (const f of [pagefile]) {
     const raw = fs.readFileSync(f, 'utf8');
     const marked = raw.replace(/__TS_GAZE_BUNDLE__="v7"/, '__TS_GAZE_BUNDLE__="' + stamp + '"');
     if (marked === raw) {
@@ -109,7 +91,7 @@ async function main() {
   }
   console.log(`bundle marker: ${stamp}`);
 
-  for (const f of [outfile, pagefile]) {
+  for (const f of [pagefile]) {
     const stat = fs.statSync(f);
     console.log(`built ${f}: ${(stat.size / 1024 / 1024).toFixed(3)} MB (${stat.size} bytes)`);
   }

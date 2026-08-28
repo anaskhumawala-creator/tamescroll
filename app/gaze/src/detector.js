@@ -24,7 +24,7 @@ import * as tfconv from '@tensorflow/tfjs-converter';
 // before asking for bytes; in the full artifact that resolves
 // immediately, and in the page artifact it fetches them once, only if
 // the worker is unavailable and the in-page pipeline is actually needed.
-import { ready as modelsReady, blob as modelBlob } from './model-blobs.mjs';
+import { ready as modelsReady, blob as modelBlob } from './model-blobs-lazy.mjs';
 import {
   parsePersons,
   frameHasNoHumanShape,
