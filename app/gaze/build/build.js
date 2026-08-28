@@ -46,37 +46,70 @@ async function main() {
     process.exit(1);
   }
 
+  // TWO ARTIFACTS, ONE COPY OF THE MODELS.
+  //
+  // gaze-init.js is the full one: the worker loads it from
+  // /__tamescroll/gaze-init.js, and it is also where the in-page
+  // fallback gets model bytes from (model-blobs.mjs publishes them on
+  // window when this artifact runs in a page).
+  //
+  // gaze-page.js is what the PAGE is injected with. Same entry, same
+  // code, no models: model-blobs.mjs is swapped for model-blobs-lazy.mjs,
+  // which fetches the full artifact only if the worker is unavailable.
+  // The page was parsing 22MB on every single navigation for bytes it
+  // does not use once inference moved off-thread.
+  async function build(outfile, pageBuild) {
+    return esbuild.build({
+      entryPoints: [path.join(__dirname, '../src/init-entry.js')],
+      bundle: true,
+      minify: true,
+      format: 'iife',
+      target: ['es2019'],
+      outfile,
+      legalComments: 'none',
+      metafile: true,
+      plugins: pageBuild
+        ? [
+            {
+              name: 'ts-page-models',
+              setup(b) {
+                b.onResolve({ filter: /\/model-blobs\.mjs$/ }, () => ({
+                  path: path.join(__dirname, '../src/model-blobs-lazy.mjs'),
+                }));
+              },
+            },
+          ]
+        : [],
+    });
+  }
+
   const outfile = path.join(__dirname, '../../src-tauri/gaze-init.js');
-  const result = await esbuild.build({
-    entryPoints: [path.join(__dirname, '../src/init-entry.js')],
-    bundle: true,
-    minify: true,
-    format: 'iife',
-    target: ['es2019'],
-    outfile,
-    legalComments: 'none',
-    metafile: true,
-  });
+  const pagefile = path.join(__dirname, '../../src-tauri/gaze-page.js');
+  const result = await build(outfile, false);
+  await build(pagefile, true);
   // Rewrite the marker in the built artifact rather than the source, so
   // the source stays a stable string and the stamp cannot drift.
   const stamp = buildStamp();
-  const built = fs.readFileSync(outfile, 'utf8');
-  const stamped = built.replace(/__TS_GAZE_BUNDLE__="v7"/, '__TS_GAZE_BUNDLE__="' + stamp + '"');
-  if (stamped === built) {
-    console.warn('WARNING: bundle marker not found — runs will not be attributable to a build');
-  } else {
-    // EVAL CLOCK. 93.9% of this artifact is four inlined base64 model
-    // blobs, and it is evaluated on EVERY page load. Whether that costs
-    // 25ms or two seconds on a Helio G88 was, until now, an assumption.
-    // It has to be the FIRST statement in the output, which only the
-    // build can guarantee — an import in the entry module would already
-    // be after the bundler's own module init.
-    fs.writeFileSync(outfile, EVAL_CLOCK + stamped);
+  // EVAL CLOCK, first statement in each output: what evaluating this
+  // artifact costs on THIS device, per page load. Only the build can
+  // guarantee the position -- an import in the entry module would
+  // already be after the bundler's own module init. It is also how the
+  // page/full split gets to prove itself rather than be assumed.
+  for (const f of [outfile, pagefile]) {
+    const raw = fs.readFileSync(f, 'utf8');
+    const marked = raw.replace(/__TS_GAZE_BUNDLE__="v7"/, '__TS_GAZE_BUNDLE__="' + stamp + '"');
+    if (marked === raw) {
+      console.warn(`WARNING: bundle marker not found in ${f} — runs will not be attributable`);
+      continue;
+    }
+    fs.writeFileSync(f, EVAL_CLOCK + marked);
   }
   console.log(`bundle marker: ${stamp}`);
 
-  const stat = fs.statSync(outfile);
-  console.log(`built ${outfile}: ${(stat.size / 1024 / 1024).toFixed(3)} MB (${stat.size} bytes)`);
+  for (const f of [outfile, pagefile]) {
+    const stat = fs.statSync(f);
+    console.log(`built ${f}: ${(stat.size / 1024 / 1024).toFixed(3)} MB (${stat.size} bytes)`);
+  }
   void result;
 }
 

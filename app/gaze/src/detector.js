@@ -19,10 +19,12 @@ import { squareBox } from './crop-geometry.mjs';
 import '@tensorflow/tfjs-backend-cpu';
 import '@tensorflow/tfjs-backend-webgl';
 import * as tfconv from '@tensorflow/tfjs-converter';
-import { MODEL_JSON, MODEL_WEIGHTS_B64 } from './model-embed.js';
-import { NSFW_MODEL_JSON, NSFW_WEIGHTS_B64 } from './nsfw-model-embed.js';
-import { GENDER_MODEL_JSON, GENDER_WEIGHTS_B64 } from './gender-model-embed.js';
-import { PERSON_MODEL_JSON, PERSON_WEIGHTS_B64 } from './person-model-embed.js';
+// The blobs arrive through one indirection so the PAGE build can ship
+// without them -- see model-blobs.mjs. Every loader below awaits ready()
+// before asking for bytes; in the full artifact that resolves
+// immediately, and in the page artifact it fetches them once, only if
+// the worker is unavailable and the in-page pipeline is actually needed.
+import { ready as modelsReady, blob as modelBlob } from './model-blobs.mjs';
 import {
   parsePersons,
   frameHasNoHumanShape,
@@ -106,7 +108,13 @@ function embeddedIoHandler(modelJson, weightsB64) {
   };
 }
 
-var ioHandler = embeddedIoHandler(MODEL_JSON, MODEL_WEIGHTS_B64);
+// Built on demand, not at module init: with the page build the bytes do
+// not exist yet at import time, and with the full build this costs one
+// object per load instead of one per page.
+function faceIoHandler() {
+  var b = modelBlob('face');
+  return embeddedIoHandler(b[0], b[1]);
+}
 
 // SEGMENTATION COST SPIKE (owner ask, target 4 of the stability round).
 // Measurement only, and deliberately NOT wired into any pipeline: the
@@ -225,7 +233,8 @@ export async function forceBackend(name) {
 /** Loads backend + model. Throws on total failure — caller fails open. */
 export async function loadModel() {
   await initBackend();
-  return tfconv.loadGraphModel(ioHandler);
+  await modelsReady();
+  return tfconv.loadGraphModel(faceIoHandler());
 }
 
 /**
@@ -235,7 +244,9 @@ export async function loadModel() {
  */
 export async function loadNsfwModel() {
   await initBackend();
-  return tfconv.loadGraphModel(embeddedIoHandler(NSFW_MODEL_JSON, NSFW_WEIGHTS_B64));
+  await modelsReady();
+  var b = modelBlob('nsfw');
+  return tfconv.loadGraphModel(embeddedIoHandler(b[0], b[1]));
 }
 
 /**
@@ -248,7 +259,9 @@ export async function loadNsfwModel() {
  */
 export async function loadGenderModel() {
   await initBackend();
-  return tfconv.loadGraphModel(embeddedIoHandler(GENDER_MODEL_JSON, GENDER_WEIGHTS_B64));
+  await modelsReady();
+  var b = modelBlob('gender');
+  return tfconv.loadGraphModel(embeddedIoHandler(b[0], b[1]));
 }
 
 // Person model input dim (MoveNet MultiPose: dynamic, multiple of 32,
@@ -268,7 +281,9 @@ export var PERSON_INPUT_SIZE = 256;
  */
 export async function loadPersonModel() {
   await initBackend();
-  return tfconv.loadGraphModel(embeddedIoHandler(PERSON_MODEL_JSON, PERSON_WEIGHTS_B64));
+  await modelsReady();
+  var b = modelBlob('person');
+  return tfconv.loadGraphModel(embeddedIoHandler(b[0], b[1]));
 }
 
 /**

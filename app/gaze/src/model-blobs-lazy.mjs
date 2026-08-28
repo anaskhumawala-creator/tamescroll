@@ -1,0 +1,79 @@
+// WHERE THE MODEL BYTES COME FROM (page artifact).
+//
+// Nothing here carries a model. The page build exists so a navigation
+// does not parse 22MB it will not use: with the worker alive -- the
+// normal case since 2026-08-28 -- no model is ever loaded on this
+// thread, and ready() is never called.
+//
+// When the worker is NOT available the in-page pipeline is the
+// fail-safe, and it needs the real bytes. They come from the full
+// artifact at the url our own request interceptor already answers for
+// the worker (lib.rs synthetic_resource), so the bytes ship once. That
+// url is same-origin, which is the only shape YouTube's
+// require-trusted-types-for 'script' allows (measured 2026-08-27), and
+// loading it as a page script raised no CSP violation on m.youtube
+// (measured 2026-08-29).
+var WORKER_PATH = '/__tamescroll/gaze-init.js';
+var pending = null;
+
+function publish() {
+  try {
+    return typeof window !== 'undefined' ? window.__TS_GAZE_MODELS : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function scriptUrl(u) {
+  // Same Trusted Types dance the worker client does: the policy is ours,
+  // and pages that send require-trusted-types-for without an allow-list
+  // permit creating one.
+  try {
+    if (typeof trustedTypes !== 'undefined' && trustedTypes.createPolicy) {
+      return trustedTypes
+        .createPolicy('tamescroll-gaze-models', {
+          createScriptURL: function (s) {
+            return s;
+          },
+        })
+        .createScriptURL(u);
+    }
+  } catch (e) {
+    /* no policy: the plain string is what src wants anyway */
+  }
+  return u;
+}
+
+/**
+ * Resolves once the model blobs exist on this thread. Rejects if they
+ * cannot be fetched -- callers must treat that as "no model", which is
+ * the same degrade path a failed load already had.
+ */
+export function ready() {
+  if (publish()) return Promise.resolve();
+  if (pending) return pending;
+  pending = new Promise(function (resolve, reject) {
+    try {
+      var s = document.createElement('script');
+      s.async = true;
+      s.onload = function () {
+        if (publish()) resolve();
+        else reject(new Error('models script loaded without publishing'));
+      };
+      s.onerror = function () {
+        reject(new Error('models script failed'));
+      };
+      s.src = scriptUrl(location.origin + WORKER_PATH);
+      (document.head || document.documentElement).appendChild(s);
+    } catch (e) {
+      reject(e);
+    }
+  });
+  return pending;
+}
+
+/** [modelJson, weightsBase64] for one model name, or undefined. */
+export function blob(name) {
+  var b = publish();
+  return b ? b[name] : undefined;
+}
