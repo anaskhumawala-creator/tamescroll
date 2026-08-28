@@ -178,6 +178,26 @@ if (
   }
 
   var plan = planForMode(window.__TS_GAZE_MODE);
+
+  // LEAVE A NOTE FOR THE NEXT NAVIGATION.
+  //
+  // The worker cannot be prestarted at document_start without knowing
+  // the mode, and at document_start nothing of ours has run yet: the
+  // mode arrives with this script, ~250-425ms in (measured 2026-08-29).
+  // One key on the platform's own origin carries it forward, so the NEXT
+  // page load starts loading models before the page has parsed its own
+  // scripts. A stale hint costs nothing either way: too-smart prestarts
+  // a worker nobody adopts (it terminates itself), not-yet-smart just
+  // behaves exactly as it did before this existed.
+  try {
+    var hint = window.__TS_GAZE_MODE === 'smart' ? 'smart' : 'no';
+    if (sessionStorage.getItem('tsGazeMode') !== hint) {
+      sessionStorage.setItem('tsGazeMode', hint);
+    }
+  } catch (e) {
+    /* storage refused (private mode, partitioning): no prestart, no harm */
+  }
+
   if (!plan.boot) return;
 
   // Declared user gender (protection engine): set by the Rust boot
@@ -4180,7 +4200,14 @@ if (
             t[ev.type === 'loaded' || ev.type === 'loadFailed' ? ev.type + ':' + ev.model : ev.type] =
               Math.round(performance.now());
             if (ev.why) t.why = String(ev.why).slice(0, 120);
-            if (ev.type === 'up' && typeof ev.evalMs === 'number') t.evalMs = ev.evalMs;
+            if (ev.type === 'up') {
+              if (typeof ev.evalMs === 'number') t.evalMs = ev.evalMs;
+              // Was this worker already running when the page bundle
+              // arrived, and when was it started? Without both numbers
+              // the prestart is unfalsifiable.
+              t.prestarted = !!ev.prestarted;
+              if (typeof ev.prestartAt === 'number') t.prestartAt = ev.prestartAt;
+            }
             // How long each model actually took, not just when it
             // landed: a fresh worker loads all of them on EVERY
             // navigation, and this is what has to come down.

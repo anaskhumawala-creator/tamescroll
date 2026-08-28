@@ -159,6 +159,15 @@ async function fetchedArtifacts(kind) {
  * which every caller already degrades from.
  */
 async function ioHandlerFor(kind) {
+  // Already here? Then this is a page that was handed the full bundle
+  // because our own urls do not work on this host (lib.rs
+  // synthetic_reachable), and asking for them would buy a 404.
+  try {
+    var have = modelBlob(kind);
+    if (have) return embeddedIoHandler(have[0], have[1]);
+  } catch (e) {
+    /* no blobs on this thread: fetch below */
+  }
   try {
     var a = await fetchedArtifacts(kind);
     return {

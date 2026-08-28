@@ -89,9 +89,33 @@ export function createWorkerClient(opts) {
     return u;
   }
 
+  // ADOPT A WORKER THAT WAS ALREADY STARTED.
+  //
+  // Our bundle does not run until ~420ms into a navigation (measured
+  // 2026-08-29), and everything the worker has to do before it can judge
+  // a thumbnail -- fetch the script, load three models, compile their
+  // shaders -- starts only then. lib.rs prestarts one at document_start
+  // instead, so all of that overlaps with the page's own load. Anything
+  // it said while nobody was listening is replayed below.
+  var adopted = null;
   try {
-    if (!WorkerCtor) throw new Error('no Worker');
-    worker = new WorkerCtor(url());
+    var pre = typeof window !== 'undefined' ? window.__TS_GAZE_PREWORKER : null;
+    if (pre && pre.worker && !o.Worker) {
+      adopted = pre;
+      window.__TS_GAZE_PREWORKER = null;
+    }
+  } catch (e) {
+    /* no prestart, no problem: we make our own below */
+  }
+
+  try {
+    if (adopted) {
+      worker = adopted.worker;
+      if (adopted.cancel) clearTimeout(adopted.cancel);
+    } else {
+      if (!WorkerCtor) throw new Error('no Worker');
+      worker = new WorkerCtor(url());
+    }
   } catch (e) {
     die('construct: ' + ((e && e.message) || e));
     return api();
@@ -106,13 +130,20 @@ export function createWorkerClient(opts) {
     die('error: ' + ((e && e.message) || 'no message'));
   };
 
-  worker.onmessage = function (e) {
-    var msg = e.data || {};
+  function handle(msg) {
     if (msg.type === 'up') {
       clearTimeout(upTimer);
       state.up = true;
-      onEvent({ type: 'up' });
+      onEvent({
+        type: 'up',
+        evalMs: msg.evalMs,
+        prestarted: !!adopted,
+        prestartAt: adopted ? adopted.at : null,
+      });
       try {
+        // A prestarted worker was told to load its models the moment it
+        // existed; ensureModels is idempotent, so asking twice is free
+        // and asking once from here is what a fresh one needs.
         worker.postMessage({ type: 'init' });
       } catch (err) {
         die('init: ' + ((err && err.message) || err));
@@ -154,7 +185,21 @@ export function createWorkerClient(opts) {
     clearTimeout(p.timer);
     if (msg.type === 'error') p.reject(new Error(msg.message || 'worker error'));
     else p.resolve(msg);
+  }
+
+  worker.onmessage = function (e) {
+    handle(e.data || {});
   };
+
+  // Everything the prestarted worker said before this client existed.
+  // Its 'up' and its model loads normally land in that window, and
+  // dropping them would leave the queue waiting on readiness that
+  // already happened.
+  if (adopted && adopted.queue && adopted.queue.length) {
+    var backlog = adopted.queue.slice();
+    adopted.queue.length = 0;
+    for (var bi = 0; bi < backlog.length; bi++) handle(backlog[bi]);
+  }
 
   // `opts.noNsfw` skips the suggestive classifier for this one image.
   // Small images (avatars, profile pictures) are asked a face question

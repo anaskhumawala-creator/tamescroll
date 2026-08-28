@@ -246,7 +246,7 @@ fn page_load_gaze_script(url: &str, mode: &str) -> Option<String> {
     // bundle decides what actually runs. Only blur-all adds the Stage A
     // sheet on top.
     if mode != "blur" {
-        return Some(gaze_script(mode));
+        return Some(gaze_script(mode, &url_host(url).unwrap_or_default()));
     }
     let css_json =
         serde_json::to_string(&format!("{}{}", blur_vars_css(blur_px()), blur_css(platform.id)))
@@ -263,7 +263,7 @@ fn page_load_gaze_script(url: &str, mode: &str) -> Option<String> {
   }} catch (e) {{}}
 }})();
 {boot}"#,
-        boot = gaze_script("blur")
+        boot = gaze_script("blur", &url_host(url).unwrap_or_default())
     ))
 }
 
@@ -317,8 +317,54 @@ fn diag_app_json(px: u32) -> String {
     )
 }
 
-fn gaze_script(mode: &str) -> String {
+/// A SERVICE WORKER CAN TAKE OUR OWN URLS AWAY FROM US.
+///
+/// Measured 2026-08-29: www.youtube.com registers a service worker,
+/// and every same-origin request from a controlled page is proxied by
+/// it -- WebView2's WebResourceRequested never sees the ones the worker
+/// answers itself, so `/__tamescroll/...` came back as YouTube's own
+/// 404 page (758 bytes). m.youtube.com registers none and the same
+/// fetch returns our bytes. That is why the earlier `worker` never
+/// started on desktop YouTube, and it is why the page CANNOT be given a
+/// model-free bundle there: with no worker and no fetch, nothing could
+/// load a model at all and every image would stay covered.
+///
+/// Hosts prove themselves: the moment we actually serve one a synthetic
+/// resource, its pages get the small bundle. Until then they get the
+/// full one, models included. First load on a host is the safe one.
+static SYNTHETIC_HOSTS: Mutex<Option<std::collections::HashSet<String>>> = Mutex::new(None);
+
+fn note_synthetic_served(url: &str) {
+    let Some(host) = url_host(url) else { return };
+    if let Ok(mut g) = SYNTHETIC_HOSTS.lock() {
+        g.get_or_insert_with(std::collections::HashSet::new).insert(host);
+    }
+}
+
+fn synthetic_reachable(host: &str) -> bool {
+    SYNTHETIC_HOSTS
+        .lock()
+        .ok()
+        .and_then(|g| g.as_ref().map(|set| set.contains(host)))
+        .unwrap_or(false)
+}
+
+/// Host of a url, lowercased, without scheme, port or path.
+fn url_host(url: &str) -> Option<String> {
+    let rest = url.split("://").nth(1)?;
+    let host = rest.split('/').next()?.split('?').next()?;
+    let host = host.split('@').next_back()?.split(':').next()?;
+    if host.is_empty() {
+        None
+    } else {
+        Some(host.to_ascii_lowercase())
+    }
+}
+
+fn gaze_script(mode: &str, host: &str) -> String {
     let mode = gaze_mode(mode);
+    // The model-free bundle only where our own urls demonstrably work.
+    let bundle = if synthetic_reachable(host) { GAZE_PAGE_JS } else { GAZE_INIT_JS };
     // Stage B's class styles blur through var(--ts-blur-strong); the
     // launcher's strength choice has to reach the page inline because
     // smart mode ships no stylesheet of its own to carry a :root rule.
@@ -346,7 +392,7 @@ fn gaze_script(mode: &str) -> String {
       tsRoot.style.setProperty("--ts-blur", "{px}px");
       tsRoot.style.setProperty("--ts-blur-strong", "{strong}px");
     }}
-{GAZE_PAGE_JS}
+{bundle}
   }} catch (e) {{}}
 }})();
 "#
@@ -480,6 +526,12 @@ fn engine() -> Arc<Engine> {
 /// exactly as it was.
 pub(crate) fn synthetic_resource(url: &str) -> Option<&'static [u8]> {
     let path = url.split('?').next().unwrap_or(url);
+    let body = synthetic_body(path)?;
+    note_synthetic_served(url);
+    Some(body)
+}
+
+fn synthetic_body(path: &str) -> Option<&'static [u8]> {
     // The full artifact: the worker boots from it, and the in-page
     // fallback reads model bytes out of it when it cannot fetch them.
     if path.ends_with("/__tamescroll/gaze-init.js") {
@@ -1067,6 +1119,68 @@ fn rules_refresh_script(url: &str, platform_id: &str, blur: bool, shown: &[Strin
     )
 }
 
+/// START THE INFERENCE WORKER AT DOCUMENT_START.
+///
+/// Measured 2026-08-29 on m.youtube: our bundle does not evaluate until
+/// 247-425ms into a navigation (readyState still `loading`, so this is
+/// the Started page-load event arriving late, not us running late), and
+/// only then can the worker be created, fetch three models and compile
+/// their shaders. The first thumbnail resolved at 1204-1326ms.
+///
+/// This runs before any page script. It cannot know the gaze mode --
+/// that arrives with the bundle -- so it reads the note the bundle left
+/// on this origin last time (init-entry, sessionStorage `tsGazeMode`).
+/// A stale note is harmless in both directions: an unadopted worker
+/// terminates itself, and a missing one just means today's timing.
+fn worker_prestart_script() -> &'static str {
+    r#"
+(function () {
+  try {
+    // Did this reach the page at all? "ran but bailed" and "never
+    // delivered" are different bugs and both have happened here.
+    window.__TS_PRESTART_RAN = (window.__TS_PRESTART_RAN || 0) + 1;
+    // Top document only. initialization_script runs in every frame,
+    // and a feed page carries ad and embed iframes -- one worker
+    // loading three models per frame is the opposite of the point.
+    if (window.top !== window) return;
+    if (window.__TS_GAZE_PREWORKER) return;
+    var m = null;
+    try { m = sessionStorage.getItem("tsGazeMode"); } catch (e) { m = "nostore"; }
+    window.__TS_PRESTART_HINT = m;
+    if (m !== "smart") return;
+    var u = location.origin + "/__tamescroll/gaze-page.js";
+    try {
+      if (typeof trustedTypes !== "undefined" && trustedTypes.createPolicy) {
+        u = trustedTypes
+          .createPolicy("tamescroll-gaze-prestart", {
+            createScriptURL: function (s) { return s; },
+          })
+          .createScriptURL(u);
+      }
+    } catch (e) {}
+    var w = new Worker(u);
+    var q = [];
+    w.onmessage = function (e) { q.push(e.data); };
+    w.onerror = function () {
+      try { w.terminate(); } catch (e) {}
+      window.__TS_GAZE_PREWORKER = null;
+    };
+    w.postMessage({ type: "init" });
+    var cancel = setTimeout(function () {
+      var p = window.__TS_GAZE_PREWORKER;
+      if (p && p.worker === w) {
+        try { w.terminate(); } catch (e) {}
+        window.__TS_GAZE_PREWORKER = null;
+      }
+    }, 20000);
+    window.__TS_GAZE_PREWORKER = { worker: w, queue: q, cancel: cancel, at: Math.round(performance.now()) };
+    window.__TS_PRESTART_RAN = 100;
+  } catch (e) {
+    try { window.__TS_PRESTART_ERR = String((e && e.message) || e).slice(0, 120); } catch (e2) {}
+  }
+})();
+"#
+}
 fn injection_script(css: &str, scriptlets: &str, scoped: bool) -> String {
     // JSON string, not a template literal: manual escaping missed `${`,
     // and one `${` in an OTA'd rule file would have been a SyntaxError
@@ -1320,7 +1434,7 @@ fn universal_injection_script() -> String {
 #[cfg(target_os = "android")]
 fn injection_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("ts-inject")
-        .js_init_script(universal_injection_script())
+        .js_init_script(worker_prestart_script().to_string() + &universal_injection_script())
         // Gaze rides page-load events because the mode is runtime state:
         // eval at Started so blur-first holds (the document exists but
         // nothing has painted), again at Finished as the fallback when
@@ -1460,7 +1574,7 @@ async fn open_platform(
     let built = WebviewWindowBuilder::new(&app, platform.id, WebviewUrl::External(url))
         .title(platform.name)
         .inner_size(1200.0, 860.0)
-        .initialization_script(&script)
+        .initialization_script(&(worker_prestart_script().to_string() + &script))
         .on_navigation(move |url| {
             if url.host_str() == Some("tauri.localhost") {
                 if let Some(main) = home_app.get_webview_window("main") {
@@ -2145,16 +2259,16 @@ mod tests {
     fn user_gender_round_trips_and_reaches_the_smart_boot_script() {
         set_user_gender_state("man");
         assert_eq!(user_gender(), "man");
-        let js = gaze_script("smart");
+        let js = gaze_script("smart", "m.youtube.com");
         assert!(js.contains("__TS_GAZE_GENDER = \"man\""));
 
         set_user_gender_state("woman");
-        let js = gaze_script("smart");
+        let js = gaze_script("smart", "m.youtube.com");
         assert!(js.contains("__TS_GAZE_GENDER = \"woman\""));
 
         set_user_gender_state("attack-string\" ;alert(1);");
         assert_eq!(user_gender(), "unset");
-        let js = gaze_script("smart");
+        let js = gaze_script("smart", "m.youtube.com");
         assert!(js.contains("__TS_GAZE_GENDER = \"unset\""));
 
         set_user_gender_state("unset");
@@ -2166,11 +2280,11 @@ mod tests {
     #[test]
     fn user_terms_reach_the_smart_boot_script_sanitised() {
         set_user_terms_state(vec!["  crypto  ".into(), "".into(), "a\"b".into()]);
-        let js = gaze_script("smart");
+        let js = gaze_script("smart", "m.youtube.com");
         assert!(js.contains("__TS_USER_TERMS"));
         assert!(js.contains("[\"crypto\",\"a\\\"b\"]"), "json: {}", user_terms_json());
         set_user_terms_state(Vec::new());
-        assert!(gaze_script("smart").contains("__TS_USER_TERMS = []"));
+        assert!(gaze_script("smart", "m.youtube.com").contains("__TS_USER_TERMS = []"));
     }
 
     /// The strength preset follows the same lifecycle as the mode:
@@ -2204,7 +2318,7 @@ mod tests {
 
         // Smart mode has no stylesheet of its own, so its wrapper sets
         // the variables inline for Stage B's class styles.
-        let smart = gaze_script("smart");
+        let smart = gaze_script("smart", "m.youtube.com");
         assert!(smart.contains("--ts-blur-strong"));
 
         set_blur_px(16);
@@ -2358,6 +2472,61 @@ mod tests {
         );
     }
 
+    /// THE PRESTART MUST STAY SMALL AND MUST STAY GATED.
+    ///
+    /// Small because it rides initialization_script, and on Windows a
+    /// >1MB combined init script silently loses its tail (probe28/29,
+    /// 2026-08-19) -- that is the whole reason the bundle itself does
+    /// not ride it. Gated because it runs on every document in the
+    /// window: without the mode check it would start a worker and load
+    /// three models on a page the user asked to see unfiltered.
+    #[test]
+    fn the_worker_prestart_is_small_and_only_fires_in_smart_mode() {
+        let js = worker_prestart_script();
+        assert!(js.len() < 4096, "prestart is {} bytes", js.len());
+        assert!(
+            js.contains("sessionStorage.getItem(\"tsGazeMode\")") && js.contains("!== \"smart\""),
+            "the prestart must read the mode note and refuse anything but smart"
+        );
+        // An unadopted worker has to go away on its own, or a mode
+        // change would leave one loading models on every navigation.
+        assert!(js.contains("w.terminate()"), "an unadopted worker must terminate itself");
+        // Same url the client adopts from, and the model-free artifact.
+        assert!(js.contains("/__tamescroll/gaze-page.js"));
+        assert!(js.contains("__TS_GAZE_PREWORKER"));
+    }
+
+    /// A HOST HAS TO EARN THE MODEL-FREE BUNDLE.
+    ///
+    /// www.youtube.com's service worker answers our own urls with its
+    /// 404 page, so there the page can neither start a worker nor fetch
+    /// a model -- and a page with no models covers every image forever.
+    /// Until a host has actually been served one of our resources it
+    /// gets the full bundle, models included.
+    #[test]
+    fn a_host_gets_the_full_bundle_until_our_own_urls_are_proven_to_work() {
+        // A host nothing has been served on: models must be in the page.
+        let js = gaze_script("smart", "sw-blocked.example");
+        assert!(js.len() > GAZE_INIT_JS.len(), "unproven host must get the full bundle");
+
+        // Serving one resource on a host is the proof.
+        assert!(synthetic_resource("https://proven.example/__tamescroll/gaze-page.js").is_some());
+        let js = gaze_script("smart", "proven.example");
+        assert!(
+            js.len() < GAZE_INIT_JS.len(),
+            "a proven host must get the model-free bundle"
+        );
+        assert!(js.contains("__TS_GAZE_BUNDLE__"), "still the gaze bundle");
+    }
+
+    #[test]
+    fn url_host_reads_the_host_and_nothing_else() {
+        assert_eq!(url_host("https://m.youtube.com/results?q=1").as_deref(), Some("m.youtube.com"));
+        assert_eq!(url_host("http://WWW.Youtube.com:8080/x").as_deref(), Some("www.youtube.com"));
+        assert_eq!(url_host("https://user@host.example/p").as_deref(), Some("host.example"));
+        assert_eq!(url_host("not a url"), None);
+        assert_eq!(url_host("https:///nohost"), None);
+    }
     /// THE MODELS MUST BE FETCHABLE AS BYTES.
     ///
     /// Every name detector.js asks for has to resolve, or the worker
@@ -2392,7 +2561,7 @@ mod tests {
     /// plays for Stage A.
     #[test]
     fn smart_mode_injects_the_gaze_bundle_with_its_marker() {
-        let script = gaze_script("smart");
+        let script = gaze_script("smart", "m.youtube.com");
         assert!(
             !script.is_empty(),
             "smart mode must inject a non-empty gaze script"
@@ -2415,7 +2584,7 @@ mod tests {
     #[test]
     fn gaze_injects_in_every_mode_with_normalised_mode_string() {
         for (mode, baked) in [("off", "off"), ("blur", "blur"), ("smart", "smart"), ("", "off"), ("bogus", "off")] {
-            let script = gaze_script(mode);
+            let script = gaze_script(mode, "m.youtube.com");
             assert!(
                 script.contains(&format!("window.__TS_GAZE_MODE = \"{baked}\";")),
                 "mode {mode:?} must bake __TS_GAZE_MODE {baked:?}"
