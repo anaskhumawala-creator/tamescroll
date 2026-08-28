@@ -48,6 +48,15 @@ globalThis.window = { getComputedStyle: () => ({ position: 'relative' }) };
 
 const vr = await import('../src/video-region.mjs');
 
+// Overlays live inside a `ts-gaze-vregion-clip` layer (inset:0,
+// overflow:hidden) rather than directly under the player, so that a
+// patch cannot paint outside the player no matter how stale any rect we
+// cached has become. The tests ask the same question through it.
+function patchesIn(player) {
+  const clip = player.children.filter((c) => c.className === 'ts-gaze-vregion-clip');
+  return clip.length ? clip[0].children.filter((c) => c.tagName === 'DIV') : [];
+}
+
 function playerWithVideo(rect) {
   const player = makeEl('div');
   const video = makeEl('video');
@@ -96,16 +105,18 @@ test('setBoxes: creates one overlay per box inside the player host', () => {
     { x1: 0.5, y1: 0.5, x2: 0.7, y2: 0.7 },
   ]);
   assert.equal(ok, true);
-  assert.equal(player.children.filter((c) => c.tagName === 'DIV').length, 2);
+  assert.equal(patchesIn(player).length, 2);
+  // ...and exactly one clip layer holds them.
+  assert.equal(player.children.filter((c) => c.className === 'ts-gaze-vregion-clip').length, 1);
   vr.clear(video);
 });
 
 test('setBoxes: reuses overlays when the count is unchanged', () => {
   const { player, video } = playerWithVideo({ left: 0, top: 0, width: 640, height: 360 });
   vr.setBoxes(video, [{ x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.3 }]);
-  const first = player.children.filter((c) => c.tagName === 'DIV')[0];
+  const first = patchesIn(player)[0];
   vr.setBoxes(video, [{ x1: 0.4, y1: 0.4, x2: 0.6, y2: 0.6 }]); // moved, same count
-  const after = player.children.filter((c) => c.tagName === 'DIV');
+  const after = patchesIn(player);
   assert.equal(after.length, 1);
   assert.equal(after[0], first); // same node, just repositioned
   // v3: translate-only transform (no scale — corner distortion) plus
@@ -122,7 +133,7 @@ test('setBoxes: rebuilds overlays when the count changes', () => {
     { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.3 },
     { x1: 0.5, y1: 0.5, x2: 0.7, y2: 0.7 },
   ]);
-  assert.equal(player.children.filter((c) => c.tagName === 'DIV').length, 2);
+  assert.equal(patchesIn(player).length, 2);
   vr.clear(video);
 });
 
@@ -131,7 +142,7 @@ test('clear: removes every overlay and stops the rAF loop', () => {
   vr.setBoxes(video, [{ x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.3 }]);
   const before = scheduled.size;
   vr.clear(video);
-  assert.equal(player.children.filter((c) => c.tagName === 'DIV').length, 0);
+  assert.equal(patchesIn(player).length, 0);
   assert.ok(scheduled.size <= before); // the pending frame was cancelled
 });
 
@@ -140,7 +151,7 @@ test('setBoxes: empty boxes clears instead of drawing', () => {
   vr.setBoxes(video, [{ x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.3 }]);
   const ok = vr.setBoxes(video, []);
   assert.equal(ok, false);
-  assert.equal(player.children.filter((c) => c.tagName === 'DIV').length, 0);
+  assert.equal(patchesIn(player).length, 0);
 });
 
 test('interpolateBox: advances along velocity, clamps, caps extrapolation', () => {
@@ -162,8 +173,8 @@ test('clearAll: tears down every tracked video', () => {
   vr.setBoxes(a.video, [{ x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.3 }]);
   vr.setBoxes(b.video, [{ x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.3 }]);
   vr.clearAll();
-  assert.equal(a.player.children.filter((c) => c.tagName === 'DIV').length, 0);
-  assert.equal(b.player.children.filter((c) => c.tagName === 'DIV').length, 0);
+  assert.equal(patchesIn(a.player).length, 0);
+  assert.equal(patchesIn(b.player).length, 0);
 });
 
 // --- render lerp: grow instantly, shrink smoothly (R17) ------------

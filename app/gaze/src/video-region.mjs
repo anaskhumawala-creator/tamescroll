@@ -164,7 +164,7 @@ function makeOverlay(key) {
   // corners (owner 2026-08-24: "rounded edges are distorting").
   d.style.cssText =
     'position:absolute;left:0;top:0;width:' + BASE_PX + 'px;height:' + BASE_PX + 'px;' +
-    'pointer-events:none;border-radius:' + (pieceKey ? '0' : '8px') + ';z-index:20;' +
+    'pointer-events:none;border-radius:' + (pieceKey ? '0' : '8px') + ';' +
     'will-change:transform;' +
     'backdrop-filter:blur(var(--ts-blur-strong,24px));' +
     '-webkit-backdrop-filter:blur(var(--ts-blur-strong,24px));';
@@ -785,6 +785,39 @@ export function clipToBounds(rect, bounds) {
   return { left: l, top: t, width: Math.round(r - l), height: Math.round(b - t) };
 }
 
+// THE CLIP LAYER, AND WHY THE ARITHMETIC VERSION WAS NOT ENOUGH.
+//
+// clipToBounds above bounds a patch against `entry.vr` -- the video rect
+// as of the last refresh. That is only a guarantee while that rect is
+// current, and the failure the owner photographed is precisely a case
+// where it might not be: the player changing shape or place under a
+// scroll. Measured afterwards, the sticky player does NOT drift during a
+// scroll (0px across 8 samples at 250ms), so the mechanism behind his
+// frame is not established -- which is exactly why the fix should not
+// depend on knowing it.
+//
+// So the overlays live inside a layer that is `inset:0` of the player
+// with `overflow:hidden`. The browser lays that out from the player's
+// CURRENT geometry every paint, with no cached rect and no read of ours
+// involved, so a patch cannot paint outside the player no matter how
+// stale anything we computed has become. The arithmetic clip stays as
+// the tighter of the two (it bounds to the VIDEO, which is inside the
+// player when the picture is letterboxed).
+//
+// z-index moves here with it: one stacking context at 20 -- above
+// .html5-video-container (10) and below .ytp-chrome-bottom (59), the
+// band measured against the live player in 2026-08-25.
+function clipLayer(entry) {
+  if (entry.clip && entry.clip.isConnected) return entry.clip;
+  var c = document.createElement('div');
+  c.className = 'ts-gaze-vregion-clip';
+  c.style.cssText =
+    'position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:20;';
+  entry.host.appendChild(c);
+  entry.clip = c;
+  return c;
+}
+
 function reposition(entry, now) {
   var vr = entry.vr;
   if (!vr || vr.width === 0 || vr.height === 0) {
@@ -938,6 +971,7 @@ export function setTracks(video, tracks) {
       ro: null,
       hr: null,
       vr: null,
+      clip: null,
     };
     entries.set(video, entry);
     refreshRects(entry);
@@ -1032,7 +1066,7 @@ export function setTracks(video, tracks) {
       var o = makeOverlay(key);
       o.className = HOST_CLASS;
       o.__tsKey = key || '';
-      entry.host.appendChild(o);
+      clipLayer(entry).appendChild(o);
       nextOverlays.push(o);
       nextRendered.push(null); // fresh patch snaps to place, no glide-in
     }
@@ -1090,6 +1124,8 @@ export function clear(video) {
   for (var i = 0; i < entry.overlays.length; i++) {
     if (entry.overlays[i].parentNode) entry.overlays[i].parentNode.removeChild(entry.overlays[i]);
   }
+  if (entry.clip && entry.clip.parentNode) entry.clip.parentNode.removeChild(entry.clip);
+  entry.clip = null;
   entries.delete(video);
 }
 
