@@ -122,6 +122,72 @@ gone. probe_stray found 0 misplaced patches over 10 scrolls, and
 probe_recycle found ZERO src/srcset swaps on m.youtube search, so
 thumbnail recycling is NOT the mechanism — do not chase it again.
 
+**Session 2026-08-28 morning — THE PLAYER LEFT THE MAIN THREAD, AND THE
+PHONE CAN NOW ANSWER FOR ITSELF.** Releases 1036 and 1037, both live and
+hash-verified (5c19cb5d.../d66693df..., 21660c77...).
+- **PLAYER INFERENCE IN THE WORKER.** runPass/workerVideo/banWorkerVideo
+  in init-entry; vframe/vfaces/vgender/vgender1/vrelease in
+  worker-entry. A watch page with a live worker loads ZERO models in
+  page (was four): heap 211MB -> 145-179MB, slow frames 21-45 -> 0-4
+  over the same 45s. Policy ALL stays on the main thread; the worker
+  only executes models. Crop uploads are kept under a `cid` so the
+  "decide before you pay for gender" ordering survives.
+  Gated on THREE things and one-way on failure: worker alive, backend
+  === 'webgl' (a CPU worker is slower than the thread it relieves), and
+  MoveNet loaded there. Verified both directions: worker 120 passes /
+  0 fails with in-page models never loaded; __TS_NO_WORKER 118 / 0 with
+  all four.
+- In-page NSFW is no longer loaded while the worker owns images (it was
+  only ever for the image path).
+- **CROP BUDGET 3-4 -> 6 on the worker path** (owner: "what if you drop
+  the blur frame rate for it to work more accurately"). Off-thread the
+  cap costs nothing but accuracy; the cadence self-adjusts because
+  effZoom is lastVerdictMs * VERDICT_DUTY.
+- **THE FEATHER IS OFF.** Owner settled the dial he had moved three
+  times: "I'm fine with fully hard rectangle with rounded corners/edges
+  since it looks higher quality." FEATHER_FRAC 0, 8px corners kept.
+  Do NOT re-tune this without him saying so.
+- **PATCHES CANNOT PAINT OUTSIDE THE PLAYER** (owner phone: a patch
+  running down over the recommendation below a scrolled sticky player).
+  Overlays now live in a `ts-gaze-vregion-clip` layer, inset:0 +
+  overflow:hidden, so the browser clips from the player's CURRENT
+  geometry with no cached rect of ours involved. Plus an arithmetic
+  clip to the video rect and a scroll-dirty rect refresh.
+  HONEST LIMIT: the mechanism behind his frame was NOT reproduced --
+  the sticky player does not drift during a scroll (measured 0px over 8
+  samples at 250ms). The fix is deliberately cause-independent.
+  Verified on the surface it happened on (mobile UA, m.youtube, sticky
+  player, 14 scroll steps): 28 patch samples, 0 outside, 0px overhang.
+- **DIAGNOSTICS SHIPPED (1037).** Owner: "can't you implement a
+  diagnostics feature ... so you can always check the logs", then "or
+  give me the control of reporting" -- he collects, HE sends, nothing
+  uploads (the About pane still says no telemetry, and that stays true).
+  app/gaze/src/diag-report.mjs builds a report from the rings that
+  already exist; `reportViolations` walks the SERIALIZED report and
+  rejects anything not numeric or in a closed enum, free text only in
+  keys ending `R` after redactFreeText. Runs in tests AND at runtime
+  before hand-off. Dropped/transformed: imgdiag `src` (a thumbnail url
+  identifies the video -- gone), every error message, the luma series
+  (-> 6-bin histogram; a 10Hz delta series is a footage fingerprint).
+  Stored by a TsDiag Android bridge into a capped rotating JSONL in
+  app-data; Settings -> About has Share/Copy/Clear. Desktop reads the
+  same report over CDP via `window.__TS_DIAG_NOW()`.
+  Live desktop report, 5088B, 0 violations: backend webgl, person model
+  2947ms, verdict p50 89 / p95 172, position p50 33, image gaps p50 69
+  / p95 1074.
+- **THE OPEN QUESTION IS ON HIS PHONE:** `worker.backend`. If Android's
+  worker lands on CPU, workerVideo() refuses and the player runs in the
+  page exactly as before -- silently -- and every number above
+  describes a machine he does not own.
+- **Fable audits, both worth reading before the next round:**
+  docs/research/pain-points-2026-08-28.md (six recurring complaints,
+  why each earlier fix did not stop it) and
+  docs/plan-balance-2026-08-28.md (the diagnostics design + a ranked
+  accuracy/cost plan, B2-B7, several gated on phone numbers).
+- Noticed, left alone: a YouTube "turn on watch history" nag on the
+  desktop watch page (NO NAGS miss).
+- gaze 284/284, cargo 43/43, tsc clean.
+
 **Session 2026-08-27 night — INFERENCE LEFT THE MAIN THREAD.** Owner's
 report was "it processes some then it halts"; the answer was not a
 faster model.
