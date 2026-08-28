@@ -13,7 +13,14 @@
 !   POST /youtubei/v1/player body carries
 !   playbackContext.contentPlaybackContext.isInlinePlaybackNoAd:true and no
 !   pre-roll plays; video still plays (player red line).
-! [unverified] — needs owner phone; emulator is never served real ads.
+! [live] for delivery, [unverified] for effect. MEASURED 2026-08-28 off
+! the wire (CDP Network, not a page hook YouTube could have captured
+! first): on m.youtube a hard nav makes exactly ONE POST to
+! /youtubei/v1/player, 4111 bytes, and the body CARRIES
+! isInlinePlaybackNoAd; the video played to t=21s with no .ytp-error and
+! no ad element (probe_sabr_req.py). That the field lands is now proven
+! on the mobile surface; that InnerTube answers it with an ad-free
+! stream still needs a session that is actually served ads.
 www.youtube.com,m.youtube.com##+js(trusted-set-request-field, youtubei/v1/player, playbackContext.contentPlaybackContext.isInlinePlaybackNoAd, true)
 
 ! Pre-roll video ads on a HARD navigation, and the fake buffering that
@@ -56,10 +63,19 @@ www.youtube.com,m.youtube.com##+js(trusted-set-request-field, youtubei/v1/player
 !   window.ytInitialPlayerResponse.streamingData is undefined, exactly one
 !   POST to /youtubei/v1/player is made, no .ytp-ad-skip-button appears,
 !   and the content video reaches currentTime>0.3 within ~10s.
-! DESKTOP ONLY for now. Everything above was measured in WebView2 on
-! www.youtube.com. m.youtube.com keeps the old field list until the same
-! numbers exist from the owner's phone: dropping the embedded stream is a
-! player-red-line change, and shipping it to a device blind is exactly the
-! trade VISION.md refuses (a broken player is worse than an ad).
+! DESKTOP ONLY, and MEASURED 2026-08-28 to be the right split for a
+! reason better than caution: m.youtube's ytInitialPlayerResponse has no
+! `streamingData` to drop. Its keys under a mobile UA on a live watch
+! page are responseContext, playabilityStatus, playbackTracking,
+! captions, videoDetails, playerConfig, storyboards, microformat,
+! trackingParams -- no stream, and no ad fields either. The mobile page
+! ALWAYS fetches its stream client-side, i.e. it is already on the path
+! the request shaper above owns, which is why it never had the hard-nav
+! stall: first frame 3.2s, no ad, no .ytp-error (probe_sabr_mobile.py).
+! So this is not an open mobile ad path waiting on phone numbers, and
+! the m.youtube prune below is belt-and-braces against fields returning,
+! not a partial fix. Do not "finish" it by adding streamingData there --
+! there is nothing to remove and the embedded fallback it would cost is
+! the player red line.
 www.youtube.com##+js(trusted-prune-window-json, ytInitialPlayerResponse, streamingData, adSlots, adPlacements, playerAds, adBreakHeartbeatParams)
 m.youtube.com##+js(trusted-prune-window-json, ytInitialPlayerResponse, adSlots, adPlacements, playerAds, adBreakHeartbeatParams)
