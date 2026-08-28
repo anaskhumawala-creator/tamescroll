@@ -297,6 +297,108 @@ invoke<UpdateStatus>("app_update_check")
     /* offline / no manifest: stay hidden, never nag */
   });
 
+// ---------- diagnostics (Settings -> About) ----------
+// Owner ask 2026-08-28: "can't you implement a diagnostics feature in the
+// app ... so you can always check the logs", then, choosing the shape
+// himself, "or give me the control of reporting".
+//
+// So: the app collects, and HE sends. The platform pages write redacted
+// reports to a local file (diag-report.mjs builds and gates them,
+// MainActivity's TsDiag bridge stores them); this card shows what is
+// there and offers the three things he can do with it. Nothing is
+// uploaded, which is also why the About copy above still says there is
+// no telemetry.
+//
+// Android-only: the bridge lives in the one WebView both the launcher
+// and the platforms share. On desktop the card stays hidden -- reports
+// are readable there over CDP, which is what this exists to replace.
+
+type DiagLine = {
+  t?: number;
+  app?: { versionCode?: number };
+  page?: { platform?: string; kind?: string };
+  worker?: { backend?: string };
+  images?: { n?: number; gapsP95?: number };
+};
+
+const diagCard = document.querySelector<HTMLElement>("#diag-card")!;
+const diagSummary = document.querySelector<HTMLElement>("#diag-summary")!;
+const diagStatus = document.querySelector<HTMLElement>("#diag-status")!;
+const diagBridge = (window as unknown as {
+  TsDiag?: { read: () => string; share: () => void; clear: () => void };
+}).TsDiag;
+
+function refreshDiag() {
+  if (!diagBridge) return;
+  let raw = "";
+  try {
+    raw = diagBridge.read();
+  } catch {
+    diagStatus.textContent = "Couldn't read the diagnostics file.";
+    return;
+  }
+  const lines = raw.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (!lines.length) {
+    diagSummary.textContent = "Nothing collected yet. Open a platform and come back.";
+    return;
+  }
+  // The last report is the one that explains whatever just annoyed him,
+  // so it is the one summarised. The rest are in the file.
+  let last: DiagLine = {};
+  try {
+    last = JSON.parse(lines[lines.length - 1]) as DiagLine;
+  } catch {
+    /* a truncated tail line is not worth failing the card over */
+  }
+  const bits = [`${lines.length} report${lines.length === 1 ? "" : "s"}`];
+  if (last.app?.versionCode) bits.push(`build ${last.app.versionCode}`);
+  if (last.page?.platform) bits.push(`${last.page.platform} ${last.page.kind ?? ""}`.trim());
+  if (last.worker?.backend) bits.push(`worker ${last.worker.backend}`);
+  if (typeof last.images?.gapsP95 === "number") bits.push(`slowest gap ${last.images.gapsP95}ms`);
+  diagSummary.textContent = bits.join(" · ");
+}
+
+if (diagBridge) {
+  diagCard.hidden = false;
+  refreshDiag();
+  document.querySelector<HTMLButtonElement>("#diag-share")!.addEventListener("click", () => {
+    diagStatus.textContent = "";
+    try {
+      diagBridge.share();
+    } catch {
+      diagStatus.textContent = "No app to share with.";
+    }
+  });
+  document.querySelector<HTMLButtonElement>("#diag-copy")!.addEventListener("click", () => {
+    try {
+      const text = diagBridge.read();
+      if (!text) {
+        diagStatus.textContent = "Nothing to copy yet.";
+        return;
+      }
+      navigator.clipboard.writeText(text).then(
+        () => {
+          diagStatus.textContent = "Copied.";
+        },
+        () => {
+          diagStatus.textContent = "Clipboard refused. Use Share instead.";
+        },
+      );
+    } catch {
+      diagStatus.textContent = "Couldn't read the diagnostics file.";
+    }
+  });
+  document.querySelector<HTMLButtonElement>("#diag-clear")!.addEventListener("click", () => {
+    try {
+      diagBridge.clear();
+    } catch {
+      /* a failed delete leaves the file, which the next read will show */
+    }
+    diagStatus.textContent = "Cleared.";
+    refreshDiag();
+  });
+}
+
 // ---------- bring back (surfaces) ----------
 
 type SurfaceInfo = { id: string; label: string; default_shown: boolean };

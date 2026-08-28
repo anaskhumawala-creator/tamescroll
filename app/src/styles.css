@@ -194,6 +194,16 @@ svg { -webkit-user-drag: none; }
   border-radius: var(--radius-sm); padding: 10px 22px; font-size: 14px;
 }
 .btn-solid:hover { background: #fff; }
+/* Secondary action next to a solid one: same shape, no fill, so a
+   destructive or optional choice never reads as the main one. */
+.btn-ghost {
+  background: transparent; color: var(--muted); font-weight: 500;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 10px 18px; font-size: 14px;
+}
+.btn-ghost:hover { color: var(--ink); border-color: var(--ink); }
+.diag-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
 .link-btn { color: var(--muted); font-size: 13.5px; }
 .link-btn:hover { color: var(--ink); }
 

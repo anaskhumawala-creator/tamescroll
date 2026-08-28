@@ -78,6 +78,7 @@ import {
 } from './region-blur.mjs';
 import * as videoRegion from './video-region.mjs';
 import { createTextMatcher } from './text-signals.mjs';
+import { buildReport, reportViolations, platformOf, pageKind } from './diag-report.mjs';
 import { planForMode, rotateBudget } from './pipeline-plan.mjs';
 import { createWorkerClient } from './worker-client.mjs';
 import { startWorker } from './worker-entry.js';
@@ -649,8 +650,13 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
   // the ring records which one actually fired. Bounded and fully
   // guarded — instrumentation has thrown inside this pipeline before and
   // cost two releases.
+  // Every image the pipeline has finished, not just the last 120 the
+  // ring keeps. The report's denominator.
+  var imgTotal = 0;
+
   function noteImgDiag(entry) {
     try {
+      imgTotal++;
       var ring = (window.__TS_GAZE_IMGDIAG = window.__TS_GAZE_IMGDIAG || []);
       ring.push(entry);
       if (ring.length > 120) ring.splice(0, ring.length - 120);
@@ -3846,6 +3852,162 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
   // thumbnails resolve. The in-page path keeps its post-load-idle
   // deferral, because that one DOES compile shaders on this thread.
   startInferenceWorker();
+  startDiagnostics();
+
+  // DIAGNOSTICS THAT CAN LEAVE THE PAGE.
+  //
+  // Owner 2026-08-28: "can't you implement a diagnostics feature in the
+  // app so that it automatically gets reported ... or give me the
+  // control of reporting". He controls it -- nothing here uploads
+  // anything. The report is handed to the host process, which appends it
+  // to a local file the Settings pane can show and share.
+  //
+  // The reason this exists at all: every number this project has is from
+  // a desktop under a 6x throttle, and his phone is the machine the
+  // complaints come from. The report is built and REDACTED by
+  // diag-report.mjs, and refused by its own invariant check if anything
+  // that could identify what he watched survived -- see that file.
+  var DIAG_INTERVAL_MS = 300000;
+  var lastDiagAt = 0;
+  var longTasks = 0;
+  var longTaskMax = 0;
+
+  function startDiagnostics() {
+    try {
+      // The main-thread cost the whole worker migration was about, from
+      // the browser's own accounting rather than ours.
+      if (typeof PerformanceObserver === 'function') {
+        new PerformanceObserver(function (list) {
+          var e = list.getEntries();
+          for (var i = 0; i < e.length; i++) {
+            longTasks++;
+            if (e[i].duration > longTaskMax) longTaskMax = e[i].duration;
+          }
+        }).observe({ entryTypes: ['longtask'] });
+      }
+    } catch (e) {
+      /* longtask is Chromium-only; its absence is not a failure */
+    }
+    try {
+      // A phone page is not closed, it is HIDDEN. That is the only
+      // reliable "this session is over" signal there, so it is the one
+      // that drains.
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden) submitDiag('hidden');
+      });
+      setInterval(function () {
+        if (!document.hidden) submitDiag('tick');
+      }, DIAG_INTERVAL_MS);
+    } catch (e) {
+      /* diagnostics must never be the thing that breaks a page */
+    }
+    try {
+      // Probe hook, same shape as __TS_GAZE_RENDER: a report on demand,
+      // so a run can be verified without waiting five minutes or
+      // pretending the page went away.
+      window.__TS_DIAG_NOW = function () {
+        submitDiag('probe');
+        return window.__TS_DIAG_LAST || null;
+      };
+    } catch (e) {
+      /* a hook that cannot be installed is not a failure */
+    }
+  }
+
+  function diagSnapshot() {
+    var app = window.__TS_DIAG_APP || {};
+    var ua = navigator.userAgent || '';
+    var host = '';
+    var path = '';
+    try {
+      host = location.hostname;
+      path = location.pathname;
+    } catch (e) {
+      /* an opaque origin still gets a report, just without a kind */
+    }
+    var platform = platformOf(host);
+    return {
+      id: diagId(),
+      t: app.t || null,
+      versionCode: app.versionCode,
+      versionName: app.versionName,
+      os: /Android/i.test(ua) ? 'android' : /Windows/i.test(ua) ? 'windows' : 'other',
+      // Version-SHAPED substrings only, and diag-report drops anything
+      // that is not (a device name with punctuation in it is not worth
+      // a violation).
+      osVersion: (ua.match(/Android (\d+(?:\.\d+)*)/) || [])[1],
+      model: (ua.match(/;\s*([A-Za-z0-9 _-]{2,24})\s*(?:Build|\))/) || [])[1],
+      webview: (ua.match(/Chrome\/(\d+(?:\.\d+)*)/) || [])[1],
+      cores: navigator.hardwareConcurrency,
+      dpr: window.devicePixelRatio,
+      vw: window.innerWidth,
+      vh: window.innerHeight,
+      platform: platform,
+      kind: pageKind(platform, path),
+      gazeMode: window.__TS_GAZE_MODE || 'none',
+      gender: userGender === 'unset' ? 'none' : userGender,
+      blurPx: app.blurPx,
+      ageMs: Math.round(performance.now()),
+      rulesGen: app.rulesGen,
+      otaLast: app.otaLast,
+      otaAgeH: app.otaAgeH,
+      activeRules: app.activeRules,
+      cssBytes: app.cssBytes,
+      evalMs: window.__TS_GAZE_EVALMS,
+      timing: window.__TS_GAZE_TIMING || {},
+      worker: window.__TS_GAZE_WORKER || {},
+      imgTotal: imgTotal,
+      imgdiag: window.__TS_GAZE_IMGDIAG || [],
+      playerAttached: anyVideoAttached,
+      ids: window.__TS_GAZE_IDS || {},
+      render: typeof window.__TS_GAZE_RENDER === 'function' ? window.__TS_GAZE_RENDER() : null,
+      longTasks: longTasks,
+      longTaskMaxMs: Math.round(longTaskMax),
+    };
+  }
+
+  var myDiagId = null;
+  function diagId() {
+    if (myDiagId) return myDiagId;
+    var hex = '0123456789abcdef';
+    var out = '';
+    for (var i = 0; i < 16; i++) out += hex[(Math.random() * 16) | 0];
+    myDiagId = out;
+    return out;
+  }
+
+  function submitDiag(reason) {
+    try {
+      var now = performance.now();
+      if (reason === 'tick' && now - lastDiagAt < DIAG_INTERVAL_MS - 1000) return;
+      lastDiagAt = now;
+      var report = buildReport(diagSnapshot());
+      // THE SECOND GATE. The unit tests prove the builder redacts; this
+      // proves THIS report did, on this page, with this data. A report
+      // that fails is dropped, and the fact that it was dropped is the
+      // only thing recorded.
+      var href = '';
+      try {
+        href = location.href;
+      } catch (e) {
+        /* nothing to compare against is not a reason to send anyway */
+      }
+      var bad = reportViolations(report, href);
+      if (bad.length) {
+        window.__TS_DIAG_REFUSED = bad.slice(0, 4);
+        return;
+      }
+      var json = JSON.stringify(report);
+      // Readable by a desktop probe over CDP; on the phone it goes to
+      // the host, which is the only path off the page.
+      window.__TS_DIAG_LAST = json;
+      if (window.TsDiag && typeof window.TsDiag.submit === 'function') {
+        window.TsDiag.submit(json);
+      }
+    } catch (e) {
+      /* a diagnostic that throws is worse than no diagnostic */
+    }
+  }
 
   whenSettled(function () {
     if (failed) return;
@@ -3875,6 +4037,13 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
             t[ev.type === 'loaded' || ev.type === 'loadFailed' ? ev.type + ':' + ev.model : ev.type] =
               Math.round(performance.now());
             if (ev.why) t.why = String(ev.why).slice(0, 120);
+            // WHICH BACKEND THE WORKER GOT, kept where a report can read
+            // it. This is the single field that decides whether the
+            // player path is off the main thread on a given device at
+            // all: on CPU, workerVideo() refuses and everything runs
+            // exactly as it did before -- silently.
+            if (ev.type === 'ready') t.backend = ev.backend || 'none';
+            if (ev.type === 'dead') t.dead = true;
           } catch (e) {
             /* a probe marker must never break the boot */
           }

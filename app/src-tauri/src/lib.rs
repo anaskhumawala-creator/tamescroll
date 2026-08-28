@@ -272,6 +272,24 @@ fn page_load_gaze_script(url: &str, mode: &str) -> Option<String> {
 /// fail-open handling — a syntax-level break in the generated bundle
 /// must not be able to take the rest of the injected script down with
 /// it, matching the pattern already used for scriptlets below.
+/// The build facts a diagnostics report needs, as a JSON literal.
+///
+/// Kept next to the injection rather than inside it so it can be
+/// unit-tested: a malformed literal here would be a syntax error in
+/// EVERY platform page, which is the most expensive class of bug this
+/// file can produce.
+fn diag_app_json(px: u32) -> String {
+    // versionCode ONLY. CARGO_PKG_VERSION is 0.1.0 and always has been --
+    // the version lockstep in this project lives in tauri.conf.json and
+    // appupdate.rs, so the crate version would put a wrong number in
+    // every report and wrong numbers are worse than missing ones.
+    format!(
+        r#"{{"versionCode":{},"blurPx":{}}}"#,
+        appupdate::CURRENT_VERSION_CODE,
+        px
+    )
+}
+
 fn gaze_script(mode: &str) -> String {
     let mode = gaze_mode(mode);
     // Stage B's class styles blur through var(--ts-blur-strong); the
@@ -281,6 +299,12 @@ fn gaze_script(mode: &str) -> String {
     let strong = px * 3 / 2;
     let gender = user_gender();
     let terms = user_terms_json();
+    // Facts only this process knows, handed to the diagnostics report so
+    // a report from the owner's phone says which BUILD produced it --
+    // "fixes that never reached his device" is one of the two reasons
+    // his complaints recur. Not a channel: numbers and our own
+    // constants, nothing read from the page and nothing sent anywhere.
+    let diag = diag_app_json(px);
     format!(
         r#"
 (function () {{
@@ -289,6 +313,7 @@ fn gaze_script(mode: &str) -> String {
     window.__TS_GAZE_MODE = "{mode}";
     window.__TS_GAZE_GENDER = "{gender}";
     window.__TS_USER_TERMS = {terms};
+    window.__TS_DIAG_APP = {diag};
     var tsRoot = document.documentElement;
     if (tsRoot) {{
       tsRoot.style.setProperty("--ts-blur", "{px}px");
@@ -1662,6 +1687,21 @@ mod tests {
     /// must exist exactly when a platform page meets an active mode, carry
     /// the right payload per mode, and map mobile hosts to their platform.
     #[test]
+    /// A malformed literal here is a syntax error in EVERY platform
+    /// page, so it is parsed rather than eyeballed -- and the build
+    /// facts are the whole reason a phone report can say which version
+    /// produced it.
+    #[test]
+    fn diag_app_json_is_parseable_and_carries_the_build() {
+        let v: serde_json::Value = serde_json::from_str(&diag_app_json(24)).unwrap();
+        assert_eq!(v["versionCode"], appupdate::CURRENT_VERSION_CODE);
+        assert_eq!(v["blurPx"], 24);
+        assert!(v.get("versionName").is_none(), "the crate version is not the app version");
+        // And it reaches the page it was written for.
+        let script = page_load_gaze_script("https://m.youtube.com/", "smart").unwrap();
+        assert!(script.contains("window.__TS_DIAG_APP = {\"versionCode\""));
+    }
+
     fn page_load_gaze_script_dispatches_on_mode_and_host() {
         // A non-platform host: nothing to eval, in any mode.
         assert!(page_load_gaze_script("https://accounts.google.com/", "blur").is_none());

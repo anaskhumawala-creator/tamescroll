@@ -162,6 +162,98 @@ class MainActivity : TauriActivity() {
   @Volatile
   private var updating = false
 
+  // ---- diagnostics (owner ask 2026-08-28: "can't you implement a
+  // diagnostics feature in the app ... so you can always check the
+  // logs", then "or give me the control of reporting").
+  //
+  // NOTHING HERE UPLOADS ANYTHING. A platform page hands over a report
+  // that its own redaction gate already passed (diag-report.mjs), and
+  // this appends it to one local file the Settings pane can show and
+  // share. The owner is the transport.
+  //
+  // The page is untrusted even though we injected the code that calls
+  // this: a hostile page can call submit() with anything. So the input
+  // is size-capped, must parse as JSON, must carry our own version
+  // marker, and is re-checked for the two things that must never reach
+  // a log -- a scheme and a protocol-relative url -- before it is
+  // written. The file is capped and rotates.
+  inner class DiagBridge {
+    @JavascriptInterface
+    fun submit(json: String) {
+      try {
+        if (json.length > 128 * 1024) return
+        val o = JSONObject(json)
+        if (o.optInt("v", 0) != 1) return
+        if (json.contains("://") || json.contains("//")) return
+        synchronized(diagLock) {
+          val f = File(filesDir, "diagnostics.jsonl")
+          if (f.length() > 512 * 1024) {
+            // Keep the most recent half rather than deleting the lot:
+            // the report that explains a complaint is usually the last
+            // one, and a file that vanishes takes the evidence with it.
+            val keep = f.readLines().takeLast(40)
+            f.writeText(keep.joinToString("\n", postfix = "\n"))
+          }
+          // One report per line, so the file is appendable, tailable and
+          // survives a truncated write at the end.
+          f.appendText(json.replace("\n", " ") + "\n")
+        }
+      } catch (e: Exception) {
+        // A diagnostic that crashes the app is the worst possible
+        // outcome of a diagnostic.
+      }
+    }
+
+    /** Everything collected so far, for the Settings pane. */
+    @JavascriptInterface
+    fun read(): String {
+      return try {
+        synchronized(diagLock) {
+          val f = File(filesDir, "diagnostics.jsonl")
+          if (f.exists()) f.readText() else ""
+        }
+      } catch (e: Exception) {
+        ""
+      }
+    }
+
+    /** Hand the file to the system share sheet. The owner chooses who
+     * sees it; the app never chooses for him. */
+    @JavascriptInterface
+    fun share() {
+      runOnUiThread {
+        try {
+          val f = File(filesDir, "diagnostics.jsonl")
+          if (!f.exists() || f.length() == 0L) return@runOnUiThread
+          val out = File(cacheDir, "tamescroll-diagnostics.txt")
+          f.copyTo(out, overwrite = true)
+          val uri = FileProvider.getUriForFile(
+            this@MainActivity, "$packageName.fileprovider", out
+          )
+          val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+          }
+          startActivity(Intent.createChooser(send, "Share diagnostics"))
+        } catch (e: Exception) {
+          // No share target, or a provider refusal: the Copy button in
+          // Settings still works.
+        }
+      }
+    }
+
+    @JavascriptInterface
+    fun clear() {
+      try {
+        synchronized(diagLock) { File(filesDir, "diagnostics.jsonl").delete() }
+      } catch (e: Exception) {
+      }
+    }
+  }
+
+  private val diagLock = Any()
+
   inner class UpdateBridge {
     @JavascriptInterface
     fun install() {
@@ -544,6 +636,9 @@ class MainActivity : TauriActivity() {
     // poking it can at most trigger a user-confirmed install of the
     // real app (see UpdateBridge).
     webView.addJavascriptInterface(UpdateBridge(), "TsUpdater")
+    // Diagnostics: write-mostly, local-only. See DiagBridge for why a
+    // hostile page cannot turn it into anything but a wasted disk write.
+    webView.addJavascriptInterface(DiagBridge(), "TsDiag")
     webView.post { installFullscreenClient() }
     webView.post { installBlockingClient() }
 
