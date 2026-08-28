@@ -3895,6 +3895,16 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
       document.addEventListener('visibilitychange', function () {
         if (document.hidden) submitDiag('hidden');
       });
+      // BACK IS A NAVIGATION, NOT A HIDE, and on Android the launcher
+      // and every platform share ONE WebView -- so leaving YouTube for
+      // the launcher fires pagehide and nothing else. Without this the
+      // only way to bank a report was to background the whole app or
+      // to browse past the five-minute tick, which is not how anyone
+      // uses the thing. Both listeners are idempotent: submitDiag just
+      // rebuilds and overwrites.
+      addEventListener('pagehide', function () {
+        submitDiag('pagehide');
+      });
       setInterval(function () {
         if (!document.hidden) submitDiag('tick');
       }, DIAG_INTERVAL_MS);
