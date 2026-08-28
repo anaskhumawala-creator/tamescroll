@@ -1,7 +1,7 @@
 {
-  "versionCode": 1036,
-  "versionName": "0.1.36",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.36/app-arm64-debug.apk",
-  "sha256": "d66693df87da65dcea53e5af340f07201ddb85494797bcaa89d54f7f63a64fd4",
-  "notes": "Player inference off the main thread; hard blur edges; patches clipped to the video."
+  "versionCode": 1037,
+  "versionName": "0.1.37",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.37/app-arm64-debug.apk",
+  "sha256": "21660c77cd5a878776272b8a28cd127892d3becdb76c8edb4cd6fe9fe400e0a1",
+  "notes": "Diagnostics in Settings, About. Blur patches can no longer paint outside the player."
 }
