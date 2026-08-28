@@ -1,7 +1,7 @@
 {
-  "versionCode": 1038,
-  "versionName": "0.1.38",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.38/app-arm64-debug.apk",
-  "sha256": "22c1ea2d8e61a742bd7e97962ca28966f1259066f57c8377fa4a9120d9e47548",
-  "notes": "Corner miniplayer: drag the player down. Plus password-manager autofill on sign-in."
+  "versionCode": 1039,
+  "versionName": "0.1.39",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.39/app-arm64-debug.apk",
+  "sha256": "8fa75ea197bb4651dc4f3080cde1c659573bf79748e663c0e9a3dbbcb32bd38f",
+  "notes": "Diagnostics can now answer 'why did an ad get through'. Internal guards for the blur look and the face crop."
 }
