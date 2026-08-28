@@ -765,6 +765,23 @@ function refreshRects(entry) {
     clear(entry.video);
     return;
   }
+  // CONNECTED IS NOT THE SAME AS RENDERED. A player inside a
+  // `display:none` ancestor -- a backgrounded SPA route, a collapsed
+  // panel -- is still in the document and still answers
+  // getBoundingClientRect with zeroes, which reposition() reads as "hide
+  // everything" and then re-reads 60 times a second forever. Asking
+  // whether it generates boxes at all is one read and answers it
+  // properly.
+  //
+  // This can never expose anyone: a host that generates no boxes paints
+  // no pixels, so there is nothing under the patch to reveal. That is
+  // the only kind of validity check allowed here (the plan's B5 bound) --
+  // never a confidence or heuristic signal.
+  if (typeof entry.host.getClientRects === 'function' && entry.host.getClientRects().length === 0) {
+    entry.hr = null;
+    entry.vr = null;
+    return;
+  }
   entry.hr = entry.host.getBoundingClientRect();
   entry.vr = entry.video.getBoundingClientRect();
 }

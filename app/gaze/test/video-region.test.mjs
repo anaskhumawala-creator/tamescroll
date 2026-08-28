@@ -522,3 +522,29 @@ test('the contract is what the renderer actually uses', () => {
     Math.round(300 * vr.LOOK.blurFrac)
   );
 });
+
+test('a host that generates no boxes is not asked for a rect', () => {
+  // The invalidation path B5 names: connected but not RENDERED (a
+  // display:none ancestor). getBoundingClientRect answers zeroes, which
+  // the renderer would otherwise re-read every frame forever. Hiding on
+  // it cannot expose anyone -- a host that paints no pixels has nothing
+  // under the patch -- which is why this is the only shape of validity
+  // check allowed here: never a confidence or heuristic signal.
+  const { player, video } = playerWithVideo({ left: 0, top: 0, width: 640, height: 360 });
+  vr.setTracks(video, [{ box: { x1: 0.2, y1: 0.2, x2: 0.5, y2: 0.6 }, vx: 0, vy: 0 }]);
+  assert.equal(patchesIn(player).length, 1);
+
+  let rectReads = 0;
+  player.getClientRects = () => [];
+  const realRect = player.getBoundingClientRect.bind(player);
+  player.getBoundingClientRect = () => {
+    rectReads++;
+    return realRect();
+  };
+  // A host stub with no getClientRects at all must behave as before --
+  // the guard is what keeps this check from becoming a second way for
+  // the renderer to break on an unusual host.
+  vr.clear(video);
+  assert.equal(patchesIn(player).length, 0);
+  assert.equal(rectReads, 0);
+});
