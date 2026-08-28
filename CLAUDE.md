@@ -63,7 +63,8 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-29 03:45 (v0.1.41/1041 building).
+**Last updated:** 2026-08-29 04:05 (v0.1.41/1041 RELEASED, apk sha
+18e38bdb, raw manifest verified).
 
 **Session 2026-08-29 (overnight) -- THE FIRST THUMBNAIL, AND A SERVICE
 WORKER THAT EATS OUR OWN URLS.** Owner: "just work on YouTube bugs and
@@ -117,6 +118,12 @@ machine that has never been measured.
 - MEASURED: first thumbnail 2182-3200ms -> **1175-1468ms** warm,
   ~2100ms on a cold first navigation. gaze 321/321, cargo 52/52, tsc
   clean.
+- **THE MODELS SHIPPED TWICE and the APK went 61.2 -> 79.6MB**: base64
+  inside the bundle, and again as the raw files. Now the raw files are
+  the only copy and models_script() base64s them on demand, once per run,
+  for the one delivery that cannot fetch. gaze-init.js is DELETED -- one
+  artifact, no models, pages and workers both run it. APK **55.8MB**,
+  smaller than before any of tonight's work.
 - NOT DONE: SharedWorker (would keep models and compiled shaders across
   navigations, worth ~800ms) is DEAD for the owner's target -- Android
   WebView has no SharedWorker.
