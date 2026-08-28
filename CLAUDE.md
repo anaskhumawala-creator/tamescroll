@@ -63,8 +63,63 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-28 17:05 (v0.1.39/1039 RELEASED, apk sha
-8fa75ea1).
+**Last updated:** 2026-08-29 03:45 (v0.1.41/1041 building).
+
+**Session 2026-08-29 (overnight) -- THE FIRST THUMBNAIL, AND A SERVICE
+WORKER THAT EATS OUR OWN URLS.** Owner: "just work on YouTube bugs and
+fixes optimization ... it needs to work blazing fast". Every number below
+is m.youtube under a mobile UA on this desktop; the phone is still the
+machine that has never been measured.
+- **A SERVICE WORKER CAN TAKE OUR OWN URLS AWAY FROM US.**
+  www.youtube.com registers one; every same-origin request from a
+  controlled page goes through it, and what it answers itself NEVER
+  reaches WebView2's WebResourceRequested. `/__tamescroll/...` comes back
+  as YouTube's own 404 page (758 bytes -- the same unexplained response
+  seen once on 08-28). m.youtube registers NONE and the identical fetch
+  returns our bytes. So the inference worker has never started on desktop
+  YouTube, which is why every worker number in this repo was taken under
+  a mobile UA. DO NOT re-diagnose this as an interception bug: the
+  request counter says seen 53 / blocked 8 on the very page that 404s.
+- **A HOST HAS TO EARN THE MODEL-FREE BUNDLE** (SYNTHETIC_HOSTS in
+  lib.rs). Splitting the page and worker artifacts meant a host that can
+  neither start a worker nor fetch model bytes had NO MODELS AT ALL, and
+  blur-first means every image stays covered forever -- a regression
+  introduced and caught the same night. Now a host gets the full bundle
+  until we have actually served it a synthetic resource. VERIFIED in one
+  run: www.youtube models in page / worker dead / 11 images judged;
+  m.youtube first load full, second load model-free with a live worker.
+- **THE WORKER WAS PARSING 22.7MB OF BASE64 TO SAY HELLO** (827-970ms).
+  93.9% of the artifact is four inlined models. gen-embed.js's note that
+  a runtime fetch is CSP-dead is STALE: fetching our own url succeeded on
+  ALL FIVE platforms with zero violations (json 3ms / bin 5-7ms), and
+  workers are live on reddit, x, instagram, facebook. synthetic_resource
+  now also serves the raw model files; detector.js fetches them
+  (ioHandlerFor) and falls back to the inlined blobs, which is what makes
+  the SW hosts still work.
+- **THE FIRST THUMBNAIL COST 1.25s AND THE REST 60-100ms.** Lazy WebGL
+  kernel compilation, proven not assumed: a second run of the same graphs
+  costs 9-18ms. warmUp() runs each model once before the worker reports
+  ready, under ENGINE_COMPILE_ONLY first so every program compiles in
+  PARALLEL (KHR_parallel_shader_compile): 1481-2047ms sequential ->
+  439-607ms. The flag is cleared in a `finally` and a test pins that --
+  left set, BlazeFace answers "no faces" on every image and the drain
+  REVEALS it.
+- **THE PRESTART IS WORTH ~100ms, NOT 400.** The worker now starts at
+  document_start (worker_prestart_script, adopted with its message
+  backlog replayed) -- but document_start on m.youtube is ITSELF 311-326ms
+  into the navigation and our bundle evaluates only ~100ms later. Gated
+  on a note the previous page left in sessionStorage, smart mode only,
+  top frame only, self-terminating if unadopted. Measured honestly
+  because the first version was unfalsifiable.
+- DELIVERY GOTCHA THAT COST A CYCLE: an appended initialization_script
+  never ran. On Windows the tail is what gets lost -- PREPEND. (Same
+  defect family as the 2026-08-19 >1MB truncation.)
+- MEASURED: first thumbnail 2182-3200ms -> **1175-1468ms** warm,
+  ~2100ms on a cold first navigation. gaze 321/321, cargo 52/52, tsc
+  clean.
+- NOT DONE: SharedWorker (would keep models and compiled shaders across
+  navigations, worth ~800ms) is DEAD for the owner's target -- Android
+  WebView has no SharedWorker.
 
 **Session 2026-08-28 night — v0.1.40/1040 LIVE (sha d0908dc5, raw
 manifest verified). Four fixes, three of them his words.**
