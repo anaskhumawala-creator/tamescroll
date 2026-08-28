@@ -976,6 +976,42 @@ fn rules_summary() -> HashMap<String, usize> {
 /// depended on whether `document.head` existed yet: measured 2026-08-28,
 /// reddit.com kept 8,564 bytes of ytd-*/ytm-* rules and its own never
 /// landed, while instagram.com on the same build got the right sheet.
+/// The CSS half of the payload, on its own, for a window that is
+/// ALREADY OPEN.
+///
+/// Pressing a tile for a platform whose window exists only focused it,
+/// so the page kept the sheet built from the shown-prefs of whenever it
+/// last navigated. Change a Bring-back toggle in Settings, press the
+/// tile, and nothing happens -- measured 2026-08-28 on reddit: sheet
+/// 1,951 bytes with <recent-posts> hidden while Discovery said Shown,
+/// and 1,642 bytes without it the instant the page reloaded. The rules
+/// were right the whole time; they just never reached the open page.
+///
+/// Deliberately CSS only: scriptlets are not all idempotent and the page
+/// already ran them, so this carries no scriptlet section and none of
+/// the `__TS_RULES__` re-entry guard that would make it a no-op.
+fn rules_refresh_script(url: &str, platform_id: &str, blur: bool, shown: &[String]) -> String {
+    let escaped =
+        serde_json::to_string(&page_css(url, platform_id, blur, shown)).unwrap_or_else(|_| "\"\"".to_string());
+    format!(
+        r#"
+(function () {{
+  try {{
+    var CSS = {escaped};
+    var el = document.getElementById("tamescroll-rules");
+    if (!el) {{
+      el = document.createElement("style");
+      el.id = "tamescroll-rules";
+      (document.head || document.documentElement).appendChild(el);
+    }}
+    if (el.textContent !== CSS) el.textContent = CSS;
+    el.setAttribute("data-ts-scoped", "1");
+  }} catch (e) {{}}
+}})();
+"#
+    )
+}
+
 fn injection_script(css: &str, scriptlets: &str, scoped: bool) -> String {
     // JSON string, not a template literal: manual escaping missed `${`,
     // and one `${` in an OTA'd rule file would have been a SyntaxError
@@ -988,6 +1024,30 @@ fn injection_script(css: &str, scriptlets: &str, scoped: bool) -> String {
 (function () {{
   try {{
 {scriptlets}
+  }} catch (e) {{}}
+}})();
+
+(function () {{
+  // A PAGE MAY NOT CLOSE OUR WINDOW.
+  //
+  // window.close() takes the WebView2 controller down and leaves the
+  // Tauri window handle behind: get_webview_window still answers,
+  // set_focus and eval both still return Ok, and the tile silently does
+  // nothing for the rest of the session. Measured 2026-08-28 on x.com --
+  // and every Rust-side liveness signal was tried first (is_visible
+  // Ok(true), eval Ok(())), so the only place this can be stopped is
+  // before it happens. A sign-in popup calling close() at the end of an
+  // OAuth flow is the realistic way in.
+  //
+  // Closing is the launcher's job, and the Home pill already routes
+  // there through the navigation intercept, so this reuses it: the page
+  // asks to close, the app goes home, the window survives.
+  try {{
+    window.close = function () {{
+      try {{
+        location.href = "https://tauri.localhost/";
+      }} catch (e) {{}}
+    }};
   }} catch (e) {{}}
 }})();
 
@@ -1282,8 +1342,42 @@ async fn open_platform(
     // focuses it — a second Builder::build on a taken label would error.
     #[cfg(not(target_os = "android"))]
     if let Some(existing) = app.get_webview_window(platform.id) {
-        existing.set_focus().map_err(|e| e.to_string())?;
-        return Ok(());
+        // A webview that closed ITSELF leaves the label taken with
+        // nothing behind it: a sign-in popup or any page calling
+        // window.close() takes the WebView2 controller down while the
+        // Tauri window handle survives, so get_webview_window still
+        // answers, set_focus is a silent no-op, and every later tile tap
+        // returns Ok having done nothing. Measured 2026-08-28 on x.com:
+        // closed the page, tapped the tile, no window and no error,
+        // permanently. This is the desktop twin of the Android re-tap bug
+        // (docs/android-research.md) and it failed the same way -- by
+        // succeeding. So the handle proves it is alive before it is
+        // trusted; anything else is torn down and rebuilt below.
+        // Nothing here can tell a live window from a webview that
+        // closed itself -- measured, both is_visible and eval answer
+        // Ok for the dead one -- so the guard against that lives in
+        // the injected script (window.close is routed to the
+        // launcher). What is still worth handling is a focus that
+        // fails outright: rebuild rather than report success.
+        //
+        // Focusing is not enough on its own: the page is still
+        // wearing the sheet it was given when it last navigated, so
+        // a surface the user just toggled would not appear until
+        // something happened to reload it.
+        let current = existing
+            .url()
+            .map(|u| u.to_string())
+            .unwrap_or_else(|_| platform.url.to_string());
+        let _ = existing.eval(&rules_refresh_script(
+            &current,
+            platform.id,
+            gaze_mode(&mode) == "blur",
+            &shown,
+        ));
+        if existing.set_focus().is_ok() {
+            return Ok(());
+        }
+        let _ = existing.destroy();
     }
 
     let mode = gaze_mode(&mode);
@@ -1515,6 +1609,54 @@ mod tests {
     /// 8,564 bytes of ytd-* rules because whichever writer ran last won,
     /// and that order depends on when document.head exists.
     #[test]
+    /// Showing a surface must actually stop emitting its rules -- for
+    /// EVERY platform, not just the one that got debugged. The Home-feed
+    /// bug (2026-08-28) was a toggle that could not reach its rules; a
+    /// live audit the same day found reddit's Discovery toggle still
+    /// hiding <recent-posts> when set to Shown.
+    #[test]
+    fn showing_a_surface_stops_emitting_its_rules_on_every_platform() {
+        for (id, url, surface, needle) in [
+            ("reddit", "https://www.reddit.com/", "discovery", "recent-posts"),
+            ("youtube", "https://www.youtube.com/", "home", "ytd-rich-grid-renderer"),
+        ] {
+            let hidden = page_css(url, id, false, &[]);
+            let shown = page_css(url, id, false, &[surface.to_string()]);
+            assert!(
+                hidden.contains(needle),
+                "{id}/{surface}: hidden css should carry {needle}"
+            );
+            assert!(
+                !shown.contains(&format!("
+{needle} {{ display: none !important; }}"))
+                    && !shown.starts_with(&format!("{needle} {{ display: none !important; }}")),
+                "{id}/{surface}: shown css still hides {needle}"
+            );
+        }
+    }
+
+    /// The refresh a focused window gets must carry the CURRENT shown
+    /// prefs and nothing that would run twice.
+    #[test]
+    fn focusing_an_open_window_re_applies_the_current_surfaces() {
+        let hidden = rules_refresh_script("https://www.reddit.com/", "reddit", false, &[]);
+        let shown = rules_refresh_script(
+            "https://www.reddit.com/",
+            "reddit",
+            false,
+            &["discovery".to_string()],
+        );
+        assert!(hidden.contains("recent-posts"), "hidden state hides the rail");
+        assert!(!shown.contains("recent-posts"), "shown state must release it");
+        // CSS only: no scriptlets, and no guard that would make it inert
+        // on a page that has already been injected once.
+        assert!(!shown.contains("__TS_RULES__"), "must not carry the re-entry guard");
+        assert!(
+            shown.contains("tamescroll-rules") && shown.contains("data-ts-scoped"),
+            "writes the same sheet, stamped scoped"
+        );
+    }
+
     fn the_url_scoped_sheet_wins() {
         let scoped = page_load_rules_script("https://www.reddit.com/").expect("reddit rules");
         assert!(scoped.contains("var SCOPED = true"), "page-load payload must be scoped");

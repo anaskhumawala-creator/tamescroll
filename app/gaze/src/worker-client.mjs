@@ -151,7 +151,10 @@ export function createWorkerClient(opts) {
     else p.resolve(msg);
   };
 
-  function classifyImage(bitmap) {
+  // `opts.noNsfw` skips the suggestive classifier for this one image.
+  // Small images (avatars, profile pictures) are asked a face question
+  // only -- see IMAGE_MIN_FACE_SIZE in init-entry.
+  function classifyImage(bitmap, opts) {
     if (state.dead || !state.up) {
       try {
         bitmap.close();
@@ -170,7 +173,10 @@ export function createWorkerClient(opts) {
       try {
         // The bitmap is TRANSFERRED: no copy, and the main thread stops
         // owning the pixels the moment it hands them over.
-        worker.postMessage({ type: 'image', id: id, bitmap: bitmap }, [bitmap]);
+        worker.postMessage(
+          { type: 'image', id: id, bitmap: bitmap, noNsfw: !!(opts && opts.noNsfw) },
+          [bitmap]
+        );
       } catch (err) {
         pending.delete(id);
         clearTimeout(timer);

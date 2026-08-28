@@ -181,6 +181,23 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
   // check too; content thumbnails on every supported platform measure
   // well above this.
   var IMAGE_MIN_SIZE = 120;
+  // ...but "not content" turned out to include the thing he asked for
+  // next. Owner, 2026-08-28: "profile pics do not get blurred". A
+  // profile picture IS a photograph of a person, and the only thing that
+  // separates it from a channel logo is whether there is a face in it --
+  // which is the question this pipeline exists to answer. Size cannot
+  // separate them and never could.
+  //
+  // So images from here up to IMAGE_MIN_SIZE are asked the FACE question
+  // only: a logo has no face and clears, a person's photo is covered
+  // under the same gender policy as any thumbnail. The suggestive
+  // classifier is skipped for them (see noNsfw) -- it costs the same
+  // 13ms at any source size and has nothing to say about a head shot.
+  // Below this, an image is genuinely too small to read a face out of
+  // and is left alone, which keeps badges and icons off the queue.
+  var IMAGE_MIN_FACE_SIZE = 48;
+  // Images in [IMAGE_MIN_FACE_SIZE, IMAGE_MIN_SIZE) -- face pass only.
+  var faceOnlyImgs = typeof WeakSet === 'function' ? new WeakSet() : null;
   // Passive, so it can never delay the scroll it is observing. Bound to
   // the document because YouTube scrolls the window on desktop and an
   // inner container on mobile web -- capture catches both.
@@ -760,7 +777,9 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
         })
         .then(function (bmp) {
           releaseFrame();
-          return gazeWorker.classifyImage(bmp);
+          return gazeWorker.classifyImage(bmp, {
+            noNsfw: !!(faceOnlyImgs && faceOnlyImgs.has(img)),
+          });
         })
         .then(function (res) {
           if (failed) return;
@@ -788,6 +807,12 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
             ms: Math.round(performance.now() - tImg0),
             load: Math.round(tLoad),
             face: res.ms,
+            // What this image cost THIS thread: everything except the
+            // worker's own inference. Decode, the bitmap, the verdict.
+            // The number that decides whether more of the pipeline is
+            // worth moving off-thread -- and the number the budget is
+            // now charged (see the lane runner).
+            main: Math.round(performance.now() - tImg0 - (res.ms || 0)),
             w: img.naturalWidth,
             where: 'worker',
             src: (img.currentSrc || img.src || '').slice(0, 90),
@@ -807,6 +832,9 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
             }),
           });
           applyVerdictToImage(img, result);
+          // How much of this image's elapsed time was NOT the main
+          // thread. See the spend note in the lane runner.
+          return { workerMs: res.ms || 0 };
         })
         .catch(function (e) {
           releaseFrame();
@@ -854,7 +882,7 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
         // nsfw pass on a face-FLAGGED image, whose answer is then
         // discarded (measured: 2 of 25 images on a search page). The
         // verdict is unchanged either way -- flagged stays flagged.
-        var nsfwP = nsfwModel
+        var nsfwP = nsfwModel && !(faceOnlyImgs && faceOnlyImgs.has(img))
           ? detector.isNsfw(nsfwModel, el, frame).catch(function () {
               // A failed classifier must not fail the image: face-only
               // is the documented degrade.
@@ -1110,7 +1138,31 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
                     return (first ? Promise.resolve() : yieldToBrowser()).then(function () {
                       var at = performance.now();
                       return Promise.resolve(detectImage(img)).then(function (r) {
-                        noteSpend(performance.now(), performance.now() - at);
+                        // CHARGE THE MAIN THREAD FOR MAIN-THREAD TIME
+                        // ONLY.
+                        //
+                        // This budget exists to stop our work owning the
+                        // thread a scroll needs, and it was measured
+                        // when every model ran ON that thread, where
+                        // elapsed time and thread time were the same
+                        // number. Since the player and images moved into
+                        // the worker (2026-08-28) they are not: an image
+                        // whose inference happens off-thread still
+                        // charged its full wall clock, so at the 0.15
+                        // scroll fraction ONE worker image (152ms
+                        // measured at 6x) blew a 150ms budget and the
+                        // drain slept 250ms -- over and over. That is
+                        // the owner's "processes some, then it halts",
+                        // now caused by the fix for it.
+                        //
+                        // The worker reports its own inference ms, so
+                        // subtract it. The in-page path reports nothing
+                        // and is charged in full, which is correct
+                        // there: it really did spend that time here.
+                        var elapsed = performance.now() - at;
+                        var off = r && typeof r.workerMs === 'number' ? r.workerMs : 0;
+                        if (off > elapsed) off = elapsed;
+                        noteSpend(performance.now(), elapsed - off);
                         return r;
                       });
                     });
@@ -1194,8 +1246,10 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
     function check() {
       if (failed) return;
       if (imageSeen && imageSeen.has(img)) return;
-      if (img.naturalWidth >= IMAGE_MIN_SIZE && img.naturalHeight >= IMAGE_MIN_SIZE) {
+      var side = Math.min(img.naturalWidth, img.naturalHeight);
+      if (side >= IMAGE_MIN_FACE_SIZE) {
         if (imageSeen) imageSeen.add(img);
+        if (side < IMAGE_MIN_SIZE && faceOnlyImgs) faceOnlyImgs.add(img);
         // blur-all: the Stage A sheet already blankets the image — no
         // pending class, the queue exists only for NSFW removal.
         if (plan.preBlur) markPending(img);
@@ -1217,7 +1271,9 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
         // Blur-first is kept: the cover holds until the image has loaded
         // and we can see it is below the size we check at, which is the
         // moment the decision "we are not looking at this one" is
-        // actually made.
+        // actually made. Since 2026-08-28 that floor is
+        // IMAGE_MIN_FACE_SIZE, so what reaches here is badges and icons,
+        // not profile pictures.
         clearEl(img);
       }
     }

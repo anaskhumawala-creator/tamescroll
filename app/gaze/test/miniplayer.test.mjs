@@ -82,3 +82,20 @@ test('installMiniplayer is inert without a document and never installs twice', (
   const win = { document: {}, __TS_MINI__: { state: () => 'full' } };
   assert.equal(m.installMiniplayer(win), win.__TS_MINI__);
 });
+
+test('nothing this installs may slow down a scroll it is not part of', () => {
+  // A non-passive touch listener on the document disables the browser's
+  // fast scroll path for the WHOLE page: the touch is held until our JS
+  // has had its chance to cancel it, which paints a press state and
+  // starts the scroll late. The owner reported exactly that the day this
+  // file shipped. Only the player's own subtree may give that up.
+  const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
+  const docListeners = src.match(/doc\.addEventListener\([\s\S]*?\}\s*\);/g) || [];
+  assert.ok(docListeners.length > 0, 'the gesture does listen on the document');
+  for (const listener of docListeners) {
+    if (!/touch/.test(listener)) continue;
+    assert.match(listener, /passive:\s*true/, `document touch listener must be passive: ${listener.slice(0, 60)}`);
+  }
+  // And the one place that may cancel is bound to the player, not doc.
+  assert.match(src, /pc\.addEventListener\(\s*'touchmove'/);
+});

@@ -186,11 +186,42 @@ export function installMiniplayer(win) {
     return !!(pc && target && pc.contains(target));
   }
 
+  // A NON-PASSIVE touchmove on the DOCUMENT costs every scroll on the
+  // page, everywhere, forever: the browser cannot run its fast scroll
+  // path until our JS has had a chance to preventDefault, so the touch
+  // holds, the press state paints, and the scroll starts late. That is
+  // what the owner reported the day this shipped -- "when scrolling
+  // through thumbnails show a pressing impression when I'm just
+  // scrolling", "make it feel like native yt app".
+  //
+  // The gesture only ever acts on a touch that STARTED inside the
+  // player, so only the player's own subtree needs to give up the fast
+  // path. Bound on touchstart, which fires before the touchmoves of the
+  // same gesture, so the first drag is already covered -- and a page
+  // nobody drags never pays anything.
+  var boundHosts = typeof WeakSet === 'function' ? new WeakSet() : null;
+  function bindHost(pc) {
+    if (!pc || typeof pc.addEventListener !== 'function') return;
+    if (boundHosts) {
+      if (boundHosts.has(pc)) return;
+      boundHosts.add(pc);
+    }
+    pc.addEventListener(
+      'touchmove',
+      function (e) {
+        var p = touchXY(e);
+        if (p) onMove(p.x, p.y, e);
+      },
+      { capture: true, passive: false }
+    );
+  }
+
   function onDown(x, y, target) {
     if (!inPlayer(target)) {
       start = null;
       return;
     }
+    bindHost(container());
     start = { x: x, y: y };
     claimed = false;
   }
@@ -227,13 +258,15 @@ export function installMiniplayer(win) {
     },
     { capture: true, passive: true }
   );
+  // Tracking only -- no event, so nothing here can ever preventDefault.
+  // The cancelling half lives on the player (bindHost).
   doc.addEventListener(
     'touchmove',
     function (e) {
       var p = touchXY(e);
-      if (p) onMove(p.x, p.y, e);
+      if (p) onMove(p.x, p.y, null);
     },
-    { capture: true, passive: false }
+    { capture: true, passive: true }
   );
   doc.addEventListener(
     'touchend',

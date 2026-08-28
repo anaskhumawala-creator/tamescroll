@@ -110,11 +110,17 @@ export function startWorker() {
     var t0 = performance.now();
     try {
       frame = detector.uploadFrame(bmp);
-      var nsfwP = models.nsfw
-        ? detector.isNsfw(models.nsfw, bmp, frame).catch(function () {
-            return false;
-          })
-        : Promise.resolve(false);
+      // noNsfw: the caller is asking about a small image -- an avatar or
+      // a profile picture. nsfwjs resizes to 224 either way, so it costs
+      // the same 13ms on a 48px source as on a thumbnail, and what it
+      // would be judging is a face-sized crop of a person's head. The
+      // face pass is the whole question there.
+      var nsfwP =
+        models.nsfw && !msg.noNsfw
+          ? detector.isNsfw(models.nsfw, bmp, frame).catch(function () {
+              return false;
+            })
+          : Promise.resolve(false);
       var boxes = models.face ? await detector.detectFaceBoxes(models.face, bmp, frame) : [];
       var reads = [];
       if (boxes.length && models.gender) {
