@@ -1,7 +1,7 @@
 {
-  "versionCode": 1040,
-  "versionName": "0.1.40",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.40/app-arm64-debug.apk",
-  "sha256": "d0908dc5698a42fad94662958844f6ee877fdf9e22e246b17d002496e795b39e",
-  "notes": "Scrolling a feed no longer holds your finger. Profile pictures are checked like any other photo. A Bring-back toggle now reaches a window that is already open."
+  "versionCode": 1041,
+  "versionName": "0.1.41",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.41/tamescroll-v0.1.41.apk",
+  "sha256": "18e38bdbb7e4524cb7809702d9a7c98d98d9a0b992428b71de649b8c321796d4",
+  "notes": "Faster first thumbnail; models ship as bytes"
 }
