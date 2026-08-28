@@ -1,7 +1,7 @@
 {
-  "versionCode": 1035,
-  "versionName": "0.1.35",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.35/app-arm64-debug.apk",
-  "sha256": "873408606ca15aaacdcd00e39ba8032eefeec6f485e8d68a87780ec3b6add22b",
-  "notes": "Facebook blur fails closed"
+  "versionCode": 1036,
+  "versionName": "0.1.36",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.36/app-arm64-debug.apk",
+  "sha256": "d66693df87da65dcea53e5af340f07201ddb85494797bcaa89d54f7f63a64fd4",
+  "notes": "Player inference off the main thread; hard blur edges; patches clipped to the video."
 }
