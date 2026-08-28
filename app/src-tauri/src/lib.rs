@@ -1708,6 +1708,73 @@ mod tests {
         );
     }
 
+    /// A SURFACE IS A FEATURE, NOT A RENDERING VARIANT.
+    ///
+    /// Owner 2026-08-28: "home feed is not showing even if I keep it
+    /// enabled". Measured with Home feed = Shown: the DESKTOP grid came
+    /// back (display flex) and the MOBILE one did not (display none),
+    /// because the m.youtube rules lived under a separate "Mobile feed &
+    /// Shorts" surface. On Android every page is m.youtube, so the
+    /// toggle he was using could not reach the rule that was hiding his
+    /// feed. It was the second time this split produced a dead toggle on
+    /// the only device he uses -- the first was watch-page related
+    /// videos, fixed for that one surface alone in 2026-08-19.
+    ///
+    /// So: every toggle must release BOTH renderings, and this is the
+    /// test that says so for each one.
+    #[test]
+    fn a_surface_toggle_releases_the_mobile_rendering_too() {
+        // OUR rule, not a substring of somebody else's. surfaces_css
+        // emits one selector per line followed by the display block, and
+        // the vendor lists carry rules that MENTION these same element
+        // names (easylist has an ad slot scoped inside
+        // ytd-watch-next-secondary-results-renderer) -- a substring test
+        // would pass on those and prove nothing.
+        fn ours(css: &str, selector: &str) -> bool {
+            css.contains(&format!("
+{selector} {{ display: none !important; }}"))
+                || css.starts_with(&format!("{selector} {{ display: none !important; }}"))
+        }
+
+        // FULL selectors, not fragments.
+        for (surface, desktop, mobile) in [
+            (
+                "home",
+                r#"ytd-browse[page-subtype="home"] ytd-rich-grid-renderer"#,
+                "ytm-browse ytm-rich-grid-renderer",
+            ),
+            (
+                "shorts",
+                "ytd-reel-shelf-renderer",
+                "ytm-pivot-bar-item-renderer:has(> .pivot-shorts)",
+            ),
+            (
+                "watch_recs",
+                "ytd-watch-next-secondary-results-renderer",
+                "ytm-single-column-watch-next-results-renderer ytm-video-with-context-renderer",
+            ),
+        ] {
+            let hidden = page_css("https://www.youtube.com/", "youtube", false, &[]);
+            assert!(ours(&hidden, desktop), "{surface}: desktop rule missing by default");
+            assert!(ours(&hidden, mobile), "{surface}: mobile rule missing by default");
+
+            let shown = page_css(
+                "https://www.youtube.com/",
+                "youtube",
+                false,
+                &[surface.to_string()],
+            );
+            assert!(
+                !ours(&shown, desktop),
+                "{surface} shown: desktop selector must go"
+            );
+            assert!(
+                !ours(&shown, mobile),
+                "{surface} shown: the MOBILE selector must go too -- otherwise                  the toggle is dead on the only device he uses"
+            );
+        }
+    }
+
     /// VISION.md: ad-hiding is never user-toggleable. Even if the
     /// frontend somehow sent "ads" in `shown` (it never offers the
     /// option — see the `surfaces` command), the always_on surface must
