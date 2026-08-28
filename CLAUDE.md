@@ -63,8 +63,8 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-28 02:00 (v0.1.34/1034 RELEASED, commit
-70bad0e, apk sha 4cc7ca0f).
+**Last updated:** 2026-08-28 15:30 (v0.1.38/1038 RELEASED, commit
+43ba0cd, apk sha 22c1ea2d).
 
 **Session 2026-08-28 (overnight) — META PLATFORMS, AND THREE SILENT
 NO-OPS.** Owner asked for Facebook + Instagram overnight; three separate
@@ -121,6 +121,48 @@ player: playing+covering -> display:none, paused -> back, resumed ->
 gone. probe_stray found 0 misplaced patches over 10 scrolls, and
 probe_recycle found ZERO src/srcset swaps on m.youtube search, so
 thumbnail recycling is NOT the mechanism — do not chase it again.
+
+**Session 2026-08-28 afternoon -- THE MINIPLAYER, AND THE SIGN-IN WALL.**
+v0.1.38 (1038) live and hash-verified (22c1ea2d...).
+- **DRAG-TO-MINIPLAYER SHIPPED** (owner asked twice; he waived the
+  grill: "both no need to do the grill"). app/gaze/src/miniplayer.mjs,
+  installed from init-entry BEFORE the mode gate -- it is a player
+  behaviour, not a gaze one, so it works in off mode too.
+  What it can NOT be, measured not assumed: m.youtube's back out of
+  /watch is a HARD navigation (window globals gone, 0 videos, container
+  gone), so no element survives to float over the next page. So the
+  scope is the watch page: the sticky player shrinks to the
+  bottom-right and the comments/recommendations take the full screen.
+  Geometry is a TRANSFORM, never a resize -- YouTube sizes
+  #movie_player in px from its own JS, so a narrower container just
+  crops a 397px video; a scale leaves children (our overlays included)
+  intact.
+  TWO THINGS THE LIVE PAGE TAUGHT IT: (1) `.player-placeholder`'s 223px
+  is a padding-bottom aspect trick, so `height:0` computed to 0px and
+  still measured 223 tall -- `padding:0` is load-bearing. (2) SCROLL
+  COMPENSATION WAS ITSELF THE BUG: adding the class moved scrollY
+  600 -> 377 on its own (Chromium scroll anchoring already holds the
+  position) and correcting it again moved the landmark 453 -> 676. Now
+  no scroll write exists in the module and a test fails if one returns.
+  Verified live, mobile UA: 412x232 @ (0,48) -> 231x130 with
+  right/bottom exactly on the 12px margin, video playing across the
+  transition, placeholder 223 -> 0, tap restores to the pixel, landmark
+  453/453/453. Inert on desktop youtube and reddit (no container).
+  The in-player blur pill is hidden while mini (it outranked the cover's
+  z-index and ate a third of a 231px box).
+- **GOOGLE SIGN-IN: HALF OF IT IS A PLATFORM WALL.** A WebView cannot
+  offer a device account chooser -- Android 8+ account visibility only
+  exposes Google accounts to signature-matched apps, and the cookie
+  reconstruction path is literal infostealer behaviour (also BLOCK-ONLY).
+  Custom Tabs' jar is unreadable; a TWA would cost injection, request
+  blocking and gaze. Shipped what IS available: autofill, one line in
+  MainActivity (`importantForAutofill = IMPORTANT_FOR_AUTOFILL_YES`,
+  API 26+), so Google Password Manager offers his saved login and the
+  password never touches our code. NOT `..._YES_EXCLUDE_DESCENDANTS` --
+  WebView's autofill nodes ARE virtual descendants. Full option
+  analysis: docs/research/google-signin-2026-08-28.md.
+  UNVERIFIED on device; his phone is the only place it can be seen.
+- gaze 293/293, cargo 43/43, tsc clean.
 
 **Session 2026-08-28 morning — THE PLAYER LEFT THE MAIN THREAD, AND THE
 PHONE CAN NOW ANSWER FOR ITSELF.** Releases 1036 and 1037, both live and
