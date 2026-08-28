@@ -63,8 +63,8 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-28 15:30 (v0.1.38/1038 RELEASED, commit
-43ba0cd, apk sha 22c1ea2d).
+**Last updated:** 2026-08-28 17:05 (v0.1.39/1039 RELEASED, apk sha
+8fa75ea1).
 
 **Session 2026-08-28 (overnight) — META PLATFORMS, AND THREE SILENT
 NO-OPS.** Owner asked for Facebook + Instagram overnight; three separate
@@ -121,6 +121,61 @@ player: playing+covering -> display:none, paused -> back, resumed ->
 gone. probe_stray found 0 misplaced patches over 10 scrolls, and
 probe_recycle found ZERO src/srcset swaps on m.youtube search, so
 thumbnail recycling is NOT the mechanism — do not chase it again.
+
+**Session 2026-08-28 evening -- THE PAIN-POINT AUDIT, WORKED.** Owner:
+"check my most pain points". Four items off
+docs/research/pain-points-2026-08-28.md + docs/plan-balance-2026-08-28.md.
+v0.1.39 (1039) live, apk sha 8fa75ea1.
+- **THE MOBILE SABR "GAP" IS NOT ONE.** rules/scriptlets.txt carried
+  "DESKTOP ONLY ... until the same numbers exist from the owner's
+  phone", which read as a half-finished ad fix. MEASURED: m.youtube's
+  ytInitialPlayerResponse HAS NO streamingData (keys are
+  responseContext, playabilityStatus, playbackTracking, captions,
+  videoDetails, playerConfig, storyboards, microformat, trackingParams
+  -- no stream, no ad fields). Mobile ALWAYS fetched client-side, which
+  is why it never had the 24-37s hard-nav stall: first frame 3.2s, no
+  ad, no .ytp-error. DO NOT "finish" it -- there is nothing to remove
+  and it would cost the embedded fallback for free.
+- **THE REQUEST SHAPER DOES LAND ON MOBILE**, read off the wire via CDP
+  Network (not a page hook YouTube could capture first): ONE POST to
+  /youtubei/v1/player, 4111 bytes, body carrying isInlinePlaybackNoAd,
+  video playing to t=21s. Delivery [live]; ad-free EFFECT still needs a
+  session actually served ads.
+- **THE DIAGNOSTICS ENGINE BLOCK WAS EMPTY.** rulesGen/otaLast/otaAgeH/
+  cssBytes/blocked all read from __TS_DIAG_APP, which carried
+  versionCode + blurPx only -- so the block built to answer "which
+  rules was the phone running" was null in every real report. Now:
+  ota.rs keeps a generation hash over the rules the engine is actually
+  built from + last refresh outcome/age; lib.rs counts every JUDGED
+  request and every BLOCKED one (our own IPC deliberately uncounted).
+  seen==0 means page interception is not wired at all (the 08-25 bug,
+  invisible for weeks); seen>0 with blocked==0 means wired, nothing
+  matched. cssBytes measured IN PAGE so a wrong-platform sheet shows up.
+  Live desktop: rulesGen c3a3f5f7, otaLast ok, cssBytes 4140, counters
+  seen 96 -> 262 -> 300 / blocked 0 -> 7 -> 9 across three navs.
+- **LOOK CONTRACT FROZEN** (video-region.mjs `LOOK`): featherFrac 0,
+  radiusPx 8, blurFrac 0.09, blurMaxPx 72 -- values UNCHANGED, pinned by
+  a test quoting him. Nine "low quality" reports across four dates came
+  from accuracy rounds moving geometry under cosmetic dials. A round
+  that needs one must change the test.
+- **SQUARE CROP EXTRACTED** to app/gaze/src/crop-geometry.mjs with a
+  test that fails if an inline copy reappears -- the defect that lived
+  four days and three model swaps in the image path after being fixed
+  in the video path. Tests assert square-in-PIXELS (on 16:9 the naive
+  version is off by 1.78x), never shrinks, stays centred, edge faces run
+  off-frame rather than squash, 0x0 source passes through. Live both
+  directions on one search page: man 0/6 flagged, woman 19/25.
+- **CONNECTED != RENDERED** (video-region refreshRects): a player under
+  a display:none ancestor answered getBoundingClientRect with zeroes and
+  the renderer re-read it 60x/s forever. getClientRects().length answers
+  it in one read. Bounded: the kill path fires ONLY when the host paints
+  no pixels (nothing to expose) -- never on a confidence signal.
+  Re-verified: 22 patch samples over a scrolled sticky player, 0
+  outside, 0px overhang.
+- NOT done from the plan: B6 (models out of the page-side eval) and the
+  gender-band half of B3 -- both need numbers from his phone, and B3's
+  band half needs licence-clean face fixtures.
+- gaze 306/306, cargo 44/44.
 
 **Session 2026-08-28 afternoon -- THE MINIPLAYER, AND THE SIGN-IN WALL.**
 v0.1.38 (1038) live and hash-verified (22c1ea2d...).
