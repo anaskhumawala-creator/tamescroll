@@ -11,10 +11,21 @@ from gauntlet import open_platform
 FRACS = [float(x) for x in (sys.argv[1:] or ["0.02", "0.15", "0.35"])]
 REPEATS = 2
 tab = open_platform("man")
+# HIS SURFACE, NOT A DESKTOP ONE. The phone is what the budget is for,
+# and a stale metrics override from an earlier probe (412px with a
+# desktop UA) silently produced a page that processed no images at all.
+UA = (
+    "Mozilla/5.0 (Linux; Android 13; 2201117TG) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120.0.0.0 Mobile Safari/537.36"
+)
+tab.cmd("Emulation.setUserAgentOverride", userAgent=UA)
+tab.cmd("Emulation.setDeviceMetricsOverride", width=412, height=915,
+        deviceScaleFactor=2.0, mobile=True)
+tab.cmd("Emulation.setTouchEmulationEnabled", enabled=True, maxTouchPoints=5)
 
 def phase(frac):
-    tab.eval("location.href='https://www.youtube.com/results?search_query=linus+tech+tips&t=%d'" % int(frac * 1000))
-    time.sleep(13)
+    tab.eval("location.href='https://m.youtube.com/results?search_query=podcast+interview&t=%d'" % int(frac * 1000))
+    time.sleep(22)
     tab.cmd("Emulation.setCPUThrottlingRate", rate=6)
     tab.eval("""(function(){
       window.__F=[]; window.__LT=[];
@@ -26,7 +37,7 @@ def phase(frac):
     tab.eval("window.__TS_IMG_BUDGET=%s; window.__TS_GAZE_IMGDIAG=[]; window.__F=[]; window.__LT=[]" % frac)
     t0 = tab.eval("performance.now()")
     for i in range(8):
-        tab.cmd("Input.synthesizeScrollGesture", x=700, y=400, yDistance=-700, speed=2000)
+        tab.cmd("Input.synthesizeScrollGesture", x=200, y=600, yDistance=-700, speed=2000)
         time.sleep(0.9)
     t1 = tab.eval("performance.now()")
     f = [x for x in json.loads(tab.eval("JSON.stringify(window.__F||[])")) if x < 5000]

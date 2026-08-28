@@ -768,6 +768,19 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
     // thresholds are owner-tuned policy with tests, and a second copy
     // inside the worker is how the two would drift.
     if (workerAlive()) {
+      // OUR THREAD'S SHARE, MEASURED IN SEGMENTS.
+      //
+      // Charging "elapsed minus the worker's inference ms" was already
+      // better than charging the wall clock, but it still bills this
+      // thread for time an image spends QUEUED behind another one --
+      // two lanes are in flight, so the second image's wait looked like
+      // work here (max 1,077ms on an image whose own inference was
+      // 512ms). The budget exists to protect the scroll, and a queue in
+      // another thread does not touch the scroll. So time the two
+      // segments that genuinely run here: preparing the bitmap, and
+      // applying the verdict.
+      var mainMs = 0;
+      var tPrep0 = performance.now();
       return dom
         .loadDetectable(img)
         .then(function (el) {
@@ -777,6 +790,7 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
         })
         .then(function (bmp) {
           releaseFrame();
+          mainMs += performance.now() - tPrep0;
           return gazeWorker.classifyImage(bmp, {
             noNsfw: !!(faceOnlyImgs && faceOnlyImgs.has(img)),
           });
@@ -807,12 +821,10 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
             ms: Math.round(performance.now() - tImg0),
             load: Math.round(tLoad),
             face: res.ms,
-            // What this image cost THIS thread: everything except the
-            // worker's own inference. Decode, the bitmap, the verdict.
-            // The number that decides whether more of the pipeline is
-            // worth moving off-thread -- and the number the budget is
-            // now charged (see the lane runner).
-            main: Math.round(performance.now() - tImg0 - (res.ms || 0)),
+            // What this image cost THIS thread, timed rather than
+            // derived: the bitmap and the verdict. Queue time in the
+            // worker is deliberately NOT in here.
+            main: Math.round(mainMs),
             w: img.naturalWidth,
             where: 'worker',
             src: (img.currentSrc || img.src || '').slice(0, 90),
@@ -831,10 +843,10 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
               };
             }),
           });
+          var tApply0 = performance.now();
           applyVerdictToImage(img, result);
-          // How much of this image's elapsed time was NOT the main
-          // thread. See the spend note in the lane runner.
-          return { workerMs: res.ms || 0 };
+          mainMs += performance.now() - tApply0;
+          return { mainMs: mainMs };
         })
         .catch(function (e) {
           releaseFrame();
@@ -1155,14 +1167,15 @@ if (typeof importScripts === 'function' && typeof document === 'undefined') {
                         // the owner's "processes some, then it halts",
                         // now caused by the fix for it.
                         //
-                        // The worker reports its own inference ms, so
-                        // subtract it. The in-page path reports nothing
-                        // and is charged in full, which is correct
-                        // there: it really did spend that time here.
+                        // The worker path reports the segments it
+                        // actually ran here (bitmap + verdict); the
+                        // in-page path reports nothing and is charged
+                        // in full, which is correct there -- it really
+                        // did spend all of it on this thread.
                         var elapsed = performance.now() - at;
-                        var off = r && typeof r.workerMs === 'number' ? r.workerMs : 0;
-                        if (off > elapsed) off = elapsed;
-                        noteSpend(performance.now(), elapsed - off);
+                        var mine =
+                          r && typeof r.mainMs === 'number' ? Math.min(r.mainMs, elapsed) : elapsed;
+                        noteSpend(performance.now(), mine);
                         return r;
                       });
                     });
