@@ -639,6 +639,21 @@ class MainActivity : TauriActivity() {
     // Diagnostics: write-mostly, local-only. See DiagBridge for why a
     // hostile page cannot turn it into anything but a wasted disk write.
     webView.addJavascriptInterface(DiagBridge(), "TsDiag")
+    // AUTOFILL. Owner ask: "can't we have the sign in page automatically
+    // show the existing accounts on the device". There is no device
+    // account chooser available to a WebView -- Android 8+ account
+    // visibility only exposes Google accounts to signature-matched apps,
+    // so that half is a platform wall, not something we can build. What
+    // IS available is the autofill framework: Google Password Manager
+    // offers his saved google.com login as a suggestion chip over the
+    // field, and the password goes field -> framework without our code
+    // ever seeing it. On by default from API 26, but only if nothing in
+    // the view tree opts out, and wry never states an intent -- so state
+    // it here rather than inherit whatever the parent happens to be.
+    // Research: docs/research/google-signin-2026-08-28.md (option 5).
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      webView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
+    }
     webView.post { installFullscreenClient() }
     webView.post { installBlockingClient() }
 
