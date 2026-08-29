@@ -63,9 +63,44 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-29 04:05 (v0.1.41/1041 RELEASED, apk sha
-18e38bdb, raw manifest verified).
+**Last updated:** 2026-08-29 07:05 (v0.1.42/1042 RELEASED, apk sha
+ce61f8ae, raw manifest verified).
 
+**Session 2026-08-29 morning -- ONE CACHE SLOT ANSWERED EVERY ONE OF OUR
+OWN URLS.** Owner, on 1041: "the home screen all the thumbnails are
+blurred", then "even in recommendations".
+- **THE BUG IS ANDROID-ONLY AND IT WAS OURS FROM LAST NIGHT.**
+  MainActivity.syntheticResponse held ONE `syntheticFile`: the first
+  `/__tamescroll/` request (gaze-page.js) filled it and every later one
+  was answered with those same bytes. The 08-29 overnight round moved
+  the models to fetched urls, so the worker asked for blazeface.json and
+  got 1MB of JS -- no model parsed, `loadFailed` killed the worker, the
+  page had no models either, and blur-first left EVERY thumbnail covered
+  on every surface. Desktop answers per request (WebResourceRequested),
+  which is exactly why every number measured overnight was clean.
+- FIX: cache keyed by url path, right mime per file (json /
+  octet-stream / javascript), directory emptied once per process so a
+  new build can never be served the previous build's bytes. The orphan
+  `tamescroll-synthetic.js` an old build leaves behind is deleted too
+  (that one landed AFTER the 1042 apk -- it rides the next release).
+- **VERIFIED ON THE ANDROID PATH, emulator-5554 x86_64 1042:**
+  cache/tamescroll-synthetic/ holds SEVEN distinct files (gaze-page.js
+  1027768, models_blazeface .json/.bin, models_faceres .json/.bin,
+  models_nsfw .json/.bin) where the old code wrote one. Search feed
+  screenshot (spikes/emu-search-1042.png): men sharp, avatar sharp,
+  women covered -- differentiated verdicts, not blanket blur.
+- HARNESS: the owner's phone (M2010J19SI, arm64) is plugged in and adb
+  sees it, but MIUI still refuses `adb install`
+  (INSTALL_FAILED_USER_RESTRICTED) -- push to /sdcard/Download and he
+  installs from Files. `adb forward` refuses with "more than one
+  device/emulator" even WITH -s/-e/-t, so no CDP into the emulator this
+  session; run-as + screencap answered it instead. Git Bash mangles
+  /sdcard and /data paths -- MSYS2_ARG_CONV_EXCL on the adb arg only.
+- RELEASE GOTCHA: `gh release create` names the asset after the FILE, so
+  uploading from a temp path published tmp-tamescroll-v0.1.42.apk and
+  the manifest url 404d. Re-upload under the right name; the download
+  url then 404s for ~a minute before it serves.
+- gaze 321/321, cargo 54/54 (new test fails if the single slot returns).
 **Session 2026-08-29 (overnight) -- THE FIRST THUMBNAIL, AND A SERVICE
 WORKER THAT EATS OUR OWN URLS.** Owner: "just work on YouTube bugs and
 fixes optimization ... it needs to work blazing fast". Every number below

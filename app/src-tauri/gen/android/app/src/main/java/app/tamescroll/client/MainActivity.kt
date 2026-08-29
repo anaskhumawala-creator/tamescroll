@@ -529,6 +529,9 @@ class MainActivity : TauriActivity() {
     syntheticDir?.let { return it }
     val dir = java.io.File(cacheDir, "tamescroll-synthetic")
     if (dir.exists()) dir.deleteRecursively()
+    // The single-slot cache this replaced left a file behind, and it is
+    // the whole bundle — dead weight on a phone that has no room for it.
+    java.io.File(cacheDir, "tamescroll-synthetic.js").delete()
     dir.mkdirs()
     syntheticDir = dir
     return dir
