@@ -1,7 +1,7 @@
 {
-  "versionCode": 1043,
-  "versionName": "0.1.43",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.43/tamescroll-v0.1.43.apk",
-  "sha256": "988c072d152b3d9a265e15b3f33474dc708f55067e4020be78adbc850f2762ce",
-  "notes": "Faster warm-up; desktop YouTube worker"
+  "versionCode": 1044,
+  "versionName": "0.1.44",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.44/tamescroll-v0.1.44.apk",
+  "sha256": "ab70892ed8aa0515071ffdf49fa1959c92d9642ba7238eafecb439e506fea767",
+  "notes": "Avatar blur confined; smoother home scroll"
 }
