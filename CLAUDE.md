@@ -63,9 +63,47 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-29 07:05 (v0.1.42/1042 RELEASED, apk sha
-ce61f8ae, raw manifest verified).
+**Last updated:** 2026-08-29 15:00 (v0.1.43/1043 RELEASED, apk sha
+988c072d, raw manifest verified).
 
+**Session 2026-08-29 afternoon -- A QUERY STRING IS WHAT GETS PAST A
+SERVICE WORKER.** Owner: "do all improvements available".
+- **www.youtube HAS RUN THE INFERENCE WORKER FOR THE FIRST TIME.** Its
+  service worker answered our bare `/__tamescroll/` path with YouTube's
+  own 404 (758 bytes). The IDENTICAL path with a query comes straight
+  through to our interceptor: 200, our 1027768-byte bundle, 10ms, and a
+  Worker built from it answered in 52ms -- while the bare path, asked
+  for moments later on the same page, still failed. Every synthetic url
+  now carries `?v=<bundle stamp>` (app/gaze/src/synthetic-url.mjs);
+  both interceptors already matched on path and dropped the query.
+  MEASURED on www.youtube, two navs: worker alive on webgl, up 307-389ms,
+  models 461-559ms, warm 360-462ms, page eval 19-20ms, and the page
+  carries NO models at all. Before: dead worker, 22.7MB parsed in page.
+  DO NOT "simplify" the query away.
+- **EACH MODEL IS WARMED THE MOMENT IT LANDS**, so its shader
+  compilation overlaps the download of the ones behind it. m.youtube
+  first thumbnail 1057-1258ms (was 1242-1290), worker ready 959-1164
+  (was 1150-1196). warmMs READS HIGHER now because it spans the loads
+  it hides behind -- do not read that as a regression.
+- **THE PRESTART NOW HAS A MODE STAMP.** The sessionStorage hint can
+  only exist after a page of ours already ran on that origin, so the
+  first navigation of a session could never prestart. The window's mode
+  is stamped in and consulted ONLY when there is no hint; a hint the
+  page wrote always wins, so switching to off still stands it down.
+  Cold worker start 1531ms -> 179ms. HONEST: cold first thumbnail did
+  NOT move (2932 vs 2907ms) -- cold cost is model load + shader
+  compile, not start time. Android is unaffected (its init script is
+  built once at app start, when the mode is still "off"), so the phone
+  keeps prestarting from the second navigation on.
+- REGRESSION SWEEP after the query change, all five platforms in one
+  run: reddit / x / instagram / facebook / m.youtube all worker alive,
+  backend webgl, **0 CSP violations**.
+- NOT DONE, decided: persisting SYNTHETIC_HOSTS across runs would save
+  the one slow page per host per launch (an unproven host still gets
+  the models inlined: up 1782-2793ms vs 521ms once proven), but a stale
+  "reachable" record recreates exactly the all-blurred failure of this
+  morning. Left in memory deliberately.
+- gaze 324/324, cargo 55/55.
 **Session 2026-08-29 morning -- ONE CACHE SLOT ANSWERED EVERY ONE OF OUR
 OWN URLS.** Owner, on 1041: "the home screen all the thumbnails are
 blurred", then "even in recommendations".
