@@ -32,6 +32,38 @@
    attribute — that exact leak put onboarding under the settings panes. */
 [hidden] { display: none !important; }
 
+/* EVERY SCREEN CHANGE IN OUR OWN UI WAS A HARD CUT. Views, settings
+   panes and onboarding steps all swap by toggling `hidden`, so the new
+   screen simply replaced the old one in one frame — the one place the
+   app reads as a web page rather than an app. Taking an element out of
+   `display: none` restarts its CSS animations, so the incoming screen
+   animates itself and nothing has to be sequenced in JS.
+   Motion only: no colour, spacing or copy is touched by this. */
+@keyframes ts-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+#view-launcher:not([hidden]),
+#view-settings:not([hidden]),
+#view-onboard:not([hidden]),
+.pane:not([hidden]),
+.ob-step:not([hidden]) {
+  animation: ts-enter 0.18s cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+/* Anyone who has asked their phone to stop moving things gets the hard
+   cut back, everywhere, including the transitions above this. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 html, body { height: 100%; overscroll-behavior: none; }
 
 body {

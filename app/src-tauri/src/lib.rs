@@ -530,7 +530,18 @@ ytd-consent-bump-v2-lightbox { display: none !important; }
 }
 
 fn chrome_css() -> &'static str {
+    // The blur switch is OUR control on someone else's page, and it was
+    // the only button in the app with no press state: the platform's own
+    // ripple is suppressed by the line above, and the pill is built with
+    // inline styles that carry none of their own. A press that shows
+    // nothing reads as a button that did not work.
+    //
+    // Motion only -- the pill's size, colours and copy are untouched,
+    // and a phone set to reduce motion gets the transition removed.
     "* { -webkit-tap-highlight-color: transparent !important; }
+.ts-gaze-pill { transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), opacity 0.12s linear; }
+.ts-gaze-pill:active { transform: scale(0.94); opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .ts-gaze-pill { transition: none; } }
 "
 }
 
@@ -2718,6 +2729,39 @@ mod tests {
     /// recognise, never silently pass an unknown string through to the
     /// webview-building code.
     #[test]
+    /// The blur switch is the one control of ours that lives on someone
+    /// else's page, and the tap-highlight kill above removes the only
+    /// press feedback it had. A press that shows nothing reads as a
+    /// button that did not work.
+    #[test]
+    fn the_blur_switch_shows_that_it_was_pressed() {
+        let css = chrome_css();
+        assert!(
+            css.contains(".ts-gaze-pill:active"),
+            "the pill has a pressed state of its own"
+        );
+        assert!(
+            css.contains("prefers-reduced-motion"),
+            "a phone told to reduce motion gets the hard state back"
+        );
+        // Motion only: the pill's own rules may set nothing but motion.
+        for line in css.lines().filter(|l| l.contains(".ts-gaze-pill")) {
+            // A line may be wrapped in a media query, so the declarations
+            // are always after the LAST brace.
+            let body = line.rsplit('{').next().unwrap_or("");
+            for decl in body.trim_end_matches(&['}', ' '][..]).split(';') {
+                let prop = decl.split(':').next().unwrap_or("").trim();
+                if prop.is_empty() {
+                    continue;
+                }
+                assert!(
+                    matches!(prop, "transition" | "transform" | "opacity"),
+                    "chrome_css must not restyle the pill: {prop}"
+                );
+            }
+        }
+    }
+
     /// The consent wall's hide and its scroll release must ship as one
     /// thing. Hiding a full-screen dialog whose lock lives on <body>
     /// leaves a page that looks normal and cannot be scrolled -- the
