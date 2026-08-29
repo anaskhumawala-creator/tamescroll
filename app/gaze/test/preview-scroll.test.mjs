@@ -22,3 +22,28 @@ test('the watch player is never skipped -- that page has no preview', () => {
   assert.ok(fn.includes("'/watch'"), 'watch pages must be excluded by path');
   assert.ok(fn.includes('return false'), 'an unreadable path must not skip passes');
 });
+
+const mini = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
+
+test('the drag gesture never binds a non-passive listener off the watch page', () => {
+  const down = mini.slice(mini.indexOf('function onDown('), mini.indexOf('function onDown(') + 420);
+  assert.ok(down.includes('watchPage()'), 'onDown must refuse off /watch');
+  assert.ok(
+    down.indexOf('watchPage()') < down.indexOf('inPlayer(target)'),
+    'the page check must come before the player check, or a feed preview still binds'
+  );
+});
+
+test('a navigation off the watch page takes the listener back off', () => {
+  assert.ok(mini.includes('removeEventListener('), 'unbindHost must actually remove it');
+  const down = mini.slice(mini.indexOf('function onDown('), mini.indexOf('function onDown(') + 420);
+  assert.ok(down.includes('unbindHost()'), 'and a touch off /watch must trigger it');
+});
+
+test('the only non-passive listener is on the player, never the document', () => {
+  const doc = mini.split('doc.addEventListener').slice(1);
+  for (const block of doc) {
+    const head = block.slice(0, 400);
+    assert.ok(!/passive:\s*false/.test(head), 'a non-passive document listener costs every scroll');
+  }
+});

@@ -168,6 +168,50 @@ var entries = [];
 var wholeBlurClass = null;
 var started = false;
 
+/**
+ * The bottom edge of whatever fixed/sticky chrome is painted OVER this
+ * point, or 0 when nothing is.
+ *
+ * A patch lives inside its own thumbnail, which is the right anchor --
+ * but it does not share a stacking context with the page's sticky video
+ * player, so a recommendation scrolling up UNDER the player carried its
+ * patch over the top of the video (owner, 2026-08-30, screenshot: a
+ * blur rectangle standing on the player while he scrolled). The patch
+ * has to stop where the thing covering its image starts.
+ *
+ * elementsFromPoint answers what actually paints there, so no selector
+ * is guessed: walk each hit's ancestors, take the first fixed or sticky
+ * box that is not an ancestor of our own element.
+ */
+function occluderBottom(x, y, el) {
+  if (typeof document.elementsFromPoint !== 'function') return 0;
+  var hits;
+  try {
+    hits = document.elementsFromPoint(x, y);
+  } catch (e) {
+    return 0;
+  }
+  if (!hits || !hits.length) return 0;
+  for (var i = 0; i < hits.length; i++) {
+    var node = hits[i];
+    if (node === el || (node.contains && node.contains(el))) return 0; // our own image is on top
+    for (var up = node; up && up !== document.body; up = up.parentElement) {
+      if (up.contains && up.contains(el)) break;
+      var pos;
+      try {
+        pos = getComputedStyle(up).position;
+      } catch (e) {
+        break;
+      }
+      if (pos === 'fixed' || pos === 'sticky') {
+        var r = up.getBoundingClientRect();
+        if (r.height > 0 && r.bottom > y) return r.bottom;
+      }
+    }
+  }
+  return 0;
+}
+
 function makeOverlay(radius) {
   // Near-rectangular patch (owner 2026-08-24: heavy rounding read as
   // "weird"). z-index 2: above the <img> inside the thumbnail's own
@@ -226,8 +270,40 @@ function positionEntry(entry) {
     var extra = entry.overlays.pop();
     if (extra.parentNode) extra.parentNode.removeChild(extra);
   }
+  // Only images that have scrolled into the top of the viewport can be
+  // under sticky chrome, and that check costs a hit-test -- so ask once
+  // per entry, and only up there.
+  var occ = 0;
+  var vh = window.innerHeight || 0;
+  if (elRect.top < vh * 0.6 && elRect.bottom > 0) {
+    // An image half above the fold is exactly the one sliding under the
+    // chrome, and a hit-test off the top of the viewport answers
+    // nothing -- so sample at the first row of it that is on screen.
+    occ = occluderBottom(
+      elRect.left + elRect.width / 2,
+      Math.max(1, elRect.top + 1),
+      entry.el
+    );
+  }
   for (var i = 0; i < entry.boxes.length; i++) {
-    place(entry.overlays[i], boxToParentRect(parentRect, elRect, entry.boxes[i]));
+    var rect = boxToParentRect(parentRect, elRect, entry.boxes[i]);
+    var overlay = entry.overlays[i];
+    if (occ > 0) {
+      var vTop = parentRect.top + rect.top;
+      var cut = occ - vTop;
+      if (cut >= rect.height) {
+        // Entirely behind the chrome: the pixels it was covering are not
+        // on screen, so nothing is exposed by standing down.
+        overlay.style.display = 'none';
+        continue;
+      }
+      if (cut > 0) {
+        rect.top += cut;
+        rect.height -= cut;
+      }
+    }
+    overlay.style.display = '';
+    place(overlay, rect);
   }
   entry.lastRect = elRect;
   return true;

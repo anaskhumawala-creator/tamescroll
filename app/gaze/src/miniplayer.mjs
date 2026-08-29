@@ -199,24 +199,60 @@ export function installMiniplayer(win) {
   // path. Bound on touchstart, which fires before the touchmoves of the
   // same gesture, so the first drag is already covered -- and a page
   // nobody drags never pays anything.
+  //
+  // AND IT ONLY EVER BINDS ON THE WATCH PAGE. m.youtube plays feed
+  // previews into the SAME shared player, so on the home feed a finger
+  // landing on a preview bound the non-passive listener and took the
+  // fast scroll path away right there -- the browser had to hold the
+  // touch for our JS, and the press state painted on a video the owner
+  // was only scrolling past (2026-08-29: "the video gets highlighted
+  // again and again ... I'm not tapping it"). The miniplayer is a watch
+  // page behaviour anyway: leaving /watch on m.youtube is a hard
+  // navigation, so there is nothing on a feed for this gesture to do.
   var boundHosts = typeof WeakSet === 'function' ? new WeakSet() : null;
+  var bound = null;
+
+  function watchPage() {
+    try {
+      return location.pathname.indexOf('/watch') === 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // A single-page navigation off /watch leaves the listener attached to
+  // a container the page keeps, so it has to come back off.
+  function unbindHost() {
+    if (!bound) return;
+    try {
+      bound.host.removeEventListener('touchmove', bound.fn, { capture: true });
+    } catch (e) {
+      /* the host may already be gone with its document */
+    }
+    if (boundHosts) boundHosts.delete(bound.host);
+    bound = null;
+  }
+
   function bindHost(pc) {
     if (!pc || typeof pc.addEventListener !== 'function') return;
     if (boundHosts) {
       if (boundHosts.has(pc)) return;
       boundHosts.add(pc);
     }
-    pc.addEventListener(
-      'touchmove',
-      function (e) {
-        var p = touchXY(e);
-        if (p) onMove(p.x, p.y, e);
-      },
-      { capture: true, passive: false }
-    );
+    var fn = function (e) {
+      var p = touchXY(e);
+      if (p) onMove(p.x, p.y, e);
+    };
+    pc.addEventListener('touchmove', fn, { capture: true, passive: false });
+    bound = { host: pc, fn: fn };
   }
 
   function onDown(x, y, target) {
+    if (!watchPage()) {
+      unbindHost();
+      start = null;
+      return;
+    }
     if (!inPlayer(target)) {
       start = null;
       return;
