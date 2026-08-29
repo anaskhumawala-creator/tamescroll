@@ -70,8 +70,46 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 01:20 (v0.1.45/1045 RELEASED, apk sha
-b247b653, raw manifest verified; 1046 building).
+**Last updated:** 2026-08-30 02:00 (v0.1.47/1047 RELEASED, apk sha
+5ac1215a, raw manifest verified).
+
+**Session 2026-08-30 (overnight loop) -- GOOGLE'S COOKIE WALL, AND THE
+SCROLL LOCK THAT OUTLIVES HIDING IT.**
+- **m.youtube SERVES A FULL-SCREEN CONSENT WALL AND WE WERE SHOWING
+  IT.** MEASURED signed out on the headless emulator: search AND home
+  render `ytm-consent-bump-v2-renderer` ("Before you continue to
+  YouTube"), position fixed, 412x839, over a page that is fully built
+  behind it (39 feed items, 12,140px of content). NO NAGS, and this is
+  the biggest one there is.
+- **THE TRAP: HIDING IT ALONE IS WORSE THAN LEAVING IT.** The lock is
+  not on the dialog. <body> gets a `modal-open-body` ATTRIBUTE and
+  YouTube's own sheet is `[modal-open-body]{position:fixed;left:0;
+  right:0}` plus an inline `top:0`; window.scrollY stays 0 whatever you
+  drive. display:none on the renderer leaves a page that looks
+  completely normal and cannot be scrolled at all.
+- So both ship from `consent_css()` in lib.rs, NOT rules/youtube.txt:
+  surfaces_css only ever emits `display: none`, so the release could
+  not sit beside the hide there, and an OTA delivering one without the
+  other IS the frozen page. Both selectors are gated on the same
+  `:has()` so an old WebView drops BOTH and the user gets the ordinary
+  wall -- annoying, and working.
+- VERIFIED three states in one emulator run: wall + no fix = body
+  fixed, scrollY 0; with the fix = body static, scrollY 1800, dialog
+  display none; CONTROL, a legitimate `modal-open-body` with no consent
+  element = still locked, moved 0 (YouTube's own sheets untouched).
+  Delivered: the live injected sheet carries both rules, 36,004 bytes.
+- **TWO NEGATIVE RESULTS, do not redo them.** (1) Non-passive listener
+  audit across gaze/src and src: the ONLY scroll-blocking listener in
+  the app is the miniplayer's own player-scoped touchmove. Nothing else
+  can make a touch feel caught. (2) The image drain is NOT stuck when
+  it stops: 35 pending images all sat at top -4728..-5730, correctly
+  deferred as more than two viewports behind, and scrolling back
+  drained 34 -> 21 in 10s.
+- PROBE GOTCHA: on m.youtube the consent wall makes <body>
+  position:fixed, so `document.scrollingElement.scrollBy` moves 0px and
+  a probe reads a healthy page as a dead one. Drive `window.scrollBy`
+  and PRINT the distance. spikes/gauntlet/probe_scroll_emu.py does.
+- cargo 56/56, gaze 344/344.
 
 **Session 2026-08-30 -- THE DRAG STOPPED ARMING ON THE FEED, AND THE
 MINI PLAYER GREW THE REST OF YOUTUBE'S.** Two owner reports, both of

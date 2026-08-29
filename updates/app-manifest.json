@@ -1,7 +1,7 @@
 {
-  "versionCode": 1046,
-  "versionName": "0.1.46",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.46/tamescroll-v0.1.46.apk",
-  "sha256": "0fcc8f377e78977b61b0c75ad923581a19ddc3da2ee642c84428b22f4c71a8d9",
-  "notes": "Mini player follows your finger, has play/pause and close, and flings away."
+  "versionCode": 1047,
+  "versionName": "0.1.47",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.47/tamescroll-v0.1.47.apk",
+  "sha256": "5ac1215a0ce92b450f03f90f3f3f16eca93161616a03818b98a148b6bfe11d81",
+  "notes": "The YouTube cookie wall is gone, and so is the scroll lock behind it."
 }
