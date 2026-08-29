@@ -2525,6 +2525,23 @@ mod tests {
     /// not ride it. Gated because it runs on every document in the
     /// window: without the mode check it would start a worker and load
     /// three models on a page the user asked to see unfiltered.
+    /// Android answers our own urls from a file cache. It used to hold
+    /// ONE slot, so the bundle it cached first was handed back for every
+    /// model the worker fetched afterwards: nothing parsed, no models
+    /// loaded, and blur-first left every thumbnail covered on the phone
+    /// while the desktop — which answers per request — measured clean.
+    #[test]
+    fn android_caches_every_synthetic_url_separately() {
+        let kt = include_str!(
+            "../gen/android/app/src/main/java/app/tamescroll/client/MainActivity.kt"
+        );
+        assert!(
+            !kt.contains("private var syntheticFile:"),
+            "a single-slot synthetic cache serves one url's bytes for all of them"
+        );
+        assert!(kt.contains("syntheticFiles[key]"), "cache must be keyed by url path");
+    }
+
     #[test]
     fn the_worker_prestart_is_small_and_only_fires_in_smart_mode() {
         let js = worker_prestart_script();

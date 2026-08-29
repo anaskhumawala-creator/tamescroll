@@ -512,23 +512,42 @@ class MainActivity : TauriActivity() {
   /// a url but us.
   private external fun nativeSyntheticResource(url: String): ByteArray?
 
-  /// The script is ~16MB, so it crosses JNI once per process and is then
-  /// served from a file: a cached ByteArray would sit in the heap of a
-  /// device that has none to spare, and re-reading it per page load
-  /// would copy it again.
-  private var syntheticFile: java.io.File? = null
+  /// Every synthetic url gets its OWN cache entry. A single slot was a
+  /// real bug: the first `/__tamescroll/` request (the bundle) filled it
+  /// and every later one — the model json and weights the worker fetches
+  /// — was answered with those same bytes, so no model ever parsed and
+  /// blur-first left every thumbnail covered.
+  ///
+  /// Bytes cross JNI once per url per process and are then served from a
+  /// file: a cached ByteArray would sit in the heap of a device that has
+  /// none to spare. The directory is emptied once per process so a new
+  /// build can never be served the previous build's bytes.
+  private val syntheticFiles = java.util.concurrent.ConcurrentHashMap<String, java.io.File>()
+  private var syntheticDir: java.io.File? = null
+
+  private fun syntheticCacheDir(): java.io.File {
+    syntheticDir?.let { return it }
+    val dir = java.io.File(cacheDir, "tamescroll-synthetic")
+    if (dir.exists()) dir.deleteRecursively()
+    dir.mkdirs()
+    syntheticDir = dir
+    return dir
+  }
 
   private fun syntheticResponse(url: String): WebResourceResponse? {
     try {
-      val cached = syntheticFile
+      val path = url.substringAfter("/__tamescroll/").substringBefore('?')
+      if (path.isEmpty()) return null
+      val key = path.replace(Regex("[^A-Za-z0-9._-]"), "_")
+      val cached = syntheticFiles[key]
       if (cached != null && cached.exists()) {
-        return syntheticStream(java.io.FileInputStream(cached))
+        return syntheticStream(path, java.io.FileInputStream(cached))
       }
       val bytes = nativeSyntheticResource(url) ?: return null
-      val out = java.io.File(cacheDir, "tamescroll-synthetic.js")
+      val out = java.io.File(syntheticCacheDir(), key)
       out.writeBytes(bytes)
-      syntheticFile = out
-      return syntheticStream(java.io.FileInputStream(out))
+      syntheticFiles[key] = out
+      return syntheticStream(path, java.io.FileInputStream(out))
     } catch (e: Throwable) {
       // Falling through means the page simply does not get a worker and
       // the in-page pipeline runs, which is the previous behaviour.
@@ -537,9 +556,16 @@ class MainActivity : TauriActivity() {
     }
   }
 
-  private fun syntheticStream(stream: java.io.InputStream): WebResourceResponse =
+  private fun syntheticMime(path: String): String =
+    when {
+      path.endsWith(".json") -> "application/json"
+      path.endsWith(".bin") -> "application/octet-stream"
+      else -> "text/javascript"
+    }
+
+  private fun syntheticStream(path: String, stream: java.io.InputStream): WebResourceResponse =
     WebResourceResponse(
-      "text/javascript",
+      syntheticMime(path),
       "utf-8",
       200,
       "OK",
