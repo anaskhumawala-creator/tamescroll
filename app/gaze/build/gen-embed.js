@@ -1,11 +1,15 @@
 // Reads the vendored BlazeFace model files (models/blazeface.{json,bin},
 // copied from spikes/gaze-inline/models/ — see docs/gaze-research.md) and
 // emits a JS module embedding the topology JSON + base64 weights, so the
-// built bundle needs zero network/fetch at runtime. Reddit's CSP has no
-// `connect-src`/`worker-src` grant (falls back to `default-src 'none'`),
-// which the 2026-08-18 spike proved kills a runtime fetch outright —
-// inlining is the only delivery path that works unconditionally on all
-// three platforms.
+// built bundle needs zero network/fetch at runtime.
+//
+// STALE, AND UNUSED BY THE BUILD SINCE 2026-08-29. This file used to say
+// that Reddit's CSP kills a runtime fetch, so inlining was the only
+// delivery. Re-measured on the live app: fetching our own same-origin
+// url succeeded on reddit, x, instagram, facebook and youtube with zero
+// CSP violations, and the models now ship as bytes (lib.rs
+// synthetic_resource, detector.js ioHandlerFor). Kept only because it
+// still documents how the vendored files were produced.
 const fs = require('fs');
 const path = require('path');
 

@@ -1,7 +1,7 @@
 {
-  "versionCode": 1042,
-  "versionName": "0.1.42",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.42/tamescroll-v0.1.42.apk",
-  "sha256": "ce61f8ae057ecb431657e3c22f21c596132fb1b4a089213027fb9601ebc1a680",
-  "notes": "Thumbnails stopped clearing on Android; fixed"
+  "versionCode": 1043,
+  "versionName": "0.1.43",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.43/tamescroll-v0.1.43.apk",
+  "sha256": "988c072d152b3d9a265e15b3f33474dc708f55067e4020be78adbc850f2762ce",
+  "notes": "Faster warm-up; desktop YouTube worker"
 }
