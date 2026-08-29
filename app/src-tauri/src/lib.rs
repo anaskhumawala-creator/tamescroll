@@ -525,6 +525,7 @@ fn surfaces_css(platform_id: &str, shown: &[String]) -> String {
 fn consent_css() -> &'static str {
     "body[modal-open-body]:has(ytm-consent-bump-v2-renderer) { position: static !important; top: auto !important; left: auto !important; right: auto !important; }
 body:has(ytm-consent-bump-v2-renderer) ytm-consent-bump-v2-renderer { display: none !important; }
+ytd-consent-bump-v2-lightbox { display: none !important; }
 "
 }
 
@@ -2754,6 +2755,23 @@ mod tests {
         );
         assert!(page.contains("ytm-consent-bump-v2-renderer"));
         assert!(page.contains("position: static !important"));
+
+        // DESKTOP is a different element AND a different situation:
+        // MEASURED on www.youtube 2026-08-30, cookies cleared, the wall
+        // is a tp-yt-paper-dialog at z-index 2202 inside
+        // ytd-consent-bump-v2-lightbox -- and <body> stays static, a
+        // scroll moved 600px behind it, 7,188px of results laid out. No
+        // lock, so the hide needs no release and must NOT be gated on
+        // `:has()`: there is nothing for it to arrive together with, and
+        // gating it would drop it for no reason on an old engine.
+        let desktop = css
+            .lines()
+            .find(|l| l.contains("ytd-consent-bump-v2-lightbox"))
+            .expect("the desktop consent wall is hidden too");
+        assert!(
+            !desktop.contains(":has("),
+            "desktop has no scroll lock to release, so its hide stands alone"
+        );
     }
 
     fn unknown_gaze_mode_falls_back_to_off() {
