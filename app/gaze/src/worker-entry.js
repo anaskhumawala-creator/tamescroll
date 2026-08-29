@@ -101,15 +101,35 @@ export function startWorker() {
       var faceP = stage('face', detector.loadModel);
       var genderP = stage('gender', detector.loadGenderModel);
       var nsfwP = stage('nsfw', detector.loadNsfwModel);
-      models.face = await faceP;
-      models.gender = await genderP;
-      models.nsfw = await nsfwP;
       // Before saying ready: run each model once on a blank frame so the
       // WebGL kernels are compiled. Measured 2026-08-29 -- without this
       // the FIRST thumbnail of every navigation cost 1.25s against
       // 60-100ms for every one after it.
+      //
+      // Each model is warmed the moment IT lands rather than after all
+      // three, so a model's compilation overlaps the download of the
+      // ones behind it.
       var warmAt = performance.now();
-      var warmParts = await detector.warmUp(models);
+      var warmParts = {};
+      function warmWhen(p, key) {
+        return p.then(function (m) {
+          models[key] = m;
+          if (!m) return m;
+          var one = {};
+          one[key] = m;
+          return detector.warmUp(one).then(function (t) {
+            if (t) {
+              for (var k in t) warmParts[key === k ? k : key + ':' + k] = t[k];
+            }
+            return m;
+          });
+        });
+      }
+      await Promise.all([
+        warmWhen(faceP, 'face'),
+        warmWhen(genderP, 'gender'),
+        warmWhen(nsfwP, 'nsfw'),
+      ]);
       var warmMs = Math.round(performance.now() - warmAt);
       // A worker that is missing a model answers every image with "no
       // faces, not suggestive", which the main thread would act on by
