@@ -495,6 +495,39 @@ fn surfaces_css(platform_id: &str, shown: &[String]) -> String {
 /// sites already replace with their own ripples, so removing it takes
 /// nothing away, and it is desktop-inert (the property does nothing in
 /// WebView2).
+/// Google's "Before you continue to YouTube" consent lightbox, and the
+/// scroll lock underneath it.
+///
+/// MEASURED on m.youtube 2026-08-30, headless emulator: signed out, a
+/// search page renders `ytm-consent-bump-v2-renderer` (position fixed,
+/// 412x839, the whole screen) AND sets `modal-open-body` on <body>,
+/// whose own sheet is `[modal-open-body]{position:fixed;left:0;right:0}`
+/// plus an inline `top:0`. The page behind it is fully built -- 39 feed
+/// items, 12,140px of content -- and completely unreachable: window
+/// scrollY stays 0 no matter what you drive.
+///
+/// That is a platform nag, and NO NAGS is the rule (VISION.md). But
+/// HIDING IT ALONE IS WORSE THAN LEAVING IT: the lock is on <body>, not
+/// on the dialog, so a display:none on the renderer leaves a page that
+/// looks normal and cannot be scrolled at all. The two have to arrive
+/// together or not at all.
+///
+/// Which is why both are here rather than in rules/youtube.txt: our
+/// surfaces generator only ever emits `display: none`, so the release
+/// could not live beside the hide, and an OTA that delivered one without
+/// the other is exactly the frozen page above. Both selectors are gated
+/// on the same `:has()`, so a WebView too old to parse it drops BOTH and
+/// the user gets the ordinary Google wall -- annoying, and working.
+///
+/// `modal-open-body` is also how YouTube locks scroll behind its own
+/// legitimate sheets (share, settings), so the release is scoped to the
+/// consent dialog's presence and never touches those.
+fn consent_css() -> &'static str {
+    "body[modal-open-body]:has(ytm-consent-bump-v2-renderer) { position: static !important; top: auto !important; left: auto !important; right: auto !important; }
+body:has(ytm-consent-bump-v2-renderer) ytm-consent-bump-v2-renderer { display: none !important; }
+"
+}
+
 fn chrome_css() -> &'static str {
     "* { -webkit-tap-highlight-color: transparent !important; }
 "
@@ -503,6 +536,7 @@ fn chrome_css() -> &'static str {
 fn page_css(url: &str, platform_id: &str, blur: bool, shown: &[String]) -> String {
     let mut css = cosmetic_css(url);
     css.push_str(chrome_css());
+    css.push_str(consent_css());
     css.push_str(&surfaces_css(platform_id, shown));
     if blur {
         css.push_str(&blur_vars_css(blur_px()));
@@ -2683,6 +2717,45 @@ mod tests {
     /// recognise, never silently pass an unknown string through to the
     /// webview-building code.
     #[test]
+    /// The consent wall's hide and its scroll release must ship as one
+    /// thing. Hiding a full-screen dialog whose lock lives on <body>
+    /// leaves a page that looks normal and cannot be scrolled -- the
+    /// worst of the two states, and the reason both selectors are gated
+    /// on the same `:has()` (a WebView that cannot parse it drops both).
+    #[test]
+    fn the_consent_wall_is_never_hidden_without_releasing_the_scroll_lock() {
+        let css = consent_css();
+        let release = css
+            .lines()
+            .find(|l| l.contains("position: static"))
+            .expect("the scroll lock is released");
+        let hide = css
+            .lines()
+            .find(|l| l.contains("display: none"))
+            .expect("the consent dialog is hidden");
+        assert!(
+            release.contains(":has(ytm-consent-bump-v2-renderer)"),
+            "the release is scoped to the consent dialog, never to YouTube's own sheets"
+        );
+        assert!(
+            hide.contains(":has("),
+            "the hide is gated on the same feature as the release, so they drop together"
+        );
+        assert!(
+            release.contains("body[modal-open-body]"),
+            "the lock is the modal-open-body attribute, measured 2026-08-30"
+        );
+        // And it reaches a real page payload.
+        let page = page_css(
+            "https://m.youtube.com/results?search_query=x",
+            "youtube",
+            false,
+            &[],
+        );
+        assert!(page.contains("ytm-consent-bump-v2-renderer"));
+        assert!(page.contains("position: static !important"));
+    }
+
     fn unknown_gaze_mode_falls_back_to_off() {
         assert_eq!(gaze_mode("smart"), "smart");
         assert_eq!(gaze_mode("blur"), "blur");
