@@ -75,13 +75,91 @@ export function gestureVerdict(dx, dy, state) {
   return null;
 }
 
+export var DRAG_DISMISS_FRAC = 0.25; // of viewport width, sideways, while mini
+
+/// How far through the shrink a live drag is, 0..1.
+///
+/// The native app's player follows the finger the whole way and only
+/// snaps when you let go; ours used to sit still and then jump, which is
+/// the single biggest reason it did not feel like YouTube's.
+export function dragProgress(dy, state) {
+  if (state === 'full') return clamp01(dy / DRAG_ENTER_PX);
+  if (state === 'mini') return 1 - clamp01(-dy / DRAG_EXIT_PX);
+  return 0;
+}
+
+function clamp01(v) {
+  if (!(v > 0)) return 0;
+  return v > 1 ? 1 : v;
+}
+
+/// The transform partway between full size and the corner.
+///
+/// `t` is what miniTransform returned for this player; p 0 is untouched,
+/// p 1 is parked. Linear, because the easing belongs to the release --
+/// during the drag the finger IS the curve.
+export function blendTransform(t, p) {
+  var q = clamp01(p);
+  return { tx: t.tx * q, ty: t.ty * q, k: 1 + (t.k - 1) * q };
+}
+
+/// A sideways fling on the mini player. YouTube's throws it off screen
+/// and stops the video; ours does the same, then puts the page back the
+/// way it was rather than leaving a collapsed hole with nothing in it.
+export function dismissVerdict(dx, dy, vw, state) {
+  if (state !== 'mini') return null;
+  var ax = Math.abs(dx);
+  if (ax < DRAG_AXIS_RATIO * Math.abs(dy)) return null;
+  return ax >= Math.max(48, vw * DRAG_DISMISS_FRAC) ? (dx > 0 ? 'right' : 'left') : null;
+}
+
 var STYLE_ID = 'ts-mini-style';
 var COVER_ID = 'ts-mini-cover';
+var BTN_ID = 'ts-mini-btns';
+// The release is eased, the drag is not -- see blendTransform. 220ms on
+// a decelerating curve is what a native sheet uses; anything slower
+// reads as lag on a gesture the finger already finished.
+var EASE = 'cubic-bezier(.2,0,0,1)';
 var CSS =
-  'html.ts-mini #player-container-id{' +
+  'html.ts-mini #player-container-id,html.ts-mini-drag #player-container-id{' +
   'z-index:2147482000 !important;border-radius:10px !important;' +
   'overflow:hidden !important;box-shadow:0 8px 28px rgba(0,0,0,.5) !important;' +
   'transform-origin:0 0 !important;}' +
+  'html.ts-mini #player-container-id{transition:transform .22s ' +
+  EASE +
+  ',opacity .18s linear !important;}' +
+  // A finger mid-drag must not be chasing an animation: the transition
+  // is only on while the gesture is NOT holding the player.
+  'html.ts-mini-drag #player-container-id{transition:none !important;}' +
+  'html.ts-mini-gone #player-container-id{opacity:0 !important;' +
+  'pointer-events:none !important;}' +
+  // Every child of the container is inside the scale, so a 36px button
+  // would paint at 20px. Dividing by the live scale is what keeps the
+  // controls the size a thumb expects.
+  '#' +
+  BTN_ID +
+  '{position:absolute;top:0;left:0;right:0;display:flex;' +
+  'justify-content:flex-end;gap:calc(6px / var(--ts-mini-k,1));' +
+  'padding:calc(6px / var(--ts-mini-k,1));z-index:2147481000;}' +
+  '#' +
+  BTN_ID +
+  ' button{all:unset;display:flex;align-items:center;justify-content:center;' +
+  'width:calc(32px / var(--ts-mini-k,1));height:calc(32px / var(--ts-mini-k,1));' +
+  'border-radius:50%;background:rgba(0,0,0,.55);cursor:pointer;' +
+  'transition:background .12s linear,transform .12s ' +
+  EASE +
+  ';}' +
+  '#' +
+  BTN_ID +
+  ' button:active{background:rgba(0,0,0,.8);transform:scale(.92);}' +
+  '#' +
+  BTN_ID +
+  ' svg{width:calc(18px / var(--ts-mini-k,1));' +
+  'height:calc(18px / var(--ts-mini-k,1));fill:#fff;display:block;}' +
+  '@media (prefers-reduced-motion:reduce){html.ts-mini #player-container-id,' +
+  '#' +
+  BTN_ID +
+  ' button{transition:none !important;}}' +
   // `padding` is not belt-and-braces here: MEASURED 2026-08-28, the
   // placeholder's 223px comes from a padding-bottom aspect-ratio
   // trick on .player-size, so height:0 alone computed to 0px and
@@ -105,6 +183,8 @@ export function installMiniplayer(win) {
   var state = 'full';
   var start = null;
   var claimed = false;
+  var dragT = null;
+  var dragAxis = 'y';
 
   function container() {
     return doc.getElementById('player-container-id');
@@ -118,16 +198,40 @@ export function installMiniplayer(win) {
     (doc.head || doc.documentElement).appendChild(s);
   }
 
-  function place() {
-    var pc = container();
-    if (!pc || state !== 'mini') return;
+  // The parked transform for the player as it currently measures. Read
+  // once per gesture, not per move: measuring inside a touchmove forces
+  // a layout on every frame of a drag.
+  function parked(pc) {
     // Measure the UNtransformed box: clearing the transform first is the
     // only way to read where the fixed container actually sits, and it
     // is a single synchronous write/read/write inside one frame.
+    var prev = pc.style.transform;
+    var prevT = pc.style.transition;
+    // getBoundingClientRect forces the layout, and a forced layout on a
+    // cleared transform is enough to start the transition animating from
+    // full size. Measure with it off.
+    pc.style.transition = 'none';
     pc.style.transform = '';
     var r = pc.getBoundingClientRect();
     var t = miniTransform(r.width, r.height, win.innerWidth, win.innerHeight, r.left, r.top);
+    pc.style.transform = prev;
+    pc.style.transition = prevT;
+    return t;
+  }
+
+  function writeTransform(pc, t) {
     pc.style.transform = 'translate(' + t.tx + 'px,' + t.ty + 'px) scale(' + t.k + ')';
+    try {
+      pc.style.setProperty('--ts-mini-k', String(t.k));
+    } catch (e) {
+      /* a container without CSS custom property support just gets 1 */
+    }
+  }
+
+  function place() {
+    var pc = container();
+    if (!pc || state !== 'mini') return;
+    writeTransform(pc, parked(pc));
   }
 
   function cover(on) {
@@ -150,6 +254,121 @@ export function installMiniplayer(win) {
       setState('full');
     });
     pc.appendChild(c);
+    buttons(pc);
+  }
+
+  function icon(d) {
+    var svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    var path = doc.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    svg.appendChild(path);
+    return svg;
+  }
+
+  var PLAY_D = 'M8 5v14l11-7z';
+  var PAUSE_D = 'M6 5h4v14H6zm8 0h4v14h-4z';
+  var CLOSE_D =
+    'M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z';
+
+  // Play/pause and dismiss, the two controls the native mini player has.
+  function buttons(pc) {
+    if (doc.getElementById(BTN_ID)) return;
+    var bar = doc.createElement('div');
+    bar.id = BTN_ID;
+
+    var pp = doc.createElement('button');
+    pp.type = 'button';
+    pp.setAttribute('aria-label', 'Play or pause');
+    var v = doc.querySelector('#player-container-id video');
+    pp.appendChild(icon(v && !v.paused ? PAUSE_D : PLAY_D));
+    pp.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var vid = doc.querySelector('#player-container-id video');
+      if (!vid) return;
+      if (vid.paused) {
+        var pr = vid.play();
+        if (pr && pr.catch) pr.catch(function () {});
+      } else {
+        vid.pause();
+      }
+      syncPlayIcon();
+    });
+
+    var x = doc.createElement('button');
+    x.type = 'button';
+    x.setAttribute('aria-label', 'Close mini player');
+    x.appendChild(icon(CLOSE_D));
+    x.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dismiss(1);
+    });
+
+    bar.appendChild(pp);
+    bar.appendChild(x);
+    pc.appendChild(bar);
+    // The page pauses the video too -- its own controls are under our
+    // cover but a headphone button or an ad break is not.
+    if (v) {
+      v.addEventListener('play', syncPlayIcon);
+      v.addEventListener('pause', syncPlayIcon);
+    }
+    syncPlayIcon();
+  }
+
+  function syncPlayIcon() {
+    var bar = doc.getElementById(BTN_ID);
+    if (!bar) return;
+    var btn = bar.firstChild;
+    var vid = doc.querySelector('#player-container-id video');
+    if (!btn || !vid) return;
+    var want = vid.paused ? PLAY_D : PAUSE_D;
+    var path = btn.querySelector('path');
+    if (path && path.getAttribute('d') !== want) path.setAttribute('d', want);
+  }
+
+  function killButtons() {
+    var bar = doc.getElementById(BTN_ID);
+    if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
+    var v = doc.querySelector('#player-container-id video');
+    if (v) {
+      v.removeEventListener('play', syncPlayIcon);
+      v.removeEventListener('pause', syncPlayIcon);
+    }
+  }
+
+  // A fling sideways, or the X. The native app throws the player off
+  // screen and stops the video; we do the same and then restore the page
+  // to its full-size layout, because unlike the native app our player
+  // lives IN the page -- leaving it hidden would leave a collapsed band
+  // with nothing in it and no way back.
+  function dismiss(dir) {
+    var pc = container();
+    if (!pc || state !== 'mini') return;
+    var vid = doc.querySelector('#player-container-id video');
+    if (vid && !vid.paused) {
+      try {
+        vid.pause();
+      } catch (e) {
+        /* a player mid-teardown refuses; the exit below still runs */
+      }
+    }
+    var t = parked(pc);
+    pc.style.opacity = '';
+    doc.documentElement.classList.add('ts-mini-gone');
+    writeTransform(pc, { tx: t.tx + dir * win.innerWidth, ty: t.ty, k: t.k });
+    var done = false;
+    var finish = function () {
+      if (done) return;
+      done = true;
+      doc.documentElement.classList.remove('ts-mini-gone');
+      setState('full');
+    };
+    pc.addEventListener('transitionend', finish, { once: true });
+    win.setTimeout(finish, 300);
   }
 
   function setState(next) {
@@ -173,8 +392,14 @@ export function installMiniplayer(win) {
     } else {
       state = 'full';
       cover(false);
+      killButtons();
       doc.documentElement.classList.remove('ts-mini');
       pc.style.transform = '';
+      try {
+        pc.style.removeProperty('--ts-mini-k');
+      } catch (e) {
+        /* nothing set it in the first place */
+      }
     }
     try {
       win.__TS_MINI_STATE = state;
@@ -262,23 +487,87 @@ export function installMiniplayer(win) {
     claimed = false;
   }
 
+  function endDrag(pc) {
+    doc.documentElement.classList.remove('ts-mini-drag');
+    if (!pc) return;
+    pc.style.opacity = '';
+    if (state === 'mini') place();
+    else {
+      pc.style.transform = '';
+      try {
+        pc.style.removeProperty('--ts-mini-k');
+      } catch (e) {
+        /* never set */
+      }
+    }
+  }
+
   function onMove(x, y, ev) {
     if (!start) return;
     var dx = x - start.x;
     var dy = y - start.y;
-    if (!claimed && gestureVerdict(dx, dy, state)) claimed = true;
+    // The gesture is claimed the moment its DIRECTION is unambiguous,
+    // not when it has travelled far enough to commit -- the finger has
+    // to be able to drag the player back out again without letting go.
+    if (!claimed) {
+      var vertical = Math.abs(dy) >= DRAG_AXIS_RATIO * Math.abs(dx) && Math.abs(dy) >= 8;
+      // Sideways only means something once the player is already in the
+      // corner -- on the full-size player a horizontal swipe is the
+      // page's (YouTube's own seek/chapter gestures live there).
+      var sideways =
+        state === 'mini' && Math.abs(dx) >= DRAG_AXIS_RATIO * Math.abs(dy) && Math.abs(dx) >= 8;
+      var pc0 = vertical || sideways ? container() : null;
+      if (pc0) {
+        claimed = true;
+        dragAxis = vertical ? 'y' : 'x';
+        dragT = parked(pc0);
+        doc.documentElement.classList.add('ts-mini-drag');
+      }
+    }
     // Only once the drag IS ours do we take the scroll away from the
     // page -- a preventDefault before that would break normal scrolling
     // that happens to begin on the player.
-    if (claimed && ev && ev.cancelable) ev.preventDefault();
+    if (!claimed) return;
+    if (ev && ev.cancelable) ev.preventDefault();
+    var pc = container();
+    if (!pc || !dragT) return;
+    if (dragAxis === 'x') {
+      // Follows the finger 1:1, and fades as it goes -- the same read as
+      // the native app's throw-away.
+      var frac = Math.min(1, Math.abs(dx) / Math.max(1, win.innerWidth * DRAG_DISMISS_FRAC));
+      pc.style.opacity = String(1 - 0.45 * frac);
+      writeTransform(pc, { tx: dragT.tx + dx, ty: dragT.ty, k: dragT.k });
+      return;
+    }
+    writeTransform(pc, blendTransform(dragT, dragProgress(dy, state)));
   }
 
   function onUp(x, y) {
     if (!start) return;
-    var v = gestureVerdict(x - start.x, y - start.y, state);
+    var dx = x - start.x;
+    var dy = y - start.y;
+    var pc = container();
+    var away = dismissVerdict(dx, dy, win.innerWidth, state);
+    var v = gestureVerdict(dx, dy, state);
     start = null;
     claimed = false;
-    if (v) setState(v);
+    dragT = null;
+    dragAxis = 'y';
+    if (away) {
+      endDrag(pc);
+      dismiss(away === 'right' ? 1 : -1);
+      return;
+    }
+    if (v) {
+      // Land in the committed state first, so the eased transition runs
+      // from wherever the finger left the player rather than from the
+      // last frame's inline transform being thrown away.
+      doc.documentElement.classList.remove('ts-mini-drag');
+      if (pc) pc.style.opacity = '';
+      setState(v);
+      return;
+    }
+    endDrag(pc);
   }
 
   function touchXY(ev) {

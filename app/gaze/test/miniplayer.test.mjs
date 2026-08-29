@@ -99,3 +99,72 @@ test('nothing this installs may slow down a scroll it is not part of', () => {
   // And the one place that may cancel is bound to the player, not doc.
   assert.match(src, /pc\.addEventListener\(\s*'touchmove'/);
 });
+
+// --- "make mini player function exactly like yt" (owner, 2026-08-29) ---
+// The native player follows the finger the whole way, throws away
+// sideways, and carries play/pause + close. These test the arithmetic
+// behind all three; the DOM half is verified on the emulator.
+
+test('the shrink follows the finger instead of waiting for the commit', () => {
+  assert.equal(m.dragProgress(0, 'full'), 0);
+  assert.equal(m.dragProgress(m.DRAG_ENTER_PX / 2, 'full'), 0.5);
+  assert.equal(m.dragProgress(m.DRAG_ENTER_PX, 'full'), 1);
+  // Past the commit distance it stays parked -- never overshoots.
+  assert.equal(m.dragProgress(500, 'full'), 1);
+  // Dragging the wrong way for the state moves nothing.
+  assert.equal(m.dragProgress(-200, 'full'), 0);
+});
+
+test('dragging the mini player back up unwinds the same way', () => {
+  assert.equal(m.dragProgress(0, 'mini'), 1);
+  assert.equal(m.dragProgress(-m.DRAG_EXIT_PX / 2, 'mini'), 0.5);
+  assert.equal(m.dragProgress(-m.DRAG_EXIT_PX, 'mini'), 0);
+  assert.equal(m.dragProgress(-500, 'mini'), 0);
+});
+
+test('a partway drag is partway between full size and the corner', () => {
+  const t = m.miniTransform(PW, PH, VW, VH, 0, 48);
+  assert.deepEqual(m.blendTransform(t, 0), { tx: 0, ty: 0, k: 1 }, 'p=0 is untouched');
+  const done = m.blendTransform(t, 1);
+  assert.equal(done.tx, t.tx);
+  assert.equal(done.ty, t.ty);
+  assert.equal(done.k, t.k);
+  const half = m.blendTransform(t, 0.5);
+  assert.ok(half.k < 1 && half.k > t.k, 'between the two sizes, never outside them');
+  assert.ok(half.tx > 0 && half.tx < t.tx);
+  // Out-of-range progress cannot blow the player up or invert it.
+  assert.equal(m.blendTransform(t, 5).k, t.k);
+  assert.equal(m.blendTransform(t, -5).k, 1);
+});
+
+test('a sideways fling dismisses the mini player, and only the mini one', () => {
+  const far = VW * m.DRAG_DISMISS_FRAC + 1;
+  assert.equal(m.dismissVerdict(far, 0, VW, 'mini'), 'right');
+  assert.equal(m.dismissVerdict(-far, 0, VW, 'mini'), 'left');
+  // The full-size player owns its own horizontal gestures (seek).
+  assert.equal(m.dismissVerdict(far, 0, VW, 'full'), null);
+  // A short swipe, or one that is really a scroll, is not a dismiss.
+  assert.equal(m.dismissVerdict(20, 0, VW, 'mini'), null);
+  assert.equal(m.dismissVerdict(far, far, VW, 'mini'), null);
+});
+
+test('the dismiss distance never asks for more travel than the screen has', () => {
+  const t = m.dismissVerdict(60, 0, 120, 'mini');
+  assert.equal(t, 'right', 'a narrow viewport still has a reachable threshold');
+});
+
+test('the controls are sized against the live scale, not in raw pixels', () => {
+  // Everything inside the container is inside the scale, so a button in
+  // flat px paints ~half size. The regression is silent and visual.
+  const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
+  assert.match(src, /--ts-mini-k/, 'the live scale is published as a custom property');
+  assert.match(src, /calc\(32px \/ var\(--ts-mini-k,1\)\)/);
+  assert.match(src, /prefers-reduced-motion/, 'the transitions respect the OS setting');
+});
+
+test('the drag itself is never animated', () => {
+  // A transition running under a finger is the "chasing" feel; the ease
+  // belongs to the release only.
+  const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
+  assert.match(src, /html\.ts-mini-drag #player-container-id\{transition:none/);
+});
