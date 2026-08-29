@@ -70,8 +70,36 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 03:45 (v0.1.49/1049 RELEASED, apk sha
-75c239c3, raw manifest verified).
+**Last updated:** 2026-08-30 04:20 (v0.1.49/1049 is the shipped build;
+88dda9b committed on top, deliberately NOT released).
+
+**Session 2026-08-30 (loop 5) -- THE HARNESS WOBBLES 28%, SO MOST OF
+WHAT IT SAYS ABOUT SPEED IS NOISE.**
+- Scroll smoothness became measurable on the emulator FOR THE FIRST TIME
+  once the consent wall stopped locking <body> (1047). The first A/B
+  looked decisive -- smart 19.5fps vs off 45.1fps, same page, same
+  gesture -- and it is NOT safe to act on.
+- **probe_scroll_repeat.py runs ONE condition five times: 27.0 / 31.5 /
+  27.0 / 32.8 / 35.8 fps, a 28% SPREAD around the median**, app, page
+  and gesture identical. The decomposition run meant to separate paint
+  from compute (neutralise the blur CSS, keep every model running) came
+  back 6.6fps SLOWER without the blur -- wrong sign, inside the band.
+- **RULE: on this harness treat any frame-rate delta under ~30% as
+  noise, and never act on n=1.** Long tasks were 0-1 per run and near
+  zero in EVERY condition, so the scroll cost is not long main-thread
+  tasks; that leaves GPU contention and sub-50ms work, and this device
+  separates neither.
+- **resolveHost's page mutation is inert on m.youtube.** It writes
+  `position: relative` onto YouTube's own element, which would change
+  the containing block for any absolutely-positioned descendant (duration
+  badge, progress bar). MEASURED on a live search feed: 0 of 36
+  thumbnail hosts are static, so the write never fires, 0 descendants
+  re-anchored, 0 elements moved.
+- The drain showing 0 judged images during a scroll was the worker still
+  WARMING, not a stall.
+- Third independent route to the same conclusion: the phone is the only
+  machine that can answer a performance question about the phone.
+- No release: nothing user-visible changed. cargo 57/57, gaze 345/345.
 
 **Session 2026-08-30 (loop 4) -- OUR OWN UI WAS THE ONE THAT STILL FELT
 LIKE A WEB PAGE.**
