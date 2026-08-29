@@ -70,8 +70,39 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 02:00 (v0.1.47/1047 RELEASED, apk sha
-5ac1215a, raw manifest verified).
+**Last updated:** 2026-08-30 02:35 (v0.1.48/1048 RELEASED, apk sha
+d8168df1, raw manifest verified).
+
+**Session 2026-08-30 (loop 2) -- THE DESKTOP WALL, AND THE PATCH THAT
+CANNOT REACH THE PLAYER.**
+- **DESKTOP CONSENT IS A DIFFERENT ELEMENT AND A DIFFERENT SITUATION.**
+  MEASURED on www.youtube with cookies cleared: a tp-yt-paper-dialog at
+  z-index 2202 inside `ytd-consent-bump-v2-lightbox`, 412x839 -- but it
+  locks NOTHING. body stays static, a scroll moved 600px behind it,
+  7,188px of results already laid out. So the hide stands alone and is
+  deliberately NOT `:has()`-gated (mobile's is, because there the hide
+  and the scroll release must arrive together). VERIFIED live: dialog
+  839 -> 0, host display none, scroll 600 -> 1800, 21 results.
+- **THE IMAGE PATCH CANNOT PAINT OVER THE STICKY PLAYER, third
+  independent measurement.** probe_patch_over_player.py mints a patch
+  the way region-blur does (host = the image's parent, relative if
+  static, overlay absolute z-index 2) on a REAL watch-page
+  recommendation and walks it under the player in 60px steps: 8 samples
+  with genuine overlap, patch top 269 -> -149, and the player wins
+  elementsFromPoint every time. With the 232 patch samples and 900
+  in-player hit-tests from 1045, the z-index question is answered as
+  well as the geometry one. The occluder clamp stays as the net; the
+  owner's frame is still unexplained and needs the video + scroll
+  position to go further.
+- **PROBE GOTCHA THAT INVENTED A BUG:** a probe that CDP-navigates
+  straight to m.youtube never calls open_platform, so Rust's
+  SHOWN_STATE is empty and every default-shown surface reads as hidden
+  -- watch recommendations came back 196 elements all display:none,
+  which looks exactly like a broken default. Invoke open_platform from
+  the launcher first (it survives every later navigation in that
+  process). The real path was checked too: a force-stop resumes at the
+  LAUNCHER, so a restart cannot leave a page on an empty shown state.
+- cargo 56/56, gaze 344/344.
 
 **Session 2026-08-30 (overnight loop) -- GOOGLE'S COOKIE WALL, AND THE
 SCROLL LOCK THAT OUTLIVES HIDING IT.**
