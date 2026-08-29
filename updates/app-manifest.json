@@ -1,7 +1,7 @@
 {
-  "versionCode": 1045,
-  "versionName": "0.1.45",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.45/tamescroll-v0.1.45.apk",
-  "sha256": "b247b6535c35ec9b1dcc7d86508f219cedd0c9dd2b939491e4974bce3408f989",
-  "notes": "Miniplayer drag is watch-page only; patches stop at fixed chrome."
+  "versionCode": 1046,
+  "versionName": "0.1.46",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.46/tamescroll-v0.1.46.apk",
+  "sha256": "0fcc8f377e78977b61b0c75ad923581a19ddc3da2ee642c84428b22f4c71a8d9",
+  "notes": "Mini player follows your finger, has play/pause and close, and flings away."
 }

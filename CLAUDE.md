@@ -70,8 +70,56 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-29 20:15 (v0.1.44/1044 RELEASED, apk sha
-ab70892e, raw manifest verified).
+**Last updated:** 2026-08-30 01:20 (v0.1.45/1045 RELEASED, apk sha
+b247b653, raw manifest verified; 1046 building).
+
+**Session 2026-08-30 -- THE DRAG STOPPED ARMING ON THE FEED, AND THE
+MINI PLAYER GREW THE REST OF YOUTUBE'S.** Two owner reports, both of
+them the same module.
+- **1045: THE GESTURE WAS ARMING ON THE HOME FEED.** Owner: "the video
+  gets highlighted again and again ... I'm not tapping it." m.youtube
+  plays feed previews into the SAME shared #movie_player, so a finger
+  landing on a preview bound our non-passive touchmove right there and
+  took the fast scroll path away at exactly the moment he was scrolling
+  past. The miniplayer is a watch-page behaviour anyway -- leaving
+  /watch is a hard navigation -- so onDown now refuses off /watch and
+  unbinds a listener a single-page nav left behind.
+- **1045: A PATCH STOPS AT THE CHROME ABOVE IT.** His frame showed a
+  recommendation's blur painting over the sticky player. HONEST: the
+  mechanism was NOT reproduced (232 patch samples, 0 escapes; 900
+  in-player hit-tests, 0 patches on top). occluderBottom in
+  region-blur.mjs is a cause-independent safety net: an entry samples
+  elementsFromPoint once while it is in the top 60% of the viewport,
+  walks each hit's ANCESTOR chain for a fixed/sticky box that does not
+  contain the image, and clamps the patch top to its bottom (display
+  none when fully covered).
+- **1046: "make mini player function exactly like yt".** Three of the
+  four native behaviours are reachable on a web page; the fourth is
+  not, and miniplayer.mjs says so at the top.
+  (1) THE SHRINK FOLLOWS THE FINGER. blendTransform interpolates the
+  parked transform by dragProgress; ts-mini-drag kills the eased
+  transition while the finger holds it, because a transition running
+  under a finger IS the chasing feel. Measured on the emulator in one
+  gesture: scale 0.94 / 0.84 / 0.75 / 0.62 at 10/25/40/60px, landing
+  at 231px on the 12px margin.
+  (2) PLAY/PAUSE AND CLOSE. Every child of the container is inside the
+  scale, so a flat 32px button paints at 18 -- they are sized
+  calc(32px / var(--ts-mini-k)) and measured 57 physical px. The icon
+  follows the VIDEO's play/pause events, not our own click.
+  (3) A SIDEWAYS FLING THROWS IT AWAY, 1:1 with the finger, fading,
+  then stops the video. Where the native app leaves it gone, ours
+  restores the page: our player lives IN the page, so a hidden one
+  leaves a collapsed 232px band with no way back. Verified paused
+  true, placeholder 232 again, 0 buttons, transform cleared.
+  parked() measures with `transition:none` inline -- a forced layout on
+  a cleared transform is enough to start the animation from full size.
+- HARNESS: every check above ran on the HEADLESS emulator
+  (`emulator -no-window`) through spikes/gauntlet/probe_mini_yt.py and
+  emu_cdp.py. Nothing from a feed is ever drawn on the owner's monitor.
+  emu_cdp exposes `page()` (a ws url) and `Tab`; `page()` is not a Tab.
+- docs/speed-findings-2026-08-29.md records what actually made the app
+  fast and what is left, in order. Read it before optimising again.
+- gaze 344/344, cargo 55/55, tsc clean.
 
 **Session 2026-08-29 evening -- AN AVATAR HAS NO BODY, AND A HEADLESS
 EMULATOR IS THE HARNESS.** Owner, on the phone: "profile picture blur
