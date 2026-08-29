@@ -1172,8 +1172,12 @@ fn rules_refresh_script(url: &str, platform_id: &str, blur: bool, shown: &[Strin
 /// on this origin last time (init-entry, sessionStorage `tsGazeMode`).
 /// A stale note is harmless in both directions: an unadopted worker
 /// terminates itself, and a missing one just means today's timing.
-fn worker_prestart_script() -> &'static str {
-    r#"
+fn worker_prestart_script(mode: &str) -> String {
+    // The stamp is only consulted when the page has no hint of its own,
+    // which is the FIRST navigation of a session -- the one the user
+    // waits on most and the one the hint could never cover.
+    let stamped = if mode == "smart" { "smart" } else { "no" };
+    let body = r#"
 (function () {
   try {
     // Did this reach the page at all? "ran but bailed" and "never
@@ -1186,6 +1190,10 @@ fn worker_prestart_script() -> &'static str {
     if (window.__TS_GAZE_PREWORKER) return;
     var m = null;
     try { m = sessionStorage.getItem("tsGazeMode"); } catch (e) { m = "nostore"; }
+    // No hint yet means no page of ours has run on this origin this
+    // session, so the mode the window was opened in is the best answer
+    // there is. A hint the page DID write always wins over it.
+    if (m === null) m = "__TS_PRESTART_STAMP__";
     window.__TS_PRESTART_HINT = m;
     if (m !== "smart") return;
     // The query is what gets past www.youtube's service worker, which
@@ -1221,7 +1229,8 @@ fn worker_prestart_script() -> &'static str {
     try { window.__TS_PRESTART_ERR = String((e && e.message) || e).slice(0, 120); } catch (e2) {}
   }
 })();
-"#
+"#;
+    body.replace("__TS_PRESTART_STAMP__", stamped)
 }
 fn injection_script(css: &str, scriptlets: &str, scoped: bool) -> String {
     // JSON string, not a template literal: manual escaping missed `${`,
@@ -1476,7 +1485,7 @@ fn universal_injection_script() -> String {
 #[cfg(target_os = "android")]
 fn injection_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("ts-inject")
-        .js_init_script(worker_prestart_script().to_string() + &universal_injection_script())
+        .js_init_script(worker_prestart_script(gaze_state()) + &universal_injection_script())
         // Gaze rides page-load events because the mode is runtime state:
         // eval at Started so blur-first holds (the document exists but
         // nothing has painted), again at Finished as the fallback when
@@ -1616,7 +1625,7 @@ async fn open_platform(
     let built = WebviewWindowBuilder::new(&app, platform.id, WebviewUrl::External(url))
         .title(platform.name)
         .inner_size(1200.0, 860.0)
-        .initialization_script(&(worker_prestart_script().to_string() + &script))
+        .initialization_script(&(worker_prestart_script(mode) + &script))
         .on_navigation(move |url| {
             if url.host_str() == Some("tauri.localhost") {
                 if let Some(main) = home_app.get_webview_window("main") {
@@ -2544,9 +2553,19 @@ mod tests {
         assert!(kt.contains("syntheticFiles[key]"), "cache must be keyed by url path");
     }
 
+    /// The stamp only decides the FIRST navigation of a session, and it
+    /// must never turn the worker on in a mode that did not ask for it.
+    #[test]
+    fn the_prestart_stamp_carries_the_mode_the_window_opened_in() {
+        assert!(worker_prestart_script("smart").contains("m = \"smart\""));
+        let off = worker_prestart_script("off");
+        assert!(off.contains("m = \"no\""));
+        assert!(!off.contains("__TS_PRESTART_STAMP__"));
+    }
+
     #[test]
     fn the_worker_prestart_is_small_and_only_fires_in_smart_mode() {
-        let js = worker_prestart_script();
+        let js = worker_prestart_script("smart");
         assert!(js.len() < 4096, "prestart is {} bytes", js.len());
         assert!(
             js.contains("sessionStorage.getItem(\"tsGazeMode\")") && js.contains("!== \"smart\""),
