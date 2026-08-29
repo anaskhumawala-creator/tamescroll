@@ -8,6 +8,7 @@
 // keeps the in-page pipeline and uses it whenever `ready()` is false or
 // a request rejects, so the worst case is exactly today's behaviour.
 
+import { synthetic } from './synthetic-url.mjs';
 // The path our request interceptor answers on whatever origin asks
 // (lib.rs synthetic_resource). It must be same-origin: YouTube's
 // Trusted Types refuses a blob: worker and allows a same-origin script.
@@ -68,7 +69,7 @@ export function createWorkerClient(opts) {
   }
 
   function url() {
-    var u = origin + WORKER_PATH;
+    var u = origin + synthetic(WORKER_PATH);
     // Trusted Types: the policy is ours and creating one is allowed
     // because the page sends require-trusted-types-for WITHOUT a
     // trusted-types allow-list. Where Trusted Types is absent entirely

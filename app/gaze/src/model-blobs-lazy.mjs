@@ -20,6 +20,7 @@
 var MODELS_PATH = '/__tamescroll/models.js';
 var pending = null;
 
+import { synthetic } from './synthetic-url.mjs';
 function publish() {
   try {
     return typeof globalThis !== 'undefined' ? globalThis.__TS_GAZE_MODELS : null;
@@ -63,7 +64,7 @@ export function ready() {
       // SECOND worker on top of this one (init-entry).
       if (typeof document === 'undefined' && typeof importScripts === 'function') {
         self.__TS_GAZE_MODELS_ONLY = 1;
-        importScripts(scriptUrl(self.location.origin + MODELS_PATH));
+        importScripts(scriptUrl(self.location.origin + synthetic(MODELS_PATH)));
         if (publish()) resolve();
         else reject(new Error('models script loaded without publishing'));
         return;
@@ -77,7 +78,7 @@ export function ready() {
       s.onerror = function () {
         reject(new Error('models script failed'));
       };
-      s.src = scriptUrl(location.origin + MODELS_PATH);
+      s.src = scriptUrl(location.origin + synthetic(MODELS_PATH));
       (document.head || document.documentElement).appendChild(s);
     } catch (e) {
       reject(e);

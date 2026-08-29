@@ -81,7 +81,7 @@ test('with no prestart the client builds its own worker from our url', () => {
     function Ctor(url) { made.push(String(url)); return fakeWorker(); }
     createWorkerClient({ onEvent() {}, Worker: Ctor });
     assert.equal(made.length, 1);
-    assert.match(made[0], /\/__tamescroll\/gaze-page\.js$/);
+    assert.match(made[0], /\/__tamescroll\/gaze-page\.js\?v=/);
   } finally {
     delete global.window;
   }

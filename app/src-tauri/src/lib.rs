@@ -1188,7 +1188,9 @@ fn worker_prestart_script() -> &'static str {
     try { m = sessionStorage.getItem("tsGazeMode"); } catch (e) { m = "nostore"; }
     window.__TS_PRESTART_HINT = m;
     if (m !== "smart") return;
-    var u = location.origin + "/__tamescroll/gaze-page.js";
+    // The query is what gets past www.youtube's service worker, which
+    // answers our bare path with its own 404 (see synthetic-url.mjs).
+    var u = location.origin + "/__tamescroll/gaze-page.js?v=1";
     try {
       if (typeof trustedTypes !== "undefined" && trustedTypes.createPolicy) {
         u = trustedTypes

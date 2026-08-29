@@ -33,6 +33,7 @@ import {
 } from './person-gate.mjs';
 import { nonMaxSuppression } from './nms.mjs';
 
+import { synthetic } from './synthetic-url.mjs';
 export var INPUT_SIZE = 256; // matches the embedded face model's fixed input shape
 export var NSFW_INPUT_SIZE = 224; // MobileNetV2Mid fixed input shape
 export var GENDER_INPUT_SIZE = 224; // faceres (HSE-FaceRes) fixed input shape
@@ -142,10 +143,10 @@ function assetOrigin() {
 
 async function fetchedArtifacts(kind) {
   var base = assetOrigin() + '/__tamescroll/models/' + MODEL_ASSETS[kind];
-  var jsonRes = await fetch(base + '.json');
+  var jsonRes = await fetch(synthetic(base + '.json'));
   if (!jsonRes.ok) throw new Error('model json ' + jsonRes.status);
   var modelJson = await jsonRes.json();
-  var binRes = await fetch(base + '.bin');
+  var binRes = await fetch(synthetic(base + '.bin'));
   if (!binRes.ok) throw new Error('model bin ' + binRes.status);
   var weightData = await binRes.arrayBuffer();
   if (!weightData || !weightData.byteLength) throw new Error('model bin empty');
