@@ -70,8 +70,40 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 02:35 (v0.1.48/1048 RELEASED, apk sha
-d8168df1, raw manifest verified).
+**Last updated:** 2026-08-30 03:10 (v0.1.48/1048 is the shipped build;
+7e0478e committed on top, deliberately NOT released -- see below).
+
+**Session 2026-08-30 (loop 3) -- THE EMULATOR ANSWERED THE WRONG
+QUESTION, TWICE, AND CLOSED A LEDGER ITEM DOING IT.**
+- **A WARM-UP DIAGNOSTIC WAS ON THE CRITICAL PATH.** warmUp ran face and
+  nsfw a SECOND time to answer "was that all compilation?" -- 9-18ms on
+  the desktop, **face2 3552ms + nsfw2 3070ms on a real Android WebView**,
+  while nothing is judged and the feed stays fully covered. Now behind
+  `__TS_WARM_BENCH`. HONEST: wall-clock warm barely moved (15,907 ->
+  15,683ms) because the three models warm in PARALLEL and the second
+  runs hid inside the longest chain (gender; `gender:compile` alone is
+  ~10s). It removes 6.6s of GPU work; the phone benefit is a PREDICTION.
+  No release on its own.
+- **LEDGER ITEM 3 IS CLOSED: the first navigation of an app run is not
+  the slow one.** It is the one that gets models INLINED rather than
+  fetched, and the ledger predicted 1.2-2.2s for it. Measured through
+  the app, three navs in one run: first thumbnail 21,067 / 22,702 /
+  18,783ms -- the first is the FASTEST of the three. Persisting the
+  proven-host set across runs would buy nothing on Android, so its risk
+  (a stale "reachable" record recreates the all-blurred failure) is not
+  worth taking. Do not revisit without a number from the phone.
+- **WARM-UP IS 85-90% OF TIME-TO-FIRST-THUMBNAIL** on Android and gates
+  the drain, so the feed is covered for all of it. No ordering trick
+  removes it: ENGINE_COMPILE_ONLY is a GLOBAL flag, so a real pass can
+  never overlap another model's compile phase.
+- **THE EMULATED GPU CANNOT ANSWER A PERF QUESTION.** One BlazeFace pass
+  on a blank 256px frame: ~10s here, 20-60ms on the desktop. Ratios
+  inside one run are usable; absolute numbers are not.
+- NOT DONE, deliberately: profiling the owner's PHONE, which is ledger
+  item 1 and the only way past all of the above. It is plugged in and
+  adb sees it, but launching the app and driving it to YouTube at 3am
+  wakes his screen with feed content on it. Needs his go-ahead.
+- gaze 345/345, cargo 56/56.
 
 **Session 2026-08-30 (loop 2) -- THE DESKTOP WALL, AND THE PATCH THAT
 CANNOT REACH THE PLAYER.**
