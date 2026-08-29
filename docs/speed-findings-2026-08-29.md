@@ -54,6 +54,45 @@ Net, warm navigation: first thumbnail **2182-3200ms → 1057-1258ms**.
   top of judging every thumbnail. The watch page's list plays no
   previews — which is exactly why the owner found it smoother.
 
+## What a real Android WebView actually said (2026-08-30)
+
+Measured on the headless emulator through the app, three navigations to
+an m.youtube search, worker on webgl:
+
+| | first nav of the run | second | third |
+|---|---|---|---|
+| worker up | 1038ms | 666 | 596 |
+| bundle eval | 118ms | 16 | 15 |
+| model load (slowest) | ~2.9s | ~2.9s | ~2.9s |
+| **warm-up** | **17,967ms** | 15,773 | 15,907 |
+| ready | 19,397ms | 21,807 | 17,237 |
+| first thumbnail | 21,067ms | 22,702 | 18,783 |
+
+Three things fall out of that, and only one of them is actionable:
+
+1. **The first navigation of an app run is NOT the slow one.** It is the
+   one that gets the models inlined instead of fetched, and item 3 below
+   predicted a 1.2-2.2s penalty for it. There isn't one: 21.0s against
+   22.7s and 18.8s, inside the run-to-run spread. Persisting the
+   proven-host set would buy nothing on Android. Do not spend the risk.
+2. **Warm-up is 85-90% of time-to-first-thumbnail**, and nothing is
+   judged until it finishes -- so the whole feed stays covered for it.
+3. **The emulated GPU cannot answer the perf question.** A single
+   BlazeFace pass on a blank 256px frame costs ~10s here and 20-60ms on
+   the desktop. Ratios inside one run are meaningful; absolute numbers
+   are not, and neither is any conclusion drawn from them about the
+   phone.
+
+What was fixed from it: `warmUp` ran each model a SECOND time to answer
+"was that all compilation?" -- 9-18ms on the desktop, **face2 3,552ms +
+nsfw2 3,070ms** here, on the critical path. Now behind `__TS_WARM_BENCH`.
+HONEST: wall-clock warm barely moved (15,907 -> 15,683ms) because the
+three models warm in parallel and the second runs hid inside the longest
+chain, which is gender (`gender:compile` alone is ~10s). It is 6.6s of
+GPU work that no longer happens; on a phone with one real queue that
+should matter more than it does here, and that is a prediction, not a
+measurement.
+
 ## What is left, in the order worth doing
 
 1. **Profile the phone.** Every number above is this desktop. The single

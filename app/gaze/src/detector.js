@@ -433,10 +433,21 @@ export async function warmUp(models) {
       });
     }
     if (models.nsfw) await timed('nsfw', function () { return isNsfw(models.nsfw, pix, frame); });
-    // The SECOND run over the same graphs: if this is small, everything
-    // above was one-time compilation and the number is worth attacking.
-    if (models.face) await timed('face2', function () { return detectFaceBoxes(models.face, pix, frame); });
-    if (models.nsfw) await timed('nsfw2', function () { return isNsfw(models.nsfw, pix, frame); });
+    // THE SECOND RUN IS A MEASUREMENT, AND IT WAS ON THE CRITICAL PATH.
+    //
+    // It exists to answer "was all of that one-time compilation?" -- on
+    // the desktop it costs 9-18ms and the answer is free. MEASURED on a
+    // real Android WebView 2026-08-30: face2 3552ms and nsfw2 3070ms,
+    // 6.6 SECONDS of the 15.9s warm-up, and nothing is judged until warm
+    // finishes, so the user watched a fully covered feed for it. A
+    // diagnostic does not get to delay the first thumbnail.
+    //
+    // Still available on demand: set __TS_WARM_BENCH before the worker
+    // starts and both numbers come back exactly as before.
+    if (warmBench()) {
+      if (models.face) await timed('face2', function () { return detectFaceBoxes(models.face, pix, frame); });
+      if (models.nsfw) await timed('nsfw2', function () { return isNsfw(models.nsfw, pix, frame); });
+    }
   } catch (e) {
     /* see above: a warm-up never reports */
   } finally {
@@ -447,6 +458,14 @@ export async function warmUp(models) {
 
 var WARM_SIZE = 256;
 function noop() {}
+
+function warmBench() {
+  try {
+    return !!globalThis.__TS_WARM_BENCH;
+  } catch (e) {
+    return false;
+  }
+}
 
 // COMPILE EVERY SHADER AT ONCE INSTEAD OF ONE AT A TIME.
 //

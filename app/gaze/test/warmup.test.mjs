@@ -38,3 +38,22 @@ test('a warm-up failure is swallowed, never surfaced as a verdict', () => {
   // which would take the whole worker down for an optimisation.
   assert.ok(body.includes('catch (e)'), 'warmUp catches');
 });
+
+test('the warm-up diagnostic is off the critical path', () => {
+  // face2/nsfw2 answer "was that all compilation?" -- 9-18ms on the
+  // desktop, 6.6 SECONDS of a 15.9s warm-up on a real Android WebView
+  // (measured 2026-08-30), during which nothing is judged and the feed
+  // stays fully covered. Measuring must never delay the first thumbnail.
+  const src = readFileSync(new URL('../src/detector.js', import.meta.url), 'utf8');
+  const bench = src.indexOf('if (warmBench()) {');
+  assert.ok(bench > 0, 'the second runs are behind a flag');
+  const face2 = src.indexOf("timed('face2'");
+  const nsfw2 = src.indexOf("timed('nsfw2'");
+  assert.ok(face2 > bench && nsfw2 > bench, 'both second runs are inside the flag');
+  // And the flag is opt-in: nothing sets it in shipped code.
+  assert.match(src, /__TS_WARM_BENCH/);
+  assert.ok(
+    !/__TS_WARM_BENCH\s*=/.test(src),
+    'the bundle never turns the benchmark on for itself'
+  );
+});
