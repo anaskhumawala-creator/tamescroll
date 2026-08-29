@@ -29,14 +29,14 @@ t.eval("""(function(){
         window.__LT.push(Math.round(e.duration));});})
       .observe({entryTypes:['longtask']}); }catch(e){}
   window.__T0=window.__TS_GAZE_IMGTOTAL||0;
-  window.__Y0=(document.scrollingElement||document.documentElement).scrollTop;
+  window.__Y0=window.scrollY;
 })()""")
 
 t0 = t.eval("performance.now()")
 # Drive the scroller directly: synthesizeScrollGesture moves m.youtube 0px
 # under a mobile UA (measured 2026-08-29).
 for i in range(10):
-    t.eval("(document.scrollingElement||document.documentElement).scrollBy(0,700)")
+    t.eval("window.scrollBy(0,700)")
     time.sleep(0.75)
 time.sleep(1.5)
 t1 = t.eval("performance.now()")
@@ -44,14 +44,14 @@ t1 = t.eval("performance.now()")
 out = t.eval("""(function(){
   var f=window.__F||[], lt=window.__LT||[];
   var drop=f.filter(function(d){return d>32;}).length;
-  var se=document.scrollingElement||document.documentElement;
+
   return {frames: f.length, dropped: drop,
           dropped_pct: f.length? Math.round(drop*1000/f.length)/10 : null,
           longtasks: lt.length, lt_total: lt.reduce(function(a,b){return a+b;},0),
           lt_worst: lt.length?Math.max.apply(null,lt):0,
           imgs: (window.__TS_GAZE_IMGTOTAL||0)-(window.__T0||0),
           pending: document.querySelectorAll('.ts-gaze-pending').length,
-          scrolled: se.scrollTop-(window.__Y0||0)};
+          scrolled: Math.round(window.scrollY-(window.__Y0||0))};
 })()""")
 out["boot"] = boot
 out["secs"] = round((t1 - t0) / 1000, 2)

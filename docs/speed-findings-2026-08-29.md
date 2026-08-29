@@ -93,6 +93,32 @@ GPU work that no longer happens; on a phone with one real queue that
 should matter more than it does here, and that is a prediction, not a
 measurement.
 
+## The harness wobbles 28%, so most single-run deltas are noise (2026-08-30)
+
+Scroll smoothness became measurable on the emulator for the first time
+once the consent wall stopped locking `<body>`. The first A/B looked
+decisive -- gaze smart 19.5fps against off 45.1fps on the same page and
+the same gesture -- and it is not safe to act on.
+
+`probe_scroll_repeat.py` runs ONE condition five times: **27.0, 31.5,
+27.0, 32.8, 35.8 fps -- a 28% spread around the median**, with the app,
+the page and the gesture identical. A second decomposition run
+(neutralise the blur CSS, keep every model running) came back 6.6fps
+*slower* without the blur painting, which is the wrong sign and simply
+inside that band.
+
+So: **on this harness, treat any frame-rate delta under ~30% as noise,
+and never act on n=1.** Repeat the condition first; if the effect does
+not clear the spread, it is not a finding. Long-task totals behaved
+better than frame counts (0-1 tasks in most runs), but they were near
+zero in every condition, so the scroll cost is not long main-thread
+tasks -- which leaves GPU contention and small sub-50ms work, neither of
+which this device can separate.
+
+This is the third independent route to the same conclusion as item 1
+below: the phone is the only machine that can answer a performance
+question about the phone.
+
 ## What is left, in the order worth doing
 
 1. **Profile the phone.** Every number above is this desktop. The single
