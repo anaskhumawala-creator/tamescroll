@@ -1,7 +1,7 @@
 {
-  "versionCode": 1041,
-  "versionName": "0.1.41",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.41/tamescroll-v0.1.41.apk",
-  "sha256": "18e38bdbb7e4524cb7809702d9a7c98d98d9a0b992428b71de649b8c321796d4",
-  "notes": "Faster first thumbnail; models ship as bytes"
+  "versionCode": 1042,
+  "versionName": "0.1.42",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.42/tamescroll-v0.1.42.apk",
+  "sha256": "ce61f8ae057ecb431657e3c22f21c596132fb1b4a089213027fb9601ebc1a680",
+  "notes": "Thumbnails stopped clearing on Android; fixed"
 }
