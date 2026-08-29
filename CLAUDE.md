@@ -70,8 +70,39 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 04:20 (v0.1.49/1049 is the shipped build;
-88dda9b committed on top, deliberately NOT released).
+**Last updated:** 2026-08-30 05:00 (v0.1.49/1049 is the shipped build;
+3d56267 committed on top, deliberately NOT released).
+
+**Session 2026-08-30 (loop 6) -- THE WARM-UP WAS DOING THE FIRST IMAGE'S
+WORK TWICE.**
+- warmUp did a compile-only pass over all three models (the parallel
+  shader compilation win -- KEEP) and then a full BLANK INFERENCE per
+  model. A blank run cannot make the first real image cheaper: it does
+  that image's work early, on a frame nobody is looking at, while
+  `ready` is withheld and the whole fold stays covered.
+- Three restarts each, real Android WebView: warm **22,684 -> 5,702ms**,
+  ready **24,040 -> 7,051ms**, first thumbnail 18,783-22,702 ->
+  19,582-21,724.
+- **HONEST: TIME TO FIRST REVEAL DID NOT MOVE.** The compilation moved
+  into the first real pass -- first went from ready+1.5s to ready+12.7s,
+  same total, inside the spread. What it removes is ~17s of duplicated
+  GPU inference per navigation (heat, contention) and the drain is live
+  at 7s instead of 24s so everything AFTER the first image pipelines
+  earlier. NO RELEASE: the number he would feel is unchanged.
+- Blank runs still exist behind `__TS_WARM_BENCH`. A test pins that
+  every blank inference is inside the flag and the compile pass is not.
+- **TWO CLEAN AUDITS.** After a search page fully settles, ONE element
+  is still covered and it is a 0x0 <video> with no src (the idle shared
+  player); zero on-screen images left pending. And blur-first holds: of
+  the on-screen thumbnails 120px or wider, ZERO are clear without having
+  been judged.
+- **DESKTOP CONSENT HIDE CONFIRMED LIVE** (1048): on www.youtube the
+  lightbox host computes display none and the dialog measures 0 tall.
+- HARNESS LIMIT FOUND: `Emulation.setDeviceMetricsOverride` does not
+  take on this target -- innerWidth stayed 412 under a desktop UA, so
+  www.youtube rendered no feed. Desktop-width layout cannot be tested
+  here; the desktop masthead occluder path stays unverified.
+- gaze 345/345, cargo 57/57.
 
 **Session 2026-08-30 (loop 5) -- THE HARNESS WOBBLES 28%, SO MOST OF
 WHAT IT SAYS ABOUT SPEED IS NOISE.**
