@@ -1,7 +1,7 @@
 {
-  "versionCode": 1048,
-  "versionName": "0.1.48",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.48/tamescroll-v0.1.48.apk",
-  "sha256": "d8168df1ef11731c92d1bff93264856f8457d18be93a4435c16eedcef3e8a8bb",
-  "notes": "Cookie wall hidden on desktop YouTube too."
+  "versionCode": 1049,
+  "versionName": "0.1.49",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.49/tamescroll-v0.1.49.apk",
+  "sha256": "75c239c3496cda71d6b79a035179c0aec238c1be16c7333a6e62cbcd42d60096",
+  "notes": "Screens animate in; the blur switch shows a press."
 }

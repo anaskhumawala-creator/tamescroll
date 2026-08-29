@@ -70,8 +70,38 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 03:10 (v0.1.48/1048 is the shipped build;
-7e0478e committed on top, deliberately NOT released -- see below).
+**Last updated:** 2026-08-30 03:45 (v0.1.49/1049 RELEASED, apk sha
+75c239c3, raw manifest verified).
+
+**Session 2026-08-30 (loop 4) -- OUR OWN UI WAS THE ONE THAT STILL FELT
+LIKE A WEB PAGE.**
+- **EVERY SCREEN CHANGE WAS A HARD CUT.** Views, settings panes and
+  onboarding steps all swap by toggling `hidden`, so the incoming screen
+  replaced the outgoing one in a single frame. Taking an element out of
+  `display:none` RESTARTS its CSS animations, so the incoming screen
+  animates itself and nothing has to be sequenced in JS: `ts-enter`,
+  180ms, opacity + 6px of travel, cubic-bezier(.2,0,0,1).
+- **THE BLUR SWITCH SHOWED NOTHING WHEN PRESSED.** It is the only
+  control of ours on someone else's page, chrome_css kills the platform
+  tap highlight document-wide, and the pill is built from inline styles
+  carrying no press state -- so a tap did nothing visible until the
+  label changed. `.ts-gaze-pill:active{transform:scale(.94)}` with a
+  120ms transition.
+- MOTION ONLY, both: no icon, colour, spacing or copy touched, and a
+  phone set to reduce motion gets the hard cut back (global media query
+  in styles.css, own guard in chrome_css). A rust test walks the pill's
+  declarations and fails if anything but transition/transform/opacity
+  appears there.
+- VERIFIED live on the emulator: launcher view carries ts-enter 0.18s
+  with the right curve; opening settings starts a RUNNING 180ms
+  animation on the incoming view; the About pane starts one too; the
+  reduced-motion rule is live. On a real m.youtube watch page the pill
+  computes transition-property "transform, opacity" at 0.12s and the
+  injected sheet carries the :active rule and its guard.
+- NOTICED, LEFT ALONE (owner did not ask): the settings nav has no
+  indicator that moves between items, and the onboarding step dots do
+  not animate. Both are layout/visual decisions, not motion fixes.
+- cargo 57/57, gaze 345/345, tsc clean.
 
 **Session 2026-08-30 (loop 3) -- THE EMULATOR ANSWERED THE WRONG
 QUESTION, TWICE, AND CLOSED A LEDGER ITEM DOING IT.**
