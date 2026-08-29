@@ -47,9 +47,15 @@ test('the warm-up diagnostic is off the critical path', () => {
   const src = readFileSync(new URL('../src/detector.js', import.meta.url), 'utf8');
   const bench = src.indexOf('if (warmBench()) {');
   assert.ok(bench > 0, 'the second runs are behind a flag');
-  const face2 = src.indexOf("timed('face2'");
-  const nsfw2 = src.indexOf("timed('nsfw2'");
-  assert.ok(face2 > bench && nsfw2 > bench, 'both second runs are inside the flag');
+  // Every blank-frame INFERENCE is behind the flag now, not just the
+  // second pair: compileOnly is what a warm-up is for, and a real run on
+  // a frame nobody is looking at only moves the first image later.
+  for (const name of ['face', 'gender', 'nsfw', 'face2', 'nsfw2']) {
+    const at = src.indexOf(`timed('${name}'`);
+    assert.ok(at > bench, `the blank ${name} run is inside the flag`);
+  }
+  // The compile pass itself must stay OUT of the flag -- it is the win.
+  assert.ok(src.indexOf("timed('compile'") < bench, 'the compile pass always runs');
   // And the flag is opt-in: nothing sets it in shipped code.
   assert.match(src, /__TS_WARM_BENCH/);
   assert.ok(

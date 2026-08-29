@@ -93,6 +93,31 @@ GPU work that no longer happens; on a phone with one real queue that
 should matter more than it does here, and that is a prediction, not a
 measurement.
 
+## The warm-up was doing the first image's work twice (2026-08-30)
+
+`warmUp` did two things: a compile-only pass over all three models (the
+parallel-shader-compilation win, worth keeping) and then a full blank
+inference per model. The blank runs cannot make the first real image
+cheaper -- they do that image's work early, on a frame nobody is looking
+at, while `ready` is withheld and the whole fold stays covered.
+
+Removing them from the critical path, three restarts each, Android:
+
+| | before | after (median of 3) |
+|---|---|---|
+| warm | 22,684ms | **5,702ms** |
+| ready | 24,040ms | **7,051ms** |
+| first thumbnail | 18,783-22,702 | 19,582-21,724 |
+
+**HONEST: time to first reveal did not move.** The compilation the blank
+runs were doing is now paid inside the first real pass instead -- first
+went from `ready + 1.5s` to `ready + 12.7s` and the total is the same,
+inside the spread. What the change actually removes is ~17s of duplicated
+GPU inference per navigation on this device: less heat, less contention,
+and the drain is live from 7s instead of 24s so everything after the
+first image pipelines earlier. Not shipped as a release on its own,
+because the number the owner would feel is unchanged.
+
 ## The harness wobbles 28%, so most single-run deltas are noise (2026-08-30)
 
 Scroll smoothness became measurable on the emulator for the first time

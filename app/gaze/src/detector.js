@@ -426,13 +426,31 @@ export async function warmUp(models) {
     await timed('compile', function () {
       return compileOnly(models, pix, frame, box);
     });
-    if (models.face) await timed('face', function () { return detectFaceBoxes(models.face, pix, frame); });
-    if (models.gender) {
-      await timed('gender', function () {
-        return classifyFaceGenders(models.gender, pix, [box], frame, { square: true });
-      });
-    }
-    if (models.nsfw) await timed('nsfw', function () { return isNsfw(models.nsfw, pix, frame); });
+    // THE BLANK REAL RUNS ARE NOT ON THE CRITICAL PATH EITHER.
+    //
+    // compileOnly above is what buys the parallel shader compilation.
+    // What followed it was one full inference per model on a blank
+    // frame, and the point of a warm-up is to make the FIRST REAL IMAGE
+    // cheap -- but a blank run does not make it cheaper, it does the
+    // same work earlier, on a frame nobody is looking at, while the
+    // drain waits and the whole fold stays covered.
+    //
+    // MEASURED on a real Android WebView 2026-08-30: compile phases
+    // 1532 + 10385 + 1383ms, blank runs 10040 + 4044 + 10763ms on top of
+    // them, and `ready` -- which gates every verdict -- came at 24,040ms.
+    // Whatever the blank runs would have saved the first image, the user
+    // paid for it up front and then waited for it again.
+    //
+    // Still available for benchmarking, where the point IS to separate
+    // compilation from execution.
+    if (warmBench()) {
+      if (models.face) await timed('face', function () { return detectFaceBoxes(models.face, pix, frame); });
+      if (models.gender) {
+        await timed('gender', function () {
+          return classifyFaceGenders(models.gender, pix, [box], frame, { square: true });
+        });
+      }
+      if (models.nsfw) await timed('nsfw', function () { return isNsfw(models.nsfw, pix, frame); });
     // THE SECOND RUN IS A MEASUREMENT, AND IT WAS ON THE CRITICAL PATH.
     //
     // It exists to answer "was all of that one-time compilation?" -- on
@@ -444,7 +462,6 @@ export async function warmUp(models) {
     //
     // Still available on demand: set __TS_WARM_BENCH before the worker
     // starts and both numbers come back exactly as before.
-    if (warmBench()) {
       if (models.face) await timed('face2', function () { return detectFaceBoxes(models.face, pix, frame); });
       if (models.nsfw) await timed('nsfw2', function () { return isNsfw(models.nsfw, pix, frame); });
     }
