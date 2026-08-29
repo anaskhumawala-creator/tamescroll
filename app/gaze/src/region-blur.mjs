@@ -168,7 +168,7 @@ var entries = [];
 var wholeBlurClass = null;
 var started = false;
 
-function makeOverlay() {
+function makeOverlay(radius) {
   // Near-rectangular patch (owner 2026-08-24: heavy rounding read as
   // "weird"). z-index 2: above the <img> inside the thumbnail's own
   // stacking context, below page chrome — a fixed header naturally
@@ -176,7 +176,9 @@ function makeOverlay() {
   var d = document.createElement('div');
   d.className = PATCH_CLASS;
   d.style.cssText =
-    'position:absolute;pointer-events:none;border-radius:8px;z-index:2;' +
+    'position:absolute;pointer-events:none;border-radius:' +
+    (radius || '8px') +
+    ';z-index:2;' +
     'backdrop-filter:blur(var(--ts-blur-strong,24px));' +
     '-webkit-backdrop-filter:blur(var(--ts-blur-strong,24px));';
   return d;
@@ -187,6 +189,17 @@ function place(overlay, rect) {
   overlay.style.top = rect.top + 'px';
   overlay.style.width = rect.width + 'px';
   overlay.style.height = rect.height + 'px';
+}
+
+// Patches whose shape changed have to be rebuilt: the radius is baked
+// into the element's style when it is made.
+function dropOverlays(entry) {
+  for (var i = 0; i < entry.overlays.length; i++) {
+    if (entry.overlays[i].parentNode) {
+      entry.overlays[i].parentNode.removeChild(entry.overlays[i]);
+    }
+  }
+  entry.overlays.length = 0;
 }
 
 function dropEntry(entry) {
@@ -205,7 +218,7 @@ function positionEntry(entry) {
   if (elRect.width === 0 || elRect.height === 0) return false;
   var parentRect = entry.host.getBoundingClientRect();
   while (entry.overlays.length < entry.boxes.length) {
-    var o = makeOverlay();
+    var o = makeOverlay(entry.radius);
     entry.overlays.push(o);
     entry.host.appendChild(o);
   }
@@ -437,8 +450,13 @@ function resolveHost(el) {
  * (blur-first holds throughout). Falls back silently (whole blur stays)
  * when the element has no parent or no geometry yet.
  */
-export function applyRegionBlur(el, boxes) {
+export function applyRegionBlur(el, boxes, opts) {
   if (!started || !boxes || !boxes.length) return;
+  // An avatar is round, and a square patch over a round picture is the
+  // owner's "blur spreaded all over, not confined to the profile
+  // picture" -- so the caller can hand the patch the element's own
+  // corner radius.
+  var radius = (opts && opts.radius) || null;
   boxes = mergeOverlapping(boxes); // stacked translucent patches look broken (owner)
   var entry = null;
   for (var i = 0; i < entries.length; i++) {
@@ -450,10 +468,22 @@ export function applyRegionBlur(el, boxes) {
   if (!entry) {
     var host = resolveHost(el);
     if (!host) return; // whole blur stays — fail covered
-    entry = { el: el, host: host, boxes: boxes, overlays: [], lastRect: null, lastRelRect: null };
+    entry = {
+      el: el,
+      host: host,
+      boxes: boxes,
+      overlays: [],
+      lastRect: null,
+      lastRelRect: null,
+      radius: radius,
+    };
     entries.push(entry);
   } else {
     entry.boxes = boxes;
+    if (radius !== entry.radius) {
+      entry.radius = radius;
+      dropOverlays(entry);
+    }
     // A src-swap can reparent the img in virtualized feeds — re-resolve.
     if (!entry.host.isConnected || entry.el.parentElement !== entry.host) {
       dropEntry(entry);

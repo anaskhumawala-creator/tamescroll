@@ -74,6 +74,7 @@ import {
   clearRegionBlur,
   clearAllRegionBlur,
   expandToBody,
+  padBox,
   imagePriority,
 } from './region-blur.mjs';
 import * as videoRegion from './video-region.mjs';
@@ -230,6 +231,10 @@ if (
   // Below this, an image is genuinely too small to read a face out of
   // and is left alone, which keeps badges and icons off the queue.
   var IMAGE_MIN_FACE_SIZE = 48;
+  // Cushion on an avatar's face patch. The face box already arrives
+  // enlarged 1.4x for the gender crop; this is the margin that covers
+  // hair and chin on a picture where the head fills the frame.
+  var AVATAR_PATCH_PAD = 0.22;
   // Images in [IMAGE_MIN_FACE_SIZE, IMAGE_MIN_SIZE) -- face pass only.
   var faceOnlyImgs = typeof WeakSet === 'function' ? new WeakSet() : null;
   // Passive, so it can never delay the scroll it is observing. Bound to
@@ -754,6 +759,17 @@ if (
   // the same image stay sharp — owner 2026-08-24); the whole-blur class
   // stays on until the first successful patch placement, so blur-first
   // holds throughout.
+  // The corner radius the page already gives this element, so the patch
+  // is the same shape as what it covers. Read once per flagged avatar.
+  function elementRadius(el) {
+    try {
+      var r = getComputedStyle(el).borderRadius;
+      return r && r !== '0px' ? r : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   function applyVerdictToImage(img, result) {
     if (result.nsfw) {
       // Compulsory tier: removed outright, every mode, no setting.
@@ -761,11 +777,26 @@ if (
     } else if (result.face) {
       markFlagged(img);
       if (regionBlur && result.flagBoxes.length) {
+        // AN AVATAR HAS NO BODY IN FRAME. expandToBody reaches 1.2
+        // head-widths sideways, a full head above and SIX head-heights
+        // below -- anthropometrics for a thumbnail where the body is
+        // actually there. On a 68px profile picture every one of those
+        // runs off the edge and clamps, so the patch becomes the whole
+        // square over a round picture: the owner's "profile picture
+        // blur is spreaded all over, and it isn't confined to the
+        // profile picture area" (2026-08-29). Below the thumbnail floor
+        // the face IS the subject -- pad it and take the element's own
+        // corner radius so a round avatar gets a round patch.
+        var avatar = !!(faceOnlyImgs && faceOnlyImgs.has(img));
         var bodies = [];
         for (var rb = 0; rb < result.flagBoxes.length; rb++) {
-          bodies.push(expandToBody(result.flagBoxes[rb]));
+          bodies.push(
+            avatar
+              ? padBox(result.flagBoxes[rb], AVATAR_PATCH_PAD)
+              : expandToBody(result.flagBoxes[rb])
+          );
         }
-        applyRegionBlur(img, bodies);
+        applyRegionBlur(img, bodies, avatar ? { radius: elementRadius(img) } : null);
       }
     } else if (plan.revealClears) {
       clearEl(img);
@@ -1394,6 +1425,16 @@ if (
     // mode). Player videos get an in-player toggle so a wrong verdict
     // is one tap from gone; feed videos keep the plain pipeline.
     var isPlayer = dom.hasPlayerAncestor(video);
+    // The same element serves both roles on m.youtube: on /watch it is
+    // the video the user chose to watch, anywhere else it is a feed
+    // preview that plays because a thumbnail scrolled past.
+    function feedPreview() {
+      try {
+        return location.pathname.indexOf('/watch') !== 0;
+      } catch (e) {
+        return false;
+      }
+    }
     if (video.__tsGazeAttached) return;
     video.__tsGazeAttached = true;
     anyVideoAttached = true;
@@ -2701,6 +2742,25 @@ if (
     function sampleOnce() {
       if (failed || dead || video.paused || document.hidden) return;
       if (isPlayer && !playerBlurOn) return;
+      // A FEED PREVIEW DURING A SCROLL IS NOT WORTH A PASS. m.youtube
+      // plays its feed previews into the SHARED player, so scrolling the
+      // home feed paid for the entire video pipeline -- person model,
+      // repeated passes, an overlay loop pinned to a player that is
+      // itself moving -- on top of judging every thumbnail going by.
+      // The owner feels it as the finger catching (2026-08-29: "when I
+      // touch the finger, it acts like there's something that was
+      // stopped"), and named the control himself: "recommendation page
+      // is much nicer to scroll through" -- the watch page's list plays
+      // no previews.
+      //
+      // Blur-first is what makes this safe: the preview is covered
+      // WHOLE for as long as the scroll lasts, so nothing is exposed,
+      // and the pass that narrows it to patches runs the moment the
+      // finger stops.
+      if (isPlayer && feedPreview() && scrolling(performance.now())) {
+        if (useRegionVideo) markFlagged(video);
+        return;
+      }
       // Same rule as the image drain: verdicts handed out before the
       // gender load settles are presence-only — for video that is a
       // few wrongly-blurred seconds rather than a permanent flag, but
