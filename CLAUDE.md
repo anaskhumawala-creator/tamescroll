@@ -47,6 +47,13 @@ Users install this one app and nothing else.
 
 ## Working agreements
 
+- **Never render test content on the owner's screen.** Verification
+  that needs a feed -- searches, thumbnails, anything the blur is
+  judging -- runs on the emulator or through CDP with the window off
+  his desktop, and the dev app gets closed after. He said it once:
+  "don't open this trash on my PC". Screenshots taken for evidence
+  are deleted unless he asked for them.
+
 - Owner is a beginner developer: explain as you go, small steps, working
   checkpoints they can SEE.
 - Subagents: Sonnet by default, passed explicitly; Opus only for
