@@ -70,8 +70,36 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 05:00 (v0.1.49/1049 is the shipped build;
-3d56267 committed on top, deliberately NOT released).
+**Last updated:** 2026-08-30 05:45 (v0.1.50/1050 RELEASED, apk sha
+50c02e56, raw manifest verified).
+
+**Session 2026-08-30 (loop 7) -- A TIMEOUT IS NOT A VERDICT, AND ONE WAS
+COVERING THUMBNAILS FOR THE LIFE OF THE PAGE.**
+- Reading the per-image diagnostic ring instead of the counters found
+  it: **the first two images of a navigation came back `worker timeout`
+  at 20.6s**, and the third -- the SAME avatar -- was judged normally at
+  23.8s. The worker was not broken. It was still compiling shaders for
+  tensor shapes a blank 256px warm-up frame never produces, and
+  REQUEST_TIMEOUT_MS (15s) fired underneath it.
+- **Failing closed is right; failing closed FOREVER is not.** Nothing
+  put the image back on the queue, so it stayed blurred for the life of
+  the page and looked identical to one still waiting. That is the
+  owner's oldest and most repeated report -- "it processes some, then it
+  halts", "thumbnails that never resolve".
+- Both failure paths (worker AND in-page) now requeue: bounded at 3
+  attempts, 1.2s apart, only while still in the document and not already
+  queued. The bound is the whole safety argument so it lives in
+  app/gaze/src/image-retry.mjs with tests -- an image that genuinely
+  cannot be judged (CORS refused, decode failure) must settle into
+  staying covered rather than looping. Retrying is safe ONLY because the
+  image is covered while it waits.
+- VERIFIED on the emulator, one settled search page: 8 entries, 1 worker
+  timeout at 19.8s on its first attempt, one src appearing TWICE in the
+  ring (the retry), 7 verdicts, ZERO on-screen images left pending.
+- LESSON FOR NEXT TIME: `__TS_GAZE_IMGTOTAL` counts entries, and an
+  ERROR entry counts too -- so a stuck image looks like a judged one.
+  Read `why`/`msg` in `__TS_GAZE_IMGDIAG`, not the counter.
+- gaze 351/351, cargo 57/57.
 
 **Session 2026-08-30 (loop 6) -- THE WARM-UP WAS DOING THE FIRST IMAGE'S
 WORK TWICE.**

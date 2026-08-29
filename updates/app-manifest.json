@@ -1,7 +1,7 @@
 {
-  "versionCode": 1049,
-  "versionName": "0.1.49",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.49/tamescroll-v0.1.49.apk",
-  "sha256": "75c239c3496cda71d6b79a035179c0aec238c1be16c7333a6e62cbcd42d60096",
-  "notes": "Screens animate in; the blur switch shows a press."
+  "versionCode": 1050,
+  "versionName": "0.1.50",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.50/tamescroll-v0.1.50.apk",
+  "sha256": "50c02e565f36c3a68b36d5ae8387e457fdba2b474e3b57ce839a7e60a45d7b6d",
+  "notes": "A thumbnail whose check times out is checked again, not left blurred."
 }
