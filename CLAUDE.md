@@ -70,9 +70,45 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-29 15:00 (v0.1.43/1043 RELEASED, apk sha
-988c072d, raw manifest verified).
+**Last updated:** 2026-08-29 20:15 (v0.1.44/1044 RELEASED, apk sha
+ab70892e, raw manifest verified).
 
+**Session 2026-08-29 evening -- AN AVATAR HAS NO BODY, AND A HEADLESS
+EMULATOR IS THE HARNESS.** Owner, on the phone: "profile picture blur
+is spreaded all over, and it isn't confined to the profile picture
+area"; "the home page ... when I touch the finger, it acts like there's
+something that was stopped"; and the control that named the cause,
+"recommendation page is much nicer to scroll through".
+- **HE DOES NOT WANT FEED CONTENT ON HIS MONITOR** ("don't open this
+  trash on my PC"). Verification now runs on `emulator -no-window`.
+  `adb forward` DOES work with -s once the daemon is restarted -- the
+  earlier "more than one device/emulator" was a stale daemon, not the
+  two devices. So: headless emulator + CDP (spikes/gauntlet/emu_cdp.py)
+  = real Android WebView, full page state, nothing on his screen.
+- **EVERY FLAGGED FACE WAS EXPANDED TO A BODY, INCLUDING ON A 68px
+  AVATAR.** expandToBody reaches 1.2 head-widths sideways, a head above
+  and SIX head-heights below; on a profile picture all four run off the
+  edge and clamp, so the patch was the whole square over a round photo.
+  Below IMAGE_MIN_SIZE the face IS the subject: padBox(0.22) plus the
+  element's own border-radius. VERIFIED on the emulator: patches 13-31px
+  inside a 68px avatar (was the full 68), and on a two-person avatar the
+  woman is covered while the man beside her stays sharp.
+- **A FEED PREVIEW NO LONGER RUNS A PASS WHILE THE FEED IS SCROLLING.**
+  m.youtube plays previews into the SHARED player, so scrolling home ran
+  the whole video pipeline -- person model, repeated passes, an overlay
+  loop pinned to a moving player -- on top of every thumbnail. The watch
+  page's list plays no previews, which is exactly the difference he
+  felt. Skipped passes cover the preview WHOLE (blur-first, nothing
+  exposed) and patches return when the finger stops.
+  HONEST: NOT verified on a live home feed -- signed out, m.youtube
+  renders no feed anywhere we can reach. What IS verified is the
+  control: on /watch, passes keep running through a 11,274px scroll
+  (24 -> 25 -> 29), so the gate does not touch the real player.
+- His "didn't get blurred" thumbnail could NOT be reproduced: on 1043,
+  both desktop and real Android cover her (one face, female 0.89), and
+  the man in the next result reads male 0.88 and stays sharp. His phone
+  was on an older build or a different mode. Still open.
+- gaze 331/331, cargo 55/55.
 **Session 2026-08-29 afternoon -- A QUERY STRING IS WHAT GETS PAST A
 SERVICE WORKER.** Owner: "do all improvements available".
 - **www.youtube HAS RUN THE INFERENCE WORKER FOR THE FIRST TIME.** Its
