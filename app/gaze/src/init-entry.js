@@ -14,6 +14,7 @@
 // HaramBlur's *behaviour* — MutationObserver dispatch, frame-skip video
 // sampling — never its AGPL-3.0 source; see NOTICE / VISION.md).
 import * as dom from './dom.js';
+import { shouldRetry } from './image-retry.mjs';
 import * as detector from './detector.js';
 import {
   flaggedFaceIndices,
@@ -639,6 +640,38 @@ if (
   // ---- image pipeline -----------------------------------------------
   var imageSeen = typeof WeakSet !== 'undefined' ? new WeakSet() : null;
   var imageQueue = [];
+  // How many times an image has come back from the pipeline as a failure
+  // rather than a verdict. Weak so a recycled feed cannot leak entries.
+  var imageTries = typeof WeakMap === 'function' ? new WeakMap() : null;
+
+  function attempts(img) {
+    if (!imageTries) return 0;
+    return imageTries.get(img) || 0;
+  }
+
+  // Put a failed image back at the end of the queue, at most
+  // IMAGE_MAX_TRIES times. It is still covered while it waits, so a
+  // retry can only ever move it from "covered forever" to "judged".
+  function requeueAfterFailure(img) {
+    if (!imageTries || !img) return false;
+    var n = attempts(img) + 1;
+    imageTries.set(img, n);
+    if (
+      !shouldRetry(n, {
+        connected: img.isConnected !== false,
+        queued: imageQueue.indexOf(img) !== -1,
+      })
+    ) {
+      return false;
+    }
+    imageQueue.push(img);
+    // Behind whatever is already waiting, and never in the same tick:
+    // the reason it failed is usually that the worker is busy.
+    setTimeout(drainImages, RETRY_DELAY_MS);
+    return true;
+  }
+
+  var RETRY_DELAY_MS = 1200;
 
   // THE BOOT TIMELINE, one number per milestone.
   //
@@ -945,7 +978,25 @@ if (
             why: 'error',
             where: 'worker',
             msg: String((e && e.message) || e).slice(0, 80),
+            try: attempts(img),
           });
+          // A TIMEOUT IS NOT A VERDICT.
+          //
+          // MEASURED on a real Android WebView 2026-08-30: the first two
+          // images of a navigation came back `worker timeout` at 20.6s,
+          // and the third -- the same avatar, judged normally -- landed
+          // at 23.8s. The worker was not broken, it was still compiling
+          // the shaders for shapes a blank warm-up frame never produces,
+          // and the 15s request timeout fired underneath it.
+          //
+          // Failing closed is right; failing closed FOREVER is not.
+          // Nothing ever put that image back on the queue, so it stayed
+          // covered for the life of the page and looked identical to one
+          // still waiting -- which is the owner's oldest report,
+          // "processes some, then it halts". Bounded so a genuinely
+          // unjudgeable image (CORS refused, decode failure) still
+          // settles into staying covered instead of looping.
+          requeueAfterFailure(img);
         });
     }
     return dom
@@ -1045,7 +1096,14 @@ if (
         // Counted, because a thumbnail that fails here stays covered for
         // the life of the page and looks identical to one still waiting
         // (owner 2026-08-27, phone: a thumbnail that never resolves).
-        noteImgDiag({ why: 'error', msg: String((e && e.message) || e).slice(0, 80) });
+        noteImgDiag({
+          why: 'error',
+          msg: String((e && e.message) || e).slice(0, 80),
+          try: attempts(img),
+        });
+        // Same bound, same reason as the worker path above: a transient
+        // failure must not mean covered for the life of the page.
+        requeueAfterFailure(img);
         // eslint-disable-next-line no-console
         console.warn('tamescroll gaze: image check failed, staying blurred', e);
       });
