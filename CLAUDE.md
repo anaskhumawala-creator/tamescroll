@@ -70,8 +70,45 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 00:35 (1054 live, sha ad91f19b; three
-measured defects fixed, two of them the miniplayer).
+**Last updated:** 2026-08-31 01:20 (1055 live, sha f3e5d960 -- the
+patch-over-video bug is FOUND and FIXED; 1054 before it fixed the
+miniplayer twice and the stale clamp).
+
+**Session 2026-08-31 (loop 2) -- HE WAS RIGHT ALL THREE TIMES, AND EVERY
+PROBE THAT SAID OTHERWISE WAS BLIND.**
+- **`elementsFromPoint` CANNOT SEE A `pointer-events: none` ELEMENT**, and
+  every patch we draw is pointer-events:none on purpose. So the 232 patch
+  samples, the 900 in-player hit-tests and the eight walk-under samples
+  were all asking a hit test about an element it is required to skip.
+  They reported the only answer they could ever have produced. **Any
+  future probe that hit-tests one of OUR overlays must set
+  `pointerEvents = 'auto'` on it first.** occluderBottom is unaffected --
+  it hit-tests for the page's own chrome, which is hit-testable.
+  Written up in docs/technical-findings.md, because it retracts three
+  "verified" claims.
+- **RE-MEASURED, hit testing enabled, live m.youtube watch page, video
+  playing: patch at index 0, player at index 1.** The recommendation's
+  blur really does paint over the video. Three sessions of "cannot
+  reproduce" were an instrument failure, not a wrong report.
+- **THE CAUSE IS STACKING, NOT GEOMETRY.** makeOverlay picked z-index 2
+  to sit above the <img> "inside the thumbnail's own stacking context".
+  The host has no stacking context -- position:relative with
+  z-index:auto does not create one -- and MEASURED on the live page there
+  were **ZERO** stacking contexts between the patch and the root. So the
+  patch's z-index 2 and the sticky player's z-index 2 were siblings in
+  the ROOT context, where DOM ORDER decides, and #player-container-id is
+  a child of <body> while the recommendations come after it.
+- FIX: `isolation: isolate` on the host in resolveHost, which makes that
+  original comment true. No layout, no geometry, no colour; it cannot
+  reorder the host's own descendants, only stop the subtree escaping
+  upward. Holds whether or not the occluder clamp fires -- which is what
+  a bug reported three times deserves. A/B on the same instrument, same
+  page, same overlapping geometry: **before iPatch 0 / iPlayer 1, after
+  iPatch 7 / iPlayer 0.** Placement unharmed: 4 overlays, 4 on an image,
+  0 stray.
+- gaze 370/370, cargo 57/57. 1055 live, manifest and served APK both
+  sha **f3e5d960**.
+
 
 **Session 2026-08-31 (overnight) -- THE MINIPLAYER WAS EATING EVERY
 UPWARD FLICK, AND IT NEVER ACTUALLY SHRANK.** He named three things:
