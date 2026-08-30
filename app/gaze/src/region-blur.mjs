@@ -618,6 +618,29 @@ function resolveHost(el) {
     if (window.getComputedStyle(host).position === 'static') {
       host.style.position = 'relative';
     }
+    // A PATCH MUST NOT BE ABLE TO OUTRANK THE PAGE'S OWN CHROME.
+    //
+    // makeOverlay's z-index 2 was chosen to sit above the <img> inside
+    // "the thumbnail's own stacking context", on the assumption that a
+    // fixed header naturally covers it. MEASURED 2026-08-31 on a live
+    // watch page: the thumbnail's host creates NO stacking context --
+    // position:relative with z-index:auto does not -- and neither does
+    // anything between it and the root. So the patch's z-index 2 and the
+    // sticky player's z-index 2 were competing in the ROOT stacking
+    // context, where DOM order decides, and #player-container-id is a
+    // child of <body> while the recommendations come after it. The patch
+    // won: elementsFromPoint over the playing video returned the patch
+    // at index 0 and the player at 1.
+    //
+    // `isolation: isolate` makes the host a stacking context, so the
+    // patch's z-index is scoped to the thumbnail exactly as the original
+    // comment assumed, and the host itself takes part in the page at
+    // z-index auto -- strictly BELOW any positive-z-index chrome. It
+    // changes no layout, no geometry and no colour, and it cannot
+    // reorder the host's own descendants relative to each other; it only
+    // stops the subtree escaping upward. That is the containing
+    // direction, and it holds whether or not the occluder clamp fires.
+    host.style.isolation = 'isolate';
   } catch (e) {
     /* non-fatal */
   }

@@ -251,3 +251,46 @@ case law found.
   wry installs, which would unlock network blocking there.
 - `FilterSet::into_content_blocking` output quality for iOS.
 - Google Play's stance on multi-site wrapper apps — no precedent found.
+
+## A hit test cannot see a `pointer-events: none` overlay (2026-08-31)
+
+`document.elementsFromPoint` is specified to skip elements that are not
+hit-testable, and every blur patch this app draws is
+`pointer-events: none` — deliberately, so it never eats a tap meant for
+the page underneath.
+
+**This invalidated every "the patch is not on top" measurement in the
+repo.** All of them asked a hit test about an element the hit test is
+required to ignore:
+
+- 2026-08-30, 232 patch samples, "0 escapes"
+- 2026-08-30, 900 in-player hit-tests, "0 patches on top"
+- 2026-08-30, `probe_patch_over_player.py`, eight walk-under samples,
+  "the player wins elementsFromPoint every time"
+
+All three reported the only answer they could ever have produced. The
+owner reported a blur painting over his video three times across three
+sessions and was told each time that it could not be reproduced.
+
+**Re-measured with hit testing enabled on the probe's own patch** (paint
+order and hit order follow the same tree order, so this changes what can
+be observed and not what is painted), on a live m.youtube watch page
+with the video playing: the patch came back at index **0** and the
+player at index **1** — the patch is on top of the playing video.
+
+Two consequences worth keeping:
+
+1. **A probe that hit-tests one of our overlays must set
+   `pointerEvents = 'auto'` on it first**, or it is measuring nothing.
+   `occluderBottom` is unaffected: it hit-tests to find the *occluder*,
+   which is the page's own chrome and hit-testable.
+2. **The cause was a stacking assumption, not geometry.** makeOverlay
+   picked `z-index: 2` to sit "above the <img> inside the thumbnail's own
+   stacking context" — but `position: relative` with `z-index: auto` does
+   not create a stacking context, and measured on the live page there
+   were **zero** stacking contexts between the patch and the root. So the
+   patch's z-index 2 and the sticky player's z-index 2 were siblings in
+   the root stacking context, where DOM order decides, and
+   `#player-container-id` is a child of `<body>` while the
+   recommendations come after it. Fixed by putting `isolation: isolate`
+   on the host, which makes the original comment's assumption true.

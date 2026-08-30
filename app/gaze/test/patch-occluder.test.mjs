@@ -70,3 +70,33 @@ test('the occluder clamp is re-asked on scroll, not only on reflow', () => {
   assert.match(src, /entry\.occ = occ;/);
   assert.match(src, /entry\.lastVpTop = elRect\.top;/);
 });
+
+test('a patch cannot outrank the page chrome it is supposed to sit under', () => {
+  // makeOverlay's z-index 2 was chosen to sit above the <img> "inside
+  // the thumbnail's own stacking context" -- but the thumbnail's host
+  // has no stacking context: position:relative with z-index:auto does
+  // not create one. MEASURED 2026-08-31 on a live watch page, with zero
+  // stacking contexts between the patch and the root: the patch's
+  // z-index 2 and the sticky player's z-index 2 competed in the ROOT
+  // context, DOM order decided, and the recommendations come after
+  // #player-container-id. elementsFromPoint over the playing video
+  // returned the patch at index 0 and the player at 1.
+  //
+  // isolation:isolate scopes the patch's z-index to the thumbnail, which
+  // is what the original comment already assumed was true.
+  const src = readFileSync(new URL('../src/region-blur.mjs', import.meta.url), 'utf8');
+  assert.match(src, /host\.style\.isolation = 'isolate';/);
+  // And it must not be inside the static-only branch: MEASURED 2026-08-30,
+  // 0 of 36 thumbnail hosts on m.youtube search are static, so a write
+  // gated on that fires essentially never.
+  const resolve = src.slice(src.indexOf('function resolveHost('));
+  const staticBranch = resolve.slice(
+    resolve.indexOf("=== 'static'"),
+    resolve.indexOf("host.style.isolation")
+  );
+  assert.equal(
+    staticBranch.split('}').length - 1 >= 1,
+    true,
+    'the isolation write must sit outside the static-position branch'
+  );
+});
