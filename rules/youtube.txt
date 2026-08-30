@@ -143,14 +143,28 @@ m.youtube.com##ytm-browse ytm-section-list-renderer
 !   VISIBLE 1 of 1. The remaining rich items drop 11 -> 3 because eight
 !   of them live inside the news shelf and the Shorts shelf, which is
 !   the point.
-! [live] ytm-rich-shelf-renderer 1 inside ytm-rich-section-renderer on
-!   m.youtube home
-! [unverified] ytm-shelf-renderer -- 0 on home; the rule is kept because
-!   the :has() guard makes a name that never appears cost nothing
+! A SECTION IS A SHELF; AN ITEM IS A VIDEO. A second census of the live
+! home feed (probe_home_census.py, a different load) settled the shape
+! and made the first rule too narrow. Every row is one of three things:
+!   ytm-rich-item-renderer     328px, 2 watch links  = one feed video
+!   ytm-rich-section-renderer  a shelf -- 371px/14 watch links for
+!                              Breaking news, 614px/4 shorts links for
+!                              a Shorts shelf
+!   ytm-continuation-item-renderer  32px, the load-more
+! So the shelf test is the ELEMENT, not what happens to be inside it,
+! and the first version -- gated on :has(ytm-rich-shelf-renderer) --
+! would have missed any shelf built out of something else.
+!
+! The `:not(:has(a[href*="/shorts/"]))` is not caution, it is a toggle
+! boundary: a Shorts shelf belongs to the Shorts surface, and hiding it
+! from here as well would leave Shorts a dead toggle -- a failure this
+! repo has already shipped twice.
+! [live] ytm-rich-section-renderer on m.youtube home: Breaking news
+!   (371px, 14 watch links, 0 shorts) and two Shorts shelves (614px,
+!   0 watch links, 4 shorts links each)
 ! test: on m.youtube.com home in the Android app, Home feed = Shown ->
 !   the video grid still renders; the Breaking news shelf does not
-m.youtube.com##ytm-browse ytm-rich-section-renderer:has(ytm-rich-shelf-renderer)
-m.youtube.com##ytm-browse ytm-rich-section-renderer:has(ytm-shelf-renderer)
+m.youtube.com##ytm-browse ytm-rich-section-renderer:not(:has(a[href*="/shorts/"]))
 
 ! Desktop, same surface and the same :has() guard, so a wrong name here
 ! costs nothing.
