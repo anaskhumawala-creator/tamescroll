@@ -221,3 +221,23 @@ test('parked() can actually stop the transition it measures through', () => {
     'a plain inline transition write cannot beat the sheet'
   );
 });
+
+test('a parked player does not survive the video it was parked for', () => {
+  // MEASURED 2026-08-31: minimise, then pushState to another video, and
+  // the player was STILL parked at (169,697) 231x130 with the cover, the
+  // buttons and a placeholder collapsed to 0 -- on a different video the
+  // user had just chosen to watch. ts-mini lives on <html> and setState
+  // is only ever called by a gesture, so nothing put it back.
+  const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
+  const code = stripComments(src);
+  // The href it was parked at has to be remembered, or "did we navigate"
+  // is unanswerable.
+  assert.match(code, /miniHref = win\.location\.href;/);
+  assert.match(code, /function navCheck\(\)/);
+  // loadstart does not bubble: capture phase or it never fires.
+  assert.match(code, /addEventListener\('loadstart', navCheck, true\)/);
+  assert.match(code, /addEventListener\('popstate', navCheck\)/);
+  // And the class must come off even when the navigation took the player
+  // with it -- ts-mini hides the blur pill, which belongs to every page.
+  assert.match(code, /classList\.remove\('ts-mini'\)/);
+});

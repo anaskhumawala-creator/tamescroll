@@ -212,6 +212,7 @@ export function installMiniplayer(win) {
   var claimed = false;
   var dragT = null;
   var dragAxis = 'y';
+  var miniHref = null;
 
   function container() {
     return doc.getElementById('player-container-id');
@@ -425,6 +426,11 @@ export function installMiniplayer(win) {
       style();
       doc.documentElement.classList.add('ts-mini');
       state = 'mini';
+      try {
+        miniHref = win.location.href;
+      } catch (e) {
+        miniHref = null;
+      }
       cover(true);
       place();
     } else {
@@ -601,6 +607,63 @@ export function installMiniplayer(win) {
       return;
     }
     endDrag(pc);
+  }
+
+  // A PARKED PLAYER MUST NOT SURVIVE THE VIDEO IT WAS PARKED FOR.
+  //
+  // ts-mini lives on <html> and setState is only ever called by a
+  // gesture, so an in-page navigation from one watch page to another
+  // kept the class, the cover, the buttons and the collapsed
+  // placeholder -- while the page underneath was a different video the
+  // user had just chosen to watch. MEASURED 2026-08-31: after a
+  // pushState to another video the player was still parked at
+  // (169, 697) 231x130 with the placeholder at 0. The native app
+  // expands when you pick something; so does this now.
+  //
+  // It also matters off /watch: `ts-mini` hides the blur pill, and a
+  // soft nav would have carried that to a page the gesture has nothing
+  // to do with.
+  function restoreFull() {
+    if (state === 'full') return;
+    if (container()) {
+      setState('full');
+      return;
+    }
+    // No player left to restore -- a navigation took it. The class still
+    // has to come off, because it belongs to whatever page this is now.
+    state = 'full';
+    killButtons();
+    doc.documentElement.classList.remove('ts-mini');
+    doc.documentElement.classList.remove('ts-mini-drag');
+    doc.documentElement.classList.remove('ts-mini-gone');
+    try {
+      win.__TS_MINI_STATE = state;
+    } catch (e) {
+      /* probe marker only */
+    }
+  }
+
+  function navCheck() {
+    if (state !== 'mini') return;
+    var href;
+    try {
+      href = win.location.href;
+    } catch (e) {
+      return;
+    }
+    if (href === miniHref) return;
+    restoreFull();
+  }
+
+  // `loadstart` does not bubble, so this listens in the capture phase --
+  // the same reason video-region does. It is the earliest signal that
+  // the player has been handed a different video.
+  try {
+    doc.addEventListener('loadstart', navCheck, true);
+    win.addEventListener('popstate', navCheck);
+    win.addEventListener('hashchange', navCheck);
+  } catch (e) {
+    /* a listener-less environment simply keeps the old behaviour */
   }
 
   function touchXY(ev) {
