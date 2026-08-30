@@ -366,6 +366,27 @@ m.youtube.com##ytm-promoted-video-renderer
 m.youtube.com##ytm-mealbar-promo-renderer
 m.youtube.com##ytm-upsell-dialog-renderer
 
+! THE HISTORY NAG. Signed out (and after clearing history), mobile home
+! renders a 380x252 block: "Your YouTube history is off -- You can turn
+! on watch and search history at any time to get the latest videos
+! tailored to you." It is an unsolicited prompt to switch a setting back
+! on, which is the definition of a nag, and NO NAGS is a hard rule here.
+!
+! Measured before writing it, three surfaces in one run: home 1 (380x252,
+! ZERO video links inside it, so hiding it removes no content), search 0,
+! watch 0. Nothing else on the site uses this renderer, so the hide
+! cannot reach a feed.
+!
+! NOTE: this surface is labelled "App install nags" and this one is not
+! about installing the app. The label is the owner's copy, so it is left
+! alone rather than quietly rewritten.
+! [live] ytm-feed-nudge-renderer 1 on m.youtube home, 0 on search and
+! watch (probe_nudge.py, 2026-08-30)
+! test: on m.youtube.com home ->
+!   document.querySelectorAll('ytm-feed-nudge-renderer').length >= 1
+!   and the "Your YouTube history is off" block is gone
+m.youtube.com##ytm-feed-nudge-renderer
+
 
 
 ! ota-roundtrip-check 2026-08-23 (harmless comment, proves live update path)
