@@ -1,7 +1,7 @@
 {
-  "versionCode": 1057,
-  "versionName": "0.1.57",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.57/tamescroll-v0.1.57.apk",
-  "sha256": "a4f30e9f5dcb0b6d0f863494b64db150970e31bbe0f7b61d1fbea6d474352c40",
-  "notes": "A cancelled touch no longer strands the mini player part-shrunk."
+  "versionCode": 1058,
+  "versionName": "0.1.58",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.58/tamescroll-v0.1.58.apk",
+  "sha256": "c2e97371afb7a460f3e996792bc01b68b33f5279bf718e43ca3a078871dfcec7",
+  "notes": "Thumbnails you have scrolled past no longer take inference from the ones on screen."
 }
