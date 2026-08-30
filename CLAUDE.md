@@ -70,8 +70,38 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 11:45 (1053 shipped; the home-feed rule
-went out by rules OTA after it).
+**Last updated:** 2026-08-30 12:20 (1053 + the home-feed rules OTA;
+loop 16 confirmed all three fixes on HIS phone and refused a fourth).
+
+**Session 2026-08-30 (loop 16) -- ALL THREE FIXES CONFIRMED ON HIS OWN
+DEVICE, AND THE FOURTH IS REFUSED ON MEASUREMENT.**
+- His 1053 report (23122PCD1I, home page, rulesGen 64f07672, otaLast ok):
+  - **seen 272 / blocked 37.** Request blocking is alive on his phone.
+    It was 0/0 two builds ago. The 1052 cross-thread fix is real.
+  - **askedPerson 15,166ms, loadedPerson 15,335ms -- 169ms to load.**
+    So the 78,807ms was ENTIRELY "asked late", never a slow parse, which
+    is exactly the question `asked:person` was added to settle. The 15s
+    is when he tapped a video (worker was ready at 1,465ms).
+  - **longTasks 60, worst 444ms, longTasksOurs 2, worst ours 108ms.**
+    The jank on his phone is YouTube's, not ours.
+  - Cache fired 3 times in 40 ring entries, including one avatar with 6
+    faces / 5 flagged replayed at 0ms.
+- **I WAS WRONG ABOUT THE TINY FACES.** 11 of 16 player reads were
+  `unknown` at 16-63px and I called it inference spent on noise. It is
+  not: FACE_MIN_NATIVE_PX is 64 and genderFromNativeFace ABSTAINS
+  without running the model. Across his two reports, 49 reads, the split
+  is exact -- <=63px always abstains, >=71px always produces a gender.
+  Free already. Do not re-open.
+- **THE IMAGE FLOOR IS REFUSED, MEASURED.** handleImage really does run
+  gender on EVERY box (one of his thumbnails: 8 faces, 1,206ms), so
+  porting the 64px floor looked obvious. probe_face_px.py says no: a
+  **53px face read male at 0.99** and would be CLEARED today; a 33px
+  face read female at 0.57. A 64px image floor would newly cover that
+  man -- his oldest complaint. A thumbnail is a tight framing, so 53px
+  there is most of a head; 53px in a 1080p video frame is a bystander.
+  Right floor for video, wrong floor for images.
+- NOTHING SHIPPED THIS LOOP, deliberately: three items were already
+  fixed and confirmed, one was never broken, one is refused.
 
 **Session 2026-08-30 (loop 15) -- THE PHONE ON ADB IS NOT HIS PHONE.**
 - **EVERY APK PUSH THIS SESSION WENT TO THE WRONG DEVICE.** The adb

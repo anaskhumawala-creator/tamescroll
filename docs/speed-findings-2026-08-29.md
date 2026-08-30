@@ -292,3 +292,39 @@ Verified after the change on a built x86_64 APK: 48 images judged, 21
 clear / 26 face / 1 error, **0 on-screen images left pending**, and 6
 region patches of which **6 land entirely inside their own image, 0
 stray**.
+
+## The tiny-face floor: free on video, refused on images (2026-08-30)
+
+His 1053 report showed 11 of 16 player gender reads coming back
+`unknown` at 16-63px, which looked like inference spent on noise. It is
+not: `FACE_MIN_NATIVE_PX` is 64 and `genderFromNativeFace` ABSTAINS
+without running the model, stamping `px` on the refusal. Across his two
+reports, 49 reads, the separation is exact -- every read at or below
+63px is an abstain, every read at 71px and above produced a gender. The
+video floor is already doing its job for free. **There is nothing to
+save there; do not re-open it.**
+
+The image path is different and genuinely has no floor:
+`handleImage` runs `classifyFaceGenders` over EVERY detected box, and
+one of his thumbnails carried eight faces for 1,206ms at ~250ms per
+face. Porting the 64px floor across looked like the obvious win.
+
+MEASURED FIRST (`probe_face_px.py`, image reads with their source-pixel
+size), and it says no:
+
+| face size in source px | reads | confident (s>=0.4) | would clear a man |
+|---|---|---|---|
+| under 48 | 4 | 1 | 0 |
+| 48-64 | 2 | 1 | **1** |
+| over 90 | 4 | 4 | 1 |
+
+A **53px face read male at 0.99**, and a 33px face read female at 0.57.
+A 64px floor on images would newly COVER that man -- which is the
+owner's oldest and most repeated complaint. Images are not video frames:
+a thumbnail is already a tight framing, so 53px there is a large
+fraction of a head, while 53px in a 1080p video frame is someone in the
+background. The floor is correct for one and wrong for the other.
+
+REFUSED on the evidence. If it is ever revisited it needs a much larger
+read sample and a threshold derived from where confident reads actually
+stop, not from the video path's number.
