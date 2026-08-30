@@ -1,0 +1,248 @@
+{
+ "player": true,
+ "video": true,
+ "playing": true,
+ "found": [
+  {
+   "sel": "ytm-slim-video-action-bar-renderer",
+   "tag": "ytm-slim-video-action-bar-renderer",
+   "w": 412,
+   "h": 48,
+   "containsVideo": false,
+   "inPlayer": false
+  }
+ ],
+ "extra": [
+  {
+   "tag": "div",
+   "cls": "ytp-cued-thumbnail-overlay",
+   "w": 412,
+   "h": 232,
+   "containsVideo": false
+  },
+  {
+   "tag": "div",
+   "cls": "ytp-cued-thumbnail-overlay-image",
+   "w": 412,
+   "h": 232,
+   "containsVideo": false
+  },
+  {
+   "tag": "button",
+   "cls": "ytSpecButtonShapeNextHost ytSpecButtonShapeNextText yt",
+   "w": 48,
+   "h": 48,
+   "containsVideo": false
+  },
+  {
+   "tag": "yt-touch-feedback-shape",
+   "cls": "ytSpecTouchFeedbackShapeHost ytSpecTouchFeedbackShapeO",
+   "w": 48,
+   "h": 48,
+   "containsVideo": false
+  },
+  {
+   "tag": "ytm-slim-video-action-bar-renderer",
+   "cls": "",
+   "w": 412,
+   "h": 48,
+   "containsVideo": false
+  },
+  {
+   "tag": "div",
+   "cls": "slim-video-action-bar-actions simplified",
+   "w": 412,
+   "h": 48,
+   "containsVideo": false
+  },
+  {
+   "tag": "ytm-thumbnail-overlay-time-status-renderer",
+   "cls": "videoThumbnailGroupTimeStatus",
+   "w": 38,
+   "h": 20,
+   "containsVideo": false
+  },
+  {
+   "tag": "ytm-thumbnail-overlay-time-status-renderer",
+   "cls": "videoThumbnailGroupTimeStatus",
+   "w": 38,
+   "h": 20,
+   "containsVideo": false
+  },
+  {
+   "tag": "ytm-thumbnail-overlay-time-status-renderer",
+   "cls": "videoThumbnailGroupTimeStatus",
+   "w": 38,
+   "h": 20,
+   "containsVideo": false
+  },
+  {
+   "tag": "ytm-thumbnail-overlay-time-status-renderer",
+   "cls": "videoThumbnailGroupTimeStatus",
+   "w": 38,
+   "h": 20,
+   "containsVideo": false
+  }
+ ],
+ "elements": {
+  "ytm-app": {
+   "n": 1,
+   "h": 4414,
+   "containsVideo": false
+  },
+  "ytm-mobile-topbar-renderer": {
+   "n": 1,
+   "h": 48,
+   "containsVideo": false
+  },
+  "ytm-home-logo": {
+   "n": 1,
+   "h": 48,
+   "containsVideo": false
+  },
+  "c3-icon": {
+   "n": 1,
+   "h": 20,
+   "containsVideo": false
+  },
+  "yt-touch-feedback-shape": {
+   "n": 19,
+   "h": 48,
+   "containsVideo": false
+  },
+  "ytm-watch": {
+   "n": 1,
+   "h": 4366,
+   "containsVideo": false
+  },
+  "ytm-single-column-watch-next-results-renderer": {
+   "n": 1,
+   "h": 4134,
+   "containsVideo": false
+  },
+  "ytm-slim-video-metadata-section-renderer": {
+   "n": 1,
+   "h": 116,
+   "containsVideo": false
+  },
+  "ytm-slim-video-information-renderer": {
+   "n": 1,
+   "h": 68,
+   "containsVideo": false
+  },
+  "ytm-slim-video-action-bar-renderer": {
+   "n": 1,
+   "h": 48,
+   "containsVideo": false
+  },
+  "ytm-subscribe-button-renderer": {
+   "n": 1,
+   "h": 32,
+   "containsVideo": false
+  },
+  "yt-smartimation": {
+   "n": 1,
+   "h": 32,
+   "containsVideo": false
+  },
+  "yt-animated-action": {
+   "n": 1,
+   "h": 32,
+   "containsVideo": false
+  },
+  "lottie-component": {
+   "n": 2,
+   "h": 42,
+   "containsVideo": false
+  },
+  "yt-light-shape": {
+   "n": 1,
+   "h": 32,
+   "containsVideo": false
+  },
+  "like-button-view-model": {
+   "n": 1,
+   "h": 48,
+   "containsVideo": false
+  },
+  "toggle-button-view-model": {
+   "n": 2,
+   "h": 48,
+   "containsVideo": false
+  },
+  "button-view-model": {
+   "n": 5,
+   "h": 48,
+   "containsVideo": false
+  },
+  "dislike-button-view-model": {
+   "n": 1,
+   "h": 48,
+   "containsVideo": false
+  },
+  "ytm-item-section-renderer": {
+   "n": 2,
+   "h": 3905,
+   "containsVideo": false
+  },
+  "lazy-list": {
+   "n": 2,
+   "h": 3893,
+   "containsVideo": false
+  },
+  "yt-video-metadata-carousel-view-model": {
+   "n": 1,
+   "h": 92,
+   "containsVideo": false
+  },
+  "yt-carousel-title-view-model": {
+   "n": 1,
+   "h": 20,
+   "containsVideo": false
+  },
+  "yt-carousel-item-view-model": {
+   "n": 1,
+   "h": 40,
+   "containsVideo": false
+  },
+  "yt-comment-teaser-carousel-item-view-model": {
+   "n": 1,
+   "h": 40,
+   "containsVideo": false
+  },
+  "comments-entry-point-teaser-view-model": {
+   "n": 1,
+   "h": 40,
+   "containsVideo": false
+  },
+  "ytm-video-with-context-renderer": {
+   "n": 12,
+   "h": 336,
+   "containsVideo": false
+  },
+  "ytm-media-item": {
+   "n": 12,
+   "h": 336,
+   "containsVideo": false
+  },
+  "ytm-thumbnail-cover": {
+   "n": 12,
+   "h": 245,
+   "containsVideo": false
+  },
+  "ytw-channel-thumbnail-with-link-renderer": {
+   "n": 12,
+   "h": 43,
+   "containsVideo": false
+  },
+  "ytm-profile-icon": {
+   "n": 12,
+   "h": 40,
+   "containsVideo": false
+  },
+  "ytm-badge-and-byline-renderer": {
+   "n": 15,
+   "h": 24,
+   "containsVideo": false
+  },
+  "ytm-

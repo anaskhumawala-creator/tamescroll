@@ -70,8 +70,83 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 13:05 (1053 + two rules OTAs; the history
-nag is hidden, breaking news is blocked on his adb).
+**Last updated:** 2026-08-31 00:35 (1054 live, sha ad91f19b; three
+measured defects fixed, two of them the miniplayer).
+
+**Session 2026-08-31 (overnight) -- THE MINIPLAYER WAS EATING EVERY
+UPWARD FLICK, AND IT NEVER ACTUALLY SHRANK.** He named three things:
+the recommendation blur overlapping the video, the miniplayer being
+"annoying ... it sometimes goes down and it doesn't function as it's
+supposed to", and random shelves on the homepage. All three had a real
+mechanism and all three were found by measuring, not by reading.
+
+- **THE CLAIM GATE IGNORED DIRECTION.** onMove claimed a gesture at
+  `|dy| >= 8` with no regard for SIGN and then preventDefaulted every
+  touchmove for the rest of it -- while gestureVerdict and dragProgress
+  BOTH refuse that direction while full. The sticky player is a 412x232
+  band across the top of the screen, so "flick up to reach the comments"
+  is the commonest gesture on a watch page and it did nothing at all.
+  MEASURED (probe_mini_steal.py): upward 120px = **8 of 8 touchmoves
+  defaultPrevented, player moved 0px**; a 30px flick = 6 of 6. After
+  claimAxis(): **0 of 5 and 0 of 6**, downward still works.
+- **COMMITTING THE DRAG PUT THE PLAYER BACK AT FULL SIZE.** parked()
+  clears the inline transform to measure the untransformed box, and
+  suppressed the transition first so the read would not land
+  mid-animation -- with `style.transition = 'none'`, which an author
+  `!important` beats. MEASURED on the live page: computed
+  transitionDuration **0.22s** with the plain write, **0s** only with
+  setProperty(..., 'important'). So the rect came off the already-shrunk
+  box, miniTransform returned an IDENTITY transform, and landing mini
+  left the video full size at the top while ts-mini, the cover, the
+  buttons and the collapsed placeholder all said otherwise. That is his
+  "it sometimes goes down". After: lands translate(169px, 649px)
+  scale(0.5597) -- 231x130 at (169,697) -- verified 3/3 at flick speed
+  with restore clearing cleanly each time.
+- **THE OCCLUDER CLAMP NEVER RAN DURING A SCROLL.** positionEntry is the
+  only place occluderBottom runs, and the 500ms sweep called it only
+  when the element's PARENT-RELATIVE rect changed -- which a scroll
+  cannot change, because a thumbnail moves with its parent. The clamp's
+  own gate is VIEWPORT-relative. So a patch minted while its thumbnail
+  sat low on the page kept occ = 0 for the life of the page and rode up
+  under the sticky chrome still wearing it. **The clamp shipped in 1045
+  to stop the exact frame he photographed, into a function a scroll
+  never calls.** MEASURED before: a patch at top **-72** under a 48px
+  fixed bar, unclipped, and another at -93. After, same page and same
+  nine-step scroll: **0 unclipped**. Driven by a passive capture-phase
+  scroll listener, rAF-coalesced; an entry pays a hit-test only in the
+  top 60% of the viewport or while it still owes a clamp back.
+  HONEST: proven against the top bar, whose own z-index hides the escape
+  anyway. The player is z-index **2**, the same as a patch, and it is
+  EARLIER in the document than the recommendations -- which is why the
+  patch is what paints on top there -- but signed out a watch page
+  recommends almost nothing our gender setting flags, so the visible
+  escape itself is still not reproduced here.
+- **THE SHELVES NOW HAVE THEIR OWN TOGGLE** (`home_shelves`, "Feed
+  shelves", ships hidden). His feed is Shown, so everything scoped to
+  `home` is correctly switched off and no shelf rule could ever fire --
+  until now the only way to hide a shelf was to hide the whole feed with
+  it. Every selector is gated on `:has()` against a shelf, so it can
+  only match a section that actually contains one and a wrong name
+  matches nothing rather than blanking his feed. VERIFIED with
+  shown=['home']: home grid rule **absent**, section-list rule
+  **absent**, both shelf rules **present in the sheet**, and
+  ytm-rich-grid-renderer **1 of 1 still visible**.
+- **HIS OLD PHONE CANNOT TAKE THE APP, MEASURED.** adb reaches
+  M2010J19SI fine (debugging on, Android 12) but `adb install` returns
+  **INSTALL_FAILED_USER_RESTRICTED** -- MIUI's "Install via USB", which
+  he says needs a SIM. It is also not signed into his YouTube, so it
+  could not show the Breaking news shelf even with the app. The device
+  that matters is the 23122PCD1I and only READ access is needed.
+- PROBE GOTCHA, new and it read a healthy page as a dead one: on
+  m.youtube's WATCH page the scroller is **<body>**, not the document --
+  documentElement.scrollHeight == innerHeight == 839 with 183
+  recommendations in the DOM. window.scrollBy moves 0px. Drive the
+  element with the most scroll room and PRINT the distance.
+- INTERMITTENT, NOT REPRODUCED: one run left the player stuck mid-drag
+  on a second minimise (scale 0.906, state never committed). Three fast
+  round trips afterwards were clean, and the next gesture clears it.
+- gaze 369/369, cargo 57/57. 1054 live, raw manifest and downloaded APK
+  both sha **ad91f19b**.
 
 **Session 2026-08-30 (loop 17) -- HIS HOME FEED IS SHOWN, WHICH IS WHY
 THE BREAKING-NEWS RULE COULD NOT FIRE.**
