@@ -70,8 +70,57 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 02:40 (1057 live, sha a4f30e9f; a cancelled
-touch no longer strands the mini player part-shrunk).
+**Last updated:** 2026-08-31 03:10 (1057 live, sha a4f30e9f; loop 7 changed
+no code -- four measurements, and one stale fact corrected).
+
+**Session 2026-08-31 (loop 7) -- THE WHOLE BROWSE LOOP IS ONE PAGE, SO
+THE COLD-NAVIGATION LEVER IS MUCH SMALLER THAN THE PLAN ASSUMED.**
+No code changed this loop. Four measurements; the negative ones are the
+deliverable.
+- **TAPPING A VIDEO COSTS NO WARM-UP AT ALL.** The worry was that every
+  video tap paid a fresh worker, a fresh model load and a fresh shader
+  compile -- which is where the remaining speed work was pointed.
+  MEASURED with a window mark across the full loop: search -> tap a
+  result -> back -> tap another. **The mark survived all four steps**,
+  `performance.now()` climbed 45s -> 100s -> 141s -> 181s unbroken,
+  `__TS_GAZE_EVAL0` and the whole boot record never changed, and
+  imgTotal ACCUMULATED 1 -> 9 -> 16 -> 21. Our six model files were
+  fetched once (all `transferSize` 0 -- served from cache) and never
+  again. So the cold start is paid ONCE per platform open, not per
+  video.
+- **CORRECTION: "back out of /watch is a HARD navigation" is stale for
+  the path he actually uses.** It is still true of a back that lands on
+  an entry you arrived at by a hard navigation. Arriving at /watch by
+  tapping a feed link is a pushState, and history.back() from there is a
+  same-document traversal. NOT chased: the Android BACK KEY itself --
+  `input keyevent 4` did not reach the WebView on the headless emulator
+  (still /watch, history length unchanged), so that half is unmeasured.
+  FLAGGED, NOT BUILT: the miniplayer's watch-page-only scope was chosen
+  because "no element survives to float over the next page". On the SPA
+  path one now would. That is a feature he has not asked for.
+- **THE PLAYER DOES NOT STARVE THE THUMBNAIL DRAIN.** Both compete for
+  one worker on a watch page, and "it processes some, then it halts" is
+  his oldest report. MEASURED on a playing watch page over six scroll
+  steps: imgTotal **16 -> 22 -> 26 -> 30**, on-screen pending reached
+  **0 and stayed 0**, the video kept playing throughout (t=81s -> 129s)
+  and 2 player patches were live at the end.
+- **PRIORITY 1 RE-ASKED ON 1057 WITH THE INSTRUMENT THAT FOUND IT.**
+  Hit testing enabled on our own patches (they are pointer-events:none,
+  which is what blinded three earlier sessions), gender set to 'woman'
+  so the signed-out recommendation population actually produces patches
+  through the real pipeline, nine scroll steps down a playing watch
+  page: **6 genuinely overlapping samples, 0 where the patch outranks
+  the player** (iPlayer 0, iPatch 5). Player z-index is still 2, so it
+  is the isolation doing the work. Before the fix the same instrument
+  read iPatch 0 / iPlayer 1.
+- **THE PARKED PLAYER DOES NOT DRIFT.** ts-mini makes the container
+  `position: fixed`, so a scroll cannot move it. MEASURED across 1800px
+  in both directions including all the way back to the top: **(169,697)
+  231x130 at every sample, offBottom -12 constant.**
+- NOT DONE, same reason as loops 4 and 5: any speed number this harness
+  produces wobbles 28%, and the browse loop being SPA removes the lever
+  the plan named. What is left needs the phone.
+
 
 **Session 2026-08-31 (loop 6) -- A CANCELLED TOUCH IS NOT AN ENDED ONE,
 AND IT WAS FREEZING THE PLAYER PART-SHRUNK.**
