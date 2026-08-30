@@ -615,7 +615,8 @@ function resolveHost(el) {
   // blur stays for that element, which is the covered direction.
   if (isPlayerSubtree(host)) return null;
   try {
-    if (window.getComputedStyle(host).position === 'static') {
+    var hostPos = window.getComputedStyle(host).position;
+    if (hostPos === 'static') {
       host.style.position = 'relative';
     }
     // A PATCH MUST NOT BE ABLE TO OUTRANK THE PAGE'S OWN CHROME.
@@ -640,7 +641,18 @@ function resolveHost(el) {
     // reorder the host's own descendants relative to each other; it only
     // stops the subtree escaping upward. That is the containing
     // direction, and it holds whether or not the occluder clamp fires.
-    host.style.isolation = 'isolate';
+    //
+    // NOT ON A FIXED HOST. MEASURED 2026-08-31 across a scrolled search
+    // feed and a playing watch page, 19 candidate hosts: every feed host
+    // has ZERO positioned descendants painting outside its own box, so
+    // isolating them traps nothing. The ONE host that does have one --
+    // 39 children, a descendant at z-index 41 escaping 15px -- is
+    // m.youtube's fixed top bar, which hosts the account avatar. A fixed
+    // bar is page chrome that already paints above the scrolled player,
+    // so a patch inside it has nothing to win by escaping and the
+    // occluder clamp covers it either way. Skipping it costs nothing on
+    // the surface the fix exists for and cannot scope that escaper.
+    if (hostPos !== 'fixed') host.style.isolation = 'isolate';
   } catch (e) {
     /* non-fatal */
   }

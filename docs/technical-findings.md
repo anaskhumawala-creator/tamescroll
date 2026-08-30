@@ -294,3 +294,37 @@ Two consequences worth keeping:
    `#player-container-id` is a child of `<body>` while the
    recommendations come after it. Fixed by putting `isolation: isolate`
    on the host, which makes the original comment's assumption true.
+
+## Hiding a shelf costs YouTube's lazy loader, so it costs us nothing (2026-08-31)
+
+We hide feed shelves on home, and the obvious worry was that the ~4-14
+thumbnails inside a hidden shelf were still being judged -- `tagImage`
+gates only on `naturalWidth`, and there is no visibility check anywhere
+in the queue path or the drain.
+
+MEASURED on the emulator, m.youtube home, feed Shown and `home_shelves`
+hidden: the hidden `ytm-rich-section-renderer` holds **4 `<img>`, 0 of
+them with a `src`, 0 loaded, 0 at or above the 48px floor**. YouTube
+lazy-loads thumbnails, and an image under a `display: none` ancestor
+never enters the viewport, so its loader never fires. It has no
+`naturalWidth`, so `tagImage` never queues it.
+
+CONSEQUENCE: a visibility gate in the image pipeline would buy nothing,
+and it would cost a computed-style read per tag. Do not add one. Every
+`display: none` rule we ship already removes its own inference.
+
+## `isolation: isolate` on a patch host traps nothing on a feed (2026-08-31)
+
+`resolveHost` writes `isolation: isolate` on every patch host, which is
+a live mutation on YouTube's own element: anything inside that relied on
+escaping to the root stacking context can no longer do so.
+
+MEASURED across a scrolled m.youtube search feed and a playing watch
+page, 19 candidate hosts: **0 feed hosts contain a positioned descendant
+that paints outside the host's own box.** The ONE host that does -- 39
+children, a descendant at z-index 41 escaping 15px -- is the fixed top
+bar, which hosts the account avatar. The write now refuses a
+`position: fixed` host for that reason; a fixed bar already paints above
+the scrolled player, so a patch inside it has nothing to win by
+escaping. VERIFIED on a built APK: 13 hosts, 7 isolated, 1 fixed host,
+**0 fixed hosts isolated**.

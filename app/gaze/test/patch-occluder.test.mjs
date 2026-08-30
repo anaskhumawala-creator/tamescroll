@@ -100,3 +100,14 @@ test('a patch cannot outrank the page chrome it is supposed to sit under', () =>
     'the isolation write must sit outside the static-position branch'
   );
 });
+
+test('the isolate write refuses a fixed host', () => {
+  // MEASURED 2026-08-31, two surfaces, 19 candidate hosts: 0 feed hosts
+  // contain a positioned descendant painting outside their own box, so
+  // isolating them traps nothing. The one host that does -- 39 children,
+  // a descendant at z-index 41 escaping 15px -- is m.youtube's fixed top
+  // bar hosting the account avatar. A fixed bar already paints above the
+  // scrolled player, so the patch has nothing to win by escaping there.
+  const src = readFileSync(new URL('../src/region-blur.mjs', import.meta.url), 'utf8');
+  assert.match(src, /hostPos !== 'fixed'\) host\.style\.isolation = 'isolate';/);
+});
