@@ -103,6 +103,53 @@ m.youtube.com##ytm-browse ytm-section-list-renderer
 
 
 ! ============================================================
+! FEED SHELVES — the junk that is not the feed
+! ============================================================
+
+!surface: home_shelves Feed shelves
+
+! THE SHELVES NEEDED A SURFACE OF THEIR OWN, AND THIS IS WHY.
+!
+! Owner 2026-08-30: "breaking news still shows on the homepage", then
+! "its not gone" after the rule shipped. His own diagnostics report
+! explains it: kind "home", 58 images judged, FORTY of them 686px
+! thumbnails, previews playing. A hidden home feed has no thumbnails to
+! judge -- so his Home feed is SHOWN, deliberately, and every rule above
+! is scoped to the `home` surface and correctly switched off. The rule
+! was never wrong. It was unreachable.
+!
+! He wants the feed and not the shelf, and today that is not expressible:
+! the only way to hide a shelf is to hide the whole feed with it. So the
+! shelves get their own toggle, and it is independent of Home feed.
+!
+! SELF-LIMITING BY CONSTRUCTION. Every selector here is gated on :has()
+! against a shelf, so it can only ever match a section that actually
+! contains one -- the vertical video grid (ytm-rich-grid-renderer) is
+! never matched, and if a name here does not exist the rule matches
+! nothing rather than blanking his feed. That matters because the home
+! feed cannot be rendered on this machine at all: signed out, m.youtube
+! answers "Start watching videos to help us build a feed", so no
+! selector below can be read off a live DOM here.
+!
+! [live] the container family is real: home ytm-rich-grid-renderer 1,
+!   ytm-rich-section-renderer 2 (probe_home_containers.py, 2026-08-30)
+! [unverified] the shelf renderers themselves, and the Breaking news
+!   shelf in particular -- it does not render signed out, and the phone
+!   on adb is the old M2010J19SI, which cannot take the app
+!   (INSTALL_FAILED_USER_RESTRICTED, measured 2026-08-31).
+! test: on m.youtube.com home in the Android app, Home feed = Shown ->
+!   the video grid still renders; horizontal shelves do not
+m.youtube.com##ytm-browse ytm-rich-section-renderer:has(ytm-rich-shelf-renderer)
+m.youtube.com##ytm-browse ytm-rich-section-renderer:has(ytm-shelf-renderer)
+
+! Desktop, same surface and the same :has() guard, so a wrong name here
+! costs nothing.
+! [unverified] not read off a live desktop home feed
+! test: on https://www.youtube.com/ with Home feed = Shown ->
+!   ytd-rich-grid-renderer still renders; shelf sections do not
+youtube.com##ytd-browse[page-subtype="home"] ytd-rich-section-renderer:has(ytd-rich-shelf-renderer)
+
+! ============================================================
 ! SHORTS — every entry point
 ! ============================================================
 
