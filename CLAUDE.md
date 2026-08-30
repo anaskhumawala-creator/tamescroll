@@ -70,8 +70,48 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 03:10 (1057 live, sha a4f30e9f; loop 7 changed
-no code -- four measurements, and one stale fact corrected).
+**Last updated:** 2026-08-31 03:45 (1057 live, sha a4f30e9f; loop 8 changed no
+code -- every listed angle on the blur-over-video bug is now measured).
+
+**Session 2026-08-31 (loop 8) -- ALL FIVE REMAINING ANGLES ON HIS
+THREE-TIMES-REPORTED BUG ARE NOW MEASURED, AND ALL FIVE ARE CLEAN.**
+No code changed. Every hit test below enables pointer events on our own
+patch first -- without that the instrument is blind, which is what made
+three earlier sessions report "cannot reproduce".
+- **STALE GEOMETRY ACROSS AN SPA NAV: NOTHING SURVIVES.** The strongest
+  untested lead, and it got stronger once loop 7 proved the whole browse
+  loop is one document -- patches minted over search results are removed
+  only when the 500ms sweep notices their element left. THE PROBE WAS
+  GIVEN TEETH FIRST: a first run measured 0 patches on the search page
+  and therefore measured nothing, so it now waits and scrolls until
+  patches exist before tapping. With **5 live patches 5ms before the
+  tap**, the path was /watch by 260ms with **0 patches**, and 22 samples
+  over the first 7.5s plus 13s and 28s all read 0 patches, 0 overlap,
+  0 orphaned hosts. YouTube removes the results subtree and our patches
+  go with it.
+- **NO PATCH IS EVER HOSTED INSIDE THE PLAYER.** m.youtube plays feed
+  previews into the shared #movie_player, so a previewing thumbnail's
+  <img> sits in the player subtree. Across home and search, nine scroll
+  steps each, **281 patch samples: hostInPlayer 0**. HONEST: previews
+  never actually played in this harness (0 steps with a playing shared
+  player), so that half is unexercised.
+- **THE MINIPLAYER TRANSFORM DOES NOT LET A PATCH THROUGH.** While mini
+  the container is position:fixed at z-index **2147482000** (our sheet
+  lifts it), a small box over the recommendations. Eight scroll steps
+  with up to 18 patches on screen: **7 genuinely overlapping samples, 0
+  where the patch outranks the player.**
+- **THE OCCLUDER CLAMP IS SAMPLING.** 10 scroll steps down search,
+  **170 patch samples, 0 unclipped** above the real fixed top bar
+  (ytm-mobile-topbar-renderer, bottom 48, z 4).
+- **A PROBE ARTIFACT CAUGHT AND KILLED:** the first clamp count read 41
+  and 49 "unclipped" because the bar filter matched a full-height
+  (839px) fixed overlay, so every patch counted as above it. A top bar
+  is SHORT and at the TOP -- constrain height and top or the number is
+  garbage.
+- With loop 7's 6 overlapping samples on a full scrolled player, that is
+  five independent angles and 400+ patch samples with **0 patch-over-
+  player**. The stacking fix in 1055 is holding.
+
 
 **Session 2026-08-31 (loop 7) -- THE WHOLE BROWSE LOOP IS ONE PAGE, SO
 THE COLD-NAVIGATION LEVER IS MUCH SMALLER THAN THE PLAN ASSUMED.**
