@@ -1,7 +1,7 @@
 {
-  "versionCode": 1056,
-  "versionName": "0.1.56",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.56/tamescroll-v0.1.56.apk",
-  "sha256": "1604b3a8283a1259709c52505fceb2e63f8f733c6f14398796f7e11a6d3e67c3",
-  "notes": "The mini player no longer stays parked when you pick another video; the Breaking news shelf is verified hidden."
+  "versionCode": 1057,
+  "versionName": "0.1.57",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.57/tamescroll-v0.1.57.apk",
+  "sha256": "a4f30e9f5dcb0b6d0f863494b64db150970e31bbe0f7b61d1fbea6d474352c40",
+  "notes": "A cancelled touch no longer strands the mini player part-shrunk."
 }
