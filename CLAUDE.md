@@ -70,8 +70,53 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 04:05 (1058 live, sha c2e97371; the far-defer
-check was bypassed by any queue longer than 64).
+**Last updated:** 2026-08-31 04:40 (1058 live, sha c2e97371; loop 10 changed no
+code -- 1058 verified safe, and the blurred YouTube logo is root-caused).
+
+**Session 2026-08-31 (loop 10) -- 1058 STRANDS NOTHING, AND THE YOUTUBE
+LOGO IS PERMANENTLY BLURRED FOR A REASON HE HAS TO RULE ON.**
+No code changed. One verification of last loop's ship, and one real
+visible defect measured to root cause.
+- **DEFERRAL IS NOT ABANDONMENT -- PROVEN.** 1058 defers far images, so
+  the whole safety argument is that they resolve when he comes back.
+  MEASURED on a built APK: after a 17,313px scroll the queue settled at
+  **63 pending, 0 on screen**; scrolling back up in nine steps drained it
+  **63 -> 57 -> 51 -> 45 -> 40 -> 30 -> 24 -> 19 -> 15 -> 7 -> 1** with
+  imgTotal climbing **54 -> 116**. Every deferred image was judged as he
+  returned to it. Blur-first intact.
+- **THE YOUTUBE LOGO IN THE TOP BAR IS BLURRED ON EVERY HOME PAGE, AND
+  IT ALWAYS HAS BEEN.** The one image left pending at every step of that
+  scroll-back was `img.mobile-topbar-logo` inside
+  ytm-mobile-topbar-renderer -- 122x48 displayed, 244x96 natural,
+  computed **filter: blur(24px)**, permanently. Clean room on a fresh
+  load: `cors-denied` at try0, try1, try2 and then it settles, which is
+  the documented bound working exactly as image-retry.mjs says it
+  should.
+- **THE HOST REFUSES CORS, MEASURED, SO THERE IS NO FREE FIX.** It is
+  served from **www.gstatic.com** (a promo logo, alt "Creators share
+  their morning routines" -- the ordinary logo is an inline SVG). From
+  the live page: `fetch` **TypeError: Failed to fetch**, a
+  crossOrigin='anonymous' load **fails outright**, and the control on
+  ytimg.com reads **readable**. So adding gstatic to CORS_SAFE_HOST buys
+  nothing. We cannot read its pixels, and fail-closed keeps it covered.
+- **NOT CHANGED, DELIBERATELY -- IT IS HIS CALL.** Clearing an image we
+  are forbidden to read weakens fail-closed, and excluding the top bar
+  would also stop judging the ACCOUNT AVATAR, which sits in that same
+  bar and IS a person's photo. That is an exposure trade, and this file
+  says protection decisions are the owner's. The narrow option if he
+  wants it: ignore `img.mobile-topbar-logo` specifically, which does not
+  touch ytm-profile-icon.
+- **DIAGNOSTIC NOTE so a future session does not chase a phantom:** on
+  m.youtube home **3 of the 4 error entries in the ring are this one
+  logo**. A home-page error rate that looks like ~30% is one
+  unreadable chrome image, not a pipeline fault.
+- **A PROBE CAUSED A BUG THAT WAS NOT THERE.** Forcing `img.src = src`
+  to test the path re-tagged the element, so the ring read `try: 3` and
+  `try: 4` and looked like an unbounded retry. It is bounded; the extra
+  tries were the instrument. Re-check in a clean room before believing a
+  retry-count anomaly.
+- gaze 374/374, cargo 57/57 (unchanged -- no code touched).
+
 
 **Session 2026-08-31 (loop 9) -- THE FAR-DEFER CHECK WAS SILENTLY OFF
 FOR MOST OF A LONG SCROLL.**
