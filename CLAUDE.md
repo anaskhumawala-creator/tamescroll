@@ -74,6 +74,42 @@ Users install this one app and nothing else.
 patch-over-video bug is FOUND and FIXED; 1054 before it fixed the
 miniplayer twice and the stale clamp).
 
+**Session 2026-08-31 (loop 3) -- THE HOME FEED RENDERS SIGNED OUT NOW,
+AND THE BREAKING NEWS SHELF WAS SITTING RIGHT THERE.**
+- **STOP RECORDING "signed out, m.youtube renders no feed".** It does:
+  MEASURED 11 ytm-rich-item-renderers, 20 watch links, a topic chip bar.
+  Three sessions of blocked work rested on a fact that had gone stale.
+- **HIS SHELF, FOUND AND MEASURED.** ytm-rich-section-renderer 2, and
+  section 0 carries **ytm-rich-shelf-renderer 1, 371px tall, 14 video
+  links, titled "Breaking news -- Death toll rises to nearly ..."**.
+  With Home feed SHOWN and home_shelves hidden -- his exact
+  configuration -- that section computes **display none at height 0**,
+  the shelf is 0 tall, and ytm-rich-grid-renderer is still **VISIBLE 1
+  of 1**. Rich items 11 -> 3 because eight of them live inside the news
+  shelf and the Shorts shelf, which is what hiding a shelf means. The
+  selector is now [live], not [unverified].
+- **A PARKED PLAYER SURVIVED THE VIDEO IT WAS PARKED FOR.** ts-mini
+  lives on <html> and setState is only ever called by a gesture, so an
+  in-page nav from one watch page to another kept the class, the cover,
+  the buttons and the collapsed placeholder. MEASURED: after a pushState
+  to another video the player was STILL parked at (169,697) 231x130 with
+  the placeholder at 0 -- tap a recommendation while minimised and the
+  new video plays in a corner box with a hole where the player belongs.
+  restoreFull() on loadstart (capture -- it does not bubble), popstate
+  and hashchange. It also takes the classes off when the navigation took
+  the player with it, which setState cannot do (it returns early without
+  a container) -- and that matters because ts-mini hides the blur pill.
+  VERIFIED: pushState to another video -> state full, ts-mini off, cover
+  and buttons gone, placeholder back to 232.
+- **HARNESS: A LONG-RUNNING EMULATOR INVENTS FAILURES.** After several
+  hours and many installs the failure-class sweep read 2 entries, both
+  `worker timeout`, worker ready **14-16s**, 4 images left pending --
+  which looks exactly like a regression in the image pipeline. Restarted
+  the emulator, nothing else changed: **6 entries, 0 errors, clear 2 /
+  face 4, worker ready 5,958ms, 0 pending, 0 CSP**. Restart before
+  believing a perf or failure-rate regression.
+- gaze 371/371, cargo 57/57.
+
 **Session 2026-08-31 (loop 2) -- HE WAS RIGHT ALL THREE TIMES, AND EVERY
 PROBE THAT SAID OTHERWISE WAS BLIND.**
 - **`elementsFromPoint` CANNOT SEE A `pointer-events: none` ELEMENT**, and
