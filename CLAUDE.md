@@ -70,8 +70,37 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 07:55 (v0.1.50/1050 is the shipped build;
-the verdict cache is committed and rides the next release).
+**Last updated:** 2026-08-30 08:40 (v0.1.50/1050 is the shipped build;
+the verdict cache and the re-host guard ride the next release).
+
+**Session 2026-08-30 (loop 11) -- A HOST IS ONLY CORRECT WHILE IT IS
+STILL THE PARENT.**
+- region-blur caches `entry.host` at mint time. applyRegionBlur
+  re-resolves it on a reparent -- but ONLY when a new verdict arrives
+  for that element. The 500ms sweep checked connectedness and
+  host-became-player, and nothing else, so an image moved by a
+  virtualising feed kept a patch hosted by a container it no longer
+  belonged to.
+- **THE ARITHMETIC HIDES IT.** The overlay sits at `elRect - hostRect`
+  inside the host, so the host's offset cancels and the patch still
+  lands on the image. What changes is the STACKING CONTEXT it inherits
+  -- the difference between a patch behind the sticky player and one
+  painting over it, which is the owner's open frame.
+- MEASURED FIRST: m.youtube search, 116 images, eight scroll steps, **0
+  reparented** (probe_reparent.py), matching the older 0 src/srcset
+  swaps on that surface. So the guard is a NET like the occluder clamp,
+  NOT a reproduction. The sweep now re-resolves, and restores whole blur
+  when there is no host to take. Both directions covered.
+- VERIFIED on a built x86_64 APK: 48 judged, 21 clear / 26 face / 1
+  error, 0 on-screen pending, and 6 region patches of which **6 land
+  entirely inside their own image, 0 stray**.
+- **CORRECTION to loop 10:** a second sample gave 21 avatars / 19
+  distinct = **9.5% repeats, not 30%**, and across three runs of the
+  built app the cache answered 1, 3 and 3 of 45-48 images. Honest hit
+  rate **2-6.5%**. Also dead, measured: normalising the `=s68` size
+  token in a ggpht url widens the key by nothing -- every avatar on the
+  page is already requested at s68.
+- NO RELEASE (nothing he would see yet). gaze 359/359, cargo 57/57.
 
 **Session 2026-08-30 (loop 10) -- THE URL CACHE WAS MEASURED ON THE
 WRONG POPULATION.**

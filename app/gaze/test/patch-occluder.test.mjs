@@ -24,3 +24,21 @@ test('our own image on top means nothing is covering it', () => {
   assert.ok(fn.includes('node.contains(el)'), 'an ancestor of our element is not an occluder');
   assert.ok(fn.includes('return 0'), 'and that answer is no clamp at all');
 });
+
+test('a patch never keeps a host that is no longer the image\'s parent', () => {
+  const sweep = src.slice(src.indexOf('function sweep()'), src.indexOf('setInterval(sweep'));
+  assert.ok(
+    sweep.includes('entry.el.parentElement !== entry.host'),
+    'the heartbeat has to re-check the host, not only the verdict path'
+  );
+  assert.ok(sweep.includes('resolveHost(entry.el)'), 're-resolve rather than guess');
+  const guard = sweep.slice(sweep.indexOf('entry.el.parentElement !== entry.host'));
+  assert.ok(
+    guard.slice(0, 400).includes('classList.add(wholeBlurClass)'),
+    'no host to take means whole blur comes back -- the covered direction'
+  );
+  assert.ok(
+    guard.slice(0, 400).includes('dropOverlays(entry)'),
+    'overlays hosted by the old parent must not survive the re-host'
+  );
+});

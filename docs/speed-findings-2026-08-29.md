@@ -249,3 +249,46 @@ rate because many repeated avatars are below the fold and never judged.
 At loop 9's measured ~1.6s per image it is real work removed for no
 accuracy cost, but it is not a number the owner would feel on a search
 page -- it rides the next release rather than justifying one.
+
+### Correction: the avatar repeat rate is page-dependent (2026-08-30)
+
+A second sample of the same search, taken an hour later, came back 21
+avatars / 19 distinct -- **9.5% repeats, not 30%**. Across three settled
+runs of the built app the cache answered **1, 3 and 3** of 45-48 images,
+so the honest figure is **2-6.5%**, and 30% was the high end of a
+two-sample spread rather than the number. Nothing about the change is
+wrong; the size of the win is smaller and more variable than the first
+measurement suggested, which is exactly why it did not justify a release
+on its own.
+
+Also dead, measured: normalising the SIZE token in a ggpht avatar url
+(`=s68-c-k-...`) to widen the key buys nothing. Every avatar on the page
+was already requested at `=s68` -- 19 distinct exact urls, 19 distinct
+normalised. `probe_avatar_norm.py`.
+
+## A host is only correct while it is still the parent (2026-08-30)
+
+`region-blur` caches `entry.host` when it mints a patch.
+`applyRegionBlur` re-resolves it when the element has been reparented --
+but only when a NEW verdict arrives for that element. The 500ms sweep
+checked that both are still connected, and that the host had not BECOME
+the player, and nothing else. So an image moved by a virtualising feed
+kept a patch hosted by a container it no longer belonged to.
+
+The arithmetic hides it: the overlay is positioned at
+`elRect - hostRect` inside the host, so the host's own offset cancels
+and the patch still lands on the image. What changes is the STACKING
+CONTEXT it inherits -- which is the difference between a patch that
+sits behind the sticky player and one that paints over it.
+
+MEASURED first, on m.youtube search: 116 images over eight scroll steps,
+**0 reparented** (`probe_reparent.py`) -- consistent with the earlier
+finding of 0 src/srcset swaps on that surface. So this is a NET in the
+same family as the occluder clamp, not a reproduction of the owner's
+frame. The sweep now re-resolves the host, and restores whole blur if
+there is no host to take; both directions stay covered.
+
+Verified after the change on a built x86_64 APK: 48 images judged, 21
+clear / 26 face / 1 error, **0 on-screen images left pending**, and 6
+region patches of which **6 land entirely inside their own image, 0
+stray**.

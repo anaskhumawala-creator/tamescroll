@@ -346,6 +346,40 @@ export function initRegionBlur(flaggedClass) {
       } catch (e) {
         /* non-fatal */
       }
+      // A HOST IS ONLY CORRECT WHILE IT IS STILL THE PARENT.
+      //
+      // applyRegionBlur re-resolves the host when the element has been
+      // reparented -- but only when a NEW verdict arrives for that
+      // element. Nothing re-checks it otherwise, so an image moved by a
+      // virtualising feed keeps a patch hosted by a container it no
+      // longer belongs to, and inherits THAT container's stacking
+      // context rather than its real parent's. The arithmetic still
+      // lands the patch on the image (the host's own offset cancels),
+      // which is why this hides rather than showing up as drift -- what
+      // changes is what the patch paints in front of.
+      //
+      // MEASURED on m.youtube search 2026-08-30, 116 images over eight
+      // scroll steps: 0 reparented. So this is a NET, in the same family
+      // as the occluder clamp, not a reproduction of the owner's frame.
+      // Covered in both directions: re-host if there is a host to take,
+      // whole blur if there is not.
+      try {
+        if (entry.el.parentElement !== entry.host) {
+          var moved = resolveHost(entry.el);
+          if (!moved) {
+            entry.el.classList.add(wholeBlurClass);
+            dropEntry(entry);
+            entries.splice(i, 1);
+            continue;
+          }
+          dropOverlays(entry);
+          entry.host = moved;
+          entry.lastRect = null;
+          entry.lastRelRect = null;
+        }
+      } catch (e) {
+        /* non-fatal: the entry keeps the host it had */
+      }
       var r = entry.el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) {
         // Virtualized away: whole blur back on, park the patches.
