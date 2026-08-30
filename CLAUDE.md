@@ -70,8 +70,53 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 04:40 (1058 live, sha c2e97371; loop 10 changed no
-code -- 1058 verified safe, and the blurred YouTube logo is root-caused).
+**Last updated:** 2026-08-31 05:20 (1059 live, sha 070e0663; rules 578c02b1;
+the home census is closed and the chip row has a switch).
+
+**Session 2026-08-31 (loop 11) -- HOME IS CENSUSED, AND THERE IS NO
+FIFTH CLASS OF THING ON IT.**
+- **1059 SHIPPED AND HASH-VERIFIED (070e0663). Rules 578c02b1 -- local,
+  raw GitHub and manifest all agree.**
+- **THE CENSUS THAT CLOSES PRIORITY 3 SIGNED OUT.** Nine home loads,
+  walking every custom element inside ytm-rich-grid-renderer. Home holds
+  exactly four kinds of thing and nothing else:
+    ytm-rich-item-renderer            37  a feed video, what he wants
+    ytm-rich-section-renderer          7  a shelf -- surface exists
+    ytm-feed-filter-chip-bar-renderer  4  the topic chips, 48px, EVERY load
+    ytm-continuation-item-renderer     4  32px, the load-more
+- **CENSUS GOTCHA THAT READS HOME AS ONE ROW:** the grid's direct
+  children are wrapper DIVs now, not renderers -- a census at that level
+  sees two 4,295px "rows" holding 18 watch links each and learns
+  nothing. Go a level deeper. (Loop 4's "every row is one of three
+  things" described the grid's children when they still WERE renderers.)
+- **THE CHIP ROW NOW HAS A SURFACE, AND IT SHIPS SHOWN.** It is the
+  whole of his "etc." -- algorithmic topic chips, "All / Podcasts /
+  News / Computer Hardware / Gaming / Hayden Panettiere", so a celebrity
+  name does appear in it. But it is a NAVIGATION control and he did not
+  name it, so hiding it by default would change his home without being
+  asked. `is_default_shown` gains `home_chips`; nothing changes and he
+  gains a switch.
+- **VERIFIED BOTH WAYS THROUGH THE REAL OTA PATH** (refresh_rules said
+  "updated 1 rule file(s)"): SHOWN = rule absent from the sheet, bar
+  visible 48px flex; HIDDEN = rule in the sheet, bar **display none at
+  height 0** -- and in BOTH states the grid is visible, **4 of 4 items
+  visible, 8 watch links**. Not a dead toggle, and hiding it costs
+  nothing from the feed.
+- **THE OTA CACHE SHADOWED THE EDIT AND MADE THE FIRST RUN VACUOUS.**
+  Before the push, all three configurations read "chips visible, rule
+  not in sheet" -- which looked like the default working and was
+  actually the surface not existing at all in the cached rules. The
+  documented gotcha, hit again: a rules change cannot be verified
+  locally, only after pushing.
+- **ONE HONEST WINDOW:** the surface DEFAULT is compiled into the app,
+  so a phone still on 1058 that refreshes rules will parse `home_chips`
+  and default it HIDDEN. Both manifests went out in the same push, so
+  1059 is offered at the same moment, and Settings -> Bring back shows
+  "Topic chips" either way. Worst case is one session with the chip row
+  missing. A surface whose default matters must ship its app release
+  and its rules together.
+- gaze 374/374, cargo 58/58.
+
 
 **Session 2026-08-31 (loop 10) -- 1058 STRANDS NOTHING, AND THE YOUTUBE
 LOGO IS PERMANENTLY BLURRED FOR A REASON HE HAS TO RULE ON.**
