@@ -1,7 +1,7 @@
 {
-  "versionCode": 1058,
-  "versionName": "0.1.58",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.58/tamescroll-v0.1.58.apk",
-  "sha256": "c2e97371afb7a460f3e996792bc01b68b33f5279bf718e43ca3a078871dfcec7",
-  "notes": "Thumbnails you have scrolled past no longer take inference from the ones on screen."
+  "versionCode": 1059,
+  "versionName": "0.1.59",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.59/tamescroll-v0.1.59.apk",
+  "sha256": "070e0663e3f1c42793dc47e0e6ce90056ab3b8f57ddb64e25465424e49278e4c",
+  "notes": "The home topic-chip row gets its own switch in Bring back."
 }
