@@ -70,9 +70,53 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 01:20 (1055 live, sha f3e5d960 -- the
-patch-over-video bug is FOUND and FIXED; 1054 before it fixed the
-miniplayer twice and the stale clamp).
+**Last updated:** 2026-08-31 02:40 (1057 live, sha a4f30e9f; a cancelled
+touch no longer strands the mini player part-shrunk).
+
+**Session 2026-08-31 (loop 6) -- A CANCELLED TOUCH IS NOT AN ENDED ONE,
+AND IT WAS FREEZING THE PLAYER PART-SHRUNK.**
+- **1057 SHIPPED AND HASH-VERIFIED (a4f30e9f).** miniplayer.mjs listened
+  for touchstart / touchmove / touchend and **not touchcancel**. Android
+  WebView fires touchcancel, not touchend, whenever the browser takes a
+  gesture back -- a system edge swipe, a second finger, a navigation
+  under it. onUp never ran, so start/claimed/dragT stayed armed,
+  `ts-mini-drag` stayed on <html> (which is `transition: none
+  !important` on the container) and the interpolated transform stayed
+  where the finger left it. A player frozen mid-shrink with its
+  transition killed, clearable only by the next gesture. That IS his
+  "it sometimes goes down and it doesn't function as it's supposed to",
+  and it is the intermittent seen at scale 0.906 last loop and not
+  reproduced then.
+- Cancel ABORTS, never commits -- a gesture the browser took away is one
+  the user did not finish, so no verdict is read from it. VERIFIED on a
+  built APK, both directions in one run: cancelled mid-drag 231x130
+  drag=true -> **412x232, transform none, drag=false, mini=false**;
+  the control (same drag, ended normally) still commits to mini at
+  (169,697).
+- **HIDING A SHELF ALREADY REMOVES ITS OWN INFERENCE -- do not add a
+  visibility gate.** The worry was that the ~4-14 thumbnails inside a
+  hidden home shelf were still being judged (tagImage gates on
+  naturalWidth only; there is no visibility check anywhere in the queue
+  or the drain). MEASURED: the hidden ytm-rich-section-renderer holds
+  **4 <img>, 0 with a src, 0 loaded, 0 at or above the 48px floor.**
+  YouTube lazy-loads thumbnails and a display:none ancestor never lets
+  the loader fire. A gate would buy nothing and cost a computed-style
+  read per tag.
+- **THE ISOLATE WRITE NOW REFUSES A FIXED HOST.** isolation:isolate is
+  a live mutation on YouTube's element, so anything inside that relied
+  on escaping to the root stops being able to. MEASURED across a
+  scrolled search feed and a playing watch page, 19 candidate hosts:
+  **0 feed hosts contain a positioned descendant painting outside their
+  own box.** The one that does -- 39 children, a descendant at z-index
+  41 escaping 15px -- is the fixed top bar hosting the account avatar,
+  and a fixed bar already paints above the scrolled player. VERIFIED on
+  a built APK: 13 hosts, 7 isolated, 1 fixed host, **0 fixed isolated**.
+- **THE STALE-EMULATOR TRAP CAUGHT ME A THIRD TIME.** A failure sweep on
+  a long-running emulator read 8 entries with **2 worker timeouts**;
+  after a restart the identical probe read 6 entries, **0 errors**, 0
+  pending on screen. Restart before believing any failure-rate number.
+- gaze 373/373, cargo 57/57.
+
 
 **Session 2026-08-31 (loop 5) -- NOTHING BROKE. FIVE CHECKS THAT COULD
 HAVE FOUND A HOLE AND DID NOT.** No code changed this loop; it is
