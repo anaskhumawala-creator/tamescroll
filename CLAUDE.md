@@ -70,8 +70,48 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 12:20 (1053 + the home-feed rules OTA;
-loop 16 confirmed all three fixes on HIS phone and refused a fourth).
+**Last updated:** 2026-08-30 13:05 (1053 + two rules OTAs; the history
+nag is hidden, breaking news is blocked on his adb).
+
+**Session 2026-08-30 (loop 17) -- HIS HOME FEED IS SHOWN, WHICH IS WHY
+THE BREAKING-NEWS RULE COULD NOT FIRE.**
+- He reported the shelf still there after the OTA. His own 1053 report
+  explains it: `kind: home`, 58 images judged, FORTY of them 686px
+  thumbnails, previews playing. **A hidden home feed has no thumbnails
+  to judge.** So Home feed is SHOWN on his phone, every rule I wrote is
+  scoped to the `home` surface, and none of them can apply. The rule is
+  not wrong -- it is switched off, correctly, because he wants the feed
+  and not the shelf.
+- CONSEQUENCE: breaking news needs its OWN surface (or the always-on
+  tier where ads and nags live), so it goes whether or not the feed is
+  shown. BLOCKED on the selector: it does not render signed out, and the
+  phone on adb is the old M2010J19SI without the app. He will enable USB
+  debugging on the 23122PCD1I later.
+- **THE HISTORY NAG IS HIDDEN** (`ytm-feed-nudge-renderer`). "Your
+  YouTube history is off ... turn on watch and search history" is an
+  unsolicited prompt to change a setting, and NO NAGS is absolute here.
+  MEASURED first, three surfaces: home 1 at 380x252 with ZERO video
+  links inside it, search 0, watch 0. VERIFIED through the OTA: home 1
+  present / **0 visible**, search 45 video links, untouched. Filed under
+  mobile_nags; that surface is labelled "App install nags" and this is
+  not one -- the label is his copy, so it is flagged, not rewritten.
+- **FOUR OF THE SIX ReVanced-STYLE HIDES DO NOT EXIST ON MOBILE.** Read
+  off the live watch DOM with the video PLAYING and controls revealed:
+  no `ytp-cards-*`, no related-video overlay, no settings-menu classes
+  -- only ytp-cued-thumbnail-overlay and ytp-timely-actions-content. End
+  screen is already covered. Flyout items live inside twelve
+  `ytm-bottom-sheet-renderer`s that carry every other sheet, so they need
+  per-item selectors read from an OPEN menu.
+- The two that ARE live were NOT shipped, deliberately:
+  `ytm-slim-video-action-bar-renderer` is how he likes, shares and saves
+  a video, and `player-time-display` is how he knows where he is in it.
+  Neither is clutter the way an ad or a nag is.
+- PROBE GOTCHAS, both of which read a healthy page as an empty one: a
+  CUED player builds NONE of the below-player chrome (play it first), and
+  the mobile player hides its controls during playback (tap to reveal
+  before reading the timestamp). A third: 13s is not long enough for
+  m.youtube search on this emulator -- one run reported 0 video links and
+  the same probe at 22s reported 45.
 
 **Session 2026-08-30 (loop 16) -- ALL THREE FIXES CONFIRMED ON HIS OWN
 DEVICE, AND THE FOURTH IS REFUSED ON MEASUREMENT.**
