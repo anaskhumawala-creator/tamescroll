@@ -1,7 +1,7 @@
 {
-  "versionCode": 1053,
-  "versionName": "0.1.53",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.53/tamescroll-v0.1.53.apk",
-  "sha256": "2574592be724e104bff5ae6a6eadb3dd319060cccbb57abb33a899ea83638369",
-  "notes": "The player's person model is asked for early instead of behind the thumbnail drain."
+  "versionCode": 1054,
+  "versionName": "0.1.54",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.54/tamescroll-v0.1.54.apk",
+  "sha256": "ad91f19b8ef29e19af634a7179985f6e2833cce50e2481478ef63f0319864614",
+  "notes": "Miniplayer no longer swallows scrolls and lands correctly; blur patches stop overlapping the video; feed shelves are now their own toggle."
 }
