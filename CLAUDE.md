@@ -70,8 +70,45 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 11:00 (v0.1.53/1053 RELEASED, apk sha
-2574592b, raw manifest verified).
+**Last updated:** 2026-08-30 11:45 (1053 shipped; the home-feed rule
+went out by rules OTA after it).
+
+**Session 2026-08-30 (loop 15) -- THE PHONE ON ADB IS NOT HIS PHONE.**
+- **EVERY APK PUSH THIS SESSION WENT TO THE WRONG DEVICE.** The adb
+  device `1ec2c48e0621` is `M2010J19SI` (Android 12) -- the OLD Redmi --
+  and `pm list packages` shows tamescroll IS NOT INSTALLED on it. His
+  diagnostics report came from `23122PCD1I` on Android 16, which is not
+  connected here. So /sdcard/Download pushes are useless; he gets builds
+  through the in-app updater, which is how he was already on 1051. DO
+  NOT treat a successful `adb push` as "the phone has it".
+- **HIS DESKTOP CHROME IS ALSO THE WRONG INSTRUMENT** (he said so):
+  it runs its own ad blocker on top of the Unhook-style extension, and
+  desktop YouTube is a different DOM from the mobile one the app shows.
+  Stripping the 26 `hide_*` attributes worked exactly as documented, and
+  the shelf still was not there -- desktop simply had no news shelf.
+- **"breaking news still shows on the homepage" FIXED BY CLASS, NOT BY
+  NAME.** The two mobile home rules only hid ytm-rich-grid-renderer and
+  ytm-rich-section-renderer; a news shelf is neither. Now every feed
+  container inside a browse page goes: item-section, shelf, rich-shelf,
+  section-list.
+- **A CAUTION FROM 2026-08-18 IS CLOSED.** The file asked whether mobile
+  search renders inside ytm-browse too. MEASURED, one run: home
+  ytm-browse 1 / single-column 1; SEARCH ytm-browse **0**, rendering in
+  ytm-search with its own section list. Nothing scoped to browse can
+  reach search.
+- VERIFIED THROUGH THE REAL DELIVERY PATH: refresh_rules said "updated 1
+  rule file(s)", then home = **0 visible feed containers, 0 video
+  links**, search = **2 result sections, 39 video links**.
+- HONEST: the Breaking news shelf itself is [unverified] -- it does not
+  render signed out, and no harness here can reach his signed-in mobile
+  home.
+- NOTICED, LEFT ALONE: mobile home carries `ytm-feed-nudge-renderer`
+  ("Your YouTube history is off ... turn on watch and search history").
+  That is a nag, and NO NAGS is a hard rule -- but he named the news
+  shelf, so it is flagged, not hidden.
+- Also delivered: a triage of all 61 ReVanced v6.2.1 patches against the
+  block-only rule (never / breaks-our-promise / already-ours / his call
+  / not-on-the-web), published as an artifact at his request.
 
 **Session 2026-08-30 (loop 14) -- LOADING IS NOT USING, AND THE LONG
 TASKS ARE NOT OURS.**
