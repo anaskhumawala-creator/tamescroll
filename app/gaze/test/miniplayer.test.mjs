@@ -266,3 +266,24 @@ test('a cancelled touch aborts the drag instead of stranding it', () => {
   assert.match(body, /dragT = null;/);
   assert.match(body, /endDrag\(pc\);/);
 });
+
+test('a tap that rolls under the paging slop does not move the player', () => {
+  // MEASURED 2026-08-31: with CLAIM_PX 8, a tap drifting 10px shrank the
+  // player to 386x217 and translated it (24, 93) before springing back;
+  // 14px -> 376x211, 20px -> 360x203, 45px -> 296x166. None committed.
+  // That lurch-and-snap on an ordinary tap is the owner's "annoying".
+  // 16 is Android's getScaledPagingTouchSlop (2x the 8dp touch slop),
+  // the constant that exists for deliberate page/panel drags.
+  assert.equal(m.CLAIM_PX, 16);
+  // Realistic tap jitter stays the page's.
+  for (const dy of [0, 5, 8, 10, 14, 15]) {
+    assert.equal(m.claimAxis(0, dy, 'full'), null, `${dy}px must not claim`);
+  }
+  // A deliberate drag still claims early -- well before the commit
+  // threshold, so the finger can drag it back out without letting go.
+  assert.equal(m.claimAxis(0, 16, 'full'), 'y');
+  assert.equal(m.claimAxis(0, 40, 'full'), 'y');
+  // And the same floor applies to the upward drag out of mini.
+  assert.equal(m.claimAxis(0, -14, 'mini'), null);
+  assert.equal(m.claimAxis(0, -16, 'mini'), 'y');
+});

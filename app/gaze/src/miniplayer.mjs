@@ -75,7 +75,28 @@ export function gestureVerdict(dx, dy, state) {
   return null;
 }
 
-export var CLAIM_PX = 8;
+/// A TAP MUST NOT MOVE THE PLAYER.
+///
+/// 8 was inherited from the original `|dy| >= 8` gate, and it is below
+/// the noise floor of a thumb tap. MEASURED 2026-08-31 on the emulator,
+/// synthetic taps that drift downward before lifting: at 10px the player
+/// already shrank to 386x217 and translated (24, 93); 14px -> 376x211;
+/// 20px -> 360x203; 45px -> 296x166. None of them COMMITTED -- every one
+/// sprang back to 412x232 on release -- so what he got for tapping the
+/// player was a lurch and a snap back, plus the preventDefault that a
+/// claimed gesture takes, on every tap that rolled more than ~9px. The
+/// shrink follows the finger 1:1 by design (2026-08-26), so the claim
+/// threshold is the only thing standing between a tap and that motion.
+///
+/// 16 is not a guess: Android's ViewConfiguration has TWO slops, and the
+/// second one exists for exactly this gesture -- getScaledTouchSlop() is
+/// 8dp, for "is this a scroll", and getScaledPagingTouchSlop() is 2x
+/// that, 16dp, for "is this a deliberate drag of a page or panel". This
+/// is the second kind. It also leaves the claim at a sixth of the 103px
+/// commit threshold, so the finger can still catch the player and drag
+/// it back out without letting go, which is why the claim is separate
+/// from the commit in the first place.
+export var CLAIM_PX = 16;
 
 /// Which axis, if any, this drag belongs to us on -- null means the page
 /// keeps it.
