@@ -70,8 +70,30 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 08:40 (v0.1.50/1050 is the shipped build;
-the verdict cache and the re-host guard ride the next release).
+**Last updated:** 2026-08-30 09:20 (v0.1.51/1051 RELEASED, apk sha
+7d5c511d, raw manifest verified).
+
+**Session 2026-08-30 (loop 12) -- 1051 SHIPPED, AND THE TOUCH AUDIT IS
+CLEAN ACROSS EVERY MODULE.**
+- Released 1051 carrying loop 10's per-page verdict cache and loop 11's
+  re-host guard. The guard is a net against the frame he photographed,
+  and a net that sits on this disk cannot help him -- same reasoning
+  that shipped the occluder clamp in 1045.
+- **PASSIVE-LISTENER AUDIT, WIDENED AND CLEAN.** Every touch, wheel and
+  scroll listener in app/gaze/src and app/src: the ONLY non-passive one
+  in the whole app is the miniplayer's player-scoped touchmove
+  (bindHost). All three document-level touch listeners in miniplayer.mjs
+  are `{capture:true, passive:true}`, init-entry's scroll listener is
+  passive, video-region's is passive, and the launcher TS registers
+  ZERO touch/wheel/scroll listeners. Nothing in our code can take the
+  fast scroll path away from a page.
+- NOTICED, LEFT ALONE (a colour, and he did not ask): opening a platform
+  from the launcher navigates the single Android WebView from our dark
+  launcher into a page that paints white before YouTube does, so there
+  is a white flash on every tile press. One line in MainActivity
+  (`webView.setBackgroundColor`) would remove it -- it is a colour
+  change, so it needs his word.
+- gaze 359/359, cargo 57/57.
 
 **Session 2026-08-30 (loop 11) -- A HOST IS ONLY CORRECT WHILE IT IS
 STILL THE PARENT.**

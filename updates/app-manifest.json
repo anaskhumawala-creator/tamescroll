@@ -1,7 +1,7 @@
 {
-  "versionCode": 1050,
-  "versionName": "0.1.50",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.50/tamescroll-v0.1.50.apk",
-  "sha256": "50c02e565f36c3a68b36d5ae8387e457fdba2b474e3b57ce839a7e60a45d7b6d",
-  "notes": "A thumbnail whose check times out is checked again, not left blurred."
+  "versionCode": 1051,
+  "versionName": "0.1.51",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.51/tamescroll-v0.1.51.apk",
+  "sha256": "7d5c511da99fd335e826615fd1bfe7537c92779975a0b401922bba2f5d8105bf",
+  "notes": "Patches re-check their host every heartbeat; per-page verdict cache on the exact image url."
 }
