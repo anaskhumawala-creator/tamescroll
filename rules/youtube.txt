@@ -72,6 +72,35 @@ youtube.com##ytd-browse[page-subtype="home"] ytd-feed-filter-chip-bar-renderer
 m.youtube.com##ytm-browse ytm-rich-grid-renderer
 m.youtube.com##ytm-single-column-browse-results-renderer ytm-rich-section-renderer
 
+! THE HOME FEED IS NOT ONLY A GRID. Owner 2026-08-30, on his phone with
+! Home feed hidden: "breaking news still shows on the homepage". A news
+! shelf is neither a rich grid nor a rich section, so both rules above
+! missed it, and enumerating one more renderer name would miss the next
+! shelf YouTube invents. Every FEED CONTAINER inside a browse page goes
+! instead.
+!
+! This is scoped to ytm-browse and that scope is what makes it safe. The
+! rule file has carried a CAUTION since 2026-08-18 that nobody had
+! measured -- whether search renders inside ytm-browse too. MEASURED
+! 2026-08-30 on the emulator, one run, three surfaces: home has
+! ytm-browse 1 / ytm-single-column-browse-results-renderer 1; SEARCH has
+! ytm-browse 0 and renders in ytm-search with its own
+! ytm-section-list-renderer and two ytm-item-section-renderers;
+! subscriptions signed out renders neither. So search cannot be reached
+! by anything scoped to browse, and the caution is closed.
+!
+! [live] home ytm-rich-grid-renderer 1, ytm-rich-section-renderer 2,
+! search ytm-browse 0 / ytm-item-section-renderer 2 (probe_home_containers.py)
+! [unverified] the Breaking news shelf itself -- it does not render
+! signed out, and the owner's phone is not on adb. The rule is written to
+! cover it by CLASS rather than by a name nobody here has read.
+! test: on m.youtube.com home in the Android app ->
+!   the feed body is empty; search results and subscriptions still render
+m.youtube.com##ytm-browse ytm-item-section-renderer
+m.youtube.com##ytm-browse ytm-shelf-renderer
+m.youtube.com##ytm-browse ytm-rich-shelf-renderer
+m.youtube.com##ytm-browse ytm-section-list-renderer
+
 
 ! ============================================================
 ! SHORTS — every entry point
