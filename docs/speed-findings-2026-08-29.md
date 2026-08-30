@@ -169,3 +169,49 @@ question about the phone.
    (BlazeFace fixes its batch dim), a URL verdict cache (4-8% hit —
    `sqp` varies the crop per surface), the scroll-time budget fraction,
    and SharedWorker (Android WebView does not have it).
+
+## What an image actually costs: faces, not pixels (2026-08-30)
+
+The tempting optimisation was to stop handing tfjs the thumbnail at its
+natural size. `createImageBitmap(el)` does no resize, so every distinct
+thumbnail dimension reaches the models as a different tensor shape --
+and tfjs keys its compiled WebGL programs by shape, while the warm-up
+compiles exactly one shape (a blank 256x256 with one face box). If that
+were costing anything, capping or quantising the bitmap would be a free
+win.
+
+`probe_shape_cost.py` reads the diagnostic ring on a settled m.youtube
+search, drops the first three images (still paying the warm-up tail) and
+groups what is left. Two runs, 30 settled images:
+
+| source width | n | median worker ms |
+|---|---|---|
+| 68px (avatars) | 13 | 1647 |
+| 686px (thumbnails) | 16 | 1618 |
+
+**A source ten times larger costs the same.** There is no per-shape
+recompilation and no size dependence, so downscaling the bitmap buys
+nothing -- and it would have cost gender-crop quality on small faces,
+which is the defect that took four days to find in August.
+
+What the cost is actually made of, same 30 images:
+
+| faces in image | n | median worker ms |
+|---|---|---|
+| 0 | 1 | 309 |
+| 1 | 22 | 1565 |
+| 2 | 5 | 2366 |
+| 3 | 2 | 3987 |
+
+Detection is ~310ms; **every face after that adds ~1.25s, linearly.**
+faceres is batched into one inference over all the faces in an image and
+still shows no economy of scale, so the batch is not the lever either.
+The main thread's share stayed at 18ms worst over the whole page.
+
+So the per-image lever is the number of faces judged, not bytes moved.
+The only ways to cut it are to run faceres on fewer faces (an accuracy
+decision the owner has to make -- a 68px avatar reporting two faces was
+verified as a real two-person avatar in August) or to make faceres
+itself cheaper, which is item 4. Do not re-derive this from the totals:
+`__TS_GAZE_IMGDIAG` carries `w` and `faces` per entry, which is what
+separates the two explanations.

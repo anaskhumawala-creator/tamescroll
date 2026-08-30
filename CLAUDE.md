@@ -70,8 +70,35 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 06:30 (v0.1.50/1050 is the shipped build,
-re-verified after the harness restarts; no new release).
+**Last updated:** 2026-08-30 07:10 (v0.1.50/1050 is the shipped build;
+loop 9 was a measurement round, no release).
+
+**Session 2026-08-30 (loop 9) -- AN IMAGE COSTS FACES, NOT PIXELS.**
+- The optimisation that looked free: `createImageBitmap(el)` does NOT
+  resize, so every distinct thumbnail size reaches tfjs as a different
+  tensor shape, while warmUp compiles exactly one (blank 256x256, one
+  box). tfjs keys compiled WebGL programs by shape, so a mixed feed
+  could have been recompiling per size.
+- **IT IS NOT.** probe_shape_cost.py, settled m.youtube search, first
+  three images dropped as warm tail, 30 images: 68px avatars median
+  **1647ms**, 686px thumbnails median **1618ms**. A source TEN TIMES
+  larger costs the same. Downscaling or quantising the bitmap buys
+  nothing, and it would have cost gender-crop quality on small faces --
+  the exact defect that took four days to find in August.
+- **THE COST IS PER FACE AND IT IS LINEAR.** Same 30 images by face
+  count: 0 faces 309ms, 1 face 1565, 2 faces 2366, 3 faces 3987. So
+  detection is ~310ms and every face adds ~1.25s. faceres is already
+  batched into ONE inference over all faces in an image and shows no
+  economy of scale, so the batch is not the lever either. Main thread's
+  worst share over the whole page: 18ms.
+- CONSEQUENCE for the next perf round: the only levers are running
+  faceres on fewer faces (an ACCURACY call that is the owner's -- a
+  68px avatar reporting two faces was verified as a real two-person
+  avatar in August, so refusing small faces is an exposure risk) or
+  making faceres itself cheaper, which is the native-TFLite item and is
+  gated on phone numbers. Do not re-derive this from totals:
+  `__TS_GAZE_IMGDIAG` carries `w` and `faces` per entry.
+- Nothing user-visible changed: NO RELEASE. gaze 351/351, cargo 57/57.
 
 **Session 2026-08-30 (loop 8) -- 1050 IS CLEAN ON YOUTUBE, AND THE
 EMULATOR CANNOT DO REDDIT AT ALL.**
