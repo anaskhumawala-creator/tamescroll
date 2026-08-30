@@ -1528,6 +1528,34 @@ if (
         return false;
       }
     }
+
+    // THE PLAYER IS THE THING HE IS LOOKING AT, SO ITS MODEL GOES FIRST.
+    // MoveNet used to be requested by the first video frame that reached
+    // the worker, which put a 4.94MB load behind the whole thumbnail
+    // drain: his phone reported it landing at 78,807ms. Asking here
+    // decouples loading from using. Deliberately NOT for feed previews
+    // -- a preview is transient and the lazy path is right for it.
+    // A player attaches BEFORE the worker has its backend, so a one-shot
+    // check here fires never -- measured: asked stayed null for 198s.
+    // Bounded poll instead: the worker is ready within seconds or the
+    // player is not going through it at all.
+    if (isPlayer && !feedPreview()) {
+      var personTries = 0;
+      var askPerson = function () {
+        if (failed || dead) return;
+        try {
+          if (workerVideo() && gazeWorker.preloadPerson()) {
+            var wm = (window.__TS_GAZE_WORKER = window.__TS_GAZE_WORKER || {});
+            wm['asked:person'] = Math.round(performance.now());
+            return;
+          }
+        } catch (e) {
+          /* the first frame still asks; this is only a head start */
+        }
+        if (++personTries < 40) setTimeout(askPerson, 500);
+      };
+      askPerson();
+    }
     if (video.__tsGazeAttached) return;
     video.__tsGazeAttached = true;
     anyVideoAttached = true;
@@ -4164,6 +4192,29 @@ if (
   var lastDiagAt = 0;
   var longTasks = 0;
   var longTaskMax = 0;
+  // WHOSE LONG TASK WAS IT?
+  //
+  // His phone reported 77 long tasks, worst 360ms, and the count alone
+  // cannot say whether that is our inference or YouTube's own work --
+  // which is the difference between a bug we can fix and a number we
+  // have to live with. `spends` already records every main-thread
+  // segment we knowingly spend (the image budget is built on it), so a
+  // long task that OVERLAPS one of those segments had our work inside
+  // it. Overlap is not authorship: a 360ms task can be YouTube's with
+  // 20ms of ours in the middle. It is still the only attribution
+  // available from inside the page, and 0 overlaps would settle it
+  // outright.
+  var longTasksOurs = 0;
+  var longTaskOursMax = 0;
+  function taskOverlapsOurWork(startTime, duration) {
+    var end = startTime + duration;
+    for (var i = 0; i < spends.length; i += 2) {
+      var segEnd = spends[i];
+      var segStart = segEnd - spends[i + 1];
+      if (segStart < end && segEnd > startTime) return true;
+    }
+    return false;
+  }
 
   function startDiagnostics() {
     try {
@@ -4175,6 +4226,10 @@ if (
           for (var i = 0; i < e.length; i++) {
             longTasks++;
             if (e[i].duration > longTaskMax) longTaskMax = e[i].duration;
+            if (taskOverlapsOurWork(e[i].startTime, e[i].duration)) {
+              longTasksOurs++;
+              if (e[i].duration > longTaskOursMax) longTaskOursMax = e[i].duration;
+            }
           }
         }).observe({ entryTypes: ['longtask'] });
       }
@@ -4282,6 +4337,8 @@ if (
       render: typeof window.__TS_GAZE_RENDER === 'function' ? window.__TS_GAZE_RENDER() : null,
       longTasks: longTasks,
       longTaskMaxMs: Math.round(longTaskMax),
+      longTasksOurs: longTasksOurs,
+      longTaskOursMaxMs: Math.round(longTaskOursMax),
     };
   }
 

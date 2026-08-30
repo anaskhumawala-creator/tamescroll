@@ -70,8 +70,41 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 10:05 (v0.1.52/1052 RELEASED, apk sha
-256c4072, raw manifest verified).
+**Last updated:** 2026-08-30 11:00 (v0.1.53/1053 RELEASED, apk sha
+2574592b, raw manifest verified).
+
+**Session 2026-08-30 (loop 14) -- LOADING IS NOT USING, AND THE LONG
+TASKS ARE NOT OURS.**
+- **MoveNet was only ever requested by the FIRST VIDEO FRAME that
+  reached the worker.** So on a watch page a 4.94MB load queued behind
+  the entire thumbnail drain, and his phone reported `loaded:person` at
+  **78,807ms** -- the player had no person pass for the first minute and
+  a half. The page now asks for it when it attaches a real WATCH player
+  (feed previews keep the lazy path -- a preview is transient).
+- **THE FIRST VERSION OF THE FIX FIRED NEVER, and the probe caught it.**
+  A player attaches BEFORE the worker has a backend, so a one-shot
+  `workerVideo()` check was false every time: asked stayed null for
+  198s. Bounded poll instead (500ms, 40 tries). MEASURED after:
+  **asked 5,033ms, loaded 13,007ms**, worker ready 4,689 -- and images
+  judged 0 at that point, so the player's model got in AHEAD of the
+  drain, which is the whole point.
+- **`asked:person` IS NOW IN THE REPORT.** `loadedPerson` alone could
+  not separate a model requested late from one that answered slowly, and
+  his 78.8s number was exactly that ambiguity.
+- **LONG-TASK ATTRIBUTION.** He reported 77 long tasks, worst 360ms, and
+  the count alone cannot say whose they are. `spends` already records
+  every main-thread segment we knowingly spend, so a long task that
+  OVERLAPS one had our work inside it. MEASURED on a scrolled search
+  page: **0 of 13 long tasks overlapped our work, worst 394ms, none of
+  it ours.** HONEST: overlap is not authorship, and `spends` only
+  covers segments we time (image prep, verdict apply, player pass) --
+  so this is strong evidence, not proof.
+- NOT DONE, he deferred it: the gender floor for faces under ~70px. His
+  report has four `unknown` reads at 34-63px and several near-coin-flip
+  males (0.04-0.33) below 92px, all of which are flagged anyway -- so a
+  floor would be pure saved inference with no visual change. Waiting on
+  his word.
+- gaze 363/363, cargo 57/57.
 
 **Session 2026-08-30 (loop 13) -- HIS PHONE REPORT ARRIVED, AND REQUEST
 BLOCKING HAD NEVER RUN ON ANDROID.**

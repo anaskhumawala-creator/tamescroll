@@ -1,7 +1,7 @@
 {
-  "versionCode": 1052,
-  "versionName": "0.1.52",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.52/tamescroll-v0.1.52.apk",
-  "sha256": "256c40725771c21967852bd5b08554846049f522400f660a555241b852c1da69",
-  "notes": "Request blocking now actually runs on Android."
+  "versionCode": 1053,
+  "versionName": "0.1.53",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.53/tamescroll-v0.1.53.apk",
+  "sha256": "2574592be724e104bff5ae6a6eadb3dd319060cccbb57abb33a899ea83638369",
+  "notes": "The player's person model is asked for early instead of behind the thumbnail drain."
 }

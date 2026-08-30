@@ -8,6 +8,7 @@
 // readiness that had already happened, which is worse than never
 // prestarting at all.
 import { test } from 'node:test';
+import * as fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { createWorkerClient } from '../src/worker-client.mjs';
 
@@ -85,4 +86,14 @@ test('with no prestart the client builds its own worker from our url', () => {
   } finally {
     delete global.window;
   }
+});
+
+test('the player asks for MoveNet instead of waiting for its first frame', () => {
+  const src = fs.readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
+  assert.ok(src.includes('gazeWorker.preloadPerson()'), 'the page has to ask');
+  const at = src.indexOf('gazeWorker.preloadPerson()');
+  const around = src.slice(at - 700, at);
+  assert.ok(around.includes('isPlayer && !feedPreview()'), 'a feed preview keeps the lazy load');
+  const worker = fs.readFileSync(new URL('../src/worker-entry.js', import.meta.url), 'utf8');
+  assert.ok(worker.includes("msg.type === 'person'"), 'and the worker has to answer it');
 });

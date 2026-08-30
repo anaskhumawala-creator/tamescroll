@@ -214,3 +214,18 @@ test('a replayed verdict reports as a cache hit, not as in-page inference', () =
   assert.strictEqual(rep.images.ring[0].where, 'cache');
   assert.deepStrictEqual(d.reportViolations(rep), []);
 });
+
+test('the report says how many long tasks had our own work inside them', () => {
+  const rep = d.buildReport({ longTasks: 77, longTaskMaxMs: 360, longTasksOurs: 4, longTaskOursMaxMs: 88 });
+  assert.strictEqual(rep.main.longTasks, 77);
+  assert.strictEqual(rep.main.longTasksOurs, 4);
+  assert.strictEqual(rep.main.longTaskOursMaxMs, 88);
+  assert.deepStrictEqual(d.reportViolations(rep), []);
+});
+
+test('the person model is reported as asked as well as loaded', () => {
+  const rep = d.buildReport({ worker: { 'asked:person': 900, 'loaded:person': 78807 } });
+  assert.strictEqual(rep.worker.askedPerson, 900);
+  assert.strictEqual(rep.worker.loadedPerson, 78807);
+  assert.deepStrictEqual(d.reportViolations(rep), []);
+});

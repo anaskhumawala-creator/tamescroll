@@ -366,6 +366,16 @@ export function startWorker() {
       ensureModels();
       return;
     }
+    // LOADING IS NOT USING. MoveNet was only ever requested by the first
+    // video frame that reached this worker, so on a watch page the model
+    // the player is waiting for started loading behind the whole image
+    // drain. His phone reported `loaded:person` at 78,807ms -- the
+    // player had no person pass for the first minute and a half of the
+    // page. The page asks for it the moment it attaches a real player.
+    if (msg.type === 'person') {
+      ensurePerson();
+      return;
+    }
     if (msg.type === 'image') {
       ensureModels().then(function () {
         return handleImage(msg);

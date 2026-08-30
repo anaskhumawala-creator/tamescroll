@@ -323,6 +323,11 @@ export function buildReport(snap) {
       loadedGender: num(worker['loaded:gender']),
       loadedNsfw: num(worker['loaded:nsfw']),
       loadedPerson: num(worker['loaded:person']),
+      // ASKED, not just loaded. `loadedPerson` alone could not separate a
+      // model requested late from one that answered slowly, and his
+      // 78,807ms report was exactly that ambiguity -- the difference
+      // between a scheduling bug and a slow parse.
+      askedPerson: num(worker['asked:person']),
       dead: !!worker.dead,
       whyR: redactFreeText(worker.why),
       bannedR: redactFreeText(worker.videoBanned),
@@ -384,7 +389,16 @@ export function buildReport(snap) {
           dispWrites: num(s.render.dispWrites),
         }
       : null,
-    main: { longTasks: num(s.longTasks), longTaskMaxMs: num(s.longTaskMaxMs) },
+    // `ours` means one of our own recorded main-thread segments fell
+    // inside that task -- overlap, not authorship. A 360ms task can be
+    // the page's with 20ms of ours in it. Zero overlaps would settle the
+    // question the other way outright.
+    main: {
+      longTasks: num(s.longTasks),
+      longTaskMaxMs: num(s.longTaskMaxMs),
+      longTasksOurs: num(s.longTasksOurs),
+      longTaskOursMaxMs: num(s.longTaskOursMaxMs),
+    },
   };
 }
 

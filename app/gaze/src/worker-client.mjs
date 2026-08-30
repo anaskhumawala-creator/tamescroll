@@ -45,6 +45,8 @@ export function createWorkerClient(opts) {
     // MoveNet is loaded on demand and can fail on its own without
     // killing the image path, so the player gets its own veto.
     personFailed: false,
+    // When the page ASKED for MoveNet. Null until it does.
+    askedPerson: null,
   };
   var pending = new Map();
   var nextId = 1;
@@ -295,6 +297,23 @@ export function createWorkerClient(opts) {
       // --- player path -------------------------------------------------
       backend: function () {
         return state.backend;
+      },
+      // Ask for MoveNet before anything needs it, and remember WHEN --
+      // `loaded:person` alone cannot tell a model that was asked late
+      // from one that answered slowly, which is the whole reason his
+      // 78.8s report could not be acted on directly.
+      preloadPerson: function () {
+        if (state.dead || state.askedPerson != null) return false;
+        state.askedPerson = Math.round(performance.now());
+        try {
+          worker.postMessage({ type: 'person' });
+        } catch (e) {
+          return false;
+        }
+        return true;
+      },
+      askedPerson: function () {
+        return state.askedPerson;
       },
       personFailed: function () {
         return state.personFailed;
