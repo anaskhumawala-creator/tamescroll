@@ -74,6 +74,50 @@ Users install this one app and nothing else.
 patch-over-video bug is FOUND and FIXED; 1054 before it fixed the
 miniplayer twice and the stale clamp).
 
+**Session 2026-08-31 (loop 4) -- A SECTION IS A SHELF, AN ITEM IS A
+VIDEO, AND THE TWO SHELF RULES NOW PARTITION HOME.**
+- **THE FIRST SHELF RULE WAS TOO NARROW.** A second census of the live
+  home feed (probe_home_census.py, a different load) settled the shape:
+  every row is one of three things -- ytm-rich-item-renderer at 328px
+  with 2 watch links (one feed video), ytm-rich-section-renderer (a
+  SHELF: 371px/14 watch links for Breaking news, 614px/4 shorts links
+  for a Shorts shelf), or a 32px continuation. So the shelf test is the
+  ELEMENT, and `:has(ytm-rich-shelf-renderer)` would have missed any
+  shelf built out of something else -- the Shorts shelves contain no
+  rich-shelf at all.
+- **THE EXCLUSION IS A TOGGLE BOUNDARY, AND ITS MATCH TYPE MATTERS.**
+  The Shorts surface already owns
+  `ytm-rich-section-renderer:has(a[href^="/shorts/"])`. Excluding the
+  same sections with `*=` is NOT the same set -- an absolute
+  https://m.youtube.com/shorts/... href would be excluded here and not
+  caught there, so a shelf could fall between two toggles. Matched the
+  same way (`^=`), the two rules PARTITION every section on home. Keep
+  them in lockstep.
+- **VERIFIED AGAINST THE LIVE INJECTED SHEET**, inside a real
+  ytm-browse: a non-Shorts ytm-rich-section-renderer computes **display
+  none**, a Shorts one computes **block**, both real Shorts shelves stay
+  block, and **0 of 4** feed items are hidden. Six consecutive home
+  loads with Shorts SHOWN and Feed shelves hidden: every Shorts shelf
+  visible at 614px, grid 1/1, all items visible. HONEST: no Breaking
+  news shelf appeared in those six loads -- home content varies per load
+  -- so the positive case rests on the synthetic-section match plus loop
+  3's live measurement of the real one.
+- **THE TOGGLE AUDIT NOW RUNS ON THE EMULATOR.**
+  probe_surface_audit.py only ever worked against the DESKTOP dev app,
+  which would put a feed on his monitor -- so it had never been run
+  since the mobile rules grew. New probe_toggle_audit_emu.py, youtube
+  mobile over home + search + watch: **7 live toggles, 0 dead**. The two
+  it flags are mobile_nags, which is always_on by design and matches two
+  0-height elements on watch.
+- Rules OTA re-verified: local, raw GitHub and manifest sha all
+  **3fd81cf4**. No app release this loop -- rules only, and they travel
+  by OTA.
+- NOT DONE, deliberately: the cold-navigation lever (speed-findings item
+  2). This harness wobbles 28% on timing and the rule here is never act
+  on n=1, so a speed change measured only on the emulator would be
+  guesswork. It needs the phone.
+- cargo 57/57.
+
 **Session 2026-08-31 (loop 3) -- THE HOME FEED RENDERS SIGNED OUT NOW,
 AND THE BREAKING NEWS SHELF WAS SITTING RIGHT THERE.**
 - **STOP RECORDING "signed out, m.youtube renders no feed".** It does:
