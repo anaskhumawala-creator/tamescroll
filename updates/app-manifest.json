@@ -1,7 +1,7 @@
 {
-  "versionCode": 1059,
-  "versionName": "0.1.59",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.59/tamescroll-v0.1.59.apk",
-  "sha256": "070e0663e3f1c42793dc47e0e6ce90056ab3b8f57ddb64e25465424e49278e4c",
-  "notes": "The home topic-chip row gets its own switch in Bring back."
+  "versionCode": 1060,
+  "versionName": "0.1.60",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.60/tamescroll-v0.1.60.apk",
+  "sha256": "93a07abc99ff91af56180707d7c6372a8e07128bac0aab505feb313d58a251bb",
+  "notes": "Tapping the video no longer makes it lurch smaller and snap back."
 }
