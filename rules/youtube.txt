@@ -179,6 +179,39 @@ m.youtube.com##ytm-browse ytm-rich-section-renderer:not(:has(a[href^="/shorts/"]
 !   ytd-rich-grid-renderer still renders; shelf sections do not
 youtube.com##ytd-browse[page-subtype="home"] ytd-rich-section-renderer:has(ytd-rich-shelf-renderer)
 
+!surface: home_chips Topic chips
+
+! THE ONLY OTHER THING ON HOME, AND IT SHIPS SHOWN.
+!
+! Owner 2026-08-31: "make sure that there exists no random elements like
+! breaking news and this that yah yah yah on the homepage etc." The
+! shelves above are the named half; this is what the "etc." turned out
+! to be, and it is the ONLY other thing there.
+!
+! CENSUSED ACROSS NINE SEPARATE HOME LOADS, walking every custom element
+! inside ytm-rich-grid-renderer (the grid's direct children are wrapper
+! DIVs now, so a census at that level reads one 4,295px row and learns
+! nothing -- go a level deeper). Home holds exactly four kinds of thing:
+!   ytm-rich-item-renderer            37  a feed video, what he wants
+!   ytm-rich-section-renderer          7  a shelf -- the surface above
+!   ytm-feed-filter-chip-bar-renderer  4  THIS, 48px, one on every load
+!   ytm-continuation-item-renderer     4  32px, the load-more
+! Nothing else. There is no fifth class to find signed out.
+!
+! It is a row of algorithmic topic chips -- "All / Podcasts / News /
+! Computer Hardware / Gaming / Hayden Panettiere" -- so a celebrity name
+! can appear in it, which is the recommendation surface he objects to.
+! But it is also a NAVIGATION control, not injected content, and he did
+! not name it. So this ships SHOWN (rules.rs is_default_shown): nothing
+! on his home changes, and he gains a switch. Turning it off is his
+! call, not ours.
+! [live] ytm-feed-filter-chip-bar-renderer, 48px, display flex, present
+!   on 4 of 4 measured loads, 0 watch links and 0 shorts links inside
+! test: on m.youtube.com home in the Android app with Topic chips
+!   Hidden -> the chip row is gone and ytm-rich-grid-renderer still
+!   renders every video item
+m.youtube.com##ytm-browse ytm-feed-filter-chip-bar-renderer
+
 ! ============================================================
 ! SHORTS — every entry point
 ! ============================================================

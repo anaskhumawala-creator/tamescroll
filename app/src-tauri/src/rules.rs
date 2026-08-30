@@ -286,7 +286,12 @@ fn is_always_on(id: &str) -> bool {
 /// toggle stays and the default flips. Same list shape as is_always_on,
 /// for the same reason: one convention, all files.
 fn is_default_shown(id: &str) -> bool {
-    matches!(id, "watch_recs")
+    // home_chips is the topic chip row on m.youtube home. It is the only
+    // non-video, non-shelf thing on that page (censused over nine loads,
+    // 2026-08-31) but it is a NAVIGATION control and the owner did not
+    // name it, so it ships SHOWN: nothing on his home changes and he
+    // gains a switch.
+    matches!(id, "watch_recs" | "home_chips")
 }
 
 /// Parses one of our `!surface:`-annotated rule files into its surfaces.
@@ -529,5 +534,38 @@ mod preview_surface_tests {
             sels.iter().any(|r| r == "m.youtube.com##ytm-video-preview"),
             "mobile selector missing: {sels:?}"
         );
+    }
+
+    #[test]
+    fn home_chips_ships_shown_and_is_scoped_to_the_browse_page() {
+        // CENSUSED over nine m.youtube home loads 2026-08-31: the only
+        // things on home are ytm-rich-item-renderer (37, the videos),
+        // ytm-rich-section-renderer (7, the shelves), this chip bar (4,
+        // one per load) and ytm-continuation-item-renderer (4). The chip
+        // bar is the whole of the owner's "etc." -- but it is a
+        // NAVIGATION control and he did not name it, so hiding it by
+        // default would change his home without being asked.
+        let surfaces = super::platform_surfaces("youtube").expect("youtube surfaces");
+        let chips = surfaces
+            .iter()
+            .find(|s| s.id == "home_chips")
+            .expect("home_chips surface");
+        assert!(
+            chips.default_shown,
+            "home_chips must ship SHOWN -- he did not ask for the chips to go"
+        );
+        let sels: Vec<String> = chips
+            .rules
+            .iter()
+            .map(|(d, s)| format!("{d}##{s}"))
+            .collect();
+        assert_eq!(
+            sels,
+            vec!["m.youtube.com##ytm-browse ytm-feed-filter-chip-bar-renderer".to_string()],
+            "only the measured mobile selector belongs here"
+        );
+        // Scoped to the browse page: search has its own chip bar and this
+        // surface has nothing to say about it.
+        assert!(sels[0].contains("ytm-browse "), "must stay scoped to browse");
     }
 }
