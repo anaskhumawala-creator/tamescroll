@@ -70,8 +70,39 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 07:10 (v0.1.50/1050 is the shipped build;
-loop 9 was a measurement round, no release).
+**Last updated:** 2026-08-30 07:55 (v0.1.50/1050 is the shipped build;
+the verdict cache is committed and rides the next release).
+
+**Session 2026-08-30 (loop 10) -- THE URL CACHE WAS MEASURED ON THE
+WRONG POPULATION.**
+- The repo's own note says a url verdict cache hits 4-8% and is not
+  worth it. That was measured over THUMBNAILS and it is still true --
+  YouTube's `sqp` varies the crop per surface, so two thumbnails of one
+  video are genuinely different pixels. Re-measured on a settled,
+  scrolled m.youtube search over EXACT untruncated urls: thumbnails 28
+  images / 28 distinct / **0% repeats**; AVATARS 20 images / 14 distinct
+  / **30% repeats**. A channel picture has no sqp and the same channel
+  appears again and again down a feed.
+- Shipped `app/gaze/src/verdict-cache.mjs`. Key is the exact url PLUS
+  the nsfw question, so a face-only avatar verdict can never answer for
+  a thumbnail that also needed the nsfw check. Two properties make
+  replaying a verdict safe and both are load bearing: identical urls are
+  identical pixels, so the normalised boxes land exactly where they were
+  measured (the old objection about boxes is an objection to a
+  PATH-only key); and the cache dies with the page, so a clear verdict
+  can never outlive the bytes it was made from. Errors are never cached.
+  Bounded at 200 entries, oldest evicted.
+- VERIFIED on the emulator with a freshly built x86_64 APK, two settled
+  runs: **3 of 46 and 3 of 45 entries came back `where: cache`**,
+  verdicts still differentiated (13/33 and 20/24 clear/face), **0
+  on-screen images left pending** both times. One run had a single
+  `error` entry and still ended with 0 pending -- loop 7's retry doing
+  its job again.
+- HONEST: 6.5%, not 30%, because most repeated avatars are below the
+  fold and never judged. Real work removed at no accuracy cost, but not
+  a number he would feel on a search page. NO RELEASE; it rides the
+  next one.
+- gaze 358/358, cargo 57/57.
 
 **Session 2026-08-30 (loop 9) -- AN IMAGE COSTS FACES, NOT PIXELS.**
 - The optimisation that looked free: `createImageBitmap(el)` does NOT

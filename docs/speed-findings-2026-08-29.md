@@ -215,3 +215,37 @@ verified as a real two-person avatar in August) or to make faceres
 itself cheaper, which is item 4. Do not re-derive this from the totals:
 `__TS_GAZE_IMGDIAG` carries `w` and `faces` per entry, which is what
 separates the two explanations.
+
+## The url verdict cache, on the population it actually helps (2026-08-30)
+
+The old note says a url verdict cache hits 4-8% and is not worth it.
+That was measured over thumbnails, and it is still true. Measured again
+on a settled, scrolled m.youtube search (`probe_dupsrc.py`, exact
+untruncated urls, images at or above the 48px floor):
+
+| population | images | distinct urls | repeats |
+|---|---|---|---|
+| thumbnails | 28 | 28 | **0%** |
+| avatars | 20 | 14 | **30%** |
+
+YouTube's `sqp` parameter varies a thumbnail's crop per surface, so two
+thumbnails of the same video are genuinely different pixels. A channel
+avatar has no sqp, and the same channel appears repeatedly down a feed.
+
+Shipped as `verdict-cache.mjs`, keyed on the EXACT untruncated url plus
+the nsfw question (a face-only avatar verdict must never answer for a
+thumbnail that also needed the nsfw check). Two properties make
+replaying safe and both are load bearing: identical urls are identical
+pixels, so the normalised boxes land exactly where they were measured;
+and the cache lives and dies with the page, so a clear verdict can never
+outlive the bytes it was made from. Errors are never cached -- one
+transient failure must not cover a url everywhere it appears.
+
+VERIFIED on the emulator, built app, two settled runs: **3 of 46 and 3
+of 45 entries came back `where: cache`**, verdicts stayed differentiated
+(13/33 and 20/24 clear/face), and **0 on-screen images were left
+pending** in both. That is ~6.5% of images, below the 30% avatar repeat
+rate because many repeated avatars are below the fold and never judged.
+At loop 9's measured ~1.6s per image it is real work removed for no
+accuracy cost, but it is not a number the owner would feel on a search
+page -- it rides the next release rather than justifying one.

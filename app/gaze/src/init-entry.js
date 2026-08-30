@@ -85,6 +85,7 @@ import { planForMode, rotateBudget } from './pipeline-plan.mjs';
 import { createWorkerClient } from './worker-client.mjs';
 import { startWorker } from './worker-entry.js';
 import { installMiniplayer } from './miniplayer.mjs';
+import { makeVerdictCache, verdictKey } from './verdict-cache.mjs';
 
 // ONE ARTIFACT, TWO ROLES.
 //
@@ -238,6 +239,17 @@ if (
   var AVATAR_PATCH_PAD = 0.22;
   // Images in [IMAGE_MIN_FACE_SIZE, IMAGE_MIN_SIZE) -- face pass only.
   var faceOnlyImgs = typeof WeakSet === 'function' ? new WeakSet() : null;
+  // Judged verdicts, keyed on the exact url, for the life of THIS page.
+  // The measurement that justifies it and the two properties that make
+  // replaying a verdict safe are in verdict-cache.mjs.
+  var verdictCache = makeVerdictCache();
+  function imgKey(img) {
+    try {
+      return verdictKey(img.currentSrc || img.src || '', !!(faceOnlyImgs && faceOnlyImgs.has(img)));
+    } catch (e) {
+      return null;
+    }
+  }
   // Passive, so it can never delay the scroll it is observing. Bound to
   // the document because YouTube scrolls the window on desktop and an
   // inner container on mobile web -- capture catches both.
@@ -851,6 +863,27 @@ if (
         /* matcher error: fall through to the visual pipeline */
       }
     }
+    // ALREADY JUDGED, SAME PIXELS. A repeated url skips the bitmap and
+    // the whole inference; the verdict it replays was measured on this
+    // exact image earlier on this page.
+    var ckey = imgKey(img);
+    if (ckey) {
+      var cached = verdictCache.get(ckey);
+      if (cached) {
+        noteImgDiag({
+          t: Math.round(performance.now()),
+          ms: 0,
+          where: 'cache',
+          w: img.naturalWidth,
+          why: cached.nsfw ? 'nsfw' : cached.face ? 'face' : 'clear',
+          faces: cached.reads ? cached.reads.length : 0,
+          flagged: cached.flagBoxes ? cached.flagBoxes.length : 0,
+          reads: [],
+        });
+        applyVerdictToImage(img, cached);
+        return Promise.resolve();
+      }
+    }
     var tImg0 = performance.now();
     var tLoad = 0;
     var tFace = 0;
@@ -963,6 +996,7 @@ if (
             }),
           });
           var tApply0 = performance.now();
+          verdictCache.set(ckey || imgKey(img), result);
           applyVerdictToImage(img, result);
           mainMs += performance.now() - tApply0;
           return { mainMs: mainMs };
@@ -1088,6 +1122,7 @@ if (
             };
           }),
         });
+        verdictCache.set(ckey || imgKey(img), result);
         applyVerdictToImage(img, result);
       })
       .catch(function (e) {
