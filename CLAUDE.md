@@ -70,8 +70,45 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 03:45 (1057 live, sha a4f30e9f; loop 8 changed no
-code -- every listed angle on the blur-over-video bug is now measured).
+**Last updated:** 2026-08-31 04:05 (1058 live, sha c2e97371; the far-defer
+check was bypassed by any queue longer than 64).
+
+**Session 2026-08-31 (loop 9) -- THE FAR-DEFER CHECK WAS SILENTLY OFF
+FOR MOST OF A LONG SCROLL.**
+- **1058 SHIPPED AND HASH-VERIFIED (c2e97371).** The drain built
+  distance keys only for the images it was going to SORT
+  (PRIORITY_SCAN_MAX 64). The batch loop decides whether to defer a far
+  image with `typeof pri === 'number'` -- which is FALSE for every
+  candidate past the sort window, so those were batched no matter how
+  far above the fold they sat. The comment claimed the tail was "far off
+  screen by definition"; the tail is in ARRIVAL order and holds whatever
+  was tagged most recently, near and far alike.
+- **THE QUEUE GROWS LINEARLY WITH THE SCROLL, so past 64 is a normal
+  session.** MEASURED: m.youtube home **85 pending after 19,500px**,
+  search **65 after 13,600px**, climbing steadily the whole way (home
+  4 -> 17 -> 26 -> 39 -> 49 -> 59 -> 67 -> 75 -> 85) while on-screen
+  pending stayed 4-7. At 85 queued that is 21 images bypassing the
+  check and competing with the five on his screen.
+- FIX: keys are built over the QUEUE, bounded at PRIORITY_KEY_MAX 512;
+  the SORT stays bounded at 64, which is what that window existed for.
+  A rect read is one layout flush for the whole loop; a wasted inference
+  is ~174ms on his phone. Past 512 there is still no key and that stays
+  fail-open on the NEAR side -- an unkeyed image is judged rather than
+  deferred, so nothing is stranded covered.
+- **VERIFIED on a built APK, same page and same 34-step scroll:** once
+  the screen is clear of pending images imgTotal stops dead at 60 and
+  holds across **nine consecutive 6s samples -- 0 judged with nothing on
+  screen, where the previous build judged 22.** On-screen images still
+  resolved first (on 5 -> 3 -> 0, imgTotal 52 -> 56 -> 60).
+- **THE PREVIEW PATH CANNOT BE EXERCISED HERE, and that is a harness
+  limit, not a clean result.** Signed out, m.youtube's shared
+  #movie_player stays **0x0 and never plays** -- 14 dwell-and-scroll
+  steps down home, 0 with a preview playing. So the "patch hosted inside
+  the player subtree" angle rests on 281 samples of hostInPlayer 0 with
+  the previews never firing. It needs his signed-in phone. Stop
+  re-running it here.
+- gaze 374/374, cargo 57/57.
+
 
 **Session 2026-08-31 (loop 8) -- ALL FIVE REMAINING ANGLES ON HIS
 THREE-TIMES-REPORTED BUG ARE NOW MEASURED, AND ALL FIVE ARE CLEAN.**
