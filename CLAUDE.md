@@ -70,8 +70,48 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 05:20 (1059 live, sha 070e0663; rules 578c02b1;
-the home census is closed and the chip row has a switch).
+**Last updated:** 2026-08-31 06:05 (1060 live, sha 93a07abc; a tap no longer
+makes the player lurch smaller and snap back).
+
+**Session 2026-08-31 (loop 12) -- A TAP WAS MOVING THE PLAYER, AND THAT
+IS THE OTHER HALF OF "ANNOYING".**
+- **1060 SHIPPED AND HASH-VERIFIED (93a07abc).** CLAIM_PX was 8,
+  inherited from the original `|dy| >= 8` gate, and 8px is below the
+  noise floor of a thumb tap. The shrink follows the finger 1:1 by
+  design, so the claim threshold is the ONLY thing between an ordinary
+  tap and that motion. MEASURED on a built APK with taps that drift
+  downward before lifting: **10px shrank the player to 386x217 and
+  translated it (24, 93); 14px -> 376x211; 20px -> 360x203; 45px ->
+  296x166 -- and NONE of them committed**, every one sprang back to
+  412x232 on release. A lurch and a snap back, plus the preventDefault a
+  claimed gesture takes, on every tap that rolled more than ~9px.
+- **16 IS A PLATFORM CONSTANT, NOT A DIAL I PICKED.** Android's
+  ViewConfiguration has two slops and the second exists for exactly this
+  gesture: getScaledTouchSlop() 8dp = "is this a scroll",
+  getScaledPagingTouchSlop() 16dp = "is this a deliberate drag of a page
+  or panel". It also leaves the claim at a SIXTH of the 103px commit
+  threshold, so the finger can still catch the player and drag it back
+  out without letting go.
+- **VERIFIED both directions on a built APK:** 0/5/8/10/14px now leave
+  the player untouched at **412x232**; 20/30/45px still claim and follow
+  the finger exactly as before; a normal drag still commits to mini at
+  (169,697) and a cancelled one still aborts back to 412x232.
+- **ROTATION IS CLEAN -- do not re-check it.** Real device rotation via
+  `settings put system user_rotation`, mini the whole way: portrait
+  (169,697) 231x130 -> landscape (571,222) 280x126 -> portrait
+  (169,697) 231x130, with the **12px right/bottom margin exact at every
+  step** and on screen throughout. place() re-parks correctly.
+- **THE NEW CHIP RULE DOES NOT LEAK.** With home chips hidden: home
+  browse 1 / search 0, chip bar hidden, grid intact (4 items, 8 watch
+  links); SEARCH has **ytm-browse 0, ytm-search 1, ZERO chip bars** and
+  19 results untouched; watch 51 watch links and 12 recommendations
+  untouched. The `ytm-browse ` prefix is the only scoping there is,
+  since surfaces_css ignores the domain column, and it holds.
+- **TOGGLE AUDIT: 10 live, 0 dead.** home_chips is live (shown 1 /
+  hidden 0). The two flagged are mobile_nags, always_on by design,
+  matching 0-height elements on watch -- same as loop 4.
+- gaze 375/375, cargo 58/58.
+
 
 **Session 2026-08-31 (loop 11) -- HOME IS CENSUSED, AND THERE IS NO
 FIFTH CLASS OF THING ON IT.**
