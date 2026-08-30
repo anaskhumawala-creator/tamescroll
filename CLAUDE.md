@@ -70,8 +70,32 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 05:45 (v0.1.50/1050 RELEASED, apk sha
-50c02e56, raw manifest verified).
+**Last updated:** 2026-08-30 06:30 (v0.1.50/1050 is the shipped build,
+re-verified after the harness restarts; no new release).
+
+**Session 2026-08-30 (loop 8) -- 1050 IS CLEAN ON YOUTUBE, AND THE
+EMULATOR CANNOT DO REDDIT AT ALL.**
+- **THE FAILURE-CLASS SWEEP IS THE TECHNIQUE THAT KEEPS PAYING.** Read
+  `why`/`msg`/`where` out of `__TS_GAZE_IMGDIAG` instead of the counter
+  (probe_error_classes.py). On 1050, m.youtube search, twice in a row:
+  **7 entries, 0 errors**, why = clear 2 / face 5, all in the worker, 0
+  on-screen images left pending, 0 CSP violations. The worker timeout
+  that stranded thumbnails last round did not recur -- the retry plus
+  the shorter warm are both doing their job on the shipped build.
+- **THE EMULATOR DIES ON REDDIT. THREE TIMES, AND ONCE IN OFF MODE.**
+  Navigating the app to reddit.com/r/pics kills the whole emulator
+  process (adb loses the device; `adb devices` can report it alive for a
+  moment afterwards, which is stale). It happened with gaze OFF too, so
+  it is not our pipeline -- it is swiftshader plus a page of large
+  images. CONSEQUENCE: reddit / x / instagram cannot be exercised on
+  this harness, and a four-site sweep must be run ONE SITE PER
+  INVOCATION or a late death loses every earlier result.
+  Restart recipe: `emulator -avd hijri_pixel -no-window -no-audio
+  -no-boot-anim -gpu swiftshader_indirect`, boots in ~40s, the app
+  survives the restart, then re-`adb forward` to the NEW pid.
+- logcat came back EMPTY after each death, so there is no crash trace to
+  chase; do not spend another round looking for one.
+- Nothing user-visible changed: NO RELEASE. gaze 351/351, cargo 57/57.
 
 **Session 2026-08-30 (loop 7) -- A TIMEOUT IS NOT A VERDICT, AND ONE WAS
 COVERING THUMBNAILS FOR THE LIFE OF THE PAGE.**
