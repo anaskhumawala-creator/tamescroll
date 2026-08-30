@@ -74,6 +74,40 @@ Users install this one app and nothing else.
 patch-over-video bug is FOUND and FIXED; 1054 before it fixed the
 miniplayer twice and the stale clamp).
 
+**Session 2026-08-31 (loop 5) -- NOTHING BROKE. FIVE CHECKS THAT COULD
+HAVE FOUND A HOLE AND DID NOT.** No code changed this loop; it is
+verification of what loops 2-4 shipped, and the negative results are the
+deliverable.
+- **THE ISOLATION FIX HAS 100% COVERAGE.** Of the hosts carrying a live
+  patch on a scrolled search page: **13 of 13 isolated, 0 not**. So
+  there is no path through resolveHost that skips the write.
+- **NO HOST CAN STILL OUTRANK THE PLAYER.** Scanned every parent of a
+  judgeable image on home, search and watch for the highest stacking
+  context between it and the root, against the player's z-index 2:
+  search **0 risky of 43**, watch **0 of 14**, home **1 of 20** -- and
+  that one is a 122px image inside `ytm-mobile-topbar-renderer`
+  (fixed, z 4, under a header at z 3), so its patch belongs above the
+  player by construction. The scan also caught our own write in the
+  wild: `isolation` shows up in the chain on ytm-thumbnail-cover.
+  One watch host reads `IN-PLAYER` at z-index 2 -- resolveHost already
+  refuses that one and keeps whole blur.
+- **THE GESTURE CANNOT ENGAGE OFF /watch, and the guard is doing real
+  work**: `#player-container-id` and `#movie_player` BOTH EXIST on home
+  and search (m.youtube reuses the shared player for feed previews), yet
+  a 120px drag in either direction gives **0 of 5-8 touchmoves
+  prevented**, no drag class, no transform, state full.
+- **THE FLING IS RIGHT ON BOTH SIDES OF ITS THRESHOLD** (103px on a
+  412px screen): sideways 80 while FULL is not ours and changes nothing;
+  sideways 60 while mini snaps back **exactly** to (169,697) with no
+  offset left behind; sideways 220 throws it away -- state full, video
+  **paused**, placeholder back to 232, buttons gone, ts-mini-gone
+  cleared, transform cleared.
+- So priority 2 is closed on measurement across claim direction,
+  landing, restore, navigation reset, off-/watch refusal, both sides of
+  the fling threshold, and throw-away cleanup.
+- NOT DONE: speed. Same reason as loop 4 -- 28% timing wobble here, and
+  the rule is never act on n=1. It needs the phone.
+
 **Session 2026-08-31 (loop 4) -- A SECTION IS A SHELF, AN ITEM IS A
 VIDEO, AND THE TWO SHELF RULES NOW PARTITION HOME.**
 - **THE FIRST SHELF RULE WAS TOO NARROW.** A second census of the live
