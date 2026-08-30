@@ -581,6 +581,32 @@ export function installMiniplayer(win) {
     writeTransform(pc, blendTransform(dragT, dragProgress(dy, state)));
   }
 
+  // A CANCELLED GESTURE IS NOT AN ENDED ONE, AND THE PLAYER WAS LEFT
+  // MID-DRAG BY IT.
+  //
+  // Android WebView fires `touchcancel` instead of `touchend` whenever
+  // the browser takes the gesture back -- a system edge swipe, a second
+  // finger landing, the page navigating under it. Without a handler for
+  // it `onUp` never ran, so `start`/`claimed`/`dragT` stayed armed,
+  // `ts-mini-drag` stayed on <html> (which is `transition: none
+  // !important` on the container) and the interpolated transform stayed
+  // exactly where the finger left it -- a player frozen part-shrunk,
+  // which is the owner's "it sometimes goes down and it doesn't function
+  // as it's supposed to".
+  //
+  // Cancel ABORTS, it does not commit: a gesture the browser took away
+  // is a gesture the user did not finish, so the state it started from
+  // is the state it returns to. endDrag already restores exactly that.
+  function onCancel() {
+    if (!start) return;
+    var pc = container();
+    start = null;
+    claimed = false;
+    dragT = null;
+    dragAxis = 'y';
+    endDrag(pc);
+  }
+
   function onUp(x, y) {
     if (!start) return;
     var dx = x - start.x;
@@ -697,6 +723,7 @@ export function installMiniplayer(win) {
     },
     { capture: true, passive: true }
   );
+  doc.addEventListener('touchcancel', onCancel, { capture: true, passive: true });
 
   // Mouse is here so the gesture is drivable on the desktop dev app,
   // which is the only surface with a debugger attached.

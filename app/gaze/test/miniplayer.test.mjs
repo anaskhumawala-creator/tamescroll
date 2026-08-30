@@ -241,3 +241,28 @@ test('a parked player does not survive the video it was parked for', () => {
   // with it -- ts-mini hides the blur pill, which belongs to every page.
   assert.match(code, /classList\.remove\('ts-mini'\)/);
 });
+
+
+test('a cancelled touch aborts the drag instead of stranding it', () => {
+  // Android WebView fires touchcancel, not touchend, whenever the
+  // browser takes a gesture back -- a system edge swipe, a second finger,
+  // a navigation under it. With no handler onUp never ran, so start /
+  // claimed / dragT stayed armed, ts-mini-drag stayed on <html> (which
+  // is `transition: none !important` on the container) and the
+  // interpolated transform stayed exactly where the finger left it: a
+  // player frozen part-shrunk. Seen once at scale 0.906, never
+  // committed.
+  const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
+  const code = stripComments(src);
+  assert.match(code, /addEventListener\('touchcancel', onCancel/);
+  const fn = code.slice(code.indexOf('function onCancel()'));
+  const body = fn.slice(0, fn.indexOf('function onUp('));
+  // ABORT, never commit: a gesture the browser took away is one the user
+  // did not finish, so no verdict may be read from it.
+  assert.equal(/gestureVerdict|dismissVerdict|setState|dismiss\(/.test(body), false,
+    'a cancelled gesture must not commit a state change');
+  // And it must actually let go of the drag.
+  assert.match(body, /claimed = false;/);
+  assert.match(body, /dragT = null;/);
+  assert.match(body, /endDrag\(pc\);/);
+});
