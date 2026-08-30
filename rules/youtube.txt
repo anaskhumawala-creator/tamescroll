@@ -155,16 +155,22 @@ m.youtube.com##ytm-browse ytm-section-list-renderer
 ! and the first version -- gated on :has(ytm-rich-shelf-renderer) --
 ! would have missed any shelf built out of something else.
 !
-! The `:not(:has(a[href*="/shorts/"]))` is not caution, it is a toggle
+! The `:not(:has(a[href^="/shorts/"]))` is not caution, it is a toggle
 ! boundary: a Shorts shelf belongs to the Shorts surface, and hiding it
 ! from here as well would leave Shorts a dead toggle -- a failure this
-! repo has already shipped twice.
+! repo has already shipped twice. The `^=` is deliberate and must stay
+! in lockstep with the Shorts surface's own
+! `ytm-rich-section-renderer:has(a[href^="/shorts/"])`: matched the same
+! way, the two rules PARTITION every section on home, with no section
+! owned by both and none owned by neither. A `*=` here left a gap --
+! an absolute https://m.youtube.com/shorts/... href would be excluded
+! from this rule and not caught by that one.
 ! [live] ytm-rich-section-renderer on m.youtube home: Breaking news
 !   (371px, 14 watch links, 0 shorts) and two Shorts shelves (614px,
 !   0 watch links, 4 shorts links each)
 ! test: on m.youtube.com home in the Android app, Home feed = Shown ->
 !   the video grid still renders; the Breaking news shelf does not
-m.youtube.com##ytm-browse ytm-rich-section-renderer:not(:has(a[href*="/shorts/"]))
+m.youtube.com##ytm-browse ytm-rich-section-renderer:not(:has(a[href^="/shorts/"]))
 
 ! Desktop, same surface and the same :has() guard, so a wrong name here
 ! costs nothing.
