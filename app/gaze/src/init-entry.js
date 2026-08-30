@@ -395,9 +395,20 @@ if (
   // below the fold, and a large constant for anything already passed --
   // so this defers the passed ones too.
   var FAR_PRIORITY_PX = 2000;
-  // How many queued images get a rect read before the ordering pass
-  // gives up and leaves the tail in arrival order (see drainImages).
+  // How many queued images are SORTED by distance. Bounded so the
+  // ordering pass cannot itself become the jank it prevents.
   var PRIORITY_SCAN_MAX = 64;
+  // How many get a distance KEY. Much larger than the sort window,
+  // because an unkeyed image silently bypasses the far-defer check
+  // below -- `typeof pri === 'number'` is false, so it is batched no
+  // matter how far off screen it is. MEASURED 2026-08-31 on m.youtube
+  // home: the queue grows linearly with the scroll and reached 85 after
+  // 19,500px (search reached 65 after 13,600px), so the tail past 64 is
+  // a normal session, not a pathological one -- 21 images bypassing the
+  // check at that point, and more the further he goes. Keying is a rect
+  // read, which is one layout flush for the whole loop; a wasted
+  // inference is ~174ms on his phone. The read is the cheap side.
+  var PRIORITY_KEY_MAX = 512;
   var VIDEO_SAMPLE_INTERVAL_MS = 500; // caps inference at ~2/s per feed video
   // Player detection cadence (redesign 2026-08-24, blur-pipeline-audit,
   // + owner "not instantaneous — HaramBlur is snappier"): the person
@@ -1249,20 +1260,25 @@ if (
       // never while scrolling -- the gate above already returned), then
       // the queue runs nearest-to-the-viewport first: what is on screen,
       // then what is just below it, then what he has already passed.
-      // Bounded so a page that has queued hundreds of images cannot turn
-      // the ordering itself into the jank it exists to prevent; beyond
-      // the cap the tail keeps its arrival order, which is the old
-      // behaviour and is fine -- it is far off screen by definition.
+      // The SORT is bounded so a page that has queued hundreds of images
+      // cannot turn the ordering itself into the jank it exists to
+      // prevent. The KEYS are not: an unkeyed image bypasses the
+      // far-defer check below entirely, and "the tail is far off screen
+      // by definition" -- what this comment used to claim -- is false.
+      // The tail is in ARRIVAL order, so it holds whatever was tagged
+      // most recently, near and far alike, and past 64 the far ones were
+      // being judged unconditionally.
       var keys = null;
       if (imageQueue.length > 1) {
         try {
           var vh = window.innerHeight || 1;
           var scan = imageQueue.length > PRIORITY_SCAN_MAX ? PRIORITY_SCAN_MAX : imageQueue.length;
-          var head = imageQueue.slice(0, scan);
+          var keyed = imageQueue.length > PRIORITY_KEY_MAX ? PRIORITY_KEY_MAX : imageQueue.length;
           keys = new WeakMap();
-          for (var pi = 0; pi < head.length; pi++) {
-            keys.set(head[pi], imagePriority(head[pi].getBoundingClientRect(), vh));
+          for (var pi = 0; pi < keyed; pi++) {
+            keys.set(imageQueue[pi], imagePriority(imageQueue[pi].getBoundingClientRect(), vh));
           }
+          var head = imageQueue.slice(0, scan);
           head.sort(function (a, b) {
             return keys.get(a) - keys.get(b);
           });
@@ -1295,6 +1311,9 @@ if (
           imageQueue.splice(qi, 1);
           continue;
         }
+        // Beyond PRIORITY_KEY_MAX there is still no key, and that
+        // stays fail-open on the NEAR side: an unkeyed image is judged
+        // rather than deferred, so nothing can be stranded covered.
         var pri = keys ? keys.get(cand) : 0;
         // Probe override, same reasoning as __TS_IMG_BUDGET: this
         // distance is a trade (visible thumbnails resolve sooner, far

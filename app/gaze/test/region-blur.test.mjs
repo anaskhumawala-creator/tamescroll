@@ -2,6 +2,7 @@
 // 2026-08-24: scroll briefly exposed document-anchored patches).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { boxToParentRect, sameRect, padBox, expandToBody, mergeOverlapping, isPlayerSubtree, shouldStandDown, PLAYER_SUBTREE_SELECTOR, coversRect, imagePriority, PRIORITY_BEHIND } from '../src/region-blur.mjs';
 
 test('boxToParentRect: element inset inside its parent maps to parent space', () => {
@@ -180,4 +181,30 @@ test('shouldStandDown: a PLAYING host covering the still hides its patches', () 
   // Barely-overlapping host leaves most of the still visible.
   const edge = { left: 0, top: 280, right: 400, bottom: 505, width: 400, height: 225 };
   assert.equal(shouldStandDown(edge, true, el), false);
+});
+
+test('the far-defer check is not bypassed by a long queue', () => {
+  // MEASURED 2026-08-31 on the emulator: the image queue grows LINEARLY
+  // with the scroll -- m.youtube home reached 85 pending after 19,500px,
+  // search 65 after 13,600px -- so a queue longer than the 64-item sort
+  // window is a normal session. Keys were only ever built for that
+  // window, and an unkeyed candidate reads `typeof pri === 'number'`
+  // false, so it skipped the far check and was judged no matter how far
+  // above the fold it sat. At 85 queued that is 21 images competing with
+  // the five on his screen. The keying bound must therefore be much
+  // larger than the sort bound.
+  const src = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
+  const scan = /var PRIORITY_SCAN_MAX = (\d+);/.exec(src);
+  const key = /var PRIORITY_KEY_MAX = (\d+);/.exec(src);
+  assert.ok(scan, 'PRIORITY_SCAN_MAX must exist');
+  assert.ok(key, 'PRIORITY_KEY_MAX must exist');
+  assert.ok(
+    Number(key[1]) > Number(scan[1]),
+    'the keying window must be larger than the sort window'
+  );
+  // Keys come off the QUEUE, not off the sorted head -- taking them from
+  // `head` is what limited them to the sort window in the first place.
+  assert.match(src, /keys\.set\(imageQueue\[pi\], imagePriority\(imageQueue\[pi\]/);
+  // And the sort itself stays bounded, which is why the window exists.
+  assert.match(src, /var head = imageQueue\.slice\(0, scan\);/);
 });
