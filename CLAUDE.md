@@ -70,8 +70,53 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-30 09:20 (v0.1.51/1051 RELEASED, apk sha
-7d5c511d, raw manifest verified).
+**Last updated:** 2026-08-30 10:05 (v0.1.52/1052 RELEASED, apk sha
+256c4072, raw manifest verified).
+
+**Session 2026-08-30 (loop 13) -- HIS PHONE REPORT ARRIVED, AND REQUEST
+BLOCKING HAD NEVER RUN ON ANDROID.**
+- He handed over a diagnostics report from the real device (23122PCD1I,
+  Android 16, WebView 151, 8 cores, running 1051). It closed the oldest
+  open question and opened a much worse one.
+- **`seen: 0, blocked: 0` ON A WATCH PAGE.** The diagnostics block says
+  seen==0 means page interception is not wired at all, and it was right.
+  Reproduced on the emulator across THREE full page loads: seen stayed
+  0. logcat: **1,107 warnings**, every one of them
+  `block check failed, allowing: A WebView method was called on thread
+  'ThreadPoolForeg'`.
+- **THE CAUSE IS ONE LINE.** `shouldInterceptRequest` runs on a WebView
+  worker thread, and every WebView method must be called on the thread
+  that made the WebView -- so `view.url` inside our blocking wrapper
+  threw on EVERY request, the fail-open catch swallowed it, and nothing
+  was ever blocked. It looked healthy from outside because the
+  synthetic-resource branch returns BEFORE that line, so the inference
+  worker loaded normally the whole time. His 2026-08-20 report "ad
+  blocking does not work at all" was half-fixed then; this was the other
+  half, invisible for ten days.
+- FIX: the page url is recorded on the MAIN thread (`onPageStarted` plus
+  `doUpdateVisitedHistory`, because an SPA nav on m.youtube fires no
+  onPageStarted) into a `@Volatile` field the interceptor reads.
+  VERIFIED on the emulator, three navigations: seen **24 -> 64 -> 94**,
+  blocked **2 -> 3 -> 3**, and **0** fail-open warnings (was 1,107).
+- Also fixed: `where: 'cache'` was not in diag-report's closed enum, so
+  every cache hit in his report was folded into `page`. 13 of the 40
+  ring entries he sent were cache hits reported as in-page inference --
+  ~32% hit rate on a watch page, far above the 2-6.5% the emulator
+  showed on search.
+- **THE PHONE'S REAL NUMBERS, at last.** worker backend **webgl** (the
+  open question since 2026-08-28 -- the player is genuinely off-thread
+  on his device), worker up 2723ms, ready 4373ms, image **p50 174ms /
+  p95 434ms**, player verdict p50 433 / p95 1271, 39 passes, 0 fails, 0
+  timeouts, 77 long tasks worst 360ms. So the emulator runs ~9x slower
+  than his phone: every absolute number in
+  docs/speed-findings-2026-08-29.md is an emulator number and should be
+  divided by roughly nine.
+- OPEN, from the same report: `loadedPerson` **78,807ms**. MoveNet took
+  79 SECONDS to load on the real device. It loads lazily and after
+  `ready`, so it does not gate thumbnails, but the player's person pass
+  is unavailable for the first minute and a half of a watch page. Not
+  chased this round.
+- gaze 360/360, cargo 57/57.
 
 **Session 2026-08-30 (loop 12) -- 1051 SHIPPED, AND THE TOUCH AUDIT IS
 CLEAN ACROSS EVERY MODULE.**

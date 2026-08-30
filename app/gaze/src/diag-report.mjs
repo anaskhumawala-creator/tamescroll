@@ -91,7 +91,7 @@ var ENUMS = {
   gazeMode: ['off', 'blur', 'smart', 'none'],
   gender: ['man', 'woman', 'none'],
   os: ['android', 'windows', 'other'],
-  where: ['page', 'worker'],
+  where: ['page', 'worker', 'cache'],
   why: ['face', 'nsfw', 'text', 'clear', 'pending', 'error', 'other'],
   g: ['male', 'female', 'unknown'],
   backend: ['webgl', 'cpu', 'none'],

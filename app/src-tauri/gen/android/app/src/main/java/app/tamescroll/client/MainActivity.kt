@@ -611,6 +611,11 @@ class MainActivity : TauriActivity() {
   /// shouldInterceptRequest and changes nothing else. Getting this wrong
   /// breaks the custom protocol the whole app is served over, so the
   /// delegation is deliberately total.
+  /// The top-level page url, written on the main thread and read from
+  /// the interceptor's worker thread. See the note in
+  /// installBlockingClient for why this exists rather than `view.url`.
+  @Volatile private var pageUrlForBlocking: String = ""
+
   private fun installBlockingClient() {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
     val wry = webView.webViewClient
@@ -629,8 +634,21 @@ class MainActivity : TauriActivity() {
           if (url.contains("/__tamescroll/")) {
             syntheticResponse(url)?.let { return it }
           }
-          val page = view.url.orEmpty()
-          if (nativeShouldBlock(url, page, resourceTypeOf(request))) return blockedResponse()
+          // NEVER `view.url` HERE. shouldInterceptRequest runs on a
+          // WebView worker thread, and every WebView method must be
+          // called on the thread that made it -- so reading view.url
+          // threw on EVERY request, the catch below fail-opened, and
+          // request blocking never ran on Android at all. It looked
+          // healthy from the outside because the synthetic-resource
+          // branch above returns before this line, so the inference
+          // worker loaded normally while nothing was ever blocked.
+          // MEASURED on the emulator 2026-08-30: 1,107 "block check
+          // failed" warnings in one logcat, all of them this exception,
+          // and the request counter stayed at 0 across three page loads.
+          // The page url is recorded on the main thread instead.
+          if (nativeShouldBlock(url, pageUrlForBlocking, resourceTypeOf(request))) {
+            return blockedResponse()
+          }
         } catch (e: Throwable) {
           // Fail OPEN. An engine that cannot answer must not take the
           // page down with it: a missed ad is a nuisance, a dead page is
@@ -643,8 +661,19 @@ class MainActivity : TauriActivity() {
       override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) =
         wry.shouldOverrideUrlLoading(view, request)
 
-      override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) =
+      override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+        pageUrlForBlocking = url
         wry.onPageStarted(view, url, favicon)
+      }
+
+      // An SPA navigation fires no onPageStarted, and m.youtube is one:
+      // tapping a video never leaves the document. Without this the
+      // source url handed to the engine would be whatever page was last
+      // hard-loaded, and exception rules are scoped by source.
+      override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+        pageUrlForBlocking = url
+        wry.doUpdateVisitedHistory(view, url, isReload)
+      }
 
       override fun onPageFinished(view: WebView, url: String) = wry.onPageFinished(view, url)
 

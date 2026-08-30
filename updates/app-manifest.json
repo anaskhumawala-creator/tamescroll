@@ -1,7 +1,7 @@
 {
-  "versionCode": 1051,
-  "versionName": "0.1.51",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.51/tamescroll-v0.1.51.apk",
-  "sha256": "7d5c511da99fd335e826615fd1bfe7537c92779975a0b401922bba2f5d8105bf",
-  "notes": "Patches re-check their host every heartbeat; per-page verdict cache on the exact image url."
+  "versionCode": 1052,
+  "versionName": "0.1.52",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.52/tamescroll-v0.1.52.apk",
+  "sha256": "256c40725771c21967852bd5b08554846049f522400f660a555241b852c1da69",
+  "notes": "Request blocking now actually runs on Android."
 }

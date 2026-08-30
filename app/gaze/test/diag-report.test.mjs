@@ -206,3 +206,11 @@ test('a missing or empty snapshot still produces a valid report', () => {
   assert.deepEqual(d.reportViolations(r, HREF), []);
   assert.equal(r.v, 1);
 });
+
+test('a replayed verdict reports as a cache hit, not as in-page inference', () => {
+  const rep = d.buildReport({
+    imgdiag: [{ t: 1, ms: 0, w: 68, where: 'cache', why: 'face', faces: 1, flagged: 1, reads: [] }],
+  });
+  assert.strictEqual(rep.images.ring[0].where, 'cache');
+  assert.deepStrictEqual(d.reportViolations(rep), []);
+});
