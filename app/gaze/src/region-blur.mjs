@@ -306,6 +306,8 @@ function positionEntry(entry) {
     place(overlay, rect);
   }
   entry.lastRect = elRect;
+  entry.occ = occ;
+  entry.lastVpTop = elRect.top;
   return true;
 }
 
@@ -322,6 +324,57 @@ export function initRegionBlur(flaggedClass) {
   // heartbeat only catches IN-PLACE geometry changes (responsive
   // reflow, virtualized recycling): one rect read per entry, 500ms,
   // only while entries exist.
+  // THE CLAMP IS VIEWPORT-RELATIVE, AND THE SWEEP THAT OWNED IT IS NOT.
+  //
+  // positionEntry is the only place occluderBottom runs, and the sweep
+  // below calls positionEntry only when the element's PARENT-RELATIVE
+  // rect changed. A scroll moves a thumbnail together with its parent,
+  // so that rect is identical to the pixel and positionEntry never runs
+  // again -- while the clamp's own gate (`elRect.top < vh * 0.6`) is
+  // measured against the VIEWPORT. So a patch minted while its thumbnail
+  // sat low on the page carried occ = 0 for the life of the page and
+  // then rode up under the sticky chrome still wearing it. The clamp
+  // shipped in 1045 to stop exactly the frame the owner photographed,
+  // and it was installed in a function a scroll never calls.
+  //
+  // MEASURED 2026-08-31, m.youtube search, nine scroll steps: a patch
+  // reached top -72 under a 48px fixed top bar, unclipped and not stood
+  // down. The top bar's own z-index hides it there; the sticky player's
+  // is 2, the same as a patch's, and the player is EARLIER in the
+  // document than the recommendations -- so on a watch page the patch is
+  // what paints on top. That is the owner's report, three times now.
+  //
+  // Cheap by construction: an entry pays a hit-test only while it is in
+  // the top 60% of the viewport (or is still carrying a clamp it may
+  // need to give back), and only when it has actually moved.
+  function clampSweep() {
+    if (!entries.length || document.hidden) return;
+    var vh = window.innerHeight || 0;
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      if (!e.el.isConnected || !e.host.isConnected) continue;
+      var r = e.el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      var inZone = r.top < vh * 0.6 && r.bottom > 0;
+      // Nothing above it and nothing to give back: no decision to make.
+      if (!inZone && !e.occ) continue;
+      if (e.lastVpTop != null && Math.abs(r.top - e.lastVpTop) < 1) continue;
+      positionEntry(e);
+    }
+  }
+
+  var clampQueued = false;
+  function onScroll() {
+    if (clampQueued) return;
+    clampQueued = true;
+    var run = function () {
+      clampQueued = false;
+      clampSweep();
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+    else setTimeout(run, 16);
+  }
+
   function sweep() {
     if (!entries.length || document.hidden) return;
     for (var i = entries.length - 1; i >= 0; i--) {
@@ -418,7 +471,13 @@ export function initRegionBlur(flaggedClass) {
       var pr = entry.host.getBoundingClientRect();
       var rel = { left: r.left - pr.left, top: r.top - pr.top, width: r.width, height: r.height };
       var lastRel = entry.lastRelRect;
-      if (!lastRel || !sameRect(rel, lastRel)) {
+      var vpMoved = entry.lastVpTop == null || Math.abs(r.top - entry.lastVpTop) >= 1;
+      var inClampZone = r.top < (window.innerHeight || 0) * 0.6 && r.bottom > 0;
+      if (
+        !lastRel ||
+        !sameRect(rel, lastRel) ||
+        (vpMoved && (inClampZone || entry.occ))
+      ) {
         positionEntry(entry);
         entry.lastRelRect = rel;
       }
@@ -426,6 +485,18 @@ export function initRegionBlur(flaggedClass) {
   }
 
   setInterval(sweep, 500);
+  // PASSIVE, ALWAYS -- a non-passive scroll or touch listener takes the
+  // browser's fast scroll path away from every page in the app, which is
+  // the defect this repo has already shipped twice. Capture phase
+  // because a scroll event does not bubble, and on m.youtube's watch
+  // page the scroller is <body>, not the document (MEASURED 2026-08-31:
+  // documentElement.scrollHeight === innerHeight === 839 with 183
+  // recommendations in the DOM).
+  try {
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+  } catch (e) {
+    /* the 500ms heartbeat still re-asks, just later */
+  }
   // A PREVIEW STARTS BETWEEN HEARTBEATS. Half a second of patches drawn
   // across a video that has already taken over the pixels is exactly
   // what the owner sees while scrolling a feed, so the two events that

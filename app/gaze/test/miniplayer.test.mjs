@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as m from '../src/miniplayer.mjs';
 
+const stripComments = (s) => s.replace(/^[ 	]*\/\/.*$/gm, '');
+
 // The live watch page, measured 2026-08-28 under a mobile UA:
 // player container 412x232 fixed at left 0 / top 48, viewport 412x915.
 const PW = 412;
@@ -167,4 +169,55 @@ test('the drag itself is never animated', () => {
   // belongs to the release only.
   const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
   assert.match(src, /html\.ts-mini-drag #player-container-id\{transition:none/);
+});
+
+test('an upward flick starting on the player belongs to the page, not to us', () => {
+  // MEASURED 2026-08-30, probe_mini_steal.py on a live watch page: the
+  // old claim was `|dy| >= 8` with no sign, so an upward flick took 8 of
+  // 8 touchmoves with defaultPrevented and moved the player 0px --
+  // gestureVerdict and dragProgress both refuse that direction while
+  // full. The sticky player is a 412x232 band across the top of the
+  // screen, so "flick up to reach the comments" is the commonest gesture
+  // on the page and it did nothing at all.
+  assert.equal(m.claimAxis(0, -40, 'full'), null);
+  assert.equal(m.claimAxis(0, -8, 'full'), null);
+  assert.equal(m.claimAxis(0, 40, 'full'), 'y');
+});
+
+test('a downward drag on the mini player is the page scrolling too', () => {
+  // Same defect mirrored: while mini, dragProgress clamps a downward
+  // drag to full progress and nothing moves.
+  assert.equal(m.claimAxis(0, 40, 'mini'), null);
+  assert.equal(m.claimAxis(0, -40, 'mini'), 'y');
+});
+
+test('the claim needs a real direction before it takes the scroll', () => {
+  assert.equal(m.claimAxis(0, m.CLAIM_PX - 1, 'full'), null);
+  assert.equal(m.claimAxis(0, m.CLAIM_PX, 'full'), 'y');
+  // A drag that is mostly sideways is not a minimise at any length.
+  assert.equal(m.claimAxis(60, 20, 'full'), null);
+});
+
+test('sideways is claimed only once the player is in the corner', () => {
+  assert.equal(m.claimAxis(60, 0, 'full'), null);
+  assert.equal(m.claimAxis(60, 0, 'mini'), 'x');
+  assert.equal(m.claimAxis(-60, 0, 'mini'), 'x');
+});
+
+test('parked() can actually stop the transition it measures through', () => {
+  // MEASURED 2026-08-30 on the live watch page: under html.ts-mini the
+  // sheet sets `transition: ... !important`, and an author !important
+  // beats a plain inline declaration -- computed transitionDuration read
+  // 0.22s with `style.transition = 'none'` and 0s only with
+  // setProperty(..., 'important'). Measuring through a running
+  // transition read the already-shrunk box, so miniTransform returned an
+  // identity transform and committing the gesture sprang the player back
+  // to full size while every other signal said mini.
+  const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
+  assert.match(src, /setProperty\(\s*'transition',\s*'none',\s*'important'\s*\)/);
+  assert.equal(
+    /style\.transition\s*=\s*'none'/.test(stripComments(src)),
+    false,
+    'a plain inline transition write cannot beat the sheet'
+  );
 });

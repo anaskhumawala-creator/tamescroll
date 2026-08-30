@@ -75,6 +75,33 @@ export function gestureVerdict(dx, dy, state) {
   return null;
 }
 
+export var CLAIM_PX = 8;
+
+/// Which axis, if any, this drag belongs to us on -- null means the page
+/// keeps it.
+///
+/// The SIGN is the whole point. MEASURED 2026-08-30 on a real watch page:
+/// an upward flick starting on the player had 8 of 8 touchmoves
+/// defaultPrevented and moved the player zero pixels, because a claim at
+/// |dy| >= 8 ignored direction while `gestureVerdict` and `dragProgress`
+/// both refuse the wrong way. The sticky player is a 412x232 band across
+/// the top of the screen, so that flick -- scroll down to the comments --
+/// is the most common gesture on the page, and we were eating it whole.
+/// That is the owner's "the mini player is annoying ... it doesn't
+/// function as it's supposed to".
+///
+/// So a drag is only ours in the direction that can actually do
+/// something: down while full, up while mini. Sideways stays a mini-only
+/// throw, because on the full player a horizontal swipe is YouTube's.
+export function claimAxis(dx, dy, state) {
+  var ax = Math.abs(dx);
+  var ay = Math.abs(dy);
+  var toward = state === 'full' ? dy : -dy;
+  if (toward >= CLAIM_PX && ay >= DRAG_AXIS_RATIO * ax) return 'y';
+  if (state === 'mini' && ax >= CLAIM_PX && ax >= DRAG_AXIS_RATIO * ay) return 'x';
+  return null;
+}
+
 export var DRAG_DISMISS_FRAC = 0.25; // of viewport width, sideways, while mini
 
 /// How far through the shrink a live drag is, 0..1.
@@ -206,16 +233,27 @@ export function installMiniplayer(win) {
     // only way to read where the fixed container actually sits, and it
     // is a single synchronous write/read/write inside one frame.
     var prev = pc.style.transform;
-    var prevT = pc.style.transition;
+    var prevT = pc.style.getPropertyValue('transition');
+    var prevTP = pc.style.getPropertyPriority('transition');
     // getBoundingClientRect forces the layout, and a forced layout on a
     // cleared transform is enough to start the transition animating from
-    // full size. Measure with it off.
-    pc.style.transition = 'none';
+    // full size. Measure with it off -- and it takes `!important` to
+    // turn it off. MEASURED 2026-08-30 on the live watch page: under
+    // html.ts-mini the sheet's own `transition: ... !important` beats a
+    // plain inline declaration, so `style.transition = 'none'` computed
+    // to 0.22s and this rect was read MID-ANIMATION, off the box the
+    // drag had already shrunk. miniTransform then returned an identity
+    // transform (tx 0, ty 0, k 1) -- so committing the gesture put the
+    // player back at FULL SIZE at the top of the page while every other
+    // signal said mini. That is the owner's "it sometimes goes down and
+    // it doesn't function as it's supposed to".
+    pc.style.setProperty('transition', 'none', 'important');
     pc.style.transform = '';
     var r = pc.getBoundingClientRect();
     var t = miniTransform(r.width, r.height, win.innerWidth, win.innerHeight, r.left, r.top);
     pc.style.transform = prev;
-    pc.style.transition = prevT;
+    pc.style.removeProperty('transition');
+    if (prevT) pc.style.setProperty('transition', prevT, prevTP);
     return t;
   }
 
@@ -510,16 +548,11 @@ export function installMiniplayer(win) {
     // not when it has travelled far enough to commit -- the finger has
     // to be able to drag the player back out again without letting go.
     if (!claimed) {
-      var vertical = Math.abs(dy) >= DRAG_AXIS_RATIO * Math.abs(dx) && Math.abs(dy) >= 8;
-      // Sideways only means something once the player is already in the
-      // corner -- on the full-size player a horizontal swipe is the
-      // page's (YouTube's own seek/chapter gestures live there).
-      var sideways =
-        state === 'mini' && Math.abs(dx) >= DRAG_AXIS_RATIO * Math.abs(dy) && Math.abs(dx) >= 8;
-      var pc0 = vertical || sideways ? container() : null;
+      var axis = claimAxis(dx, dy, state);
+      var pc0 = axis ? container() : null;
       if (pc0) {
         claimed = true;
-        dragAxis = vertical ? 'y' : 'x';
+        dragAxis = axis;
         dragT = parked(pc0);
         doc.documentElement.classList.add('ts-mini-drag');
       }
