@@ -1,0 +1,10 @@
+ARM {"t":150,"bundle":"f49f4a2-dirty"}
+FEMALE_AT_READ {"n": 13, "covered": 9, "coveredCentre": 9, "coveredTopOnly": 0, "wholeOnly": 0, "UNCOVERED": 4}
+FEMALE_AFTER_PASS {"n": 11, "covered": 10, "coveredCentre": 10, "coveredTopOnly": 0, "wholeOnly": 0, "UNCOVERED": 1}
+ALL_AT_READ {"n": 118, "covered": 96, "coveredCentre": 83, "coveredTopOnly": 0, "wholeOnly": 13, "UNCOVERED": 22}
+ALL_AFTER_PASS {"n": 84, "covered": 66, "coveredCentre": 66, "coveredTopOnly": 0, "wholeOnly": 0, "UNCOVERED": 18}
+SELECTORS {"n": 118, "domAll_ne_vtCount": 0, "domHidden": 0, "domAllP50": 1, "vtCountP50": 1}
+FEMALE_UNCOVERED_SAMPLE [{"ms": 238769, "pn0": 4, "g": "female", "s": 0, "a": 33, "pc": 0.18, "ab": 0, "px": 69, "b": [0.325, 0.06, 0.555, 0.467], "asp": 0.57, "at": {"whole": 0, "inPatch": 0, "inPatchTop": 0, "domAll": 0, "domVisible": 0, "vtCount": 0}, "after": {"whole": 0, "inPatch": 0, "inPatchTop": 0, "domAll": 0, "domVisible": 0, "vtCount": 0}, "dPn": 1}]
+LIFE {"life": {"cutDetected": 78, "emptyFrame": 9, "wipeErased": 2, "wipeErasedTracks": 4, "wipeErasedBlurred": 4, "faceNoShape": 0, "bodyFromSlot": 9, "cropHead": 128, "readAbstain": 27, "passDropped": 37, "readWeak": 14, "readClearCertain": 31, "readUncertain": 43, "dedupeMerged": 15, "birthFresh": 6, "birthNearMiss": 2, "cropRotated": 1, "readFlagCertain": 3, "personNoFace": 7, "ownMissSkipped": 9, "cropBody": 6, "srcFlip": 7, "weakBump": 8, "cutCoastExpired": 5, "coastExpired": 5, "cutDemoteCleared": 2, "cutBankKept": 2, "birthContended": 3, "dedupeHeadSplit": 4, "clampFired": 3}, "passes": 65, "slotsNonZero": 28}
+
+[exited with code 0]
