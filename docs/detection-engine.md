@@ -256,3 +256,63 @@ introduce EXPOSURE relative to a successful person pass. Horizontal only
 1.4). Getting that wrong is a factor of 1.4 and it is the fourth hidden
 unit in this function's neighbourhood.
 
+
+## FACE_MIN_NATIVE_PX is a size proxy for a content question (2026-08-31)
+
+He reports men being blurred. The mechanism is measured: 24 player face
+reads in one window on his phone read **male 14, female 2, unknown 8** --
+a third abstained -- with facePx p50 74 and **min 53**, against a floor of
+64. Every face under it abstains and fails closed, which is the man he
+sees covered. Lowering the floor is an exposure trade, so it is his call;
+this section exists so the call is made on numbers.
+
+Two arms, both on his phone, through the SHIPPING functions
+(`detectFaceBoxes` + `classifyFaceGenders`, square crop included) --
+`spikes/gauntlet/probe_face_px_curve.py`, bench in
+`app/gaze/bench/small-face.js`.
+
+**Arm 1 -- real faces, resolution degraded.** 28 faces detected at >=150
+native px (refs male 11, female 17), each re-read after being resampled
+down to N px and handed over as the whole frame, which is exactly what
+the pipeline sees when a face is natively N across:
+
+| native px | 32 | 40 | 48 | 56 | 64 | 72 | 88 | 112 | 160 |
+|---|---|---|---|---|---|---|---|---|---|
+| agrees with the full-res read | **1.00** | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| CERTAIN and wrong (score >= 0.25) | **0** | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| score p50 | 0.76 | 0.78 | 0.81 | 0.83 | 0.85 | 0.85 | 0.87 | 0.85 | 0.86 |
+
+28 of 28 agree at every size down to **32px**. Resolution alone does not
+flip this model's gender read.
+
+**Arm 2 -- the control, and it is the one the floor exists for.**
+`genderFromNativeFace` refuses a small face because "the null answer
+arrives labelled male with a score that clears GENDER_MIN_SCORE". That is
+a claim about crops that are NOT faces, and feeding the model only real
+faces could never test it. 34 crops from thumbnails where BlazeFace
+detected nothing at all:
+
+| native px | 32 | 40 | 48 | 56 | 64 | 72 | 88 | 112 | 160 |
+|---|---|---|---|---|---|---|---|---|---|
+| reads CERTAIN (score >= 0.25) | 18 | 14 | 15 | 14 | 15 | 14 | 13 | 13 | 11 |
+| caught by `isNullRead`'s band | 33 | 33 | 30 | 31 | 31 | 31 | 32 | 32 | 31 |
+
+The claim is true -- **38-53% of non-face crops produce a confident
+answer** -- and it is **flat in size**. A 160px crop of a car bonnet
+reads certainly-male about as often as a 32px one. So:
+
+- The null-read failure is a function of CONTENT, not RESOLUTION.
+  FACE_MIN_NATIVE_PX guards the wrong axis: it refuses real faces that
+  read correctly, and lets through large non-face crops that do not.
+- The gate that IS on the right axis already ships. `isNullRead`'s band
+  [0.545, 0.705] catches **30-33 of 34** at every size (88-97%).
+
+**NOT CHANGED, deliberately -- it is a protection decision and his.** The
+options are (a) leave 64 and accept the covered men, (b) lower it toward
+53 and lean on the null band, (c) drop the size gate and rely on the null
+band alone. What this measurement does NOT cover, and it is the honest
+limit: a 53px face in a VIDEO frame is detected from ~13px in BlazeFace's
+256 model space, so its box may be a worse box, not just a smaller one --
+this harness used real detections at >=150px and degraded them, which
+isolates resolution and bypasses detection quality. A degraded thumbnail
+also has no motion blur and different compression from a video frame.
