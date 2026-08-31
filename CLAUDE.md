@@ -114,6 +114,24 @@ COMPLAINT WITH A MECHANISM.** No release beyond 1075. His phone is on
   (male 14 / female 2 / unknown 8) about a third would have ABSTAINED,
   and an abstain fails closed = covered, so **of those 48, on the order
   of twenty would have produced a patch.**
+- **AND THE REFUSED FACES ARE READABLE PEOPLE, NOT A TAIL OF TOO-SMALL
+  CROPS -- the abstain bound above is DEAD.** `__TS_GATE_AUDIT` (1076,
+  diagnostic only, flag-gated, nothing in the app sets it) runs the same
+  native-res gender read a KEPT face gets on every REFUSED face and
+  stamps the verdict on the ring, still refusing the face. Emulator, his
+  regime, two runs of 60 refusals: **audited 60/60, ABSTAINED 0**, male
+  50-51 / female 9-10, certain 37, **certainMale 35**, and **wouldPatch
+  25 of which 23 were uncovered**. So "about a third would have
+  abstained" was wrong -- that came from his phone under the OLD 64px
+  floor; at 40 every one of these is big enough to be asked (px p50 47).
+  The earlier "on the order of twenty would have produced a patch" was
+  right: it is 25.
+- **THE HONEST BOUND THAT REPLACES IT, and it is why the fix is not
+  "delete the gate".** A gender read on a NON-face crop reads CERTAIN
+  38-53% of the time, so those 25 contain BOTH the woman he says is
+  missed AND the graphic he says is wrongly covered, and this instrument
+  cannot separate them. `isNullRead` can -- on the axis the keypoint
+  floor is failing to use.
 - **THE FIX CANNOT BE A DIFFERENT NUMBER.** 0.098 against 0.101 means
   the quantity does not carry the information. The candidate on the
   right axis is `isNullRead` (numbers in docs/detection-engine.md).

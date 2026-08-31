@@ -463,6 +463,46 @@ flagged. So of those 48, on the order of twenty would have produced a
 patch. That is still his complaint, and the abstain share is
 blur-first being bypassed rather than applied.
 
+**AND NOW THE READ ITSELF, which is what the bound above was standing
+in for.** `__TS_GATE_AUDIT` (diagnostic only, flag-gated, never set by
+the app) runs the same native-res gender read a KEPT face gets on every
+REFUSED face and stamps the verdict on the ring entry, while still
+refusing the face. Same regime, same video, two runs, 60 refusals each:
+
+| | run 1 | run 2 |
+|---|---|---|
+| audited | 60 / 60 | 60 / 60 |
+| **abstained (unknown)** | **0** | **0** |
+| male / female | 50 / 10 | 51 / 9 |
+| certain (score >= 0.25) | 37 | 37 |
+| certain male / certain female | -- | 35 / 2 |
+| **would have produced a patch** | -- | **25** |
+| **...and was uncovered** | -- | **23** |
+
+**The "roughly a third would have abstained" bound is dead: nothing
+abstained.** That estimate came from his phone's own read distribution,
+which was taken under the OLD 64px floor; at 40 every refused face here
+is big enough to be asked (px p50 47), so the gate is not standing in
+front of a population the size floor would have caught anyway.
+
+In MAN mode a CERTAIN male reads clear and stays sharp, correctly, and
+that is 35 of the 60 -- so the gate costs nothing on most of what it
+refuses ON THIS FOOTAGE, which is a video of a man. The remainder is
+what it costs: **25 refusals would have become a patch, 23 of them with
+nothing else covering that spot.** The earlier estimate of "on the order
+of twenty" was right for the right reason.
+
+**THE BOUND THAT REPLACES THE OLD ONE, and it is the whole reason the
+fix is not simply "remove the gate".** A gender read on a NON-face crop
+is not an error the model reports -- it reads CERTAIN 38-53% of the time
+(measured, see the size-floor section above). So `wouldPatch 25`
+contains both the woman he says is missed AND the graphic he says is
+wrongly covered, and this instrument cannot tell them apart. That
+separation is exactly what `isNullRead`'s band does, on the axis the
+keypoint floor is failing to use. What the audit settles is narrower and
+still worth having: the refused population is people-shaped and readable,
+not a tail of faces too small to judge.
+
 **STILL NOT CHANGED.** He ruled on 2026-09-01 that the gate is held
 until the data says what it is refusing. The data has now arrived and it
 says the gate is refusing people -- but the ruling was his and the

@@ -56,10 +56,22 @@ out = t.eval("""(function(){
     r=r||[];
     var read=r.filter(function(e){return typeof e.g==='number';});
     var by={0:0,1:0,2:0};
-    var cert=0, certUncov=0;
+    // WHAT WOULD HAVE HAPPENED TO THIS FACE had the gate not refused
+    // it, in MAN mode: a CERTAIN male reads clear and stays sharp
+    // (correct); everything else -- a certain female, and any read
+    // under GENDER_MIN_SCORE either way -- fails closed and gets a
+    // patch. So the refusals that COST something are (all minus
+    // certain-male), and the ones that cost something visible are that
+    // set minus the ones already covered.
+    var cert=0, certUncov=0, certMale=0, certFemale=0, patch=0, patchUncov=0;
     for(var i=0;i<read.length;i++){
-      by[read[i].g]=(by[read[i].g]||0)+1;
-      if(read[i].s>=0.25){ cert++; if(!read[i].cov) certUncov++; }
+      var e=read[i];
+      by[e.g]=(by[e.g]||0)+1;
+      var certain = e.s>=0.25;
+      if(certain){ cert++; if(!e.cov) certUncov++; }
+      if(certain && e.g===1) certMale++;
+      if(certain && e.g===2) certFemale++;
+      if(!(certain && e.g===1)){ patch++; if(!e.cov) patchUncov++; }
     }
     function p(arr,q){ if(!arr.length) return null;
       var a=arr.slice().sort(function(x,y){return x-y;});
@@ -67,6 +79,8 @@ out = t.eval("""(function(){
     return {n:r.length, audited:read.length,
             unknown:by[0], male:by[1], female:by[2],
             certain:cert, certainUncovered:certUncov,
+            certainMale:certMale, certainFemale:certFemale,
+            wouldPatch:patch, wouldPatchUncovered:patchUncov,
             covered:r.filter(function(e){return e.cov===1;}).length,
             sP50:p(read.map(function(e){return e.s;}),0.5),
             sP90:p(read.map(function(e){return e.s;}),0.9),
