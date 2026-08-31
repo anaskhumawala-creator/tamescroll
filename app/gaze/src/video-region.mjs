@@ -997,9 +997,57 @@ var rectsDirty = false;
 function markRectsDirty() {
   rectsDirty = true;
 }
+
+// A TRANSITION MOVES THE HOST AND FIRES NEITHER scroll NOR resize, AND
+// THAT IS AN EXPOSURE (2026-09-01). Restoring the parked miniplayer takes
+// the container from fixed-and-scaled back to static-and-unscaled over
+// 220ms. Every number reposition() uses is a difference of two CACHED
+// viewport rects, which is transform-invariant -- but this is not a pure
+// transform, it is a layout change, so `vr`/`hr` stay at their MINI
+// values (video 231x115) while the real player grows to 412x232.
+// clipToBounds then computes the patch as entirely outside the picture
+// and display:none's it.
+//
+// MEASURED on a built APK, video playing, a live track on screen:
+// **3 frames / 84ms of the restore with the track covered by nothing at
+// all.** The shrink does not do this (0 frames over 108 frames across
+// three runs, 40 of them mid-drag) because there the cached rect is the
+// FULL one and the patch never clips fully outside it. Loop 23 flagged
+// exactly this window and left it unverified.
+//
+// Scoped to transitions on a host or an ancestor of one, so YouTube's
+// own animations elsewhere on the page cost nothing. A running
+// transition holds the rects dirty every frame, which is the same cost
+// as a scroll and only for its duration.
+var transitionsRunning = 0;
+function transitionTouchesHost(target) {
+  if (!target || target.nodeType !== 1 || typeof target.contains !== 'function') return false;
+  var hit = false;
+  entries.forEach(function (entry) {
+    if (hit || !entry || !entry.host) return;
+    if (target === entry.host || target.contains(entry.host)) hit = true;
+  });
+  return hit;
+}
+function onTransitionStart(ev) {
+  if (!transitionTouchesHost(ev && ev.target)) return;
+  transitionsRunning++;
+  rectsDirty = true;
+}
+function onTransitionEnd(ev) {
+  if (!transitionTouchesHost(ev && ev.target)) return;
+  // Floored at 0: a cancel and an end can both arrive for one run, and a
+  // negative counter would leave the rects permanently dirty -- a forced
+  // layout every frame for the life of the page.
+  transitionsRunning = Math.max(0, transitionsRunning - 1);
+  rectsDirty = true;
+}
 try {
   addEventListener('scroll', markRectsDirty, { passive: true, capture: true });
   addEventListener('resize', markRectsDirty, { passive: true });
+  addEventListener('transitionrun', onTransitionStart, { passive: true, capture: true });
+  addEventListener('transitionend', onTransitionEnd, { passive: true, capture: true });
+  addEventListener('transitioncancel', onTransitionEnd, { passive: true, capture: true });
 } catch (e) {
   /* no listener is the old 250ms behaviour, not a broken patch */
 }
@@ -1008,7 +1056,7 @@ function loop(video) {
   var entry = entries.get(video);
   if (!entry) return;
   renderStats.raf++;
-  if (rectsDirty) {
+  if (rectsDirty || transitionsRunning > 0) {
     rectsDirty = false;
     refreshRects(entry);
   }
@@ -1032,6 +1080,23 @@ export function canRegionVideo(video) {
  * frame, velocities in normalized units per SECOND (person-track.mjs
  * blurredTracks output). The rAF loop interpolates between calls.
  */
+/**
+ * "The player just moved, and not by scrolling." The transition
+ * listeners above catch the 220ms animation, and they close 84ms of the
+ * 84ms gap the miniplayer restore used to open -- but one frame still
+ * slipped through, because the class flip changes layout in the same
+ * update in which `transitionrun` is dispatched and our rAF can run
+ * first. A caller that KNOWS it moved the player says so, and that frame
+ * goes too.
+ *
+ * Deliberately says nothing about the miniplayer: this module must not
+ * learn what a mini player is. It is one boolean write and it can only
+ * ever cost one extra layout read.
+ */
+export function markGeometryDirty() {
+  rectsDirty = true;
+}
+
 export function setTracks(video, tracks) {
   var host = resolveHost(video);
   if (!host || !tracks || !tracks.length) {

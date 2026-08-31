@@ -116,7 +116,11 @@ if (
   // gaze one, and it has to work in off mode too. Its own re-entry
   // guard makes the Started+Finished double eval a no-op.
   try {
-    installMiniplayer(window);
+    // Parking and restoring the player is a LAYOUT change that fires
+    // neither scroll nor resize, and the region renderer caches the
+    // player's rects. Without this the restore leaves a live track with
+    // nothing drawn over it (measured: 3 frames / 84ms).
+    installMiniplayer(window, videoRegion.markGeometryDirty);
   } catch (e) {}
   // Closes the eval clock the build opens as the artifact's first
   // statement — see build/build.js. The delta is what evaluating 22.7MB

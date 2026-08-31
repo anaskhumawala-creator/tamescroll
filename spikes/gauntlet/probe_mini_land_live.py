@@ -131,12 +131,24 @@ print("BOX_BEFORE", json.dumps(b))
 cx = b["x"] + b["w"] // 2
 cy = b["y"] + b["h"] // 2
 # A real drag: past CLAIM_PX 16 and past the 103px commit threshold.
-touch("touchStart", cx, cy)
-for dy in (10, 25, 45, 70, 95, 120, 150):
-    touch("touchMove", cx, cy + dy)
-    time.sleep(0.045)
-touch("touchEnd", cx, cy + 150)
-time.sleep(2.5)
+# ASSERT THE STATE THE ARM IS ABOUT TO MEASURE. One run's drag never
+# committed (framesMini 0, sizes only [[412,232]]) and every number in
+# it described a full player -- a vacuous run that reads exactly like a
+# clean one. Retry the gesture until the player is actually parked.
+for attempt in range(3):
+    b = box()
+    cx = b["x"] + b["w"] // 2
+    cy = b["y"] + b["h"] // 2
+    touch("touchStart", cx, cy)
+    for dy in (10, 25, 45, 70, 95, 120, 150):
+        touch("touchMove", cx, cy + dy)
+        time.sleep(0.045)
+    touch("touchEnd", cx, cy + 150)
+    time.sleep(2.5)
+    if (box() or {}).get("mini"):
+        break
+    print("DRAG_DID_NOT_COMMIT attempt", attempt)
+    t.eval("(function(){var a=window.__TS_LAND||[]; window.__TS_LAND=[]; return 1;})()")
 land = t.eval("(function(){var a=window.__TS_LAND||[]; window.__TS_LAND=[]; return JSON.stringify(a);})()")
 land = json.loads(land) if isinstance(land, str) else []
 print("BOX_AFTER", json.dumps(box()))
@@ -152,6 +164,13 @@ def summarize(label, rows):
         "frames": len(rows),
         "framesMidDrag": sum(1 for r in rows if r["drag"]),
         "framesMini": sum(1 for r in rows if r["mini"]),
+        # A live track with NO VISIBLE patch is not a shortfall, it is
+        # nothing drawn at all -- and `worst` folds it into the same
+        # column via the Infinity sentinel. Counted apart: this is the
+        # exposure question, the other is a geometry question.
+        "framesTrackNoPatch": sum(1 for r in rows if r["n"] == 0),
+        "msTrackNoPatch": (lambda z: (max(z) - min(z)) if len(z) > 1 else 0)(
+            [r["ms"] for r in rows if r["n"] == 0]),
         "worstShortfall": worst,
         "framesUnderCovered": sum(1 for r in rows if r["out"]),
         "strayFrames": sum(1 for r in rows if r["stray"]),

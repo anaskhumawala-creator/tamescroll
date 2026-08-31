@@ -422,3 +422,60 @@ test('a lost touchend cannot strand the gesture forever', () => {
   assert.match(body, /if \(touchId === null \|\| findTouch\(e\.touches, touchId\)\) return;/);
   assert.match(body, /onCancel\(\);/);
 });
+
+test('parking or restoring the player TELLS the renderer its rects moved', () => {
+  // Parking and restoring is a layout change and fires neither scroll nor
+  // resize, so video-region's cached rects go stale and it can decide a
+  // patch is entirely outside the picture and hide it. Measured on a
+  // built APK with a live track: 3 frames / 84ms of the restore with the
+  // subject covered by nothing at all.
+  //
+  // Driven through the real setState, not grepped for -- a callback that
+  // is passed and never called is exactly how a constant in this project
+  // once shipped dead for six rounds.
+  let told = 0;
+  const el = () => ({
+    style: { setProperty() {}, removeProperty() {} },
+    classList: { add() {}, remove() {}, contains: () => false },
+    contains: () => false,
+    appendChild(c) { return c; },
+    removeChild(c) { return c; },
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    addEventListener() {},
+    removeEventListener() {},
+    getBoundingClientRect: () => ({ left: 0, top: 48, width: 412, height: 232 }),
+    children: [],
+    parentNode: null,
+    isConnected: true,
+  });
+  const container = el();
+  const win = {
+    location: { href: 'https://m.youtube.com/watch?v=x', pathname: '/watch' },
+    innerWidth: 412,
+    innerHeight: 839,
+    addEventListener() {},
+    removeEventListener() {},
+    getComputedStyle: () => ({ position: 'static', transform: 'none', transitionDuration: '0s' }),
+    requestAnimationFrame: () => 0,
+    cancelAnimationFrame() {},
+    document: {
+      documentElement: el(),
+      head: el(),
+      body: el(),
+      createElement: el,
+      getElementById: (id) => (id === 'player-container-id' ? container : null),
+      querySelector: (sel) => (sel === '#player-container-id' ? container : null),
+      querySelectorAll: () => [],
+      addEventListener() {},
+      removeEventListener() {},
+    },
+  };
+  const api = m.installMiniplayer(win, () => { told++; });
+  assert.ok(api, 'the stub is good enough to install');
+  try { api.enter(); } catch (e) { /* the DOM stub may not survive place() */ }
+  assert.ok(told >= 1, 'parking must tell the renderer, got ' + told);
+  const afterPark = told;
+  try { api.exit(); } catch (e) {}
+  assert.ok(told > afterPark, 'restoring must tell it too, got ' + told);
+});
