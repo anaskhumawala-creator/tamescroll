@@ -1,7 +1,7 @@
 {
-  "versionCode": 1073,
-  "versionName": "0.1.73",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.73/tamescroll-v0.1.73.apk",
-  "sha256": "99a39fe413a89ab8cd0629190d8326b4df6b04e2677147b1a369bb8e9144e0bc",
-  "notes": "Miniplayer: a resting second finger no longer minimises the player."
+  "versionCode": 1074,
+  "versionName": "0.1.74",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.74/tamescroll-v0.1.74.apk",
+  "sha256": "712c382a0d788b2308c556a6d9a4e68bc7cad6504626022d0cb210b3f2269c47",
+  "notes": "Diagnostics: records what the ghost gate refuses."
 }
