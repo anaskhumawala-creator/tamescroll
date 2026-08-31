@@ -1,7 +1,7 @@
 {
-  "versionCode": 1070,
-  "versionName": "0.1.70",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.70/tamescroll-v0.1.70.apk",
-  "sha256": "f5036959e69bd8c292b1cb2cd0429840db18da7befa78a66d33c8be1b460cbf3",
-  "notes": "Faster player passes; fewer stray blur marks."
+  "versionCode": 1071,
+  "versionName": "0.1.71",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.71/tamescroll-v0.1.71.apk",
+  "sha256": "98348b08628a45c6ae8fa51d5522512b0ac05372077e330feaeeb4d008c53346",
+  "notes": "Fixes faces being missed on video."
 }
