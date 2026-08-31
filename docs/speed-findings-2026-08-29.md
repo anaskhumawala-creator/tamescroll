@@ -328,3 +328,59 @@ background. The floor is correct for one and wrong for the other.
 REFUSED on the evidence. If it is ever revisited it needs a much larger
 read sample and a threshold derived from where confident reads actually
 stop, not from the video path's number.
+
+---
+
+## The cold start, on HIS PHONE at last (2026-08-31, 1067)
+
+Every number above this line was taken on the emulator or the desktop.
+These were taken over wireless adb on the owner's own device, three
+force-stopped launches into m.youtube search, and they are what he means
+by "it needs to work blazing fast".
+
+**Time from navigation to the FIRST thumbnail verdict: 5.5-6.8s.** Until
+then blur-first covers the whole fold, which is correct and is also
+exactly the wait he complains about.
+
+Decomposed off the marks the boot already records
+(`__TS_GAZE_WORKER`, `probe_phone_cold2.py`), median of two cold runs:
+
+| stage | ms | what it is |
+|---|---|---|
+| page start -> document_start | 2040 | YouTube's own load. Not ours. |
+| -> worker `up` | 800 | worker construction; its script eval is **120** |
+| -> models loaded | 1271 | face 191, nsfw 573, **gender 826** |
+| -> `ready` | 1163 | warm-up, all compile-only: face 360, nsfw 577, gender 291 |
+| -> first verdict | ~660 | the first image's own inference is 608-650 |
+
+So of ~5.5s, **2.0s is YouTube** and ~3.5s is ours, split almost evenly
+between loading two models and compiling their shaders.
+
+**The prestart IS working on the first navigation** (`prestarted: true`,
+`prestartAt` 2040) -- the 08-29 note that Android only prestarts from
+the second navigation is stale for this path.
+
+### Two levers examined and both refused, with the reason
+
+**Do not drop the NSFW gate from the drain to save its 1.15s** (573ms
+load + 577ms compile, a fifth of the whole cold path). The drain waits
+for nsfw because an image cleared without it would be REVEALED unchecked
+-- the defect the nsfwSettled gate was added for. Judging face-first and
+keeping the image covered until nsfw lands preserves fail-closed but
+buys nothing visible: covered is already the default, and the only thing
+the wait delays is the REVEAL, which is the one decision that needs
+nsfw.
+
+**Do not chase the warm-up again.** It is 1163ms and it is pure shader
+compilation (the blank inferences went behind `__TS_WARM_BENCH` in loop
+6). Loop 6 measured what happens if it moves: the compile lands inside
+the first real pass instead, and time-to-first-reveal does not change.
+
+### What that leaves
+
+The remaining cold-path work is model parse + GPU upload (1271ms) and
+shader compilation (1163ms) for models that are loaded fresh on every
+platform open. Neither is reachable from JS scheduling; both are the
+native-TFLite item, which stays gated. The browse loop being one
+document (loop 7) already means this is paid once per platform open and
+not per video.
