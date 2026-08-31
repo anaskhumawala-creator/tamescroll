@@ -40,6 +40,38 @@ var BASE_PX = 100;
 // video -> { host, video, tracks, at, overlays, raf, timer, ro, hr, vr }
 var entries = new Map();
 
+// WHAT THE RENDERER WAS ASKED FOR, NEXT TO WHAT IT DREW.
+//
+// Every probe this project has for the player reads the DOM, so a
+// disagreement between two states cannot be attributed: a patch in the
+// wrong place looks identical whether the TRACK moved or the MAPPING is
+// wrong. That ambiguity is what made the scale-squared defect survive
+// (it was visible in his screenshot before any probe found it), and it
+// blocked a fullscreen-vs-windowed comparison the same night. Read-only,
+// guarded, allocation-light -- the same contract as __TS_GAZE_RENDER.
+try {
+  if (typeof window !== 'undefined') {
+    window.__TS_GAZE_VTRACKS = function () {
+      var out = [];
+      entries.forEach(function (entry) {
+        out.push({
+          hr: entry.hr ? [entry.hr.left, entry.hr.top, entry.hr.width, entry.hr.height] : null,
+          vr: entry.vr ? [entry.vr.left, entry.vr.top, entry.vr.width, entry.vr.height] : null,
+          scale: entry.scale == null ? null : entry.scale,
+          // normalized on the VIDEO, which is what the pipeline hands us
+          tracks: (entry.tracks || []).map(function (t) {
+            var b = t.box || t;
+            return [b.x1, b.y1, b.x2, b.y2];
+          }),
+        });
+      });
+      return out;
+    };
+  }
+} catch (e) {
+  /* probe is optional; the pipeline is not */
+}
+
 // RENDER COST COUNTERS (S13). Every number this project has about the
 // renderer is a size or a rate read off the DOM; nothing has ever counted
 // what the render loop actually DOES per second. These are plain integer
