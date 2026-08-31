@@ -1,7 +1,7 @@
 {
-  "versionCode": 1061,
-  "versionName": "0.1.61",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.61/tamescroll-v0.1.61.apk",
-  "sha256": "b002513693e3377ec85d04aac8c872cd9752e55f25a91469972e82284f48024a",
-  "notes": "The mini player's play/pause and close buttons work now."
+  "versionCode": 1062,
+  "versionName": "0.1.62",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.62/tamescroll-v0.1.62.apk",
+  "sha256": "e2665cee684361dc66df25312098d4f4c21da405a6092e337b2c1c34a5ea1dbc",
+  "notes": "Reaching for the blur switch no longer shrinks or minimises the video."
 }
