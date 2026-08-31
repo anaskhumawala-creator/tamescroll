@@ -223,14 +223,7 @@ var CSS =
 /// be. Safe to call on every page and twice per page (Android evals the
 /// boot script at Started AND Finished); everything is looked up lazily
 /// because on a mobile watch page the player container is built after us.
-/**
- * `onGeometry` is called after every state change, so a caller that
- * caches the player's rects can invalidate them. This module imports
- * NOTHING on purpose -- it is a player behaviour and has to work in off
- * mode, where the gaze renderer does not exist -- so the dependency
- * arrives as a callback rather than an import.
- */
-export function installMiniplayer(win, onGeometry) {
+export function installMiniplayer(win) {
   var doc = win && win.document;
   if (!doc) return null;
   if (win.__TS_MINI__) return win.__TS_MINI__;
@@ -444,22 +437,6 @@ export function installMiniplayer(win, onGeometry) {
     if (next === state) return;
     var pc = container();
     if (!pc) return;
-    // THE BLUR RENDERER CACHES THE PLAYER'S RECTS AND NOTHING HERE FIRES
-    // scroll OR resize. Parking and restoring take the container from
-    // static to fixed-and-scaled and back, which is a LAYOUT change, so
-    // the renderer keeps computing against the old box and can decide a
-    // patch is entirely outside the picture and HIDE it. MEASURED on a
-    // built APK with a live track on screen: 3 frames / 84ms of the
-    // restore with the subject covered by nothing at all.
-    //
-    // FIRST, not last: it only sets a flag that the next rAF acts on, so
-    // it is correct either way, and up here it cannot be skipped by a
-    // throw somewhere in the DOM work below.
-    try {
-      if (onGeometry) onGeometry();
-    } catch (e) {
-      /* the renderer is optional; the gesture is not */
-    }
     // NO SCROLL COMPENSATION, and that is a measurement not an omission.
     // Collapsing a 223px band above the fold should push what you are
     // reading down by 223px, so the first version subtracted it back --
