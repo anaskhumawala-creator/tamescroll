@@ -70,8 +70,78 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 07:35 (1062 live, sha e2665cee; the blur pill was
-dragging the player, same class as 1061).
+**Last updated:** 2026-08-31 07:20 (1064 live, sha 13740ecf; the blur switch died
+on the first tap of the video, and every button on the player was a drag handle).
+
+**Session 2026-08-31 (loop 15) -- HIS BLUR SWITCH DIED THE MOMENT HE
+TOUCHED THE VIDEO, AND EVERY BUTTON ON THE PLAYER WAS A DRAG HANDLE.**
+Two releases, both hash-verified: **1063 (0a0d812a)** and **1064
+(13740ecf)**. Same class as 1061/1062 and much wider than either.
+
+- **1063: THE PILL WAS NOT ON TOP AND NEVER COULD BE.** `#movie_player`
+  carries a transform, so it creates a stacking context and CAPS our
+  z-index of 2147483645 at that element's own level. YouTube's control
+  chrome is not inside it: `.player-controls-background` (position
+  absolute, opacity 0, pointer-events **auto**, the whole 412x231 player
+  box) lives under `#player-control-container`, a LATER SIBLING of
+  `#player`, both children of `#player-container-id`.
+- **IT IS BUILT ON THE FIRST TAP ON THE VIDEO AND THEN STAYS.** MEASURED
+  on a built APK, one trace: fresh page, a tap on the pill toggles
+  "Blur on" -> "Blur off"; ONE tap on the video; six seconds later the
+  controls have autohidden but `elementFromPoint` at the pill's centre
+  returns `player-controls-background`; a tap on the pill now does
+  **NOTHING** ("Blur off" -> "Blur off"), and a press with 25px of thumb
+  roll shrinks the player to **347x195** instead. His escape hatch --
+  the control that exists so a wrong verdict is one tap from gone --
+  stopped working the instant he touched the video, and became a drag
+  handle.
+- FIX: mount the pill on `#player-container-id`, a later sibling of the
+  control chrome, still inside the player subtree (YouTube's own
+  controls live outside `#movie_player` too and are visible in
+  fullscreen, so the fullscreen element is at or above this one). Same
+  containing block, **same box** -- [305,96,99,36] before and after.
+  VERIFIED: hit is the pill at every step, the tap toggles "Blur off" ->
+  "Blur on", and a 25px roll leaves the player at 412x232.
+- **1064: inPlayer() IS THE CONTAINER, SO IT CONTAINS THEIR BUTTONS
+  TOO.** `inPlayer(target)` is `#player-container-id`.contains(target),
+  and that container holds all of YouTube's chrome. MEASURED, pressing
+  each control and rolling 25px down: **Subtitles, Playback Settings,
+  Previous video, Next video, View Chapters and Enter full screen ALL
+  claimed the gesture and shrank the player to 347x195** before
+  springing back. At 0px roll none of them moved anything -- the
+  tap-with-drift case again, in the six controls that belong to the
+  page.
+- **THE TEST IS THE CONTROL, NOT THE CONTAINER, and that is load
+  bearing.** `.player-controls-background` is a plain div over the whole
+  player and IS the touch target for a drag started on the video once
+  the overlay exists, so refusing on `#player-control-container` would
+  have killed drag-to-mini outright. `PAGE_CONTROLS` refuses only
+  interactive elements (button, a[href], input, select, textarea,
+  role=button, role=slider).
+- **VERIFIED AFTER: 8 of 8 controls refuse** with the controls actually
+  on screen, and the gesture is unharmed -- drag from the player body
+  commits to mini at (169,697) 230x129, play/pause pauses and stays
+  mini, a tap on the body restores to 412x231 with the pill back.
+  HONEST COST, accepted: while YouTube's controls are showing, a drag
+  that starts ON a button is refused, and the big centre play button is
+  in the middle of the player. With the controls autohidden the centre
+  is `player-controls-background` and the centre drag still commits
+  (MEASURED, mini at (169,697)).
+- **BUILD GOTCHA THAT READ A GOOD FIX AS A DEAD ONE, and it can bite any
+  gaze change:** `npx tauri android build` does NOT rebuild the gaze
+  bundle. An APK built without `node app/gaze/build/build.js` first
+  carries the PREVIOUS bundle, and the change is silently absent -- the
+  six-step trace came back byte-identical to the broken run and looked
+  like the fix not working. `window.__TS_GAZE_BUNDLE__` is the marker to
+  check; it read `565e128-dirty` on a tree at 21e867f.
+- **PROBE ARTIFACT worth keeping:** the mobile player autohides its
+  controls in about a second, so a batch that reveals-then-measures can
+  press a button that is no longer there and land on the background div
+  instead. One control ("Previous video") read as still arming for
+  exactly that reason; re-measured with `elementFromPoint` confirming
+  `hitIsBtn` at press time, it refuses like the rest.
+- gaze 377/377, cargo 58/58.
+
 
 **Session 2026-08-31 (loop 14) -- THE SAME DEFECT IN THE SIBLING
 CONTROL, AND IT WAS THE WORSE ONE.**
