@@ -70,11 +70,53 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 22:55 (**1073 PUBLISHED**, sha
-99a39fe4...; rules 99394d11. **His phone still reads 1070** -- so it has
-neither the 1071 revert, the 1072 eraser counters nor the 1073
-miniplayer fix, and every cadence number taken off it tonight describes
-the REGRESSED build).
+**Last updated:** 2026-09-01 00:15 (**1074 PUBLISHED, sha 712c382a**,
+raw manifest + downloaded APK agree, isDraft false; rules 99394d11. He
+installed 1073 himself during the session; 1074 is the diagnostics build
+that answers the ghost-gate question).
+
+**Session 2026-09-01 (loop 35) -- THE GHOST GATE IS THROWING AWAY THREE
+FACES IN FOUR ON HIS PHONE, AND THAT IS HIS OLDEST COMPLAINT MEASURED
+FROM THE INSIDE.** 1074 published: diagnostics only, no verdict changes.
+- **THE COUNTERS, read live off 1073 on his phone, one 250s watch page:**
+  `faceNoShape` **127** against roughly **41** gender reads
+  (readClearCertain 13 + readAbstain 16 + readUncertain 12),
+  `emptyFrame` **72 of 234 passes**, and **all twelve MoveNet slots
+  n:0** -- the R21 regime, still, on the hardware that matters. So
+  `noShape` rests ENTIRELY on `PFF_FRAME_KP_FLOOR` there, because
+  MoveNet never admits anybody, and that floor was calibrated on
+  gauntlet footage and has never been measured on his phone.
+- **BOTH OF HIS COMPLAINTS SIT ON THE TWO SIDES OF THAT BRANCH.** A
+  refused REAL face is the woman who does not get blurred; a face
+  admitted over a graphic is "random blur marks here and there".
+  Nothing recorded WHICH population the gate was splitting, so the
+  floor could not be moved in either direction on evidence. 1074 adds
+  `gateRefused` and `gateKept`: three numbers per face -- its own
+  confidence, its native pixel size, and the frame keypoint maximum the
+  gate compared against (`frameMaxKp`, exported from person-gate and
+  threaded through the worker beside `noHumanShape`). Both capped at 40
+  in the report, all numeric, 0 violations.
+- **THE ERASER IS CLEAN ON 1073, so 1071's revert holds:** wipeErased
+  **9**, erasing 15 blurred tracks across **84 scene cuts** in 250s.
+  `wipeIfEmpty` already refuses to fire without a cut, which is what
+  those 9 are.
+- **THE CADENCE A/B THE HANDOFF ASKED FOR, 1073 against the 1067
+  control, both on his phone, 150s watch page:**
+
+  | | 1067 | 1073 |
+  |---|---|---|
+  | secs per verdict | 2.06 / 2.09 | **1.45** |
+  | positions per min | 10.0 / 11.2 | **37.1** |
+  | position pass p50 | 517 / 530ms | **483ms** |
+  | verdict p50 | 766 / 799ms | 745 / 746ms |
+  | coverage | 0.083 / 0.106 | **0.156** |
+  | rAF | 40.3 / 42.1Hz | **30.0 / 31.1Hz** |
+
+  So the budget fix alone buys **3.4x the position passes**, and unlike
+  1070's they are REAL WORK (483ms, not 12ms of churn), with coverage up
+  ~60%. **THE HONEST COST IS 26% OF THE FRAME RATE** -- ~41Hz to ~30Hz,
+  twice 1070's 12%. NOT TUNED: the dial is POSITION_MAX_INTERVAL_MS and
+  whether 30Hz is worth the tracking is his call.
 
 **Session 2026-08-31 (loop 34) -- THE BIGGEST SPEED LEVER LEFT IS
 REFUSED ON MEASUREMENT, AND THE FACE-SIZE FLOOR GUARDS THE WRONG
