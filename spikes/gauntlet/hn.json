@@ -1,0 +1,153 @@
+{
+ "rowTagCounts": {
+  "div": 10,
+  "OTHER:ytm-single-column-browse-results-renderer": 5,
+  "OTHER:ytm-tab-renderer": 5
+ },
+ "nonItemRows": [
+  {
+   "tag": "div",
+   "h": 4295,
+   "watch": 18,
+   "shorts": 8,
+   "imgs": 26,
+   "inner": [
+    "ytm-rich-item-renderer",
+    "ytm-rich-item-renderer",
+    "ytm-rich-item-renderer"
+   ],
+   "text": "17:27This Is So Embarrassing! - Building a PC with M"
+  },
+  {
+   "tag": "div",
+   "h": 4295,
+   "watch": 18,
+   "shorts": 8,
+   "imgs": 26,
+   "inner": [
+    "ytm-rich-item-renderer",
+    "ytm-rich-item-renderer",
+    "ytm-rich-section-renderer"
+   ],
+   "text": "30:00How do you upgrade a lifelong Tech??? - AMD $50"
+  },
+  {
+   "tag": "div",
+   "h": 4317,
+   "watch": 18,
+   "shorts": 8,
+   "imgs": 26,
+   "inner": [
+    "ytm-rich-item-renderer",
+    "ytm-rich-item-renderer",
+    "ytm-rich-item-renderer"
+   ],
+   "text": "21:46My Wife Needs a Phone, and I\u2019m NOT Gonna Mess i"
+  },
+  {
+   "tag": "div",
+   "h": 4007,
+   "watch": 20,
+   "shorts": 4,
+   "imgs": 24,
+   "inner": [
+    "ytm-rich-item-renderer",
+    "ytm-rich-item-renderer",
+    "ytm-rich-section-renderer"
+   ],
+   "text": "19:39It Shouldn\u2019t be this Hard to Buy A Printer\u2026Linu"
+  },
+  {
+   "tag": "div",
+   "h": 4251,
+   "watch": 18,
+   "shorts": 8,
+   "imgs": 26,
+   "inner": [
+    "ytm-rich-item-renderer",
+    "ytm-rich-item-renderer",
+    "ytm-rich-section-renderer"
+   ],
+   "text": "23:57My Wife Needs a New LaptopLinus Tech Tips \u2022 2.1"
+  }
+ ],
+ "otherPerLoad": [
+  [
+   {
+    "tag": "ytm-single-column-browse-results-renderer",
+    "h": 4295,
+    "watch": 18,
+    "text": "AllPodcastsNewsComputer HardwareGamingHayden Panetti"
+   },
+   {
+    "tag": "ytm-tab-renderer",
+    "h": 4295,
+    "watch": 18,
+    "text": "AllPodcastsNewsComputer HardwareGamingHayden Panetti"
+   }
+  ],
+  [
+   {
+    "tag": "ytm-single-column-browse-results-renderer",
+    "h": 4295,
+    "watch": 18,
+    "text": "AllPodcastsComputer HardwareNewsGamingAppleHayden Pa"
+   },
+   {
+    "tag": "ytm-tab-renderer",
+    "h": 4295,
+    "watch": 18,
+    "text": "AllPodcastsComputer HardwareNewsGamingAppleHayden Pa"
+   }
+  ],
+  [
+   {
+    "tag": "ytm-single-column-browse-results-renderer",
+    "h": 4317,
+    "watch": 18,
+    "text": "AllPodcastsNewsComputer HardwareHayden PanettiereGam"
+   },
+   {
+    "tag": "ytm-tab-renderer",
+    "h": 4317,
+    "watch": 18,
+    "text": "AllPodcastsNewsComputer HardwareHayden PanettiereGam"
+   }
+  ],
+  [
+   {
+    "tag": "ytm-single-column-browse-results-renderer",
+    "h": 4007,
+    "watch": 20,
+    "text": "AllPodcastsComputer HardwareNewsGamingHayden Panetti"
+   },
+   {
+    "tag": "ytm-tab-renderer",
+    "h": 4007,
+    "watch": 20,
+    "text": "AllPodcastsComputer HardwareNewsGamingHayden Panetti"
+   }
+  ],
+  [
+   {
+    "tag": "ytm-single-column-browse-results-renderer",
+    "h": 4251,
+    "watch": 18,
+    "text": "AllPodcastsComputer HardwareNewsHayden PanettiereGam"
+   },
+   {
+    "tag": "ytm-tab-renderer",
+    "h": 4251,
+    "watch": 18,
+    "text": "AllPodcastsComputer HardwareNewsHayden PanettiereGam"
+   }
+  ]
+ ],
+ "nudgesPerLoad": [
+  0,
+  0,
+  0,
+  0,
+  0
+ ]
+}

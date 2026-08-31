@@ -1,0 +1,185 @@
+{
+ "minimised": {
+  "mini": true,
+  "box": [
+   169,
+   697,
+   231,
+   130
+  ],
+  "buttons": 2,
+  "labels": [
+   "Play or pause",
+   "Close mini player"
+  ],
+  "btnBoxes": [
+   [
+    340,
+    719,
+    32,
+    32
+   ],
+   [
+    378,
+    719,
+    32,
+    32
+   ]
+  ]
+ },
+ "taps": [
+  {
+   "label": "mini centre",
+   "roll": 0,
+   "pausedBefore": false,
+   "pausedAfter": false,
+   "midOpacity": "1",
+   "midDrag": false,
+   "afterMini": false,
+   "afterGone": false,
+   "afterOpacity": "1",
+   "afterBox": [
+    0,
+    48,
+    412,
+    232
+   ]
+  },
+  {
+   "label": "mini centre",
+   "roll": 10,
+   "pausedBefore": false,
+   "pausedAfter": false,
+   "midOpacity": "1",
+   "midDrag": false,
+   "afterMini": true,
+   "afterGone": false,
+   "afterOpacity": "1",
+   "afterBox": [
+    169,
+    697,
+    231,
+    130
+   ]
+  },
+  {
+   "label": "mini centre",
+   "roll": 20,
+   "pausedBefore": false,
+   "pausedAfter": false,
+   "midOpacity": "0.912621",
+   "midDrag": true,
+   "afterMini": true,
+   "afterGone": false,
+   "afterOpacity": "1",
+   "afterBox": [
+    169,
+    697,
+    231,
+    130
+   ]
+  },
+  {
+   "label": "mini centre",
+   "roll": 30,
+   "pausedBefore": false,
+   "pausedAfter": false,
+   "midOpacity": "0.868932",
+   "midDrag": true,
+   "afterMini": true,
+   "afterGone": false,
+   "afterOpacity": "1",
+   "afterBox": [
+    169,
+    697,
+    231,
+    130
+   ]
+  },
+  {
+   "label": "mini centre",
+   "roll": 60,
+   "pausedBefore": false,
+   "pausedAfter": false,
+   "midOpacity": "0.737864",
+   "midDrag": true,
+   "afterMini": true,
+   "afterGone": false,
+   "afterOpacity": "1",
+   "afterBox": [
+    169,
+    697,
+    231,
+    130
+   ]
+  },
+  {
+   "label": "Play or pause",
+   "roll": 0,
+   "pausedBefore": false,
+   "pausedAfter": true,
+   "midOpacity": "1",
+   "midDrag": false,
+   "afterMini": true,
+   "afterGone": false,
+   "afterOpacity": "1",
+   "afterBox": [
+    169,
+    697,
+    231,
+    130
+   ]
+  },
+  {
+   "label": "Play or pause",
+   "roll": 20,
+   "pausedBefore": true,
+   "pausedAfter": true,
+   "midOpacity": "1",
+   "midDrag": false,
+   "afterMini": true,
+   "afterGone": false,
+   "afterOpacity": "1",
+   "afterBox": [
+    169,
+    697,
+    231,
+    130
+   ]
+  },
+  {
+   "label": "Close mini player",
+   "roll": 0,
+   "pausedBefore": true,
+   "pausedAfter": true,
+   "midOpacity": "1",
+   "midDrag": false,
+   "afterMini": false,
+   "afterGone": false,
+   "afterOpacity": "1",
+   "afterBox": [
+    0,
+    48,
+    412,
+    232
+   ]
+  },
+  {
+   "label": "Close mini player",
+   "roll": 20,
+   "pausedBefore": true,
+   "pausedAfter": true,
+   "midOpacity": "1",
+   "midDrag": false,
+   "afterMini": true,
+   "afterGone": false,
+   "afterOpacity": "1",
+   "afterBox": [
+    169,
+    697,
+    231,
+    130
+   ]
+  }
+ ]
+}

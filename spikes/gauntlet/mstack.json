@@ -1,0 +1,229 @@
+{
+ "whileMini_overlapping": 7,
+ "whileMini_patchOverPlayer": 0,
+ "steps": [
+  {
+   "mini": false,
+   "playerPos": "fixed",
+   "playerZ": "2",
+   "playerBox": [
+    0,
+    48,
+    412,
+    232
+   ],
+   "patches": 1,
+   "overlapping": 1,
+   "patchWins": 0,
+   "over": [
+    {
+     "ox": 222,
+     "oy": 6,
+     "iPatch": 6,
+     "iPlayer": 0,
+     "wins": false
+    }
+   ],
+   "phase": "full player, scrolled"
+  },
+  {
+   "mini": true,
+   "playerPos": "fixed",
+   "playerZ": "2147482000",
+   "playerBox": [
+    169,
+    697,
+    231,
+    130
+   ],
+   "patches": 5,
+   "overlapping": 1,
+   "patchWins": 0,
+   "over": [
+    {
+     "ox": 178,
+     "oy": 64,
+     "iPatch": 10,
+     "iPlayer": 0,
+     "wins": false
+    }
+   ],
+   "phase": "MINIMISED"
+  },
+  {
+   "mini": true,
+   "playerPos": "fixed",
+   "playerZ": "2147482000",
+   "playerBox": [
+    169,
+    697,
+    231,
+    130
+   ],
+   "patches": 5,
+   "overlapping": 1,
+   "patchWins": 0,
+   "over": [
+    {
+     "ox": 178,
+     "oy": 11,
+     "iPatch": 8,
+     "iPlayer": 0,
+     "wins": false
+    }
+   ],
+   "phase": "mini, scroll 1"
+  },
+  {
+   "mini": true,
+   "playerPos": "fixed",
+   "playerZ": "2147482000",
+   "playerBox": [
+    169,
+    697,
+    231,
+    130
+   ],
+   "patches": 5,
+   "overlapping": 0,
+   "patchWins": 0,
+   "over": [],
+   "phase": "mini, scroll 2"
+  },
+  {
+   "mini": true,
+   "playerPos": "fixed",
+   "playerZ": "2147482000",
+   "playerBox": [
+    169,
+    697,
+    231,
+    130
+   ],
+   "patches": 6,
+   "overlapping": 0,
+   "patchWins": 0,
+   "over": [],
+   "phase": "mini, scroll 3"
+  },
+  {
+   "mini": true,
+   "playerPos": "fixed",
+   "playerZ": "2147482000",
+   "playerBox": [
+    169,
+    697,
+    231,
+    130
+   ],
+   "patches": 9,
+   "overlapping": 0,
+   "patchWins": 0,
+   "over": [],
+   "phase": "mini, scroll 4"
+  },
+  {
+   "mini": true,
+   "playerPos": "fixed",
+   "playerZ": "2147482000",
+   "playerBox": [
+    169,
+    697,
+    231,
+    130
+   ],
+   "patches": 15,
+   "overlapping": 1,
+   "patchWins": 0,
+   "over": [
+    {
+     "ox": 102,
+     "oy": 29,
+     "iPatch": 8,
+     "iPlayer": 0,
+     "wins": false
+    }
+   ],
+   "phase": "mini, scroll 5"
+  },
+  {
+   "mini": true,
+   "playerPos": "fixed",
+   "playerZ": "2147482000",
+   "playerBox": [
+    169,
+    697,
+    231,
+    130
+   ],
+   "patches": 16,
+   "overlapping": 2,
+   "patchWins": 0,
+   "over": [
+    {
+     "ox": 22,
+     "oy": 109,
+     "iPatch": 6,
+     "iPlayer": 0,
+     "wins": false
+    },
+    {
+     "ox": 47,
+     "oy": 34,
+     "iPatch": 7,
+     "iPlayer": 0,
+     "wins": false
+    }
+   ],
+   "phase": "mini, scroll 6"
+  },
+  {
+   "mini": true,
+   "playerPos": "fixed",
+   "playerZ": "2147482000",
+   "playerBox": [
+    169,
+    697,
+    231,
+    130
+   ],
+   "patches": 18,
+   "overlapping": 1,
+   "patchWins": 0,
+   "over": [
+    {
+     "ox": 124,
+     "oy": 110,
+     "iPatch": 6,
+     "iPlayer": 0,
+     "wins": false
+    }
+   ],
+   "phase": "mini, scroll 7"
+  },
+  {
+   "mini": true,
+   "playerPos": "fixed",
+   "playerZ": "2147482000",
+   "playerBox": [
+    169,
+    697,
+    231,
+    130
+   ],
+   "patches": 18,
+   "overlapping": 1,
+   "patchWins": 0,
+   "over": [
+    {
+     "ox": 69,
+     "oy": 130,
+     "iPatch": 6,
+     "iPlayer": 0,
+     "wins": false
+    }
+   ],
+   "phase": "mini, scroll 8"
+  }
+ ]
+}

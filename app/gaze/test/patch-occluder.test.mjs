@@ -111,3 +111,14 @@ test('the isolate write refuses a fixed host', () => {
   const src = readFileSync(new URL('../src/region-blur.mjs', import.meta.url), 'utf8');
   assert.match(src, /hostPos !== 'fixed'\) host\.style\.isolation = 'isolate';/);
 });
+
+test('the player CONTAINER is player subtree too', () => {
+  // MEASURED 2026-08-31: `img#player-thumbnail-overlay`, the video's own
+  // poster at 412x231 exactly over the player, is a direct child of
+  // #player-container-id. `host.closest(PLAYER_SUBTREE_SELECTOR)`
+  // returned null for it, so a flagged verdict would have hosted a patch
+  // on the fixed z-index-2 sticky container, appended after #player --
+  // painting over the video by DOM order.
+  const src = readFileSync(new URL('../src/region-blur.mjs', import.meta.url), 'utf8');
+  assert.match(src, /PLAYER_SUBTREE_SELECTOR\s*=\s*\n?\s*'#movie_player, #player-container-id,/);
+});

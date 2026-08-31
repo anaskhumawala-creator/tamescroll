@@ -1,0 +1,72 @@
+[
+ {
+  "mini": false,
+  "vw": 412,
+  "vh": 839,
+  "left": 0,
+  "top": 48,
+  "w": 412,
+  "h": 232,
+  "rightGap": 0,
+  "bottomGap": 559,
+  "onScreen": true,
+  "transform": "",
+  "phase": "portrait, full"
+ },
+ {
+  "mini": true,
+  "vw": 412,
+  "vh": 839,
+  "left": 169,
+  "top": 697,
+  "w": 231,
+  "h": 130,
+  "rightGap": 12,
+  "bottomGap": 12,
+  "onScreen": true,
+  "transform": "translate(169px, 649px) scale(0.559741)",
+  "phase": "portrait, MINI"
+ },
+ {
+  "mini": true,
+  "vw": 863,
+  "vh": 360,
+  "left": 571,
+  "top": 222,
+  "w": 280,
+  "h": 126,
+  "rightGap": 12,
+  "bottomGap": 12,
+  "onScreen": true,
+  "transform": "translate(571px, 174px) scale(0.32436)",
+  "phase": "LANDSCAPE, still mini"
+ },
+ {
+  "mini": true,
+  "vw": 863,
+  "vh": 360,
+  "left": 571,
+  "top": 222,
+  "w": 280,
+  "h": 126,
+  "rightGap": 12,
+  "bottomGap": 12,
+  "onScreen": true,
+  "transform": "translate(571px, 174px) scale(0.32436)",
+  "phase": "landscape settled"
+ },
+ {
+  "mini": true,
+  "vw": 412,
+  "vh": 839,
+  "left": 169,
+  "top": 697,
+  "w": 231,
+  "h": 130,
+  "rightGap": 12,
+  "bottomGap": 12,
+  "onScreen": true,
+  "transform": "translate(169px, 649px) scale(0.559741)",
+  "phase": "back to PORTRAIT"
+ }
+]

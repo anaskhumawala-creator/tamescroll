@@ -1,0 +1,138 @@
+{
+ "pillPresent": true,
+ "pillBox": [
+  355,
+  114,
+  99,
+  36
+ ],
+ "label": "Blur on",
+ "playerBox": [
+  0,
+  48,
+  412,
+  232
+ ],
+ "taps": [
+  {
+   "roll": 0,
+   "labelBefore": "Blur on",
+   "labelAfter": "Blur off",
+   "toggled": true,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    232
+   ],
+   "afterBox": [
+    0,
+    48,
+    412,
+    232
+   ],
+   "afterMini": false
+  },
+  {
+   "roll": 10,
+   "labelBefore": "Blur off",
+   "labelAfter": "Blur off",
+   "toggled": false,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    232
+   ],
+   "afterBox": [
+    0,
+    48,
+    412,
+    232
+   ],
+   "afterMini": false
+  },
+  {
+   "roll": 20,
+   "labelBefore": "Blur off",
+   "labelAfter": "Blur off",
+   "toggled": false,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    232
+   ],
+   "afterBox": [
+    0,
+    48,
+    412,
+    232
+   ],
+   "afterMini": false
+  },
+  {
+   "roll": 30,
+   "labelBefore": "Blur off",
+   "labelAfter": "Blur off",
+   "toggled": false,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    232
+   ],
+   "afterBox": [
+    0,
+    48,
+    412,
+    232
+   ],
+   "afterMini": false
+  },
+  {
+   "roll": 60,
+   "labelBefore": "Blur off",
+   "labelAfter": "Blur off",
+   "toggled": false,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    232
+   ],
+   "afterBox": [
+    0,
+    48,
+    412,
+    232
+   ],
+   "afterMini": false
+  },
+  {
+   "roll": 110,
+   "labelBefore": "Blur off",
+   "labelAfter": "Blur off",
+   "toggled": false,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    232
+   ],
+   "afterBox": [
+    0,
+    48,
+    412,
+    232
+   ],
+   "afterMini": false
+  }
+ ]
+}

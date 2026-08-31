@@ -581,7 +581,26 @@ function previewCovers(el) {
 // The shared-player subtree, in one place because two call sites need
 // the same answer and a selector that drifts in one of them is a bug
 // that only shows up on a phone. Exported for tests.
-export var PLAYER_SUBTREE_SELECTOR = '#movie_player, .ytmVideoPreviewHost, ytm-video-preview';
+// THE CONTAINER IS THE PLAYER TOO, and an image lives in the gap.
+// MEASURED 2026-08-31 on a live m.youtube watch page: `img
+// #player-thumbnail-overlay` -- the video's own poster, natural 480x360,
+// laid out at 412x231 exactly over the player -- is a DIRECT CHILD of
+// #player-container-id, which this selector did not name. Its host was
+// therefore ACCEPTED (`host.closest(SELECTOR)` returned null, measured),
+// so a flagged verdict there would append a patch to the fixed,
+// z-index-2 sticky container AFTER #player -- painting over the video by
+// DOM order, with no stacking trick required -- and would write
+// `isolation: isolate` onto the container the miniplayer transforms.
+// The poster is visibility:hidden during playback but still connected
+// and still has a rect, so nothing in the sweep would take that patch
+// away again.
+//
+// HONEST: the flagged verdict itself was NOT reproduced here -- the
+// poster is a low-detail placeholder and read clear. What is measured is
+// the hole in the guard, and the guard's own comment below already says
+// an image patch has no business in the player subtree at all.
+export var PLAYER_SUBTREE_SELECTOR =
+  '#movie_player, #player-container-id, .ytmVideoPreviewHost, ytm-video-preview';
 
 export function isPlayerSubtree(node) {
   try {

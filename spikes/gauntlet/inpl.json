@@ -1,0 +1,836 @@
+{
+ "home": {
+  "totalPatchSamples": 126,
+  "hostInPlayer": 0,
+  "unclipped": 41,
+  "previewPlayingSteps": 0,
+  "barBottom": [
+   839,
+   839,
+   839,
+   839,
+   839,
+   839,
+   839,
+   839,
+   839
+  ],
+  "steps": [
+   {
+    "path": "/",
+    "patches": 4,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 0,
+      "z": "4"
+     },
+     {
+      "tag": "ytm-feed-filter-chip-bar-renderer",
+      "bottom": -12,
+      "z": "3"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 3,
+    "sample": [
+     {
+      "top": 2,
+      "h": 30,
+      "barBottom": 839
+     },
+     {
+      "top": 96,
+      "h": 222,
+      "barBottom": 839
+     },
+     {
+      "top": 392,
+      "h": 232,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   },
+   {
+    "path": "/",
+    "patches": 8,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 0,
+      "z": "4"
+     },
+     {
+      "tag": "ytm-feed-filter-chip-bar-renderer",
+      "bottom": -12,
+      "z": "3"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 5,
+    "sample": [
+     {
+      "top": 52,
+      "h": 232,
+      "barBottom": 839
+     },
+     {
+      "top": 292,
+      "h": 32,
+      "barBottom": 839
+     },
+     {
+      "top": 380,
+      "h": 232,
+      "barBottom": 839
+     },
+     {
+      "top": 621,
+      "h": 26,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   },
+   {
+    "path": "/",
+    "patches": 11,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 0,
+      "z": "4"
+     },
+     {
+      "tag": "ytm-feed-filter-chip-bar-renderer",
+      "bottom": -12,
+      "z": "3"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 5,
+    "sample": [
+     {
+      "top": 40,
+      "h": 232,
+      "barBottom": 839
+     },
+     {
+      "top": 281,
+      "h": 26,
+      "barBottom": 839
+     },
+     {
+      "top": 346,
+      "h": 232,
+      "barBottom": 839
+     },
+     {
+      "top": 598,
+      "h": 9,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   },
+   {
+    "path": "/",
+    "patches": 12,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 0,
+      "z": "4"
+     },
+     {
+      "tag": "ytm-feed-filter-chip-bar-renderer",
+      "bottom": -12,
+      "z": "3"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 5,
+    "sample": [
+     {
+      "top": 6,
+      "h": 232,
+      "barBottom": 839
+     },
+     {
+      "top": 258,
+      "h": 9,
+      "barBottom": 839
+     },
+     {
+      "top": 391,
+      "h": 175,
+      "barBottom": 839
+     },
+     {
+      "top": 586,
+      "h": 21,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   },
+   {
+    "path": "/",
+    "patches": 14,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 0,
+      "z": "4"
+     },
+     {
+      "tag": "ytm-feed-filter-chip-bar-renderer",
+      "bottom": -12,
+      "z": "3"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 4,
+    "sample": [
+     {
+      "top": 60,
+      "h": 175,
+      "barBottom": 839
+     },
+     {
+      "top": 255,
+      "h": 21,
+      "barBottom": 839
+     },
+     {
+      "top": 331,
+      "h": 232,
+      "barBottom": 839
+     },
+     {
+      "top": 659,
+      "h": 232,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   },
+   {
+    "path": "/",
+    "patches": 17,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 0,
+      "z": "4"
+     },
+     {
+      "tag": "ytm-feed-filter-chip-bar-renderer",
+      "bottom": -12,
+      "z": "3"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 4,
+    "sample": [
+     {
+      "top": -9,
+      "h": 232,
+      "barBottom": 839
+     },
+     {
+      "top": 319,
+      "h": 232,
+      "barBottom": 839
+     },
+     {
+      "top": 561,
+      "h": 34,
+      "barBottom": 839
+     },
+     {
+      "top": 683,
+      "h": 196,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   },
+   {
+    "path": "/",
+    "patches": 19,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 0,
+      "z": "4"
+     },
+     {
+      "tag": "ytm-feed-filter-chip-bar-renderer",
+      "bottom": -12,
+      "z": "3"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 6,
+    "sample": [
+     {
+      "top": -21,
+      "h": 232,
+      "barBottom": 839
+     },
+     {
+      "top": 221,
+      "h": 34,
+      "barBottom": 839
+     },
+     {
+      "top": 343,
+      "h": 196,
+      "barBottom": 839
+     },
+     {
+      "top": 555,
+      "h": 21,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   },
+   {
+    "path": "/",
+    "patches": 20,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 0,
+      "z": "4"
+     },
+     {
+      "tag": "ytm-feed-filter-chip-bar-renderer",
+      "bottom": -12,
+      "z": "3"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 5,
+    "sample": [
+     {
+      "top": 3,
+      "h": 196,
+      "barBottom": 839
+     },
+     {
+      "top": 215,
+      "h": 21,
+      "barBottom": 839
+     },
+     {
+      "top": 212,
+      "h": 24,
+      "barBottom": 839
+     },
+     {
+      "top": 316,
+      "h": 211,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   },
+   {
+    "path": "/",
+    "patches": 21,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 0,
+      "z": "4"
+     },
+     {
+      "tag": "ytm-feed-filter-chip-bar-renderer",
+      "bottom": -12,
+      "z": "3"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 4,
+    "sample": [
+     {
+      "top": -24,
+      "h": 211,
+      "barBottom": 839
+     },
+     {
+      "top": 199,
+      "h": 33,
+      "barBottom": 839
+     },
+     {
+      "top": 528,
+      "h": 27,
+      "barBottom": 839
+     },
+     {
+      "top": 616,
+      "h": 115,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   }
+  ]
+ },
+ "search": {
+  "totalPatchSamples": 155,
+  "hostInPlayer": 0,
+  "unclipped": 49,
+  "previewPlayingSteps": 0,
+  "barBottom": [
+   839,
+   839,
+   839,
+   839,
+   839,
+   839,
+   839,
+   839,
+   839
+  ],
+  "steps": [
+   {
+    "path": "/results",
+    "patches": 6,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 48,
+      "z": "4"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 4,
+    "sample": [
+     {
+      "top": 52,
+      "h": 229,
+      "barBottom": 839
+     },
+     {
+      "top": 296,
+      "h": 31,
+      "barBottom": 839
+     },
+     {
+      "top": 369,
+      "h": 231,
+      "barBottom": 839
+     },
+     {
+      "top": 617,
+      "h": 34,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   },
+   {
+    "path": "/results",
+    "patches": 10,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 48,
+      "z": "4"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 6,
+    "sample": [
+     {
+      "top": 48,
+      "h": 213,
+      "barBottom": 839
+     },
+     {
+      "top": 277,
+      "h": 34,
+      "barBottom": 839
+     },
+     {
+      "top": 497,
+      "h": 101,
+      "barBottom": 839
+     },
+     {
+      "top": 374,
+      "h": 228,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   },
+   {
+    "path": "/results",
+    "patches": 13,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 48,
+      "z": "4"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 7,
+    "sample": [
+     {
+      "top": 157,
+      "h": 101,
+      "barBottom": 839
+     },
+     {
+      "top": 48,
+      "h": 214,
+      "barBottom": 839
+     },
+     {
+      "top": 296,
+      "h": 13,
+      "barBottom": 839
+     },
+     {
+      "top": 358,
+      "h": 224,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   },
+   {
+    "path": "/results",
+    "patches": 16,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 48,
+      "z": "4"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 6,
+    "sample": [
+     {
+      "top": 48,
+      "h": 194,
+      "barBottom": 839
+     },
+     {
+      "top": 261,
+      "h": 19,
+      "barBottom": 839
+     },
+     {
+      "top": 380,
+      "h": 140,
+      "barBottom": 839
+     },
+     {
+      "top": 394,
+      "h": 120,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   },
+   {
+    "path": "/results",
+    "patches": 18,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 48,
+      "z": "4"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 6,
+    "sample": [
+     {
+      "top": 48,
+      "h": 132,
+      "barBottom": 839
+     },
+     {
+      "top": 55,
+      "h": 120,
+      "barBottom": 839
+     },
+     {
+      "top": 248,
+      "h": 40,
+      "barBottom": 839
+     },
+     {
+      "top": 327,
+      "h": 229,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   },
+   {
+    "path": "/results",
+    "patches": 20,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 48,
+      "z": "4"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 5,
+    "sample": [
+     {
+      "top": 48,
+      "h": 167,
+      "barBottom": 839
+     },
+     {
+      "top": 241,
+      "h": 16,
+      "barBottom": 839
+     },
+     {
+      "top": 318,
+      "h": 231,
+      "barBottom": 839
+     },
+     {
+      "top": 565,
+      "h": 34,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   },
+   {
+    "path": "/results",
+    "patches": 22,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 48,
+      "z": "4"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 5,
+    "sample": [
+     {
+      "top": 48,
+      "h": 161,
+      "barBottom": 839
+     },
+     {
+      "top": 225,
+      "h": 34,
+      "barBottom": 839
+     },
+     {
+      "top": 319,
+      "h": 231,
+      "barBottom": 839
+     },
+     {
+      "top": 565,
+      "h": 17,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   },
+   {
+    "path": "/results",
+    "patches": 24,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 48,
+      "z": "4"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 5,
+    "sample": [
+     {
+      "top": 48,
+      "h": 163,
+      "barBottom": 839
+     },
+     {
+      "top": 225,
+      "h": 17,
+      "barBottom": 839
+     },
+     {
+      "top": 299,
+      "h": 231,
+      "barBottom": 839
+     },
+     {
+      "top": 546,
+      "h": 34,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   },
+   {
+    "path": "/results",
+    "patches": 26,
+    "hostInPlayer": 0,
+    "barBottom": 839,
+    "bars": [
+     {
+      "tag": "ytm-mobile-topbar-renderer",
+      "bottom": 48,
+      "z": "4"
+     },
+     {
+      "tag": "div",
+      "bottom": 839,
+      "z": "2"
+     }
+    ],
+    "unclipped": 5,
+    "sample": [
+     {
+      "top": 48,
+      "h": 142,
+      "barBottom": 839
+     },
+     {
+      "top": 207,
+      "h": 34,
+      "barBottom": 839
+     },
+     {
+      "top": 300,
+      "h": 231,
+      "barBottom": 839
+     },
+     {
+      "top": 548,
+      "h": 34,
+      "barBottom": 839
+     }
+    ],
+    "previewPlaying": false
+   }
+  ]
+ }
+}

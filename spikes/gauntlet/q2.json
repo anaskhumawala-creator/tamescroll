@@ -1,0 +1,95 @@
+{
+ "peak": {
+  "imgTotal": 52,
+  "big": 120,
+  "pending": 72,
+  "on": 5,
+  "above": 66,
+  "scroll": 18144
+ },
+ "settle": [
+  {
+   "imgTotal": 56,
+   "big": 120,
+   "pending": 68,
+   "on": 3,
+   "above": 64,
+   "scroll": 18144
+  },
+  {
+   "imgTotal": 60,
+   "big": 120,
+   "pending": 64,
+   "on": 0,
+   "above": 64,
+   "scroll": 18144
+  },
+  {
+   "imgTotal": 60,
+   "big": 120,
+   "pending": 64,
+   "on": 0,
+   "above": 64,
+   "scroll": 18144
+  },
+  {
+   "imgTotal": 60,
+   "big": 120,
+   "pending": 64,
+   "on": 0,
+   "above": 64,
+   "scroll": 18144
+  },
+  {
+   "imgTotal": 60,
+   "big": 120,
+   "pending": 64,
+   "on": 0,
+   "above": 64,
+   "scroll": 18144
+  },
+  {
+   "imgTotal": 60,
+   "big": 120,
+   "pending": 64,
+   "on": 0,
+   "above": 64,
+   "scroll": 18144
+  },
+  {
+   "imgTotal": 60,
+   "big": 120,
+   "pending": 64,
+   "on": 0,
+   "above": 64,
+   "scroll": 18144
+  },
+  {
+   "imgTotal": 60,
+   "big": 120,
+   "pending": 64,
+   "on": 0,
+   "above": 64,
+   "scroll": 18144
+  },
+  {
+   "imgTotal": 60,
+   "big": 120,
+   "pending": 64,
+   "on": 0,
+   "above": 64,
+   "scroll": 18144
+  },
+  {
+   "imgTotal": 60,
+   "big": 120,
+   "pending": 64,
+   "on": 0,
+   "above": 64,
+   "scroll": 18144
+  }
+ ],
+ "firstClearImgTotal": 60,
+ "finalImgTotal": 60,
+ "judgedWhileNothingOnScreen": 0
+}

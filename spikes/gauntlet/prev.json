@@ -1,0 +1,289 @@
+{
+ "stepsWithPreviewPlaying": 0,
+ "totalPatchSamples": 114,
+ "hostInPlayer": 0,
+ "overlapMp": 0,
+ "patchOverMp": 0,
+ "steps": [
+  {
+   "vids": 1,
+   "playing": 0,
+   "mpPlaying": false,
+   "mpBox": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "mpInFeed": true,
+   "vCovered": 1,
+   "patches": 1,
+   "hostInPlayer": 0,
+   "overlapMp": 0,
+   "patchOverMp": 0,
+   "vregions": 0,
+   "scroll": 300,
+   "step": 1
+  },
+  {
+   "vids": 1,
+   "playing": 0,
+   "mpPlaying": false,
+   "mpBox": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "mpInFeed": true,
+   "vCovered": 1,
+   "patches": 2,
+   "hostInPlayer": 0,
+   "overlapMp": 0,
+   "patchOverMp": 0,
+   "vregions": 0,
+   "scroll": 600,
+   "step": 2
+  },
+  {
+   "vids": 1,
+   "playing": 0,
+   "mpPlaying": false,
+   "mpBox": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "mpInFeed": true,
+   "vCovered": 1,
+   "patches": 3,
+   "hostInPlayer": 0,
+   "overlapMp": 0,
+   "patchOverMp": 0,
+   "vregions": 0,
+   "scroll": 899,
+   "step": 3
+  },
+  {
+   "vids": 1,
+   "playing": 0,
+   "mpPlaying": false,
+   "mpBox": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "mpInFeed": true,
+   "vCovered": 1,
+   "patches": 4,
+   "hostInPlayer": 0,
+   "overlapMp": 0,
+   "patchOverMp": 0,
+   "vregions": 0,
+   "scroll": 1199,
+   "step": 4
+  },
+  {
+   "vids": 1,
+   "playing": 0,
+   "mpPlaying": false,
+   "mpBox": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "mpInFeed": true,
+   "vCovered": 1,
+   "patches": 6,
+   "hostInPlayer": 0,
+   "overlapMp": 0,
+   "patchOverMp": 0,
+   "vregions": 0,
+   "scroll": 1499,
+   "step": 5
+  },
+  {
+   "vids": 1,
+   "playing": 0,
+   "mpPlaying": false,
+   "mpBox": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "mpInFeed": true,
+   "vCovered": 1,
+   "patches": 7,
+   "hostInPlayer": 0,
+   "overlapMp": 0,
+   "patchOverMp": 0,
+   "vregions": 0,
+   "scroll": 1799,
+   "step": 6
+  },
+  {
+   "vids": 1,
+   "playing": 0,
+   "mpPlaying": false,
+   "mpBox": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "mpInFeed": true,
+   "vCovered": 1,
+   "patches": 9,
+   "hostInPlayer": 0,
+   "overlapMp": 0,
+   "patchOverMp": 0,
+   "vregions": 0,
+   "scroll": 2099,
+   "step": 7
+  },
+  {
+   "vids": 1,
+   "playing": 0,
+   "mpPlaying": false,
+   "mpBox": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "mpInFeed": true,
+   "vCovered": 1,
+   "patches": 9,
+   "hostInPlayer": 0,
+   "overlapMp": 0,
+   "patchOverMp": 0,
+   "vregions": 0,
+   "scroll": 2323,
+   "step": 8
+  },
+  {
+   "vids": 1,
+   "playing": 0,
+   "mpPlaying": false,
+   "mpBox": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "mpInFeed": true,
+   "vCovered": 1,
+   "patches": 9,
+   "hostInPlayer": 0,
+   "overlapMp": 0,
+   "patchOverMp": 0,
+   "vregions": 0,
+   "scroll": 2623,
+   "step": 9
+  },
+  {
+   "vids": 1,
+   "playing": 0,
+   "mpPlaying": false,
+   "mpBox": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "mpInFeed": true,
+   "vCovered": 1,
+   "patches": 9,
+   "hostInPlayer": 0,
+   "overlapMp": 0,
+   "patchOverMp": 0,
+   "vregions": 0,
+   "scroll": 2923,
+   "step": 10
+  },
+  {
+   "vids": 1,
+   "playing": 0,
+   "mpPlaying": false,
+   "mpBox": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "mpInFeed": true,
+   "vCovered": 1,
+   "patches": 11,
+   "hostInPlayer": 0,
+   "overlapMp": 0,
+   "patchOverMp": 0,
+   "vregions": 0,
+   "scroll": 3223,
+   "step": 11
+  },
+  {
+   "vids": 1,
+   "playing": 0,
+   "mpPlaying": false,
+   "mpBox": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "mpInFeed": true,
+   "vCovered": 1,
+   "patches": 13,
+   "hostInPlayer": 0,
+   "overlapMp": 0,
+   "patchOverMp": 0,
+   "vregions": 0,
+   "scroll": 3523,
+   "step": 12
+  },
+  {
+   "vids": 1,
+   "playing": 0,
+   "mpPlaying": false,
+   "mpBox": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "mpInFeed": true,
+   "vCovered": 1,
+   "patches": 15,
+   "hostInPlayer": 0,
+   "overlapMp": 0,
+   "patchOverMp": 0,
+   "vregions": 0,
+   "scroll": 3822,
+   "step": 13
+  },
+  {
+   "vids": 1,
+   "playing": 0,
+   "mpPlaying": false,
+   "mpBox": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "mpInFeed": true,
+   "vCovered": 1,
+   "patches": 16,
+   "hostInPlayer": 0,
+   "overlapMp": 0,
+   "patchOverMp": 0,
+   "vregions": 0,
+   "scroll": 4122,
+   "step": 14
+  }
+ ]
+}

@@ -1,0 +1,363 @@
+controls found: ["Autoplay is on", "Subtitles/CC turned on", "Playback Settings", "Previous video", "Pause video", "Next video", "View Chapters", "Enter full screen"]
+[
+ {
+  "ctrl": "Autoplay is on",
+  "roll0": {
+   "roll": 0,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "after": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "mini": false,
+   "paused": [
+    false,
+    false
+   ]
+  },
+  "roll25": {
+   "roll": 25,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "after": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "mini": false,
+   "paused": [
+    false,
+    false
+   ]
+  }
+ },
+ {
+  "ctrl": "Subtitles/CC turned on",
+  "roll0": {
+   "roll": 0,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "after": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "mini": false,
+   "paused": [
+    false,
+    false
+   ]
+  },
+  "roll25": {
+   "roll": 25,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "after": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "mini": false,
+   "paused": [
+    false,
+    false
+   ]
+  }
+ },
+ {
+  "ctrl": "Playback Settings",
+  "roll0": {
+   "roll": 0,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "after": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "mini": false,
+   "paused": [
+    false,
+    false
+   ]
+  },
+  "roll25": {
+   "roll": 25,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "after": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "mini": false,
+   "paused": [
+    false,
+    false
+   ]
+  }
+ },
+ {
+  "ctrl": "Previous video",
+  "roll0": {
+   "roll": 0,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "after": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "mini": false,
+   "paused": [
+    false,
+    false
+   ]
+  },
+  "roll25": {
+   "roll": 25,
+   "midDrag": true,
+   "midBox": [
+    92,
+    298,
+    347,
+    195
+   ],
+   "after": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "mini": false,
+   "paused": [
+    false,
+    false
+   ]
+  }
+ },
+ {
+  "ctrl": "Pause video",
+  "roll0": {
+   "roll": 0,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "after": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "mini": false,
+   "paused": [
+    false,
+    false
+   ]
+  },
+  "roll25": {
+   "roll": 25,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "after": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "mini": false,
+   "paused": [
+    false,
+    false
+   ]
+  }
+ },
+ {
+  "ctrl": "Next video",
+  "roll0": {
+   "roll": 0,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "after": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "mini": false,
+   "paused": [
+    false,
+    false
+   ]
+  },
+  "roll25": {
+   "roll": 25,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "after": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "mini": false,
+   "paused": [
+    false,
+    false
+   ]
+  }
+ },
+ {
+  "ctrl": "View Chapters",
+  "roll0": {
+   "roll": 0,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "after": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "mini": false,
+   "paused": [
+    false,
+    false
+   ]
+  },
+  "roll25": {
+   "roll": 25,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "after": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "mini": false,
+   "paused": [
+    false,
+    false
+   ]
+  }
+ },
+ {
+  "ctrl": "Enter full screen",
+  "roll0": {
+   "roll": 0,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "after": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "mini": false,
+   "paused": [
+    false,
+    false
+   ]
+  },
+  "roll25": {
+   "roll": 25,
+   "midDrag": false,
+   "midBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "after": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "mini": false,
+   "paused": [
+    false,
+    false
+   ]
+  }
+ }
+]

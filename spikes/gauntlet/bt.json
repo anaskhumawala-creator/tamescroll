@@ -1,0 +1,104 @@
+{
+ "after minimise": {
+  "mini": true,
+  "gone": false,
+  "drag": false,
+  "opacity": "1",
+  "box": [
+   169,
+   697,
+   231,
+   130
+  ],
+  "paused": false,
+  "t": 39,
+  "buttons": 0,
+  "btnBoxes": []
+ },
+ "taps": [
+  {
+   "label": "mini centre",
+   "rollPx": 0,
+   "pausedBefore": false,
+   "pausedAfter": false,
+   "midOpacity": "1",
+   "afterOpacity": "1",
+   "midDrag": false,
+   "afterMini": false,
+   "afterGone": false,
+   "afterBox": [
+    0,
+    48,
+    412,
+    232
+   ]
+  },
+  {
+   "label": "mini centre",
+   "rollPx": 10,
+   "pausedBefore": false,
+   "pausedAfter": false,
+   "midOpacity": "1",
+   "afterOpacity": "1",
+   "midDrag": false,
+   "afterMini": false,
+   "afterGone": false,
+   "afterBox": [
+    0,
+    48,
+    412,
+    232
+   ]
+  },
+  {
+   "label": "mini centre",
+   "rollPx": 20,
+   "pausedBefore": false,
+   "pausedAfter": false,
+   "midOpacity": "1",
+   "afterOpacity": "1",
+   "midDrag": false,
+   "afterMini": false,
+   "afterGone": false,
+   "afterBox": [
+    0,
+    48,
+    412,
+    232
+   ]
+  },
+  {
+   "label": "mini centre",
+   "rollPx": 30,
+   "pausedBefore": false,
+   "pausedAfter": false,
+   "midOpacity": "1",
+   "afterOpacity": "1",
+   "midDrag": false,
+   "afterMini": false,
+   "afterGone": false,
+   "afterBox": [
+    0,
+    48,
+    412,
+    232
+   ]
+  }
+ ],
+ "final": {
+  "mini": false,
+  "gone": false,
+  "drag": false,
+  "opacity": "1",
+  "box": [
+   0,
+   48,
+   412,
+   232
+  ],
+  "paused": false,
+  "t": 5,
+  "buttons": 0,
+  "btnBoxes": []
+ }
+}
