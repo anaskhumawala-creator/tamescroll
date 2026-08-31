@@ -30,3 +30,22 @@ class Tab:
                      awaitPromise=True)
         res = r.get("result", {}).get("result", {})
         return res.get("value", res)
+
+
+# A `display: none` overlay is still in the DOM and still in
+# entry.tracks -- video-region sets it when the clip falls entirely
+# outside the picture, or when the video rect measures zero. Its
+# getBoundingClientRect is 0x0 at the origin, so a probe that counts or
+# normalizes it reports coverage that paints nothing. That produced a
+# 6.3673 "shortfall" twice and it was arithmetic, not a defect
+# (docs/technical-findings.md).
+#
+# Usage inside an evaluated snippet:
+#     var patches = (SNIPPET)('.ts-gaze-vregion-host');
+VISIBLE_PATCHES_JS = """(function(sel){
+  return [].slice.call(document.querySelectorAll(sel)).filter(function(o){
+    if (getComputedStyle(o).display === 'none') return false;
+    var r = o.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  });
+})"""

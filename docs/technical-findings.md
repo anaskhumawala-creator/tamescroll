@@ -362,3 +362,41 @@ feed host ever appears, the patch in that band has nothing holding it.
 
 Loop 8's "0 of 170 unclipped above the bar" was measured on SEARCH,
 where the bar IS hit-testable. It does not transfer to watch.
+
+## A `display: none` overlay is still a patch element, and 67 probes count it (2026-09-01)
+
+Same class as the `pointer-events: none` retraction above: an instrument
+answering the only question it could ever have answered.
+
+`video-region.mjs` sets `display: none` on an overlay in two places — the
+video rect measured zero, and the clip fell entirely outside the picture
+— and **leaves the element in the DOM and in `entry.tracks`**. So
+`document.querySelectorAll('.ts-gaze-vregion-host').length` counts a
+patch that paints nothing, and `__TS_GAZE_VTRACKS` reports its box. Both
+of the sources every patch probe in this repo reads from.
+
+**IT BIT A REAL MEASUREMENT AND THE NUMBER LOOKED LIKE A DEFECT.**
+probe_mini_land_live reported a shortfall of **6.3673 video-heights**
+with a patch outside the video box during the miniplayer restore, the
+SAME float on two independent runs — which reads exactly like a
+deterministic geometry bug. It is arithmetic on a hidden element:
+`getBoundingClientRect()` on a `display: none` node is 0x0 at the
+origin, and normalizing that against a parked video at (169, 697) 231x130
+gives `d[3] = (0 - 697) / 130 = -5.3615`, so a track whose padded `y2` is
+1.0058 yields `1.0058 + 5.3615 = 6.3673`. Exact, to four decimals.
+
+A second instrument written to log RAW VIEWPORT PIXELS
+(probe_mini_restore.py) found **0 stray frames over 54** across the same
+transition. Two instruments disagreeing is not a tie: the one that reads
+raw rects wins.
+
+**THE DIRECTION OF THE BIAS IS THE DANGEROUS ONE.** For every probe that
+merely COUNTS patches, a hidden overlay inflates the count — so coverage
+is overstated and an exposure is under-reported. 67 probes under
+`spikes/gauntlet/` query one of the two patch classes with no `display`
+check. They are not all wrong (many count only while a patch is known
+live), but none of them can tell a drawn patch from a hidden one.
+
+**RULE: any probe that counts, ranks or measures one of our patches must
+filter `getComputedStyle(el).display === 'none'` and a zero-area rect
+first.** `emu_cdp.VISIBLE_PATCHES_JS` is the snippet.

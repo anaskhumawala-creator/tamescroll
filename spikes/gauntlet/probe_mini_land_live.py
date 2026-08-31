@@ -54,7 +54,19 @@ COLLECT = """(function(){
       if(v){
         var vr=v.getBoundingClientRect();
         if(vr.width>0){
-          var drawn=[].slice.call(document.querySelectorAll('.ts-gaze-vregion-host')).map(function(o){
+          // A `display:none` overlay is still in the DOM and still in
+          // entry.tracks -- video-region sets it when the clip falls
+          // entirely outside the picture. Its rect is 0x0 at the origin,
+          // and normalizing THAT against a parked video at (169,697)
+          // 231x130 produces d[3] = -5.3615 and a "shortfall" of
+          // 1.0058 + 5.3615 = 6.3673. That number was reported twice as
+          // a restore defect and it is this line, not the renderer.
+          var drawn=[].slice.call(document.querySelectorAll('.ts-gaze-vregion-host'))
+            .filter(function(o){
+              if(getComputedStyle(o).display==='none') return false;
+              var r=o.getBoundingClientRect();
+              return r.width>0 && r.height>0;
+            }).map(function(o){
             var r=o.getBoundingClientRect();
             return [(r.left-vr.left)/vr.width,(r.top-vr.top)/vr.height,
                     (r.left-vr.left+r.width)/vr.width,(r.top-vr.top+r.height)/vr.height];});
