@@ -1,7 +1,7 @@
 {
-  "versionCode": 1074,
-  "versionName": "0.1.74",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.74/tamescroll-v0.1.74.apk",
-  "sha256": "712c382a0d788b2308c556a6d9a4e68bc7cad6504626022d0cb210b3f2269c47",
-  "notes": "Diagnostics: records what the ghost gate refuses."
+  "versionCode": 1075,
+  "versionName": "0.1.75",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.75/tamescroll-v0.1.75.apk",
+  "sha256": "38ea380d36e8ef9518ed8136c8ed417a0bc5d4a7e507f28ded3ebb43d4f62f42",
+  "notes": "Faces down to 40px are judged instead of covered unasked."
 }
