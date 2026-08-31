@@ -149,6 +149,7 @@ export function createWorkerClient(opts) {
       onEvent({
         type: 'up',
         evalMs: msg.evalMs,
+        fetchMs: msg.fetchMs,
         prestarted: !!adopted,
         prestartAt: adopted ? adopted.at : null,
       });

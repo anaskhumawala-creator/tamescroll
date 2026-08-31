@@ -404,12 +404,21 @@ export function startWorker() {
   // script (EVAL_CLOCK is the artifact's first statement), against
   // everything the page does before it gets here.
   var evalMs = null;
+  var fetchMs = null;
   try {
     if (typeof globalThis.__TS_GAZE_EVAL0 === 'number') {
       evalMs = Math.round(performance.now() - globalThis.__TS_GAZE_EVAL0);
+      // AND THE PART NOBODY HAS EVER MEASURED. A worker's timeOrigin is
+      // set when the worker is CREATED, before its script is fetched, so
+      // EVAL0 -- the clock the build stamps as the artifact's first
+      // statement -- is exactly how long the browser spent getting and
+      // compiling this file. On his phone the worker reports `up` at
+      // 800ms of which eval is 120ms, and the other 680ms has been
+      // attributed to nothing for three sessions. This splits it.
+      fetchMs = Math.round(globalThis.__TS_GAZE_EVAL0);
     }
   } catch (e) {
     /* no clock, no number */
   }
-  post({ type: 'up', evalMs: evalMs });
+  post({ type: 'up', evalMs: evalMs, fetchMs: fetchMs });
 }

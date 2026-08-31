@@ -4602,6 +4602,7 @@ if (
             if (ev.why) t.why = String(ev.why).slice(0, 120);
             if (ev.type === 'up') {
               if (typeof ev.evalMs === 'number') t.evalMs = ev.evalMs;
+              if (typeof ev.fetchMs === 'number') t.fetchMs = ev.fetchMs;
               // Was this worker already running when the page bundle
               // arrived, and when was it started? Without both numbers
               // the prestart is unfalsifiable.
