@@ -445,6 +445,43 @@ youtube.com##ytd-search ytd-radio-renderer
 
 
 ! ============================================================
+! MOBILE WEB — the promo mark in the top-left corner
+! ============================================================
+
+!surface: promoted Promoted logo
+
+! m.youtube swaps the plain YouTube wordmark in the top-left for a
+! PROMO image: an animated WebP served from www.gstatic.com, alt text
+! naming the campaign it is advertising ("Creators share their morning
+! routines"). Owner, 2026-08-31: "sometimes it doesn't very appropriate
+! or nice ... replace it with nothing." It is a promo, so it goes with
+! the ads and the nags rather than behind a toggle.
+!
+! MEASURED before writing it (probe_logo_hide.py / probe_logo_btn.py,
+! emulator 2026-08-31): 587,006 bytes, VP8X + ANIM, 151 ANMF frames,
+! re-downloaded per load, 122x48 displayed. The whole mobile top bar
+! holds exactly ONE <img> and three 24x24 icon SVGs (search, mic,
+! menu), so this selector cannot reach anything else.
+!
+! HIDE THE IMAGE, NOT ITS HOST. The tap target is
+! button.mobile-topbar-header-endpoint ("YouTube Home"). With the <img>
+! display:none the button stays 134x48 and still takes the hit; hiding
+! ytm-logo-entity instead collapses it to 0 wide and the way back to
+! home goes with it.
+!
+! HONEST: on a day with no campaign running the corner is YouTube's own
+! inline SVG logo, which this rule does not touch -- but every load seen
+! here has carried a promo, so that half is from an earlier session's
+! note, not measured.
+! [live] img.mobile-topbar-logo 1 on m.youtube home; button 134x48
+! before and after the hide, elementFromPoint still inside it
+! test: on m.youtube.com home ->
+!   document.querySelectorAll('img.mobile-topbar-logo').length >= 1
+!   and after the hide the "YouTube Home" button is still 134px wide
+m.youtube.com##img.mobile-topbar-logo
+
+
+! ============================================================
 ! MOBILE WEB — "open in app" nags
 ! ============================================================
 
