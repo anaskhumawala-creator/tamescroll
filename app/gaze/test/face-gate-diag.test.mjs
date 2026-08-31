@@ -26,7 +26,13 @@ test('both sides of the gate are recorded, and only those sides', () => {
   // every face reaching the branch, which would have made the two rings
   // the same population and the comparison meaningless.
   assert.match(page, /if \(noShape\) \{\s*\n\s*auditRefusedFace\(\s*\n\s*noteFaceGate\('gateRefused'/);
-  assert.match(page, /continue;\s*\n\s*\}\s*\n\s*noteFaceGate\('gateKept'/);
+  assert.match(page, /\} else \{\s*\n\s*noteFaceGate\('gateKept'/);
+  // AND THE BRANCH NO LONGER REFUSES (owner ruling, 2026-09-01). The
+  // frame gate is a counter now; the mint decision moved to isNullRead
+  // one scope down. A `continue` reappearing here is the regression.
+  const branch = page.slice(page.indexOf("if (noShape) {"));
+  const body = branch.slice(0, branch.indexOf("noteFaceGate('gateKept'"));
+  assert.ok(!/\bcontinue;/.test(body), 'the frame gate started refusing faces again');
 });
 
 test('the ring carries three numbers and nothing else', () => {
@@ -95,7 +101,36 @@ test('the refused-face audit is diagnostic only and cannot run in a shipped buil
   for (const forbidden of ['videoTracks', 'personFromFace', 'applyRegion', 'identityMemory']) {
     assert.ok(!body.includes(forbidden), 'the audit reached into ' + forbidden);
   }
-  // And the refusal still happens either way.
-  assert.match(page, /auditRefusedFace\([\s\S]{0,800}?continue;/);
   assert.ok(!/__TS_GATE_AUDIT\s*=/.test(page), 'the app sets the audit flag itself');
+});
+
+test('the mint gate refuses a null read, never a child, and only on a face-derived person', () => {
+  // The whole fix, pinned. `nullRead` and not `abstained`: a child read
+  // abstains too and is the one subject that must always be covered.
+  // `box.fromFace`: a MoveNet-corroborated person is a measured human
+  // and is never refused on the strength of a gender read.
+  const i = page.indexOf('obs.verdictDt = verdictDt;');
+  assert.ok(i > 0, 'observation push site moved');
+  const site = page.slice(i, i + 1400);
+  assert.ok(
+    site.includes('obs.nullRead && obs.box && obs.box.fromFace'),
+    'the mint gate lost a condition'
+  );
+  assert.ok(!/obs\.abstained/.test(site), 'the mint gate keyed off abstained and would refuse a child');
+  assert.ok(site.includes("nullDropped"), 'a refusal nobody counts is a refusal nobody can audit');
+});
+
+test('a detected face is evidence the frame is not empty', () => {
+  // The second way the gate reached her: a refused face zeroed
+  // faceEvidence, the pass reported an EMPTY FRAME while faces were
+  // plainly detected, and wipeIfEmpty erased the patch she already had.
+  // Measured in his regime, 220s: wipeErased 10 over 21 blurred tracks.
+  assert.ok(
+    page.includes('var faceEvidence = faces.length;'),
+    'faceEvidence is conditional again -- a refusal can erase a covered person'
+  );
+  assert.ok(
+    !/faceEvidence = noShape \? 0/.test(page),
+    'the noShape zeroing came back'
+  );
 });

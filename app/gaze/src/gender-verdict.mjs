@@ -544,7 +544,14 @@ export function faceMeta(userGender, faces) {
       // `uncertain` handed it 5s of protection where the certain flag it
       // replaced took 2 reads to revoke — R12 measured 4800ms of sharp
       // against 400ms. person-track keys the revocation streak off this.
-      out.push({ flagged: true, certain: false, abstained: true });
+      //
+      // `nullRead` is NOT a duplicate of `abstained`, and the difference
+      // is load bearing: the CHILD branch below abstains too, and a
+      // child is the one subject who must never be refused. The mint
+      // gate in init-entry keys off this field alone, so that it refuses
+      // the model answering from its prior without ever refusing a minor.
+      // Owner 2026-09-01: "linus daughter is not being blurred instantly".
+      out.push({ flagged: true, certain: false, abstained: true, nullRead: true });
       continue;
     }
     var same = f.gender === (opposite === 'female' ? 'male' : 'female');
