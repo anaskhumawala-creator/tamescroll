@@ -1,7 +1,7 @@
 {
-  "versionCode": 1062,
-  "versionName": "0.1.62",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.62/tamescroll-v0.1.62.apk",
-  "sha256": "e2665cee684361dc66df25312098d4f4c21da405a6092e337b2c1c34a5ea1dbc",
-  "notes": "Reaching for the blur switch no longer shrinks or minimises the video."
+  "versionCode": 1063,
+  "versionName": "0.1.63",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.63/tamescroll-v0.1.63.apk",
+  "sha256": "0a0d812a7490c7695f353dc62a6c96b9e5a81d3fc4c5d38baaf2aada8cf971c5",
+  "notes": "The blur switch stopped working the moment you touched the video. Fixed."
 }
