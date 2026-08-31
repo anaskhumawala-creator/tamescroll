@@ -1,7 +1,7 @@
 {
-  "versionCode": 1064,
-  "versionName": "0.1.64",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.64/tamescroll-v0.1.64.apk",
-  "sha256": "13740ecf683e7cbf1075365f623798f5091ef88365bf17cf9999a7bb7316cdd2",
-  "notes": "Pressing any button on the player and moving your thumb a little no longer drags the video down."
+  "versionCode": 1065,
+  "versionName": "0.1.65",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.65/tamescroll-v0.1.65.apk",
+  "sha256": "665f189cef3ae0ee1cfbe95f9f4a19f1b8b7d1f3a850fbb407e6bd440feba90e",
+  "notes": "Closes a path where a blur patch could be drawn on top of the playing video."
 }
