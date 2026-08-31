@@ -229,3 +229,54 @@ test('the person model is reported as asked as well as loaded', () => {
   assert.strictEqual(rep.worker.loadedPerson, 78807);
   assert.deepStrictEqual(d.reportViolations(rep), []);
 });
+
+// A COUNTER THAT REACHES NO REPORT IS AN INSTRUMENT HE CANNOT SEND.
+// `player.life` was a six-key whitelist, so every counter added after
+// loop 34 -- cutDetected, readAbstain, passDropped, the null-mint pair --
+// lived in the page and never left the device. That is the same defect
+// twice: the counters existed and the artifact could not show them.
+test('every numeric life counter reaches the report, not a whitelist', () => {
+  const r = d.buildReport(snap({
+    ids: {
+      life: {
+        emptyFrame: 9, cutDetected: 78, passDropped: 37, readAbstain: 27,
+        birthFresh: 6, clampFired: 3,
+      },
+    },
+  }));
+  assert.equal(r.player.life.emptyFrame, 9);
+  // The four below are NOT in the old whitelist. Each one is a separate
+  // assertion so a future narrowing says which counter it dropped.
+  assert.equal(r.player.life.cutDetected, 78, 'cutDetected must reach the report');
+  assert.equal(r.player.life.passDropped, 37, 'passDropped must reach the report');
+  assert.equal(r.player.life.readAbstain, 27, 'readAbstain must reach the report');
+  assert.equal(r.player.life.clampFired, 3, 'clampFired must reach the report');
+  assert.equal(d.reportViolations(JSON.parse(JSON.stringify(r))).length, 0);
+});
+
+// The shape is what keeps the pass-through safe, so the shape is tested
+// rather than trusted. A key ending `R` is reserved for redacted free
+// text by the report invariant, so a counter can never claim one.
+test('the life pass-through drops anything that is not an integer counter', () => {
+  const life = {
+    good: 4,
+    bad: 'a thumbnail url',
+    nan: NaN,
+    inf: Infinity,
+    'not-an-ident': 1,
+    __proto__hack: 1,
+    msgR: 5,
+  };
+  const out = d.lifeCounters(life);
+  assert.deepEqual(Object.keys(out), ['good']);
+  assert.equal(out.good, 4);
+  for (const k of ['bad', 'nan', 'inf', 'not-an-ident', 'msgR']) {
+    assert.equal(k in out, false, k + ' must not reach the report');
+  }
+});
+
+test('the life pass-through is bounded', () => {
+  const life = {};
+  for (let i = 0; i < d.LIFE_MAX_KEYS + 40; i++) life['c' + i] = i;
+  assert.equal(Object.keys(d.lifeCounters(life)).length, d.LIFE_MAX_KEYS);
+});

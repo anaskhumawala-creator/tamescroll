@@ -13,6 +13,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { buildReport } from '../src/diag-report.mjs';
 
 const page = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
 
@@ -47,13 +48,23 @@ test('the exposure number counts BLURRED tracks specifically', () => {
 });
 
 test('the eraser counters reach the report, and a zero is evidence', () => {
-  const report = readFileSync(new URL('../src/diag-report.mjs', import.meta.url), 'utf8');
-  // They existed in the page and reached no report, so the artifact he
-  // sends could not have shown the 1070 regression.
+  // WAS A STRING MATCH ON diag-report.mjs SOURCE, and it broke the
+  // moment the six-key whitelist became a pass-through -- a correct
+  // change failing a test that never checked the behaviour. It asks
+  // buildReport now.
+  const r = buildReport({
+    ids: { life: { emptyFrame: 0, wipeErased: 2, wipeErasedTracks: 4,
+                   wipeErasedBlurred: 4, faceNoShape: 0, bodyFromSlot: 9 } },
+  });
   for (const k of ['emptyFrame', 'wipeErased', 'wipeErasedTracks',
                    'wipeErasedBlurred', 'faceNoShape', 'bodyFromSlot']) {
-    assert.ok(report.includes(k + ': num(life.' + k + ')'), k + ' missing from the report');
+    assert.equal(typeof r.player.life[k], 'number', k + ' missing from the report');
   }
+  // A ZERO IS EVIDENCE, so a zero must survive the trip. An absent key
+  // and a counter that never fired are the ambiguity this whole block
+  // exists to remove.
+  assert.equal(r.player.life.emptyFrame, 0);
+  assert.equal(r.player.life.faceNoShape, 0);
   // Every counter is written as `(x || 0) + 1` at its own site, so an
   // absent key cannot be told from a missing hook. Seeded on the first
   // player pass.

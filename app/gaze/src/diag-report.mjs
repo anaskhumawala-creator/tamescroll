@@ -396,14 +396,15 @@ export function buildReport(snap) {
       // `noHumanShape` making `wipeIfEmpty` erase a woman's patch while
       // faces were plainly detected. All numeric, so they cost the
       // violation walker nothing.
-      life: {
-        emptyFrame: num(life.emptyFrame),
-        wipeErased: num(life.wipeErased),
-        wipeErasedTracks: num(life.wipeErasedTracks),
-        wipeErasedBlurred: num(life.wipeErasedBlurred),
-        faceNoShape: num(life.faceNoShape),
-        bodyFromSlot: num(life.bodyFromSlot),
-      },
+      // A WHITELIST IS THE SAME DEFECT AGAIN. Loop 34 shipped these six
+      // because `buildReport` had no life block at all; loop 37 then
+      // added counters in the page that STILL never reached a report,
+      // because adding a counter and adding it here are two edits and
+      // only one of them is obvious. IDS.life is written exclusively by
+      // our own code with literal identifier keys and integer values, so
+      // pass every numeric counter through and let the shape -- not a
+      // list -- be what keeps it safe.
+      life: lifeCounters(life),
       // WHAT THE GHOST GATE SPLIT, both sides. Three numbers per entry:
       // the face's own confidence, its native pixel size, and the frame
       // keypoint maximum PFF_FRAME_KP_FLOOR was compared against. If the
@@ -450,6 +451,29 @@ function pluck(rows, key) {
   var out = [];
   for (var i = 0; i < rows.length; i++) {
     if (typeof rows[i][key] === 'number') out.push(rows[i][key]);
+  }
+  return out;
+}
+
+// Every own key of IDS.life whose value is a finite number, capped in
+// count and restricted to identifier-shaped keys. The report invariant
+// allows free text only in keys ending `R`, so both halves are checked
+// here rather than trusted: a key that is not a plain identifier, or a
+// value that is not a number, is dropped rather than carried.
+export var LIFE_MAX_KEYS = 96;
+export function lifeCounters(life) {
+  var out = {};
+  if (!life || typeof life !== 'object') return out;
+  var keys = Object.keys(life).sort();
+  var n = 0;
+  for (var i = 0; i < keys.length && n < LIFE_MAX_KEYS; i++) {
+    var k = keys[i];
+    if (!/^[A-Za-z][A-Za-z0-9]{0,31}$/.test(k)) continue;
+    if (k.charAt(k.length - 1) === 'R') continue; // reserved for free text
+    var v = life[k];
+    if (typeof v !== 'number' || !isFinite(v)) continue;
+    out[k] = Math.round(v * 1000) / 1000;
+    n++;
   }
   return out;
 }

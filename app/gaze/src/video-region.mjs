@@ -78,7 +78,14 @@ try {
 // increments on a hot path and are read through a guarded window hook, so
 // they can be left in: instrumentation that throws inside the pipeline has
 // already cost two releases (GOAL.md standing rule).
-var renderStats = { raf: 0, overlayFrames: 0, maskCalls: 0, maskWrites: 0, tfWrites: 0, sizeWrites: 0, dispWrites: 0 };
+// hideNoVr / hideZeroVr / hideClipped / rectsNoBoxes EXIST BECAUSE A
+// MEASURED 84ms GAP WAS ATTRIBUTED TO THE WRONG BRANCH. A covered
+// subject with no visible patch can only come from one of four places,
+// and from outside they are indistinguishable -- which is how a fix
+// shipped against a branch that provably never fires (see
+// docs/technical-findings.md, 2026-09-01). They count FRAMES, so a
+// number is a duration at the render cadence, not an event count.
+var renderStats = { raf: 0, overlayFrames: 0, maskCalls: 0, maskWrites: 0, tfWrites: 0, sizeWrites: 0, dispWrites: 0, hideNoVr: 0, hideZeroVr: 0, hideClipped: 0, rectsNoBoxes: 0 };
 try {
   if (typeof window !== 'undefined') {
     window.__TS_GAZE_RENDER = function () {
@@ -90,6 +97,10 @@ try {
         tfWrites: renderStats.tfWrites,
         sizeWrites: renderStats.sizeWrites,
         dispWrites: renderStats.dispWrites,
+        hideNoVr: renderStats.hideNoVr,
+        hideZeroVr: renderStats.hideZeroVr,
+        hideClipped: renderStats.hideClipped,
+        rectsNoBoxes: renderStats.rectsNoBoxes,
       };
     };
   }
@@ -811,6 +822,7 @@ function refreshRects(entry) {
   // the only kind of validity check allowed here (the plan's B5 bound) --
   // never a confidence or heuristic signal.
   if (typeof entry.host.getClientRects === 'function' && entry.host.getClientRects().length === 0) {
+    renderStats.rectsNoBoxes++;
     entry.hr = null;
     entry.vr = null;
     return;
@@ -904,6 +916,8 @@ function clipLayer(entry) {
 function reposition(entry, now) {
   var vr = entry.vr;
   if (!vr || vr.width === 0 || vr.height === 0) {
+    if (!vr) renderStats.hideNoVr++;
+    else renderStats.hideZeroVr++;
     for (var i = 0; i < entry.overlays.length; i++) {
       if (entry.overlays[i].__tsDisp !== 0) {
         renderStats.dispWrites++;
@@ -967,6 +981,7 @@ function reposition(entry, now) {
     });
     if (!drawn) {
       // Entirely outside the picture: nothing to cover.
+      renderStats.hideClipped++;
       if (entry.overlays[j].__tsDisp !== 0) {
         renderStats.dispWrites++;
         entry.overlays[j].style.display = 'none';
