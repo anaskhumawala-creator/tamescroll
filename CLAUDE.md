@@ -70,9 +70,53 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 19:45 (**1070 PUBLISHED, sha f5036959**,
-raw manifest + downloaded APK agree; rules 99394d11. HIS PHONE IS STILL
-ON 1067 -- every A/B below is waiting on his install).
+**Last updated:** 2026-08-31 20:20 (**1071 PUBLISHED, sha 98348b08**,
+raw manifest + downloaded APK agree; rules 99394d11. His phone is on
+1070 and needs the update).
+
+**Session 2026-08-31 (loop 30) -- I SHIPPED AN EXPOSURE ON CADENCE
+NUMBERS AND HE CAUGHT IT IN ONE SENTENCE: "it's not blurring the
+female". REVERTED IN 1071.**
+- **THE MECHANISM IS IN THE CODE, not a guess.** `emptyFrame =
+  persons.length === 0 && faceEvidence === 0`, where `faceEvidence =
+  noShape ? 0 : faces.length`. On a SKIPPED person pass `persons.length`
+  is 0 because the model never ran, and 1070 also handed that pass a
+  HELD `noHumanShape` -- so a single frame where MoveNet read maxKp
+  below the floor made the next two passes report an EMPTY FRAME while
+  faces were plainly detected. emptyStreak climbs, `wipeIfEmpty` erases,
+  and the woman's patch is removed. That is his report exactly.
+- **BOTH DIRECTIONS OF THE SKIP ARE WRONG, which is why the whole idea
+  went and not just the hold.** With the held flag a skipped pass
+  ERASES; without it (1068/1069) the ghost gate cannot fire and graphics
+  mint patches -- his "random blur marks here and there". A pass the
+  model never ran has no honest answer to give the tracker or the
+  eraser. The person model runs on EVERY pass again, as in 1067; a test
+  fails if the constants come back.
+- **RETRACT THE 1070 A/B AS A WIN.** The numbers were real (verdict gap
+  2.09s -> 1.21s, positions 10/min -> 62/min, position pass 520ms ->
+  12ms) and they were measuring the wrong thing: a position pass at
+  **12ms is a pass that did no work**. Churn, not tracking. The rAF cost
+  (42Hz -> 36Hz) was real too.
+- **WHAT SURVIVES, because it is measured and independent: the
+  main-thread budget fix.** A verdict pass is 795ms of which 785 is the
+  worker reply and **2ms is ours**; noteSpend charged all 795 against
+  SPEND_BUDGET_FRAC 0.25, so overBudget() refused the position passes
+  that keep a patch on a moving subject (20 against 62 verdicts, one
+  pass every 1.46s against a 1000ms floor). `gazeWorker.waitMs()` is
+  subtracted now, floored at 0; the in-page path is still charged in
+  full because there the time really was spent on this thread.
+- **NOT YET MEASURED, AND IT IS THE FIRST THING TO CHECK ON 1071:** with
+  the full person pass BACK and the budget no longer starving positions,
+  worker duty goes to roughly (795 + 517) / 2000 = **65%**, against
+  ~40% on 1067. If rAF falls materially on his phone, the honest dial is
+  POSITION_MAX_INTERVAL_MS (positions are floored at 1000ms today only
+  because `lastPassMs * 2` happens to exceed it).
+- **RELEASE GOTCHA, NEW AND IT COSTS A 404:** when `gh release create`
+  dies mid-upload it can leave the release as a DRAFT ("cleaning up
+  draft failed"). `gh release view` then reports the tag and the asset
+  quite happily while the download URL 404s, because drafts do not
+  serve. Check `isDraft` and `gh release edit --draft=false`.
+- gaze 398/398, cargo 58/58.
 
 **Session 2026-08-31 (loop 29) -- THE VERDICT CADENCE I REPORTED WAS A
 RING ARTIFACT, AND THE REAL DEFECT UNDER IT WAS A BUDGET CHARGED FOR
