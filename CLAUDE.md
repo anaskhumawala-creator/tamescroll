@@ -70,9 +70,70 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 20:35 (1067 live, sha 27c4b179; rules
-99394d11. **1068 is BUILT and sitting in his phone's Download folder,
-NOT released** -- it needs his install before it can be verified).
+**Last updated:** 2026-08-31 19:45 (**1070 PUBLISHED, sha f5036959**,
+raw manifest + downloaded APK agree; rules 99394d11. HIS PHONE IS STILL
+ON 1067 -- every A/B below is waiting on his install).
+
+**Session 2026-08-31 (loop 29) -- THE VERDICT CADENCE I REPORTED WAS A
+RING ARTIFACT, AND THE REAL DEFECT UNDER IT WAS A BUDGET CHARGED FOR
+WORK THAT NEVER TOUCHED THE THREAD.** 1070 published (he said "I don't
+mind publishing because the app is still in testing and no one uses
+it").
+- **RETRACTION: "one verdict every 5.8 seconds" (loop 27-28) IS WRONG.**
+  `player.passes` in the diagnostics report is `stages.length` over a
+  ring capped at 120 in page and sliced to 40 in the report, so it
+  SATURATES and a b-minus-a diff measures the FILL, not the rate. The
+  real figure, counted by tagging each live ring entry the first time it
+  is seen: **72-73 verdicts in 150s = one every 2.06-2.09s**, twice.
+  That matches the design exactly (effZoom = lastVerdictMs * 4, clamped
+  to VERDICT_MAX_INTERVAL_MS 2000). Same defect class as the documented
+  `__TS_GAZE_IMGDIAG` one. `passesTotal`/`verdictsTotal` are monotonic
+  now and `passesRing` keeps the old number under its real name.
+- **THE PLAYER PASS WAS CHARGING THE MAIN-THREAD BUDGET 795ms FOR 2ms
+  OF WORK.** Read off the stage marks on his phone, 62 verdict passes:
+  end p50 **795ms**, of which the person reply is **785** and our own
+  segments **2**. noteSpend charged the whole wall clock against
+  SPEND_BUDGET_FRAC (0.25 of a 1s window), so overBudget() refused the
+  cheap position passes that keep a patch stuck to a moving subject --
+  **20 positions against 62 verdicts, one pass every 1.46s against a
+  1000ms floor**. The image drain got exactly this correction in
+  2026-08-28 (`mainMs`); the player path never did. Fixed by subtracting
+  the worker wait (new `gazeWorker.waitMs()`), floored at 0, and the
+  in-page path is still charged in full because there it really is main
+  -thread time. `lastVerdictMs` deliberately keeps using WALL time --
+  cadence is about the gap between passes through one GPU queue.
+- **AND THE PERSON-SKIP FROM LAST LOOP WOULD HAVE MADE HIS "RANDOM BLUR
+  MARKS" WORSE. MEASURED BEFORE SHIPPING IT.** `frameHasNoHumanShape` is
+  only consulted when the person pass admitted NOBODY -- which on his
+  phone is every pass -- and in 150s of one watch page it **refused 63
+  faces** (`IDS.life.faceNoShape`, 9 -> 72). A skipped pass reporting no
+  evidence mints every one of those. So a skipped pass now INHERITS the
+  last measured reading, and **a scene cut forces a real person pass**
+  so a held answer can never outlive its shot.
+- **THE COLD START, ON HIS PHONE, DECOMPOSED FOR THE FIRST TIME** (three
+  force-stopped launches; written up in
+  docs/speed-findings-2026-08-29.md): navigation to first thumbnail
+  verdict **5.5-6.8s**, of which **2.0s is YouTube's own load** before
+  our code exists. Ours: worker up 800ms (its script eval is only
+  **120ms**), models **1271ms** (gender 826, nsfw 573, face 191),
+  warm-up **1163ms** (pure shader compile), first inference ~610ms.
+  **The prestart IS working on the first navigation** (`prestarted:
+  true`, prestartAt 2040) -- the 08-29 note saying Android only
+  prestarts from the second navigation is stale.
+- **TWO SPEED LEVERS EXAMINED AND REFUSED, both in the doc.** Dropping
+  the NSFW gate would save 1.15s of the cold path and would REVEAL
+  images nothing checked (the nsfwSettled defect); judging face-first
+  and holding them covered preserves fail-closed but buys nothing,
+  because covered is already the default and the only thing the wait
+  delays is the reveal. Re-chasing the warm-up is loop 6 again: the
+  compile just moves into the first real pass.
+- **THE CONTROL ARM IS BANKED PROPERLY NOW** (probe_phone_cadence.py,
+  which also samples rAF and coverage in page): 1067, two runs,
+  **verdicts/min 28.7-29.1, secsPerVerdict 2.06-2.09, positions/min
+  10.0-11.2, verdict p50 766-799, position p50 517-530, rAF 40.3-42.1Hz,
+  coverage 0.083-0.106**, all twelve person slots n:0. Re-run it on 1070
+  and compare those six.
+- gaze 402/402, cargo 58/58.
 
 **Session 2026-08-31 (loop 27-28) -- HIS PHONE WAS PROFILED FOR THE
 FIRST TIME, AND THE PERSON PASS IS 63% OF EVERY VERDICT WHILE FINDING
