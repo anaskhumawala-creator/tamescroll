@@ -636,25 +636,6 @@ export function updatePersonTracks(tracks, observations, dtMs) {
     // (contention), and one refused by sizeCompatible. They want
     // opposite fixes, and R17 lost a section of analysis to not being
     // able to tell them apart from the artifact.
-    // THE NULL-READ MINT GATE (2026-09-01). An observation tagged
-    // `nullMint` is a face-derived person, in a frame where MoveNet
-    // admitted nobody, whose gender read came back as the model's own
-    // prior rather than as a face. That is the confident nonsense a
-    // graphic produces, and it replaces the frame-level keypoint floor
-    // that used to refuse the same faces on a property of the FRAME.
-    //
-    // IT REFUSES ONLY THE BIRTH. The observation still reaches every
-    // matched track above, so a person already covered is refreshed
-    // exactly as before. An earlier draft dropped the observation
-    // outright and an adversarial review found the exposure: a
-    // face-derived track can only be refreshed by a verdict pass, so
-    // three dropped passes run coastStep past blurredCoastMs and the
-    // blur comes off somebody who was covered. Never refuse a refresh
-    // here.
-    if (observations[j] && observations[j].nullMint) {
-      bump('nullMintRefused');
-      continue;
-    }
     if (bestIou[j] <= 0) bump('birthFresh');
     else if (bestIou[j] < PTRACK_IOU_MIN) bump('birthNearMiss');
     else if (sizeBlocked[j]) bump('birthSizeRejected');

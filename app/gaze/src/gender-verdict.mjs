@@ -445,16 +445,6 @@ export function faceVerdict(userGender, faces) {
 // test against the model's own no-information output would decide it;
 // a fitted rectangle cannot.
 //
-// STALENESS WARNING (2026-09-01). The paragraph below was written when
-// an abstention could only ever DOWNGRADE evidence while the patch
-// stayed on. That is still true HERE, in this module -- but init-entry
-// now also uses `nullRead` to refuse a track BIRTH (never a refresh:
-// see the nullMint note in person-track.mjs). So "there is no
-// configuration of this that exposes somebody" is a claim about this
-// function, not about the pipeline. An adversarial review caught a
-// draft where it WAS a pipeline-wide exposure; do not read the next
-// paragraph as covering a consumer that drops observations.
-//
 // SAFETY, and this is why it is shippable without a frame-by-frame
 // argument: abstaining can only ever REMOVE flag evidence, never add
 // clear evidence. `unknown` is not a third verdict — faceMeta turns an
@@ -548,33 +538,13 @@ export function faceMeta(userGender, faces) {
     // Refuse the model's prior before it can become evidence. This lands
     // on exactly the state an unreadable face already gets: covered, but
     // powerless to condemn, revoke a clear, or enter identity memory.
-    // THE CHILD CHECK COMES FIRST, and the ordering is the whole point.
-    // A null read has its age head pinned at the training prior (36.9
-    // measured), which is INSIDE NULL_AGE_LO..HI by construction -- so a
-    // genuine child whose read carries no signal lands in the band and
-    // was being routed here, ahead of the child branch below, by a
-    // `continue`. The 2026-09-01 mint gate keys off `nullRead`, so that
-    // ordering would have refused a child: the exact subject the owner
-    // reported ("linus daughter is not being blurred instantly") and the
-    // exact thing the field was introduced to protect.
-    //
-    // `isAdultRead` already answers this on childP MASS rather than on
-    // the age mean, which is the R18 finding -- a child can read `a: 22`
-    // while most of the posterior sits under 18.
-    if (isAdultRead(f) && isNullRead(f)) {
+    if (isNullRead(f)) {
       // `abstained` is NOT decoration. A cleared track absorbs an
       // uncertain read for CLEARED_TTL_MS, so folding the null into plain
       // `uncertain` handed it 5s of protection where the certain flag it
       // replaced took 2 reads to revoke — R12 measured 4800ms of sharp
       // against 400ms. person-track keys the revocation streak off this.
-      //
-      // `nullRead` is NOT a duplicate of `abstained`, and the difference
-      // is load bearing: the CHILD branch below abstains too, and a
-      // child is the one subject who must never be refused. The mint
-      // gate in init-entry keys off this field alone, so that it refuses
-      // the model answering from its prior without ever refusing a minor.
-      // Owner 2026-09-01: "linus daughter is not being blurred instantly".
-      out.push({ flagged: true, certain: false, abstained: true, nullRead: true });
+      out.push({ flagged: true, certain: false, abstained: true });
       continue;
     }
     var same = f.gender === (opposite === 'female' ? 'male' : 'female');

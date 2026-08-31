@@ -219,21 +219,8 @@ test('R12: the faceres null output is refused instead of believed', () => {
     // Covered (blur-first is untouched) but NOT certain, so it can no
     // longer condemn, or poison identity memory. `abstained` is what lets
     // person-track still revoke a clear in 2 reads rather than 5 seconds.
-    assert.deepEqual(m, { flagged: true, certain: false, abstained: true, nullRead: true });
+    assert.deepEqual(m, { flagged: true, certain: false, abstained: true });
   }
-});
-
-test('a child abstention is NOT a null read, and that difference is the fix', () => {
-  // The mint gate in init-entry refuses a face-derived person whose read
-  // lands in the null band. Both a null read and a CHILD read abstain,
-  // so if the gate keyed off `abstained` it would refuse the one subject
-  // who must always be covered. Owner 2026-09-01: "linus daughter is not
-  // being blurred instantly".
-  const [child] = gv.faceMeta('man', [{ gender: 'male', score: 0.95, age: 9, raw: 0.97 }]);
-  assert.equal(child.abstained, true);
-  assert.equal(child.nullRead, undefined, 'a child read must never be refused as a null read');
-  const [nul] = gv.faceMeta('man', [{ gender: 'male', score: 0.28, age: 37, raw: 0.641 }]);
-  assert.equal(nul.nullRead, true);
 });
 
 test('R12: real male reads are NOT refused, in either direction', () => {

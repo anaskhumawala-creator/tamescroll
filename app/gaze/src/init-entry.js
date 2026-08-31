@@ -2932,12 +2932,6 @@ if (
               // you add a verdict field, add it HERE too, and prove it
               // with a life counter in a real run, not with a test.
               abstained: !!mine.abstained,
-              // The null band, kept SEPARATE from `abstained` because a
-              // child read abstains too and a child must never be
-              // refused. This is the signal the mint gate now uses in
-              // place of the frame-level keypoint floor -- see the
-              // observation drop below and the note at `noShape`.
-              nullRead: !!mine.nullRead,
               // Weak same-direction evidence (S6). Added HERE at the same
               // time as its producer and consumer, per the warning above:
               // R12 shipped `abstained` in gender-verdict and person-track
@@ -3483,35 +3477,6 @@ if (
                     // rings below are what tells them apart: if the
                     // refused population looks like the kept one, the
                     // floor is refusing people.
-                    // THE FRAME GATE NO LONGER REFUSES, and the owner
-                    // ruled the swap on 2026-09-01 after his report
-                    // "linus daughter is not being blurred instantly".
-                    //
-                    // WHY. Measured on his own phone (1075) and twice on
-                    // the emulator driven to his regime, the refused and
-                    // kept face populations are the SAME population:
-                    // confidence p50 0.78 against 0.79, size 72px against
-                    // 79px, and the only separator is a property of the
-                    // FRAME that straddles the floor exactly -- refused
-                    // topping out at 0.092, kept starting at 0.106. So
-                    // this branch was not deciding "face or graphic", it
-                    // was deciding whether MoveNet's noise cleared 0.1
-                    // this frame, and throwing away three faces in four
-                    // on the device that matters.
-                    //
-                    // WHAT REPLACES IT: `isNullRead`, one scope down at
-                    // the observation. That asks about the FACE (does the
-                    // model answer from its prior) instead of about the
-                    // frame, which is the axis the size-floor work already
-                    // measured -- 30-33 of 34 non-faces land in the band
-                    // at every size. It costs a gender read on a face
-                    // this branch used to discard; the audit build ran
-                    // exactly that read and the pass count did not move
-                    // (62 against 63).
-                    //
-                    // The counter stays so the two regimes remain
-                    // comparable across the change: `faceNoShape` now
-                    // means "the old frame gate would have refused this".
                     if (noShape) {
                       auditRefusedFace(
                         noteFaceGate('gateRefused', faces[fi], persons, video),
@@ -3522,9 +3487,9 @@ if (
                         dbgN.life = dbgN.life || {};
                         dbgN.life.faceNoShape = (dbgN.life.faceNoShape || 0) + 1;
                       } catch (e) {}
-                    } else {
-                      noteFaceGate('gateKept', faces[fi], persons, video);
+                      continue;
                     }
+                    noteFaceGate('gateKept', faces[fi], persons, video);
                     // THE COMPOSITE FRAME (R29). A face with no admitted
                     // person still gets a body, but where MoveNet
                     // MEASURED that person and merely refused to admit
@@ -3543,13 +3508,6 @@ if (
                         dbgB.life.bodyFromSlot = (dbgB.life.bodyFromSlot || 0) + 1;
                       } catch (e) {}
                     }
-                    // CARRY THE FRAME CONDITION ON THE PERSON, because
-                    // the mint gate downstream lives in a different
-                    // `.then` and `noShape` is not in scope there. A
-                    // scope error inside that handler would reject the
-                    // chain and drop the whole pass silently, which is
-                    // the failure this codebase is least able to see.
-                    bounded.mintNoShape = !!noShape;
                     extra.push(bounded);
                   }
                   try {
@@ -3604,18 +3562,7 @@ if (
                   // the ghost was a BIRTH; a cut from a person to a title
                   // card is the common case and the gate alone would not
                   // clear it.
-                  // A DETECTED FACE IS EVIDENCE THE FRAME IS NOT EMPTY,
-                  // whatever the frame gate thinks of it. This line used
-                  // to read `noShape ? 0 : faces.length`, and that is the
-                  // second way the gate reached her: a pass that detected
-                  // faces reported an EMPTY FRAME, emptyStreak climbed,
-                  // and wipeIfEmpty erased the patch she already had.
-                  // Measured in his regime, 220s: wipeErased 10, erasing
-                  // 21 BLURRED tracks, with faceNoShape at 74. Same
-                  // defect class as the 1070 skip, which was reverted for
-                  // exactly this reason -- a pass with no honest answer
-                  // must not be allowed to say "nobody is here".
-                  var faceEvidence = faces.length;
+                  var faceEvidence = noShape ? 0 : faces.length;
                   emptyFrame = persons.length === 0 && faceEvidence === 0;
                   // Largest thing this pass actually saw. It is the
                   // cheapest available read on subject scale — already
@@ -3694,63 +3641,6 @@ if (
                         throw e;
                       }).then(function (obs) {
                         obs.verdictDt = verdictDt;
-                        // THE MINT GATE, on the axis that carries the
-                        // information. A face-derived person (nobody was
-                        // corroborated by MoveNet) whose gender read
-                        // lands in the null band is the model answering
-                        // from its prior -- the confident nonsense a
-                        // graphic produces. Refuse the OBSERVATION, which
-                        // means no birth; an existing track simply coasts,
-                        // so this can never uncover somebody already
-                        // covered.
-                        //
-                        // `nullRead`, never `abstained`: a CHILD read
-                        // abstains as well, and a child is the one
-                        // subject that must always be covered.
-                        //
-                        // REFUSE THE BIRTH, NEVER THE OBSERVATION. The
-                        // first draft of this `return`ed instead, and an
-                        // adversarial review found the exposure: a
-                        // dropped observation does not coast safely --
-                        // coastStep returns null past blurredCoastMs
-                        // (~4s at his cadence) and the track DIES. A
-                        // face-derived track can only be refreshed by a
-                        // verdict pass, and on his phone every track is
-                        // face-derived, so three dropped passes take the
-                        // blur off a covered woman. Worse, the null band
-                        // is a property of CONTENT, so it lands on the
-                        // same subject every pass: that turns the old
-                        // gate's intermittent refusal into a permanent
-                        // one, which is strictly worse than what it
-                        // replaced.
-                        //
-                        // So the observation is TAGGED and still pushed.
-                        // It refreshes an existing track exactly as
-                        // before; it only fails to create a NEW one.
-                        //
-                        // AND ONLY WHERE THE OLD GATE COULD FIRE. The
-                        // same review found the scope had widened: the
-                        // frame gate was guarded by `noShape` (MoveNet
-                        // admitted nobody), and without that guard this
-                        // refuses face-derived people in frames the old
-                        // gate never touched -- reopening the R16 case
-                        // of a woman whose face fell inside the
-                        // speaker's box. Strictly narrower than what it
-                        // replaces, in every regime.
-                        if (
-                          obs &&
-                          obs.nullRead &&
-                          obs.box &&
-                          obs.box.fromFace &&
-                          obs.box.mintNoShape
-                        ) {
-                          obs.nullMint = true;
-                          try {
-                            var dbgD = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
-                            dbgD.life = dbgD.life || {};
-                            dbgD.life.nullMint = (dbgD.life.nullMint || 0) + 1;
-                          } catch (e) {}
-                        }
                         observations.push(obs);
                       });
                     });
