@@ -1,7 +1,7 @@
 {
-  "versionCode": 1071,
-  "versionName": "0.1.71",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.71/tamescroll-v0.1.71.apk",
-  "sha256": "98348b08628a45c6ae8fa51d5522512b0ac05372077e330feaeeb4d008c53346",
-  "notes": "Fixes faces being missed on video."
+  "versionCode": 1072,
+  "versionName": "0.1.72",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.72/tamescroll-v0.1.72.apk",
+  "sha256": "49d762a8d907df285b5e9bfcc5e7c41b5edc13821cc29698b5b2a1a3d0edadbc",
+  "notes": "Eraser instrumentation; carries the 1071 person-pass revert."
 }
