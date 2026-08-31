@@ -299,12 +299,12 @@ test('a touch that starts on a mini button belongs to the button', () => {
   // roll the sideways claim also faded the player to opacity 0.91.
   const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
   const code = stripComments(src);
-  assert.match(code, /function inOurControls\(el\)/);
+  assert.match(code, /function onAControl\(el\)/);
   // The refusal must come BEFORE the host is bound and before start is
   // set, or the gesture is armed anyway.
   const down = code.slice(code.indexOf('function onDown('));
   const body = down.slice(0, down.indexOf('function endDrag('));
-  const guard = body.indexOf('inOurControls(target)');
+  const guard = body.indexOf('onAControl(target)');
   // NB: `unbindHost()` contains the substring `bindHost(`.
   const bind = body.indexOf('bindHost(container())');
   assert.ok(guard > -1, 'onDown must refuse a touch that starts on a control of ours');
@@ -315,6 +315,21 @@ test('a touch that starts on a mini button belongs to the button', () => {
   // 360x203, 30px to 334x188, 60px to 257x144, and 110px MINIMISED it.
   assert.match(code, /ts-gaze-pill/, 'the blur pill must be covered too');
   assert.ok(guard < bind, 'the refusal must come before bindHost');
+  // AND THE PAGE'S OWN CONTROLS ARE THE SAME CLASS. MEASURED
+  // 2026-08-31: pressing Subtitles, Playback Settings, Previous video,
+  // Next video, View Chapters or Enter full screen and rolling 25px
+  // shrank the player to 347x195 every time. They live in
+  // #player-control-container, a sibling of #player under the same
+  // container inPlayer() tests.
+  assert.match(code, /PAGE_CONTROLS = 'button,a\[href\]/);
+  // But the test has to be the CONTROL, not the container: YouTube's
+  // .player-controls-background is a plain div over the whole player and
+  // is the touch target for a drag started on the video, so refusing on
+  // the container would kill the gesture outright.
+  assert.ok(
+    !/closest\('#player-control/.test(code),
+    'never refuse on the control container -- that is the whole player'
+  );
 });
 
 test('the blur pill is mounted where YouTube\'s control chrome cannot cover it', () => {

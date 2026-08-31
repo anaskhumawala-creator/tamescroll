@@ -537,17 +537,39 @@ export function installMiniplayer(win) {
     bound = { host: pc, fn: fn };
   }
 
-  // EVERY CONTROL OF OURS THAT LIVES INSIDE THE PLAYER, not just this
-  // module's. Both are appended into the player subtree, so
-  // inPlayer(target) is true for both and the gesture armed on top of
-  // both. Add a selector here when a new one is added anywhere.
+  // A TOUCH THAT STARTS ON A CONTROL BELONGS TO THAT CONTROL -- OURS OR
+  // THE PAGE'S.
+  //
+  // inPlayer() is `#player-container-id`.contains(target), and that
+  // container holds far more than the video: our mini buttons and blur
+  // pill, and ALL of YouTube's own chrome, which lives in a sibling
+  // #player-control-container. So the gesture armed on top of every
+  // button on the player. MEASURED 2026-08-31 on a built APK, pressing
+  // each control and rolling the thumb 25px down: Subtitles, Playback
+  // Settings, Previous video, Next video, View Chapters and Enter full
+  // screen ALL claimed the gesture and shrank the player to 347x195
+  // under the finger before springing back. Reaching for "next video"
+  // and sliding a little sent the video down the screen. At 0px roll
+  // none of them moved anything, so this is the tap-with-drift case
+  // again -- the same defect 1061 and 1062 fixed in our own two
+  // controls, in the six that belong to the page.
+  //
+  // THE TEST IS THE CONTROL, NOT THE CONTAINER, and that distinction is
+  // load bearing: `.player-controls-background` is a plain div covering
+  // the whole 412x231 player, and it is the touch target for a drag
+  // started anywhere on the video once YouTube has built its overlay.
+  // Refusing on the control CONTAINER would therefore kill the
+  // drag-to-mini gesture outright. Refusing on actual interactive
+  // elements leaves that div draggable and takes only the buttons back.
   var OUR_CONTROLS = '#' + BTN_ID + ',.ts-gaze-pill';
+  var PAGE_CONTROLS = 'button,a[href],input,select,textarea,[role="button"],[role="slider"]';
 
-  function inOurControls(el) {
+  function onAControl(el) {
     if (!el) return false;
-    if (el.closest) return !!el.closest(OUR_CONTROLS);
+    if (el.closest) return !!el.closest(OUR_CONTROLS + ',' + PAGE_CONTROLS);
     for (var n = el; n; n = n.parentElement) {
       if (n.id === BTN_ID) return true;
+      if (n.tagName === 'BUTTON' || n.tagName === 'A') return true;
       if (n.classList && n.classList.contains('ts-gaze-pill')) return true;
     }
     return false;
@@ -592,7 +614,7 @@ export function installMiniplayer(win) {
     // A touch that starts on a control of ours is that control's,
     // entirely: no arming, no host binding, so the click lands the way
     // the page's own controls do.
-    if (inOurControls(target)) {
+    if (onAControl(target)) {
       start = null;
       return;
     }
