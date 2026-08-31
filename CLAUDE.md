@@ -74,6 +74,53 @@ Users install this one app and nothing else.
 raw manifest + downloaded APK agree; rules 99394d11. His phone is on
 1070 and needs the update).
 
+**Session 2026-08-31 (loop 31) -- HIS PHONE WAS STILL ON 1070 ALL
+NIGHT, AND THE ERASER FINALLY HAS A COUNTER. 1072 PUBLISHED (sha
+49d762a8, raw manifest + downloaded APK agree).**
+- **HE NEVER INSTALLED 1071.** `dumpsys package` read **versionCode
+  1070** at 20:30 -- the build that erases a covered woman's patch was
+  live on his phone for the whole night. 1072 carries the 1071 revert
+  AND the instrument, so he only has to update once. Do not assume a
+  published release is an installed one; read the versionCode.
+- **THE ERASER HAD NO COUNTER, WHICH IS THE WHOLE REASON HE FOUND 1070
+  BEFORE ANY PROBE DID.** From outside, a pass that ERASED a patch and a
+  pass that never minted one both read as coverage 0, so cadence,
+  coverage and pass-cost probes are all blind to it. `IDS.life` now
+  carries **emptyFrame**, **wipeErased**, **wipeErasedTracks** and
+  **wipeErasedBlurred** -- counted apart because they fail differently:
+  an empty frame that should not be empty is a detector or skip defect,
+  an erasure is that defect reaching the screen, and the blurred count
+  is the exposure number (people we had already decided to cover going
+  sharp). A test pins that the track count is captured BEFORE the wipe
+  (counted after it is always 0) and that the blurred subset is counted.
+- **THE 1070 CONTROL, READ OFF HIS PHONE TONIGHT** (watch page
+  NWoT1ZVd1Lo, video playing to t=233s, gender 'man', 3 minutes):
+  **passes 368, all twelve person slots n:0, faceNoShape 187**,
+  birthFresh 28, coastExpired 12, passDropped 47, **patches 0**. Loop 29
+  measured faceNoShape at 63 refusals in 150s; this is 187. **THE
+  FALSIFIABLE PREDICTION for 1072: with the person model running on
+  every pass again, `noHumanShape` is a fresh measurement instead of a
+  held one, so faceNoShape per pass must FALL.** Re-read those five
+  numbers on 1072 and compare.
+- **PROBE FAILURE, MINE, AND IT LOOKED EXACTLY LIKE A DEAD PIPELINE.**
+  probe_patch_rank_dense hardcoded `gender:'woman'`, which loop 19
+  already measured at **0% coverage on this exact video** against 37%
+  for 'man'. It returned patchesMax 0 and I nearly recorded that as a
+  finding. The arm is an ARGUMENT now (`probe_patch_rank_dense.py 9225
+  180 man`).
+- **PRIORITY 1 IS STILL UNANSWERABLE, NOW ON REAL HARDWARE TOO.** The
+  'man' arm on his phone: **6607 rAF frames, video playing, player
+  present (noPlayer 0), patchesMax 0**. That is not "no patch outranks
+  the player" -- it is nothing to rank. The instrument is right; it
+  needs a watch page that actually mints patches under his settings.
+- **BLOCKED ON HIM, and it is the only thing that closes the
+  regression:** are women covered again? And item 2 (what the budget fix
+  alone costs -- worker duty ~65% against ~40% on 1067, dial
+  POSITION_MAX_INTERVAL_MS) cannot be measured until his phone reads
+  1072. 1067 control: secsPerVerdict 2.06/2.09, positions/min 10.0/11.2,
+  verdict p50 766/799, position p50 517/530, rAF 40.3/42.1Hz.
+- gaze 401/401, cargo 58/58.
+
 **Session 2026-08-31 (loop 30) -- I SHIPPED AN EXPOSURE ON CADENCE
 NUMBERS AND HE CAUGHT IT IN ONE SENTENCE: "it's not blurring the
 female". REVERTED IN 1071.**
