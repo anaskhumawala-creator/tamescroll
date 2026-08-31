@@ -102,6 +102,18 @@ COMPLAINT WITH A MECHANISM.** No release beyond 1075. His phone is on
   difference: refused faces run smaller here (37px vs 51px), so part of
   that tail may be weaker detections -- but confidence, the model's own
   quality signal, does not separate them at all.
+- **AND THE REFUSALS ARE NOT REDUNDANT -- 80% were an UNCOVERED face.**
+  The obvious defence (a thrown-away face is covered anyway, by a second
+  person or a coasting track) is now measured: at the moment of refusal,
+  does a BLURRED track already contain that face's centre. Emulator, his
+  regime, 108 passes: **REFUSED 60, already covered 12 (20%); KEPT 23,
+  already covered 0.** So 48 of 60 refusals were an uncovered face.
+  HONEST BOUND, do not overclaim it: "not covered" is not "should have
+  been covered" -- the gate refuses BEFORE any gender read and in MAN
+  mode a man correctly stays sharp. From his phone's own distribution
+  (male 14 / female 2 / unknown 8) about a third would have ABSTAINED,
+  and an abstain fails closed = covered, so **of those 48, on the order
+  of twenty would have produced a patch.**
 - **THE FIX CANNOT BE A DIFFERENT NUMBER.** 0.098 against 0.101 means
   the quantity does not carry the information. The candidate on the
   right axis is `isNullRead` (numbers in docs/detection-engine.md).
@@ -177,7 +189,10 @@ COMPLAINT WITH A MECHANISM.** No release beyond 1075. His phone is on
   requires auth** (400 on `?tfjs-format=file`, 403 on the GCS path).
   Two attempts, both config errors; do not spend a third.
 - gaze 411/411, cargo 58/58.
-- Emulator left running (hijri_pixel, headless, CDP on 9226).
+- **UNRELEASED AND DELIBERATE:** the `cov` field rides the next release;
+  1075 does not carry it. Nothing user-visible changed after 1075.
+- Emulator left running (hijri_pixel, headless, CDP on 9226) with an
+  x86_64 build of HEAD installed.
 
 **HE RULED THREE THRESHOLD QUESTIONS (2026-09-01), and two of them are
 "leave it":**
