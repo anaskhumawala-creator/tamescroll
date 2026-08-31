@@ -3127,6 +3127,10 @@ if (
               stage[name] = Math.round(performance.now() - stageT0);
             } catch (e) {}
           }
+          // See noteSpend below: everything this pass spends waiting on
+          // the worker belongs to the worker, not to the main-thread
+          // budget. Baseline taken before the first request goes out.
+          var waitBase = workerVideo() && gazeWorker ? gazeWorker.waitMs() : null;
           var sharedFrame = null;
           var frameDone = false;
           var releaseFrame = function () {
@@ -3819,11 +3823,45 @@ if (
                 stage.v = wasVerdict ? 1 : 0;
                 dbgSt.stages.push(stage);
                 if (dbgSt.stages.length > 120) dbgSt.stages.shift();
+                // MONOTONIC, because the ring above is not. `stages` is
+                // capped at 120 here and sliced to 40 in the report, so
+                // its LENGTH saturates and a b-minus-a diff across a
+                // window measures the fill, not the rate -- which is
+                // how a 2.09s verdict gap got written down as 5.77s.
+                // Same defect the image ring already carries a total for.
+                dbgSt.passesTotal = (dbgSt.passesTotal || 0) + 1;
+                if (wasVerdict) dbgSt.verdictsTotal = (dbgSt.verdictsTotal || 0) + 1;
               } catch (e) {}
               var cost = performance.now() - now;
               if (wasVerdict) lastVerdictMs = cost;
               else lastPassMs = cost;
-              noteSpend(performance.now(), cost);
+              // CHARGE THE MAIN THREAD FOR MAIN-THREAD TIME ONLY -- the
+              // same correction the image drain got in 2026-08-28, which
+              // this path never received.
+              //
+              // MEASURED on the owner's phone (1067, m.youtube watch,
+              // 62 verdict passes): end p50 795ms, of which the person
+              // reply accounts for 785 and our own segments 2. Charging
+              // 795 against SPEND_BUDGET_FRAC (0.25 of a 1s window) puts
+              // the pipeline over budget for most of a second after
+              // EVERY verdict, and overBudget() refuses the cheap
+              // position passes that keep a patch on a moving subject:
+              // 20 positions to 62 verdicts, one pass every 1.46s
+              // against a 1000ms floor. The cadence itself is unchanged
+              // (verdicts are capped at VERDICT_MAX_INTERVAL_MS anyway);
+              // what comes back is the tracking in between.
+              //
+              // Floored at 0: concurrent image requests share the same
+              // cumulative counter, so a delta can exceed this pass's
+              // own elapsed time. The in-page path has no baseline and
+              // is charged in full, which is correct -- it really did
+              // spend all of it here.
+              var mine = cost;
+              if (waitBase !== null && gazeWorker) {
+                var waited = gazeWorker.waitMs() - waitBase;
+                if (waited > 0) mine = Math.max(0, cost - waited);
+              }
+              noteSpend(performance.now(), mine);
               // Cost telemetry for the gauntlet's mobile budget. Owner
               // 2026-08-25: "be sure to make it optimized and
               // performance oriented — that is the only way this app

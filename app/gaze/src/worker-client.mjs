@@ -50,6 +50,15 @@ export function createWorkerClient(opts) {
   };
   var pending = new Map();
   var nextId = 1;
+  // See the note in request(): cumulative ms spent awaiting the worker.
+  var waitTotal = 0;
+  function nowMs() {
+    try {
+      return performance.now();
+    } catch (e) {
+      return 0;
+    }
+  }
   var worker = null;
 
   function die(why) {
@@ -246,6 +255,30 @@ export function createWorkerClient(opts) {
     var id = nextId++;
     msg.id = id;
     return new Promise(function (resolve, reject) {
+      // TIME SPENT WAITING FOR THE WORKER IS NOT MAIN-THREAD TIME.
+      //
+      // The image drain learned this in 2026-08-28 and subtracts it;
+      // the player pass did not, and MEASURED on the owner's phone a
+      // verdict pass is 795ms of which 785ms is this wait and 2ms is
+      // ours. Charging all 795 to a 25%-of-one-second main-thread
+      // budget parks the pipeline over budget after every verdict, and
+      // the cheap position passes that keep patches on the subject are
+      // what get refused (measured 20 positions against 62 verdicts).
+      //
+      // Cumulative and monotonic; callers take a delta across their own
+      // pass. Concurrent requests can overlap, so a delta may exceed a
+      // caller's elapsed time -- every caller floors the subtraction.
+      var askedAt = nowMs();
+      var ok = resolve;
+      var bad = reject;
+      resolve = function (v) {
+        waitTotal += nowMs() - askedAt;
+        ok(v);
+      };
+      reject = function (e) {
+        waitTotal += nowMs() - askedAt;
+        bad(e);
+      };
       var timer = setTimeout(function () {
         pending.delete(id);
         reject(new Error('worker timeout'));
@@ -282,6 +315,12 @@ export function createWorkerClient(opts) {
       },
       settled: function () {
         return state.face && state.gender && state.nsfw;
+      },
+      // Cumulative ms this page has spent awaiting worker replies. A
+      // caller takes a delta across its own work and subtracts it from
+      // what it charges the main-thread budget (see request()).
+      waitMs: function () {
+        return waitTotal;
       },
       // The player never uses the NSFW classifier, so it must not wait
       // for it: on a phone that model lands a second after the other

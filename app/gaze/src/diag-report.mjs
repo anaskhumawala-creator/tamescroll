@@ -358,7 +358,10 @@ export function buildReport(snap) {
       verdictP50: pctl(verdicts, 0.5),
       verdictP95: pctl(verdicts, 0.95),
       passP50: pctl(positions, 0.5),
-      passes: stages.length,
+      // The ring's length saturates; these two do not.
+      passes: num(ids.passesTotal),
+      verdicts: num(ids.verdictsTotal),
+      passesRing: stages.length,
       passFails: num(ids.passFails),
       timeouts: num(ids.timeouts),
       lastFailR: redactFreeText(ids.lastFail),
