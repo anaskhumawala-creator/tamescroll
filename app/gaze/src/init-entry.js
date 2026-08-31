@@ -3543,6 +3543,13 @@ if (
                         dbgB.life.bodyFromSlot = (dbgB.life.bodyFromSlot || 0) + 1;
                       } catch (e) {}
                     }
+                    // CARRY THE FRAME CONDITION ON THE PERSON, because
+                    // the mint gate downstream lives in a different
+                    // `.then` and `noShape` is not in scope there. A
+                    // scope error inside that handler would reject the
+                    // chain and drop the whole pass silently, which is
+                    // the failure this codebase is least able to see.
+                    bounded.mintNoShape = !!noShape;
                     extra.push(bounded);
                   }
                   try {
@@ -3700,13 +3707,49 @@ if (
                         // `nullRead`, never `abstained`: a CHILD read
                         // abstains as well, and a child is the one
                         // subject that must always be covered.
-                        if (obs && obs.nullRead && obs.box && obs.box.fromFace) {
+                        //
+                        // REFUSE THE BIRTH, NEVER THE OBSERVATION. The
+                        // first draft of this `return`ed instead, and an
+                        // adversarial review found the exposure: a
+                        // dropped observation does not coast safely --
+                        // coastStep returns null past blurredCoastMs
+                        // (~4s at his cadence) and the track DIES. A
+                        // face-derived track can only be refreshed by a
+                        // verdict pass, and on his phone every track is
+                        // face-derived, so three dropped passes take the
+                        // blur off a covered woman. Worse, the null band
+                        // is a property of CONTENT, so it lands on the
+                        // same subject every pass: that turns the old
+                        // gate's intermittent refusal into a permanent
+                        // one, which is strictly worse than what it
+                        // replaced.
+                        //
+                        // So the observation is TAGGED and still pushed.
+                        // It refreshes an existing track exactly as
+                        // before; it only fails to create a NEW one.
+                        //
+                        // AND ONLY WHERE THE OLD GATE COULD FIRE. The
+                        // same review found the scope had widened: the
+                        // frame gate was guarded by `noShape` (MoveNet
+                        // admitted nobody), and without that guard this
+                        // refuses face-derived people in frames the old
+                        // gate never touched -- reopening the R16 case
+                        // of a woman whose face fell inside the
+                        // speaker's box. Strictly narrower than what it
+                        // replaces, in every regime.
+                        if (
+                          obs &&
+                          obs.nullRead &&
+                          obs.box &&
+                          obs.box.fromFace &&
+                          obs.box.mintNoShape
+                        ) {
+                          obs.nullMint = true;
                           try {
                             var dbgD = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
                             dbgD.life = dbgD.life || {};
-                            dbgD.life.nullDropped = (dbgD.life.nullDropped || 0) + 1;
+                            dbgD.life.nullMint = (dbgD.life.nullMint || 0) + 1;
                           } catch (e) {}
-                          return;
                         }
                         observations.push(obs);
                       });

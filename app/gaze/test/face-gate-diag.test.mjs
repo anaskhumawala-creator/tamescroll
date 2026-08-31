@@ -111,13 +111,30 @@ test('the mint gate refuses a null read, never a child, and only on a face-deriv
   // and is never refused on the strength of a gender read.
   const i = page.indexOf('obs.verdictDt = verdictDt;');
   assert.ok(i > 0, 'observation push site moved');
-  const site = page.slice(i, i + 1400);
+  // SLICE TO A MARKER, NEVER A FIXED LENGTH. A 1400-char window stopped
+  // covering this block the moment the comment above it grew, and this
+  // repo has lost two rounds to exactly that drift (patch-occluder,
+  // preview-scroll).
+  const end = page.indexOf('observations.push(obs);', i);
+  assert.ok(end > i, 'observation push site moved');
+  const site = page.slice(i, end);
   assert.ok(
-    site.includes('obs.nullRead && obs.box && obs.box.fromFace'),
+    site.includes('obs.nullRead') && site.includes('obs.box.fromFace'),
     'the mint gate lost a condition'
   );
+  // REFUSE THE BIRTH, NEVER THE OBSERVATION. An adversarial review found
+  // that the first draft's `return` here was an EXPOSURE: a dropped
+  // observation runs a face-derived track out through coastStep and the
+  // blur comes off. The behaviour itself is pinned in null-mint.test.mjs;
+  // this guards the shape so the `return` cannot come back.
+  assert.ok(site.includes('obs.nullMint = true;'), 'the gate stopped tagging');
+  const gate = site.slice(site.indexOf('obs.nullMint = true;'));
+  assert.ok(
+    !/^\s*return;/m.test(gate.slice(0, 400)),
+    'the mint gate drops the observation again'
+  );
   assert.ok(!/obs\.abstained/.test(site), 'the mint gate keyed off abstained and would refuse a child');
-  assert.ok(site.includes("nullDropped"), 'a refusal nobody counts is a refusal nobody can audit');
+  assert.ok(site.includes('nullMint'), 'a refusal nobody counts is a refusal nobody can audit');
 });
 
 test('a detected face is evidence the frame is not empty', () => {

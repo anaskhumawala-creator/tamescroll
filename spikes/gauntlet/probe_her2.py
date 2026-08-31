@@ -91,6 +91,10 @@ fem = [r for r in reads if r.get("g") == "female"]
 unc = [r for r in fem if not r.get("patches")]
 
 
+def pctl(a, q):
+    return a[min(len(a) - 1, round((len(a) - 1) * q))] if a else None
+
+
 def snap_at(ms):
     # The snapshot taken at or just after this read -- the tracker runs
     # once per pass, AFTER every person in it has been observed, so the
@@ -119,5 +123,21 @@ print("SECOND_DELAY", json.dumps({
     "scores": sorted([x["s"] for x in rows if x["s"] is not None]),
 }))
 print("ROWS", json.dumps(rows[:14]))
+
+# THE EFFECTIVE CADENCE, which is what "instantly" actually means.
+# A verdict pass whose epoch changed under it is DROPPED (a scene cut
+# landed while it was in flight), so nominal cadence overstates how often
+# a verdict reaches the tracker. Every tracks-ring snapshot is a pass
+# that DID reach it, so the gaps between snapshots are the real thing.
+gaps = [snaps[i]["ms"] - snaps[i - 1]["ms"] for i in range(1, len(snaps))]
+gaps.sort()
+print("CADENCE", json.dumps({
+    "snapshots": len(snaps),
+    "gapP50": pctl(gaps, 0.5), "gapP90": pctl(gaps, 0.9),
+    "gapMax": gaps[-1] if gaps else None,
+    "gapsOver3s": sum(1 for g in gaps if g >= 3000),
+    "gapsOver6s": sum(1 for g in gaps if g >= 6000),
+    "windowMs": (snaps[-1]["ms"] - snaps[0]["ms"]) if len(snaps) > 1 else None,
+}))
 print("LIFE", json.dumps({"life": d.get("life"), "passes": d.get("passes"),
                           "slotsNonZero": sum(1 for s in d.get("slots", []) if s)}))
