@@ -59,3 +59,23 @@ test('frameMaxKp is the number the gate thresholds on', () => {
   assert.equal(frameMaxKp([]), null);
   assert.equal(frameMaxKp(null), null);
 });
+
+// THE FLOOR MOVED, AND THE REASON IT MOVED IS A MEASUREMENT.
+// He ruled it on 2026-09-01 after the degradation curve: 28 real faces
+// re-read at every size 32-160px agreed with their own full-resolution
+// answer 28 of 28, with 0 certain-wrong. His player reads faces down to
+// 53px and everything under the old 64 abstained and failed closed --
+// the man he keeps reporting as blurred.
+import { FACE_MIN_NATIVE_PX } from '../src/gender-verdict.mjs';
+
+test('the size floor is 40, and it is still a real floor', () => {
+  assert.equal(FACE_MIN_NATIVE_PX, 40);
+  // R15: this constant shipped DEAD for six rounds because a
+  // function-local `var` was minified to `var IY;` and every comparison
+  // became `px < undefined`. A number, in a module, is the shape that
+  // survives -- so assert it IS a number and not merely truthy.
+  assert.equal(typeof FACE_MIN_NATIVE_PX, 'number');
+  // Below his measured minimum face (53px), above the point where a
+  // face is a handful of pixels.
+  assert.ok(FACE_MIN_NATIVE_PX < 53 && FACE_MIN_NATIVE_PX >= 32);
+});

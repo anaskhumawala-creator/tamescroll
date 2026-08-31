@@ -344,6 +344,15 @@ while the keypoint floor is discarding three quarters of the faces on
 the device that matters. It is also the cheaper signal in the sense that
 counts: it comes from a model that is already being run on that crop.
 
+**BAND CORRECTION, because the numbers above were taken with the wrong
+one.** The shipped band is `NULL_V_LO` 0.53 to `NULL_V_HI` 0.72; the
+bench used [0.545, 0.705], which is narrower on both sides. So the real
+band catches at least as many non-faces as the 30-33 of 34 above, and
+rejects at least as many real faces as the 1-2 of 28. Both figures are
+bounds, in the direction that favours the band on graphics and
+disfavours it on faces. Re-run the bench against the real constants
+before anything is built on them.
+
 **NOT CHANGED.** Two reasons, and the first is a rule: this is a
 protection decision. The second is that the refused POPULATION is still
 unmeasured -- if those 127 refusals are mostly BlazeFace firing on
@@ -351,3 +360,30 @@ graphics, the gate is doing its job and the exposure is imagined. 1074
 records exactly that (`gateRefused` / `gateKept`, each face's
 confidence, native size, and the frame keypoint maximum), so the
 comparison can be made on his own footage before anything moves.
+
+
+### DECIDED: the size floor is 40 (owner, 2026-09-01)
+
+He ruled the three options himself after the measurement: leave 64,
+lower toward 53, or drop the size gate and lean on the null band. He
+took the middle, at 40.
+
+`FACE_MIN_NATIVE_PX` 64 -> **40**. Everything under the old floor
+abstained and failed closed, and his player reads faces down to 53px
+(p50 74), so that whole tail was covered without ever being asked --
+which is the man he has reported as blurred more than once. The
+degradation curve says the refusal bought nothing: 28 of 28 real faces
+agree with their own full-resolution answer at every size down to 32px,
+0 certain-wrong.
+
+**The honest cost, and it is real.** A small BAD detection now gets
+asked, and a non-face crop reads CERTAIN 38-53% of the time. What
+stands between that and a wrong verdict is `isNullRead`, which is on the
+right axis but is not perfect (30-33 of 34 in the bench, measured
+against a narrower band than ships). Watch the artifact after this: a
+rise in confident reads at small `px` with no corresponding subject is
+what this change would look like going wrong.
+
+He also ruled the other two: **leave the render loop at ~30Hz** (the
+tracking is worth the frames), and **hold the ghost gate** until 1074's
+`gateRefused` / `gateKept` say what it is actually refusing.

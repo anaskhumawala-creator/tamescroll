@@ -475,7 +475,38 @@ export function faceVerdict(userGender, faces) {
 // survives. The effective value is also published on the cfg probe, so a
 // constant that goes dead again shows up in the next round's artifact
 // instead of hiding for six rounds.
-export var FACE_MIN_NATIVE_PX = 64;
+//
+// 64 -> 40, AND THE OWNER RULED IT ON MEASUREMENT (2026-09-01). Every
+// argument above is about which sizes had ever WORKED in this log; none
+// of it isolated resolution, because nothing had ever fed the same face
+// to the model twice at two sizes. That experiment now exists
+// (app/gaze/bench/small-face.js, run on his phone): 28 real faces
+// detected at >=150 native px, each re-read after being resampled down
+// and handed over as the whole frame, which is exactly what the
+// pipeline sees when a face is natively that big.
+//
+//   native px      32    40    48    56    64    72    88   112   160
+//   agrees w/ full 1.00  1.00  1.00  1.00  1.00  1.00  1.00  1.00  1.00
+//   CERTAIN+wrong     0     0     0     0     0     0     0     0     0
+//   score p50      0.76  0.78  0.81  0.83  0.85  0.87  0.87  0.85  0.86
+//
+// 28 of 28 agree at every size down to 32px. So the collapse this floor
+// was drawn around is not a resolution effect, and the men he keeps
+// reporting as blurred were being refused for a reason that does not
+// hold: on his phone, facePx p50 74 with a MIN of 53, so every read in
+// that tail abstained and failed closed.
+//
+// THE FAILURE THIS GATE ACTUALLY PREVENTS IS REAL AND IS NOT ABOUT SIZE.
+// 34 crops from thumbnails where BlazeFace found nothing read CERTAIN
+// (score >= GENDER_MIN_SCORE) 38-53% of the time -- the confident null
+// answer this comment predicted -- and that rate is FLAT in size: 11 of
+// 34 at 160px against 18 of 34 at 32px. A size floor cannot catch it.
+// `isNullRead` can and does: 30-33 of those same 34 land in its band.
+//
+// So 40 rather than 32: it keeps a margin under every measured read
+// while staying above the point where a face is a handful of pixels,
+// and it leaves the null band as the gate on the axis that matters.
+export var FACE_MIN_NATIVE_PX = 40;
 
 export var NULL_V_LO = 0.53;
 export var NULL_V_HI = 0.72;
