@@ -1848,88 +1848,32 @@ if (
         return detector.classifyFaceGenders(genderModel, pixels, faces).then(anyFlagged);
       });
     }
-    // ONE PASS OVER THE WHOLE FRAME, wherever the models live.
+    // THE PERSON PASS RUNS ON EVERY PASS. (2026-08-31, reverted the
+    // same night it shipped.)
     //
-    // Persons, and on a verdict pass the full-frame face pass that reads
-    // the SAME pixels. Pairing them is not a convenience: a 1080p frame
-    // is ~8.3MB across the bus and uploading it twice per pass was a
-    // measured cost. In page that means one shared tensor; in the worker
-    // it means one message and one transferred bitmap.
+    // 1068-1070 backed MoveNet off to one pass in three once it had
+    // admitted nobody three times running, because on his phone it costs
+    // 504ms of a 795ms verdict and reads n:0 in all twelve slots. The
+    // cadence numbers were real -- verdicts 2.09s -> 1.21s, position
+    // passes 10/min -> 62/min -- and HE REPORTED THE THING THAT MATTERS:
+    // "it's not blurring the female".
     //
-    // `keepFrame` hands the in-page tensor back to the caller, which owns
-    // releasing it after the whole chain (the crops read it too).
-    // HOW OFTEN THE PERSON PASS IS WORTH ITS PRICE.
+    // A skipped pass is not inert to anything downstream. It reports an
+    // empty person list to the tracker and to the eraser, and no held
+    // flag fixes that: whichever way the ghost gate's evidence is set on
+    // a pass the model never ran, one of the two directions is wrong.
+    // Refusing loses a real person; minting paints graphics. Blur-first
+    // says the exposure is the unacceptable one, and an owner-visible
+    // miss settles it -- so the model runs, every pass, as it did in
+    // 1067.
     //
-    // MEASURED on real hardware for the first time (M2010J19SI,
-    // Snapdragon 662, WebView 151, 2026-08-31): passP50 506ms inside a
-    // verdictP50 of 798ms, and every one of the twelve diagnostic slots
-    // reading n:0 -- MoveNet found nobody on that footage, pass after
-    // pass, for 63% of the verdict budget. The owner's report is the
-    // other side of the same number: "so much more snappier and
-    // instantaneous ... our app was missing a lot of frames that should
-    // have been blurred". At one verdict every 2.1s the tracker is
-    // guessing between passes, so a face that appears waits up to two
-    // seconds for its patch.
-    //
-    // So: once the person pass has admitted NOBODY for
-    // PERSON_EMPTY_STREAK passes running, run it only every
-    // PERSON_SKIP_EVERY-th pass. Any admitted person resets it
-    // immediately.
-    //
-    // THIS DOES NOT COST BACKSIDE COVERAGE, and that is the whole reason
-    // it is allowed: skipping makes each pass cheaper, so the person
-    // pass ends up running MORE often in wall-clock than it does today
-    // (every ~3rd pass at ~300ms beats every pass at ~800ms). A skipped
-    // pass is reported INERT, never as "nobody is there" -- see the note
-    // in worker-entry -- so the face fallback keeps covering and the
-    // only thing a skip can cost is a ghost the next full pass removes.
-    var PERSON_EMPTY_STREAK = 3;
-    var PERSON_SKIP_EVERY = 3;
-    var personEmptyStreak = 0;
-    var personPassCount = 0;
-    var lastPersonAt = 0;
-    // THE GHOST GATE'S EVIDENCE, HELD ACROSS A SKIPPED PASS.
-    //
-    // frameHasNoHumanShape is what stops an uncorroborated face over a
-    // title card becoming a patch (R21), and it is only ever consulted
-    // when the person pass admitted NOBODY -- which on the owner's phone
-    // is EVERY pass. MEASURED there, 150s of one watch page: the gate
-    // refused 63 faces. So a skipped pass that reported no evidence at
-    // all would mint every one of those, and "random blur marks here and
-    // there" is his complaint verbatim.
-    //
-    // A skipped pass therefore inherits the last MEASURED answer instead
-    // of inventing one. Bounded by the scene: a cut forces a real person
-    // pass (see wantPersons), because a cut is exactly when someone new
-    // can walk into frame, and within one shot the frame's human-shape
-    // evidence is the same evidence.
-    var heldNoShape = false;
+    // The worker protocol keeps `withPersons`, because it is the honest
+    // way to express "this pass did not run the model" if a future round
+    // ever needs it. It is always true here.
     function wantPersons() {
-      personPassCount++;
-      if (personEmptyStreak < PERSON_EMPTY_STREAK) return true;
-      // A CUT INVALIDATES THE HELD ANSWER. Run the model.
-      if (lastCutAt > lastPersonAt) return true;
-      return personPassCount % PERSON_SKIP_EVERY === 0;
+      return true;
     }
-    function notePersons(persons, skipped) {
-      if (skipped) {
-        // Inert on its own terms, but the frame's evidence is not
-        // reinvented: carry the last real reading forward.
-        if (persons) persons.noHumanShape = heldNoShape;
-        return;
-      }
-      lastPersonAt = nowMsSafe();
-      heldNoShape = !!(persons && persons.noHumanShape);
-      if (persons && persons.length > 0) personEmptyStreak = 0;
-      else personEmptyStreak++;
-    }
-    function nowMsSafe() {
-      try {
-        return performance.now();
-      } catch (e) {
-        return 0;
-      }
-    }
+    function notePersons() {}
 
     function runPass(withFaces, mark, keepFrame) {
       var aspect = video.videoWidth / (video.videoHeight || 1);

@@ -34,38 +34,13 @@ test('a skipped pass is inert, never "nobody is there"', () => {
   assert.match(page, /var noShape = persons\.length === 0 && persons\.noHumanShape === true;/);
 });
 
-test('a skipped pass never counts as evidence about the streak', () => {
-  // Otherwise the streak feeds on itself and the person pass never
-  // comes back.
-  const i = page.indexOf('function notePersons(persons, skipped)');
-  assert.ok(i > 0);
-  const seg = page.slice(i, i + 700);
-  const skipEnd = seg.indexOf('return;');
-  assert.ok(skipEnd > 0, 'the skipped branch returns early');
-  assert.ok(seg.indexOf('personEmptyStreak') > skipEnd, 'streak counters live after it');
-});
 
-test('a skipped pass INHERITS the last measured human-shape reading', () => {
-  // MEASURED on his phone, 150s of one watch page: the ghost gate
-  // refused 63 faces -- title cards and graphics that would each
-  // otherwise become a patch. A skipped pass reporting "no evidence"
-  // mints every one of them, and "random blur marks here and there" is
-  // his complaint verbatim. So the skip carries the last real reading.
-  assert.match(page, /var heldNoShape = false;/);
-  assert.match(page, /if \(persons\) persons\.noHumanShape = heldNoShape;/);
-  assert.match(page, /heldNoShape = !!\(persons && persons\.noHumanShape\);/);
-});
 
-test('a cut forces a real person pass, so a held reading cannot outlive its shot', () => {
-  // A cut is exactly when someone new can walk into frame; carrying the
-  // previous shot's "nothing human here" across one is an exposure.
-  assert.match(page, /if \(lastCutAt > lastPersonAt\) return true;/);
-  assert.match(page, /lastPersonAt = nowMsSafe\(\);/);
-});
 
-test('any admitted person restores every-pass cadence immediately', () => {
-  assert.match(page, /if \(persons && persons\.length > 0\) personEmptyStreak = 0;/);
-});
+
+
+
+
 
 test('both pass paths honour the decision', () => {
   // The worker path and the in-page fallback. A skip on one and not the
@@ -74,10 +49,15 @@ test('both pass paths honour the decision', () => {
   assert.match(page, /askPersons\s*\?\s*detector\.detectPersons\(/);
 });
 
-test('the skip is bounded and small', () => {
-  const streak = /PERSON_EMPTY_STREAK = (\d+)/.exec(page);
-  const every = /PERSON_SKIP_EVERY = (\d+)/.exec(page);
-  assert.ok(streak && every, 'both constants are named, not inline numbers');
-  assert.ok(Number(streak[1]) >= 2 && Number(streak[1]) <= 10, streak[1]);
-  assert.ok(Number(every[1]) >= 2 && Number(every[1]) <= 5, every[1]);
+test('the person model runs on EVERY pass again', () => {
+  // 1068-1070 skipped it after three empty passes. The cadence numbers
+  // were real and the owner still reported the only thing that counts:
+  // "it's not blurring the female". A pass the model never ran reports
+  // an empty person list to the tracker and the eraser, and no held flag
+  // fixes that -- one of the two directions is always wrong, and one of
+  // them is an exposure.
+  assert.match(page, /function wantPersons\(\) \{[^}]*return true;[^}]*\}/);
+  assert.ok(!/PERSON_SKIP_EVERY/.test(page), 'the skip constants are gone');
+  assert.ok(!/personEmptyStreak/.test(page), 'the streak is gone');
 });
+
