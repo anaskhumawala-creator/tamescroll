@@ -70,10 +70,38 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-09-01 00:15 (**1074 PUBLISHED, sha 712c382a**,
-raw manifest + downloaded APK agree, isDraft false; rules 99394d11. He
-installed 1073 himself during the session; 1074 is the diagnostics build
-that answers the ghost-gate question).
+**Last updated:** 2026-09-01 00:45 (**1075 PUBLISHED, sha 38ea380d**,
+raw manifest + served APK agree, isDraft false; 1074 before it, sha
+712c382a. rules 99394d11. **His phone is on 1073** -- it has neither the
+gate diagnostics nor the new size floor).
+
+**HE RULED THREE THRESHOLD QUESTIONS (2026-09-01), and two of them are
+"leave it":**
+1. **rAF stays at ~30Hz.** The tracking is worth the frames -- do NOT
+   touch POSITION_MAX_INTERVAL_MS to buy the render loop back.
+2. **The ghost gate is HELD** until 1074's `gateRefused`/`gateKept` say
+   what it is actually refusing. Do not move PFF_FRAME_KP_FLOOR or swap
+   in the null band on the strength of the bench alone.
+3. **FACE_MIN_NATIVE_PX 64 -> 40, SHIPPED IN 1075.** Everything under
+   the old floor abstained and failed closed, and his player reads faces
+   down to 53px (p50 74) -- that whole tail was covered without ever
+   being asked, which is the man he keeps reporting. The degradation
+   curve says the refusal bought nothing: **28 of 28 real faces agree
+   with their own full-resolution answer at every size down to 32px, 0
+   certain-wrong.** HONEST COST: a small BAD detection now gets asked,
+   and a non-face crop reads CERTAIN 38-53% of the time; `isNullRead` is
+   what stands in the way. **WATCH THE ARTIFACT for confident reads at
+   small `px` with no subject** -- that is what this going wrong looks
+   like.
+- **VERIFIED R15-STYLE, in the EMITTED BUNDLE and not the source**,
+  because this constant once shipped dead for six rounds as `var IY;`:
+  the minifier emits `tE=40` and publishes it as `faceMinPx`. Check the
+  bundle, never the source, whenever this number moves.
+- **BAND CORRECTION worth carrying forward:** the shipped null band is
+  `NULL_V_LO` 0.53 / `NULL_V_HI` 0.72; the bench used [0.545, 0.705].
+  So the measured "30-33 of 34 non-faces caught" and "1-2 of 28 faces
+  rejected" are BOUNDS, not the shipped behaviour. Re-run against the
+  real constants before building on them.
 
 **Session 2026-09-01 (loop 35) -- THE GHOST GATE IS THROWING AWAY THREE
 FACES IN FOUR ON HIS PHONE, AND THAT IS HIS OLDEST COMPLAINT MEASURED
