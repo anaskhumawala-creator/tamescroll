@@ -1,7 +1,7 @@
 {
-  "versionCode": 1060,
-  "versionName": "0.1.60",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.60/tamescroll-v0.1.60.apk",
-  "sha256": "93a07abc99ff91af56180707d7c6372a8e07128bac0aab505feb313d58a251bb",
-  "notes": "Tapping the video no longer makes it lurch smaller and snap back."
+  "versionCode": 1061,
+  "versionName": "0.1.61",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.61/tamescroll-v0.1.61.apk",
+  "sha256": "b002513693e3377ec85d04aac8c872cd9752e55f25a91469972e82284f48024a",
+  "notes": "The mini player's play/pause and close buttons work now."
 }
