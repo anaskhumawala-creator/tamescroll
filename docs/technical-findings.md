@@ -400,3 +400,38 @@ live), but none of them can tell a drawn patch from a hidden one.
 **RULE: any probe that counts, ranks or measures one of our patches must
 filter `getComputedStyle(el).display === 'none'` and a zero-area rect
 first.** `emu_cdp.VISIBLE_PATCHES_JS` is the snippet.
+
+## `clipToBounds` cannot hide a real patch, and video-region already refreshes its own rects (2026-09-01)
+
+Both of these were asserted in a commit message (bfb5e61, reverted in
+c8420ec) and both are false. Recorded so the next round does not re-derive
+the same wrong model of the player renderer.
+
+**1. The rects are NOT only refreshed on scroll and resize.**
+`video-region.mjs:1136-1145` installs a `setInterval(refreshRects,
+RECT_REFRESH_MS)` at **250ms** and a `ResizeObserver` on both the host and
+the video, alongside the scroll/resize listeners at :1001-1002. Staleness of
+`entry.hr` / `entry.vr` is bounded at one timer tick. Any argument of the
+form "X changes the layout and nothing marks the rects dirty" is wrong by
+construction.
+
+**2. `clipToBounds` provably cannot return null for a real track.**
+`boxToHostRect` maps a box CLAMPED to [0,1] onto the video rect expressed
+relative to the host rect. `clipToBounds`'s bounds are that same video rect
+relative to that same host rect. So the target rectangle is a subset of the
+bounds *by construction*, whatever the two cached rects hold. `lerpRect`
+returns a superset of the target and `drawnRect` only grows it. Fuzzed
+500,000 random (hr, vr, box) triples including the stale-mini scenario:
+**0 nulls**, and lerpRect violated the superset property 0 times in 200,000.
+
+Consequence: when a covered subject has no visible patch, the `!drawn`
+branch is not the cause. The branches that CAN hide every overlay are the
+`!vr || vr.width === 0 || vr.height === 0` test (:905) and
+`getClientRects().length === 0 -> vr = null` (:813-816). Instrument those
+three separately (`hideNoVr` / `hideZeroVr` / `hideClipped`) before
+changing anything.
+
+**3. A stale rect does not misplace the patch anyway.** With the rects
+frozen at the parked (scaled) geometry, `entry.scale` is stale in the
+compensating direction -- the loop-22 host-scale conversion cancels it -- so
+the drawn patch lands within ~1px of correct.

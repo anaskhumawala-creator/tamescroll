@@ -76,10 +76,8 @@ raw manifest + served APK agree, isDraft false; 1074 before it, sha
 gate diagnostics nor the new size floor).
 
 **Session 2026-09-01 (loop 37d) -- THE CHILD GUARD IS DEAD ON 1,399
-READS, AND THE MINIPLAYER RESTORE WAS LEAVING A COVERED WOMAN WITH
-NOTHING DRAWN.** No release: his phone is on **1075** and the only
-user-visible change is an 84ms window inside a gesture, which rides the
-next one.
+READS, AND THE MINIPLAYER RESTORE FIX WAS BUILT AND THEN REFUTED BY
+ITS OWN CRITIC.** No release: nothing user-visible changed after 1075.
 
 - **THE QUESTION THE REVERT LEFT OPEN IS CLOSED, AND IT NEEDED NO DEVICE
   RUN.** Every read ring this repo has ever banked already carries
@@ -110,26 +108,59 @@ next one.
   gender-verdict.mjs already records why -- that constant orders our two
   reference faces BACKWARDS (a 21-year-old at 0.49-0.94, a known
   12-year-old at 0.146-0.194).
-- **THE MINIPLAYER RESTORE LEFT A COVERED SUBJECT WITH NOTHING DRAWN FOR
-  84ms.** Loop 23 flagged the window and left it unverified. MEASURED on
-  a built APK, video playing, live track: **3 frames / 84ms**, against
-  **0 frames over 108 frames of the shrink** (40 mid-drag). Mechanism:
-  everything reposition() uses is a difference of two CACHED viewport
-  rects -- transform-invariant, which is why the shrink is fine -- but a
-  restore is a LAYOUT change (fixed-and-scaled -> static), and that fires
-  neither scroll nor resize, the only two things that mark rects dirty.
-  clipToBounds then reads the patch as outside the picture and
-  display:none's it.
-- FIX, two halves because the first was not enough: scoped
-  transitionrun/end/cancel listeners hold the rects dirty for a run on a
-  host or an ancestor of one (a descendant costs nothing; the count
-  floors at 0 so a cancel+end pair cannot strand a forced layout every
-  frame); and `installMiniplayer(win, onGeometry)` tells the renderer
-  FIRST in setState, because the class flip lands in the same update
-  that dispatches transitionrun and our rAF can run first. Passed as a
-  CALLBACK, never an import -- miniplayer.mjs imports nothing on purpose
-  because it has to work in off mode. **AFTER: 84ms -> <=1ms**, one
-  frame left and it is 1.1s after the transition, not inside it.
+- **THE MINIPLAYER RESTORE FIX WAS BUILT AND THEN KILLED BY THE SECOND
+  CRITIC. REVERTED WHOLE (c8420ec).** The MEASUREMENT stands: on a built
+  APK with the video playing and a live track, a covered subject had
+  **no visible patch for 3 frames / 84ms** around the restore, against
+  **0 frames over 108 frames of the shrink** (40 mid-drag). Everything I
+  said about WHY does not.
+- **THE COMMIT'S PREMISE WAS FLATLY FALSE, and I could have checked it
+  with one grep.** I wrote that scroll and resize are "the only two
+  things that mark the rects dirty". video-region.mjs:1136-1145 installs
+  a **`setInterval(refreshRects, RECT_REFRESH_MS)` at 250ms AND a
+  ResizeObserver** on host and video, and the comment above them says
+  they exist for exactly this. Staleness was already bounded at 250ms.
+- **AND THE MECHANISM IS REFUTED BY FUZZ, 0 of 500,000.** `clipToBounds`
+  cannot return null for a real track whatever the rects are:
+  `boxToHostRect` maps a [0,1]-CLAMPED box onto vr-relative-to-hr and
+  clipToBounds's bounds are that same vr relative to that same hr, so the
+  target is a SUBSET of the bounds by construction, lerpRect is always a
+  superset of the target (0 violations in 200,000) and drawnRect only
+  grows it. The `!drawn` branch I "fixed" provably never fires. Worse,
+  with the rects frozen at mini the patch lands in the RIGHT place to
+  within 1px -- `entry.scale` is stale in the compensating direction,
+  which is what loop 22's host-scale fix bought.
+- **THE FIX COULD STRAND A FORCED LAYOUT EVERY FRAME, FOREVER.**
+  `transitionTouchesHost` decides both the increment and the decrement
+  by iterating `entries`; `clear(video)` deletes the entry and is called
+  from five sites, so a verdict landing inside a 220ms transition (which
+  is ordinary) makes the decrement return early and the count never come
+  back down. refreshRects is FOUR layout-forcing reads per frame per
+  entry = **240 forced reads/s for the life of the page** -- the exact
+  regression this renderer was rebuilt to remove, made permanent, to buy
+  an 84ms window he cannot see.
+- **THREE OF MY FIVE NEW TESTS PASSED AGAINST THE PRE-FIX SOURCE**, run
+  against it directly: they assert `rectReads === 0`, which is what code
+  with no listeners at all does. The "cannot strand" test passes with no
+  counter present and does not cover the stranding path that exists.
+  Third round running that a test written to pin a property could not
+  have failed. **And no test asserted the thing that matters -- that a
+  patch stays VISIBLE.**
+- **THE BEFORE NUMBER MAY BE ON THE WRONG EVENT.** The sampled series
+  reads the video at 412 while `ts-mini` is still 1, then 270
+  (= 412 x 0.655), then 231 -- a transform cleared to identity and
+  animated back DOWN, which is `place()` RE-PARKING (parked() clears the
+  transform to measure, writeTransform re-writes it with the .22s
+  transition live), not the restore. The probe also skips any frame with
+  `vr.width === 0`, hiding the most likely real cause.
+- **WHAT THE 84ms MOST LIKELY IS, and what to build next -- counters,
+  not a fix.** A transient zero or absent `vr` at video-region.mjs:905
+  hides EVERY overlay, with recovery waiting up to one 250ms timer tick;
+  that predicts the 84ms and predicts why the listeners appeared to help
+  (they shortened recovery, they did not prevent the hide). Add
+  `hideNoVr` / `hideZeroVr` / `hideClipped` and re-run before touching
+  the renderer. Then re-take the BEFORE with the window bracketed on the
+  class flip and the video element pinned.
 - **A NEW INSTRUMENT DEFECT, AND IT INVENTED A DEFECT TWICE BEFORE IT
   WAS CAUGHT** (docs/technical-findings.md): a `display:none` overlay is
   still in the DOM and still in `entry.tracks`, and its rect is 0x0 at
