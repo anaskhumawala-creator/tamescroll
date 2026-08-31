@@ -120,7 +120,17 @@ COMPLAINT.** No release beyond 1075. His phone is on **1073**.
   video patches present throughout (vidSeen 409). With his phone's 363
   ranked, the parked mini's 4 and the SPA nav's run, that is **~940
   ranked samples across two machines with zero patch-over-player**.
+- **THE REQUANT HYPOTHESIS IS WEAKENED, NOT CONFIRMED, and that matters
+  for which fix to reach for.** movenet-multipose.bin is our own hybrid
+  uint8 requant and the obvious suspect after tonight's faceres result
+  -- but on the emulator it reads **maxKp p50 0.816 and admits 25
+  persons over 20 images**, which is not a damaged model. So the
+  weights are fine on float32 WebGL and the variable is his DEVICE.
+  Fetching Google's original f16 to A/B it is **DEAD: Kaggle now
+  requires auth** (400 on `?tfjs-format=file`, 403 on the GCS path).
+  Two attempts, both config errors; do not spend a third.
 - gaze 411/411, cargo 58/58.
+- Emulator left running (hijri_pixel, headless, CDP on 9226).
 
 **HE RULED THREE THRESHOLD QUESTIONS (2026-09-01), and two of them are
 "leave it":**
