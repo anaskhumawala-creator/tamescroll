@@ -75,6 +75,98 @@ raw manifest + served APK agree, isDraft false; 1074 before it, sha
 712c382a. rules 99394d11. **His phone is on 1073** -- it has neither the
 gate diagnostics nor the new size floor).
 
+**Session 2026-09-01 (loop 37) -- HE REPORTED "LINUS DAUGHTER IS NOT
+BEING BLURRED INSTANTLY", AND IT IS THE GHOST GATE REACHING HER TWICE.
+HE RULED THE SWAP; IT IS BUILT AND UNRELEASED.** His phone is on
+**1075** now (he installed it).
+
+- **THE GATE, CONFIRMED ON HIS OWN HARDWARE at last** (1075, watch page,
+  driven to his timestamps): 184 passes, 88 verdicts, **all twelve slots
+  n:0**, `faceNoShape` **121**. Refused **60** against kept **19** --
+  three faces in four. conf p50 **0.78 vs 0.79**, px p50 **72 vs 79**,
+  and the separator straddles the floor exactly: refused kMax **0.092**,
+  kept kMin **0.106**. The refused faces are LARGE and CONFIDENT. The
+  emulator finding reproduces on the device that matters.
+- **`faceMinPx` reads 40 live on his phone**, and the artifact he was
+  told to watch is clean so far: only **5 reads under 64px, 2 certain**
+  -- no cluster of confident small reads with no subject.
+- **THE SECOND WAY THE GATE REACHED HER, and this is the new finding.**
+  `faceEvidence = noShape ? 0 : faces.length`, so a pass that DETECTED
+  faces reported an EMPTY FRAME, emptyStreak climbed and wipeIfEmpty
+  erased the patch she already had. Measured in his regime, 220s:
+  **wipeErased 10, erasing 21 BLURRED tracks**, with faceNoShape 74.
+  Same defect class as the 1070 skip, which was reverted for exactly
+  this reason.
+- **THE A/B, same window, same regime both arms** (faceNoShape 74 and
+  slots n:0 in both, so it is a clean pair):
+
+  | | before | after |
+  |---|---|---|
+  | reads | 34 | **91** |
+  | her reads (female/child) | **0** | **3** |
+  | covered at read | 0 | **3 of 3** |
+  | cover latency | -- | **0 / 0 / 0 ms** |
+  | wipeErasedBlurred | **21** | **1** |
+  | emptyFrame | 37 | 9 |
+  | nullDropped | -- | 8 |
+
+  In his regime she was never even READ before -- the gate refused her
+  ahead of any gender read -- and now she is read and covered instantly.
+- **WHAT SHIPPED IN THE DIFF (2638d2f, NOT RELEASED).** The frame gate
+  stops refusing and becomes a counter; the mint decision moves to
+  `isNullRead` at the observation, which asks about the FACE rather than
+  the frame. A dropped observation means no birth while an existing
+  track coasts, so it can never uncover somebody already covered. It
+  keys off a NEW `nullRead` field, **never `abstained`** -- a child read
+  abstains too, and keying it wrong would have refused HER specifically.
+  A test pins that.
+- **`obs.box.fromFace` IS ALIVE, checked the R15 way.** `obs.box =
+  person` and personFromFace sets `fromFace: true`, and more to the
+  point `nullDropped` fired **3, 6 and 8** across three runs -- a
+  counter that only increments inside that branch. This repo has a prior
+  bug (R20) where `track.box.fromFace` was always undefined, so the
+  condition was checked at runtime and not merely read.
+- **TWO RETRACTIONS, both mine, recorded so they do not harden:**
+  1. **The "20% pass cost" is WITHDRAWN.** 76 / 61 / 50 passes across
+     three runs that were in DIFFERENT MoveNet regimes. Regime varies
+     run to run on the same seek, so no cost number is honest until the
+     regime is pinned and both arms run inside it.
+  2. **`herNoTrackAtAll` was a probe artifact.** `__TS_GAZE_VTRACKS`
+     reports the RENDERER's entries, so it only ever sees BLURRED
+     tracks -- "no track at all" was "nothing covered" restated.
+  3. Earlier the same night: probe_her's first classifier counted every
+     ABSTAINED read as a child, because an abstention returns age 0.
+     It invented fifteen children.
+- **STILL OPEN: A SECOND DELAY THE GATE CHANGE DOES NOT TOUCH.** In the
+  regime where MoveNet IS admitting people (slotsNonZero 24,
+  faceNoShape 0) she reads female and stays sharp: **7 of 16 reads with
+  no patch, latP90 12.9s, latMax 19.2s** -- and the same shape appeared
+  in the very first run of the night (13 female reads, latP90 11.4s,
+  latMax 19.4s). LIVE HYPOTHESIS, not yet confirmed: her reads are WEAK
+  (score p50 0.31, 7 of 16 under GENDER_MIN_SCORE) and a track CLEARED
+  on the man beside her absorbs an uncertain read for CLEARED_TTL_MS, so
+  re-association swallows her. probe_her2.py joins her reads to the
+  per-pass track-state ring; the first run of it was INCONCLUSIVE (that
+  run landed in the n:0 regime with femaleUncovered 0 -- nothing to
+  examine).
+- **NEW INSTRUMENTS:** `ms` on the gate rings (a refusal now has a
+  duration), `nullDropped` life counter, probe_phone_gate.py,
+  probe_instant.py, probe_her.py, probe_her2.py, probe_gate_audit.py,
+  probe_mini_land_live.py (written, NOT yet run).
+- **`__TS_GATE_AUDIT`** (flag-gated, nothing in the app sets it, test
+  fails if that changes) runs the same gender read a KEPT face gets on
+  every REFUSED face. Emulator, his regime, two runs of 60: **audited
+  60/60, ABSTAINED 0**, male 50-51 / female 9-10, **wouldPatch 25 of
+  which 23 uncovered**. So "about a third would have abstained" was
+  wrong -- that came from his phone under the OLD 64px floor.
+- **HIS STANDING INSTRUCTION THIS SESSION: run an adversarial CRITIC on
+  each pass** (Opus, against the diff and the raw probe JSON, never
+  against my own summary) so a round does not stay biased on its own
+  code. A 29-minute cron carries it.
+- gaze 415/415, cargo 58/58. NO RELEASE: the fix is sound in his regime
+  but the cost numbers are not honest yet and the critic has not
+  reported.
+
 **Session 2026-09-01 (loop 36) -- THE GHOST GATE IS THROWING AWAY FACES
 THAT ARE IDENTICAL TO THE ONES IT KEEPS, AND THAT IS HIS OLDEST
 COMPLAINT WITH A MECHANISM.** No release beyond 1075. His phone is on
