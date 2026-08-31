@@ -1,0 +1,8 @@
+ARM {"total":0,"bundle":"9845202-dirty"}
+N {"images": 37, "reads": 43, "null": 6, "notNull": 37, "nullWithChildP": 6, "notNullWithChildP": 37}
+NULL_CHILDP {"n": 6, "min": 0.06, "p50": 0.09, "p90": 0.15, "p99": 0.17, "max": 0.17, "atOrOver_0.25": 0}
+NOTNULL_CHILDP {"n": 37, "min": 0, "p50": 0.02, "p90": 0.09, "max": 0.18, "atOrOver_0.25": 0}
+CHILDREN {"n": 0, "inNullBand": 0, "sample": []}
+NULL_SAMPLE [{"g": "male", "s": 0.2, "a": 40, "c": 0.12, "k": 0.56, "p": 15, "why": "face"}, {"g": "male", "s": 0.35, "a": 39, "c": 0.08, "k": 0.66, "p": 55, "why": "face"}, {"g": "male", "s": 0.39, "a": 40, "c": 0.09, "k": 0.79, "p": 52, "why": "face"}, {"g": "male", "s": 0.38, "a": 34, "c": 0.06, "k": 0.63, "p": 310, "why": "face"}, {"g": "male", "s": 0.26, "a": 36, "c": 0.17, "k": 0.52, "p": 15, "why": "face"}, {"g": "male", "s": 0.29, "a": 37, "c": 0.15, "k": 0.57, "p": 67, "why": "face"}]
+
+[exited with code 0]

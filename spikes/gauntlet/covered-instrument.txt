@@ -1,0 +1,7 @@
+ARM {"t":150,"bundle":"9845202-dirty"}
+FEMALE {"n": 1, "covered_inPatch": 0, "covered_wholeOnly": 0, "UNCOVERED": 1, "old_uncovered": 1, "patchButNotHers": 0}
+ALL {"n": 26, "covered_inPatch": 14, "covered_wholeOnly": 0, "UNCOVERED": 12, "old_uncovered": 12, "patchButNotHers": 0}
+UNCOVERED_SAMPLE [{"ms": 169838, "g": "female", "s": 0.03, "a": 29, "pc": 0.24, "ab": 0, "px": 51, "b": [0.468, 0.066, 0.727, 0.525], "whole": 0, "inPatch": 0, "patches": 0}]
+LIFE {"life": {"cutDetected": 49, "emptyFrame": 37, "wipeErased": 4, "wipeErasedTracks": 8, "wipeErasedBlurred": 8, "faceNoShape": 79, "bodyFromSlot": 13, "passDropped": 19, "cropHead": 26, "readAbstain": 4, "readUncertain": 12, "readClearCertain": 6, "dedupeHeadSplit": 6, "birthFresh": 12, "readWeak": 4, "weakBump": 2, "birthContended": 1, "clearGraceHeld": 1, "coastExpired": 2}, "passes": 67, "slotsNonZero": 0}
+
+[exited with code 0]

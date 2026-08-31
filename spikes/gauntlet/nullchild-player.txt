@@ -1,0 +1,9 @@
+ARM {"t":110,"bundle":"9845202-dirty"}
+N {"reads": 31, "null": 3, "notNull": 28, "nullWithPc": 3, "notNullWithPc": 21}
+NULL_CHILDP {"n": 3, "min": 0.07, "p50": 0.09, "p90": 0.11, "max": 0.11, "atOrOver_0.25": 0, "over_0.15": 0}
+NOTNULL_CHILDP {"n": 21, "min": 0, "p50": 0.07, "p90": 0.3, "max": 0.32, "atOrOver_0.25": 4}
+NULL_RAW {"vP50": 0.642, "aP50": 36, "pxP50": 64}
+SAMPLE_NULL [{"g": "male", "s": 0.28, "a": 36, "pc": 0.09, "v": 0.642, "ab": 1, "px": 87, "fc": 0.77, "n": 1}, {"g": "male", "s": 0.18, "a": 40, "pc": 0.11, "v": 0.588, "ab": 1, "px": 64, "fc": 0.77, "n": 1}, {"g": "male", "s": 0.39, "a": 34, "pc": 0.07, "v": 0.694, "ab": 1, "px": 49, "fc": 0.81, "n": 1}]
+LIFE {"life":{"cutDetected":59,"emptyFrame":43,"wipeErased":6,"wipeErasedTracks":12,"wipeErasedBlurred":12,"faceNoShape":79,"bodyFromSlot":14,"passDropped":20,"cropHead":31,"readWeak":4,"readClearCertain":11,"birthFresh":18,"weakBump":3,"clampFired":2,"cutDemoteCleared":1,"cutBankKept":1,"readUncertain":9,"cutCoastExpired":2,"coastExpired":8,"birthNearMiss":1,"readAbstain":7,"dedupeHeadSplit":4,"birthContended":1,"clampNoCore":1},"passes":85}
+
+[exited with code 0]
