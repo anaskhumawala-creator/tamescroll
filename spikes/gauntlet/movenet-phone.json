@@ -1,0 +1,161 @@
+{
+ "done": true,
+ "backend": "webgl",
+ "flags": {
+  "WEBGL_VERSION": 2,
+  "WEBGL_RENDER_FLOAT32_CAPABLE": true,
+  "WEBGL_RENDER_FLOAT32_ENABLED": true,
+  "WEBGL_FORCE_F16_TEXTURES": false,
+  "WEBGL_PACK": true,
+  "WEBGL_DOWNLOAD_FLOAT_ENABLED": true,
+  "WEBGL_MAX_TEXTURE_SIZE": 4096
+ },
+ "n": 20,
+ "admittedTotal": 25,
+ "framesWithNobody": 7,
+ "maxKpP50": 0.779,
+ "maxKpMax": 0.858,
+ "noShapeFrames": 0,
+ "rows": [
+  {
+   "id": "vs6x8VUGXCw",
+   "admitted": 0,
+   "maxKp": 0.641,
+   "noShape": false,
+   "rejected": 6
+  },
+  {
+   "id": "hZ5g_PA65fw",
+   "admitted": 0,
+   "maxKp": 0.603,
+   "noShape": false,
+   "rejected": 6
+  },
+  {
+   "id": "GOqEl4ADyVk",
+   "admitted": 0,
+   "maxKp": 0.518,
+   "noShape": false,
+   "rejected": 6
+  },
+  {
+   "id": "RHCKnjkdExg",
+   "admitted": 2,
+   "maxKp": 0.858,
+   "noShape": false,
+   "rejected": 4
+  },
+  {
+   "id": "Ary1gIbaOTc",
+   "admitted": 0,
+   "maxKp": 0.588,
+   "noShape": false,
+   "rejected": 6
+  },
+  {
+   "id": "Hb2rKGfIOrM",
+   "admitted": 2,
+   "maxKp": 0.84,
+   "noShape": false,
+   "rejected": 4
+  },
+  {
+   "id": "x5lkswNc1Wc",
+   "admitted": 0,
+   "maxKp": 0.672,
+   "noShape": false,
+   "rejected": 6
+  },
+  {
+   "id": "BpgMda_4JDI",
+   "admitted": 2,
+   "maxKp": 0.776,
+   "noShape": false,
+   "rejected": 4
+  },
+  {
+   "id": "LAmGfokvgzA",
+   "admitted": 0,
+   "maxKp": 0.613,
+   "noShape": false,
+   "rejected": 6
+  },
+  {
+   "id": "NcaQUH2K-wo",
+   "admitted": 0,
+   "maxKp": 0.676,
+   "noShape": false,
+   "rejected": 6
+  },
+  {
+   "id": "d-pyAYEszeM",
+   "admitted": 1,
+   "maxKp": 0.825,
+   "noShape": false,
+   "rejected": 5
+  },
+  {
+   "id": "9_tf8Quph2U",
+   "admitted": 2,
+   "maxKp": 0.848,
+   "noShape": false,
+   "rejected": 4
+  },
+  {
+   "id": "oOZwbMrDqng",
+   "admitted": 2,
+   "maxKp": 0.779,
+   "noShape": false,
+   "rejected": 4
+  },
+  {
+   "id": "f24jSagiYio",
+   "admitted": 1,
+   "maxKp": 0.837,
+   "noShape": false,
+   "rejected": 5
+  },
+  {
+   "id": "cGLx3V4fKfs",
+   "admitted": 3,
+   "maxKp": 0.772,
+   "noShape": false,
+   "rejected": 3
+  },
+  {
+   "id": "Pg1lvd0JN5Y",
+   "admitted": 2,
+   "maxKp": 0.837,
+   "noShape": false,
+   "rejected": 4
+  },
+  {
+   "id": "DI3kuxsEq_U",
+   "admitted": 4,
+   "maxKp": 0.778,
+   "noShape": false,
+   "rejected": 2
+  },
+  {
+   "id": "t2fPSFILaGk",
+   "admitted": 1,
+   "maxKp": 0.852,
+   "noShape": false,
+   "rejected": 5
+  },
+  {
+   "id": "QW6CNTXqBCM",
+   "admitted": 1,
+   "maxKp": 0.842,
+   "noShape": false,
+   "rejected": 5
+  },
+  {
+   "id": "bh5sWFZDJjE",
+   "admitted": 2,
+   "maxKp": 0.815,
+   "noShape": false,
+   "rejected": 4
+  }
+ ]
+}
