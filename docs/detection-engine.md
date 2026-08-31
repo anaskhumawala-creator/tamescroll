@@ -316,3 +316,38 @@ limit: a 53px face in a VIDEO frame is detected from ~13px in BlazeFace's
 this harness used real detections at >=150px and degraded them, which
 isolates resolution and bypasses detection quality. A degraded thumbnail
 also has no motion blur and different compression from a video frame.
+
+### The discriminator the ghost gate wants already ships (2026-09-01)
+
+The two arms above were measured to answer the size floor, and they
+answer a second question they were not built for.
+
+`frameHasNoHumanShape` (PFF_FRAME_KP_FLOOR 0.1) exists to stop a patch
+being minted over a graphic when MoveNet corroborates nobody. On his
+phone MoveNet corroborates nobody **on every pass** -- twelve slots
+`n:0` in every window since loop 27 -- so that floor alone decides
+whether a detected face becomes a patch, and it currently refuses about
+**three detected faces in four** (`faceNoShape` 127 against ~41 gender
+reads in one 250s window on 1073). Its calibration corpus was gauntlet
+footage; it has never been measured on his hardware.
+
+`isNullRead`'s band on the faceres sigmoid, [0.545, 0.705], is on the
+right axis and its numbers are much better:
+
+| population | in the null band |
+|---|---|
+| 28 real faces, at every size 32-160px | **1-2 of 28** (3.6-7.1%) |
+| 34 non-face crops, at every size 32-160px | **30-33 of 34** (88-97%) |
+
+So the band keeps ~95% of real faces and catches ~91% of non-faces,
+while the keypoint floor is discarding three quarters of the faces on
+the device that matters. It is also the cheaper signal in the sense that
+counts: it comes from a model that is already being run on that crop.
+
+**NOT CHANGED.** Two reasons, and the first is a rule: this is a
+protection decision. The second is that the refused POPULATION is still
+unmeasured -- if those 127 refusals are mostly BlazeFace firing on
+graphics, the gate is doing its job and the exposure is imagined. 1074
+records exactly that (`gateRefused` / `gateKept`, each face's
+confidence, native size, and the frame keypoint maximum), so the
+comparison can be made on his own footage before anything moves.
