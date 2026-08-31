@@ -75,6 +75,97 @@ raw manifest + served APK agree, isDraft false; 1074 before it, sha
 712c382a. rules 99394d11. **His phone is on 1073** -- it has neither the
 gate diagnostics nor the new size floor).
 
+**Session 2026-09-01 (loop 37d) -- THE CHILD GUARD IS DEAD ON 1,399
+READS, AND THE MINIPLAYER RESTORE WAS LEAVING A COVERED WOMAN WITH
+NOTHING DRAWN.** No release: his phone is on **1075** and the only
+user-visible change is an 84ms window inside a gesture, which rides the
+next one.
+
+- **THE QUESTION THE REVERT LEFT OPEN IS CLOSED, AND IT NEEDED NO DEVICE
+  RUN.** Every read ring this repo has ever banked already carries
+  childP (`pc`) and isNullRead (`ab`). `app/gaze/bench/null-child-mine.mjs`
+  walks all of spikes/: **8,860 reads with age+childP, 1,399 of them
+  null reads, childP min 0.05 / p50 0.14 / p95 0.18 / MAX 0.23** against
+  GENDER_CHILD_MASS 0.25. **Zero of 1,399**; 95% upper bound 2.1e-3.
+  Only 2 reads in the whole corpus carry age >= 34 AND childP >= 0.25
+  and both are female, which isNullRead rejects first. pearson(age,
+  childP) **-0.820**. So `isAdultRead(f) && isNullRead(f)` is, on all
+  evidence we own, identical to `isNullRead(f)` -- the guard cannot
+  fire, which is why the reverted gate refused HER.
+- **AND THE FIRST CRITIC'S ARGUMENT FOR THAT WAS MATHEMATICALLY WRONG,
+  which matters because the next round will be tempted by it.** "childP
+  is small BY CONSTRUCTION for a null read" holds only for a UNIMODAL
+  posterior. `age` is the MEAN of a 100-bin softmax and childP is the
+  mass under 18; an LP bound allows childP **0.79** at mean 34, and an
+  ordinary bimodal mixture reaches **mean 39.4 with childP 0.294**
+  (app/gaze/bench/age-childp-bound.mjs). detector.js documents this model
+  emitting exactly that shape. Right conclusion, wrong reason.
+- **DEVICE RUNS THAT AGREE:** player ring in his regime, 3 null reads,
+  max childP 0.11; image ring over a search population that CONTAINS
+  **47 child reads** (childP to 0.97), 21 null reads, max 0.19, and **0
+  of the 47 children fall in the band**. The band excludes children on
+  AGE (>= 34) and the age head reads them at 14-32.
+- **CONSEQUENCE FOR ANY FUTURE ATTEMPT:** a child guard for the null
+  band must key on something other than childP against 0.25, and
+  gender-verdict.mjs already records why -- that constant orders our two
+  reference faces BACKWARDS (a 21-year-old at 0.49-0.94, a known
+  12-year-old at 0.146-0.194).
+- **THE MINIPLAYER RESTORE LEFT A COVERED SUBJECT WITH NOTHING DRAWN FOR
+  84ms.** Loop 23 flagged the window and left it unverified. MEASURED on
+  a built APK, video playing, live track: **3 frames / 84ms**, against
+  **0 frames over 108 frames of the shrink** (40 mid-drag). Mechanism:
+  everything reposition() uses is a difference of two CACHED viewport
+  rects -- transform-invariant, which is why the shrink is fine -- but a
+  restore is a LAYOUT change (fixed-and-scaled -> static), and that fires
+  neither scroll nor resize, the only two things that mark rects dirty.
+  clipToBounds then reads the patch as outside the picture and
+  display:none's it.
+- FIX, two halves because the first was not enough: scoped
+  transitionrun/end/cancel listeners hold the rects dirty for a run on a
+  host or an ancestor of one (a descendant costs nothing; the count
+  floors at 0 so a cancel+end pair cannot strand a forced layout every
+  frame); and `installMiniplayer(win, onGeometry)` tells the renderer
+  FIRST in setState, because the class flip lands in the same update
+  that dispatches transitionrun and our rAF can run first. Passed as a
+  CALLBACK, never an import -- miniplayer.mjs imports nothing on purpose
+  because it has to work in off mode. **AFTER: 84ms -> <=1ms**, one
+  frame left and it is 1.1s after the transition, not inside it.
+- **A NEW INSTRUMENT DEFECT, AND IT INVENTED A DEFECT TWICE BEFORE IT
+  WAS CAUGHT** (docs/technical-findings.md): a `display:none` overlay is
+  still in the DOM and still in `entry.tracks`, and its rect is 0x0 at
+  the origin. probe_mini_land_live read that as a shortfall of
+  **6.3673** video-heights on two independent runs -- the identical
+  float that made it look deterministic and real. It is
+  `1.0058 - (0 - 697)/130`, exact to four decimals. A second probe
+  logging RAW VIEWPORT PIXELS found 0 stray frames over 54.
+  **67 probes under spikes/gauntlet count patches with no display
+  check**, and the bias runs the dangerous way -- a hidden overlay
+  inflates a patch count, so coverage is overstated and an exposure is
+  under-reported. Same class as the pointer-events retraction that
+  killed three "verified" claims. Rule + shared snippet
+  (`emu_cdp.VISIBLE_PATCHES_JS`) written down; two probes fixed, the
+  other 65 flagged.
+- **AND A COVERAGE INSTRUMENT REBUILT AFTER REVIEW KILLED THREE THINGS
+  IN IT** (probe_covered2.py, written, NOT yet run): v1 compared VTRACKS
+  against ITSELF rather than against the DOM selector the old probe
+  used, so its "the two instruments agree" was an algebraic tautology,
+  not corroboration; it scored every read at first sight, which judges
+  the LAST person of a pass against that pass's patches and the earlier
+  ones against the previous pass's; and it counted a display:none
+  overlay as coverage.
+- **RETRACT, before it hardens: "probe_her2's second-delay numbers
+  stand" is NOT established.** What was measured is that the two
+  blindnesses were inert in the GHOST-GATE regime (slotsNonZero 0,
+  faceNoShape 79, female n=1). The delay lives in the MoveNet-admitting
+  regime and is unmeasured by that instrument -- and a snapshot probe
+  cannot produce a latency figure at all.
+- **A PROBE THAT MEASURES NOTHING READS EXACTLY LIKE A CLEAN ONE:** one
+  miniplayer run's drag never committed (framesMini 0, sizes only
+  [[412,232]]) and every number in it described a full player.
+  probe_mini_land_live asserts the state its arm is about to measure and
+  retries the gesture.
+- gaze 418/418, cargo 58/58.
+
 **Session 2026-09-01 (loop 37c) -- THE SECOND CRITIC RAN EXPERIMENTS
 INSTEAD OF ARGUMENTS AND KILLED MY FIX. REVERTED WHOLE (9845202).**
 2638d2f and 168206f are gone; the tree is back at 4af7ba7. His phone is
