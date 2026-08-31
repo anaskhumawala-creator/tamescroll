@@ -537,6 +537,15 @@ export function installMiniplayer(win) {
     bound = { host: pc, fn: fn };
   }
 
+  function inButtons(el) {
+    if (!el) return false;
+    if (el.closest) return !!el.closest('#' + BTN_ID);
+    for (var n = el; n; n = n.parentElement) {
+      if (n.id === BTN_ID) return true;
+    }
+    return false;
+  }
+
   function onDown(x, y, target) {
     if (!watchPage()) {
       unbindHost();
@@ -544,6 +553,27 @@ export function installMiniplayer(win) {
       return;
     }
     if (!inPlayer(target)) {
+      start = null;
+      return;
+    }
+    // THE TWO CONTROLS THE MINI PLAYER HAS MUST BE PRESSABLE.
+    //
+    // The buttons are children of the player container, so inPlayer() is
+    // true for them and the gesture armed on top of a button press. On
+    // release onUp ran first, gestureVerdict read a near-zero movement
+    // while mini as the tap-to-restore, and the player expanded instead
+    // of the button firing -- their click handlers stopPropagation, but
+    // that is a click, and this decision was already made on touchend.
+    // MEASURED 2026-08-31 on a built APK: a clean tap on "Play or pause"
+    // left the video playing and put the player back to 412x232; the
+    // same on "Close mini player" did not dismiss it either. Both
+    // controls were dead. With 20px of thumb roll it was worse -- the
+    // sideways claim faded the player to opacity 0.91 under the finger.
+    //
+    // A touch that starts on a button is the button's, entirely: no
+    // arming, no host binding, so the click lands the way the page's
+    // own controls do.
+    if (inButtons(target)) {
       start = null;
       return;
     }

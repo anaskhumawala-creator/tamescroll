@@ -26,7 +26,12 @@ test('the watch player is never skipped -- that page has no preview', () => {
 const mini = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
 
 test('the drag gesture never binds a non-passive listener off the watch page', () => {
-  const down = mini.slice(mini.indexOf('function onDown('), mini.indexOf('function onDown(') + 420);
+  // Slice to the END of onDown, not a magic character count -- a fixed
+  // window silently stops covering the function as comments grow.
+  const down = mini.slice(
+    mini.indexOf('function onDown('),
+    mini.indexOf('function endDrag(')
+  );
   assert.ok(down.includes('watchPage()'), 'onDown must refuse off /watch');
   assert.ok(
     down.indexOf('watchPage()') < down.indexOf('inPlayer(target)'),
@@ -36,7 +41,12 @@ test('the drag gesture never binds a non-passive listener off the watch page', (
 
 test('a navigation off the watch page takes the listener back off', () => {
   assert.ok(mini.includes('removeEventListener('), 'unbindHost must actually remove it');
-  const down = mini.slice(mini.indexOf('function onDown('), mini.indexOf('function onDown(') + 420);
+  // Slice to the END of onDown, not a magic character count -- a fixed
+  // window silently stops covering the function as comments grow.
+  const down = mini.slice(
+    mini.indexOf('function onDown('),
+    mini.indexOf('function endDrag(')
+  );
   assert.ok(down.includes('unbindHost()'), 'and a touch off /watch must trigger it');
 });
 

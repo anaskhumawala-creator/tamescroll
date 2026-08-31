@@ -287,3 +287,26 @@ test('a tap that rolls under the paging slop does not move the player', () => {
   assert.equal(m.claimAxis(0, -14, 'mini'), null);
   assert.equal(m.claimAxis(0, -16, 'mini'), 'y');
 });
+
+test('a touch that starts on a mini button belongs to the button', () => {
+  // MEASURED 2026-08-31 on a built APK: the mini player's two controls
+  // were BOTH dead. A clean tap on "Play or pause" left the video
+  // playing and expanded the player to 412x232; the same on "Close mini
+  // player" did not dismiss it. The buttons are children of the player
+  // container, so inPlayer() was true for them, the gesture armed, and
+  // onUp's tap-to-restore ran on touchend -- before the click their
+  // handlers stopPropagation on could ever happen. With 20px of thumb
+  // roll the sideways claim also faded the player to opacity 0.91.
+  const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
+  const code = stripComments(src);
+  assert.match(code, /function inButtons\(el\)/);
+  // The refusal must come BEFORE the host is bound and before start is
+  // set, or the gesture is armed anyway.
+  const down = code.slice(code.indexOf('function onDown('));
+  const body = down.slice(0, down.indexOf('function endDrag('));
+  const guard = body.indexOf('inButtons(target)');
+  // NB: `unbindHost()` contains the substring `bindHost(`.
+  const bind = body.indexOf('bindHost(container())');
+  assert.ok(guard > -1, 'onDown must refuse a touch that starts on a button');
+  assert.ok(guard < bind, 'the refusal must come before bindHost');
+});
