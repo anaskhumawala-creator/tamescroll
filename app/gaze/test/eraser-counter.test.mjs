@@ -45,3 +45,19 @@ test('the exposure number counts BLURRED tracks specifically', () => {
     /dbgW\.life\.wipeErasedBlurred =\s*\(dbgW\.life\.wipeErasedBlurred \|\| 0\) \+ wipeBlurred;/
   );
 });
+
+test('the eraser counters reach the report, and a zero is evidence', () => {
+  const report = readFileSync(new URL('../src/diag-report.mjs', import.meta.url), 'utf8');
+  // They existed in the page and reached no report, so the artifact he
+  // sends could not have shown the 1070 regression.
+  for (const k of ['emptyFrame', 'wipeErased', 'wipeErasedTracks',
+                   'wipeErasedBlurred', 'faceNoShape', 'bodyFromSlot']) {
+    assert.ok(report.includes(k + ': num(life.' + k + ')'), k + ' missing from the report');
+  }
+  // Every counter is written as `(x || 0) + 1` at its own site, so an
+  // absent key cannot be told from a missing hook. Seeded on the first
+  // player pass.
+  const page = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
+  assert.match(page, /lf\.wipeErased = lf\.wipeErased \|\| 0;/);
+  assert.match(page, /lf\.emptyFrame = lf\.emptyFrame \|\| 0;/);
+});

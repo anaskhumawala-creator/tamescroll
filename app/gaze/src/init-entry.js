@@ -3836,6 +3836,21 @@ if (
                 // Same defect the image ring already carries a total for.
                 dbgSt.passesTotal = (dbgSt.passesTotal || 0) + 1;
                 if (wasVerdict) dbgSt.verdictsTotal = (dbgSt.verdictsTotal || 0) + 1;
+                // A COUNTER THAT DOES NOT EXIST UNTIL IT FIRES CANNOT BE
+                // READ AS ZERO. Every one of these is written as
+                // `(x || 0) + 1` at its own site, so an absent key is
+                // ambiguous between "never happened" and "the hook is
+                // not there" -- and that ambiguity is exactly why the
+                // 1070 eraser regression was found by him and not by a
+                // probe. Seeded on the first player pass so a report
+                // showing 0 is EVIDENCE.
+                var lf = (dbgSt.life = dbgSt.life || {});
+                lf.emptyFrame = lf.emptyFrame || 0;
+                lf.wipeErased = lf.wipeErased || 0;
+                lf.wipeErasedTracks = lf.wipeErasedTracks || 0;
+                lf.wipeErasedBlurred = lf.wipeErasedBlurred || 0;
+                lf.faceNoShape = lf.faceNoShape || 0;
+                lf.bodyFromSlot = lf.bodyFromSlot || 0;
               } catch (e) {}
               var cost = performance.now() - now;
               if (wasVerdict) lastVerdictMs = cost;

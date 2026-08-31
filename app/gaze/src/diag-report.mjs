@@ -243,6 +243,7 @@ export function buildReport(snap) {
   var timing = s.timing || {};
   var worker = s.worker || {};
   var ids = s.ids || {};
+  var life = ids.life || {};
   var imgs = (s.imgdiag || []).slice(-KEEP.images);
 
   // Gaps between finished images. This one number is the owner's "it
@@ -371,6 +372,20 @@ export function buildReport(snap) {
       slots: (ids.slots || []).slice(-KEEP.slots).map(function (x) {
         return { n: num(x.n), hd: num(x.hd), ha: num(x.ha) };
       }),
+      // THE ERASER AND THE GATES THAT FEED IT. These counters existed
+      // in the page and reached NO report, so the artifact he sends
+      // could not have shown the 1070 regression -- a held
+      // `noHumanShape` making `wipeIfEmpty` erase a woman's patch while
+      // faces were plainly detected. All numeric, so they cost the
+      // violation walker nothing.
+      life: {
+        emptyFrame: num(life.emptyFrame),
+        wipeErased: num(life.wipeErased),
+        wipeErasedTracks: num(life.wipeErasedTracks),
+        wipeErasedBlurred: num(life.wipeErasedBlurred),
+        faceNoShape: num(life.faceNoShape),
+        bodyFromSlot: num(life.bodyFromSlot),
+      },
       reads: (ids.reads || []).slice(-KEEP.reads).map(function (r) {
         return {
           g: ENUMS.g.indexOf(r.g) === -1 ? 'unknown' : r.g,
