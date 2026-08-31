@@ -141,8 +141,20 @@ function assetOrigin() {
   return '';
 }
 
+/**
+ * How long each model's BYTES took, apart from building its graph.
+ *
+ * `ms.gender` in the boot record spans both, and on 2026-08-31 that made
+ * a candidate model unmeasurable: three runs read 1012, 1411 and 299ms,
+ * and 299ms is a warm HTTP cache rather than a faster model. Bytes and
+ * graph are different levers -- a smaller file moves the first, a
+ * simpler graph the second -- so they are timed apart.
+ */
+export var fetchMsByKind = {};
+
 async function fetchedArtifacts(kind) {
   var base = assetOrigin() + '/__tamescroll/models/' + MODEL_ASSETS[kind];
+  var at = typeof performance !== 'undefined' ? performance.now() : 0;
   var jsonRes = await fetch(synthetic(base + '.json'));
   if (!jsonRes.ok) throw new Error('model json ' + jsonRes.status);
   var modelJson = await jsonRes.json();
@@ -150,6 +162,16 @@ async function fetchedArtifacts(kind) {
   if (!binRes.ok) throw new Error('model bin ' + binRes.status);
   var weightData = await binRes.arrayBuffer();
   if (!weightData || !weightData.byteLength) throw new Error('model bin empty');
+  try {
+    fetchMsByKind[kind] = Math.round(
+      (typeof performance !== 'undefined' ? performance.now() : 0) - at
+    );
+    // Bytes on the wire, so a cache hit is visible as such rather than
+    // read as a smaller model.
+    fetchMsByKind[kind + ':bytes'] = weightData.byteLength;
+  } catch (e) {
+    /* instrumentation must never fail a load */
+  }
   return artifacts(modelJson, weightData);
 }
 

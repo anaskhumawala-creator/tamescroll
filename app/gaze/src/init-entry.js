@@ -4616,6 +4616,13 @@ if (
               var ms = (t.ms = t.ms || {});
               ms[ev.type === 'ready' ? 'total' : ev.model] = ev.ms;
             }
+            // The bytes half of a model load, and how many there were --
+            // a warm cache and a smaller file look identical in `ms`.
+            if (ev.type === 'loaded' && typeof ev.fetchMs === 'number') {
+              var fm2 = (t.fetch = t.fetch || {});
+              fm2[ev.model] = ev.fetchMs;
+              if (typeof ev.bytes === 'number') fm2[ev.model + 'B'] = ev.bytes;
+            }
             // WHICH BACKEND THE WORKER GOT, kept where a report can read
             // it. This is the single field that decides whether the
             // player path is off the main thread on a given device at

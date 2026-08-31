@@ -455,3 +455,56 @@ Regenerate the candidate with:
 
 staging `faceres.json` as `model.json` with its manifest path pointing at
 `weights.bin`.
+
+### VERDICT: REFUSED, on his phone, 100 samples (2026-08-31 loop 34)
+
+Blocker 2 is answered and the answer is no. The licence gap was a
+non-problem: the inputs that matter are **real ytimg thumbnails**, which
+are CORS-safe and need storing nowhere. `spikes/gauntlet/
+probe_faceres_parity.py` collects 20 video ids off a live m.youtube
+search, serves both model variants over `adb reverse` from a local
+`http.server`, and runs **byte-identical [1,224,224,3] float tensors**
+(five deterministic crops per thumbnail) through each on the WebGL that
+actually ships. Nothing is rendered: the page holds no visible element
+and the crops are drawn to a detached canvas.
+
+All three heads, n=100, 0 fetch errors:
+
+| quantity | p50 | p95 | max |
+|---|---|---|---|
+| gender sigmoid \|A-B\| | 0.0234 | 0.0758 | **0.1042** |
+| age (expected value, years) | 0.53 | 2.05 | 3.73 |
+| childP (mass under 18) | 0.0102 | 0.0420 | 0.0567 |
+
+And the counts that decide it:
+
+- **2 outright sign flips** -- the same crop reads male on one model and
+  female on the other.
+- **17 of 100 decision flips at GENDER_MIN_SCORE 0.25** (the video path)
+  and **8 of 100 at GENDER_IMAGE_MIN_SCORE 0.4** (the image path). That
+  is a face whose cover changes, not a rounding difference.
+- **11 crossings of the `isNullRead` band** [0.545, 0.705]. A read
+  inside it is treated as the model's prior rather than an answer, so
+  crossing the edge changes a verdict too.
+- **10 crossings of the child gate at childP 0.15.**
+- **Descriptor cosine min 0.5962**, against `MEM_SIM_CLEAR` **0.6**. The
+  identity memory's own match threshold falls between the two models'
+  answers for the same face, so a remembered clear would be inherited on
+  one and not the other.
+
+A 0.10 shift on a sigmoid whose entire decision range is [0,1] is not
+noise; the worst cases (0.6964 -> 0.5922, 0.8312 -> 0.7490) all move the
+same direction, toward the middle, which is what a per-tensor affine
+does to a confident activation. **3.46MB of APK is not worth eight
+thumbnails per hundred changing whether a person is covered.**
+
+Blocker 1 is now moot, but the instrument for it shipped anyway: the
+worker reports `fetchMs` and `bytes` per model, so `ms.gender` can be
+split into fetch and graph build the next time a model swap is proposed.
+
+**Do not re-run the requant on faceres without changing the METHOD**
+(per-channel scales, or leaving the three heads' final layers at f16 --
+the current bound is a per-tensor 0.02 absolute error, which is loose
+for a tensor feeding a sigmoid). The harness is now cheap to re-run:
+`app/gaze/bench/faceres-parity.js` builds with esbuild, and the probe
+takes ~4 minutes end to end.

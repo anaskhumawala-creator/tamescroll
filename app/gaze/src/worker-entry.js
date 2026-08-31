@@ -81,7 +81,24 @@ export function startWorker() {
         var at = performance.now();
         try {
           var m = await load();
-          post({ type: 'loaded', model: name, ms: Math.round(performance.now() - at) });
+          // BYTES AND GRAPH ARE DIFFERENT LEVERS. `ms` alone could not
+          // tell a smaller model from a warm HTTP cache, which is what
+          // made a 50%-smaller faceres unmeasurable on 2026-08-31.
+          var fm = null;
+          var fb = null;
+          try {
+            fm = detector.fetchMsByKind[name];
+            fb = detector.fetchMsByKind[name + ':bytes'];
+          } catch (e) {
+            /* instrumentation only */
+          }
+          post({
+            type: 'loaded',
+            model: name,
+            ms: Math.round(performance.now() - at),
+            fetchMs: typeof fm === 'number' ? fm : null,
+            bytes: typeof fb === 'number' ? fb : null,
+          });
           return m;
         } catch (e) {
           post({
