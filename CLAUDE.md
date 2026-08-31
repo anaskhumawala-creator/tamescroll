@@ -70,8 +70,34 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 08:35 (1065 live, sha 665f189c; loop 17 explains why
-the occluder clamp cannot see the sticky player -- and why it must not).
+**Last updated:** 2026-08-31 09:20 (1065 live, sha 665f189c; loop 18 measured the
+blur in fullscreen and RETRACTED its own first reading for want of a control arm).
+
+**Session 2026-08-31 (loop 18) -- THE FULLSCREEN BLUR, AND A CLAIM I
+WITHDREW BECAUSE I HAD NO CONTROL ARM.** No code changed.
+- **FULLSCREEN IS REACHABLE FROM A PROBE NOW, and that unblocks a check
+  flagged unverified since 2026-08-24.** Synthetic touches never grant
+  activation for requestFullscreen; a real `Input.dispatchMouseEvent`
+  click does -- and the fullscreen button must be asserted HITTABLE at
+  click time, because the mobile player autohides its controls in well
+  under a second (three earlier attempts silently clicked the background
+  div and reported nothing).
+- **THE FULLSCREEN ELEMENT IS `#player-container-id` ITSELF.** So 1065's
+  pill host is fullscreen-safe: `fsContainsPill` true, pill visible at
+  [808,48,99,36] in a 915x412 landscape viewport, back to [305,96,99,36]
+  on exit.
+- **I FIRST READ THIS AS AN EXPOSURE AND IT IS NOT.** One run showed the
+  region layer present at fs+1s and fs+2s, then `clip: null, hosts: 0`
+  from fs+6s onward, which looks exactly like fullscreen tearing the
+  cover off a playing video. The video and player elements were the SAME
+  throughout (stamped and re-read) and always connected, so nothing was
+  destroyed by the transition. THE CONTROL ARM KILLED IT: 20 samples
+  windowed vs 20 samples fullscreen on the same video, **covered 5 of 20
+  (25%) windowed and 4 of 20 (20%) fullscreen**. Fullscreen is not
+  special. A duty cycle is not a regression unless you measured the
+  other arm.
+- gaze 379/379, cargo 58/58 (unchanged -- no code touched).
+
 
 **Session 2026-08-31 (loop 17) -- THE CLAMP CANNOT SEE THE STICKY
 PLAYER, AND MAKING IT SEE THE PLAYER WOULD BE AN EXPOSURE.** No code
