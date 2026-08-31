@@ -1,7 +1,7 @@
 {
-  "versionCode": 1065,
-  "versionName": "0.1.65",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.65/tamescroll-v0.1.65.apk",
-  "sha256": "665f189cef3ae0ee1cfbe95f9f4a19f1b8b7d1f3a850fbb407e6bd440feba90e",
-  "notes": "Closes a path where a blur patch could be drawn on top of the playing video."
+  "versionCode": 1066,
+  "versionName": "0.1.66",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.66/tamescroll-v0.1.66.apk",
+  "sha256": "f8e59674394ee06ab3330d2397aa97fdcd2e96c919b7ef4ec52f364da91fcff8",
+  "notes": "YouTube's own logo is no longer blurred, and a blur cut by the top bar now has a straight edge."
 }
