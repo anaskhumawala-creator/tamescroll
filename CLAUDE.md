@@ -70,8 +70,64 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 19:40 (1067 live, sha 27c4b179; rules
-99394d11).
+**Last updated:** 2026-08-31 20:35 (1067 live, sha 27c4b179; rules
+99394d11. **1068 is BUILT and sitting in his phone's Download folder,
+NOT released** -- it needs his install before it can be verified).
+
+**Session 2026-08-31 (loop 27-28) -- HIS PHONE WAS PROFILED FOR THE
+FIRST TIME, AND THE PERSON PASS IS 63% OF EVERY VERDICT WHILE FINDING
+NOBODY.** He said the HaramBlur app "feels so much more snappier and
+instantaneous ... and there are no random blur marks here and there",
+and "our app was missing a lot of frames that should have been blurred".
+This loop turned that into numbers off the real device.
+- **WIRELESS ADB WORKS, and it is how every number below was taken.**
+  `adb mdns services` -> `adb connect 192.168.99.194:42305`, CDP over
+  `adb forward tcp:9225`. GOTCHA THAT COST AN HOUR: the `adb` on PATH is
+  a stray **28.0.3** (Touch Portal) with no `mdns` command -- use
+  `$ANDROID_HOME/platform-tools/adb.exe` (37.0.0). And adb.exe needs a
+  WINDOWS path for a push, never an msys `/z/...` one.
+- **THE CADENCE ON HIS HARDWARE, twice, 150s windows on a playing watch
+  page:** verdict p50 **794ms** / p95 1111ms, **passP50 504ms**,
+  **10.4 passes per minute = ONE VERDICT EVERY 5.8 SECONDS**, rAF
+  42.7Hz. That is his "missing frames" complaint measured: between two
+  verdicts almost six seconds of video goes by on interpolation alone.
+- **AND ALL TWELVE PERSON SLOTS READ n:0 IN BOTH RUNS.** MoveNet is
+  costing 504 of those 794ms and admitting nobody -- the R21 regime,
+  now confirmed on the device that matters instead of the emulator. The
+  face path is carrying the whole player blur.
+- **1068 IS THE FIX AND IT IS BUILT (sha 32744a05, arm64, commit
+  6da0053).** After PERSON_EMPTY_STREAK (3) consecutive passes admit
+  nobody, the person model runs on one pass in PERSON_SKIP_EVERY (3)
+  instead of every one; any admitted person resets the streak
+  instantly. A skipped pass is INERT, not empty: `personsSkipped` is
+  threaded back through the worker so the ghost gate's `noHumanShape`
+  can never fire off a pass that never ran, and the face fallback keeps
+  minting patches exactly as before. Skipping makes each pass CHEAPER,
+  so MoveNet ends up running MORE often in wall-clock, not less. 6
+  tests pin every one of those properties.
+- **NOT RELEASED, DELIBERATELY.** `adb install` AND `pm install` both
+  return INSTALL_FAILED_USER_RESTRICTED on MIUI, so he has to install
+  it from Files himself. The emulator cannot stand in -- under
+  swiftshader it managed **1 pass in 120s** with a 15,012ms verdict.
+  **THE CONTROL ARM IS BANKED** (probe_phone_baseline.py, label
+  `1067-control-2`): passesPerMin **10.4**, secsPerVerdict **5.77**,
+  verdictP50 **794**, passP50 **504**. Re-run that probe once the phone
+  reads 1068 and compare those four numbers.
+- **HIS "IT BLURS MALES" COMPLAINT HAS A MEASURED MECHANISM, and it is
+  a threshold he has to rule on.** 24 face reads in one window:
+  **male 14, female 2, unknown 8** -- a THIRD abstained. facePx p50 74,
+  **min 53**. FACE_MIN_NATIVE_PX is 64, so every face under it abstains
+  and fails closed = covered. That is exactly the man who gets blurred.
+  Lowering it is an EXPOSURE trade, and loop 16 already refused the
+  same move on the IMAGE path with numbers (a 53px face read male 0.99
+  there). Not changed; it is his call.
+- **HaramBlur ANSWERED, and the answer is no.** It is **AGPL-3.0**
+  (NOTICE:86): vendoring it relicenses this whole app and ends App
+  Store distribution (Apple ToS conflict, the VLC precedent). "Ship it
+  as a browser" does not change that, and Brave pairing is already dead
+  in VISION.md. They use the SAME MIT models we do (Human + nsfwjs).
+  Their polish is not a better model: they run per-frame detection with
+  NO temporal tracker, on desktop hardware.
 
 **Session 2026-08-31 (loop 25-26) -- THE TWO PLATFORMS NOBODY HAD
 AUDITED, AND THE POLISH QUESTION THE EMULATOR CANNOT ANSWER.** No code
