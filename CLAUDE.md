@@ -70,9 +70,71 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 20:20 (**1071 PUBLISHED, sha 98348b08**,
-raw manifest + downloaded APK agree; rules 99394d11. His phone is on
-1070 and needs the update).
+**Last updated:** 2026-08-31 22:55 (**1073 PUBLISHED**, sha
+99a39fe4...; rules 99394d11. **His phone still reads 1070** -- so it has
+neither the 1071 revert, the 1072 eraser counters nor the 1073
+miniplayer fix, and every cadence number taken off it tonight describes
+the REGRESSED build).
+
+**Session 2026-08-31 (loop 34) -- THE BIGGEST SPEED LEVER LEFT IS
+REFUSED ON MEASUREMENT, AND THE FACE-SIZE FLOOR GUARDS THE WRONG
+AXIS.** No release: nothing user-visible changed. The negative results
+are the deliverable.
+- **THE faceres uint8 REQUANT IS DEAD. 8 of 100 crops change who gets
+  covered.** Last loop had it at 6,978,814 -> 3,512,611 bytes (APK
+  -3.46MB) with two blockers; the parity blocker is now answered and the
+  answer is no. The licence gap that blocked it was a NON-PROBLEM: the
+  inputs that matter are real ytimg thumbnails, they are CORS-safe, and
+  nothing needs storing. 100 byte-identical [1,224,224,3] tensors (20
+  live search thumbnails x 5 deterministic crops) through both models on
+  HIS PHONE:
+
+  | | p50 | p95 | max |
+  |---|---|---|---|
+  | gender sigmoid abs diff | 0.0234 | 0.0758 | **0.1042** |
+  | age (years) | 0.53 | 2.05 | 3.73 |
+  | childP | 0.0102 | 0.0420 | 0.0567 |
+
+  **2 outright sign flips**; **17/100 decision flips at GENDER_MIN_SCORE
+  0.25** and **8/100 at GENDER_IMAGE_MIN_SCORE 0.4**; **11 crossings of
+  the isNullRead band**; **10 crossings of the child gate**; and
+  **descriptor cosine MIN 0.5962 against MEM_SIM_CLEAR 0.60** -- the
+  identity memory's own threshold falls BETWEEN the two models' answers
+  for the same face. The worst cases all move toward 0.5, which is what
+  a per-tensor affine does to a confident activation. **Alive is not
+  correct**: last loop's smoke test (8 reads, still differentiating)
+  could not have caught any of this. Do not retry without changing the
+  METHOD (per-channel scales, or the heads' final layers left at f16).
+- **THE HARNESS IS CHEAP AND REUSABLE** (probe_faceres_parity.py +
+  app/gaze/bench/): collect ids off a live search, serve both variants
+  over `adb reverse tcp:8899`, compare all three heads. Nothing renders
+  -- the page holds no visible element and crops go to a detached
+  canvas. ~4 minutes end to end.
+- **FACE_MIN_NATIVE_PX 64 IS A SIZE PROXY FOR A CONTENT QUESTION, and
+  both arms are now measured** (his call, NOT changed). Arm 1, 28 real
+  faces (11 male / 17 female by their own full-res read) degraded to N
+  px: **28 of 28 agree with the full-resolution answer at EVERY size
+  down to 32px, 0 certain-wrong**, score p50 flat 0.76-0.87. Resolution
+  alone does not flip the read. Arm 2, THE CONTROL the floor exists for
+  -- 34 crops from thumbnails where BlazeFace found nothing: the gate's
+  own justification is TRUE (**38-53% read CERTAIN**, score >= 0.25) and
+  it is **FLAT IN SIZE** (11 of 34 at 160px against 18 of 34 at 32px).
+  So the null read is a function of CONTENT, not RESOLUTION, and the
+  gate on the right axis already ships: **isNullRead's band catches
+  30-33 of 34 at every size**. Three options written into
+  docs/detection-engine.md. HONEST LIMIT: a 53px face in a video frame
+  is detected from ~13px in BlazeFace's 256 model space, so its BOX may
+  be worse and not merely smaller -- this harness degraded real >=150px
+  detections, which isolates resolution and bypasses detection quality.
+- **PRIORITY 1, THE SPA-NAV ANGLE, PROPERLY EXERCISED AT LAST.** Loop
+  33's attempt produced a HARD navigation, so it measured nothing. The
+  new probe proves same-document with a window mark AND taps a result
+  whose OWN patch is sitting in the player band: tapped patchTop **48**
+  (the player's own top), sameDocument **true**, 16 samples across the
+  transition -- **patches survive (3 carried), orphan 0, overlap 0,
+  ranked 0, above 0**, settled 5 patches / 0 overlap. Patches live
+  through a pushState and are never left over the player.
+- gaze 405/405, cargo 58/58.
 
 **Session 2026-08-31 (loop 33) -- TWO MORE PRIORITY-1 ANGLES CLOSED ON
 HIS PHONE, THE WORKER'S 680ms DECOMPOSED, AND THE BIGGEST SPEED LEVER
