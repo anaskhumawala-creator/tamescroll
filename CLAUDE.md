@@ -70,8 +70,40 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 09:20 (1065 live, sha 665f189c; loop 18 measured the
-blur in fullscreen and RETRACTED its own first reading for want of a control arm).
+**Last updated:** 2026-08-31 10:10 (1065 live, sha 665f189c; loop 19 A/B'd the
+player blur by user gender, and lost most of the loop to a wedged emulator).
+
+**Session 2026-08-31 (loop 19) -- THE PLAYER BLUR DOES DIFFERENTIATE,
+AND ON THIS FOOTAGE MoveNet CONTRIBUTES NOTHING.** No code changed.
+- **THE A/B THAT LOOP 18's DUTY-CYCLE NUMBER NEEDED.** Same video, same
+  span (t 87-149), only the user's gender flipped: **gender='man' covered
+  11 of 30 samples (37%), gender='woman' covered 0 of 30** (2 of 30 on a
+  repeat run). So the coverage tracks who is on screen against the
+  setting -- it is not a duty cycle the pipeline drops at random, and
+  loop 18's 25% was scene content. A percentage alone says nothing;
+  flip the setting and measure the other arm.
+- **MoveNet RETURNS ZERO PERSONS ON THIS FOOTAGE AND THE FACE PATH IS
+  CARRYING THE WHOLE PLAYER BLUR.** Read off the live diagnostics:
+  `player.slots` is `n:0` in all twelve slots for the entire session,
+  while `player.reads` holds real face verdicts at 33-81px (male 0.89,
+  male 0.30, female 0.15, several `unknown` under the 64px abstain
+  floor). That is the gauntlet R21 regime, measured again on the current
+  build -- worth knowing before anyone tunes the person gate.
+- **HARNESS LESSON THAT COST MOST OF THE LOOP: after a hard `emu kill`,
+  the saved snapshot can wedge the next boot.** adb sat at
+  `emulator-5554  offline` for **13 minutes** across two relaunches,
+  `adb reconnect` and a full adb server restart; the AVD lock files were
+  fresh, so the process was alive and simply never came up. Relaunching
+  with **`-no-snapshot-load`** booted it in ~27 seconds. Add that flag
+  whenever a restart does not come back.
+  Also: launch the emulator as a BACKGROUND task -- a foreground
+  invocation dies with the tool timeout and leaves the next launch
+  refusing with "Another emulator instance is running".
+- PROBE GOTCHA: `window.__TS_DIAG_NOW()` can come back over CDP as a
+  STRING; parse it before reading fields, or every field reads null and
+  a healthy player looks unattached.
+- gaze 379/379, cargo 58/58 (unchanged -- no code touched).
+
 
 **Session 2026-08-31 (loop 18) -- THE FULLSCREEN BLUR, AND A CLAIM I
 WITHDREW BECAUSE I HAD NO CONTROL ARM.** No code changed.
