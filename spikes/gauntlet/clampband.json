@@ -1,0 +1,181 @@
+{
+ "steps": 12,
+ "patchSamples": 7,
+ "inBandTotal": 0,
+ "playerBox": [
+  0,
+  48,
+  412,
+  231
+ ],
+ "rows": [
+  {
+   "playerBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "playerBottom": 280,
+   "patches": 0,
+   "inBand": 0,
+   "worst": null,
+   "scrollY": 440,
+   "moved": 440
+  },
+  {
+   "playerBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "playerBottom": 280,
+   "patches": 0,
+   "inBand": 0,
+   "worst": null,
+   "scrollY": 879,
+   "moved": 440
+  },
+  {
+   "playerBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "playerBottom": 280,
+   "patches": 0,
+   "inBand": 0,
+   "worst": null,
+   "scrollY": 1319,
+   "moved": 440
+  },
+  {
+   "playerBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "playerBottom": 280,
+   "patches": 0,
+   "inBand": 0,
+   "worst": null,
+   "scrollY": 1758,
+   "moved": 440
+  },
+  {
+   "playerBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "playerBottom": 280,
+   "patches": 0,
+   "inBand": 0,
+   "worst": null,
+   "scrollY": 2198,
+   "moved": 440
+  },
+  {
+   "playerBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "playerBottom": 280,
+   "patches": 0,
+   "inBand": 0,
+   "worst": null,
+   "scrollY": 2638,
+   "moved": 440
+  },
+  {
+   "playerBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "playerBottom": 280,
+   "patches": 0,
+   "inBand": 0,
+   "worst": null,
+   "scrollY": 3077,
+   "moved": 440
+  },
+  {
+   "playerBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "playerBottom": 280,
+   "patches": 0,
+   "inBand": 0,
+   "worst": null,
+   "scrollY": 3485,
+   "moved": 407
+  },
+  {
+   "playerBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "playerBottom": 280,
+   "patches": 0,
+   "inBand": 0,
+   "worst": null,
+   "scrollY": 3762,
+   "moved": 277
+  },
+  {
+   "playerBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "playerBottom": 280,
+   "patches": 1,
+   "inBand": 0,
+   "worst": null,
+   "scrollY": 4201,
+   "moved": 440
+  },
+  {
+   "playerBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "playerBottom": 280,
+   "patches": 3,
+   "inBand": 0,
+   "worst": null,
+   "scrollY": 4641,
+   "moved": 440
+  },
+  {
+   "playerBox": [
+    0,
+    48,
+    412,
+    231
+   ],
+   "playerBottom": 280,
+   "patches": 3,
+   "inBand": 0,
+   "worst": null,
+   "scrollY": 5080,
+   "moved": 440
+  }
+ ]
+}

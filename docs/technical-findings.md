@@ -328,3 +328,37 @@ bar, which hosts the account avatar. The write now refuses a
 the scrolled player, so a patch inside it has nothing to win by
 escaping. VERIFIED on a built APK: 13 hosts, 7 isolated, 1 fixed host,
 **0 fixed hosts isolated**.
+
+## The occluder clamp cannot see the sticky player, and it must not (2026-08-31)
+
+The clamp added in 1045 samples `elementsFromPoint` once, at the top row
+of the image that is still on screen: `x = centre`, `y = max(1, top+1)`.
+On m.youtube's WATCH page that point is at y=1, and the sticky player
+occupies 48..279 — so the sample is always ABOVE the player and can
+never find it. MEASURED, four independent scroll positions with a patch
+riding up into the player's band: `occluderBottom` returns 0 every time,
+and its reason is always the same — `our image on top: IMG.ytCoreImageHost`.
+
+**That answer is correct, and firing the clamp there would be a bug.**
+`ytm-mobile-topbar-renderer` is present and `position: fixed` at
+[0,0,412,48], but while the watch page is scrolled it is not
+hit-testable: at y=1, 10, 30 and 47 the top hit is our own thumbnail.
+So the strip 0..48 genuinely shows the scrolled feed. Clamping the patch
+top to the player's bottom (279) would leave that visible strip with no
+patch and no chrome over it — an exposure, in exchange for nothing.
+
+What keeps the patch off the video in the 48..279 band is the
+`isolation: isolate` write from 1055, not the clamp. MEASURED over 165
+patch samples on a playing watch page, 3 of which overlapped the band:
+**0 where the patch outranks the player** (patch at stack index 5-6,
+player at 0).
+
+CONSEQUENCE, and it is the reason this is written down: in that band the
+isolate write is the ONLY protection, and `resolveHost` deliberately
+skips it when the host is `position: fixed`. Every recommendation host
+measured is `relative` (loop 6: 0 fixed feed hosts, and the one fixed
+host is the top bar, which paints above the player anyway). If a fixed
+feed host ever appears, the patch in that band has nothing holding it.
+
+Loop 8's "0 of 170 unclipped above the bar" was measured on SEARCH,
+where the bar IS hit-testable. It does not transfer to watch.
