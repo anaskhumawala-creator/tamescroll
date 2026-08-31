@@ -167,6 +167,72 @@ HE RULED THE SWAP; IT IS BUILT AND UNRELEASED.** His phone is on
   but the cost numbers are not honest yet and the critic has not
   reported.
 
+**Session 2026-09-01 (loop 37b) -- THE CRITIC CAUGHT AN EXPOSURE IN MY
+OWN FIX, ON ITS FIRST RUN.** He asked for an adversarial critic on every
+pass so a round does not stay biased on its own code. It earned its keep
+immediately: 2638d2f shipped an EXPOSURE and 415 green tests could not
+see it. Repaired in 168206f.
+
+- **THE DEFECT I ASSERTED AWAY.** I wrote that dropping an observation
+  "can never uncover somebody already covered" because the track coasts.
+  **False.** `coastStep` returns null past `blurredCoastMs` (~4s at his
+  cadence) and the track DIES, and a face-derived track can only be
+  refreshed by a VERDICT pass -- which on his phone is every track,
+  since MoveNet admits nobody. **Three dropped passes take the blur off
+  a covered woman.** And because the null band is a property of CONTENT
+  it lands on the SAME subject every pass, so the change turned the old
+  gate's intermittent refusal into a permanent per-subject one --
+  strictly worse than what it replaced.
+- **THE FIX: refuse the BIRTH, never the observation.** The observation
+  is tagged `nullMint` and still pushed; person-track refuses only
+  `newTrack` for an unmatched tagged observation. A matched track is
+  refreshed exactly as before.
+- **THE CHILD GATE WAS BYPASSED BY ORDERING**, which is the same subject
+  he reported. `isNullRead` ran ahead of the child branch and
+  `continue`d, and a null read has its age head pinned at the training
+  prior (~36.9) which is INSIDE NULL_AGE_LO..HI by construction. So a
+  child carrying no signal was refused as a null read. faceMeta now
+  requires `isAdultRead(f)` first (childP MASS, not the age mean).
+  **The test I wrote to pin this could not fail** -- raw 0.97 misses
+  isNullRead on its first condition, so it tested a CONFIDENT child.
+- **THE SCOPE HAD WIDENED.** The frame gate was guarded by `noShape`;
+  the new gate had no such guard and fired in frames the old one never
+  touched (the R16 woman inside the speaker's box). The condition now
+  rides the person object as `mintNoShape` -- a bare `noShape` at the
+  push site is a ReferenceError in a different closure, which would
+  reject the chain and drop the pass SILENTLY.
+- **THE TESTS WERE STRING MATCHES ON SOURCE**, which is how all three
+  defects passed. `null-mint.test.mjs` runs the real tracker: a nullMint
+  observation cannot create a track, and a track survives TEN
+  consecutive nullMint passes with its id intact. The structural
+  assertion now slices to a MARKER, not a fixed 1400 chars -- that
+  window had already stopped covering the block once the comment grew,
+  the same drift that cost two earlier rounds.
+- **REJECTED from the critique, with reasons:** the `gender !== 'male'`
+  guard in isNullRead is vacuous (NULL_V_LO 0.53 is above the 0.5 label
+  boundary, so every in-band raw is labelled male anyway); and
+  `faceEvidence = faces.length` admitting an unsized detection is the
+  documented ghost-over-exposure trade, bounded by coastStep rather than
+  by the eraser.
+- **THE EFFECTIVE VERDICT CADENCE, measured for the first time.** A pass
+  whose epoch changed under it is DROPPED (a scene cut landed while it
+  was in flight), so nominal cadence overstates how often a verdict
+  reaches the tracker. Emulator, 142s window: **snapshots 20, gap p50
+  5,305ms, p90 9,716ms, max 40,404ms, 16 of 19 gaps over 3s.**
+  `passDropped` 26 of 50 passes. ON HIS PHONE the ratio is much smaller
+  -- **37 dropped of 184 passes (20%)**, cutDetected 64 -- so this is a
+  ~25% cadence penalty there, not a 2x one, and it is NOT the dominant
+  cause of a 12-19s delay.
+- **THE CLEARED-TRACK HYPOTHESIS IS DEAD.** Three runs joining her reads
+  to the per-pass track-state ring: `uncoveredWithClearedTrack` **0**
+  every time. No track cleared on the man beside her was absorbing her
+  weak reads.
+- **STILL OPEN:** the second delay in the MoveNet-admitting regime. Two
+  residual cases this round, both `uncoveredOther` (no cleared track, no
+  obvious cause), and one earlier case with a **blurred track present
+  and no patch rendered** -- a render gap rather than a verdict gap.
+- gaze 420/420, cargo 58/58. STILL NO RELEASE.
+
 **Session 2026-09-01 (loop 36) -- THE GHOST GATE IS THROWING AWAY FACES
 THAT ARE IDENTICAL TO THE ONES IT KEEPS, AND THAT IS HIS OLDEST
 COMPLAINT WITH A MECHANISM.** No release beyond 1075. His phone is on
