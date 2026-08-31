@@ -70,8 +70,46 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 06:05 (1060 live, sha 93a07abc; a tap no longer
-makes the player lurch smaller and snap back).
+**Last updated:** 2026-08-31 06:50 (1061 live, sha b0025136; both mini-player
+controls were dead and now work).
+
+**Session 2026-08-31 (loop 13) -- BOTH OF THE MINI PLAYER'S CONTROLS
+WERE DEAD.**
+- **1061 SHIPPED AND HASH-VERIFIED (b0025136).** The play/pause and
+  close buttons are children of the player container, so `inPlayer()`
+  was true for them: the drag armed on the button press and `onUp` ran
+  on TOUCHEND -- before the click their handlers stopPropagation on
+  could ever happen. gestureVerdict read the near-zero movement while
+  mini as the tap-to-restore, so pressing either button expanded the
+  player instead of doing its job.
+- **MEASURED on a built APK, before:** a clean tap on "Play or pause"
+  left the video **PLAYING** and put the player back to 412x232; a clean
+  tap on "Close mini player" **did not dismiss it**. With 20px of thumb
+  roll it was worse -- the sideways claim faded the player to **opacity
+  0.91** under the finger instead of pressing anything.
+- FIX: a touch that starts inside `#ts-mini-btns` is the button's,
+  entirely -- no arming, no host binding. AFTER, same probe: "Play or
+  pause" pauses the video (**paused False -> True**) and the player
+  STAYS mini at (169,697); "Close mini player" exits the mini player;
+  neither fades under a 20px roll. The gestures are unchanged -- a tap
+  on the mini BODY still restores, 10px still does nothing (loop 12),
+  20/30/60px still preview the throw at opacity 0.91/0.87/0.74 and snap
+  back.
+- **TWO PROBE FAILURES ON THE WAY, both of which reported a healthy
+  thing as broken.** (1) The first version queried `.ts-mini-btn`, a
+  class I invented -- it read **buttons: 0** and looked like the buttons
+  had vanished. They live under `#ts-mini-btns`; read the id from the
+  source. (2) It tapped five times without re-minimising, and since the
+  FIRST tap restores the player, every later tap measured a full player.
+  Re-establish the state before each trial.
+- **THE SUITE CAUGHT ME DELETING A GUARD.** Mid-edit I replaced the
+  `inPlayer(target)` refusal instead of adding beside it, which would
+  have armed the gesture anywhere on the watch page -- the exact defect
+  1045 fixed. preview-scroll.test.mjs failed immediately. Its fixed
+  420-character slice of onDown had also stopped covering the function
+  as comments grew, so it now slices to the end of it.
+- gaze 376/376, cargo 58/58.
+
 
 **Session 2026-08-31 (loop 12) -- A TAP WAS MOVING THE PLAYER, AND THAT
 IS THE OTHER HALF OF "ANNOYING".**
