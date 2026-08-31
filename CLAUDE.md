@@ -70,8 +70,48 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 14:20 (1066 live, sha f8e59674; rules
-99394d11 -- the top-left promo mark is hidden, OTA-verified).
+**Last updated:** 2026-08-31 16:15 (1067 live, sha 27c4b179; rules
+99394d11).
+
+**Session 2026-08-31 (loop 22) -- THE PARKED PLAYER DREW HIS BLUR AT
+SCALE-SQUARED, AND THAT IS AN EXPOSURE.** Owner screenshot: video parked
+bottom-right, his face on the RIGHT of the box, the patch up and to the
+LEFT of it and too small. **1067 SHIPPED AND HASH-VERIFIED (27c4b179).**
+- **THE MECHANISM.** Both region renderers position a patch by
+  subtracting two getBoundingClientRects. That delta is correct --
+  ancestor transforms cancel out of a subtraction -- but it is in
+  VIEWPORT pixels, and the number written to `left`/`width` is read in
+  the HOST'S LOCAL space, which the miniplayer's own transform scales
+  again. Under scale s the patch is drawn at s x s. Both files carried a
+  comment claiming transforms "cancel out", true of the delta and false
+  of the write.
+- **MEASURED BEFORE** (probe_mini_patch_scale.py): host scale 0.56, the
+  same three patches normalized [0.767, 0.523, 0.233, 0.478] full and
+  [0.429, 0.293, 0.131, 0.267] mini -- **all four numbers 0.559-0.562**
+  of their full-size value, position AND size.
+- **AFTER, PAIRED ON A PAUSED FRAME** so both arms judge the same
+  picture: full [0.045, 0.048, 0.956, 0.953], mini [0.045, 0.048, 0.954,
+  0.953], ratios **1.00 / 1.00 / 0.998 / 1.00**. Restore verified too:
+  mini false, player back to 412x232, pill 1, mini buttons 0.
+- **THE CONVERSION HAPPENS ONCE, AT THE WRITE** (`host-scale.mjs`,
+  shared): everything upstream -- feather, clip bounds, mask geometry --
+  stays in viewport units and in register. hostScale reads
+  `rect.width / host.offsetWidth`, refuses anything outside 0.05..20,
+  and returns 1 when it cannot measure, so an unmeasurable host keeps
+  the old arithmetic rather than throwing a patch somewhere new.
+- **FIXED THE CLASS: the image path has the identical arithmetic.**
+  Every feed host measured on m.youtube is unscaled, so there it is a
+  NET -- hostScale returns 1 and toLocalRect returns the same object.
+  VERIFIED live on a scrolled search feed: **28 patches, 28 inside their
+  own image, 0 stray.** A test fails if either renderer stops going
+  through the shared helper (same guard shape as crop-geometry).
+- HARNESS: the emulator wedged again mid-probe (CDP eval timed out at
+  90s). Restart with `-no-snapshot-load`, restart the app, and RE-FORWARD
+  -- the devtools socket carries the new pid.
+- NOT VERIFIED: patch geometry DURING the shrink animation. rects are
+  refreshed on scroll/resize and on each pass, not on a transform, so a
+  patch can be one pass stale mid-drag; it settles on landing.
+- gaze 387/387, cargo 58/58.
 
 **Session 2026-08-31 (loop 21) -- THE TOP-LEFT MARK IS A PROMO, NOT THE
 LOGO, AND HE ASKED FOR IT GONE.**
