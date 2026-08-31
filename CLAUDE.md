@@ -75,6 +75,81 @@ raw manifest + served APK agree, isDraft false; 1074 before it, sha
 712c382a. rules 99394d11. **His phone is on 1073** -- it has neither the
 gate diagnostics nor the new size floor).
 
+**Session 2026-09-01 (loop 37e) -- THE PLAYER-REGION GAP IS A PLAYER
+WITH NO PICTURE, SO THERE IS NOTHING TO FIX, AND THE REPORT COULD HAVE
+DROPPED EVERY COUNTER IT WAS BUILT TO CARRY.** No release: nothing
+user-visible changed after 1075. gaze 416/416.
+
+- **THE 84ms WINDOW IS ATTRIBUTED AND IT IS NOT AN EXPOSURE.** Five
+  frame counters in video-region (`hideNoVr`, `hideZeroVr`,
+  `hideClipped`, `rectsNoBoxes`, `drawnZero`) plus a per-gap-frame deep
+  read. At **all 35 gap frames** in one pair the video reads
+  `readyState 0`, `currentTime 0`, `offsetWidth 0`, `getClientRects 0`,
+  with `#movie_player` **0 wide** and the container laid out at **height
+  0** -- a player TORN DOWN AND RE-CREATED, painting nothing. Hiding
+  every overlay there is CORRECT: there is nothing under the patch to
+  reveal. `nVideos 1`, so it is not a wrong-element artifact. Raw in
+  spikes/gauntlet/hide-branch-deep.txt.
+- **AND THE GAPS ARE NOT AT THE RESTORE.** They sit in the parked steady
+  state with `mini: 1`, ending before the restore window opens. A FRESH
+  emulator over 3 park+restore pairs at 15-21Hz gave **gapSamples 0 and
+  all counters 0** (hide-branch-fresh.txt); the run that showed a gap
+  first was on an instance up for hours, sampling at **4.5-6.1Hz**. The
+  stale-emulator trap, fifth time.
+- **`hideClipped` STAYED 0 ON A LIVE DEVICE ACROSS EVERY RUN** -- third
+  independent confirmation that `clipToBounds` cannot hide a real track
+  (the 500,000-box fuzz was the second).
+- **A FIFTH WAY A PATCH BECOMES INVISIBLE, and four counters could not
+  see it.** `clipToBounds` accepts any sliver with `r - l > 0` and then
+  ROUNDS the size, so a 0.4px overlap survives the null test and
+  `place()` writes `width: 0px`: an overlay that exists, is
+  `display: ''`, and paints nothing. `drawnZero` counts it.
+- **"THEY COUNT FRAMES" WAS FALSE FOR THREE OF THE FOUR**, and the
+  comment told the next reader to read a delta as a duration.
+  `rectsNoBoxes` counts `refreshRects` CALLS -- rAF only when dirty,
+  plus the 250ms timer, plus the ResizeObserver, plus entry creation --
+  and was measured rising by 2 inside ONE rendered frame. `hideClipped`
+  and `drawnZero` are per OVERLAY.
+- **`player.life` WAS A SIX-KEY WHITELIST AND IS NOW A SHAPE-CHECKED
+  PASS-THROUGH.** Every counter added after loop 34 -- cutDetected,
+  passDropped, readAbstain, birthFresh, clampFired, ~30 in all -- lived
+  in the page and never left the device. The test asserts four of them
+  reach the report and **fails against the old code** (18/1, then 19/0).
+- **AND MY FIRST CAP COULD HAVE SILENTLY EVICTED ALL SIX ERASER
+  COUNTERS** -- the loop-34 defect in a new shape. Executed: 96 keys
+  named `aFlood*` plus the six kept **96 and none of the six**, with a
+  report that still passed the invariant. Cap 256 against ~49 real keys,
+  and whatever is refused is COUNTED as `lifeDropped`. Two tests.
+- **THE SAFETY COMMENT WAS ALSO WRONG:** IDS.life lives on `window` in
+  the PAGE world, which YouTube's script shares, so "only our code
+  writes it" is not something the report may assume. The shape check is
+  the guarantee.
+- **eraser-counter.test.mjs WAS A STRING MATCH ON diag-report SOURCE**,
+  so a correct change broke it while a whitelist dropping two dozen
+  counters passed it for a fortnight. It calls buildReport now, and
+  additionally pins that a ZERO survives the trip.
+- **THE NULL-BAND FIGURES MEASURED HALF A PREDICATE.** small-face.js
+  tested `raw` in [0.545, 0.705] -- wrong constants (shipped [0.53,
+  0.72]) and, much worse, **without the age condition**, which its
+  non-face control could not even evaluate because it never captured
+  age. On **14,969 banked reads**: raw band shipped 3,188, bench band
+  2,821 (88.5% of it), **full isNullRead 1,979**. The age condition
+  removes **1,209 of 3,188 = 37.9%**, and **1,178 of those read YOUNGER
+  than 34** (p05/p50/p95 = 20/31/33). So every "the null band catches N
+  of M" figure in this repo overstates by about a third. The bench
+  imports the predicate now, captures age and childP on both arms,
+  reports `caughtByRawBand` and `caughtByNullRead` separately, and
+  **banks the full series** so the next constant change can be
+  re-derived offline instead of costing a device run.
+- **AND IT SETTLES THE VACUOUS GUARD ON DATA:** of 3,188 in-band reads,
+  **0 are labelled female** -- NULL_V_LO 0.53 is above the 0.5 label
+  boundary, so `gender !== 'male'` inside isNullRead can never reject
+  anything. Loop 37b argued it; 3,188 reads show it.
+- **STILL HIS, UNCHANGED: the gate decision.** The build of his "both"
+  ruling is refuted and the cost/benefit needs re-deriving with the
+  CORRECTED predicate before re-asking. The corrected bench run is the
+  input to that.
+
 **Session 2026-09-01 (loop 37d) -- THE CHILD GUARD IS DEAD ON 1,399
 READS, AND THE MINIPLAYER RESTORE FIX WAS BUILT AND THEN REFUTED BY
 ITS OWN CRITIC.** No release: nothing user-visible changed after 1075.
