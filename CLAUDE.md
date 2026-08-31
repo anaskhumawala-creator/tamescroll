@@ -70,8 +70,48 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 18:20 (1067 live, sha 27c4b179; rules
-99394d11, rulesGen c12184ef).
+**Last updated:** 2026-08-31 19:40 (1067 live, sha 27c4b179; rules
+99394d11).
+
+**Session 2026-08-31 (loop 25-26) -- THE TWO PLATFORMS NOBODY HAD
+AUDITED, AND THE POLISH QUESTION THE EMULATOR CANNOT ANSWER.** No code
+changed, no release.
+- **INSTAGRAM AUDITED ON THE EMULATOR FOR THE FIRST TIME**, /explore/
+  signed out, both arms: **Reels 1 matched, visible 0 hidden / 1 shown;
+  Explore grid 1 matched, 0 hidden / 1 shown.** Both are LIVE toggles,
+  not dead ones. `nags` matched 0 (the appsflyer banner does not render
+  signed out) -- same belt-and-braces class as YouTube's unused nag
+  selectors, harmless when absent.
+- **X CANNOT BE AUDITED SIGNED OUT, and the earlier all-zero read was
+  VACUOUS, not a finding.** x.com/explore redirects to
+  `/i/jf/onboarding/web?redirect_after_login=/explore&mode=login`: 224
+  characters of login page, **0 cellInnerDiv, 0 article**. So all five X
+  surfaces matched nothing because there was nothing to match. Delivery
+  IS confirmed on that page (sheet 3120 bytes hidden vs 2642 shown, so
+  the toggle reaches the page). Same standing as Facebook: needs a
+  login.
+- **THE POLISH QUESTION HE RAISED (HaramBlur's video blur looks better)
+  NEEDS HIS PHONE, and now there is an instrument ready for it.**
+  MEASURED why this harness cannot answer: the player made **13 passes
+  in a whole session**, and the render loop runs at **10.5 Hz** under
+  swiftshader while a video plays (his phone runs the rAF at 60 and
+  inference ~9x faster). Smoothness is exactly the quantity those two
+  numbers set, so any figure from here would describe a machine he does
+  not own.
+- **THE INSTRUMENT: an in-page rAF collector** (spikes/gauntlet/
+  probe_render_polish.py) that samples every drawn patch normalized on
+  the video and returns coverage, dCount/s, area jitter/s and centre
+  drift/s. It collects IN PAGE because a CDP round trip here is ~1s,
+  which samples at 1Hz and sees nothing -- the first version did exactly
+  that and reported coverage 0.0 on a page that had a patch.
+- **HIS DESKTOP APP IS RUNNING FROM THE 2026-08-29 BINARY** (PID 27140,
+  `target/debug/app.exe`, Aug 29 14:49) and that instance HOLDS THE FILE
+  -- `cargo build` fails with "failed to remove app.exe: Access is
+  denied". Left running deliberately rather than killed: he asked for
+  the app open. Its UI is current (vite serves the launcher on :1420)
+  but its Rust half predates 1055. Rules are current -- its own log
+  shows the OTA fired.
+- gaze 387/387, cargo 58/58 (unchanged -- no code touched).
 
 **Session 2026-08-31 (loop 24) -- THE IDLE RENDERER IS ALREADY FREE OF
 WRITES, AND I REFUSED THE OPTIMISATION THAT LOOKED OBVIOUS.** No code
