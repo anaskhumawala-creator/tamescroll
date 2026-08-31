@@ -127,6 +127,35 @@ it").
   because covered is already the default and the only thing the wait
   delays is the reveal. Re-chasing the warm-up is loop 6 again: the
   compile just moves into the first real pass.
+- **THE A/B IS DONE, ON HIS PHONE, TWO RUNS EACH SIDE (he installed
+  1070 himself).** 1067 -> 1070, 150s windows on the same watch page and
+  the same timestamp:
+
+  | | 1067 | 1070 |
+  |---|---|---|
+  | secs per verdict | 2.06 / 2.09 | **1.21 / 1.12** |
+  | positions per min | 10.0 / 11.2 | **56.7 / 62.4** |
+  | position pass p50 | 517 / 530ms | **15 / 12ms** |
+  | verdict p50 | 766 / 799ms | **618 / 639ms** |
+  | coverage | 0.083 / 0.106 | 0.256 / 0.139 |
+  | rAF | 40.3 / 42.1Hz | **35.9 / 37.1Hz** |
+
+  So a patch is re-aimed **five times more often** and a verdict lands
+  **1.8x** more often. **THE HONEST COST IS THE RENDER LOOP: rAF is down
+  ~12%** (about 5fps), consistently across both runs. The extra passes
+  are nearly free on the main thread (12ms) and are NOT free on the GPU.
+  NOT TUNED FURTHER without him -- the obvious dial is a floor on the
+  position pass (its own floor is now `lastPassMs * 2` = ~24ms, so
+  nothing but serialization limits it), and whether 5fps is worth 5x
+  tracking is his call, not mine.
+- **PROBE FAILURE, RECORDED SO IT IS NOT MISREAD AS A RESULT:** the new
+  dense priority-1 instrument (probe_patch_rank_dense.py, in-page hit
+  testing at 10Hz for 180s with patches forced hit-testable) returned
+  **patchesMax 0** on the emulator watch page -- 1016 rAF frames and NOT
+  ONE PATCH existed to rank. Signed out, under swiftshader, the player
+  makes about one pass every two minutes, so there was nothing to
+  measure. The instrument is right and the harness cannot feed it; it
+  needs his phone or a signed-in feed.
 - **THE CONTROL ARM IS BANKED PROPERLY NOW** (probe_phone_cadence.py,
   which also samples rAF and coverage in page): 1067, two runs,
   **verdicts/min 28.7-29.1, secsPerVerdict 2.06-2.09, positions/min
