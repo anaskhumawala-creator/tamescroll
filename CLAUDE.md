@@ -75,6 +75,62 @@ raw manifest + served APK agree, isDraft false; 1074 before it, sha
 712c382a. rules 99394d11. **His phone is on 1073** -- it has neither the
 gate diagnostics nor the new size floor).
 
+**Session 2026-09-01 (loop 37c) -- THE SECOND CRITIC RAN EXPERIMENTS
+INSTEAD OF ARGUMENTS AND KILLED MY FIX. REVERTED WHOLE (9845202).**
+2638d2f and 168206f are gone; the tree is back at 4af7ba7. His phone is
+on **1075** and nothing user-visible changed, so there is nothing to
+release. THE MEASUREMENTS ALL STAND -- only the instrument chosen to act
+on them is refuted.
+
+- **THE ONE THAT ENDED IT: the fix made HIS OWN REPORT WORSE, checked
+  against her measured numbers.** R25 in this repo measured the Linus
+  daughter at **childP 0.146-0.194** and `GENDER_CHILD_MASS` is
+  **0.25**. So `isAdultRead` returns TRUE for her, the child guard I
+  added to protect exactly her never fires, she is tagged a null read
+  and her birth is refused. Executed end to end in man mode: **tracks
+  WITH the gate 0, tracks WITHOUT the gate 1 (blurred).** Covered by
+  fail-closed became never covered, for the person whose report started
+  the round.
+- **AND THE GUARD MAY BE INCAPABLE OF EVER FIRING.** A null read IS the
+  age head returning its prior; a prior centred near 37 puts little mass
+  under 18, so childP is small BY CONSTRUCTION for every null read, and
+  `isAdultRead && isNullRead` may be an identity rather than a guard.
+  Both fields already ship in the reads ring (`pc`, `ab`), so it costs
+  no new instrument to settle -- probe_null_child.py does the join.
+- **`dedupeObservations` LAUNDERS THE TAG.** `preferred()` picks by
+  positionOnly then box AREA and never looks at the tag, so a graphic's
+  synthetic body (7.4 face heights, usually the larger box) absorbs a
+  real woman merged with it and NOBODY is covered -- a regression
+  against even the first draft, which dropped the observation before
+  dedupe ran. Any future tag-and-refuse has to make the tag a property
+  of the MERGED result.
+- **"REFUSE THE BIRTH, NEVER THE REFRESH" CREATES AN IMMORTAL GHOST.** A
+  tagged observation refreshes its own track forever and a scene cut
+  only DEMOTES, so the patch parks on a title card for the shot. The
+  `faceEvidence = faces.length` half of the same change disabled
+  `wipeIfEmpty`, the one backstop that would have cleared it. Two halves
+  each defensible alone and not together.
+- **MY REGRESSION TEST PASSED AGAINST THE BROKEN CODE.** The 2638d2f
+  exposure lived in `init-entry.js`, where the observation never reached
+  the tracker; the test handed it straight to `updatePersonTracks`. **A
+  behaviour test that does not run the path the defect lives in is not
+  evidence** -- it is the third time this round that a test I wrote to
+  pin a property could not have failed.
+- **CARRIED FORWARD, UNFIXED:** `nullMint`/`nullDropped` never reached
+  the report -- `player.life` is a six-key whitelist and neither was
+  added, which is the loop-34 defect verbatim. And the SHIPPED null band
+  (`NULL_V_LO` 0.53 / `NULL_V_HI` 0.72) is WIDER than the [0.545, 0.705]
+  its "30-33 of 34 non-faces caught / 1-2 of 28 faces rejected" figures
+  were measured at, so those are bounds and were never re-derived.
+- **THE GATE DECISION IS OPEN AGAIN AND IT IS HIS.** He ruled "both" on
+  the fork; the build of that ruling is refuted, so the ruling needs
+  re-asking against what is now known. What has NOT changed: the ghost
+  gate still refuses three faces in four on his phone, refused and kept
+  are still the same population, and a refused face still reports the
+  frame as empty and gets her patch erased.
+- gaze 412/412 after the revert. Written up in
+  docs/detection-engine.md.
+
 **Session 2026-09-01 (loop 37) -- HE REPORTED "LINUS DAUGHTER IS NOT
 BEING BLURRED INSTANTLY", AND IT IS THE GHOST GATE REACHING HER TWICE.
 HE RULED THE SWAP; IT IS BUILT AND UNRELEASED.** His phone is on
