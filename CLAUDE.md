@@ -94,6 +94,14 @@ COMPLAINT WITH A MECHANISM.** No release beyond 1075. His phone is on
   **0.101**. So the gate is not deciding "face or graphic", it is
   deciding "did MoveNet's noise clear 0.1 this frame". **That is his
   report in one line: covered in one frame, sharp in the next.**
+- **SECOND VIDEO, SAME STORY** (Ary1gIbaOTc, 107 passes, slots n:0):
+  refused 60 (ring cap) at conf p50 **0.73**, kept 16 at conf p50
+  **0.73**, refused maxKp max **0.099**. Roughly four faces in five
+  refused. Both rings cap at 60, so refusal counts are FLOORS
+  (`faceNoShape` hit 93 over 111 passes on the first video). One honest
+  difference: refused faces run smaller here (37px vs 51px), so part of
+  that tail may be weaker detections -- but confidence, the model's own
+  quality signal, does not separate them at all.
 - **THE FIX CANNOT BE A DIFFERENT NUMBER.** 0.098 against 0.101 means
   the quantity does not carry the information. The candidate on the
   right axis is `isNullRead` (numbers in docs/detection-engine.md).
