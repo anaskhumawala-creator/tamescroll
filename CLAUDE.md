@@ -75,10 +75,51 @@ raw manifest + served APK agree, isDraft false; 1074 before it, sha
 712c382a. rules 99394d11. **His phone is on 1073** -- it has neither the
 gate diagnostics nor the new size floor).
 
-**Session 2026-09-01 (loop 36) -- MoveNet WORKS ON THE EMULATOR AND
-FINDS NOBODY ON HIS PHONE, AND THAT IS THE MECHANISM UNDER HIS OLDEST
-COMPLAINT.** No release beyond 1075. His phone is on **1073**.
-- **THE DIVERGENCE, same code, same video, same seek point:**
+**Session 2026-09-01 (loop 36) -- THE GHOST GATE IS THROWING AWAY FACES
+THAT ARE IDENTICAL TO THE ONES IT KEEPS, AND THAT IS HIS OLDEST
+COMPLAINT WITH A MECHANISM.** No release beyond 1075. His phone is on
+**1073**.
+
+- **THE POPULATIONS, read off the 1074 rings in HIS regime** (emulator
+  driven to HIS timestamps, 111 passes, watch page):
+
+  | | n | conf p05/p50/p95 | px p05/p50/p95 | maxKp p50 / max |
+  |---|---|---|---|---|
+  | REFUSED | 60 | 0.40 / **0.74** / 0.84 | 30 / **46** / 79 | 0.049 / **0.098** |
+  | KEPT | 44 | 0.40 / **0.76** / 0.85 | 28 / **47** / 103 | 0.117 / 0.179 |
+
+  **Same confidence to two decimals, same size.** The only separator is
+  the FRAME's keypoint maximum, and it straddles PFF_FRAME_KP_FLOOR
+  almost exactly -- refused tops out at **0.098**, kept starts at
+  **0.101**. So the gate is not deciding "face or graphic", it is
+  deciding "did MoveNet's noise clear 0.1 this frame". **That is his
+  report in one line: covered in one frame, sharp in the next.**
+- **THE FIX CANNOT BE A DIFFERENT NUMBER.** 0.098 against 0.101 means
+  the quantity does not carry the information. The candidate on the
+  right axis is `isNullRead` (numbers in docs/detection-engine.md).
+  **STILL NOT CHANGED** -- he ruled the gate held until the data said
+  what it was refusing; the data has arrived and the change is still
+  his.
+- **A CONFOUND I INTRODUCED AND THEN KILLED, worth keeping because it
+  looked like a device bug for two hours.** MoveNet reads n:0 on his
+  phone and 2-3 per pass on the emulator -- but those runs were at
+  t=217-303 and t=55 of the SAME video. Driven to his timestamps the
+  emulator reproduces his regime exactly (all slots n:0, faceNoShape 93
+  / 111 passes). **It is FOOTAGE, not hardware.**
+- **AND THE MODEL IS FINE ON HIS PHONE, MEASURED, so our uint8 requant
+  is NOT the suspect.** Fixed-input worker bench, same 20 thumbnails,
+  his phone against the emulator: **persons admitted 25 vs 25, frames
+  with nobody 7 vs 7, maxKp p50 0.779 vs 0.779, max 0.858 vs 0.858**,
+  admitted counts identical on all 20 images, WebGL flags identical
+  (v2, float32 render enabled, no forced f16).
+- **HARNESS, and it cost the first two attempts: a MAIN-THREAD MoveNet
+  inference never returns on his phone.** Stuck at `infer-0` for six
+  minutes, twice, with the app's gaze ON and then OFF. The same bench in
+  a WORKER finishes in under a minute. The app runs it in a worker, so
+  this says nothing about the app -- but **build every future bench
+  worker-first**.
+- **THE DIVERGENCE THAT STARTED IT (SUPERSEDED -- different timestamps,
+  see above):**
 
   | | slots | faceNoShape | passes |
   |---|---|---|---|
@@ -89,22 +130,20 @@ COMPLAINT.** No release beyond 1075. His phone is on **1073**.
   53-131px in that window -- so the frames are not black and the subject
   is there. **MoveNet alone comes back empty on his device**, and there
   it is the ONLY thing deciding whether a detected face becomes a patch.
-- **FIXED-INPUT BENCH BUILT, EMULATOR ARM BANKED**
+- **FIXED-INPUT BENCH, EMULATOR ARM BANKED**
   (movenet-baseline-emu.json, app/gaze/bench/movenet-parity.js): the
   same 20 ytimg thumbnails through the shipping `detectPersons` --
   webgl, float32 render ENABLED, **25 persons admitted over 20 images,
   maxKp p50 0.816 / max 0.858, noShapeFrames 0**.
-- **THE PHONE ARM DOES NOT RUN, and it is a HARNESS LIMIT, not a
-  result.** The model loads and the FIRST inference never returns --
+- **THE MAIN-THREAD PHONE ARM DOES NOT RUN, and it is a HARNESS LIMIT,
+  not a result.** The model loads and the FIRST inference never returns --
   stuck at `infer-0` for six minutes, TWICE, with the app's own gaze ON
   and then OFF, so it is not contention. In the app MoveNet runs in the
   WORKER and does return; the bench runs it on the MAIN THREAD. Do not
   read the hang as evidence about the model.
-- **THE ANSWER IS ALREADY SHIPPED IN 1075 AND COSTS ONE WINDOW:** every
-  `gateRefused`/`gateKept` entry carries `k`, the frame keypoint
-  maximum. **~0.0 means the model is dead on his device; 0.05-0.09 means
-  it is alive and under PFF_FRAME_KP_FLOOR.** Two completely different
-  fixes. Read that first, before touching the floor.
+- **ANSWERED WITHOUT WAITING FOR HIS INSTALL: it is 0.049, alive and
+  under the floor** -- the second of the two branches. Confirm on his
+  phone once he is on 1075, but the fix does not hinge on it.
 - **1075 REGRESSION-CHECKED on a real Android WebView** before trusting
   it: search feed judges 6 images, **0 on-screen pending**, clear 3 /
   face 3, **3 patches all inside their own image**, 0 errors. And
