@@ -70,8 +70,9 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 07:20 (1064 live, sha 13740ecf; the blur switch died
-on the first tap of the video, and every button on the player was a drag handle).
+**Last updated:** 2026-08-31 07:45 (1065 live, sha 665f189c; the blur switch died
+on the first tap of the video, every button on the player was a drag handle, and
+the player CONTAINER was never in the player-subtree refusal).
 
 **Session 2026-08-31 (loop 15) -- HIS BLUR SWITCH DIED THE MOMENT HE
 TOUCHED THE VIDEO, AND EVERY BUTTON ON THE PLAYER WAS A DRAG HANDLE.**
@@ -141,6 +142,41 @@ Two releases, both hash-verified: **1063 (0a0d812a)** and **1064
   exactly that reason; re-measured with `elementFromPoint` confirming
   `hitIsBtn` at press time, it refuses like the rest.
 - gaze 377/377, cargo 58/58.
+
+- **1065: THE PLAYER CONTAINER WAS NEVER IN THE PLAYER-SUBTREE REFUSAL,
+  AND AN IMAGE LIVES IN THE GAP -- a NEW angle on priority 1.**
+  `PLAYER_SUBTREE_SELECTOR` named `#movie_player` and two preview hosts;
+  resolveHost refuses a host inside it and keeps whole blur. It did NOT
+  name `#player-container-id`. MEASURED on a live watch page:
+  `img#player-thumbnail-overlay` -- the video's own poster, natural
+  480x360, laid out at **412x231 exactly over the player** -- is a
+  DIRECT CHILD of that container, and `host.closest(SELECTOR)` returned
+  **null** for it. So a flagged verdict there mints a patch appended to
+  the fixed z-index-2 sticky container AFTER `#player`: it paints over
+  the video **by DOM order, with no stacking trick required**, and it
+  writes `isolation: isolate` onto the element the miniplayer
+  transforms. The poster is `visibility: hidden` during playback but
+  still connected and still has a rect, so nothing in the sweep would
+  ever take that patch away.
+- **HONEST: the flagged verdict itself was NOT reproduced** -- that
+  poster is a low-detail data: placeholder and read clear (pending ->
+  cleared at t+16). What is measured is the hole in the guard. Shipped
+  as a net, the same category as the occluder clamp in 1045, and the
+  guard's own comment already said an image patch has no business in the
+  player subtree at all.
+- VERIFIED in the shipped bundle: the new selector is present, the old
+  one is gone, the poster's host is **refused**, the watch page still
+  mints 5 patches with **0 in the container**, and a settled search feed
+  still judges **28 images, 0 pending, 19 patches**.
+- **THE STALE-EMULATOR TRAP, FOURTH TIME, and it looked exactly like a
+  regression in the change I had just made.** After a long day of
+  installs a search page read **imgTotal 1, 4 pending on screen, 3
+  worker timeouts**, with worker ready at **51,368ms** and
+  `face:compile` **38,597ms**. Restarted the emulator, changed nothing
+  else: **28 judged, 0 pending, 0 errors, 11 clear / 17 face**. Restart
+  BEFORE believing any failure or timing number.
+- Toggle audit on the new build: **0 dead toggles.**
+- gaze 378/378, cargo 58/58.
 
 
 **Session 2026-08-31 (loop 14) -- THE SAME DEFECT IN THE SIBLING
