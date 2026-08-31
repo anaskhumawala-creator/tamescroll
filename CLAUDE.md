@@ -75,6 +75,53 @@ raw manifest + served APK agree, isDraft false; 1074 before it, sha
 712c382a. rules 99394d11. **His phone is on 1073** -- it has neither the
 gate diagnostics nor the new size floor).
 
+**Session 2026-09-01 (loop 36) -- MoveNet WORKS ON THE EMULATOR AND
+FINDS NOBODY ON HIS PHONE, AND THAT IS THE MECHANISM UNDER HIS OLDEST
+COMPLAINT.** No release beyond 1075. His phone is on **1073**.
+- **THE DIVERGENCE, same code, same video, same seek point:**
+
+  | | slots | faceNoShape | passes |
+  |---|---|---|---|
+  | his phone (1073) | **all twelve n:0** | **127** | 234 |
+  | emulator (1075) | **2-3 per pass** | **1** | 98 |
+
+  BlazeFace finds faces on BOTH -- his phone gave 41 gender reads at
+  53-131px in that window -- so the frames are not black and the subject
+  is there. **MoveNet alone comes back empty on his device**, and there
+  it is the ONLY thing deciding whether a detected face becomes a patch.
+- **FIXED-INPUT BENCH BUILT, EMULATOR ARM BANKED**
+  (movenet-baseline-emu.json, app/gaze/bench/movenet-parity.js): the
+  same 20 ytimg thumbnails through the shipping `detectPersons` --
+  webgl, float32 render ENABLED, **25 persons admitted over 20 images,
+  maxKp p50 0.816 / max 0.858, noShapeFrames 0**.
+- **THE PHONE ARM DOES NOT RUN, and it is a HARNESS LIMIT, not a
+  result.** The model loads and the FIRST inference never returns --
+  stuck at `infer-0` for six minutes, TWICE, with the app's own gaze ON
+  and then OFF, so it is not contention. In the app MoveNet runs in the
+  WORKER and does return; the bench runs it on the MAIN THREAD. Do not
+  read the hang as evidence about the model.
+- **THE ANSWER IS ALREADY SHIPPED IN 1075 AND COSTS ONE WINDOW:** every
+  `gateRefused`/`gateKept` entry carries `k`, the frame keypoint
+  maximum. **~0.0 means the model is dead on his device; 0.05-0.09 means
+  it is alive and under PFF_FRAME_KP_FLOOR.** Two completely different
+  fixes. Read that first, before touching the floor.
+- **1075 REGRESSION-CHECKED on a real Android WebView** before trusting
+  it: search feed judges 6 images, **0 on-screen pending**, clear 3 /
+  face 3, **3 patches all inside their own image**, 0 errors. And
+  `faceMinPx` reads **40** off the live cfg probe -- R15-style, from the
+  running bundle, never the source.
+- **1074's GATE RINGS ARE PROVEN ALIVE, not merely written:** 98 player
+  passes gave **gateKept 46, gateRefused 1**. A counter nobody has seen
+  fire is a claim.
+- **PRIORITY 1, FIFTH ANGLE, and the first on a machine whose player is
+  minting its own patches at the same time.** 240s, 1520 in-page ticks,
+  5005 rAF frames: **4445 image-patch samples, 978 genuinely overlapping
+  the player, 569 ranked, `above` 0**, hostInPlayer 0, unclipped 0,
+  video patches present throughout (vidSeen 409). With his phone's 363
+  ranked, the parked mini's 4 and the SPA nav's run, that is **~940
+  ranked samples across two machines with zero patch-over-player**.
+- gaze 411/411, cargo 58/58.
+
 **HE RULED THREE THRESHOLD QUESTIONS (2026-09-01), and two of them are
 "leave it":**
 1. **rAF stays at ~30Hz.** The tracking is worth the frames -- do NOT
