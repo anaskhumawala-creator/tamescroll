@@ -134,7 +134,35 @@ are the deliverable.
   transition -- **patches survive (3 carried), orphan 0, overlap 0,
   ranked 0, above 0**, settled 5 patches / 0 overlap. Patches live
   through a pushState and are never left over the player.
-- gaze 405/405, cargo 58/58.
+- **THE ERASER COUNTERS EXISTED IN THE PAGE AND REACHED NO REPORT.**
+  1072 added them; `buildReport` has no `life` block at all, so
+  emptyFrame, wipeErased, wipeErasedTracks, wipeErasedBlurred,
+  faceNoShape and bodyFromSlot never left the page -- the one artifact
+  he can actually send could not have shown the 1070 regression. Now
+  carried under `player.life` (all numeric, 0 violations) and **SEEDED
+  TO 0 on the first player pass**: every counter is written as
+  `(x || 0) + 1`, so an absent key could not be told from a missing
+  hook, which is exactly the ambiguity that let the regression hide.
+- **PRIORITY 3 IS CLOSED ON HIS OWN DEVICE, SIGNED IN, over a 21,472px
+  scroll** -- the enumeration nobody had done (loop 11 was signed out,
+  loop 33 saw one screen): **ytm-rich-item-renderer 76, ytm-rich-
+  section-renderer 4 (all display:none), ytm-feed-filter-chip-bar-
+  renderer 1 (hidden), ytm-continuation-item-renderer 1.** No fifth kind
+  of thing, and nothing non-video that `home_shelves` does not already
+  cover.
+- **AND THE BRIEF'S PREMISE IS BACKWARDS: his Home feed is HIDDEN.**
+  Stored `tamescroll.shown` is `{"youtube":["watch_recs"]}` (seeded 1,
+  blur smart, gender man). Driven through his REAL path -- launcher,
+  then open_platform with that list -- the same page reads **ruleGrid
+  present, gridDisplay NONE**. So home-scoped rules DO fire and every
+  shelf is already gone; what he sees on home is empty.
+- **THE loop-2 GOTCHA BIT AGAIN AND IT INVENTED A DEFECT.** The census
+  above first read **76 VISIBLE feed items on a phone whose home feed is
+  switched off**, which looked exactly like the hide failing. A probe
+  that CDP-navigates straight to m.youtube never calls open_platform, so
+  the sheet is built from DEFAULTS. Drive the launcher first or the
+  toggles you measure are not his.
+- gaze 406/406, cargo 58/58.
 
 **Session 2026-08-31 (loop 33) -- TWO MORE PRIORITY-1 ANGLES CLOSED ON
 HIS PHONE, THE WORKER'S 680ms DECOMPOSED, AND THE BIGGEST SPEED LEVER
