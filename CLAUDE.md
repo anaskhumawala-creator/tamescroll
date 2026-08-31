@@ -70,8 +70,51 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 10:10 (1065 live, sha 665f189c; loop 19 A/B'd the
-player blur by user gender, and lost most of the loop to a wedged emulator).
+**Last updated:** 2026-08-31 10:55 (1066 live, sha f8e59674; the YouTube mark is
+not a person, and a patch the top bar cuts now has a square edge).
+
+**Session 2026-08-31 (loop 20) -- TWO OWNER REPORTS, BOTH SHIPPED IN
+1066 (f8e59674, hash-verified). He also confirmed the overlap is FIXED:
+"The blur overlap is finally fixed."**
+- **THE TOP-LEFT MARK WAS PERMANENTLY BLURRED, and it is a logo.** Owner:
+  "why is the top left thing of YouTube blurred? It's annoying." When
+  Google runs a promo, m.youtube's mark is an `<img>` from
+  **www.gstatic.com**, not the usual inline SVG. MEASURED live:
+  `IMG#home-icon.mobile-topbar-logo.ytmLogoEntityLogo`, 122x48 at
+  (-1,-1), natural 244x96, alt "Creators share their morning routines",
+  computed **filter blur(24px)** and `ts-gaze-pending` -- gstatic refuses
+  CORS, so every read ends cors-denied and fail-closed kept it covered
+  for the life of the page (loop 10 measured that and left it as his
+  call; he has now called it).
+- `CHROME_IGNORE = 'img.mobile-topbar-logo'` -- **the logo element ONLY**.
+  It deliberately does NOT touch `ytm-profile-icon`, the account avatar
+  in the same bar, which IS a photograph of a person and stays judged; a
+  test fails if the ignore ever widens to the bar or the profile icon.
+  Both `tagImage` and `retagImage` refuse it (retag marks pending BEFORE
+  tagImage, so without the second guard the logo flashes covered on every
+  promo rotation). VERIFIED on home: **filter none, not pending**, and
+  the feed still judges **33 images, 0 pending on screen, 20 patches**.
+- **A CUT EDGE IS NOT AN EDGE OF THE SUBJECT.** Owner, on the blur
+  shrinking as he scrolls: "sometimes slightly a bit of the person
+  behind is shown ... the edges, rounded edges." The shrink is the
+  occluder clamp doing its job -- it trims the patch so it cannot paint
+  over the fixed top bar, which is his own older report -- but the patch
+  kept the 8px corners it was BUILT with, so at the cut line two rounded
+  corners opened in the middle of the image and the head showed through
+  them. `clipTopEdge` squares the top corners exactly where the clamp
+  cuts and restores the radius everywhere else. It only ever covers
+  MORE, and the patch stays one solid rectangle -- nothing subtracted,
+  split or windowed.
+- **VERIFIED on a built APK**, 16 scroll steps down a search feed, 129
+  patch samples: every patch clipped at the bar bottom reads
+  **border-top-left/right-radius 0px with bottom corners still 8px**; an
+  uncut patch that merely starts near the bar keeps all four at 8px.
+- TEST GOTCHA, the same one as loop 13: patch-occluder's fixed
+  1800-character slice of positionEntry stopped covering the function
+  once the clamp grew, and the existing test failed on an assertion that
+  had silently drifted out of the window. It now slices to a marker.
+- gaze 381/381, cargo 58/58.
+
 
 **Session 2026-08-31 (loop 19) -- THE PLAYER BLUR DOES DIFFERENTIATE,
 AND ON THIS FOOTAGE MoveNet CONTRIBUTES NOTHING.** No code changed.
