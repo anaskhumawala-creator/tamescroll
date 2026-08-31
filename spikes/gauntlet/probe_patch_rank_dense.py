@@ -13,14 +13,19 @@ import json, sys, time
 from emu_cdp import page, Tab
 PORT=int(sys.argv[1]) if len(sys.argv)>1 else 9226
 SECS=float(sys.argv[2]) if len(sys.argv)>2 else 180.0
+# WHICH ARM. Loop 19 measured this same video at 37% coverage with
+# gender='man' and 0% with 'woman' -- so the arm is not a detail, it is
+# whether the instrument has anything to rank at all. A run on the wrong
+# one returns patchesMax 0 and reads exactly like an empty pipeline.
+GENDER=sys.argv[3] if len(sys.argv)>3 else 'man'
 
 t=Tab(page(port=PORT)); t.cmd("Page.enable"); t.cmd("Runtime.enable")
 t.cmd("Page.navigate", url="http://tauri.localhost/"); time.sleep(6)
 t.eval("""(async function(){
   var inv=(window.__TAURI__&&window.__TAURI__.core&&window.__TAURI__.core.invoke)||
           (window.__TAURI__&&window.__TAURI__.invoke);
-  await inv('open_platform',{id:'youtube',mode:'smart',strength:24,gender:'woman',
-                             shown:['home','watch_recs']}); return 1;})()""")
+  await inv('open_platform',{id:'youtube',mode:'smart',strength:24,gender:'%s',
+                             shown:['home','watch_recs']}); return 1;})()""" % GENDER)
 time.sleep(6)
 t.cmd("Page.navigate", url="https://m.youtube.com/watch?v=NWoT1ZVd1Lo"); time.sleep(45)
 t.eval("(function(){var v=document.querySelector('video'); if(v) v.play(); return 1;})()")

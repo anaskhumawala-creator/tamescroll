@@ -3601,6 +3601,11 @@ if (
                 // counted twice. Gauntlet R5 caught the eraser firing on
                 // a stage holding ~40 people.
                 emptyStreak = emptyFrame ? emptyStreak + 1 : 0;
+                var wipeBefore = videoTracks.length;
+                var wipeBlurred = 0;
+                for (var wb = 0; wb < videoTracks.length; wb++) {
+                  if (videoTracks[wb].state === 'blurred') wipeBlurred++;
+                }
                 videoTracks = wipeIfEmpty(
                   videoTracks,
                   emptyFrame ? 0 : 1,
@@ -3615,6 +3620,28 @@ if (
                   // wipe happens on the verdict pass that follows it.
                   lastCutAt !== 0 && now - lastCutAt <= effZoom
                 );
+                // THE ERASER HAD NO COUNTER, AND THAT IS WHY THE 1070
+                // REGRESSION WAS FOUND BY THE OWNER AND NOT BY A PROBE.
+                // From outside, a pass that ERASED a patch is
+                // indistinguishable from a pass that never minted one --
+                // coverage simply reads 0 either way. These two fail for
+                // different reasons and are counted apart: an empty frame
+                // that should not be empty is a detector (or a skipped
+                // pass) defect, and an erasure is that defect reaching
+                // the screen. `wipeErasedBlurred` is the exposure number:
+                // every one of those was a person we had decided to cover.
+                try {
+                  var dbgW = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+                  dbgW.life = dbgW.life || {};
+                  if (emptyFrame) dbgW.life.emptyFrame = (dbgW.life.emptyFrame || 0) + 1;
+                  if (wipeBefore > 0 && videoTracks.length === 0) {
+                    dbgW.life.wipeErased = (dbgW.life.wipeErased || 0) + 1;
+                    dbgW.life.wipeErasedTracks =
+                      (dbgW.life.wipeErasedTracks || 0) + wipeBefore;
+                    dbgW.life.wipeErasedBlurred =
+                      (dbgW.life.wipeErasedBlurred || 0) + wipeBlurred;
+                  }
+                } catch (e) {}
                 if (!emptyFrame) lastMaxBoxH = passMaxBoxH;
                 emptyFrame = false;
               }
