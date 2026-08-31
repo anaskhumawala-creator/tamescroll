@@ -1,7 +1,7 @@
 {
-  "versionCode": 1072,
-  "versionName": "0.1.72",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.72/tamescroll-v0.1.72.apk",
-  "sha256": "49d762a8d907df285b5e9bfcc5e7c41b5edc13821cc29698b5b2a1a3d0edadbc",
-  "notes": "Eraser instrumentation; carries the 1071 person-pass revert."
+  "versionCode": 1073,
+  "versionName": "0.1.73",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.73/tamescroll-v0.1.73.apk",
+  "sha256": "99a39fe413a89ab8cd0629190d8326b4df6b04e2677147b1a369bb8e9144e0bc",
+  "notes": "Miniplayer: a resting second finger no longer minimises the player."
 }
