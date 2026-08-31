@@ -245,8 +245,11 @@ test('a parked player does not survive the video it was parked for', () => {
 
 test('a cancelled touch aborts the drag instead of stranding it', () => {
   // Android WebView fires touchcancel, not touchend, whenever the
-  // browser takes a gesture back -- a system edge swipe, a second finger,
-  // a navigation under it. With no handler onUp never ran, so start /
+  // browser takes a gesture back -- a system edge swipe, a navigation
+  // under it. (NOT a second finger: MEASURED 2026-08-31 by logging the
+  // real event stream, a second finger fires an ordinary touchstart and
+  // no cancel at all. The multi-touch guard is a separate test.)
+  // With no handler onUp never ran, so start /
   // claimed / dragT stayed armed, ts-mini-drag stayed on <html> (which
   // is `transition: none !important` on the container) and the
   // interpolated transform stayed exactly where the finger left it: a
@@ -254,7 +257,8 @@ test('a cancelled touch aborts the drag instead of stranding it', () => {
   // committed.
   const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
   const code = stripComments(src);
-  assert.match(code, /addEventListener\('touchcancel', onCancel/);
+  assert.match(code, /addEventListener\(\s*'touchcancel'/);
+  assert.match(code, /onCancel\(\);/);
   const fn = code.slice(code.indexOf('function onCancel()'));
   const body = fn.slice(0, fn.indexOf('function onUp('));
   // ABORT, never commit: a gesture the browser took away is one the user
@@ -353,4 +357,68 @@ test('the blur pill is mounted where YouTube\'s control chrome cannot cover it',
     'and fall back to #movie_player where there is no container (desktop)'
   );
   assert.ok(/\|\| moviePlayer \|\| null/.test(block), 'the fallback must actually be reachable');
+});
+
+test('one finger owns the gesture, and every event is about that finger', () => {
+  // MEASURED 2026-08-31 on the emulator, logging the real event stream
+  // with a second finger resting on the player:
+  //   touchstart n:2 ch:[2]  pick = finger ONE, at its current point
+  //   touchend   n:1 ch:[2]  pick = finger ONE, while it was still down
+  // The old touchXY() read `ev.touches[0]` -- the first touch in the
+  // list, never the one the event is about -- so a resting thumb
+  // re-armed the drag origin, and LIFTING that thumb ran onUp with the
+  // dragging finger's coordinates and committed the player to mini
+  // mid-gesture (caught at 310x174 in transition). A thumb resting on
+  // the video is how a phone is held.
+  const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
+  const code = stripComments(src);
+  // touches[0] is the defect itself. It must not come back anywhere.
+  assert.equal(/touches\[0\]/.test(code), false, 'no handler may read touches[0]');
+  // A second finger is not a second gesture (the release condition is
+  // pinned by the stranding test below).
+  assert.match(code, /if \(start\) \{/);
+  // Arming reads the touch the event is actually about...
+  assert.match(code, /e\.changedTouches && e\.changedTouches\[0\]/);
+  // ...and every later event is matched back to it by identifier.
+  assert.match(code, /function findTouch\(list, id\)/);
+  assert.match(code, /findTouch\(e\.touches, touchId\)/);
+  assert.match(code, /findTouch\(e\.changedTouches, touchId\)/);
+});
+
+test('a foreign finger can neither end our gesture nor cancel the page scroll', () => {
+  const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
+  const code = stripComments(src);
+  // touchend: no match, no onUp. This is the line that was committing
+  // the state change on somebody else's finger.
+  const end = code.slice(code.indexOf("'touchend'"));
+  const endBody = end.slice(0, end.indexOf('doc.addEventListener'));
+  assert.match(endBody, /if \(!p\) return;/);
+  // The non-passive handler on the player is the only one that can take
+  // the scroll away, so it must be identifier-matched too.
+  const bind = code.slice(code.indexOf('function bindHost('));
+  assert.match(bind.slice(0, 400), /findTouch\(e\.touches, touchId\)/);
+});
+
+test('a cancel never leaves the gesture armed with nothing left to end it', () => {
+  const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
+  const code = stripComments(src);
+  const c = code.slice(code.indexOf("'touchcancel'"));
+  const body = c.slice(0, c.indexOf('doc.addEventListener('));
+  // Ours was cancelled, OR the screen is now empty -- either way, let go.
+  assert.match(body, /e\.touches && e\.touches\.length > 0/);
+  assert.match(body, /onCancel\(\);/);
+});
+
+test('a lost touchend cannot strand the gesture forever', () => {
+  // Binding the gesture to one finger introduces a new way to strand it:
+  // if that finger's touchend is lost (a backgrounded WebView, a dropped
+  // sequence), `start` stays set and no later touch could ever arm. The
+  // old code self-healed by re-arming on every touchstart. So the
+  // refusal is conditional on the owning finger still being on screen.
+  const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
+  const code = stripComments(src);
+  const st = code.slice(code.indexOf("'touchstart'"));
+  const body = st.slice(0, st.indexOf('doc.addEventListener('));
+  assert.match(body, /if \(touchId === null \|\| findTouch\(e\.touches, touchId\)\) return;/);
+  assert.match(body, /onCancel\(\);/);
 });

@@ -233,6 +233,8 @@ export function installMiniplayer(win) {
   var claimed = false;
   var dragT = null;
   var dragAxis = 'y';
+  // Which finger owns the gesture. See the touch listeners.
+  var touchId = null;
   var miniHref = null;
 
   function container() {
@@ -529,9 +531,13 @@ export function installMiniplayer(win) {
       if (boundHosts.has(pc)) return;
       boundHosts.add(pc);
     }
+    // This is the handler that actually calls preventDefault, so it is
+    // the one that must never act on a finger that is not ours -- taking
+    // the scroll away from the page on somebody else's touch is worse
+    // than the missed move.
     var fn = function (e) {
-      var p = touchXY(e);
-      if (p) onMove(p.x, p.y, e);
+      var p = findTouch(e.touches, touchId);
+      if (p) onMove(p.clientX, p.clientY, e);
     };
     pc.addEventListener('touchmove', fn, { capture: true, passive: false });
     bound = { host: pc, fn: fn };
@@ -677,8 +683,13 @@ export function installMiniplayer(win) {
   // MID-DRAG BY IT.
   //
   // Android WebView fires `touchcancel` instead of `touchend` whenever
-  // the browser takes the gesture back -- a system edge swipe, a second
-  // finger landing, the page navigating under it. Without a handler for
+  // the browser takes the gesture back -- a system edge swipe, the page
+  // navigating under it. (This comment used to say "a second finger
+  // landing" too. MEASURED 2026-08-31 on the emulator by logging the
+  // real event stream: a second finger fires an ordinary `touchstart`
+  // and NO cancel -- `cancels: 0` across the whole gesture. That wrong
+  // belief is what left the multi-touch paths below unguarded.) Without
+  // a handler for
   // it `onUp` never ran, so `start`/`claimed`/`dragT` stayed armed,
   // `ts-mini-drag` stayed on <html> (which is `transition: none
   // !important` on the container) and the interpolated transform stayed
@@ -690,6 +701,7 @@ export function installMiniplayer(win) {
   // is a gesture the user did not finish, so the state it started from
   // is the state it returns to. endDrag already restores exactly that.
   function onCancel() {
+    touchId = null;
     if (!start) return;
     var pc = container();
     start = null;
@@ -784,16 +796,65 @@ export function installMiniplayer(win) {
     /* a listener-less environment simply keeps the old behaviour */
   }
 
-  function touchXY(ev) {
-    var t = (ev.touches && ev.touches[0]) || (ev.changedTouches && ev.changedTouches[0]);
-    return t ? { x: t.clientX, y: t.clientY } : null;
+  // ONE FINGER OWNS THE GESTURE, AND EVERY EVENT MUST BE ABOUT THAT
+  // FINGER.
+  //
+  // touchXY() used to read `ev.touches[0]` -- the first touch in the
+  // list, never the one the event is about. MEASURED 2026-08-31 on the
+  // emulator, logging the real stream while a second finger rested on
+  // the player:
+  //
+  //   touchstart n:1 ch:[1]  pick=finger1 (166,164)   <- arms, correct
+  //   touchstart n:2 ch:[2]  pick=finger1 (166,164)   <- RE-ARMS at
+  //                          finger 1's CURRENT point, with finger 2's
+  //                          target, and no touchcancel anywhere
+  //   touchmove  n:2 ch:[1]  pick=finger1, dragging down
+  //   touchend   n:1 ch:[2]  pick=finger1 (166,294)   <- finger TWO
+  //                          lifted, and this ran onUp with finger
+  //                          ONE's coordinates while it was still down
+  //
+  // That last line committed the player to mini mid-gesture with a
+  // finger still on the screen (box caught at 310x174 in transition).
+  // A thumb resting on the video while the other hand does anything is
+  // the ordinary way a phone is held, so this is reachable constantly:
+  // the player goes down when he did not finish a drag, and a drag he
+  // did start gets its origin moved under it. That is his "sometimes
+  // goes down and it doesn't function as it's supposed to".
+  //
+  // So the gesture is bound to one touch identifier for its whole life:
+  // extra fingers are not new gestures, their moves are not our moves,
+  // and their release is not our release.
+  function findTouch(list, id) {
+    if (!list) return null;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].identifier === id) return list[i];
+    }
+    return null;
   }
 
   doc.addEventListener(
     'touchstart',
     function (e) {
-      var p = touchXY(e);
-      if (p) onDown(p.x, p.y, e.target);
+      // A second finger is not a second gesture.
+      //
+      // ...but refusing outright would be a new way to strand the
+      // gesture, which is the defect class 1057 already fixed once: if
+      // the owning finger's `touchend` is ever lost (a backgrounded
+      // WebView, a dropped sequence), `start` stays set and NO later
+      // touch could ever arm again. The old code self-healed by
+      // re-arming on every touchstart. So the refusal is conditional on
+      // that finger still being on the screen; when it is not, its end
+      // was lost and the gesture is released before the new one arms.
+      if (start) {
+        if (touchId === null || findTouch(e.touches, touchId)) return;
+        onCancel();
+      }
+      var p = e.changedTouches && e.changedTouches[0];
+      if (!p) return;
+      touchId = p.identifier;
+      onDown(p.clientX, p.clientY, e.target);
+      // onDown refuses off /watch, off the player and on a control.
+      if (!start) touchId = null;
     },
     { capture: true, passive: true }
   );
@@ -802,26 +863,43 @@ export function installMiniplayer(win) {
   doc.addEventListener(
     'touchmove',
     function (e) {
-      var p = touchXY(e);
-      if (p) onMove(p.x, p.y, null);
+      var p = findTouch(e.touches, touchId);
+      if (p) onMove(p.clientX, p.clientY, null);
     },
     { capture: true, passive: true }
   );
   doc.addEventListener(
     'touchend',
     function (e) {
-      var p = touchXY(e);
-      if (p) onUp(p.x, p.y);
+      // Only OUR finger ending ends the gesture.
+      var p = findTouch(e.changedTouches, touchId);
+      if (!p) return;
+      touchId = null;
+      onUp(p.clientX, p.clientY);
     },
     { capture: true, passive: true }
   );
-  doc.addEventListener('touchcancel', onCancel, { capture: true, passive: true });
+  doc.addEventListener(
+    'touchcancel',
+    function (e) {
+      // A cancel that took our finger, or one that cleared the screen --
+      // never leave the gesture armed with nothing left to end it.
+      var ours = findTouch(e.changedTouches, touchId);
+      if (!ours && e.touches && e.touches.length > 0) return;
+      touchId = null;
+      onCancel();
+    },
+    { capture: true, passive: true }
+  );
 
   // Mouse is here so the gesture is drivable on the desktop dev app,
   // which is the only surface with a debugger attached.
   doc.addEventListener(
     'mousedown',
     function (e) {
+      // WebView emits compatibility mouse events after a touch
+      // sequence; they must not re-enter a gesture a finger owns.
+      if (touchId !== null) return;
       onDown(e.clientX, e.clientY, e.target);
     },
     true
@@ -829,6 +907,7 @@ export function installMiniplayer(win) {
   doc.addEventListener(
     'mousemove',
     function (e) {
+      if (touchId !== null) return;
       onMove(e.clientX, e.clientY, e);
     },
     true
@@ -836,6 +915,7 @@ export function installMiniplayer(win) {
   doc.addEventListener(
     'mouseup',
     function (e) {
+      if (touchId !== null) return;
       onUp(e.clientX, e.clientY);
     },
     true

@@ -1,3 +1,10 @@
+# SUPERSEDED BY probe_patch_rank2.py -- DO NOT TRUST THIS FILE'S
+# NUMBERS. It queries `#tamescroll-gaze-regions`, an id that has not
+# existed since 2026-08-24 (00ce2c8, parent-anchored patches), so its
+# patchesMax is 0 on every device in every arm. Real selectors:
+# `.ts-gaze-region-patch` (image) and `.ts-gaze-vregion-clip > *`
+# (video). MEASURED on the owner's phone the same night, same page,
+# same 180s: this file 0 patches, probe_patch_rank2 imgMax 7.
 # PRIORITY 1, DENSER INSTRUMENT. Every previous answer to "does a
 # recommendation's blur paint over the video" came from a HANDFUL of
 # CDP-sampled moments (232 patch samples across whole sessions). A CDP
