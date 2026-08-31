@@ -1451,8 +1451,41 @@ if (
     }
   }
 
+  // THE ONE IMAGE WE ARE FORBIDDEN TO READ AND HAVE NO REASON TO JUDGE.
+  //
+  // m.youtube's top-left mark is not the ordinary inline-SVG logo: when
+  // Google is running a promo it is an <img> served from
+  // www.gstatic.com. MEASURED 2026-08-31 on the live mobile home page:
+  // `IMG#home-icon.mobile-topbar-logo.ytmLogoEntityLogo`, 122x48
+  // displayed at (-1,-1), natural 244x96, alt "Creators share their
+  // morning routines", computed `filter: blur(24px)` -- permanently.
+  // The host refuses CORS (fetch throws TypeError, a crossOrigin
+  // 'anonymous' load fails outright, while ytimg.com reads fine), so
+  // every attempt ends `cors-denied` and fail-closed keeps it covered
+  // for the life of the page. Owner, 2026-08-31: "why is the top left
+  // thing of YouTube blurred? It's annoying."
+  //
+  // NARROW ON PURPOSE. This is the logo element only -- it does NOT
+  // touch `ytm-profile-icon`, the account avatar that sits in the same
+  // bar and IS a photograph of a person, which stays judged. A site's
+  // own wordmark carries nobody to protect, so declining to cover it
+  // costs no exposure.
+  var CHROME_IGNORE = 'img.mobile-topbar-logo';
+
+  function isIgnoredChrome(img) {
+    try {
+      return !!(img && img.closest && img.matches && img.matches(CHROME_IGNORE));
+    } catch (e) {
+      return false;
+    }
+  }
+
   function tagImage(img) {
     if (failed || dom.hasPlayerAncestor(img)) return;
+    if (isIgnoredChrome(img)) {
+      clearEl(img);
+      return;
+    }
     if (imageSeen && imageSeen.has(img)) return;
     preflightCors(img);
 
@@ -1503,6 +1536,13 @@ if (
   // blur immediately, forget prior verdict, re-check the new content.
   function retagImage(img) {
     if (failed || dom.hasPlayerAncestor(img)) return;
+    // Never pre-blur it on a src swap either -- retagImage marks pending
+    // BEFORE tagImage runs, so without this the logo flashes covered
+    // every time YouTube rotates its promo mark.
+    if (isIgnoredChrome(img)) {
+      clearEl(img);
+      return;
+    }
     if (imageSeen) imageSeen.delete(img);
     if (regionBlur) clearRegionBlur(img); // stale overlays die with the old src
     if (plan.preBlur) markPending(img);

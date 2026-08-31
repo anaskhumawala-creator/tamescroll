@@ -228,6 +228,26 @@ function makeOverlay(radius) {
   return d;
 }
 
+// A CUT EDGE IS NOT AN EDGE OF THE SUBJECT.
+//
+// The clamp shortens a patch from the top so it does not paint over the
+// fixed chrome above it, and the patch keeps the 8px corners it was
+// built with -- so at the cut line two rounded corners open up in the
+// middle of the image, and the head behind them shows through. Owner,
+// 2026-08-31: "sometimes slightly a bit of the person behind is shown
+// ... the edges, rounded edges."
+//
+// Rounding belongs to a real edge of the patch. Where the chrome cuts
+// it, the edge is square, so the cover runs flush to the cut and the
+// corners have nothing to leak through. This only ever covers MORE, and
+// the patch stays one solid rectangle -- nothing is subtracted, split
+// or windowed (CLAUDE.md).
+function clipTopEdge(overlay, cut, radius) {
+  var r = cut ? '0px' : radius || '8px';
+  overlay.style.borderTopLeftRadius = r;
+  overlay.style.borderTopRightRadius = r;
+}
+
 function place(overlay, rect) {
   overlay.style.left = rect.left + 'px';
   overlay.style.top = rect.top + 'px';
@@ -300,7 +320,12 @@ function positionEntry(entry) {
       if (cut > 0) {
         rect.top += cut;
         rect.height -= cut;
+        clipTopEdge(overlay, true);
+      } else {
+        clipTopEdge(overlay, false, entry.radius);
       }
+    } else {
+      clipTopEdge(overlay, false, entry.radius);
     }
     overlay.style.display = '';
     place(overlay, rect);

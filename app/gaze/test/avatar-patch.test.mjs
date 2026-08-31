@@ -33,3 +33,29 @@ test('a patch can be given a radius and rebuilds when it changes', () => {
   assert.ok(src.includes('makeOverlay(entry.radius)'), 'overlays must be built with the entry radius');
   assert.ok(src.includes('dropOverlays(entry)'), 'a changed radius must rebuild the patches');
 });
+
+test('the topbar logo is not judged, and the account avatar still is', () => {
+  // MEASURED 2026-08-31 on live m.youtube home:
+  // IMG#home-icon.mobile-topbar-logo.ytmLogoEntityLogo, 122x48 at
+  // (-1,-1), natural 244x96, served from www.gstatic.com, computed
+  // filter blur(24px) permanently. That host refuses CORS, so every
+  // read ends cors-denied and fail-closed keeps it covered forever.
+  // Owner: "why is the top left thing of YouTube blurred? It's
+  // annoying."
+  const src = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
+  assert.match(src, /CHROME_IGNORE = 'img\.mobile-topbar-logo'/);
+  // NARROW: the account avatar lives in the same bar and is a photo of a
+  // person. If this list ever grows to the bar itself, that stops being
+  // judged too.
+  assert.ok(
+    !/CHROME_IGNORE[^;]*(ytm-mobile-topbar-renderer|ytm-profile-icon)/.test(src),
+    'the ignore must never widen to the top bar or the profile icon'
+  );
+  // An ignored image must be CLEARED, never left wearing the cover.
+  const tag = src.slice(src.indexOf('function tagImage('), src.indexOf('function tagImage(') + 400);
+  assert.ok(tag.includes('isIgnoredChrome(img)') && tag.includes('clearEl(img)'));
+  // retagImage marks pending before it calls tagImage, so it needs the
+  // same refusal or the logo flashes covered on every src swap.
+  const retag = src.slice(src.indexOf('function retagImage('), src.indexOf('function retagImage(') + 400);
+  assert.ok(retag.includes('isIgnoredChrome(img)'), 'the src-swap path must refuse it too');
+});

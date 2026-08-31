@@ -6,7 +6,9 @@ const src = readFileSync(new URL('../src/region-blur.mjs', import.meta.url), 'ut
 
 test('a patch stops where the chrome covering its image starts', () => {
   assert.ok(src.includes('function occluderBottom('), 'the occluder has to be measured, not assumed');
-  const pos = src.slice(src.indexOf('function positionEntry('), src.indexOf('function positionEntry(') + 1800);
+  // Slice to a stable marker, not a character count: a fixed window
+  // silently stopped covering this function once the clamp grew.
+  const pos = src.slice(src.indexOf('function positionEntry('), src.indexOf('entry.lastRect = elRect;'));
   assert.ok(pos.includes('occluderBottom('), 'positionEntry must consult it');
   assert.ok(pos.includes("overlay.style.display = 'none'"), 'a fully covered patch stands down');
   assert.ok(pos.includes("overlay.style.display = ''"), 'and comes back when it is not covered');
@@ -137,4 +139,29 @@ test('a patch is never hosted on the document root', () => {
   const write = fn.indexOf("host.style.position = 'relative'");
   assert.ok(guard > -1, 'body and html must be refused as hosts');
   assert.ok(guard < write, 'and refused before anything is written to them');
+});
+
+test('a clamped patch has a SQUARE top edge, not a rounded one', () => {
+  // The clamp shortens a patch from the top so it does not paint over
+  // fixed chrome. It kept the 8px corners it was built with, so at the
+  // cut line two rounded corners opened up in the middle of the image
+  // and the head behind them showed through. Owner 2026-08-31:
+  // "sometimes slightly a bit of the person behind is shown ... the
+  // edges, rounded edges."
+  const src = readFileSync(new URL('../src/region-blur.mjs', import.meta.url), 'utf8');
+  assert.match(src, /function clipTopEdge\(overlay, cut, radius\)/);
+  const pos = src.slice(src.indexOf('function positionEntry('), src.indexOf('entry.lastRect = elRect;'));
+  // squared exactly where the cut happens...
+  assert.match(pos, /rect\.height -= cut;\s*\n\s*clipTopEdge\(overlay, true\);/);
+  // ...and restored everywhere else, with the entry's own radius, never
+  // an empty string: the radius was set through the border-radius
+  // shorthand, so clearing the longhand would leave 0 forever.
+  assert.ok(
+    pos.includes('clipTopEdge(overlay, false, entry.radius)'),
+    'an unclamped patch must get its radius back explicitly'
+  );
+  const fn = src.slice(src.indexOf('function clipTopEdge('), src.indexOf('function clipTopEdge(') + 300);
+  assert.ok(!/=\s*''/.test(fn), 'never restore a longhand by emptying it');
+  // Squaring covers MORE, never less -- the patch stays one solid box.
+  assert.ok(!/clip-path|inset\(/.test(fn), 'no cutting, no windows');
 });
