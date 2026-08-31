@@ -423,6 +423,22 @@ graphic". It is deciding "did MoveNet's noise clear 0.1 on this frame",
 and throwing away the same face when it did not. That is his report in
 one line: the same person covered in one frame and sharp in the next.
 
+**A SECOND VIDEO, SAME STORY**, so this is not one shot's quirk
+(Ary1gIbaOTc, 107 passes, slots n:0 throughout):
+
+| | n | conf p50 | px p50 | maxKp p50 / max |
+|---|---|---|---|---|
+| REFUSED | 60 (ring cap) | **0.73** | 37 | 0.047 / **0.099** |
+| KEPT | 16 | **0.73** | 51 | 0.127 / 0.205 |
+
+Identical confidence again, the same split at the floor again, and a
+worse ratio -- roughly four faces in five refused. Both rings cap at 60,
+so the refusal counts are floors, not totals (`faceNoShape` reached 93
+over 111 passes on the first video). The one honest difference between
+the populations is size: refused faces run smaller here (37px against
+51px), so some of that tail may be weaker detections -- but the model's
+own quality signal, its confidence, does not separate them at all.
+
 **STILL NOT CHANGED.** He ruled on 2026-09-01 that the gate is held
 until the data says what it is refusing. The data has now arrived and it
 says the gate is refusing people -- but the ruling was his and the
