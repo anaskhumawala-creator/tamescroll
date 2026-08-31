@@ -387,3 +387,47 @@ what this change would look like going wrong.
 He also ruled the other two: **leave the render loop at ~30Hz** (the
 tracking is worth the frames), and **hold the ghost gate** until 1074's
 `gateRefused` / `gateKept` say what it is actually refusing.
+
+### The ghost gate is not separating faces from graphics (2026-09-01)
+
+The populations it splits are now measured, and they are the same
+population.
+
+**First, a correction that kills the device hypothesis.** MoveNet reads
+`n:0` on his phone and 2-3 persons per pass on the emulator -- but those
+two runs were at different points in the same video (t=55 against
+t=217-303). Driven to HIS timestamps the emulator reproduces his regime
+exactly: **all slots n:0, faceNoShape 93 over 111 passes, gateRefused
+60.** The fixed-input worker bench had already shown the model itself is
+fine on his device -- 25 persons admitted over 20 thumbnails on both
+machines, maxKp p50 0.779 on both, identical WebGL flags. So this is
+FOOTAGE, not hardware, not our uint8 requant, and not precision.
+
+**Second, the split itself**, read off the 1074 rings in that regime
+(emulator, 111 passes, m.youtube watch page):
+
+| | n | face confidence p05 / p50 / p95 | native px p05 / p50 / p95 | frame maxKp p50 / max |
+|---|---|---|---|---|
+| REFUSED | 60 | 0.40 / **0.74** / 0.84 | 30 / **46** / 79 | 0.049 / 0.098 |
+| KEPT | 44 | 0.40 / **0.76** / 0.85 | 28 / **47** / 103 | 0.117 / 0.179 |
+
+**The refused faces are indistinguishable from the kept ones.** Same
+confidence distribution to two decimal places, same size distribution.
+The only thing separating them is `maxKp`, which is a property of the
+FRAME and not of the face -- and it straddles PFF_FRAME_KP_FLOOR 0.1
+almost exactly: the refused population tops out at **0.098** and the
+kept population starts at **0.101**.
+
+So on this footage the gate is not deciding "is this a face or a
+graphic". It is deciding "did MoveNet's noise clear 0.1 on this frame",
+and throwing away the same face when it did not. That is his report in
+one line: the same person covered in one frame and sharp in the next.
+
+**STILL NOT CHANGED.** He ruled on 2026-09-01 that the gate is held
+until the data says what it is refusing. The data has now arrived and it
+says the gate is refusing people -- but the ruling was his and the
+change is a protection change, so it waits for him. What the fix cannot
+be is a different number: 0.098 against 0.101 is not a threshold that
+can be moved into the right place, because the quantity itself does not
+carry the information. The candidate on the right axis is `isNullRead`,
+whose numbers are in the section above.
