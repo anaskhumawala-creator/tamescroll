@@ -1858,8 +1858,49 @@ if (
     //
     // `keepFrame` hands the in-page tensor back to the caller, which owns
     // releasing it after the whole chain (the crops read it too).
+    // HOW OFTEN THE PERSON PASS IS WORTH ITS PRICE.
+    //
+    // MEASURED on real hardware for the first time (M2010J19SI,
+    // Snapdragon 662, WebView 151, 2026-08-31): passP50 506ms inside a
+    // verdictP50 of 798ms, and every one of the twelve diagnostic slots
+    // reading n:0 -- MoveNet found nobody on that footage, pass after
+    // pass, for 63% of the verdict budget. The owner's report is the
+    // other side of the same number: "so much more snappier and
+    // instantaneous ... our app was missing a lot of frames that should
+    // have been blurred". At one verdict every 2.1s the tracker is
+    // guessing between passes, so a face that appears waits up to two
+    // seconds for its patch.
+    //
+    // So: once the person pass has admitted NOBODY for
+    // PERSON_EMPTY_STREAK passes running, run it only every
+    // PERSON_SKIP_EVERY-th pass. Any admitted person resets it
+    // immediately.
+    //
+    // THIS DOES NOT COST BACKSIDE COVERAGE, and that is the whole reason
+    // it is allowed: skipping makes each pass cheaper, so the person
+    // pass ends up running MORE often in wall-clock than it does today
+    // (every ~3rd pass at ~300ms beats every pass at ~800ms). A skipped
+    // pass is reported INERT, never as "nobody is there" -- see the note
+    // in worker-entry -- so the face fallback keeps covering and the
+    // only thing a skip can cost is a ghost the next full pass removes.
+    var PERSON_EMPTY_STREAK = 3;
+    var PERSON_SKIP_EVERY = 3;
+    var personEmptyStreak = 0;
+    var personPassCount = 0;
+    function wantPersons() {
+      personPassCount++;
+      if (personEmptyStreak < PERSON_EMPTY_STREAK) return true;
+      return personPassCount % PERSON_SKIP_EVERY === 0;
+    }
+    function notePersons(persons, skipped) {
+      if (skipped) return;
+      if (persons && persons.length > 0) personEmptyStreak = 0;
+      else personEmptyStreak++;
+    }
+
     function runPass(withFaces, mark, keepFrame) {
       var aspect = video.videoWidth / (video.videoHeight || 1);
+      var askPersons = wantPersons();
       if (workerVideo()) {
         // createImageBitmap replaces the synchronous fromPixels(video)
         // texture upload -- it is async and the bitmap is TRANSFERRED,
@@ -1867,7 +1908,7 @@ if (
         return createImageBitmap(video)
           .then(function (bmp) {
             mark('upload');
-            return gazeWorker.videoFrame(bmp, aspect, heldPersons, withFaces);
+            return gazeWorker.videoFrame(bmp, aspect, heldPersons, withFaces, askPersons);
           })
           .then(function (r) {
             // Structured clone copies an array's elements, not the
@@ -1875,6 +1916,7 @@ if (
             var persons = (r.persons || []).slice();
             persons.noHumanShape = !!r.noHumanShape;
             persons.rejectedBoxes = r.rejectedBoxes || [];
+            notePersons(persons, !!r.personsSkipped);
             return { persons: persons, faces: r.faces || [] };
           })
           .catch(function (e) {
@@ -1888,8 +1930,16 @@ if (
       var frame = directPersonOk ? detector.uploadFrame(video) : null;
       keepFrame(frame);
       mark('upload');
-      return detector
-        .detectPersons(personModel, personPixelSource(), aspect, heldPersons, frame)
+      // Same rule on the in-page path. An empty array with noHumanShape
+      // left false is the inert answer the ghost gate ignores.
+      var personsP = askPersons
+        ? detector.detectPersons(personModel, personPixelSource(), aspect, heldPersons, frame)
+        : Promise.resolve([]);
+      return personsP
+        .then(function (persons) {
+          notePersons(persons, !askPersons);
+          return persons;
+        })
         .then(function (persons) {
           if (!withFaces) return { persons: persons, faces: null };
           return detector

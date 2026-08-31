@@ -320,9 +320,18 @@ export function createWorkerClient(opts) {
       },
       // One player pass over a whole frame: persons, and (on verdict
       // passes) the full-frame face pass that shares the same upload.
-      videoFrame: function (bitmap, aspect, held, withFaces) {
+      videoFrame: function (bitmap, aspect, held, withFaces, withPersons) {
         return request(
-          { type: 'vframe', bitmap: bitmap, aspect: aspect, held: held, withFaces: !!withFaces },
+          {
+            type: 'vframe',
+            bitmap: bitmap,
+            aspect: aspect,
+            held: held,
+            withFaces: !!withFaces,
+            // undefined means "yes" -- an older page talking to this
+            // worker must keep the old behaviour.
+            withPersons: withPersons !== false,
+          },
           [bitmap]
         );
       },

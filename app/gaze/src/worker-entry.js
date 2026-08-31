@@ -234,13 +234,22 @@ export function startWorker() {
     var frame = null;
     var t0 = performance.now();
     try {
-      var person = await ensurePerson();
-      if (!person) {
+      // THE PERSON PASS IS THE EXPENSIVE HALF, AND ON SOME FOOTAGE IT
+      // FINDS NOBODY PASS AFTER PASS. MEASURED on a Snapdragon 662
+      // (2026-08-31): passP50 506ms of a 798ms verdict, with all twelve
+      // diagnostic slots reading n:0 -- 63% of every verdict spent on a
+      // model contributing nothing, while the face path did the work.
+      // The page decides when to skip it; see wantPersons there.
+      var wantPersons = msg.withPersons !== false;
+      var person = wantPersons ? await ensurePerson() : null;
+      if (wantPersons && !person) {
         post({ type: 'error', id: msg.id, message: 'no person model' });
         return;
       }
       frame = detector.uploadFrame(bmp);
-      var persons = await detector.detectPersons(person, bmp, msg.aspect, msg.held, frame);
+      var persons = person
+        ? await detector.detectPersons(person, bmp, msg.aspect, msg.held, frame)
+        : [];
       var faces = null;
       if (msg.withFaces && models.face) {
         faces = await detector.detectFaceBoxes(models.face, bmp, frame);
@@ -251,7 +260,14 @@ export function startWorker() {
         // Structured clone copies an array's ELEMENTS, not the extra
         // properties detectPersons hangs on it, so they travel by name.
         persons: Array.prototype.slice.call(persons),
-        noHumanShape: !!persons.noHumanShape,
+        // A SKIPPED PASS MUST BE INERT, NEVER "NOBODY IS THERE". The
+        // ghost gate refuses an uncorroborated face only on
+        // `length === 0 && noHumanShape === true`, so a skipped pass
+        // reports false here and the face fallback keeps covering. The
+        // failure direction of a skip is a possible ghost, never an
+        // uncovered person.
+        noHumanShape: person ? !!persons.noHumanShape : false,
+        personsSkipped: !person,
         rejectedBoxes: persons.rejectedBoxes || [],
         faces: faces,
         ms: Math.round(performance.now() - t0),
