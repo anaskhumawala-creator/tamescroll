@@ -1792,6 +1792,12 @@ if (
           ? Math.round(Math.min((face.x2 - face.x1) * vw, (face.y2 - face.y1) * vh))
           : null;
         var entry = {
+          // WHEN, not just how often. "not blurred instantly" (owner,
+          // 2026-09-01) is a DURATION, and a ring with no clock can only
+          // say a face was refused, never for how long the person it
+          // belonged to stayed sharp. Page-relative ms, so it carries
+          // nothing about the content.
+          ms: Math.round(performance.now()),
           c: Math.round((face.confidence || 0) * 100) / 100,
           px: px,
           k: typeof persons.maxKp === 'number' ? persons.maxKp : null,

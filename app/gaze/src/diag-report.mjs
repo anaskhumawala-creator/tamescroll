@@ -245,7 +245,15 @@ function gateEntry(e) {
   // `g`/`s` only exist in a __TS_GATE_AUDIT run and are numbers, never
   // labels: 0 unknown, 1 male, 2 female, with the certainty beside it.
   // In a shipped run they are absent and read null.
-  return { c: num(e.c), px: num(e.px), k: num(e.k), cov: num(e.cov), g: num(e.g), s: num(e.s) };
+  return {
+    ms: num(e.ms),
+    c: num(e.c),
+    px: num(e.px),
+    k: num(e.k),
+    cov: num(e.cov),
+    g: num(e.g),
+    s: num(e.s),
+  };
 }
 
 export function buildReport(snap) {
