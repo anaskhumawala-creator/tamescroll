@@ -1887,15 +1887,48 @@ if (
     var PERSON_SKIP_EVERY = 3;
     var personEmptyStreak = 0;
     var personPassCount = 0;
+    var lastPersonAt = 0;
+    // THE GHOST GATE'S EVIDENCE, HELD ACROSS A SKIPPED PASS.
+    //
+    // frameHasNoHumanShape is what stops an uncorroborated face over a
+    // title card becoming a patch (R21), and it is only ever consulted
+    // when the person pass admitted NOBODY -- which on the owner's phone
+    // is EVERY pass. MEASURED there, 150s of one watch page: the gate
+    // refused 63 faces. So a skipped pass that reported no evidence at
+    // all would mint every one of those, and "random blur marks here and
+    // there" is his complaint verbatim.
+    //
+    // A skipped pass therefore inherits the last MEASURED answer instead
+    // of inventing one. Bounded by the scene: a cut forces a real person
+    // pass (see wantPersons), because a cut is exactly when someone new
+    // can walk into frame, and within one shot the frame's human-shape
+    // evidence is the same evidence.
+    var heldNoShape = false;
     function wantPersons() {
       personPassCount++;
       if (personEmptyStreak < PERSON_EMPTY_STREAK) return true;
+      // A CUT INVALIDATES THE HELD ANSWER. Run the model.
+      if (lastCutAt > lastPersonAt) return true;
       return personPassCount % PERSON_SKIP_EVERY === 0;
     }
     function notePersons(persons, skipped) {
-      if (skipped) return;
+      if (skipped) {
+        // Inert on its own terms, but the frame's evidence is not
+        // reinvented: carry the last real reading forward.
+        if (persons) persons.noHumanShape = heldNoShape;
+        return;
+      }
+      lastPersonAt = nowMsSafe();
+      heldNoShape = !!(persons && persons.noHumanShape);
       if (persons && persons.length > 0) personEmptyStreak = 0;
       else personEmptyStreak++;
+    }
+    function nowMsSafe() {
+      try {
+        return performance.now();
+      } catch (e) {
+        return 0;
+      }
     }
 
     function runPass(withFaces, mark, keepFrame) {
@@ -1916,6 +1949,7 @@ if (
             var persons = (r.persons || []).slice();
             persons.noHumanShape = !!r.noHumanShape;
             persons.rejectedBoxes = r.rejectedBoxes || [];
+            // notePersons stamps the held answer onto a skipped pass.
             notePersons(persons, !!r.personsSkipped);
             return { persons: persons, faces: r.faces || [] };
           })

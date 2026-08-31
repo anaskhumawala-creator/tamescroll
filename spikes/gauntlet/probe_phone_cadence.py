@@ -29,7 +29,15 @@ time.sleep(12)
 # cannot lose an entry
 t.eval("""(function(){
   if(window.__TS_CAD) return 'already';
-  var st={v:0,p:0,vms:[],pms:[],t0:performance.now(),stopped:false,ticks:0};
+  var st={v:0,p:0,vms:[],pms:[],t0:performance.now(),stopped:false,ticks:0,
+          raf:0,cov:0,frames:0};
+  // SMOOTHNESS IS THE OTHER HALF OF THE A/B. Cheaper passes raise the
+  // pass RATE (the duty rule is cost-proportional), so a cadence win
+  // that costs frames is not a win -- sample the render loop and the
+  // fraction of frames with a patch up, in page, at rAF.
+  (function raf(){ if(st.stopped) return; st.raf++;
+    if(document.querySelectorAll('.ts-gaze-vregion-host').length) st.cov++;
+    st.frames++; requestAnimationFrame(raf); })();
   var iv=setInterval(function(){
     st.ticks++;
     var r=(window.__TS_GAZE_IDS&&window.__TS_GAZE_IDS.stages)||[];
@@ -40,7 +48,10 @@ t.eval("""(function(){
     }
   },250);
   window.__TS_CAD=function(){clearInterval(iv); st.stopped=true;
-    st.secs=(performance.now()-st.t0)/1000; return JSON.stringify(st);};
+    st.secs=(performance.now()-st.t0)/1000;
+    st.rafHz=Math.round(st.raf/st.secs*10)/10;
+    st.coverage=Math.round(st.cov/Math.max(1,st.frames)*1000)/1000;
+    return JSON.stringify(st);};
   return 'started';})()""")
 
 time.sleep(SECS)
@@ -68,6 +79,6 @@ out={"label":LABEL,"secs":round(secs,1),
  "verdictMsP50":pct(st.get("vms") or [],0.5),
  "verdictMsP95":pct(st.get("vms") or [],0.95),
  "positionMsP50":pct(st.get("pms") or [],0.5),
- "ticks":st.get("ticks")}
+ "ticks":st.get("ticks"), "rafHz":st.get("rafHz"), "coverage":st.get("coverage")}
 out.update(extra or {})
 print(json.dumps(out, indent=1))
