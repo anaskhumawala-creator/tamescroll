@@ -70,8 +70,47 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 08:05 (1065 live, sha 665f189c; loop 16 changed one
-guard and shipped nothing -- four checks that could have found a hole and did not).
+**Last updated:** 2026-08-31 08:35 (1065 live, sha 665f189c; loop 17 explains why
+the occluder clamp cannot see the sticky player -- and why it must not).
+
+**Session 2026-08-31 (loop 17) -- THE CLAMP CANNOT SEE THE STICKY
+PLAYER, AND MAKING IT SEE THE PLAYER WOULD BE AN EXPOSURE.** No code
+changed; this closes the last angle the cron named on priority 1.
+- **THE MECHANISM, MEASURED.** occluderBottom samples ONCE, at
+  `x = centre, y = max(1, top+1)` -- the top row of the image still on
+  screen. On a watch page that is y=1, and the sticky player occupies
+  **48..279**, so the sample is always ABOVE it. Four independent scroll
+  positions with a patch riding up into the band: occ **0** every time,
+  reason always `our image on top: IMG.ytCoreImageHost`.
+- **AND THAT ANSWER IS CORRECT.** `ytm-mobile-topbar-renderer` IS
+  present and `position: fixed` at [0,0,412,48], but while the watch
+  page is scrolled it is NOT hit-testable: at y=1, 10, 30 and 47 the top
+  hit is our own thumbnail. The strip 0..48 genuinely shows the scrolled
+  feed. Clamping the patch to the player's bottom would leave that
+  visible strip with no patch and no chrome over it -- an exposure, in
+  exchange for nothing.
+- **SO THE ISOLATE WRITE IS WHAT HOLDS THE BAND, NOT THE CLAMP.** 165
+  patch samples on a playing watch page, 3 overlapping the player band:
+  **0 where the patch outranks the player** (patch at stack index 5-6,
+  player at 0). Written up in docs/technical-findings.md, including the
+  consequence: `resolveHost` skips isolate on a FIXED host, so if a
+  fixed feed host ever appears its patch has nothing holding it in that
+  band. Every recommendation host measured is `relative`.
+- Loop 8's "0 of 170 unclipped above the bar" was measured on SEARCH,
+  where the bar IS hit-testable. It does not transfer to watch. Do not
+  quote it as coverage of the player.
+- **THE FULLSCREEN ELEMENT IS `#player-container-id` ITSELF -- so 1065's
+  pill host is fullscreen-safe, measured, not argued.** Synthetic
+  touches never granted activation for requestFullscreen; a real mouse
+  click on YouTube's own button did. In fullscreen: `fs =
+  DIV#player-container-id`, **fsContainsPill true**, pill visible at
+  [808,48,99,36] in a 915x412 landscape viewport, display flex; on exit
+  it returns to [305,96,99,36] portrait. PROBE NOTE: the fullscreen
+  button must be asserted hittable at click time -- the mobile player
+  autohides its controls in well under a second, and three earlier
+  attempts silently clicked the background div instead.
+- gaze 379/379, cargo 58/58 (unchanged -- no code touched).
+
 
 **Session 2026-08-31 (loop 16) -- FOUR CHECKS THAT COULD HAVE FOUND A
 HOLE AND DID NOT, AND ONE BLAST-RADIUS GUARD.** No release: nothing
