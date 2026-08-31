@@ -78,14 +78,26 @@ try {
 // increments on a hot path and are read through a guarded window hook, so
 // they can be left in: instrumentation that throws inside the pipeline has
 // already cost two releases (GOAL.md standing rule).
-// hideNoVr / hideZeroVr / hideClipped / rectsNoBoxes EXIST BECAUSE A
-// MEASURED 84ms GAP WAS ATTRIBUTED TO THE WRONG BRANCH. A covered
-// subject with no visible patch can only come from one of four places,
-// and from outside they are indistinguishable -- which is how a fix
-// shipped against a branch that provably never fires (see
-// docs/technical-findings.md, 2026-09-01). They count FRAMES, so a
-// number is a duration at the render cadence, not an event count.
-var renderStats = { raf: 0, overlayFrames: 0, maskCalls: 0, maskWrites: 0, tfWrites: 0, sizeWrites: 0, dispWrites: 0, hideNoVr: 0, hideZeroVr: 0, hideClipped: 0, rectsNoBoxes: 0 };
+// hideNoVr / hideZeroVr / hideClipped / rectsNoBoxes / drawnZero EXIST
+// BECAUSE A MEASURED GAP WAS ATTRIBUTED TO THE WRONG BRANCH -- a fix
+// shipped and was reverted against a branch that provably never fires
+// (docs/technical-findings.md, 2026-09-01).
+//
+// THEY ARE NOT ALL PER-FRAME, and reading them as a duration is wrong:
+//   rectsNoBoxes  per refreshRects call -- the rAF loop only when
+//                 rectsDirty, PLUS the 250ms timer, the ResizeObserver
+//                 on host and video, and entry creation. It can rise by
+//                 2 inside one rendered frame; measured doing exactly
+//                 that.
+//   hideNoVr      per reposition call, and reposition also runs on
+//                 every verdict outside the loop.
+//   hideZeroVr    same.
+//   hideClipped   per OVERLAY per reposition, so it scales with the
+//                 number of tracks.
+//   drawnZero     same.
+// Attribute with a rate only against `raf`, and never treat a delta as
+// milliseconds.
+var renderStats = { raf: 0, overlayFrames: 0, maskCalls: 0, maskWrites: 0, tfWrites: 0, sizeWrites: 0, dispWrites: 0, hideNoVr: 0, hideZeroVr: 0, hideClipped: 0, rectsNoBoxes: 0, drawnZero: 0 };
 try {
   if (typeof window !== 'undefined') {
     window.__TS_GAZE_RENDER = function () {
@@ -101,6 +113,7 @@ try {
         hideZeroVr: renderStats.hideZeroVr,
         hideClipped: renderStats.hideClipped,
         rectsNoBoxes: renderStats.rectsNoBoxes,
+        drawnZero: renderStats.drawnZero,
       };
     };
   }
@@ -994,6 +1007,13 @@ function reposition(entry, now) {
     // LOCAL units, which an ancestor transform scales again -- so convert
     // once, here, and give the mask the same converted geometry so the
     // two stay in register.
+    // THE FIFTH WAY A PATCH BECOMES INVISIBLE, and the four counters
+    // above cannot name it. clipToBounds accepts any sliver with
+    // `r - l > 0` and then ROUNDS the size, so a 0.4px overlap survives
+    // the null test and is written as `width: 0px` -- an overlay that
+    // exists, is display:'', and paints nothing. A probe counting
+    // rendered patches sees the same thing a hidden one produces.
+    if (drawn.width === 0 || drawn.height === 0) renderStats.drawnZero++;
     var hs = entry.scale || 1;
     var local = toLocalRect(drawn, hs);
     place(entry.overlays[j], local);

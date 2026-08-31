@@ -268,15 +268,37 @@ test('the life pass-through drops anything that is not an integer counter', () =
     msgR: 5,
   };
   const out = d.lifeCounters(life);
-  assert.deepEqual(Object.keys(out), ['good']);
+  // `lifeDropped` is the count of what was refused -- it must be there,
+  // because a silently shrunk report is the thing this replaced.
+  assert.deepEqual(Object.keys(out).sort(), ['good', 'lifeDropped']);
+  assert.equal(out.lifeDropped, 6);
   assert.equal(out.good, 4);
   for (const k of ['bad', 'nan', 'inf', 'not-an-ident', 'msgR']) {
     assert.equal(k in out, false, k + ' must not reach the report');
   }
 });
 
-test('the life pass-through is bounded', () => {
+// A CAP THAT EVICTS SILENTLY IS THE DEFECT IT REPLACED. With an
+// alphabetical sort and a hard truncate, 96 keys named `aFlood*` pushed
+// every real counter out and the report still looked healthy. So the cap
+// is generous against the ~49 keys that exist, and whatever it drops is
+// itself a number in the report.
+test('the life pass-through is bounded and says what it dropped', () => {
   const life = {};
-  for (let i = 0; i < d.LIFE_MAX_KEYS + 40; i++) life['c' + i] = i;
-  assert.equal(Object.keys(d.lifeCounters(life)).length, d.LIFE_MAX_KEYS);
+  for (let i = 0; i < d.LIFE_MAX_KEYS + 44; i++) life['c' + String(i).padStart(4, '0')] = i;
+  const out = d.lifeCounters(life);
+  assert.equal(Object.keys(out).length, d.LIFE_MAX_KEYS + 1, 'cap plus the drop count');
+  assert.equal(out.lifeDropped, 44);
+});
+
+test('a flood of junk keys cannot evict the real counters', () => {
+  const life = {};
+  for (let i = 0; i < 200; i++) life['aFlood' + i] = i;
+  for (const k of ['emptyFrame', 'wipeErased', 'wipeErasedTracks',
+                   'wipeErasedBlurred', 'faceNoShape', 'bodyFromSlot']) life[k] = 7;
+  const out = d.lifeCounters(life);
+  for (const k of ['emptyFrame', 'wipeErased', 'wipeErasedTracks',
+                   'wipeErasedBlurred', 'faceNoShape', 'bodyFromSlot']) {
+    assert.equal(out[k], 7, k + ' was evicted by the flood');
+  }
 });

@@ -400,10 +400,9 @@ export function buildReport(snap) {
       // because `buildReport` had no life block at all; loop 37 then
       // added counters in the page that STILL never reached a report,
       // because adding a counter and adding it here are two edits and
-      // only one of them is obvious. IDS.life is written exclusively by
-      // our own code with literal identifier keys and integer values, so
-      // pass every numeric counter through and let the shape -- not a
-      // list -- be what keeps it safe.
+      // only one of them is obvious. So every numeric counter passes
+      // through and the SHAPE is what bounds it -- see lifeCounters,
+      // which does not assume anything about who wrote the bag.
       life: lifeCounters(life),
       // WHAT THE GHOST GATE SPLIT, both sides. Three numbers per entry:
       // the face's own confidence, its native pixel size, and the frame
@@ -455,26 +454,41 @@ function pluck(rows, key) {
   return out;
 }
 
-// Every own key of IDS.life whose value is a finite number, capped in
-// count and restricted to identifier-shaped keys. The report invariant
-// allows free text only in keys ending `R`, so both halves are checked
-// here rather than trusted: a key that is not a plain identifier, or a
-// value that is not a number, is dropped rather than carried.
-export var LIFE_MAX_KEYS = 96;
+// Every own key of IDS.life whose value is a finite number, restricted
+// to identifier-shaped keys and bounded in count.
+//
+// THE SHAPE IS THE GUARANTEE, NOT THE WRITER. `__TS_GAZE_IDS` lives on
+// `window` in the PAGE world, which YouTube's own script shares, so
+// "only our code writes it" is not something this function may assume --
+// it is checked here. A key that is not a plain identifier, a key ending
+// `R` (the report invariant reserves those for redacted free text), or a
+// value that is not a finite number is dropped rather than carried.
+//
+// AND A CAP THAT SILENTLY EVICTS IS THE DEFECT IT REPLACED. Sorting and
+// truncating at N means 96 keys named `aFlood*` push every real counter
+// out and the report still looks healthy -- executed, and it kept 96 of
+// 102 with none of the six eraser counters among them. So the cap is
+// generous against the ~49 keys that exist, and what it drops is
+// COUNTED: `lifeDropped` is itself a number, so it survives the
+// invariant and a truncated report says so out loud.
+export var LIFE_MAX_KEYS = 256;
 export function lifeCounters(life) {
   var out = {};
   if (!life || typeof life !== 'object') return out;
   var keys = Object.keys(life).sort();
   var n = 0;
-  for (var i = 0; i < keys.length && n < LIFE_MAX_KEYS; i++) {
+  var dropped = 0;
+  for (var i = 0; i < keys.length; i++) {
     var k = keys[i];
-    if (!/^[A-Za-z][A-Za-z0-9]{0,31}$/.test(k)) continue;
-    if (k.charAt(k.length - 1) === 'R') continue; // reserved for free text
+    if (!/^[A-Za-z][A-Za-z0-9]{0,31}$/.test(k)) { dropped++; continue; }
+    if (k.charAt(k.length - 1) === 'R') { dropped++; continue; }
     var v = life[k];
-    if (typeof v !== 'number' || !isFinite(v)) continue;
+    if (typeof v !== 'number' || !isFinite(v)) { dropped++; continue; }
+    if (n >= LIFE_MAX_KEYS) { dropped++; continue; }
     out[k] = Math.round(v * 1000) / 1000;
     n++;
   }
+  if (dropped) out.lifeDropped = dropped;
   return out;
 }
 

@@ -1,0 +1,28 @@
+HOSTS_BEFORE 1
+COVERED_BEFORE 0 1
+MINI 0 1
+PAIR0 {"samples": 143, "spanMs": 9784, "hz": 14.6, "withTrack": 59, "gapSamples": 0, "d": {"noVr": 0, "zeroVr": 0, "clipped": 0, "noBoxes": 0}}
+  PAIR0 restore0 {"atMs": 128004, "n": 12, "withTrack": 0, "gap": 0, "gapMs": 0, "d": {"noVr": 0, "zeroVr": 0, "clipped": 0, "noBoxes": 0}, "vw": [231, 412]}
+  PAIR0 park0 {"atMs": 122633, "n": 8, "withTrack": 8, "gap": 0, "gapMs": 0, "d": {"noVr": 0, "zeroVr": 0, "clipped": 0, "noBoxes": 0}, "vw": [231, 235, 347, 412]}
+  DEEP0 n=0
+COVERED_BEFORE 1 1
+MINI 1 1
+PAIR1 {"samples": 164, "spanMs": 8310, "hz": 19.7, "withTrack": 113, "gapSamples": 1, "d": {"noVr": 0, "zeroVr": 0, "clipped": 0, "noBoxes": 0}}
+  PAIR1 restore0 {"atMs": 165916, "n": 5, "withTrack": 0, "gap": 0, "gapMs": 0, "d": {"noVr": 0, "zeroVr": 0, "clipped": 0, "noBoxes": 0}, "vw": [231, 412]}
+  PAIR1 park0 {"atMs": 162195, "n": 11, "withTrack": 11, "gap": 0, "gapMs": 0, "d": {"noVr": 0, "zeroVr": 0, "clipped": 0, "noBoxes": 0}, "vw": [231, 232, 238, 250, 347, 412]}
+  PAIR1 GAP_SAMPLE [{"ms": 165288, "mini": 1, "drag": 0, "vw": 0, "vh": 0, "vt": 1, "vis": 0, "raf": 330, "noVr": 0, "zeroVr": 0, "clipped": 0, "noBoxes": 1}]
+  DEEP1 n=1
+     {"ms": 165289, "vDisp": "block", "vVis": "visible", "vOpa": "1", "vOW": 0, "vOH": 0, "vBoxes": 0, "vPaused": 1, "vT": 0, "vRS": 0, "vParent": "html5-video-container", "pcBoxes": 1, "pcW": 231, "pcH": 0, "pcDisp": "block", "pcPos": "fixed", "mpW": 0, "hostId": "ts-gaze-vregion-host", "hostBoxes": 0, "hostW": 0, "nVideos": 1, "mini": 1}
+COVERED_BEFORE 2 2
+MINI 2 1
+PAIR2 {"samples": 225, "spanMs": 8007, "hz": 28.1, "withTrack": 138, "gapSamples": 35, "d": {"noVr": 33, "zeroVr": 0, "clipped": 0, "noBoxes": 3}}
+  PAIR2 restore0 {"atMs": 184146, "n": 27, "withTrack": 4, "gap": 4, "gapMs": 98, "d": {"noVr": 3, "zeroVr": 0, "clipped": 0, "noBoxes": 0}, "vw": [0, 231, 412]}
+  PAIR2 park0 {"atMs": 181148, "n": 27, "withTrack": 27, "gap": 0, "gapMs": 0, "d": {"noVr": 0, "zeroVr": 0, "clipped": 0, "noBoxes": 0}, "vw": [231, 232, 238, 258, 347, 412]}
+  PAIR2 GAP_SAMPLE [{"ms": 183542, "mini": 1, "drag": 0, "vw": 0, "vh": 0, "vt": 1, "vis": 0, "raf": 438, "noVr": 1, "zeroVr": 0, "clipped": 0, "noBoxes": 4}, {"ms": 183565, "mini": 1, "drag": 0, "vw": 0, "vh": 0, "vt": 1, "vis": 0, "raf": 439, "noVr": 1, "zeroVr": 0, "clipped": 0, "noBoxes": 5}, {"ms": 183577, "mini": 1, "drag": 0, "vw": 0, "vh": 0, "vt": 1, "vis": 0, "raf": 440, "noVr": 2, "zeroVr": 0, "clipped": 0, "noBoxes": 5}, {"ms": 183589, "mini": 1, "drag": 0, "vw": 0, "vh": 0, "vt": 1, "vis": 0, "raf": 441, "noVr": 3, "zeroVr": 0, "clipped": 0, "noBoxes": 5}, {"ms": 183608, "mini": 1, "drag": 0, "vw": 0, "vh": 0, "vt": 1, "vis": 0, "raf": 442, "noVr": 4, "zeroVr": 0, "clipped": 0, "noBoxes": 6}, {"ms": 183619, "mini": 1, "drag": 0, "vw": 0, "vh": 0, "vt": 1, "vis": 0, "raf": 443, "noVr": 5, "zeroVr": 0, "clipped": 0, "noBoxes": 6}]
+  DEEP2 n=35
+     {"ms": 183542, "vDisp": "block", "vVis": "visible", "vOpa": "1", "vOW": 0, "vOH": 0, "vBoxes": 0, "vPaused": 1, "vT": 0, "vRS": 0, "vParent": "html5-video-container", "pcBoxes": 1, "pcW": 310, "pcH": 0, "pcDisp": "block", "pcPos": "fixed", "mpW": 0, "hostId": "ts-gaze-vregion-host", "hostBoxes": 0, "hostW": 0, "nVideos": 1, "mini": 1}
+     {"ms": 183565, "vDisp": "block", "vVis": "visible", "vOpa": "1", "vOW": 0, "vOH": 0, "vBoxes": 0, "vPaused": 1, "vT": 0, "vRS": 0, "vParent": "html5-video-container", "pcBoxes": 1, "pcW": 243, "pcH": 0, "pcDisp": "block", "pcPos": "fixed", "mpW": 0, "hostId": "ts-gaze-vregion-host", "hostBoxes": 0, "hostW": 0, "nVideos": 1, "mini": 1}
+     {"ms": 183577, "vDisp": "block", "vVis": "visible", "vOpa": "1", "vOW": 0, "vOH": 0, "vBoxes": 0, "vPaused": 1, "vT": 0, "vRS": 0, "vParent": "html5-video-container", "pcBoxes": 1, "pcW": 235, "pcH": 0, "pcDisp": "block", "pcPos": "fixed", "mpW": 0, "hostId": "ts-gaze-vregion-host", "hostBoxes": 0, "hostW": 0, "nVideos": 1, "mini": 1}
+     {"ms": 183589, "vDisp": "block", "vVis": "visible", "vOpa": "1", "vOW": 0, "vOH": 0, "vBoxes": 0, "vPaused": 1, "vT": 0, "vRS": 0, "vParent": "html5-video-container", "pcBoxes": 1, "pcW": 233, "pcH": 0, "pcDisp": "block", "pcPos": "fixed", "mpW": 0, "hostId": "ts-gaze-vregion-host", "hostBoxes": 0, "hostW": 0, "nVideos": 1, "mini": 1}
+     {"ms": 183608, "vDisp": "block", "vVis": "visible", "vOpa": "1", "vOW": 0, "vOH": 0, "vBoxes": 0, "vPaused": 1, "vT": 0, "vRS": 0, "vParent": "html5-video-container", "pcBoxes": 1, "pcW": 231, "pcH": 0, "pcDisp": "block", "pcPos": "fixed", "mpW": 0, "hostId": "ts-gaze-vregion-host", "hostBoxes": 0, "hostW": 0, "nVideos": 1, "mini": 1}
+     {"ms": 183620, "vDisp": "block", "vVis": "visible", "vOpa": "1", "vOW": 0, "vOH": 0, "vBoxes": 0, "vPaused": 1, "vT": 0, "vRS": 0, "vParent": "html5-video-container", "pcBoxes": 1, "pcW": 231, "pcH": 0, "pcDisp": "block", "pcPos": "fixed", "mpW": 0, "hostId": "ts-gaze-vregion-host", "hostBoxes": 0, "hostW": 0, "nVideos": 1, "mini": 1}

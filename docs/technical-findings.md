@@ -435,3 +435,52 @@ changing anything.
 frozen at the parked (scaled) geometry, `entry.scale` is stale in the
 compensating direction -- the loop-22 host-scale conversion cancels it -- so
 the drawn patch lands within ~1px of correct.
+
+## The player-region gap is a player with NO PICTURE, not an exposure (2026-09-01)
+
+Loop 37d measured a covered subject with no visible patch for 84ms and
+shipped a fix against `clipToBounds` (reverted, c8420ec). Five frame
+counters in video-region (`hideNoVr`, `hideZeroVr`, `hideClipped`,
+`rectsNoBoxes`, `drawnZero`) plus a per-gap-frame deep read finally
+attribute it. Raw output: `spikes/gauntlet/hide-branch-deep.txt` and
+`hide-branch-fresh.txt`.
+
+**AT EVERY GAP FRAME THE PLAYER IS PAINTING NOTHING.** 35 gap frames in
+one pair, every one identical in shape:
+
+    vDisp block, vVis visible, vOpa 1     <- not hidden by style
+    vOW 0, vOH 0, vBoxes 0                <- the VIDEO has no boxes
+    vPaused 1, vT 0, vRS 0                <- readyState HAVE_NOTHING
+    mpW 0, pcH 0, pcBoxes 1               <- #movie_player 0 wide
+    hostBoxes 0, hostW 0                  <- our host has no boxes
+    nVideos 1                             <- no wrong-element artifact
+
+`readyState 0` with `currentTime 0` is a video element that has been
+TORN DOWN AND RE-CREATED, and a player container laid out at height 0
+paints no pixels. So hiding every overlay there is CORRECT -- there is
+nothing under the patch to reveal -- and the code path taken
+(`rectsNoBoxes` -> `hideNoVr`) is the one whose comment already says so:
+"a host that generates no boxes paints no pixels".
+
+**`hideClipped` STAYED 0 THROUGHOUT**, on a live device, which is the
+third independent confirmation that `clipToBounds` cannot hide a real
+track (the fuzz was the second).
+
+**AND THE GAPS ARE NOT AT THE RESTORE.** They sit in the parked steady
+state with `mini: 1`, ending before the restore window opens. A fresh
+emulator over 3 park+restore pairs at 15-21Hz produced `gapSamples 0`
+and all counters 0.
+
+TWO INSTRUMENT NOTES, both of which produced a wrong attribution first:
+
+- **The five counters are not all per-frame.** `rectsNoBoxes` counts
+  `refreshRects` calls -- the rAF loop only when `rectsDirty`, plus the
+  250ms timer, plus a `ResizeObserver` on host and video, plus entry
+  creation -- and was measured rising by 2 inside ONE rendered frame.
+  `hideClipped` and `drawnZero` are per OVERLAY. Attribute against `raf`,
+  never as milliseconds.
+- **There is a fifth way a patch becomes invisible and four counters
+  cannot see it.** `clipToBounds` accepts any sliver with `r - l > 0` and
+  then ROUNDS the size, so a 0.4px overlap survives the null test and is
+  written as `width: 0px`: an overlay that exists, is `display: ''`, and
+  paints nothing. `drawnZero` counts it now.
