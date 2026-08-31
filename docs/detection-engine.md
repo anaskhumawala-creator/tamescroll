@@ -511,3 +511,68 @@ be is a different number: 0.098 against 0.101 is not a threshold that
 can be moved into the right place, because the quantity itself does not
 carry the information. The candidate on the right axis is `isNullRead`,
 whose numbers are in the section above.
+
+## The null-band swap was BUILT, CRITIQUED AND REVERTED (2026-09-01, loop 37b)
+
+He ruled "both" on the fork above -- swap the ghost gate's test to
+`isNullRead`, and stop a refused face reporting the frame as empty. It
+was built (2638d2f), repaired once (168206f) and then **reverted whole
+(9845202)**. The measurements that motivated it all stand; the
+instrument chosen to act on them does not. Written down in full because
+the next attempt will be tempted by the same idea.
+
+**THE DECIDING EXPERIMENT, run by an adversarial critic against this
+repo's own numbers.** The subject of his report is the daughter in
+NWoT1ZVd1Lo, and R25 measured her at **childP 0.146-0.194** against
+`GENDER_CHILD_MASS` 0.25. So `isAdultRead` returns TRUE for her, the
+child guard added to protect exactly her never fires, she is tagged a
+null read, and the mint is refused. End to end with her measured
+numbers, man mode: **tracks WITH the gate 0, tracks WITHOUT it 1
+(blurred)**. The change turns covered-by-fail-closed into
+never-covered for the person whose report started it.
+
+**AND THE GUARD MAY BE STRUCTURALLY INCAPABLE OF FIRING.** A null read
+*is* the age head returning its prior. A prior centred near 37 puts
+little probability mass under 18, so `childP` is small BY CONSTRUCTION
+for every null read, and `isAdultRead && isNullRead` may be an
+identity rather than a guard. NOT PROVEN -- it is the one query that
+settles whether `isNullRead` can ever be a mint gate, and both fields
+already ship in the `reads` ring (`pc`, `ab`), so it needs no new
+instrument.
+
+**THREE MORE DEFECTS, all executed rather than argued:**
+
+- **`dedupeObservations` launders the tag.** `preferred()` picks by
+  `positionOnly` then box area and never looks at the tag, so a
+  graphic's synthetic body (7.4 face heights, usually the larger box)
+  absorbs a real woman merged with it and NOBODY is covered. That is a
+  regression against even the first draft, which dropped the
+  observation before dedupe ran. **Any future tag-and-refuse scheme has
+  to survive dedupe**, which means the tag has to be a property of the
+  merged result, not of one input.
+- **"Refuse the birth, never the refresh" creates an immortal ghost.**
+  A graphic's tagged observation refreshes its own track forever, and a
+  scene cut only DEMOTES rather than wipes; so the patch parks on a
+  title card for the length of the shot. The `faceEvidence` half of the
+  same change disabled the backstop (`wipeIfEmpty`) that would have
+  cleared it -- two halves that were each defensible alone and are not
+  together.
+- **The regression test passed against the broken code.** The exposure
+  lived in `init-entry.js`, where the observation never reached the
+  tracker; the test handed the observation straight to
+  `updatePersonTracks` and asserted something that was never in doubt.
+  **A behaviour test that does not run the path the defect lives in is
+  not evidence.**
+
+**CARRIED FORWARD, UNFIXED:**
+
+- `nullMint`/`nullDropped` never reached the diagnostics report --
+  `player.life` is a six-key whitelist and neither was added. That is
+  the loop-34 defect verbatim: a counter that exists in the page and
+  cannot leave it. Any new life counter needs the whitelist edited in
+  the same diff.
+- **The shipped null band is WIDER than the band its own numbers were
+  measured at.** `NULL_V_LO` 0.53 / `NULL_V_HI` 0.72 shipped; the
+  bench used [0.545, 0.705]. So "30-33 of 34 non-faces caught" and
+  "1-2 of 28 real faces rejected" are BOUNDS. Re-derive against the
+  real constants before building on them.
