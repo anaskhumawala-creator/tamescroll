@@ -1765,6 +1765,23 @@ if (
     // no free text; they cost the report nothing and they are the only
     // way to tell "the gate is refusing graphics" from "the gate is
     // refusing people", which on his hardware is currently unknown.
+    function faceAlreadyCovered(face) {
+      // DOES THE REFUSAL ACTUALLY COST COVERAGE? A face the gate throws
+      // away is only an exposure if nobody else is covering that spot --
+      // a second face in the same shot, or the same person still held by
+      // a coasting track, would cover it anyway. Tracks here are the
+      // PREVIOUS pass's, which is exactly the right question: was this
+      // subject covered at the moment we refused them.
+      var cx = (face.x1 + face.x2) / 2;
+      var cy = (face.y1 + face.y2) / 2;
+      for (var i = 0; i < videoTracks.length; i++) {
+        var t = videoTracks[i];
+        if (!t || t.state !== 'blurred' || !t.box) continue;
+        if (cx >= t.box.x1 && cx <= t.box.x2 && cy >= t.box.y1 && cy <= t.box.y2) return 1;
+      }
+      return 0;
+    }
+
     function noteFaceGate(ring, face, persons, video) {
       try {
         var d = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
@@ -1778,6 +1795,7 @@ if (
           c: Math.round((face.confidence || 0) * 100) / 100,
           px: px,
           k: typeof persons.maxKp === 'number' ? persons.maxKp : null,
+          cov: faceAlreadyCovered(face),
         });
         if (r.length > 60) r.shift();
       } catch (e) {}

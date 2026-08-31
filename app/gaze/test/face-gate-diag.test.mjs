@@ -32,7 +32,7 @@ test('both sides of the gate are recorded, and only those sides', () => {
 test('the ring carries three numbers and nothing else', () => {
   const body = page.slice(page.indexOf('function noteFaceGate'));
   const push = body.slice(body.indexOf('r.push('), body.indexOf('if (r.length'));
-  for (const k of ['c:', 'px:', 'k:']) assert.ok(push.includes(k), k + ' missing');
+  for (const k of ['c:', 'px:', 'k:', 'cov:']) assert.ok(push.includes(k), k + ' missing');
   // A url or an element reference here is how the privacy promise gets
   // broken one convenient field at a time.
   assert.ok(!/src|url|href|node|el\b/.test(push), 'the ring grew a non-numeric field');
@@ -42,12 +42,12 @@ test('the ring carries three numbers and nothing else', () => {
 test('the report carries both rings and stays clean', () => {
   const r = buildReport({
     ids: {
-      gateRefused: [{ c: 0.42, px: 71, k: 0.06 }],
-      gateKept: [{ c: 0.88, px: 103, k: 0.31 }],
+      gateRefused: [{ c: 0.42, px: 71, k: 0.06, cov: 0 }],
+      gateKept: [{ c: 0.88, px: 103, k: 0.31, cov: 1 }],
     },
   });
-  assert.deepEqual(r.player.gateRefused, [{ c: 0.42, px: 71, k: 0.06 }]);
-  assert.deepEqual(r.player.gateKept, [{ c: 0.88, px: 103, k: 0.31 }]);
+  assert.deepEqual(r.player.gateRefused, [{ c: 0.42, px: 71, k: 0.06, cov: 0 }]);
+  assert.deepEqual(r.player.gateKept, [{ c: 0.88, px: 103, k: 0.31, cov: 1 }]);
   assert.deepEqual(reportViolations(r, 'https://m.youtube.com/watch?v=abcdefghijk'), []);
 });
 

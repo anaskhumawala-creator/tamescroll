@@ -439,6 +439,30 @@ the populations is size: refused faces run smaller here (37px against
 51px), so some of that tail may be weaker detections -- but the model's
 own quality signal, its confidence, does not separate them at all.
 
+**AND THE REFUSALS ARE NOT REDUNDANT.** The obvious defence of the gate
+is that a thrown-away face is often covered anyway -- by a second person
+in the same shot, or by the same subject still held on a coasting track.
+Measured by asking, at the moment of refusal, whether any BLURRED track
+already contained that face's centre (emulator, his regime, 108 passes):
+
+| | n | already covered |
+|---|---|---|
+| REFUSED | 60 | **12 (20%)** |
+| KEPT | 23 | 0 |
+
+So **48 of 60 refusals were an uncovered face**.
+
+**THE HONEST BOUND ON THAT NUMBER, because it is easy to overclaim.**
+"Not covered" is not the same as "should have been covered": the gate
+refuses BEFORE any gender read, so we cannot know what those faces would
+have read as, and in MAN mode a man reads clear and stays sharp
+correctly. From his own phone's read distribution (24 reads: male 14,
+female 2, unknown 8) roughly a third would have ABSTAINED -- and an
+abstain fails closed, i.e. covered -- with a small further share
+flagged. So of those 48, on the order of twenty would have produced a
+patch. That is still his complaint, and the abstain share is
+blur-first being bypassed rather than applied.
+
 **STILL NOT CHANGED.** He ruled on 2026-09-01 that the gate is held
 until the data says what it is refusing. The data has now arrived and it
 says the gate is refusing people -- but the ruling was his and the

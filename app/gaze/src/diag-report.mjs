@@ -239,7 +239,10 @@ var KEEP = { images: 40, stages: 40, slots: 12, reads: 60, gate: 40 };
  * is testable without a DOM, a device, or a running pipeline.
  */
 function gateEntry(e) {
-  return { c: num(e.c), px: num(e.px), k: num(e.k) };
+  // `cov` is the one that decides whether a refusal MATTERS: 1 means a
+  // blurred track was already covering that spot when the gate threw
+  // the face away, 0 means it was an uncovered person.
+  return { c: num(e.c), px: num(e.px), k: num(e.k), cov: num(e.cov) };
 }
 
 export function buildReport(snap) {
