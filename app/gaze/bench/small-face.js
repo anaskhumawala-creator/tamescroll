@@ -236,7 +236,11 @@ window.__RUN = async function (ids) {
       agree: p.n ? +(p.agree / p.n).toFixed(3) : null,
       certainWrong: p.confWrong,
       scoreP50: sc.length ? sc[Math.floor(sc.length / 2)] : null,
-      inNullBand: p.nullBand,
+      // Raw-sigmoid condition alone, then the whole predicate. On the
+      // FACE side these are false positives: a real face treated as the
+      // model's prior is a face the gate would refuse.
+      inRawBand: p.nullBand,
+      isNullRead: p.nullRead,
     };
   });
   return JSON.stringify({
@@ -245,7 +249,14 @@ window.__RUN = async function (ids) {
     table: table,
     nulls: nulls.length,
     nullTable: nullTable,
-    sample: rows.slice(0, 2),
+    // THE FULL SERIES, BOTH ARMS. The previous run of this bench banked
+    // a summary sentence and nothing else, so when the band constants
+    // turned out wrong the figures could not be re-derived and the whole
+    // measurement had to be re-run on a device. Every entry carries px,
+    // gender, score, raw, age and childP, so any future predicate can be
+    // evaluated offline against exactly these pixels.
+    rows: rows,
+    nullRows: nulls,
   });
 };
 window.__READY = 1;

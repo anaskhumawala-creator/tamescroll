@@ -1,0 +1,19 @@
+HOSTS_BEFORE 1
+COVERED_BEFORE 0 1
+MINI 0 1
+PAIR0 {"samples": 122, "spanMs": 7591, "hz": 16.1, "withTrack": 122, "gapSamples": 0, "d": {"noVr": 0, "zeroVr": 0, "clipped": 0, "noBoxes": 0}}
+  PAIR0 restore0 {"atMs": 69982, "n": 18, "withTrack": 18, "gap": 0, "gapMs": 0, "d": {"noVr": 0, "zeroVr": 0, "clipped": 0, "noBoxes": 0}, "vw": [232, 235, 412]}
+  PAIR0 park0 {"atMs": 67535, "n": 10, "withTrack": 10, "gap": 0, "gapMs": 0, "d": {"noVr": 0, "zeroVr": 0, "clipped": 0, "noBoxes": 0}, "vw": [231, 398, 412]}
+  DEEP0 n=0
+COVERED_BEFORE 1 1
+MINI 1 1
+PAIR1 {"samples": 177, "spanMs": 8237, "hz": 21.5, "withTrack": 177, "gapSamples": 0, "d": {"noVr": 0, "zeroVr": 0, "clipped": 0, "noBoxes": 0}}
+  PAIR1 restore0 {"atMs": 78255, "n": 18, "withTrack": 18, "gap": 0, "gapMs": 0, "d": {"noVr": 0, "zeroVr": 0, "clipped": 0, "noBoxes": 0}, "vw": [231, 232, 235, 412]}
+  PAIR1 park0 {"atMs": 75838, "n": 17, "withTrack": 17, "gap": 0, "gapMs": 0, "d": {"noVr": 0, "zeroVr": 0, "clipped": 0, "noBoxes": 0}, "vw": [231, 235, 238, 243, 258, 270, 398, 412]}
+  DEEP1 n=0
+COVERED_BEFORE 2 1
+MINI 2 1
+PAIR2 {"samples": 118, "spanMs": 7547, "hz": 15.6, "withTrack": 59, "gapSamples": 0, "d": {"noVr": 0, "zeroVr": 0, "clipped": 0, "noBoxes": 0}}
+  PAIR2 restore0 {"atMs": 86631, "n": 12, "withTrack": 12, "gap": 0, "gapMs": 0, "d": {"noVr": 0, "zeroVr": 0, "clipped": 0, "noBoxes": 0}, "vw": [243, 250, 258, 270, 412]}
+  PAIR2 park0 {"atMs": 84214, "n": 10, "withTrack": 0, "gap": 0, "gapMs": 0, "d": {"noVr": 0, "zeroVr": 0, "clipped": 0, "noBoxes": 0}, "vw": [231, 412]}
+  DEEP2 n=0
