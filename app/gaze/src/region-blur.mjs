@@ -633,6 +633,18 @@ function resolveHost(el) {
   // player has its own region path. Refusing the host here means whole
   // blur stays for that element, which is the covered direction.
   if (isPlayerSubtree(host)) return null;
+  // AND NEVER THE DOCUMENT'S OWN ROOT. The writes below are made on
+  // YouTube's element, and on <body> they stop being local: body is
+  // static on every surface measured here, so `position: relative`
+  // would re-anchor every absolutely-positioned descendant that
+  // currently resolves to the initial containing block, and
+  // `isolation: isolate` would make the whole document one stacking
+  // context. MEASURED 2026-08-31 on m.youtube home, search and watch:
+  // 0 of 34 judgeable images are a direct child of body or html, so
+  // this refusal costs nothing today -- it is a bound on the blast
+  // radius of a host we should never have been willing to mutate.
+  // Refusing keeps whole blur, which is the covered direction.
+  if (host === document.body || host === document.documentElement) return null;
   try {
     var hostPos = window.getComputedStyle(host).position;
     if (hostPos === 'static') {

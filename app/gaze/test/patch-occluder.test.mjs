@@ -122,3 +122,19 @@ test('the player CONTAINER is player subtree too', () => {
   const src = readFileSync(new URL('../src/region-blur.mjs', import.meta.url), 'utf8');
   assert.match(src, /PLAYER_SUBTREE_SELECTOR\s*=\s*\n?\s*'#movie_player, #player-container-id,/);
 });
+
+test('a patch is never hosted on the document root', () => {
+  // resolveHost writes `position: relative` on a static host and
+  // `isolation: isolate` on it. On <body> those stop being local writes:
+  // body is static on every surface measured, so relative re-anchors
+  // every absolutely-positioned descendant resolving to the initial
+  // containing block, and isolate makes the whole document one stacking
+  // context. MEASURED 2026-08-31 on m.youtube home, search and watch:
+  // 0 of 34 judgeable images sit directly under body or html.
+  const src = readFileSync(new URL('../src/region-blur.mjs', import.meta.url), 'utf8');
+  const fn = src.slice(src.indexOf('function resolveHost('));
+  const guard = fn.indexOf('host === document.body');
+  const write = fn.indexOf("host.style.position = 'relative'");
+  assert.ok(guard > -1, 'body and html must be refused as hosts');
+  assert.ok(guard < write, 'and refused before anything is written to them');
+});
