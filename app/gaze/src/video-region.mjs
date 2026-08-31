@@ -1,3 +1,4 @@
+import { hostScale, toLocalRect } from './host-scale.mjs';
 // Person-region blur for the WATCH PLAYER (owner ask 2026-08-24: blur the
 // blocked person on a playing video, not the whole frame — HaramBlur
 // parity, whole-body coverage).
@@ -784,6 +785,10 @@ function refreshRects(entry) {
   }
   entry.hr = entry.host.getBoundingClientRect();
   entry.vr = entry.video.getBoundingClientRect();
+  // The parked miniplayer scales the player container, so the host's own
+  // pixels are no longer the viewport's. See host-scale.mjs -- without
+  // this the patch is drawn at scale-squared and slides off the face.
+  entry.scale = hostScale(entry.host, entry.hr);
 }
 
 /**
@@ -937,8 +942,15 @@ function reposition(entry, now) {
       }
       continue;
     }
-    place(entry.overlays[j], drawn);
-    applyMask(entry.overlays[j], maskFor(drawn, f));
+    // Everything above is in VIEWPORT units (both rects came from
+    // getBoundingClientRect). The element writes below are in the host's
+    // LOCAL units, which an ancestor transform scales again -- so convert
+    // once, here, and give the mask the same converted geometry so the
+    // two stay in register.
+    var hs = entry.scale || 1;
+    var local = toLocalRect(drawn, hs);
+    place(entry.overlays[j], local);
+    applyMask(entry.overlays[j], maskFor(local, hs === 1 ? f : Math.round(f / hs)));
   }
 }
 

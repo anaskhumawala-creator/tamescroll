@@ -1,3 +1,4 @@
+import { hostScale, toLocalRect } from './host-scale.mjs';
 // Person-region blur for feed images (owner ask 2026-08-19, whole-body
 // 2026-08-24): when the gender stage flags an image because of WHO is in
 // it, blur just the person regions and leave the rest visible — instead
@@ -281,6 +282,12 @@ function positionEntry(entry) {
   var elRect = entry.el.getBoundingClientRect();
   if (elRect.width === 0 || elRect.height === 0) return false;
   var parentRect = entry.host.getBoundingClientRect();
+  // Viewport pixels in, host-local pixels out. Same defect class as the
+  // parked miniplayer (host-scale.mjs): under a transformed ancestor the
+  // rect below would be applied at scale-squared. Every feed host
+  // measured on m.youtube is unscaled, so this is a net, not a repair --
+  // hostScale returns 1 and nothing moves.
+  var hostK = hostScale(entry.host, parentRect);
   while (entry.overlays.length < entry.boxes.length) {
     var o = makeOverlay(entry.radius);
     entry.overlays.push(o);
@@ -328,7 +335,7 @@ function positionEntry(entry) {
       clipTopEdge(overlay, false, entry.radius);
     }
     overlay.style.display = '';
-    place(overlay, rect);
+    place(overlay, toLocalRect(rect, hostK));
   }
   entry.lastRect = elRect;
   entry.occ = occ;
