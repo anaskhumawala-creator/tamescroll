@@ -537,11 +537,18 @@ export function installMiniplayer(win) {
     bound = { host: pc, fn: fn };
   }
 
-  function inButtons(el) {
+  // EVERY CONTROL OF OURS THAT LIVES INSIDE THE PLAYER, not just this
+  // module's. Both are appended into the player subtree, so
+  // inPlayer(target) is true for both and the gesture armed on top of
+  // both. Add a selector here when a new one is added anywhere.
+  var OUR_CONTROLS = '#' + BTN_ID + ',.ts-gaze-pill';
+
+  function inOurControls(el) {
     if (!el) return false;
-    if (el.closest) return !!el.closest('#' + BTN_ID);
+    if (el.closest) return !!el.closest(OUR_CONTROLS);
     for (var n = el; n; n = n.parentElement) {
       if (n.id === BTN_ID) return true;
+      if (n.classList && n.classList.contains('ts-gaze-pill')) return true;
     }
     return false;
   }
@@ -556,7 +563,7 @@ export function installMiniplayer(win) {
       start = null;
       return;
     }
-    // THE TWO CONTROLS THE MINI PLAYER HAS MUST BE PRESSABLE.
+    // OUR OWN CONTROLS MUST BE PRESSABLE.
     //
     // The buttons are children of the player container, so inPlayer() is
     // true for them and the gesture armed on top of a button press. On
@@ -570,10 +577,22 @@ export function installMiniplayer(win) {
     // controls were dead. With 20px of thumb roll it was worse -- the
     // sideways claim faded the player to opacity 0.91 under the finger.
     //
-    // A touch that starts on a button is the button's, entirely: no
-    // arming, no host binding, so the click lands the way the page's
-    // own controls do.
-    if (inButtons(target)) {
+    // THE BLUR PILL HAS THE SAME DEFECT AND IT IS THE WORSE ONE. It is
+    // appended to #movie_player, so it armed the gesture too -- and on a
+    // FULL player the claim axis is DOWNWARD, which is exactly where a
+    // thumb slides off a pill at the top-right of the video. MEASURED
+    // 2026-08-31 on a built APK, pressing "Blur on" and sliding down:
+    // 20px shrank the player to 360x203 under the finger, 30px to
+    // 334x188, 60px to 257x144, and 110px MINIMISED it to (169,697).
+    // Reaching for the blur switch and moving a little sent the video to
+    // the corner. (A sideways roll cannot do this on a full player --
+    // the first run of the probe rolled sideways, claimed nothing, and
+    // read the bug as absent. On a full player the axis is down.)
+    //
+    // A touch that starts on a control of ours is that control's,
+    // entirely: no arming, no host binding, so the click lands the way
+    // the page's own controls do.
+    if (inOurControls(target)) {
       start = null;
       return;
     }

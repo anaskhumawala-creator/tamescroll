@@ -299,14 +299,20 @@ test('a touch that starts on a mini button belongs to the button', () => {
   // roll the sideways claim also faded the player to opacity 0.91.
   const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
   const code = stripComments(src);
-  assert.match(code, /function inButtons\(el\)/);
+  assert.match(code, /function inOurControls\(el\)/);
   // The refusal must come BEFORE the host is bound and before start is
   // set, or the gesture is armed anyway.
   const down = code.slice(code.indexOf('function onDown('));
   const body = down.slice(0, down.indexOf('function endDrag('));
-  const guard = body.indexOf('inButtons(target)');
+  const guard = body.indexOf('inOurControls(target)');
   // NB: `unbindHost()` contains the substring `bindHost(`.
   const bind = body.indexOf('bindHost(container())');
-  assert.ok(guard > -1, 'onDown must refuse a touch that starts on a button');
+  assert.ok(guard > -1, 'onDown must refuse a touch that starts on a control of ours');
+  // THE PILL IS THE SAME DEFECT AND THE WORSE ONE: it is appended to
+  // #movie_player, and on a FULL player the claim axis is downward --
+  // exactly where a thumb slides off a pill at the top right. MEASURED
+  // 2026-08-31: pressing "Blur on" and sliding 20px shrank the player to
+  // 360x203, 30px to 334x188, 60px to 257x144, and 110px MINIMISED it.
+  assert.match(code, /ts-gaze-pill/, 'the blur pill must be covered too');
   assert.ok(guard < bind, 'the refusal must come before bindHost');
 });
