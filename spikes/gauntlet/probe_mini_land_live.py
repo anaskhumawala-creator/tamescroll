@@ -152,6 +152,16 @@ summarize("SHRINK", land)
 
 # And back: a tap on the mini body restores. The reverse transition has
 # the same stale-rect exposure and nobody has sampled it live either.
+# A restore arm with no track on screen measures nothing -- the first
+# run of this probe read a 6.37 shortfall and the second read
+# NO_TRACKS, which is the difference between a finding and a coin
+# toss. Wait for the mini player to actually be covering somebody.
+for _ in range(16):
+    out = t.eval("(function(){return String(document.querySelectorAll('.ts-gaze-vregion-host').length);})()")
+    if isinstance(out, str) and out.strip().isdigit() and int(out) > 0:
+        break
+    time.sleep(5)
+print("PATCHES_BEFORE_RESTORE", out)
 t.eval(COLLECT)
 b2 = box()
 if b2 and b2["mini"]:
@@ -164,4 +174,11 @@ time.sleep(2.5)
 land2 = t.eval("(function(){var a=window.__TS_LAND||[]; window.__TS_LAND_STOP=1; return JSON.stringify(a);})()")
 land2 = json.loads(land2) if isinstance(land2, str) else []
 summarize("RESTORE", land2)
+# The rows themselves. A summary that reports a shortfall of 6.37 video
+# widths without showing the frames is a number nobody can check -- and
+# this repo has recorded four probe artifacts that looked exactly like a
+# regression.
+bad = sorted([r for r in land2 if r["tr"] > 0], key=lambda r: -r["worst"])[:8]
+print("RESTORE_WORST", json.dumps(bad))
+print("RESTORE_ALL", json.dumps([r for r in land2 if r["tr"] > 0][:24]))
 print("BOX_END", json.dumps(box()))
