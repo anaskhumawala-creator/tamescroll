@@ -70,8 +70,58 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 16:15 (1067 live, sha 27c4b179; rules
+**Last updated:** 2026-08-31 17:35 (1067 live, sha 27c4b179; rules
 99394d11).
+
+**Session 2026-08-31 (loop 23) -- HE ASKED "DO WE HAVE OTHER SIMILAR
+PROBLEMS", AND THE ANSWER IS MEASURED: NO OTHER LIVE INSTANCE.** No
+release -- nothing user-visible changed after 1067.
+- **THE SCALE AUDIT, ALL THREE SURFACES.** Every patch host on home,
+  search and watch: **49 of 49 at scale 1**, no transformed ancestor
+  above `#player-container-id`, `#movie_player` scale 1 while windowed.
+  So the parked mini player was the ONLY live instance of the
+  viewport-vs-local defect, and the miniplayer's own transform write
+  (which measures a viewport rect and applies a translate) is safe
+  because nothing above it is scaled.
+- **THE IMAGE-PATH NET FIRES CORRECTLY -- proven, not asserted.** A net
+  nobody has seen fire is a claim. Scaled a REAL thumbnail host to 0.5
+  on a live feed: the patch's normalized box on the image is
+  **unchanged (0.714, 0.157, 0.182, 0.605) and still inside**. Before
+  1067 it would have landed at half of each.
+- **NEW PROBE HOOK: `__TS_GAZE_VTRACKS`.** Every player probe we had
+  reads the DOM, so a misplaced patch looked identical whether the TRACK
+  moved or the MAPPING was wrong -- which is why his screenshot found
+  the scale bug before any probe did. The hook returns host/video rects,
+  the measured host scale, and the normalized track boxes the renderer
+  was handed. Read-only and guarded, same contract as
+  `__TS_GAZE_RENDER`.
+- **THE INVARIANT THAT MATTERS NOW HAS A NUMBER: the drawn patch always
+  CONTAINS the track it was asked to cover.** 70 samples across playing,
+  scrolling and the parked mini player, 24 with live tracks, **0
+  under-covered**. The drawn box runs ~0.034 WIDER than the track; that
+  is SHRINK_DEADBAND (0.05) parking a shrinking edge, and it only ever
+  over-covers.
+- **MID-DRAG IS NOT AN EXPOSURE.** Ten samples through a shrink on a
+  paused frame: worst normalized error **0.025**, and it lands exact.
+- **FULLSCREEN HAS NO SCALE DEFECT.** fs element is
+  `#player-container-id`, host scale 1, video letterboxed 732x412 inside
+  915, patches present and aligned. The 3-4% width difference between
+  arms on the same frozen frame is the deadband in normalized terms (a
+  fixed pixel park is a bigger fraction of a 412px player than a 732px
+  one), not a mapping error.
+- **A PAUSED FRAME KEEPS ITS COVER:** 20s frozen, patch present, passes
+  frozen at 9. An earlier "the patches vanished" reading was a scene
+  change while the video briefly played -- probe artifact, not a
+  regression.
+- **MINIPLAYER BEHAVIOUR SWEEP ON 1067:** play/pause pauses and stays
+  mini, close exits to 412x232 with the placeholder back at 232, pill
+  present throughout, cover and buttons torn down on exit.
+- **BUILD GOTCHA, NEW AND IT READS A LIVE HOOK AS ABSENT:**
+  `gaze-page.js` is `include_str!`d into the Rust lib, so a bundle change
+  needs the RUST rebuild. `gradlew :app:assemble...` alone ships the
+  PREVIOUS bundle -- the new hook read `undefined` until the rust build
+  ran.
+- gaze 387/387, cargo 58/58.
 
 **Session 2026-08-31 (loop 22) -- THE PARKED PLAYER DREW HIS BLUR AT
 SCALE-SQUARED, AND THAT IS AN EXPOSURE.** Owner screenshot: video parked
