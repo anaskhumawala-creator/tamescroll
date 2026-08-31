@@ -25,13 +25,13 @@ test('both sides of the gate are recorded, and only those sides', () => {
   // Refused inside the branch, kept after it. The first draft recorded
   // every face reaching the branch, which would have made the two rings
   // the same population and the comparison meaningless.
-  assert.match(page, /if \(noShape\) \{\s*\n\s*noteFaceGate\('gateRefused'/);
+  assert.match(page, /if \(noShape\) \{\s*\n\s*auditRefusedFace\(\s*\n\s*noteFaceGate\('gateRefused'/);
   assert.match(page, /continue;\s*\n\s*\}\s*\n\s*noteFaceGate\('gateKept'/);
 });
 
 test('the ring carries three numbers and nothing else', () => {
   const body = page.slice(page.indexOf('function noteFaceGate'));
-  const push = body.slice(body.indexOf('r.push('), body.indexOf('if (r.length'));
+  const push = body.slice(body.indexOf('var entry = {'), body.indexOf('if (r.length'));
   for (const k of ['c:', 'px:', 'k:', 'cov:']) assert.ok(push.includes(k), k + ' missing');
   // A url or an element reference here is how the privacy promise gets
   // broken one convenient field at a time.
@@ -42,12 +42,12 @@ test('the ring carries three numbers and nothing else', () => {
 test('the report carries both rings and stays clean', () => {
   const r = buildReport({
     ids: {
-      gateRefused: [{ c: 0.42, px: 71, k: 0.06, cov: 0 }],
-      gateKept: [{ c: 0.88, px: 103, k: 0.31, cov: 1 }],
+      gateRefused: [{ c: 0.42, px: 71, k: 0.06, cov: 0, g: null, s: null }],
+      gateKept: [{ c: 0.88, px: 103, k: 0.31, cov: 1, g: null, s: null }],
     },
   });
-  assert.deepEqual(r.player.gateRefused, [{ c: 0.42, px: 71, k: 0.06, cov: 0 }]);
-  assert.deepEqual(r.player.gateKept, [{ c: 0.88, px: 103, k: 0.31, cov: 1 }]);
+  assert.deepEqual(r.player.gateRefused, [{ c: 0.42, px: 71, k: 0.06, cov: 0, g: null, s: null }]);
+  assert.deepEqual(r.player.gateKept, [{ c: 0.88, px: 103, k: 0.31, cov: 1, g: null, s: null }]);
   assert.deepEqual(reportViolations(r, 'https://m.youtube.com/watch?v=abcdefghijk'), []);
 });
 
@@ -78,4 +78,24 @@ test('the size floor is 40, and it is still a real floor', () => {
   // Below his measured minimum face (53px), above the point where a
   // face is a handful of pixels.
   assert.ok(FACE_MIN_NATIVE_PX < 53 && FACE_MIN_NATIVE_PX >= 32);
+});
+
+test('the refused-face audit is diagnostic only and cannot run in a shipped build', () => {
+  // It costs a crop and an inference per REFUSED face, on the very pass
+  // the gate exists to make cheap, so a build that ran it by default
+  // would be slower than one with no gate at all. Nothing in the app
+  // sets __TS_GATE_AUDIT; a probe does.
+  const fn = page.slice(page.indexOf('function auditRefusedFace'));
+  const body = fn.slice(0, fn.indexOf('\n    }'));
+  assert.ok(
+    body.includes('if (!entry || !window.__TS_GATE_AUDIT) return;'),
+    'the audit lost its flag guard'
+  );
+  // It reads, and mints nothing: no track, no patch, no memory.
+  for (const forbidden of ['videoTracks', 'personFromFace', 'applyRegion', 'identityMemory']) {
+    assert.ok(!body.includes(forbidden), 'the audit reached into ' + forbidden);
+  }
+  // And the refusal still happens either way.
+  assert.match(page, /auditRefusedFace\([\s\S]{0,800}?continue;/);
+  assert.ok(!/__TS_GATE_AUDIT\s*=/.test(page), 'the app sets the audit flag itself');
 });

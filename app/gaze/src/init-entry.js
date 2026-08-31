@@ -1791,14 +1791,17 @@ if (
         var px = vw && vh
           ? Math.round(Math.min((face.x2 - face.x1) * vw, (face.y2 - face.y1) * vh))
           : null;
-        r.push({
+        var entry = {
           c: Math.round((face.confidence || 0) * 100) / 100,
           px: px,
           k: typeof persons.maxKp === 'number' ? persons.maxKp : null,
           cov: faceAlreadyCovered(face),
-        });
+        };
+        r.push(entry);
         if (r.length > 60) r.shift();
+        return entry;
       } catch (e) {}
+      return null;
     }
 
     var emptyFrame = false;
@@ -2180,6 +2183,51 @@ if (
         });
       }
       return detector.classifyFaceGenders(genderModel, pix, boxes);
+    }
+
+    // WHAT THE GHOST GATE IS THROWING AWAY, in the only terms that
+    // settle it: the gender verdict the refused face WOULD have
+    // produced. The two rings say the refused and kept populations look
+    // alike on confidence and size; they cannot say whether a refusal
+    // was a person. This runs the same native-res read a kept face gets
+    // and stamps it on the ring entry.
+    //
+    // DIAGNOSTIC ONLY and it must stay that way: it is gated on
+    // __TS_GATE_AUDIT, which nothing in the app ever sets, because the
+    // read costs a crop and an inference per refused face on the very
+    // pass the gate exists to make cheap. The face is still refused --
+    // no patch, no track, no memory -- so the audit cannot change what
+    // is on screen, only what the artifact says about it.
+    function auditRefusedFace(entry, faceBox) {
+      try {
+        if (!entry || !window.__TS_GATE_AUDIT) return;
+        var vw = video.videoWidth || 0;
+        var vh = video.videoHeight || 0;
+        if (!vw || !vh) return;
+        // Same square-in-native-pixels crop as faceRegionInVideo, on a
+        // box already normalized to the FRAME (this pass is full-frame).
+        var side = Math.min((faceBox.x2 - faceBox.x1) * vw, (faceBox.y2 - faceBox.y1) * vh);
+        var hx = ((faceBox.x1 + faceBox.x2) / 2) * vw;
+        var hy = ((faceBox.y1 + faceBox.y2) / 2) * vh;
+        var half = side / 2;
+        var fr = {
+          x1: Math.max(0, (hx - half) / vw),
+          y1: Math.max(0, (hy - half) / vh),
+          x2: Math.min(1, (hx + half) / vw),
+          y2: Math.min(1, (hy + half) / vh),
+        };
+        cropPersonPixels(fr)
+          .then(function (fpix) {
+            return genderOnPixels(fpix, [{ x1: 0, y1: 0, x2: 1, y2: 1 }]).then(function (g) {
+              if (fpix && typeof fpix.close === 'function') fpix.close();
+              var r = g && g[0];
+              if (!r) return;
+              entry.g = r.gender === 'male' ? 1 : r.gender === 'female' ? 2 : 0;
+              entry.s = Math.round((r.score || 0) * 100) / 100;
+            });
+          })
+          .catch(function () {});
+      } catch (e) {}
     }
 
     // Tile-recall probe (R16). Runs the SAME detector over a 2x2 grid of
@@ -3424,7 +3472,10 @@ if (
                     // refused population looks like the kept one, the
                     // floor is refusing people.
                     if (noShape) {
-                      noteFaceGate('gateRefused', faces[fi], persons, video);
+                      auditRefusedFace(
+                        noteFaceGate('gateRefused', faces[fi], persons, video),
+                        faces[fi]
+                      );
                       try {
                         var dbgN = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
                         dbgN.life = dbgN.life || {};
