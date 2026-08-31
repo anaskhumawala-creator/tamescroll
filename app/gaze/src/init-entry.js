@@ -3953,7 +3953,41 @@ if (
     // runs of the same video minutes apart differed 854x480 vs 1280x720,
     // so `vw`/`vh` is now recorded per frame and a resolution mismatch
     // invalidates a cross-round comparison.
-    var pillHost = isPlayer ? (video.closest && video.closest('#movie_player')) || null : null;
+    // THE PILL HAS TO OUTRANK YOUTUBE'S OWN CONTROL CHROME, and inside
+    // #movie_player it cannot. MEASURED 2026-08-31 on a live m.youtube
+    // watch page: #movie_player carries a transform, so it creates a
+    // stacking context and our z-index of 2147483645 is capped at that
+    // element's own level. YouTube's controls are NOT in there --
+    // `.player-controls-background` (position absolute, opacity 0,
+    // pointer-events auto, covering the whole 412x231 player) lives
+    // under #player-control-container, a LATER SIBLING of #player, both
+    // children of #player-container-id. So it paints over everything
+    // inside the player, the pill included.
+    //
+    // That element does not exist on a freshly loaded page -- YouTube
+    // builds its control overlay on the FIRST TAP on the video, and it
+    // then stays for the life of the page. MEASURED, one trace: fresh
+    // page, a tap on the pill toggles "Blur on" -> "Blur off"; one tap
+    // on the video; six seconds later the controls have autohidden but
+    // the background remains and elementFromPoint at the pill's centre
+    // returns `player-controls-background`; a tap on the pill now does
+    // NOTHING ("Blur off" -> "Blur off") and a press with 25px of thumb
+    // roll shrinks the player to 347x195 instead. His blur switch died
+    // the moment he touched the video, and became a drag handle.
+    //
+    // #player-container-id is the fix: a sibling of the control
+    // container, later in the DOM, and still inside the player subtree
+    // so element fullscreen keeps the pill rendered -- YouTube's own
+    // controls live outside #movie_player too and are visible in
+    // fullscreen, so the fullscreen element is at or above this one.
+    // It is `position: fixed`, so it is the containing block for the
+    // absolutely-positioned pill exactly as #movie_player was, and the
+    // two share the same box: the pill does not move a pixel.
+    var pillHost = null;
+    if (isPlayer && video.closest) {
+      var moviePlayer = video.closest('#movie_player');
+      pillHost = (moviePlayer && moviePlayer.closest('#player-container-id')) || moviePlayer || null;
+    }
     if (pillHost) {
       // In-player toggle (owner ask): a wrong live verdict must be one
       // tap from gone. Lives INSIDE the player container so element

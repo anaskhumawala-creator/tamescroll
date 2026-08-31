@@ -316,3 +316,26 @@ test('a touch that starts on a mini button belongs to the button', () => {
   assert.match(code, /ts-gaze-pill/, 'the blur pill must be covered too');
   assert.ok(guard < bind, 'the refusal must come before bindHost');
 });
+
+test('the blur pill is mounted where YouTube\'s control chrome cannot cover it', () => {
+  // MEASURED 2026-08-31 on a live m.youtube watch page. #movie_player
+  // carries a transform, so it creates a stacking context and caps the
+  // pill's z-index at its own level. `.player-controls-background`
+  // (opacity 0, pointer-events auto, the full 412x231 player box) lives
+  // under #player-control-container -- a LATER SIBLING of #player, not
+  // inside #movie_player -- so it took every hit at the pill's centre.
+  // YouTube builds it on the first tap on the video, and it stays: after
+  // that tap a press on the pill did nothing ("Blur off" -> "Blur off")
+  // and a 25px roll shrank the player to 347x195 instead.
+  const entry = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
+  const block = entry.slice(entry.indexOf('var pillHost = null;'), entry.indexOf('pillHost.appendChild(pill)'));
+  assert.ok(
+    block.includes("closest('#player-container-id')"),
+    'the pill must prefer the player container, which is a sibling of the control chrome'
+  );
+  assert.ok(
+    block.indexOf("closest('#movie_player')") < block.indexOf("closest('#player-container-id')"),
+    'and fall back to #movie_player where there is no container (desktop)'
+  );
+  assert.ok(/\|\| moviePlayer \|\| null/.test(block), 'the fallback must actually be reachable');
+});
