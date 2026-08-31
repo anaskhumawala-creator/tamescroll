@@ -70,8 +70,41 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 10:55 (1066 live, sha f8e59674; the YouTube mark is
-not a person, and a patch the top bar cuts now has a square edge).
+**Last updated:** 2026-08-31 14:20 (1066 live, sha f8e59674; rules
+99394d11 -- the top-left promo mark is hidden, OTA-verified).
+
+**Session 2026-08-31 (loop 21) -- THE TOP-LEFT MARK IS A PROMO, NOT THE
+LOGO, AND HE ASKED FOR IT GONE.**
+- No app release: rules only, so it travels by OTA. Local, manifest and
+  raw GitHub all agree on **99394d11**.
+- He asked whether we could swap it for a YouTube logo; the answer was
+  no (shipping their trademark is the "never impersonate" rule, and a
+  guessed CDN url is an asset nobody read off the DOM). He then said
+  **"replace it with nothing"**, so it is hidden.
+- **IT IS AN AD, WHICH IS WHY IT SHIPS ALWAYS-ON.** 587,006 bytes,
+  VP8X + ANIM, **151 ANMF frames**, re-downloaded every load, served
+  from www.gstatic.com, alt text naming the campaign ("Creators share
+  their morning routines"). New `promoted` surface in youtube.txt; that
+  id is already in `is_always_on`, so there is no toggle and none is
+  wanted.
+- **HIDE THE IMAGE, NEVER ITS HOST -- measured both ways.** The tap
+  target is `button.mobile-topbar-header-endpoint` ("YouTube Home").
+  With the `<img>` display:none the button stays **134x48** and
+  elementFromPoint still lands inside it; hiding `ytm-logo-entity`
+  instead collapses it to **0 wide** and the way back to home goes with
+  it.
+- **VERIFIED THROUGH THE REAL OTA PATH** (refresh_rules said "updated 1
+  rule file(s)"): home = img **display none at 0x0**, button 134x48,
+  hit inside, top bar still 48, grid 1, 4 items, 8 watch links, chips 1;
+  search = **117 results, ytm-search 1**, untouched. The whole mobile top
+  bar holds exactly ONE `<img>` and three 24x24 icon SVGs, so the
+  selector cannot reach anything else.
+- **HONEST:** on a load with no campaign running the corner is YouTube's
+  own inline SVG logo, which this rule does not touch -- but every load
+  seen here has carried a promo, so that half is from loop 10's note,
+  not measured. Worst case is an empty corner with a working home
+  button.
+- cargo 58/58 (rules parse + surface coverage).
 
 **Session 2026-08-31 (loop 20) -- TWO OWNER REPORTS, BOTH SHIPPED IN
 1066 (f8e59674, hash-verified). He also confirmed the overlap is FIXED:
