@@ -70,9 +70,48 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 07:45 (1065 live, sha 665f189c; the blur switch died
-on the first tap of the video, every button on the player was a drag handle, and
-the player CONTAINER was never in the player-subtree refusal).
+**Last updated:** 2026-08-31 08:05 (1065 live, sha 665f189c; loop 16 changed one
+guard and shipped nothing -- four checks that could have found a hole and did not).
+
+**Session 2026-08-31 (loop 16) -- FOUR CHECKS THAT COULD HAVE FOUND A
+HOLE AND DID NOT, AND ONE BLAST-RADIUS GUARD.** No release: nothing
+user-visible changed. The negative results are the deliverable.
+- **A PATCH CAN NEVER BE HOSTED ON <body> ANY MORE, and that write was
+  the only one in resolveHost that would not have been local.** On a
+  static host it writes `position: relative`, which on body re-anchors
+  every absolutely-positioned descendant resolving to the initial
+  containing block, and `isolation: isolate`, which would make the whole
+  document one stacking context. MEASURED across m.youtube home, search
+  and watch: **0 of 34 judgeable images are a direct child of body or
+  html**, and body carries no inline position or isolation on any of
+  them (bodyPos static, 0 absolute children). So the guard costs nothing
+  today and bounds a mutation we should never have been willing to make.
+  It rides the next release.
+- **A SECOND GESTURE ARRIVING MID-LANDING DOES NOT STRAND THE PLAYER.**
+  This was the other candidate for the "stuck at scale 0.906" one-off
+  that 1057 blamed on touchcancel. Interrupting the landing transition
+  with a fresh 140px drag at 0.12 / 0.18 / 0.24 / 0.40s: mid-flight
+  boxes 243x136 and 232x130, and **every one settled exactly at
+  (169,697) 230x129 with drag false** and the viewport unchanged.
+- **PROBE ARTIFACT THAT LOOKED LIKE A ROTATION BUG:** the first version
+  reused the FULL player's centre for the second gesture after the
+  player had already gone mini, so those touches landed on the page,
+  YouTube's own swipe took the app to landscape fullscreen, and one
+  trial read `mini true, box 915x412`. Re-read the box before every
+  gesture. Stale coordinates after a state change is the recurring
+  defect in these probes (three times today).
+- **THE PILL'S NEW HOST DOES NOT LEAK ACROSS AN SPA NAV.** 1065 moved it
+  to #player-container-id, which survives a pushState where
+  #movie_player may not -- so a second pill was the obvious risk.
+  MEASURED over three recommendation taps: **exactly 1 pill every time**,
+  same box [305,96,99,36], parent player-container-id, video present.
+- **REQUEST BLOCKING IS ALIVE ON THE SHIPPED BUILD:** seen **649 -> 680
+  -> 716**, blocked **93 -> 96 -> 99** across home, search and watch,
+  rulesGen 1f2fbba0, otaLast ok. (cssBytes reads null on a CDP-driven
+  navigation because open_platform never ran -- the documented loop-2
+  gotcha, not a finding.)
+- gaze 379/379, cargo 58/58.
+
 
 **Session 2026-08-31 (loop 15) -- HIS BLUR SWITCH DIED THE MOMENT HE
 TOUCHED THE VIDEO, AND EVERY BUTTON ON THE PLAYER WAS A DRAG HANDLE.**
