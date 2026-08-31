@@ -70,8 +70,52 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-08-31 17:35 (1067 live, sha 27c4b179; rules
-99394d11).
+**Last updated:** 2026-08-31 18:20 (1067 live, sha 27c4b179; rules
+99394d11, rulesGen c12184ef).
+
+**Session 2026-08-31 (loop 24) -- THE IDLE RENDERER IS ALREADY FREE OF
+WRITES, AND I REFUSED THE OPTIMISATION THAT LOOKED OBVIOUS.** No code
+changed, no release. The negative results are the deliverable.
+- **COUNTS, NOT TIMINGS.** This harness wobbles 28% on wall clock, so
+  speed work here has to be counted rather than timed.
+  `__TS_GAZE_RENDER` does exactly that.
+- **WITH A FROZEN PATCH (paused video, patch held): raf 60/s,
+  overlayFrames 60/s, maskCalls 60/s, and maskWrites, tfWrites,
+  sizeWrites, dispWrites ALL 0.0/s** -- full player and parked mini
+  alike. Every CSSOM early-out added in earlier rounds is holding: a
+  picture that cannot change costs zero style writes.
+- **WITH NOTHING COVERED THE LOOP DOES NOT EXIST: raf 0.0/s.** The
+  renderer is torn down when there are no entries, so an unflagged video
+  costs nothing at all.
+- **I FIRST READ maskCalls 60/s AS STRING CHURN AND IT IS NOT.**
+  `maskFor` returns '' on its first line when the feather is 0, and the
+  owner froze featherFrac at 0 on 2026-08-28. So an idle frame is a
+  handful of compares, not 20 string builds. **Idling the rAF loop was
+  REFUSED on that measurement**: the gain is small and a missed wake
+  (new pass, scroll, transform transition) leaves a stale patch, which
+  is the exposure direction.
+- **PROBE FAILURE WORTH KEEPING: the first run measured windows with NO
+  patch on screen and every counter was trivially 0.0.** A rate probe
+  must assert the thing it is measuring is present at BOTH ends of the
+  window -- park on a flagged frame and check patchesStart AND
+  patchesEnd.
+- **SWEEP OF THE SHIPPED BUILD, three surfaces:** request blocking alive
+  (**seen 774 -> 803 -> 846, blocked 109 -> 112 -> 114**), rulesGen
+  c12184ef, otaLast ok, worker backend **webgl** everywhere.
+- **THE PROMO HIDE HOLDS AND THE HOME BUTTON WITH IT:** home and watch
+  read `img.mobile-topbar-logo` **display none** with the button still
+  **134px**; search has no such image at all (its top-left is a back
+  arrow, 53px).
+- **PRIORITY 3 IS EXHAUSTED SIGNED OUT, RE-CONFIRMED ON A NEWS QUERY.**
+  Census by rendered height: search holds one item-section and 15 video
+  renderers plus one organic `ytm-compact-channel-renderer`; watch holds
+  two item-sections of recommendations; home holds the grid and six rich
+  items. **No non-video shelf on any of the three.** Breaking news needs
+  his signed-in phone on adb.
+- NOTE for the next census: home's rich items now wrap
+  `yt-lockup-view-model` / `yt-thumbnail-view-model` (new names since
+  loop 11). The old names still exist one level up.
+- gaze 387/387, cargo 58/58 (unchanged -- no code touched).
 
 **Session 2026-08-31 (loop 23) -- HE ASKED "DO WE HAVE OTHER SIMILAR
 PROBLEMS", AND THE ANSWER IS MEASURED: NO OTHER LIVE INSTANCE.** No
