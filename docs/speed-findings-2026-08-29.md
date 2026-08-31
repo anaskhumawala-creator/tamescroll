@@ -384,3 +384,74 @@ platform open. Neither is reachable from JS scheduling; both are the
 native-TFLite item, which stays gated. The browse loop being one
 document (loop 7) already means this is paid once per platform open and
 not per video.
+
+
+## The worker's start-up, decomposed at last (2026-08-31)
+
+His phone reports the worker `up` at ~800ms with `evalMs` 120, and the
+other ~680ms had been attributed to nothing across three sessions. A
+dedicated worker's `timeOrigin` is set when the worker is CREATED, before
+its script is fetched, so the EVAL_CLOCK the build stamps as the
+artifact's first statement measures fetch-and-compile exactly. It is
+posted as `fetchMs` now.
+
+Emulator, warm navigation: **prestartAt 379, fetchMs 55, evalMs 85, up
+696.** So getting and compiling the 1.04MB bundle is **55ms**, our script
+runs in **85ms**, and the remainder is the prestart's message backlog
+waiting for the page bundle to adopt the worker.
+
+**Consequence: the worker-only bundle is dead.** Built for comparison it
+is 836,754 bytes against the page artifact's 1,041,604 -- 20% less to
+parse, of a 140ms total, so about 28ms. The 2026-08-27 reason for
+collapsing the two artifacts (17MB of duplicated inlined models) is
+stale, but the replacement reason is simply that the saving is not there.
+
+**And the prestart already asks for the models.** `worker_prestart_script`
+posts `{type:"init"}` the moment it constructs the worker, so item 2's
+"fetch the models earlier" is already done; do not re-derive it.
+
+## faceres is half the model bytes we ship, and it is f16 (2026-08-31)
+
+| model | params | quantization | bytes |
+|---|---|---|---|
+| faceres (gender) | 3,489,405 | **float16** | 6,978,814 |
+| nsfw mobilenet-v2 | 4,300,775 | uint8 | 4,300,775 |
+| movenet multipose | 4,723,949 | hybrid | 4,938,727 |
+| blazeface | 134,732 | none | 538,928 |
+
+**faceres has FEWER parameters than nsfw and 1.6x the bytes**, purely
+because it is stored at two bytes per weight where nsfw is at one. It is
+also the slowest model to load on both machines: emulator gender 2455ms
+against nsfw 505 and face 378; his phone gender 826 of a 1271ms total.
+
+Running our existing `build/requant-uint8.py` (written for MoveNet, with
+the measured 0.02 absolute error bound that keeps depthwise kernels and
+batchnorm at f16) over it gives **6,978,814 -> 3,512,611 bytes, a 49.7%
+cut**: 91 tensors to uint8, 36 kept at f16, 1 int32 passed through. An
+APK built with it is **56,012,979 bytes against 59,474,099** -- the 3.46MB
+lands exactly where predicted.
+
+**NOT SHIPPED, and both reasons are blockers rather than doubts:**
+
+1. **The load-time win is not established.** One candidate run read
+   gender 1012ms against the 2455ms baseline, but two repeats read 1411
+   and **299** -- and 299ms is a warm HTTP cache, not a faster model.
+   `ms.gender` spans the fetch, so cache state dominates it. Splitting
+   the fetch from `loadGraphModel` inside `stage()` is the measurement
+   that would settle it, and it is small.
+2. **Output parity is untested.** This is the model that decides who
+   gets blurred, and full uint8 is exactly what produced DEAD OUTPUT on
+   MoveNet's depthwise convs (2.8 abs error, 2026-08-24). The smoke test
+   passed -- 8 gender reads on a live feed, male 7 / female 1, scores
+   spread 0.06-0.90, so the net is alive and still differentiating --
+   but alive is not correct. Proper parity needs the same input through
+   both models, which needs face fixtures this repo does not have with a
+   clean licence (the same gap that blocks the gender-band work in
+   plan-balance B3).
+
+Regenerate the candidate with:
+
+    python app/gaze/build/requant-uint8.py <staged-src-dir> <out-dir>
+
+staging `faceres.json` as `model.json` with its manifest path pointing at
+`weights.bin`.
