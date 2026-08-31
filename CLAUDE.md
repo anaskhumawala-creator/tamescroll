@@ -74,6 +74,64 @@ Users install this one app and nothing else.
 raw manifest + downloaded APK agree; rules 99394d11. His phone is on
 1070 and needs the update).
 
+**Session 2026-08-31 (loop 33) -- TWO MORE PRIORITY-1 ANGLES CLOSED ON
+HIS PHONE, THE WORKER'S 680ms DECOMPOSED, AND THE BIGGEST SPEED LEVER
+FOUND AND DELIBERATELY NOT SHIPPED.** No release: nothing user-visible
+changed after 1073. His phone is STILL on 1070.
+
+- **PRIORITY 1, THE MINIPLAYER-TRANSFORM ANGLE, MEASURED FOR THE FIRST
+  TIME WITH AN INSTRUMENT THAT SEES PATCHES.** Parked mini on his phone:
+  container `position: fixed`, **z-index 2147482000**, scale 0.559. Ten
+  scroll samples while parked: **69 image patches on screen, 4 genuinely
+  overlapping the parked box, 4 ranked, `above` 0**, hostInPlayer 0. Our
+  own sheet lifts the player above everything, and it holds.
+- **THE SPA-NAV ANGLE WAS ATTEMPTED AND IS STILL NOT EXERCISED. Say so
+  rather than counting it.** Clicking a recommendation produced a HARD
+  navigation (`pcZ` null at settle, patches 0), so the 12 samples across
+  it read overlap 0 -- there was nothing over the player to rank. That
+  angle needs a genuine pushState.
+- **THE WORKER'S START-UP IS DECOMPOSED.** `up` ~800ms with `evalMs` 120
+  left ~680ms attributed to nothing for three sessions. A worker's
+  timeOrigin is set at CREATION, before its script is fetched, so the
+  EVAL_CLOCK the build already stamps measures fetch-and-compile exactly
+  -- posted as **`fetchMs`** now. Emulator, warm: **prestartAt 379,
+  fetchMs 55, evalMs 85, up 696.** Fetching and compiling 1.04MB is
+  **55ms**; the rest is the prestart backlog waiting for the page to
+  adopt the worker.
+- **SO THE WORKER-ONLY BUNDLE IS DEAD, MEASURED:** 836,754 bytes against
+  the page artifact's 1,041,604 -- 20% less to parse of a 140ms total,
+  about **28ms**. The 2026-08-27 reason for one artifact (17MB of
+  duplicated models) is stale; the new reason is that the saving is not
+  there. Also: **the prestart already posts `{type:"init"}`**, so the
+  speed ledger's item 2 ("fetch the models earlier") is already done.
+- **THE REAL LEVER: faceres is float16 and it is half our model bytes.**
+  It has **FEWER parameters than nsfw (3,489,405 against 4,300,775) and
+  1.6x the bytes**, purely because it is two bytes per weight where nsfw
+  is one. It is also the slowest to load on both machines -- emulator
+  gender **2455ms** against nsfw 505 and face 378; his phone gender 826
+  of a 1271ms total. Our own `requant-uint8.py` (the MoveNet tool, with
+  its 0.02 absolute error bound) takes it **6,978,814 -> 3,512,611
+  bytes, -49.7%**: 91 tensors uint8, 36 kept f16, 1 int32. An APK built
+  with it is **56,012,979 against 59,474,099** -- the 3.46MB lands
+  exactly.
+- **NOT SHIPPED, TWO BLOCKERS, BOTH NAMED.** (1) The load-time win is
+  NOT established: one candidate run read gender 1012ms against 2455,
+  and two repeats read 1411 and **299** -- 299ms is a warm HTTP cache,
+  not a faster model, because `ms.gender` spans the fetch. Splitting
+  fetch from `loadGraphModel` inside `stage()` is the small measurement
+  that settles it. (2) Output parity is UNTESTED, and this is the model
+  that decides who gets blurred; full uint8 is exactly what produced
+  DEAD OUTPUT on MoveNet's depthwise convs. The smoke test passed (8
+  reads, male 7 / female 1, scores 0.06-0.90 -- alive and still
+  differentiating) but alive is not correct. Real parity needs the same
+  input through both models, which needs face fixtures with a clean
+  licence that this repo does not have -- the same gap that blocks
+  plan-balance B3. **The original model was restored and hash-verified;
+  the candidate was not committed.** Recipe is in
+  docs/speed-findings-2026-08-29.md.
+- gaze 405/405, cargo 58/58 (unchanged -- the only code change is the
+  fetchMs instrument).
+
 **Session 2026-08-31 (loop 32) -- THE PRIORITY-1 INSTRUMENT WAS
 SELECTING NOTHING, A RESTING THUMB WAS MINIMISING HIS PLAYER, AND HIS
 HOME FEED IS HIDDEN. 1073 PUBLISHED (sha 99a39fe4, raw manifest +
