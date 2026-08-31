@@ -22,6 +22,14 @@ import '@tensorflow/tfjs-backend-webgl';
 import {
   loadModelUrl, detectFaceBoxes, classifyFaceGenders, INPUT_SIZE,
 } from '../src/detector.js';
+// THE BAND WAS HARDCODED AT [0.545, 0.705] AND THE SHIPPED ONE IS
+// [0.53, 0.72], so every "caught by the null band" figure this bench has
+// ever produced describes a predicate that does not exist. Worse, it
+// checked the raw sigmoid ONLY -- isNullRead also requires age in
+// [34, 42], and the non-face control never captured age at all, so the
+// figure could not have evaluated the real predicate even in principle.
+// Import both rather than restating them.
+import { isNullRead, NULL_V_LO, NULL_V_HI } from '../src/gender-verdict.mjs';
 
 var SIZES = [32, 40, 48, 56, 64, 72, 88, 112, 160];
 
@@ -151,7 +159,12 @@ window.__RUN = async function (ids) {
           var nout = await classifyFaceGenders(
             gender, nc, [{ x1: 0, y1: 0, x2: 1, y2: 1 }], null, { square: true });
           var nr = nout[0];
-          nseries.push({ px: NN, gender: nr.gender, score: +nr.score.toFixed(3), raw: +nr.raw.toFixed(4) });
+          nseries.push({
+            px: NN, gender: nr.gender, score: +nr.score.toFixed(3),
+            raw: +nr.raw.toFixed(4),
+            age: Math.round(nr.age), child: +(nr.childP || 0).toFixed(3),
+            nullRead: isNullRead(nr) ? 1 : 0,
+          });
         }
         nulls.push({ id: ids[i], series: nseries });
       }
@@ -164,7 +177,7 @@ window.__RUN = async function (ids) {
   // confidence is the failure that matters -- it is what revokes a
   // clear or condemns a woman.
   var per = {};
-  for (var k = 0; k < SIZES.length; k++) per[SIZES[k]] = { n: 0, agree: 0, confWrong: 0, scores: [], nullBand: 0 };
+  for (var k = 0; k < SIZES.length; k++) per[SIZES[k]] = { n: 0, agree: 0, confWrong: 0, scores: [], nullBand: 0, nullRead: 0 };
   for (var q = 0; q < rows.length; q++) {
     var R = rows[q];
     for (var z = 0; z < R.series.length; z++) {
@@ -177,13 +190,16 @@ window.__RUN = async function (ids) {
       // GENDER_MIN_SCORE is 0.25: a disagreement above it is a CERTAIN
       // wrong answer, which is the thing the floor exists to prevent.
       else if (e.score >= 0.25) p.confWrong++;
-      // isNullRead's band on the raw sigmoid: a read inside it is
-      // treated as the model's prior rather than an answer.
-      if (e.raw >= 0.545 && e.raw <= 0.705) p.nullBand++;
+      // `nullBand` is the RAW SIGMOID condition alone, at the shipped
+      // constants. `nullRead` is the whole predicate, age condition
+      // included -- these two are not the same number and conflating
+      // them is what produced the "30-33 of 34 non-faces caught" figure.
+      if (e.raw >= NULL_V_LO && e.raw <= NULL_V_HI) p.nullBand++;
+      if (isNullRead({ gender: e.gender, raw: e.raw, age: e.age })) p.nullRead++;
     }
   }
   var nper = {};
-  for (var kk = 0; kk < SIZES.length; kk++) nper[SIZES[kk]] = { n: 0, certain: 0, band: 0, scores: [] };
+  for (var kk = 0; kk < SIZES.length; kk++) nper[SIZES[kk]] = { n: 0, certain: 0, band: 0, nullRead: 0, scores: [] };
   for (var qq = 0; qq < nulls.length; qq++) {
     var NR = nulls[qq];
     for (var zz = 0; zz < NR.series.length; zz++) {
@@ -193,7 +209,8 @@ window.__RUN = async function (ids) {
       np.n++;
       np.scores.push(ne.score);
       if (ne.score >= 0.25) np.certain++;
-      if (ne.raw >= 0.545 && ne.raw <= 0.705) np.band++;
+      if (ne.raw >= NULL_V_LO && ne.raw <= NULL_V_HI) np.band++;
+      if (ne.nullRead) np.nullRead++;
     }
   }
   var nullTable = SIZES.map(function (S) {
@@ -204,7 +221,10 @@ window.__RUN = async function (ids) {
       // A non-face read that CLEARS the score bar is a confident answer
       // about nothing -- the exact failure FACE_MIN_NATIVE_PX prevents.
       certain: np.certain,
-      caughtByNullBand: np.band,
+      // The raw-sigmoid condition alone -- an UPPER BOUND on what the
+      // shipped predicate catches, never the predicate itself.
+      caughtByRawBand: np.band,
+      caughtByNullRead: np.nullRead,
       scoreP50: nsc.length ? nsc[Math.floor(nsc.length / 2)] : null,
     };
   });

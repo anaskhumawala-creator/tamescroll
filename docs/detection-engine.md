@@ -576,3 +576,48 @@ instrument.
   bench used [0.545, 0.705]. So "30-33 of 34 non-faces caught" and
   "1-2 of 28 real faces rejected" are BOUNDS. Re-derive against the
   real constants before building on them.
+
+## The null-band figures overstate `isNullRead` by about a third (2026-09-01)
+
+Every "the null band catches 30-33 of 34 non-faces / rejects 1-2 of 28
+faces" figure in this repo came from `app/gaze/bench/small-face.js`, and
+that bench was testing something other than the shipped predicate. Two
+separate errors, the second much larger than the first:
+
+1. **The wrong constants.** It hardcoded `raw >= 0.545 && raw <= 0.705`;
+   the shipped band is `NULL_V_LO 0.53` / `NULL_V_HI 0.72`. On the banked
+   corpus the bench band holds **88.5%** of the reads the shipped one
+   does, so this alone makes the figures a slight UNDERCOUNT.
+
+2. **Only half the predicate, and this is the big one.** `isNullRead`
+   also requires `gender === 'male'` and `age` in `[NULL_AGE_LO 34,
+   NULL_AGE_HI 42]`. The bench's non-face control captured only
+   `px/gender/score/raw` -- no age at all -- so it could not have
+   evaluated the real predicate even in principle.
+
+**MEASURED on 14,969 banked reads carrying an age and a recoverable raw**
+(`app/gaze/bench/null-band-shape.mjs`, output in
+`spikes/gauntlet/null-band-shape.txt`):
+
+| | n | of all reads |
+|---|---|---|
+| raw band, shipped [0.53, 0.72] | 3,188 | 21.3% |
+| raw band, bench [0.545, 0.705] | 2,821 | 18.8% |
+| **full `isNullRead`** | **1,979** | **13.2%** |
+
+**The age condition removes 1,209 of 3,188 in-band reads = 37.9%**, and
+**1,178 of those 1,209 are removed for reading YOUNGER than 34** (removed
+age p05/p50/p95 = 20 / 31 / 33). So a raw-band count overstates what
+`isNullRead` actually catches by roughly a third on this population.
+
+HONEST LIMIT: this corpus is REAL FACES off the player and image rings,
+not the bench's non-face control, so it bounds the mechanism rather than
+re-deriving the non-face number. `small-face.js` now imports `isNullRead`
+and the constants instead of restating them, captures age and childP on
+the non-face control too, and reports `caughtByRawBand` and
+`caughtByNullRead` side by side. The real figure needs one device run.
+
+**AND IT RECONFIRMS THE VACUOUS GUARD, independently.** Of the 3,188
+in-band reads, **0 are labelled female** -- `NULL_V_LO 0.53` sits above
+the 0.5 label boundary, so `gender !== 'male'` inside `isNullRead` can
+never reject anything. Loop 37b argued this; 3,188 reads now show it.

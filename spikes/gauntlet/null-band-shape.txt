@@ -1,0 +1,12 @@
+reads with age + recoverable raw: 14969
+raw band, SHIPPED [0.53, 0.72]      : 3188 21.3%
+raw band, BENCH   [0.545, 0.705]    : 2821 18.8%   -- the bench band is 88.5% of the shipped one
+FULL isNullRead (male + raw + age)  : 1979 13.2%
+  the age condition removes 1209 of 3188 = 37.9% of in-band reads
+  of those removed: 1178 age < 34 / 31 age > 42 / 0 labelled female
+  removed age p05/p50/p95 = 20 31 33
+
+CONSEQUENCE: any figure quoted as "the null band catches N of M"
+is an UPPER BOUND on what isNullRead catches, and on this corpus the
+bound is loose by the fraction printed above. Re-run small-face.js
+for the real non-face number -- it now reports caughtByNullRead.
