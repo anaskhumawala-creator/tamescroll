@@ -74,6 +74,93 @@ Users install this one app and nothing else.
 raw manifest + downloaded APK agree; rules 99394d11. His phone is on
 1070 and needs the update).
 
+**Session 2026-08-31 (loop 32) -- THE PRIORITY-1 INSTRUMENT WAS
+SELECTING NOTHING, A RESTING THUMB WAS MINIMISING HIS PLAYER, AND HIS
+HOME FEED IS HIDDEN. 1073 PUBLISHED (sha 99a39fe4, raw manifest +
+downloaded APK agree).**
+
+- **probe_patch_rank_dense QUERIES AN ID THAT DIED ON 2026-08-24.**
+  `#tamescroll-gaze-regions` was removed in 00ce2c8 ("parent-anchored
+  patches"); the real layers are `.ts-gaze-region-patch` (image, on the
+  thumbnail's own host) and `.ts-gaze-vregion-clip > *` (video, inside
+  the player). So its `patchesMax 0` was guaranteed on every device in
+  every arm -- it never counted a patch at all. MEASURED side by side on
+  his phone, same page, same 180s: dead id **0**, real selectors
+  **imgMax 7 / vidMax 2**. 14 probes in spikes/gauntlet use that id;
+  the file now carries a header saying so. New instrument:
+  probe_patch_rank2.py.
+- **PRIORITY 1, ANSWERED ON HIS PHONE WITH AN INSTRUMENT THAT SEES.**
+  Watch page, video playing, 3 minutes, 1394 in-page ticks at 10Hz,
+  patches forced hit-testable: **745 overlaps with the player box, 363
+  ranked image-patch samples, `above` 0, hostInPlayer 0.** Video patches
+  are excluded from the ranking on purpose -- those belong over the
+  player. Note also that he already closed this himself in loop 20
+  ("The blur overlap is finally fixed"); this is the first measurement
+  on his hardware that agrees.
+- **1073: A SECOND FINGER OWNED HIS PLAYER.** miniplayer.mjs read every
+  touch through `ev.touches[0]` -- the first touch in the list, never
+  the one the event is about. MEASURED by logging the real stream with a
+  thumb resting on the video:
+  `touchstart n:2 ch:[2] pick=finger1` re-armed the drag ORIGIN at the
+  dragging finger's current point, and **`touchend n:1 ch:[2]
+  pick=finger1` ran onUp with the DRAGGING finger's coordinates when the
+  RESTING one lifted** -- committing to mini mid-gesture with a finger
+  still down (caught at 310x174 in transition). A thumb on the video is
+  how a phone is held. That is his "sometimes goes down and it doesn't
+  function as it's supposed to".
+- **THE MODULE'S OWN COMMENT SAID touchcancel COVERED THIS. IT DOES
+  NOT: cancels 0** across the whole two-finger gesture. The wrong belief
+  is exactly why those paths were never guarded. Comment and test both
+  corrected.
+- FIX: the gesture is bound to one touch identifier. Extra fingers are
+  not new gestures, their moves are not our moves, their release is not
+  our release, and the NON-PASSIVE handler on the player will not take
+  the page's scroll away for a foreign finger. **Binding it introduced a
+  new stranding path** (a lost touchend would leave `start` set forever
+  and no later touch could arm -- the 1057 defect class), so the refusal
+  is conditional on the owning finger still being on screen.
+- VERIFIED on a built APK, both halves: a foreign finger lifting
+  mid-drag now leaves the player **mid-drag at 231x130, mini false**
+  where it used to commit; the owning finger still lands **(169,697)**;
+  the origin survives a finger landing part-way (60px partial 257x144,
+  120px cumulative commits) and matches the one-finger control exactly.
+  The 1057-1065 sweep is green **twice** (tap-drift 8px moves nothing,
+  drag commits, tap restores, cancel aborts to 412x232, both mini
+  buttons work, close exits).
+- **PROBE ARTIFACT, AND IT LOOKED LIKE MY OWN REGRESSION:** the FIRST
+  sweep run on a just-restarted emulator read `dragCancelled` as
+  stranded (drag true, frozen at the parked box). Two repeats read
+  clean, and an instrumented cancel showed the event arriving and the
+  player returning to (0,48) with the transform cleared. Restart, then
+  REPEAT, before believing a failure.
+- **PRIORITY 3: HIS HOME FEED IS HIDDEN, AND THE NOTE SAYING OTHERWISE
+  IS STALE.** Read from his phone's own storage: `tamescroll.shown =
+  {"youtube":["watch_recs"]}`, blur `smart`, gender `man`. Loop 17
+  INFERRED "home is SHOWN" from a 1053 diagnostics report and several
+  loops of work rested on it. In his configuration home renders
+  **grid height 0, body 104px, 95 elements hidden, nothing leaking**.
+- **HIS SIGNED-IN HOME, ENUMERATED FOR THE FIRST TIME** (the thing loop
+  17 recorded as blocked). Scrolled 0 -> 7202px, items 3 -> 30, and the
+  non-video things are **7 `ytm-rich-section-renderer`: FOUR community
+  POSTS** (channel text/image posts -- "Iamskamal Blog 1 day ago...",
+  "ITS_YUG_XD 5 hours ago..."), **one "Explore more topics" shelf**, and
+  two Shorts shelves. His "random homepage elements" are mostly
+  community posts, which nobody here had ever seen.
+- **AND `home_shelves` ALREADY COVERS EVERY ONE OF THEM.** With home
+  SHOWN and shelves hidden, on his signed-in phone: **all 7 sections
+  compute `display: none` at height 0 -- posts, topics shelf and Shorts
+  alike -- while 18 of 18 feed videos stay visible** (grid 5662px). So
+  there is no missing rule and nothing was built. What he needs is the
+  toggle, not a new selector.
+- HIS SETTINGS WERE READ, NEVER WRITTEN: confirmed unchanged after the
+  run (`{"youtube":["watch_recs"]}`), phone left on the launcher.
+- NOT DONE: speed. The three named bugs took the night, and the two
+  levers left (cold navigation, warm-up) are the ones
+  docs/speed-findings-2026-08-29.md says need his phone rather than this
+  harness. Also NOT measured: the 1072 eraser counters in a real run --
+  his phone was still on **1070** when this loop started.
+- gaze 405/405, cargo 58/58.
+
 **Session 2026-08-31 (loop 31) -- HIS PHONE WAS STILL ON 1070 ALL
 NIGHT, AND THE ERASER FINALLY HAS A COUNTER. 1072 PUBLISHED (sha
 49d762a8, raw manifest + downloaded APK agree).**
