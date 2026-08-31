@@ -1107,6 +1107,23 @@ export function parsePersons(data, minScore, aspect, held) {
 // a frame whose ONLY human is edge-cropped it would refuse the face
 // fallback as well. She is safe here only because the other woman's slot
 // lifts the frame-wide maximum.
+/** The frame-wide keypoint maximum `frameHasNoHumanShape` compares
+ * against PFF_FRAME_KP_FLOOR. Exposed so a diagnostic can record WHAT
+ * the gate refused on, not merely how often: on his phone MoveNet
+ * admits nobody at all (twelve slots n:0, every window since 2026-08-31
+ * loop 27), so this number alone decides whether a detected face
+ * becomes a patch. The floor was calibrated on gauntlet footage; there
+ * is no measurement of it on his hardware. */
+export function frameMaxKp(slotDiag) {
+  if (!slotDiag || !slotDiag.length) return null;
+  var m = 0;
+  for (var i = 0; i < slotDiag.length; i++) {
+    var k = slotDiag[i] && slotDiag[i].maxKp;
+    if (typeof k === 'number' && k > m) m = k;
+  }
+  return m;
+}
+
 export function frameHasNoHumanShape(slotDiag) {
   if (!slotDiag || !slotDiag.length) return false;
   var best = 0;

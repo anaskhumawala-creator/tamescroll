@@ -230,7 +230,7 @@ export function pageKind(platform, path) {
 // How much of each ring survives into a report. Rings are for spotting a
 // pattern, not for replaying a session, and a bigger report is a bigger
 // thing to get wrong.
-var KEEP = { images: 40, stages: 40, slots: 12, reads: 60 };
+var KEEP = { images: 40, stages: 40, slots: 12, reads: 60, gate: 40 };
 
 /**
  * Build one report from a raw snapshot of the in-page diagnostics.
@@ -238,6 +238,10 @@ var KEEP = { images: 40, stages: 40, slots: 12, reads: 60 };
  * PURE: everything it needs is in `snap`, so the whole redaction story
  * is testable without a DOM, a device, or a running pipeline.
  */
+function gateEntry(e) {
+  return { c: num(e.c), px: num(e.px), k: num(e.k) };
+}
+
 export function buildReport(snap) {
   var s = snap || {};
   var timing = s.timing || {};
@@ -386,6 +390,14 @@ export function buildReport(snap) {
         faceNoShape: num(life.faceNoShape),
         bodyFromSlot: num(life.bodyFromSlot),
       },
+      // WHAT THE GHOST GATE SPLIT, both sides. Three numbers per entry:
+      // the face's own confidence, its native pixel size, and the frame
+      // keypoint maximum PFF_FRAME_KP_FLOOR was compared against. If the
+      // refused population looks like the kept one, the floor is
+      // refusing people rather than graphics -- and on his phone it
+      // takes about three faces in four.
+      gateRefused: (ids.gateRefused || []).slice(-KEEP.gate).map(gateEntry),
+      gateKept: (ids.gateKept || []).slice(-KEEP.gate).map(gateEntry),
       reads: (ids.reads || []).slice(-KEEP.reads).map(function (r) {
         return {
           g: ENUMS.g.indexOf(r.g) === -1 ? 'unknown' : r.g,

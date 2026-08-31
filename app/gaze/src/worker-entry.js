@@ -284,6 +284,8 @@ export function startWorker() {
         // failure direction of a skip is a possible ghost, never an
         // uncovered person.
         noHumanShape: person ? !!persons.noHumanShape : false,
+        // Diagnostic only: the number the gate thresholded on.
+        maxKp: person && typeof persons.maxKp === 'number' ? persons.maxKp : null,
         personsSkipped: !person,
         rejectedBoxes: persons.rejectedBoxes || [],
         faces: faces,

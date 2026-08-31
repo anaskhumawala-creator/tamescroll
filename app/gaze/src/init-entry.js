@@ -1759,6 +1759,30 @@ if (
     // lastVerdictMs, which is only written when a verdict COMPLETES.
     var verdictBusy = false;
     // Set by a verdict pass that found neither a person nor a face.
+    // THE TWO POPULATIONS THE GHOST GATE SPLITS. Bounded rings of
+    // three numbers each -- the face's own confidence, its native size,
+    // and the frame keypoint maximum the gate thresholded on. No urls,
+    // no free text; they cost the report nothing and they are the only
+    // way to tell "the gate is refusing graphics" from "the gate is
+    // refusing people", which on his hardware is currently unknown.
+    function noteFaceGate(ring, face, persons, video) {
+      try {
+        var d = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+        var r = (d[ring] = d[ring] || []);
+        var vw = (video && video.videoWidth) || 0;
+        var vh = (video && video.videoHeight) || 0;
+        var px = vw && vh
+          ? Math.round(Math.min((face.x2 - face.x1) * vw, (face.y2 - face.y1) * vh))
+          : null;
+        r.push({
+          c: Math.round((face.confidence || 0) * 100) / 100,
+          px: px,
+          k: typeof persons.maxKp === 'number' ? persons.maxKp : null,
+        });
+        if (r.length > 60) r.shift();
+      } catch (e) {}
+    }
+
     var emptyFrame = false;
     // Consecutive verdict passes that saw nothing. Absence has to be
     // seen twice before it is believed — see wipeIfEmpty.
@@ -1892,6 +1916,7 @@ if (
             // properties detectPersons hangs on the array itself.
             var persons = (r.persons || []).slice();
             persons.noHumanShape = !!r.noHumanShape;
+            persons.maxKp = typeof r.maxKp === 'number' ? r.maxKp : null;
             persons.rejectedBoxes = r.rejectedBoxes || [];
             // notePersons stamps the held answer onto a skipped pass.
             notePersons(persons, !!r.personsSkipped);
@@ -3366,7 +3391,22 @@ if (
                       claimed[owner] = 1;
                       continue;
                     }
+                    // WHAT THE GATE IS ACTUALLY REFUSING, not just how
+                    // often. On his phone this branch takes about three
+                    // faces in four (faceNoShape 127 against ~41 gender
+                    // reads in one 250s window) because MoveNet admits
+                    // NOBODY there -- twelve slots n:0 in every window
+                    // since loop 27 -- so PFF_FRAME_KP_FLOOR alone
+                    // decides whether a detected face becomes a patch,
+                    // and that floor was calibrated on gauntlet footage,
+                    // never on his hardware. A refused REAL face is an
+                    // uncovered person, which is his oldest complaint;
+                    // the gate exists because of his other one. The two
+                    // rings below are what tells them apart: if the
+                    // refused population looks like the kept one, the
+                    // floor is refusing people.
                     if (noShape) {
+                      noteFaceGate('gateRefused', faces[fi], persons, video);
                       try {
                         var dbgN = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
                         dbgN.life = dbgN.life || {};
@@ -3374,6 +3414,7 @@ if (
                       } catch (e) {}
                       continue;
                     }
+                    noteFaceGate('gateKept', faces[fi], persons, video);
                     // THE COMPOSITE FRAME (R29). A face with no admitted
                     // person still gets a body, but where MoveNet
                     // MEASURED that person and merely refused to admit

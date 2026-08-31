@@ -28,6 +28,7 @@ import { ready as modelsReady, blob as modelBlob } from './model-blobs-lazy.mjs'
 import {
   parsePersons,
   frameHasNoHumanShape,
+  frameMaxKp,
   rejectedSlotBoxes,
   lastSlotDiag,
 } from './person-gate.mjs';
@@ -610,6 +611,9 @@ export async function detectPersons(model, pixelSource, aspect, held, sharedImg)
   // could ever show this; a YouTube page with the player and a feed
   // preview has two. Captured synchronously, it cannot desynchronize.
   persons.noHumanShape = frameHasNoHumanShape(lastSlotDiag);
+  // The NUMBER behind that boolean, captured in the same breath and for
+  // the same reason -- see frameMaxKp.
+  persons.maxKp = frameMaxKp(lastSlotDiag);
   // R29, and captured here for exactly the reason above: the boxes of
   // the slots this pass REFUSED, so the face fallback can bound a
   // synthetic body onto a person MoveNet measured but would not admit.
