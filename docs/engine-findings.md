@@ -477,3 +477,58 @@ shipped CUT_DELTA 50 -- one cut every 3.5s on this footage -- against
 `coastExpired` 11, `faceNoShape` 59, `wipeErasedBlurred` 4,
 `passDropped` 23 of the passes.
 
+### 10d. The staleness went three layers deep, and the third was the worst
+
+Found by the sweep in 10e reporting `birthCleared 0` in every row while
+the counter printed beside it was rising: **`.cache/shipped.mjs` is an
+esbuild of `src/` and NOTHING re-ran the build.** Every arm imported
+whatever the source was the last time somebody ran `_mkesm` by hand. The
+bundle in that sweep predated the counter by an hour.
+
+That is worse than the other two layers, because it is not one constant:
+an arm can score an entire fortnight of source and print a clean table.
+
+`bench/_build.mjs` closes it, and **the fix is to THROW, not to
+rebuild.** Node parses and LINKS every module before evaluating any, so
+by the time any body runs, `.cache/shipped.mjs` has already been read off
+disk -- rewriting it cannot change what this process imported. So
+`_build` rebuilds, compares, and refuses if the bytes moved. The next run
+is correct and no run is ever silently wrong. Import order is
+load-bearing: `import './_build.mjs'` must sit above the bundle imports
+in arch-arms. Proved by changing a real constant in `src/` and watching
+an arm refuse, then self-heal on re-run.
+
+The three layers, all one defect: a **banked derivative** (`cuts.json`),
+a **patched derivative** (`.cache/*.mjs` variants), and the **build
+itself**.
+
+### 10e. Loosening the association threshold is REFUSED, on measurement
+
+E5 left a fork: 145 of 310 births had an overlapping track, split 48
+nearMiss (below `PTRACK_IOU_MIN`) and 32 contended. If the nearMiss half
+were the same person re-minted, lowering the threshold is the cheapest
+fix in the repo. `bench/iou-ab.mjs`, 18 windows, his 1.5s cadence:
+
+| IOU_MIN | exposure | false cover | phantom | births |
+|---|---|---|---|---|
+| **0.20 shipped** | 71.0 | **167.5** | **149.0** | 310 |
+| 0.15 | 71.0 | 164.5 | 154.0 | 301 |
+| 0.10 | 71.0 | 165.0 | 154.0 | 299 |
+| 0.05 | 70.5 | 166.0 | 153.5 | 295 |
+| 0.02 | 71.0 | 166.0 | 154.0 | 293 |
+
+Best case is **-3.0s of false cover for +5.0s of phantom**, non-monotone
+in the dial, and woman mode is strictly worse at every step (false cover
+250.0 -> 252.5, phantom 180.0 -> 191.0). Refused.
+
+**And the mechanism says why, which is the part worth keeping.** Taking
+the threshold from 0.20 to 0.02 -- effectively "associate on any overlap
+at all" -- removes only **17 of 310 births**, while `birthNearMiss` falls
+48 -> 4. So those observations do not become matches; they re-classify
+as `birthFresh`. **The near-miss overlaps are not the same person
+slightly moved.** The churn is not an association-threshold problem, and
+no setting of this dial makes it one.
+
+That leaves the assignment (32 contended) and the geometry that produces
+a box with no overlap at all (§8, still the unmeasured class).
+

@@ -29,6 +29,9 @@
 // how differently the two reads score. The votes are NOT independent, so
 // no standard-error argument applies to the pool.
 import fs from 'fs';
+// FIRST, and the order is load-bearing: this rebuilds .cache/shipped.mjs
+// and must be evaluated before anything imports it. See _build.mjs.
+import './_build.mjs';
 import * as SHIPPED from './.cache/shipped.mjs';
 import { createIdentityMemory, askIdentity, trustNeeded } from './.cache/shipped.mjs';
 import { parsePersons, rejectedSlotBoxes, lastSlotDiag, boundBodyToSlot, PERSON_MIN_SCORE } from './.cache/shipped.mjs';
