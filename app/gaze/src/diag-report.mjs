@@ -429,7 +429,7 @@ export function buildReport(snap) {
     // never reached the artifact he sends, which is exactly the defect
     // `player.life` was just fixed for. Same shape check, so the same
     // guarantee.
-    render: s.render ? lifeCounters(s.render) : null,
+    render: s.render ? lifeCounters(s.render, 'renderDropped') : null,
     // `ours` means one of our own recorded main-thread segments fell
     // inside that task -- overlap, not authorship. A 360ms task can be
     // the page's with 20ms of ours in it. Zero overlaps would settle the
@@ -469,7 +469,7 @@ function pluck(rows, key) {
 // COUNTED: `lifeDropped` is itself a number, so it survives the
 // invariant and a truncated report says so out loud.
 export var LIFE_MAX_KEYS = 256;
-export function lifeCounters(life) {
+export function lifeCounters(life, dropKey) {
   var out = {};
   if (!life || typeof life !== 'object') return out;
   var keys = Object.keys(life).sort();
@@ -485,7 +485,7 @@ export function lifeCounters(life) {
     out[k] = Math.round(v * 1000) / 1000;
     n++;
   }
-  if (dropped) out.lifeDropped = dropped;
+  if (dropped) out[dropKey || 'lifeDropped'] = dropped;
   return out;
 }
 

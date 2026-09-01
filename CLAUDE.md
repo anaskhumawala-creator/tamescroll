@@ -145,6 +145,42 @@ user-visible changed after 1075. gaze 416/416.
   **0 are labelled female** -- NULL_V_LO 0.53 is above the 0.5 label
   boundary, so `gender !== 'male'` inside isNullRead can never reject
   anything. Loop 37b argued it; 3,188 reads show it.
+- **A REAL EXPOSURE, FOUND BY THE CRITIC AND FIXED: a clip layer the page
+  removes stranded EVERY overlay.** `clipLayer` rebuilds the layer only
+  when it is ASKED for one, and setTracks asks only when it creates a NEW
+  overlay -- so a pass carrying the same boxes reuses every node and
+  never reaches it. Take our layer out of the player (which is what a
+  torn-down-and-re-created player does, and tonight's gap frames ARE
+  that) and refreshRects' connectedness check does not fire, because the
+  HOST and the VIDEO are untouched: the entry, its tracks and its
+  overlays all survive, reposition keeps writing to elements in no
+  document, and a covered subject is sharp PERMANENTLY with every
+  counter healthy. Overlays are re-parented after each pass now --
+  monotone, it can only put a patch back -- and `clipRebuilt` counts it.
+  The test fails against the pre-fix source.
+- **AND THE RENDER BLOCK WAS THE SAME WHITELIST, ONE BLOCK BELOW
+  `player.life` IN THE SAME FILE**, so every hide counter would have
+  died there too. Same pass-through, `renderDropped` names its own
+  drops.
+- **THE NUMBER THE GATE DECISION NEEDS, MEASURED ON BOTH ARMS AT LAST.**
+  Non-face control, 85 corner crops from thumbnails where BlazeFace
+  found nothing, nine sizes, 764 reads: **`caughtByNullRead` 77-83 of 85
+  -- 91-98% -- at every size**, within a couple of crops of the raw band
+  at every row. Face arm: **1 of 25 false rejects at >= 56px, 2 of 25 at
+  32-48px**. So the shipped predicate is **~93% of non-faces caught for
+  ~4-8% of real faces refused**.
+- **AND THE AGE CONDITION IS NEARLY FREE ON NON-FACES, WHICH IS THE
+  POINT OF IT.** It removes 41.8% of in-band REAL FACES and **7 of 730**
+  in-band control reads, because a non-face crop reads **age p05/p50/p95
+  = 35 / 38 / 41** -- dead centre of [34, 42], since a null read IS the
+  age head returning its ~36.9 prior. The window was drawn round the
+  prior on purpose and the control lands in it.
+- **THAT FIGURE WAS WRONG ONCE TONIGHT, IN THE EXPOSURE DIRECTION.**
+  small-face.js has TWO producers of control crops and only one was
+  patched, so `nullRead` was undefined for all 81 crops of that run and
+  `caughtByNullRead` read **1 of 81** -- which published would read as
+  "the predicate is useless, weaken the gate". Caught before it was
+  written down. Both producers emit the same record now.
 - **STILL HIS, UNCHANGED: the gate decision.** The build of his "both"
   ruling is refuted and the cost/benefit needs re-deriving with the
   CORRECTED predicate before re-asking. The corrected bench run is the
