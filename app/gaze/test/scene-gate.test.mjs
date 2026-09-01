@@ -54,3 +54,24 @@ test('a real cut-sized frame change classifies as cut, noise as static', () => {
   var noisy = lumaGrid(rgbaFill(256, 22, 21, 19), 256);
   assert.equal(classifyScene(meanAbsDelta(dark, noisy)), 'static');
 });
+
+// THE CUT THRESHOLD MUST CLEAR THE MOTION FLOOR.
+//
+// It was 28, which is the NINETIETH PERCENTILE of ordinary camera
+// motion on the owner's own footage (600 live luma deltas: p50 8.7,
+// p75 16.3, p90 28.2, p95 54.9). A threshold sitting on the noise floor
+// fires on motion, and every false cut wipes a cleared man's clear --
+// the "blur stays up longer" report.
+//
+// This pins the PROPERTY, not the number: whatever CUT_DELTA becomes,
+// it must sit above that measured p90 and at or below the p95 where
+// real cuts begin, so it cannot drift back onto the motion floor and it
+// cannot climb past real cuts either.
+test('CUT_DELTA sits between the measured motion floor and real cuts', () => {
+  const MOTION_P90 = 28.2;   // his phone, 600 samples, handheld vlog
+  const CUT_P95 = 54.9;
+  assert.ok(CUT_DELTA > MOTION_P90,
+    `CUT_DELTA ${CUT_DELTA} is at or under the measured p90 of ordinary motion`);
+  assert.ok(CUT_DELTA <= CUT_P95,
+    `CUT_DELTA ${CUT_DELTA} is above where real cuts start, so cuts get missed`);
+});

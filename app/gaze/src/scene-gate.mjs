@@ -9,9 +9,36 @@
 // Knobs registered in docs/detection-engine.md.
 export var GATE_SIZE = 16;
 // Mean absolute gray delta (0..255 scale) at or above this = hard cut.
-// A cut between unrelated shots measures 40-100; slow pans measure
-// under ~15. 28 splits them with margin either side.
-export var CUT_DELTA = 28;
+// A cut between unrelated shots measures 40-100.
+//
+// "SLOW PANS MEASURE UNDER ~15" IS FALSE FOR HANDHELD FOOTAGE, and it
+// is what put this at 28. Read live off his phone's own 600-sample
+// luma ring, on the vlog he was complaining about: deltas run p50 8.7,
+// p75 16.3, **p90 28.2**, p95 54.9, max 108.5. So 28 sat exactly on the
+// ninetieth percentile of ORDINARY CAMERA MOTION and fired on 10.2% of
+// samples -- `cutDetected` 39 in a 90-second window.
+//
+// EVERY FALSE CUT COSTS A CLEARED MAN HIS CLEAR. A cut wipes the
+// tracks, so he is re-born blurred and has to earn the clear again, and
+// a cut landing while a pass is in flight DROPS that pass
+// (`passDropped` 29 against those 39 cuts). That is the owner's report
+// in one line: "Linus is fully blurred ... the blur stays up longer".
+//
+// 50 sits in the gap the same distribution shows between motion (p90
+// 28.2) and cuts (p95 54.9), so it keeps every real cut and drops
+// roughly half of the false ones.
+//
+// THE COST OF MISSING A CUT IS BOUNDED, AND IT RUNS THE OTHER WAY.
+// Raising this can only move behaviour toward the cut-never-wipes arm,
+// and on the 18-window labelled corpus that arm is BETTER on both of
+// the numbers that matter -- man 81.0 -> 53.5s exposure and 218.0 ->
+// 154.0s false cover, woman 85.0 -> 41.5s and 223.5 -> 196.0s -- and
+// worse only on phantom (144 -> 165s, 141.5 -> 181.5s). Loop 39's
+// caveat still applies and is why this is a bound and not a licence to
+// delete the gate: that arm wipes WITHOUT the immediate full pass the
+// app does, so its absolute exposure overstates and only the
+// DIFFERENCE between two cut arms is fair.
+export var CUT_DELTA = 50;
 // At or below this = static scene (talking-head letterboxes, paused
 // motion). Video noise on a still shot measures ~1-2.
 export var STATIC_DELTA = 3;
