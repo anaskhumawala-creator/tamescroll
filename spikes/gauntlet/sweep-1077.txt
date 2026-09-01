@@ -1,0 +1,4 @@
+SEARCH {"imgTotal":14,"errors":2,"why":{"error":2,"clear":6,"face":6},"onScreenPending":0,"patches":6,"inside":6,"stray":0}
+PLAYER_HOSTS 2
+RENDER {"raf":86,"overlayFrames":146,"maskCalls":146,"maskWrites":4,"tfWrites":62,"sizeWrites":86,"dispWrites":4,"hideNoVr":0,"hideZeroVr":0,"hideClipped":0,"rectsNoBoxes":0,"drawnZero":0,"clipRebuilt":0}
+REPORT_LIFE {"life":{"birthFresh":4,"bodyFromSlot":3,"coastExpired":2,"cropHead":8,"cutDetected":19,"dedupeHeadSplit":1,"emptyFrame":12,"faceNoShape":23,"passDropped":5,"readAbstain":1,"readClearCertain":1,"readUncertain":3,"readWeak":3,"weakBump":1,"wipeErased":0,"wipeErasedBlurred":0,"wipeErasedTracks":0},"render":{"clipRebuilt":0,"dispWrites":4,"drawnZero":0,"hideClipped":0,"hideNoVr":0,"hideZeroVr":0,"maskCalls":150,"maskWrites":4,"overlayFrames":150,"raf":88,"rectsNoBoxes":0,"sizeWrites":86,"tfWrites":62},"violations":null}

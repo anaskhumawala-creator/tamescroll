@@ -510,3 +510,46 @@ for g in j['weightsManifest']: g['paths'] = ['weights.bin']
 `python spikes/gauntlet/probe_face_px_curve.py <cdp-port>`. Without the
 models it fails with a 404 on `/face/model.json` after collecting ids,
 which costs the whole collection pass.
+
+## A page can remove our clip layer out of a player that survives
+
+MEASURED 2026-09-01 on the shipped build, with a MutationObserver on the
+live `#movie_player`: our `.ts-gaze-vregion-clip` was removed **with
+three overlays still inside it**, host connected, video connected, video
+laying out one box. `clear(video)` removes every overlay BEFORE the
+layer, so a removal reporting `kids > 0` cannot be ours. Two such events
+across three ~3-minute sessions.
+
+**The player is NOT re-created when this happens.** `hostSwaps 0` across
+a seek and two SPA navigations -- `#movie_player` keeps its identity and
+the page removes our child out of it. That matters because the opposite
+belief predicts the wrong guard: a genuinely re-created player swaps the
+host, `refreshRects`'s `entry.host.isConnected` check fires, `clear()`
+runs and everything is rebuilt from scratch. The case that needs a fix
+is the one where every one of our own guards is healthy.
+
+**Recovery has to run on the render loop, not on a pass.** The first
+repair lived at the end of `setTracks`. On a built APK: layer removed
+with 2 patches inside it, tracks still 2 at +2s and +4s, `clipRebuilt`
+0, nothing visible, then the entry was torn down when the tracks coasted
+out. The emulator's verdict gap is p50 5,305ms and a blurred track
+coasts about 4s, so the exposure ended by the subject going uncovered
+rather than by the repair arriving. In `reposition` the check is one
+`isConnected` read plus one pointer compare per overlay per frame -- no
+layout -- and recovery is one frame.
+
+**A counter that only moves on the repair does not measure the
+exposure.** `clipRebuilt` read 0 through that whole 8-second strand.
+Per-frame it cannot: a live entry renders every frame.
+
+**And re-parenting every frame makes an unguarded rebuild expensive.**
+`clipLayer` appended to `entry.host` with no connectedness check, which
+was ~4 orphan nodes a second at pass cadence and would have been ~60 at
+frame cadence, all into an element no longer in the document.
+`refreshRects` does tear the entry down, but on a 250ms timer, so ~15
+frames land in between. It returns null on a detached host now.
+
+TEST-HARNESS LIMIT worth knowing before trusting a green suite here: the
+DOM stub in `video-region.test.mjs` hardcodes `isConnected: true` and
+never propagates it, so no test could see the detached-host class of bug
+until one set it by hand.

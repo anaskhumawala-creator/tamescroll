@@ -70,11 +70,86 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-09-01 05:55 (**1076 PUBLISHED, sha 1c5437c3**,
+**Last updated:** 2026-09-01 06:45 (**1077 PUBLISHED, sha 34463253**,
 raw manifest + GitHub asset digest + downloaded APK all agree, isDraft
-false; 1075 before it, sha 38ea380d. rules 99394d11. **His phone is on
-1075** -- it has neither the clip-layer fix nor the counters that now
-actually reach the report).
+false; 1076 before it, sha 1c5437c3. rules 99394d11. **His phone is on
+1075** -- it has neither the clip-layer repair nor the counters that
+now actually reach the report).
+
+**Session 2026-09-01 (loop 37f) -- THE CRITIC AND I FOUND THE SAME HOLE
+IN MY OWN SHIPPED FIX FROM TWO DIRECTIONS, AND 1076's REPAIR WAS TOO
+SLOW TO SAVE ANYONE. 1077 PUBLISHED.**
+
+- **THE EXPOSURE IS REAL AND IT HAPPENS IN THE WILD** -- the thing 1076
+  shipped unproven. A MutationObserver on the live `#movie_player`
+  caught our clip layer removed **with three overlays still inside it**,
+  host connected, video connected. Our own `clear()` removes the
+  overlays FIRST, so a removal with `kids > 0` cannot be us. Two such
+  events across three ~3-minute runs.
+- **AND THE MECHANISM IN THE 1076 COMMIT WAS WRONG.** It said "exactly
+  what a torn-down-and-re-created player does". `#movie_player`
+  **SURVIVES** -- `hostSwaps 0` across a seek and two SPA navigations --
+  and the page removes OUR CHILD out of it. A genuinely re-created
+  player swaps the host and refreshRects tears the entry down and
+  rebuilds everything. The wrong version would have sent the next
+  session hunting the wrong transition.
+- **1076's REPAIR RECOVERED NOTHING ON A REAL DEVICE, MEASURED.** It
+  lived at the end of `setTracks`, so recovery waited for a VERDICT
+  pass. Live probe on the built APK: layer removed with 2 patches,
+  **tracks still 2 at +2s and +4s, clipRebuilt 0, visible 0**, then the
+  entry was torn down. The emulator verdict gap is p50 5,305ms against a
+  blurred track's ~4s coast, so the track dies before the pass arrives
+  and the patch never comes back. THE A/B, same probe, same page, same
+  regime, only the build differs:
+
+  | | 1076 | 1077 |
+  |---|---|---|
+  | clipRebuilt after removal | **0** | **2** |
+  | patches visible at +2s | **0** | **2** |
+
+- **THE FIX IS ONE FRAME, NOT ONE PASS.** The re-parent moved into
+  `reposition`, which the rAF loop reaches every frame: one
+  `isConnected` read plus one pointer compare per overlay, **no
+  layout** -- unlike the forced rect refresh that got the loop-37d
+  attempt reverted. The critic proposed the 250ms `refreshRects` path;
+  REJECTED in favour of the render loop, which is ~16ms instead of
+  ~250ms and costs no more.
+- **AND THE NEW CADENCE MADE AN EXISTING NIT DANGEROUS.** `clipLayer`
+  appended to `entry.host` with no connectedness guard, so a DETACHED
+  host got a fresh layer per pass -- and would have got **60 orphan
+  nodes a second** once this ran per frame. refreshRects tears the entry
+  down when the host goes, but on a 250ms timer, so ~15 frames land in
+  between. It returns null there now. **The test stub hardcodes
+  `isConnected: true`, so the suite could not see this class of bug at
+  all** -- the new test sets it, and fails without the guard.
+- **`clipRebuilt` COUNTS THE REPAIR, NOT THE STRAND**, and at
+  once-per-pass it read **0 through a measured 8-second exposure**. Per
+  frame a live entry renders every frame, so a strand cannot outlast
+  one -- that is what makes 0 mean "no strand". It also can no longer
+  rise on a detached host, where re-parenting recovered nothing.
+- **RETRACT: sweep-1076's `clipRebuilt: 0` was ~19 seconds of evidence,
+  not four minutes.** `renderStats.raf` only ticks while an entry
+  exists, and 237 frames at the emulator's ~12Hz is ~19s in which a
+  patch existed at all. The sweep never entered the regime it appeared
+  to clear.
+- **CORRECTION to the 1076 write-up: the pre-fix failure was PARTIAL,
+  not permanent.** A pass whose box COUNT changed rebuilt the layer with
+  only the NEW overlay in it and left the reused ones stranded --
+  measured against the pre-fix source, 1 of 2 patches in the player.
+- **TWO TEST DEFECTS, both of which make a failure unreadable.** An
+  assert that throws above `vr.clear` leaks video-region's 250ms
+  `setInterval`, and `npm test` is `node --test` with no force-exit --
+  so a regression there **HANGS the suite instead of reporting it**
+  (measured: 2-minute timeout, no output). And `renderDropped`, the
+  render block's drop key, had no test at all.
+- **HARNESS, and it is the saturation trap again:** a probe killed the
+  WebView mid-run (pid 4373 -> 5020 -> 5454) and the counters came back
+  at 0. **Any 0 read after a context reset is a fresh counter, not a
+  clean run**, and CDP must be re-forwarded to the NEW
+  `webview_devtools_remote_<pid>`.
+- gaze 421/421, cargo 58/58. Release sweep on the built APK: 14 images,
+  0 on-screen pending, 6 patches all inside their own image, 0 stray,
+  clipRebuilt 0 in normal operation, 0 report violations.
 
 **Session 2026-09-01 (loop 37e) -- THE GAP HE CHASED IS A PLAYER WITH NO
 PICTURE, AND LOOKING FOR IT FOUND A REAL EXPOSURE NEXT TO IT. 1076
