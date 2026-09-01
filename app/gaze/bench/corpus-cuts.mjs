@@ -16,7 +16,23 @@
 import fs from 'fs';
 import { spawnSync } from 'child_process';
 import { ROOT } from './corpus-lib.mjs';
-import { lumaGrid, meanAbsDelta, CUT_DELTA, GATE_SIZE } from './.cache/shipped.mjs';
+import { lumaGrid, meanAbsDelta, CUT_DELTA as SHIPPED_DELTA, GATE_SIZE } from './.cache/shipped.mjs';
+
+// "CUT_DELTA CANNOT BE SWEPT ON THE CORPUS AT ALL" IS NO LONGER TRUE.
+//
+// That note (loop 40) was right about the BANK -- cuts.json holds
+// booleans, so a variant constant has nothing to re-decide. It was never
+// true of the corpus: the deltas come from the video, so the bank can
+// simply be re-derived per value. This is the deltas cache that makes
+// that cheap (one ffmpeg pass over the whole corpus instead of one per
+// value) and the argument that names the value.
+//
+// The DELTAS are a property of the footage and the gate's own geometry,
+// so they are cached under bank/deltas.json keyed by GATE_SIZE and RATE
+// -- never by CUT_DELTA, which is only the comparison at the end.
+const CUT_DELTA = process.argv[2] ? Number(process.argv[2]) : SHIPPED_DELTA;
+const OUT = process.argv[3] || `${ROOT}/bank/cuts.json`;
+if (!Number.isFinite(CUT_DELTA)) throw new Error('CUT_DELTA must be a number');
 
 // AT THE APP'S OWN RATE, NOT THE BANK'S.
 //
@@ -89,9 +105,9 @@ for (const f of files) {
 // the bundle it is running.
 const tot = Object.values(cuts).reduce((s, m) => s + m.reduce((a, b) => a + b, 0), 0);
 cuts.__meta = { CUT_DELTA, GATE_SIZE, rate: RATE };
-fs.writeFileSync(`${ROOT}/bank/cuts.json`, JSON.stringify(cuts));
+fs.writeFileSync(OUT, JSON.stringify(cuts));
 const over = allD.filter((d) => d >= CUT_DELTA).length;
 console.log(`
-wrote ${ROOT}/bank/cuts.json`);
+wrote ${OUT}`);
 console.log(`  ${over} of ${allD.length} 10Hz deltas over CUT_DELTA ${CUT_DELTA} (${(100 * over / allD.length).toFixed(2)}%)`);
 console.log(`  ${tot} of ${files.length * 120} banked frames land in a cut window`);

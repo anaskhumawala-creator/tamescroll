@@ -53,10 +53,24 @@ export const POOL_BAR = 0.40;
 const logit = (v) => Math.log(Math.max(1e-6, v) / Math.max(1e-6, 1 - v));
 const sigm = (z) => 1 / (1 + Math.exp(-z));
 
-const CUTS = (() => {
+let CUTS = (() => {
   try { return JSON.parse(fs.readFileSync(`${ROOT}/bank/cuts.json`, 'utf8')); }
   catch (e) { return {}; }
 })();
+
+// SWEEPING CUT_DELTA MEANS SWAPPING THE BANK, not patching a constant --
+// the replay wipes on `win.cuts[fi]` and never reads a module's
+// CUT_DELTA. Re-derive a bank with `corpus-cuts.mjs <delta> <out>`, then
+// point at it here. `expect` is asserted against the file's own stamp,
+// so a sweep cannot mislabel one of its own rows.
+export function setCutBank(path, expect) {
+  CUTS = JSON.parse(fs.readFileSync(path, 'utf8'));
+  const got = CUTS.__meta && CUTS.__meta.CUT_DELTA;
+  if (expect !== undefined && got !== expect) throw new Error(
+    `${path} is stamped CUT_DELTA ${got}, the sweep asked for ${expect}`);
+  cutBankDelta = got;
+}
+let cutBankDelta;
 
 // A BANKED DERIVATIVE OF A SHIPPED CONSTANT MUST DECLARE THE CONSTANT.
 // Throwing is deliberate: the failure this replaces was SILENT and ran
@@ -74,6 +88,8 @@ export function assertCutsFresh(shipped) {
   if (!meta) throw new Error(
     'bank/cuts.json has no __meta stamp -- it predates the check and its '
     + 'CUT_DELTA is unknown. Re-run bench/corpus-cuts.mjs.');
+  // A sweep that deliberately swapped the bank is not stale.
+  if (cutBankDelta !== undefined) return;
   if (shipped && meta.CUT_DELTA !== shipped.CUT_DELTA) throw new Error(
     `bank/cuts.json was banked at CUT_DELTA ${meta.CUT_DELTA}, the bundle `
     + `ships ${shipped.CUT_DELTA}. Re-run bench/corpus-cuts.mjs.`);

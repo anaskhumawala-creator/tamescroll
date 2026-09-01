@@ -21,13 +21,18 @@ import { loadWin, makeArms } from './arch-arms.mjs';
 
 const g = process.env.GENDER || 'man';
 const src = fs.readFileSync('./.cache/shipped.mjs', 'utf8');
-const NEW = 'state: t.instant && t.certain && !t.flagged && !t.abstained ? "cleared" : "blurred"';
-// The bundler may or may not preserve spacing, so locate the expression
-// rather than assuming its formatting. A patch that silently does
-// nothing is how a null result gets reported as a win.
-const m = /state:\s*[A-Za-z0-9_$]+\.instant\s*&&[^,]*?\?\s*['"]cleared['"]\s*:\s*['"]blurred['"]/.exec(src);
-if (!m) throw new Error('birth-state expression not found in the bundle -- it changed shape');
-fs.writeFileSync('./.cache/preBirth.mjs', src.replace(m[0], "state: 'blurred'"));
+// The BEFORE arm makes bornCleared always false, which is exactly the
+// pre-change behaviour (`state: 'blurred'` hardcoded) and leaves the
+// birthCleared/birthBlurred counters intact so both arms stay readable.
+// The bundler may reshape whitespace, so locate the function rather than
+// assume its formatting -- and THROW if it is not found. A patch that
+// silently does nothing is how a null result gets reported as a win, and
+// this guard has already fired once, on the refactor that moved the
+// expression into bornCleared.
+const m = /(function bornCleared\([A-Za-z0-9_$]+\)\s*\{[\s\S]*?var\s+[A-Za-z0-9_$]+\s*=\s*)(!!\()/.exec(src);
+if (!m) throw new Error('bornCleared not found in the bundle -- it changed shape');
+fs.writeFileSync('./.cache/preBirth.mjs',
+  src.replace(m[0], m[1] + 'false && ('));
 const OLD = await import('./.cache/preBirth.mjs');
 
 const labels = JSON.parse(fs.readFileSync(`${ROOT}/bank/label/labels.json`, 'utf8'));

@@ -532,3 +532,47 @@ no setting of this dial makes it one.
 That leaves the assignment (32 contended) and the geometry that produces
 a box with no overlap at all (§8, still the unmeasured class).
 
+### 10f. CUT_DELTA swept at last -- and the sweep was OVERRULED by a test
+
+Loop 40 recorded "CUT_DELTA cannot be swept on the corpus at all"
+because `bank/cuts.json` holds booleans. **That was true of the BANK and
+never of the corpus** -- the deltas come from the video, so the bank
+re-derives per value. `corpus-cuts.mjs <delta> <out>` now takes the
+value as an argument and `bench/cut-sweep.mjs` swaps banks (the replay
+wipes on `win.cuts[fi]` and never reads a module's CUT_DELTA, so
+swapping the bank is the only correct way to sweep it; `setCutBank`
+asserts each bank's own stamp so a sweep cannot mislabel its own rows).
+
+18 windows, his 1.5s cadence:
+
+| CUT_DELTA | cut frames | man exposure | man false cover | man phantom | births |
+|---|---|---|---|---|---|
+| 35 | 200 | 82.5 | 173.5 | 141.0 | 377 |
+| 40 | 184 | 82.5 | 173.0 | 145.5 | 370 |
+| **50 shipped** | 115 | **71.0** | **167.5** | **149.0** | 310 |
+| 60 | 59 | 67.0 | 163.5 | 158.5 | 270 |
+| 75 | 12 | 57.0 | 157.0 | 162.0 | 230 |
+| 90 | 2 | 55.5 | 155.0 | 163.0 | 222 |
+
+**Exposure falls monotonically in BOTH modes** all the way to 90, where
+the gate is effectively off -- loop 39's finding, quantified. Woman mode:
+exposure 60.5 -> 42.5, but false cover turns the other way (250.0 ->
+265.5) and phantom rises hard (180.0 -> 213.5).
+
+**60 WAS BUILT AND THEN REVERTED BY THIS REPO'S OWN TEST.**
+`scene-gate.test.mjs` pins `CUT_DELTA <= 54.9`, the p95 of 600 live luma
+deltas off his phone, on the reasoning that above it real cuts get
+missed. So the corpus and the device disagree: the corpus says missing
+cuts is cheap, his own footage says 60 is above where real cuts start.
+Both can be true -- a missed cut costs exposure only when a stale CLEARED
+track absorbs a new person, and the corpus prices that below the churn a
+FALSE cut causes -- but that is corpus evidence against a device
+measurement, on a protection constant, with the cost landing on PHANTOM,
+his loudest complaint. Not a trade to take on one arm.
+
+**WHAT WOULD SETTLE IT, and it is cheap:** 54.9 is the p95 of ALL deltas
+on one video, not a measurement of where cuts start. Label real cuts on
+his footage and read the delta AT them. Until then the guard stands, and
+it is the second time tonight a test written to pin a property has
+stopped a change rather than rubber-stamped it.
+

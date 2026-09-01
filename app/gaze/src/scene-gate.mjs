@@ -75,4 +75,42 @@ export function classifyScene(delta) {
 }
 
 /** OTA tuning setter (src/tuning.mjs owns the range and the clamp). */
+// 2026-09-02, loop 41: SWEPT for the first time, and NOT MOVED. Loop 40 recorded "CUT_DELTA cannot
+// be swept on the corpus at all" because bank/cuts.json holds booleans;
+// that was true of the BANK and never of the corpus, since the deltas
+// come from the video. `corpus-cuts.mjs <delta> <out>` re-derives a bank
+// per value and bench/cut-sweep.mjs scores them. 18 labelled windows,
+// his 1.5s cadence:
+//
+//   man   50 -> 60: exposure 71.0 -> 67.0, false cover 167.5 -> 163.5,
+//                   phantom 149.0 -> 158.5, births 310 -> 270
+//   woman 50 -> 60: exposure 60.5 -> 50.0, false cover 250.0 -> 259.0,
+//                   phantom 180.0 -> 196.5
+//
+// EXPOSURE FALLS MONOTONICALLY IN BOTH MODES all the way to 90, where
+// the gate is effectively off -- which is loop 39's finding quantified.
+// 60 WAS BUILT AND THEN REVERTED, by this repo's own test. scene-gate's
+// test pins CUT_DELTA <= 54.9, the p95 of 600 live luma deltas off his
+// phone, on the reasoning that above it real cuts get missed. So the
+// CORPUS and the DEVICE disagree: the corpus says missing cuts is cheap
+// (exposure falls), his own footage says 60 sits above where real cuts
+// start.
+//
+// Both can be true -- missing a cut costs exposure only when a stale
+// CLEARED track absorbs a new person, and the corpus prices that as
+// smaller than the churn a false cut causes. But it is corpus evidence
+// against a device measurement, on a PROTECTION constant, with the cost
+// landing on PHANTOM, which is his loudest complaint ("random blur marks
+// here and there"). That is not a trade to take on one arm.
+//
+// Loop 39's caveat also still binds: the corpus wipes WITHOUT the
+// immediate full pass the app runs, so only the DIFFERENCE between two
+// cut arms is fair and the absolute exposure of every row overstates.
+// WHAT WOULD SETTLE IT: the 54.9 is the p95 of ALL deltas on one video,
+// not a measurement of where cuts start. Label real cuts on his footage
+// and read the delta AT them.
+//
+// The floor is not up for negotiation: it may never return under the p90
+// of his footage's ordinary motion (28.2), which is what made 28 fire on
+// 10.2% of samples and cost a cleared man his clear 39 times in 90s.
 export function setCutDelta(v) { CUT_DELTA = v; }
