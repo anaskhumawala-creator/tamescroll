@@ -48,6 +48,12 @@ const ARMS = [
   // nothing to starve when the cadence drops.
   ['A0  1079 + bar .45 + CLAMP', ARM_LOW({ hold: true, clampPad: 0.02 })],
   ['A0  1079 + CLAMP only', ARM({ hold: true, clampPad: 0.02 })],
+  // WITH THE SHIPPED SCENE GATE, which arch-arms omitted entirely. It
+  // is not a candidate change -- it already ships -- so these two rows
+  // are the honest baseline and the honest candidate, and the rows
+  // above them are both charged for a failure the app prevents.
+  ['A0  1079 SHIPPED + scenegate', ARM({ hold: true, cut: true })],
+  ['A0  + bar .45 + CLAMP + gate', ARM_LOW({ hold: true, clampPad: 0.02, cut: true })],
 ];
 
 /**

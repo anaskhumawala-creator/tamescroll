@@ -48,8 +48,17 @@ export const POOL_BAR = 0.40;
 const logit = (v) => Math.log(Math.max(1e-6, v) / Math.max(1e-6, 1 - v));
 const sigm = (z) => 1 / (1 + Math.exp(-z));
 
+const CUTS = (() => {
+  try { return JSON.parse(fs.readFileSync(`${ROOT}/bank/cuts.json`, 'utf8')); }
+  catch (e) { return {}; }
+})();
+
 export function loadWin(file) {
   const win = JSON.parse(fs.readFileSync(`${ROOT}/bank/reads/${file}`, 'utf8'));
+  // Cut marks from the SHIPPED scene gate, run at the app's own 10Hz --
+  // see corpus-cuts.mjs. Absent until that has been run, in which case
+  // the `cut` arm is inert rather than wrong.
+  win.cuts = CUTS[file.replace(/\.json$/, '')] || null;
   const dp = `${ROOT}/bank/reads/${file.replace(/\.json$/, '.desc')}`;
   win.desc = fs.existsSync(dp)
     ? new Float32Array(fs.readFileSync(dp).buffer.slice(0))
@@ -123,7 +132,25 @@ export function makeArms(mod) {
       const out = [], dt = 1000 / win.fps;
       const subs = [];
       setVerdictCadence(dt);
+      let fi = -1;
       for (const fr of win.frames) {
+        fi++;
+        // THE SHIPPED SCENE GATE. A cut wipes every track: IoU
+        // association is meaningless across a shot change, and without
+        // this the bench charges any change that clears more people for
+        // a failure the app already prevents -- a woman's observation
+        // re-associating onto a stale CLEARED track left by a man in
+        // the previous shot (bar-blame, z86LGEFyQpo t=57.5).
+        //
+        // HALF-MODELLED, AND THE HALF THAT IS MISSING IS THE KIND ONE.
+        // The app's cut handler is "wipe tracks AND run an immediate
+        // full pass". The corpus banks reads only at its own frames, so
+        // there is nothing here to re-read with, and every wipe costs a
+        // full verdict interval of exposure that the app does not pay.
+        // So the ABSOLUTE numbers on a `cut` arm overstate exposure --
+        // read only the DIFFERENCE between two `cut` arms, where the
+        // same handicap applies to both.
+        if (o.cut && win.cuts && win.cuts[fi]) { tracks = []; held = o.hold ? [] : null; }
         const base = faceMeta(g, fr.faces.map(readOf));
         const decided = [];
         const meta = fr.faces.map((f, i) => {
