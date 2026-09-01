@@ -1,5 +1,18 @@
 # plan-engine-v3 — the detection/blur engine, both paths, all platforms
 
+> **RETRACTED INSTRUMENT — every corpus number below this line, 2026-09-02.**
+> The arm that produced them told `person-track` a cadence the app never
+> runs (§13), credited a clear by the 500ms bank interval instead of the
+> gap between reads (critic C6), and derived the cadence from verdict
+> ARRIVAL when the app hands it the cap-pinned `effZoom` (critic C4).
+> Three numbers describe his regime and the arm had one of them.
+> **The headline "exposure 81.0s at 1.5s per verdict against 8.0s at
+> 0.5s" is 24.5s against 5.5s**, and his own regime reads
+> **22.0 / 155.0 / 573.5**, not 81.0 / 216.5 / 144.0 — phantom was
+> understated by a factor of four. Directions and rankings in this
+> document mostly survive; absolute values do not. See
+> `docs/engine-findings.md` §13, §13a, §15 and §15a.
+
 Written 2026-09-02. Planning deliverable only; no source changed. Every
 number is from this repo's own measurements (CLAUDE.md loops 27-40,
 docs/detection-engine.md, docs/speed-findings-2026-08-29.md,

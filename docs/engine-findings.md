@@ -96,6 +96,13 @@ rather than scoring a perfect 0.0s.
 
 `bench/cadence-ab.mjs`, everything else held. Man mode.
 
+**SUPERSEDED, 2026-09-02.** This table came off the arm before §13, C4
+and C6. Its RANKING survives -- the clock is the biggest single lever --
+and every absolute value is wrong: 81.0s is 24.5s, 8.0s is 5.5s, and the
+phantom column is inverted, because the coast was shortening alongside
+the clock and paying it back (§13a). His regime reads
+22.0 / 155.0 / 573.5. Kept for the shape only.
+
 | verdict interval | exposure | false cover | phantom |
 |---|---|---|---|
 | **all 18 windows** | | | |
@@ -673,9 +680,11 @@ nothing" as a null result.
 
 The hypothesis was cadence: MoveNet is 63-78% of a verdict pass on
 measured hardware and admits ZERO persons in every one of those passes,
-so skipping it should buy verdicts, and the corpus prices the clock at
-81.0s of exposure at 1.5s/verdict against 8.0s at 0.5s. That is a
-bigger lever than any threshold swept this month.
+so skipping it should buy verdicts, and the corpus priced the clock at
+81.0s of exposure at 1.5s/verdict against 8.0s at 0.5s -- **24.5s
+against 5.5s on the corrected instrument (§13), and the conclusion below
+does not depend on which**. That is a bigger lever than any threshold
+swept this month.
 
 **IT DOES NOT BUY VERDICTS.** Redmi M2010J19SI, `NWoT1ZVd1Lo` seeked to
 t=55, both arms in ONE invocation on the same video (pass cost on this
@@ -1059,14 +1068,21 @@ re-run:
 |---|---|---|---|
 | as committed (wipe arm) | +5.0s | **-30.5s** | -6.0s |
 | shipped cut handler | +5.0s | **-25.5s** | -6.0s |
+| **+ the forced pass (current)** | **+1.0s** | **-19.5s** | -6.0s |
 
-The direction and the exposure cost are identical; only the size of the
-benefit moved. That figure has now been wrong twice in the same
-direction for two different instrument reasons (-38.0s from a bank
-derived at the wrong CUT_DELTA, -30.5s from the wipe arm), and
-`person-track.mjs` records the whole chain rather than just the current
-value -- a number that has moved twice is worth less than the fact that
-it keeps moving one way.
+**The third row is what `person-track.mjs` and `bench/birth-ab.mjs` both
+say, and this section said -25.5s for a day after they moved** (critic
+C7). It is the same staleness this section is about, in the section
+about it: a derivative that does not declare what it was derived from.
+
+The direction and the sign of the exposure cost are identical
+throughout; only the size moved. That figure has now been wrong THREE
+times in the same direction for three different instrument reasons
+(-38.0s from a bank derived at the wrong CUT_DELTA, -30.5s from the wipe
+arm, -25.5s from an arm with no forced pass), and `person-track.mjs`
+records the whole chain rather than just the current value -- a number
+that has moved three times is worth less than the fact that it keeps
+moving one way.
 
 ### 10n. A cut buys TWO different goods, and CUT_DELTA is charged for both
 

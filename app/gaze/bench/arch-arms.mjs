@@ -70,6 +70,44 @@ export const POOL_BAR = 0.40;
 // 23%.
 export const HIS_EFFZOOM = 2000;
 
+/**
+ * How often a verdict lands in a thinned window, and how many there are.
+ *
+ * EXPORTED SO A TEST CAN REACH IT (critic C5). This inference has been
+ * wrong twice and each time it silently rebased every number in the
+ * repo, because a wrong stride is handed straight to
+ * `setVerdictCadence` and there is nothing downstream that looks
+ * unusual. It had no test at all.
+ *
+ * A VERDICT FRAME IS ONE WHERE A GENDER READ HAPPENS, and a bench has
+ * TWO ways of saying "not here":
+ *
+ *   coast     the faces are emptied and the truth parked on
+ *             `_labelFaces` -- what cadence-ab and coast-ab do
+ *   position  the face is KEPT and every read marked `_noRead`, so the
+ *             box still moves and no verdict is remade -- matrix.mjs's
+ *             default, and the only mode its first version had
+ *
+ * Testing only the first is what let a k=3 arm infer stride 1.
+ *
+ * MEDIAN, not first-gap: an irregular policy (13b) can open with two
+ * adjacent verdicts and a first-gap estimator would read the whole
+ * window as k=1.
+ */
+export function inferCadence(frames) {
+  const isVerdict = (fr) => fr._labelFaces === undefined
+    && !(fr.faces && fr.faces.length && fr.faces.every((f) => f._noRead));
+  const at = [];
+  for (let i = 0; i < frames.length; i++) if (isVerdict(frames[i])) at.push(i);
+  const gaps = [];
+  for (let i = 1; i < at.length; i++) gaps.push(at[i] - at[i - 1]);
+  gaps.sort((a, b) => a - b);
+  return {
+    stride: gaps.length ? gaps[Math.floor(gaps.length / 2)] : 1,
+    verdictFrames: at.length,
+  };
+}
+
 const logit = (v) => Math.log(Math.max(1e-6, v) / Math.max(1e-6, 1 - v));
 const sigm = (z) => 1 / (1 + Math.exp(-z));
 
@@ -313,14 +351,16 @@ export function makeArms(mod) {
       // adjacent verdict frames and would have been handed a stride of
       // 1 -- reintroducing the very defect this block fixes, in exactly
       // the arm built to be compared against it.
-      const vAt = [];
-      for (let i = 0; i < win.frames.length; i++) {
-        if (win.frames[i]._labelFaces === undefined) vAt.push(i);
-      }
-      const gaps = [];
-      for (let i = 1; i < vAt.length; i++) gaps.push(vAt[i] - vAt[i - 1]);
-      gaps.sort((a, b) => a - b);
-      const stride = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 1;
+      // A VERDICT FRAME IS ONE WHERE A GENDER READ HAPPENS, and there
+      // are TWO ways a bench says "not here" (critic C5). `coast` mode
+      // empties the faces and parks the truth on `_labelFaces`; but
+      // `position` mode -- matrix.mjs's default, and the mode the first
+      // version of that bench had ONLY -- keeps the face and marks it
+      // `_noRead`, so `_labelFaces` stays undefined on every frame and
+      // this inference returned stride 1 for a k=3 arm. That is exactly
+      // the defect 13 exists to fix, still live one mode away from it,
+      // under a comment asserting it could not happen.
+      const { stride, verdictFrames: vAtN } = inferCadence(win.frames);
       // `setVerdictCadence` SETS TWO THINGS, and a cadence sweep that
       // does not know it moves both per row (critic C1, 2026-09-02). It
       // derives `blurredCoastMs` and `clearedCoastMs` from the number it
@@ -350,7 +390,7 @@ export function makeArms(mod) {
       // It is ARRIVAL, not the cap -- a real elapsed gap, not a schedule
       // -- so it is derived from the stride and never from `told`.
       const vdt = Math.min(1000, dt * stride);
-      if (o.onCadence) o.onCadence({ stride, told, verdictFrames: vAt.length });
+      if (o.onCadence) o.onCadence({ stride, told, verdictFrames: vAtN });
       let fi = -1;
       for (const fr0 of win.frames) {
         fi++;
