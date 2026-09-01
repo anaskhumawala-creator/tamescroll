@@ -55,6 +55,27 @@ const CUTS = (() => {
   catch (e) { return {}; }
 })();
 
+// A BANKED DERIVATIVE OF A SHIPPED CONSTANT MUST DECLARE THE CONSTANT.
+// Throwing is deliberate: the failure this replaces was SILENT and ran
+// in the flattering direction (see docs/engine-findings.md 10a), and a
+// bench that quietly scores the wrong threshold is worse than one that
+// will not start. Re-run bench/corpus-cuts.mjs.
+export function assertCutsFresh(shipped) {
+  // AGAINST THE SHIPPED BUNDLE, never the arm's variant. The replay
+  // wipes on `win.cuts[fi]` -- banked booleans -- and never reads a
+  // module's CUT_DELTA, so a variant that patches it is inert here and
+  // refusing it would be a false alarm.
+  shipped = shipped || SHIPPED;
+  const meta = CUTS.__meta;
+  if (!Object.keys(CUTS).length) return;                 // never banked: inert
+  if (!meta) throw new Error(
+    'bank/cuts.json has no __meta stamp -- it predates the check and its '
+    + 'CUT_DELTA is unknown. Re-run bench/corpus-cuts.mjs.');
+  if (shipped && meta.CUT_DELTA !== shipped.CUT_DELTA) throw new Error(
+    `bank/cuts.json was banked at CUT_DELTA ${meta.CUT_DELTA}, the bundle `
+    + `ships ${shipped.CUT_DELTA}. Re-run bench/corpus-cuts.mjs.`);
+}
+
 export function loadWin(file) {
   const win = JSON.parse(fs.readFileSync(`${ROOT}/bank/reads/${file}`, 'utf8'));
   // Cut marks from the SHIPPED scene gate, run at the app's own 10Hz --
@@ -153,6 +174,7 @@ const readOf = (f) => ({ gender: f.gender, score: f.score, raw: f.raw, age: f.ag
  *             patched, which is the whole point of the factory)
  */
 export function makeArms(mod) {
+  assertCutsFresh(SHIPPED);
   // FROM `mod`, not from the top-level import. The first version of the
   // slot arm called the module-level boundBodyToSlot, so every variant
   // bundle scored identically (bound/faces pinned at 81 across a

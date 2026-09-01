@@ -337,3 +337,122 @@ compute recall sliced by native px. An afternoon, no GPU, no cost.
 - **Mobile first, desktop second.** Both must be right eventually.
 - **Verify shipped constants in the EMITTED bundle, never the source** —
   a constant has shipped dead here for six rounds.
+
+## 10. Where a track comes from — E5, and a stale instrument found on the way
+
+`app/gaze/bench/births.mjs`, 18 windows, 2160 frames. The birth counters
+have existed since loop 25 and had never been read.
+
+**FIRST: the corpus's `bank/cuts.json` was STALE, and everything that
+read it was running a threshold the app no longer ships.** Loop 40 moved
+`CUT_DELTA` 28 -> 50; the banked booleans were never regenerated.
+Re-running `corpus-cuts.mjs` (which imports the constant from the built
+bundle, so it cannot disagree with the app) gives **115 cut frames, not
+221 — the old file nearly DOUBLED the cuts.** The new set is a strict
+subset of the old (only-in-new **0**), which is what raising a threshold
+must do and is the check that the regeneration is sound. Old file kept as
+`bank/cuts-at-unknown.json`. **Any arm quoting cut behaviour before
+2026-09-02 02:20 is quoting CUT_DELTA 28.**
+
+**THE ANSWER, at the shipped CUT_DELTA 50** (man mode; woman mode is
+within 4 births on every row, as it must be — a birth happens before the
+verdict decides state):
+
+| | births | fresh | nearMiss | contended |
+|---|---|---|---|---|
+| shipped arm (cut gate on) | **310** | 230 (74.2%) | 48 (15.5%) | 32 (10.3%) |
+| same arm, cut gate off | 221 | 76 (34.4%) | 84 | 61 |
+
+`birthFresh` means **no previous track overlapped the observation at
+all**. But a cut WIPES every track, so every observation after one is
+fresh BY CONSTRUCTION — reporting the top row alone attributes the scene
+gate's churn to geometry. The difference in total births is the honest
+attribution:
+
+- **89 of 310 births (28.7%) exist only because the cut gate wiped the
+  tracks.** 154 of the 230 "fresh" births are cuts.
+- **76 (24.5%) are genuinely fresh** — a box that appeared from nowhere.
+  Detector/geometry, and no association threshold can touch it (§8).
+- **145 (46.8%) had an overlapping track** and were born anyway, on the
+  threshold or on the assignment.
+
+**This reverses the first reading of the same instrument.** Run against
+the stale cuts file it read `birthFresh 89.1%, nearMiss 6.2%`, which says
+"the association layer is unreachable, do not retune it". At the shipped
+threshold, with cuts attributed, the association layer is the LARGEST
+single share. Both numbers came out of the same script twenty minutes
+apart; the only difference was one stale input file.
+
+**So the plan's E5 decision is: the association layer is reachable, and
+the cut gate is the second lever.** Do not rebuild the association key on
+this alone — `birthNearMiss` vs `birthContended` is 145 births split
+roughly 3:2, and which of those two dominates decides between moving
+`PTRACK_IOU_MIN` and changing the assignment, which is a different fix.
+
+**And do not read this as licence to delete the scene gate.** Loop 39's
+caveat still binds: the corpus banks reads only at its own frames, so the
+cut arm wipes WITHOUT the immediate full pass the app runs, and its
+absolute numbers overstate. What is fair here is the DIFFERENCE between
+two arms of the same shape, which is what 310 vs 221 is.
+
+### 10a. RETRACTED, mine, same night: "false cover roughly halves"
+
+The 1088 commit message says the birth-verdict change roughly HALVES
+false cover. **That is wrong.** It was measured against the stale
+`bank/cuts.json` above -- CUT_DELTA 28 booleans, 221 cut frames against
+the true 115 -- and a cut wipes every track, so the stale file roughly
+DOUBLED the number of births the change gets to act on. The error runs in
+the direction that flatters the change.
+
+Re-measured at the shipped CUT_DELTA 50 (`bench/birth-ab.mjs`, which
+patches the shipped bundle back so the two arms differ in exactly one
+expression, and refuses to run if that expression is not found -- a patch
+that silently does nothing is how a null result gets reported as a win):
+
+| mode | k | exposure | false cover | phantom |
+|---|---|---|---|---|
+| man | 3 (**his 1.5s**) | 70.0 -> **71.0** (+1.0) | 205.5 -> **167.5** (**-38.0**) | 152.5 -> **149.0** (-3.5) |
+| man | 1 (0.5s) | 4.0 -> 4.0 (0.0) | 167.5 -> **151.0** (-16.5) | 302.5 -> 299.5 (-3.0) |
+| woman | 3 | 59.5 -> 60.5 (+1.0) | 261.5 -> **250.0** (-11.5) | 180.0 -> 180.0 (0.0) |
+| woman | 1 | 4.0 -> 4.5 (+0.5) | 263.5 -> 258.5 (-5.0) | 362.0 -> 360.5 (-1.5) |
+
+So it is **-18.5% of false cover in his regime, not -50%**, for +1.0s of
+exposure and a small phantom improvement. Still the best cost/benefit any
+single change has shown on this corpus -- it is the change that stays,
+only the size of it was overstated.
+
+**The lesson is not "re-check the arithmetic".** Both numbers came out of
+the same script; the input file was stale and nothing in the harness
+could say so. `corpus-cuts.mjs` imports `CUT_DELTA` from the built
+bundle, so it cannot disagree with the app -- but only when it is
+RE-RUN. **Any bench reading a banked derivative of a shipped constant
+must re-derive it, or assert the constant it was banked at.** No file in
+`bank/` records the constants it was made with; that is the gap.
+
+### 10b. The same defect, one layer down, caught by the guard on its first run
+
+Stamping `bank/cuts.json` and refusing a stale one (`assertCutsFresh` in
+arch-arms, which fires on a wrong stamp AND on a missing one -- both
+proved by breaking the file) immediately failed `bar-ab`. The cause was
+not the bank: **half the cached variant bundles under `bench/.cache/`
+were carrying `CUT_DELTA = 28`**, written before loop 40 raised it, and
+none of them carried the loop-41 birth verdict. An arm importing one was
+comparing its variant against a shipped arm that differed by the named
+constant **plus a fortnight of source changes**.
+
+**It did NOT corrupt the cut axis**, and saying so matters more than the
+scare: the replay wipes on `win.cuts[fi]` -- banked booleans -- and never
+reads a module's `CUT_DELTA`, so a variant patching it is inert. That is
+also why the guard compares the bank against the SHIPPED bundle and not
+against the arm's variant; comparing against the variant refused
+`cut40/50/60` for a difference the replay cannot see.
+
+Fixed at the source of the class: `_mkesm.cjs` now deletes every
+`.cache/*.mjs` except the one it writes, so **a variant is strictly
+younger than the source or it does not exist and its arm fails loudly**.
+`bar-ab` imports variants it does not build, so it now fails until it
+does -- which is the correct state for an arm whose control was a
+fortnight old. `matrix.mjs` was already dead for the same family of
+reason (it patches `var GENDER_CLEAR_SCORE = 0.6;`, and the source has
+shipped 0.45 since loop 39) and says so by throwing.
+

@@ -78,8 +78,18 @@ for (const f of files) {
   console.log(`${tag.padEnd(22)} 10Hz samples ${g.length}  cut frames ${marks.reduce((a, b) => a + b, 0)}/${n}` +
     `   delta p50 ${q(0.5)}  p95 ${q(0.95)}  max ${q(1)}`);
 }
-fs.writeFileSync(`${ROOT}/bank/cuts.json`, JSON.stringify(cuts));
+// STAMPED WITH THE CONSTANT IT WAS BANKED AT.
+//
+// It was not, and it cost a wrong number in the flattering direction:
+// loop 40 moved CUT_DELTA 28 -> 50 and this file was never re-run, so
+// every arm reading it for a fortnight ran 221 cut frames against the
+// true 115, and a cut wipes every track. Nothing in the harness could
+// say so, because a stale derivative of a shipped constant looks exactly
+// like a fresh one. arch-arms refuses a file whose stamp disagrees with
+// the bundle it is running.
 const tot = Object.values(cuts).reduce((s, m) => s + m.reduce((a, b) => a + b, 0), 0);
+cuts.__meta = { CUT_DELTA, GATE_SIZE, rate: RATE };
+fs.writeFileSync(`${ROOT}/bank/cuts.json`, JSON.stringify(cuts));
 const over = allD.filter((d) => d >= CUT_DELTA).length;
 console.log(`
 wrote ${ROOT}/bank/cuts.json`);
