@@ -55332,6 +55332,11 @@ return a / b;`;
     if (!anchorsT) anchorsT = tensor2d(generateAnchors(INPUT_SIZE));
     return anchorsT;
   }
+  function readMarks(data, off) {
+    var out = new Array(12);
+    for (var k = 0; k < 12; k++) out[k] = data[off + k] / INPUT_SIZE;
+    return out;
+  }
   async function detectFaceBoxes(model, pixelSource, sharedImg) {
     var anchors = ensureAnchors();
     var out = tidy(function() {
@@ -55351,7 +55356,11 @@ return a / b;`;
       var starts = sub(centers, halfSizes);
       var ends = add2(centers, halfSizes);
       var scores = sigmoid(slice(batch, [0, 0], [-1, 1]));
-      return concat([scores, starts, ends], 1);
+      var marks = add2(
+        slice(batch, [0, 5], [-1, 12]),
+        tile(anchors, [1, 6])
+      );
+      return concat([scores, starts, ends, marks], 1);
     });
     var data;
     try {
@@ -55359,15 +55368,16 @@ return a / b;`;
     } finally {
       dispose(out);
     }
-    var rows = data.length / 5;
+    var STRIDE = 17;
+    var rows = data.length / STRIDE;
     var scoresArr = new Float32Array(rows);
     var boxesArr = new Float32Array(rows * 4);
     for (var r = 0; r < rows; r++) {
-      scoresArr[r] = data[r * 5];
-      boxesArr[r * 4] = data[r * 5 + 1];
-      boxesArr[r * 4 + 1] = data[r * 5 + 2];
-      boxesArr[r * 4 + 2] = data[r * 5 + 3];
-      boxesArr[r * 4 + 3] = data[r * 5 + 4];
+      scoresArr[r] = data[r * STRIDE];
+      boxesArr[r * 4] = data[r * STRIDE + 1];
+      boxesArr[r * 4 + 1] = data[r * STRIDE + 2];
+      boxesArr[r * 4 + 2] = data[r * STRIDE + 3];
+      boxesArr[r * 4 + 3] = data[r * STRIDE + 4];
     }
     var idx = nonMaxSuppression2(boxesArr, scoresArr, FACE_MAX, FACE_IOU, FACE_MIN_CONFIDENCE);
     var kept = [];
@@ -55381,7 +55391,12 @@ return a / b;`;
         y1: Math.max(0, (cy - half) / INPUT_SIZE),
         x2: Math.min(1, (cx + half) / INPUT_SIZE),
         y2: Math.min(1, (cy + half) / INPUT_SIZE),
-        confidence: scoresArr[idx[i]]
+        confidence: scoresArr[idx[i]],
+        // Normalized to 0..1 of the source the SAME WAY the box is, so a
+        // landmark and a box edge are comparable numbers. The row is the
+        // pre-NMS row, not the enlarged/squarified box -- FACE_ENLARGE is
+        // a crop convenience and must not move a measured point.
+        marks: readMarks(data, idx[i] * STRIDE + 5)
       });
     }
     return kept;
@@ -55655,6 +55670,8 @@ return a / b;`;
                   raw: +co[0].raw.toFixed(4),
                   age: Math.round(co[0].age),
                   child: +(co[0].childP || 0).toFixed(3),
+                  nm: co[0].shape ? +co[0].shape.norm.toFixed(2) : null,
+                  aEnt: co[0].shape ? +co[0].shape.ageEnt.toFixed(2) : null,
                   nullRead: isNullRead(co[0]) ? 1 : 0
                 });
               }
@@ -55693,7 +55710,9 @@ return a / b;`;
                 score: +r.score.toFixed(3),
                 raw: +r.raw.toFixed(4),
                 age: Math.round(r.age),
-                child: +(r.childP || 0).toFixed(3)
+                child: +(r.childP || 0).toFixed(3),
+                nm: r.shape ? +r.shape.norm.toFixed(2) : null,
+                aEnt: r.shape ? +r.shape.ageEnt.toFixed(2) : null
               };
               if (s < 0) {
                 ref = rec;
@@ -55733,6 +55752,8 @@ return a / b;`;
                   raw: +nr.raw.toFixed(4),
                   age: Math.round(nr.age),
                   child: +(nr.childP || 0).toFixed(3),
+                  nm: nr.shape ? +nr.shape.norm.toFixed(2) : null,
+                  aEnt: nr.shape ? +nr.shape.ageEnt.toFixed(2) : null,
                   nullRead: isNullRead(nr) ? 1 : 0
                 });
               }

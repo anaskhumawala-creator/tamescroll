@@ -70,6 +70,126 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-01 15:40 (**1078 PUBLISHED, sha 073eb405**;
+his phone is ON 1078 and he is watching a video on it. HEAD 29abfa5 is
+UNRELEASED and carries the null-mint gate, unverified on a device.)
+
+**Session 2026-09-01 (loop 38) -- THE 30% OF READS THAT CARRY NO SIGNAL,
+AND THE CRITIC WHO FOUND MY OWN GATE REFUSING A REAL WOMAN.**
+
+- **HIS PHONE, LIVE, READ-ONLY WHILE HE WATCHED** (1078, watch page,
+  90s, slotsNonZero 0, 300-entry reads ring): male reads 284 at **v p50
+  0.786** with 137 over GENDER_CLEAR_SCORE, female 3, and **89 of 300
+  reads are null reads -- THIRTY PERCENT of every read is the model's
+  prior**, each one minting a patch. patchesP50 1, max 2. That is the
+  random blur marks, quantified on the machine that matters.
+- **RETRACTED, MINE, TWICE IN ONE NIGHT.** (1) "No man can ever clear on
+  his phone" and "his male population IS the non-face population to
+  three decimals" both came from `phone-1078.json`, ONE 111-read window
+  on ONE video where male v topped out at 0.745. A second window on
+  another video reads p50 0.786, max 0.995. **Men clear.** (2) The score
+  comparison behind the second claim was CIRCULAR: score is
+  `2|v-0.5|`, so a band read has score <= 0.44 BY CONSTRUCTION, and
+  "his reads read 0.23 like the non-face arm's 0.234" merely restates
+  "37 of 41 are in band". The non-circular version does hold -- real men
+  in the control arm at 40-48px read score p50 0.80-0.81 with 1 of 9 in
+  band, against his 37 of 41.
+- **THE DEVICE IS EXONERATED, on three independent measurements.**
+  Adreno 610 reports **HIGH_FLOAT precision 23** (true fp32) in BOTH the
+  fragment and the vertex shader, so the fp16-shader hypothesis is dead
+  (probe_glprec.py). The 15k banked reads under spikes/gauntlet/runs
+  **ARE the video path**, so the path is not the variable either. And
+  resolution alone does not explain anything: **vw 600 clears 96% of
+  men, vw 1920 clears 55%** -- it is per-SUBJECT (`H14bBuluwB8` reads
+  p50 0.635-0.670 with max 0.705 and **0% clearable at 854, 1280 AND
+  1920**; `z86LGEFyQpo` clears 99.4%).
+- **HIS PLAYER DECODES 640x360** (measured live) on a 4G link with 9.6
+  Mbps downlink and 1080p available -- m.youtube picks quality from the
+  393px player box. Faces reach faceres at **px p50 38-62**, and there
+  is **no video-path calibration anywhere in this repo below px 90**.
+  Raising the stream quality is the one big untried lever and it is HIS
+  CALL: it is a page mutation beyond hide/blur/remove and it spends his
+  data.
+- **SHIPPED IN HEAD (29abfa5), NOT RELEASED: a null read may not create a
+  patch -- but only when the crop also carried no descriptor signal.**
+  faceMeta emits `nullRead`, init-entry copies it as `nullMint`,
+  updatePersonTracks refuses `newTrack` for an UNMATCHED tagged
+  observation. Refuse the BIRTH, never the observation and never a
+  refresh.
+- **AND THE BAND ALONE REFUSES REAL WOMEN -- the critic found it in this
+  repo's own ground-truth arm.** The face whose reference read at px 206
+  is FEMALE reads `male, raw 0.58-0.66` when degraded to **32px and
+  48px**, which is the modal face size in his player. 1 of 16 real
+  women. So "isNullRead cannot fire on a female read" is true of the
+  LABEL and false of the WOMAN, and the test asserting it was testing
+  line 1 of the predicate.
+- **`nm` IS THE AXIS THAT IS NOT A FUNCTION OF THE BAND**, and it has
+  ridden in every read ring since R22 unexamined. faceres' descriptor
+  magnitude before L2-normalisation -- how much the network extracted,
+  not which way it leaned:
+
+  | | nm p50 |
+  |---|---|
+  | his phone, reads clearing the bar | **12.66** |
+  | his phone, null reads | **2.88** |
+  | corpus, male out-of-band / female | 11.40 / 11.78 |
+  | corpus, male IN band | **3.87** |
+  | corpus, crops fc>=0.85 & px>=120 | 11.99 |
+  | corpus, crops fc<=0.55 & px<=80 | **4.23** |
+
+  **NOT the sigmoid restated:** overall pearson with |v-0.5| is 0.464,
+  but inside a narrow v slice it collapses to **-0.21..+0.30**.
+  `NULL_MINT_NM_FLOOR` 6 refuses 48% of in-band reads for 0.3-3.3% of
+  the out-of-band reads the verdict actually uses. Every read the floor
+  exempts goes back to minting a patch, so **the condition is monotone
+  toward COVERING** and cannot add an exposure 1078 did not have.
+- **THE CHILD ORDERING DEFECT WAS BACK.** `isNullRead` ran ahead of the
+  child branch, and a null read has its age head pinned at the training
+  prior (~36.9), INSIDE NULL_AGE_LO..HI by construction -- so a child
+  carrying no signal reads as the prior. Harmless while the branch only
+  set `abstained`; it decides whether she gets a patch at all now.
+  `isAdultRead(f) && isNullRead(f)`, which is loop 37b's guard restored.
+- **dedupeObservations LAUNDERED THE TAG** (the loop-37c failure):
+  `preferred` picks by positionOnly then AREA and never reads it, so a
+  graphic's synthetic body -- the larger box -- absorbed a real read and
+  came out untagged. The merge is an AND in the covering direction now,
+  copied rather than mutated.
+- **TWO INSTRUMENT DEFECTS THE CRITIC CAUGHT, both real.** The refusal
+  sits ABOVE the four birth-classification bumps, or `birthFresh` would
+  silently change meaning from "a track was born" to "a birth was
+  attempted" and every previous round's reading of it would be rebased.
+  And **`nullMatched`** counts the SAFE case -- a tagged observation
+  that refreshed an existing track -- because `nullDropped: 400` alone
+  cannot tell 400 transient graphics from ONE REAL PERSON REFUSED 400
+  TIMES, which is the entire question.
+- **TWO THINGS MEASURED AND REFUSED, both on this repo's own data.**
+  (1) TRACK POOLING (bench/pool-vs-single.mjs): weighted-logit pooling
+  over 386 male subjects **rescues 4 men and LOSES 75** -- two-
+  consecutive-over-the-bar is a max-like operator and beats a mean when
+  one weak read lands in a strong track. (2) LOWERING THE CLEAR BAR
+  (bench/clear-bar-roc.mjs): temperature scaling and moving
+  GENDER_CLEAR_SCORE are THE SAME MOVE, since temperature is monotone in
+  v. On the two control arms **0.60 -> 0.40 buys 80% -> 89% of real men
+  for 2% more non-faces patched.** Real, small, not his bug.
+- **TWO TESTS OF MINE WERE THEATRE and the critic named both.** The
+  "structurally incapable of refusing a female read" test asserts line 1
+  of the predicate and can only fail if someone deletes it; the
+  "marginal match" test compared boxes at **IoU 0.835 against a
+  threshold of 0.2**. Both rewritten -- the second now builds its boxes
+  FROM `PTRACK_IOU_MIN` so it moves with the constant.
+- **THE EMULATOR CANNOT VERIFY THIS GATE, measured again:** 200s on a
+  watch page gave **22 samples, 0 reads, 0 passes** under swiftshader.
+  Sixth time. Device A/B is the only instrument.
+- NEW: app/gaze/bench/{clear-bar-roc,pool-vs-single,nm-separation,
+  res-vs-read,path-split-mine,device-parity}.{mjs,js};
+  spikes/gauntlet/{probe_glprec,probe_phone_watch,probe_nullmint_ab,
+  probe_nm_truth}.py. small-face.js captures **`nm` and the
+  age-posterior entropy on BOTH arms** now, so the floor can be
+  calibrated against ground truth instead of against distributions.
+- gaze 442/442, cargo 58/58.
+
+**Session 2026-09-01 (loop 37g) -- superseded header follows.**
+
 **Last updated:** 2026-09-01 12:10 (**1078 PUBLISHED, sha 073eb405**,
 raw manifest + GitHub asset digest + downloaded APK all agree, isDraft
 false; 1077 before it, sha 34463253. rules 99394d11. **His phone is on
