@@ -293,7 +293,34 @@ export function makeArms(mod) {
             const hb = base[hi] || {};
             return hb.flagged === false && h.nm >= NM_FLOOR;
           });
-          if (ssdBoxes && !f._noRead && adjacent) {
+          // MEASURED EDGE, GUESSED BODY. Replacing the body outright
+          // costs 7.5s of exposure, because the guess was covering
+          // people by accident all over the corpus and the score counts
+          // that as protection. But the owner's complaint is one edge:
+          // HER patch reaching the man beside her. So keep the guess --
+          // nothing loses coverage anywhere -- and let the measured
+          // extent pull back ONLY the side that faces a cleared face.
+          // It cannot expose anyone the guess was covering except on
+          // the side where somebody who should be sharp is standing,
+          // which is the whole point.
+          if (o.ssdEdge && ssdBoxes && !f._noRead) {
+            const meas = bodyFromSsd(ssdBoxes, f, o.ssdMin, 0);
+            const guess = personFromFace(f, W / H);
+            if (meas && guess) {
+              const fcx = (f.x1 + f.x2) / 2;
+              let x1 = guess.x1, x2 = guess.x2;
+              for (let hi = 0; hi < fr.faces.length; hi++) {
+                if (hi === i) continue;
+                const hb = base[hi] || {}, h = fr.faces[hi];
+                if (!(hb.flagged === false && h.nm >= NM_FLOOR)) continue;
+                const hcx = (h.x1 + h.x2) / 2;
+                if (hcx > fcx) x2 = Math.min(x2, Math.max(meas.x2, f.x2));
+                else x1 = Math.max(x1, Math.min(meas.x1, f.x1));
+              }
+              if (x2 - x1 > 0) { box = { ...guess, x1: x1, x2: x2, faceBox: guess.faceBox }; nMeasured++; }
+            }
+          }
+          if (!o.ssdEdge && ssdBoxes && !f._noRead && adjacent) {
             box = bodyFromSsd(ssdBoxes, f, o.ssdMin, o.ssdPad != null ? o.ssdPad : 0.045);
             if (box) nMeasured++;
             // WIDTH IS MEASURED, HEIGHT IS NOT TRUSTED SMALLER.
@@ -338,6 +365,59 @@ export function makeArms(mod) {
             : m;
           return obsOf(f, mm, dt, descOf(win, f.descIdx), box);
         });
+        // A DETECTED PERSON NOBODY READ IS STILL A PERSON.
+        // Rendering the worst exposure window showed what the narrowing
+        // costs: the 63%-of-frame synthetic body was covering a girl
+        // seated beside the subject BY ACCIDENT, and she has no patch of
+        // her own because no face read ever reached her. The detector
+        // found her -- it is a person detector, and it is the only thing
+        // in the pipeline that did.
+        //
+        // Blur-first says an unread person is covered, so an ssd box
+        // that no face claims becomes its own FLAGGED observation. It
+        // carries no gender read, so it can never CLEAR anybody; the
+        // only thing it can do is cover someone nothing else was
+        // covering, which is the direction blur-first already runs in.
+        if (o.ssdPersons && ssdBoxes) {
+          for (const p of ssdBoxes) {
+            if (p.s < (o.ssdPersonMin != null ? o.ssdPersonMin : o.ssdMin)) continue;
+            const claimed = fr.faces.some((f) => {
+              const cx = (f.x1 + f.x2) / 2, cy = (f.y1 + f.y2) / 2;
+              return cx >= p.x1 && cx <= p.x2 && cy >= p.y1 && cy <= p.y2;
+            });
+            if (claimed) continue;
+            // ONLY THE ACCIDENT, not every person in the shot. Minting
+            // every unread detection halves EXPOSURE (82.0s -> 42.5s)
+            // and takes PHANTOM to 500s, and that number is not all
+            // scorer blindness -- the owner's rule is no random
+            // patches. What the narrowing actually LOST is narrower
+            // than that: people the 63%-of-frame guess was covering by
+            // accident. So mint only where the guess itself would have
+            // covered this box, which recovers exactly the loss and
+            // adds no patch anywhere the old build did not already
+            // have one.
+            if (o.ssdPersonsAccidentOnly) {
+              const covered = fr.faces.some((f) => {
+                const g0 = personFromFace(f, W / H);
+                if (!g0) return false;
+                const ix = Math.min(g0.x2, p.x2) - Math.max(g0.x1, p.x1);
+                const iy = Math.min(g0.y2, p.y2) - Math.max(g0.y1, p.y1);
+                if (ix <= 0 || iy <= 0) return false;
+                return (ix * iy) / ((p.x2 - p.x1) * (p.y2 - p.y1)) >= 0.5;
+              });
+              if (!covered) continue;
+            }
+            const pad = o.ssdPad != null ? o.ssdPad : 0.045;
+            const w = (p.x2 - p.x1) * pad, h = (p.y2 - p.y1) * pad;
+            obs.push({
+              box: { x1: Math.max(0, p.x1 - w), y1: Math.max(0, p.y1 - h),
+                     x2: Math.min(1, p.x2 + w), y2: Math.min(1, p.y2 + h) },
+              flagged: true, certain: false, abstained: false, instant: false,
+              weak: false, nullMint: false, signal: false, faceFound: false,
+              verdictDt: dt, desc: null,
+            });
+          }
+        }
         measured += nMeasured;
         faceTotal += fr.faces.length;
         // THE SHIPPED CALL, not a bench reimplementation of it. The

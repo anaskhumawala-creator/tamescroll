@@ -39,12 +39,12 @@ function thin(win, every) {
 const BASE = { hold: true, clampPad: 0.02, cut: true };
 const MEM = g === 'man' ? 'loose2' : 'loose';
 const B = { ...BASE, mem: MEM, ssdMin: 0.35, ssdPad: 0.15 };
+const P = { ...B, ssdPersons: true, ssdPersonsAccidentOnly: true };
 const ARMS = [
   ['1082 (no ssd)', ARM({ ...BASE, mem: MEM })],
-  ['ssd @0.35', ARM(B)],
-  ['ssd @0.25', ARM({ ...B, ssdMin: 0.25 })],
-  ['ssd @0.20', ARM({ ...B, ssdMin: 0.20 })],
-  ['ssd @0.20 pad .25', ARM({ ...B, ssdMin: 0.20, ssdPad: 0.25 })],
+  ['ssd bodies only', ARM(B)],
+  ['ssd EDGE toward cleared face', ARM({ ...BASE, mem: MEM, ssdMin: 0.35, ssdEdge: true })],
+  ['ssd EDGE @0.20', ARM({ ...BASE, mem: MEM, ssdMin: 0.20, ssdEdge: true })],
 ];
 
 console.log('\narm                             EXPOSURE  FALSECOVER   PHANTOM   measured/faces');
