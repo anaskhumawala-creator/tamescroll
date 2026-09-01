@@ -15,13 +15,13 @@ import * as tf from '@tensorflow/tfjs-core';
 import '@tensorflow/tfjs-backend-cpu';
 import * as tfconv from '@tensorflow/tfjs-converter';
 import { detectFaceBoxes, classifyFaceGenders } from './.cache/shipped.mjs';
-import { fsHandler, grabRaw, nativePx, W, H, FRAME, ROOT, VIDEOS } from './corpus-lib.mjs';
+import { fsHandler, grabRaw, nativePx, W, H, FRAME, ROOT, VIDEOS, BANK } from './corpus-lib.mjs';
 
 const WINDOW_S = Number(process.env.WINDOW_S || 60);
 const FPS = Number(process.env.BANK_FPS || 2);
 const PER_VIDEO = Number(process.env.WINDOWS_PER_VIDEO || 2);
 
-const scan = JSON.parse(fs.readFileSync(`${ROOT}/bank/scan.json`, 'utf8'));
+const scan = JSON.parse(fs.readFileSync(`${ROOT}/${BANK}/scan.json`, 'utf8'));
 
 /** Contiguous stretches of face-bearing samples, densest first, spread
  *  across the video so one long interview cannot supply every window. */
@@ -61,8 +61,8 @@ function pickWindows(rows, every, duration) {
 await tf.setBackend('cpu');
 const face = await tfconv.loadGraphModel(fsHandler('blazeface'));
 const gender = await tfconv.loadGraphModel(fsHandler('faceres'));
-fs.mkdirSync(`${ROOT}/bank/reads`, { recursive: true });
-fs.mkdirSync(`${ROOT}/bank/crops`, { recursive: true });
+fs.mkdirSync(`${ROOT}/${BANK}/reads`, { recursive: true });
+fs.mkdirSync(`${ROOT}/${BANK}/crops`, { recursive: true });
 
 const CROP = 112;   // labelling thumbnail; the READ is unaffected by it
 function writeCrop(buf, box, file) {
@@ -96,12 +96,12 @@ for (const vid of VIDEOS) {
   const windows = pickWindows(s.rows, s.scanEvery, s.duration);
   for (const t0 of windows) {
     const tag = `${vid}_w${t0}`;
-    if (fs.existsSync(`${ROOT}/bank/reads/${tag}.json`)) { console.log(tag, 'exists, skip'); continue; }
+    if (fs.existsSync(`${ROOT}/${BANK}/reads/${tag}.json`)) { console.log(tag, 'exists, skip'); continue; }
     const nFrames = WINDOW_S * FPS;
     const bufs = grabRaw(`${ROOT}/video/${vid}.mp4`, t0, nFrames, FPS);
     const descs = [];
     const frames = [];
-    fs.mkdirSync(`${ROOT}/bank/crops/${tag}`, { recursive: true });
+    fs.mkdirSync(`${ROOT}/${BANK}/crops/${tag}`, { recursive: true });
     for (let i = 0; i < bufs.length; i++) {
       const img = tf.tensor3d(new Uint8Array(bufs[i]), [H, W, 3], 'int32');
       const boxes = await detectFaceBoxes(face, null, img);
@@ -111,7 +111,7 @@ for (const vid of VIDEOS) {
         const r = reads[k] || {};
         const descIdx = r.desc ? (descs.push(Float32Array.from(r.desc)) - 1) : -1;
         const crop = `${tag}/f${String(i).padStart(4, '0')}_b${k}.ppm`;
-        writeCrop(bufs[i], b, `${ROOT}/bank/crops/${crop}`);
+        writeCrop(bufs[i], b, `${ROOT}/${BANK}/crops/${crop}`);
         return {
           x1: b.x1, y1: b.y1, x2: b.x2, y2: b.y2, conf: b.confidence,
           px: nativePx(b), gender: r.gender, score: r.score, raw: r.raw,
@@ -126,8 +126,8 @@ for (const vid of VIDEOS) {
     totalFrames += frames.length;
     const flat = new Float32Array(descs.length * 1024);
     descs.forEach((d, i) => flat.set(d, i * 1024));
-    fs.writeFileSync(`${ROOT}/bank/reads/${tag}.desc`, Buffer.from(flat.buffer));
-    fs.writeFileSync(`${ROOT}/bank/reads/${tag}.json`, JSON.stringify({
+    fs.writeFileSync(`${ROOT}/${BANK}/reads/${tag}.desc`, Buffer.from(flat.buffer));
+    fs.writeFileSync(`${ROOT}/${BANK}/reads/${tag}.json`, JSON.stringify({
       vid, t0, fps: FPS, windowS: WINDOW_S, w: W, h: H, frames,
     }));
     console.log(`${tag}  frames=${frames.length}  faces=${frames.reduce((a, f) => a + f.faces.length, 0)}`);

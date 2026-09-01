@@ -10,7 +10,7 @@ import * as tf from '@tensorflow/tfjs-core';
 import '@tensorflow/tfjs-backend-cpu';
 import * as tfconv from '@tensorflow/tfjs-converter';
 import { detectFaceBoxes } from './.cache/shipped.mjs';
-import { fsHandler, grabRaw, nativePx, W, H, ROOT, VIDEOS, dur } from './corpus-lib.mjs';
+import { fsHandler, grabRaw, nativePx, W, H, ROOT, VIDEOS, BANK, dur } from './corpus-lib.mjs';
 
 const SCAN_EVERY = 10;
 await tf.setBackend('cpu');
@@ -35,6 +35,6 @@ for (const vid of VIDEOS) {
   console.log(`${vid}  dur=${Math.round(D)}s  sampled=${rows.length}  withFace=${withFace.length}`,
     allPx.length ? `px p05/p50/p95=${allPx[Math.floor(allPx.length*0.05)]}/${allPx[allPx.length>>1]}/${allPx[Math.floor(allPx.length*0.95)]}` : '');
   fs.mkdirSync(`${ROOT}/bank`, { recursive: true });
-  fs.writeFileSync(`${ROOT}/bank/scan.json`, JSON.stringify(out));
+  fs.writeFileSync(`${ROOT}/${BANK}/scan.json`, JSON.stringify(out));
 }
-console.log('SCAN DONE', `${ROOT}/bank/scan.json`);
+console.log('SCAN DONE', `${ROOT}/${BANK}/scan.json`);

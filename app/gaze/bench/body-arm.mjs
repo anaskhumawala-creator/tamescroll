@@ -112,7 +112,8 @@ for (const p of picks) {
   // patch edge stops short of a face the app is leaving sharp, and is
   // untouched when there is no such face -- which is the whole reason it
   // can be safe on a podium shot where a blanket narrowing is not.
-  const sharp = p.faces.filter((f) => !p.cover.includes(f));
+  // same signal guard as adjacency-ab: a graphic may not push an edge
+  const sharp = p.faces.filter((f) => !p.cover.includes(f) && f.nm >= 5);
   for (const [kind, kx, ky] of [['wide', 1, 1], ['narrow', KX, KY], ['adj', null, null]]) {
     const rgb = Buffer.from(raw);
     for (const f of p.cover) {

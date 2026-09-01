@@ -7,7 +7,19 @@ import fs from 'fs';
 export const ROOT = 'Z:/tamescroll-corpus';
 export const W = 640, H = 360;          // his measured decode, itag 134
 export const FRAME = W * H * 3;
-export const VIDEOS = ['NWoT1ZVd1Lo', 'H14bBuluwB8', 'z86LGEFyQpo', 'Ary1gIbaOTc', 'RcGyVTAoXEU'];
+export const VIDEOS = (process.env.VIDS || [
+  // The original five, from prior gauntlet runs.
+  'NWoT1ZVd1Lo', 'H14bBuluwB8', 'z86LGEFyQpo', 'Ary1gIbaOTc', 'RcGyVTAoXEU',
+  // Round two. A result tuned and scored on ONE set of five videos is a
+  // result about those five; the owner asked for more footage and it is
+  // also the only honest answer to "were the constants fitted here".
+  '4u3jS_cTHH0', '8R1hy3uHds0', '1L_R0MB2W5A', 'KAWvDsghyc8', 'eIho2S0ZahI',
+].join(',')).split(',').filter(Boolean);
+
+// A staging bank, so a corpus expansion can be prepared while another
+// process is still scoring the current one. Two writers in one bank is
+// how a window file gets half-written and read as a result.
+export const BANK = process.env.BANK || 'bank';
 export const MODELS = 'Z:/Apps/Disconnect/app/gaze/models/';
 
 export function fsHandler(name) {

@@ -100,7 +100,18 @@ function arm(pad) {
       // may push an edge -- an undecided face is still a candidate for
       // covering, and clamping away from it would be giving up coverage
       // on a maybe.
-      const clears = fr.faces.filter((f, i) => decided[i] === 'clear');
+      // ONLY A FACE WITH DESCRIPTOR SIGNAL MAY PUSH AN EDGE.
+      // Found by LOOKING at the render, not in the score: on the
+      // RcGyVTAoXEU stage a projected GRAPHIC on the backdrop is
+      // detected as a face, decided `clear`, and pulls the speaker's
+      // patch in off her side. The score cannot see that harm at all --
+      // a graphic carries no label, so the strip it uncovers contains
+      // no labelled face and costs zero. Exactly the blindness that
+      // made the blanket narrowing look cheap.
+      // `nm` is the faceres descriptor magnitude before L2: p50 12.66
+      // on reads that carry signal, 2.88 on the model's prior. A
+      // backdrop graphic is the second population.
+      const clears = fr.faces.filter((f, i) => decided[i] === 'clear' && f.nm >= NM_FLOOR);
       let obs = fr.faces.map((f, i) => {
         const m = meta[i] || {};
         let box = personFromFace(f, ASPECT);

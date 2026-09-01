@@ -108,7 +108,28 @@ export function score(frames, userGender, labelOf) {
       const lab = labelOf(f.crop);
       if (!lab || lab === 'mixed') {
         skipped++;
-        fr.patches.forEach((p, i) => { if (overlapFrac(f, p) >= COVER) claimed.add(i); });
+        // SYMMETRIC WITH A LABELLED FACE, which the first version was
+        // not: it claimed EVERY overlapping patch while a labelled face
+        // claims only its best one, so a face I refused to judge
+        // absorbed more phantom than one I did. 143 patches under A0.
+        let b = -1, bf = 0;
+        fr.patches.forEach((p, i) => { const o = overlapFrac(f, p); if (o > bf) { bf = o; b = i; } });
+        if (bf >= COVER && b >= 0) claimed.add(b);
+        continue;
+      }
+      // A HAND IS PART OF A PERSON. This repo settled it in gauntlet R21
+      // -- "a patch there is not GHOST and refusing the mint is
+      // EXPOSURE" -- and person-track says the same about a back-turned
+      // person: "the exact case blur-first exists for". Labelling those
+      // crops `notperson` charged every arm PHANTOM for doing the thing
+      // the product is supposed to do. A bodypart claims its patch and
+      // scores neither error: it is a person, so covering it is not
+      // phantom, and it carries no readable gender, so leaving it sharp
+      // is not false cover either.
+      if (lab === 'bodypart') {
+        let b = -1, bf = 0;
+        fr.patches.forEach((p, i) => { const o = overlapFrac(f, p); if (o > bf) { bf = o; b = i; } });
+        if (bf >= COVER && b >= 0) claimed.add(b);
         continue;
       }
       let best = -1, bestF = 0;
