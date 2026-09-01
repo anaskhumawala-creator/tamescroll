@@ -481,3 +481,75 @@ test('the near-coin-flip regime is still refused', () => {
   // The weakest reads were always inversions; below the floor either way.
   assert.equal(faceVerdict('man', [{ gender: 'male', score: 0.04, age: 30 }]), 'flag');
 });
+
+// THE THUMBNAIL PATH REFUSES A READ THAT CARRIED NO SIGNAL (2026-09-02).
+//
+// The video path has done this since 1079; the image path never did, and
+// the asymmetry drew patches on nothing. `score` is `2|raw - 0.5|`, so a
+// null read at raw ~0.62 folds to ~0.24, fails GENDER_IMAGE_MIN_SCORE
+// 0.4, and is FLAGGED -- a patch on a crop the model said nothing about.
+//
+// These run the LIVE function the image path calls (`init-entry.js:800`),
+// not `faceVerdict`, which nothing in src/ calls.
+const nullRead = (over) => Object.assign({
+  gender: 'male',      // the null label; isNullRead requires it
+  raw: 0.62,           // inside [NULL_V_LO, NULL_V_HI]
+  age: 37,             // inside [NULL_AGE_LO, NULL_AGE_HI] -- the prior
+  childP: 0.10,
+  score: 2 * Math.abs(0.62 - 0.5),   // 0.24, under the 0.4 image bar
+  shape: { norm: 2.0 },              // no descriptor signal
+}, over || {});
+
+test('image path: a null read with no descriptor signal mints no patch', () => {
+  const f = nullRead();
+  // Precondition, asserted so this can never pass vacuously: without the
+  // guard this face is flagged purely by failing the score bar.
+  assert.ok(f.score < GENDER_IMAGE_MIN_SCORE, 'precondition: under the bar');
+  assert.ok(gv.isNullRead(f), 'precondition: it is a null read');
+  assert.deepEqual(flaggedFaceIndices('man', [f]), []);
+  // and in the other direction too -- a prior is not evidence either way
+  assert.deepEqual(flaggedFaceIndices('woman', [f]), []);
+});
+
+test('image path: the nm FLOOR is what does the work, not the band', () => {
+  // Same read, but the crop carried real descriptor magnitude. The band
+  // alone must not be enough to refuse a patch -- loop 38 measured a real
+  // woman landing in the band at 32px and 48px.
+  const withSignal = nullRead({ shape: { norm: gv.NULL_MINT_NM_FLOOR } });
+  assert.ok(gv.isNullRead(withSignal), 'still in the band');
+  assert.deepEqual(flaggedFaceIndices('man', [withSignal]), [0],
+    'at or above the floor the read still mints');
+  const under = nullRead({ shape: { norm: gv.NULL_MINT_NM_FLOOR - 0.01 } });
+  assert.deepEqual(flaggedFaceIndices('man', [under]), []);
+});
+
+test('image path: a CHILD carrying no signal still gets her patch', () => {
+  // The loop-37b ordering defect, which is why `adult` is tested first:
+  // a null read has its age head pinned at the prior (~36.9), INSIDE the
+  // null age window by construction, so a child with no signal looks
+  // exactly like a null read. Refusing her patch is the exposure that got
+  // the first version of the video-side gate reverted whole.
+  const child = nullRead({ childP: 0.40 });
+  assert.equal(gv.isNullRead(child), true, 'she still matches the band');
+  assert.deepEqual(flaggedFaceIndices('man', [child]), [0],
+    'a child may never be refused a patch by the null gate');
+});
+
+test('image path: a missing nm mints, because absent is not zero', () => {
+  // mayNotMint returns false without a finite nm, so an older caller (or
+  // a read the shape stage never reached) fails toward COVERING.
+  const noShape = nullRead({ shape: undefined });
+  assert.deepEqual(flaggedFaceIndices('man', [noShape]), [0]);
+});
+
+test('faceVerdict delegates, so it cannot drift from the live rule', () => {
+  // It carried a byte-for-byte copy of the predicate and twenty tests
+  // while shipping to nobody. Same input, same answer, by construction.
+  const f = nullRead();
+  assert.equal(faceVerdict('man', [f]),
+    flaggedFaceIndices('man', [f]).length ? 'flag' : 'clear');
+  const m = { gender: 'male', score: 0.9, age: 30 };
+  const w = { gender: 'female', score: 0.9, age: 30 };
+  assert.equal(faceVerdict('man', [m, w]),
+    flaggedFaceIndices('man', [m, w]).length ? 'flag' : 'clear');
+});

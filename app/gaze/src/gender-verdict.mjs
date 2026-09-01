@@ -408,23 +408,17 @@ function isAdultRead(f) {
  * faces: [{ gender: 'male'|'female'|'unknown', score: 0..1 }]
  * Returns 'clear' | 'flag'.
  */
+// DELEGATES, because nothing in `src/` calls this and `flaggedFaceIndices`
+// is what the image path actually runs (`init-entry.js:800`). It carried
+// a byte-for-byte copy of that predicate and twenty tests, so for as long
+// as it existed the tests were pinning a SECOND implementation that
+// shipped to nobody -- and the two could drift apart silently, which is
+// the crop-geometry defect that lived four days across three model swaps.
+// Deleting it would throw away the tests; delegating keeps them pointed
+// at the live rule.
 export function faceVerdict(userGender, faces) {
   if (!faces || faces.length === 0) return 'clear';
-  var opposite = OPPOSITE[userGender];
-  if (!opposite) return 'flag'; // no declared gender: any face covers (v1)
-  for (var i = 0; i < faces.length; i++) {
-    var f = faces[i];
-    var same = f.gender === (opposite === 'female' ? 'male' : 'female');
-    // Child gate, same as the video path (review A10: the image path
-    // cleared children with no age check — same defect class). The
-    // score bar is GENDER_IMAGE_MIN_SCORE: raising it to the video's 0.6
-    // would re-blur the 0.3-0.6 same-gender adults the owner already
-    // reported, and images have no tracker to absorb it. See the
-    // constant for the corpus the 0.12 floor was measured against.
-    var adult = isAdultRead(f);
-    if (!same || !adult || !(f.score >= GENDER_IMAGE_MIN_SCORE)) return 'flag';
-  }
-  return 'clear';
+  return flaggedFaceIndices(userGender, faces).length ? 'flag' : 'clear';
 }
 
 /**
@@ -838,6 +832,43 @@ export function flaggedFaceIndices(userGender, faces) {
     var f = faces[i];
     var same = f.gender === (opposite === 'female' ? 'male' : 'female');
     var adult = isAdultRead(f);
+    // A READ THAT CARRIED NO SIGNAL MAY NOT MINT A PATCH HERE EITHER.
+    //
+    // The video path has refused this since 1079 (`faceMeta`:
+    // `adult && isNullRead(f)` -> `nullRead: mayNotMint(f)`, and
+    // person-track will not create a track from it). The thumbnail path
+    // never got it, and the asymmetry is not academic: `score` is
+    // `2|raw - 0.5|`, so a null read at raw ~0.62 folds to ~0.24, FAILS
+    // the 0.4 bar, and is therefore FLAGGED. A patch is drawn on a crop
+    // the model said nothing about -- which is phantom, on the feed,
+    // and phantom is the complaint he has repeated most.
+    //
+    // ADULT FIRST, which is the loop-37b ordering defect: a null read
+    // has its age head pinned at the training prior (~36.9), inside
+    // NULL_AGE_LO..HI by construction, so a CHILD carrying no signal
+    // reads as a null read. Refusing her patch is the exposure that got
+    // the first version of the video-side gate reverted whole.
+    //
+    // MEASURED BEFORE IT WAS BUILT (`bench/image-null.mjs`), on the two
+    // ground-truth arms this repo banked 2026-09-01 -- 85 corner crops
+    // from thumbnails where BlazeFace found nothing, and 25 real faces,
+    // each re-read at nine sizes:
+    //
+    //   non-face flags removed        461 of 501   (92.0%)
+    //   REAL FACE flags removed         0 of  99
+    //   opposite-gender uncovered       0 of 141
+    //
+    // The nm floor is what makes that second row zero: real faces read
+    // nm >= 6.19 at every size, non-faces cluster near 2-4, and the
+    // floor is 5. HONEST LIMIT: the non-face arm is crops where the
+    // detector found NOTHING, force-read. In production gender only runs
+    // on boxes BlazeFace produced, so 92% is the refusal rate on
+    // face-free crops and not a prediction of how many of his patches
+    // will disappear.
+    //
+    // REVERSIBLE WITHOUT AN INSTALL: `NULL_MINT_NM_FLOOR` is on the OTA
+    // channel clamped [0, 5.5], and 0 refuses nothing at all.
+    if (adult && isNullRead(f) && mayNotMint(f)) continue;
     if (!same || !adult || !(f.score >= GENDER_IMAGE_MIN_SCORE)) out.push(i);
   }
   return out;
