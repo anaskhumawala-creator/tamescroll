@@ -1,7 +1,7 @@
 {
-  "versionCode": 1077,
-  "versionName": "0.1.77",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.77/tamescroll-v0.1.77.apk",
-  "sha256": "344632538e67c844ff25a74aafdf4a493e0f03866ff75af71821403daf87af7f",
-  "notes": "A blur that vanished when YouTube took our overlay layer now comes back on the next frame."
+  "versionCode": 1078,
+  "versionName": "0.1.78",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.78/tamescroll-v0.1.78.apk",
+  "sha256": "073eb40524f8660c5b8a26a68ed9fa9e2c2cf31d04a3724ecc30492c511017da",
+  "notes": "Faces the person model could not corroborate are covered again instead of thrown away."
 }
