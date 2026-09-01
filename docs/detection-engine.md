@@ -683,3 +683,74 @@ so `nullRead` was `undefined` for all 81 crops of that run and
 `caughtByNullRead` read **1 of 81**, which would have published "the
 shipped predicate catches 1 in 81 non-faces" -- an argument for weakening
 the gate, from a dead counter. Both producers emit the same record now.
+
+
+## The null-mint birth refusal, and its floor calibrated on ground truth (2026-09-01, loop 38)
+
+`isNullRead` decides on the sigmoid, which is the same number the verdict
+uses. So a read it refuses is one the verdict could not have used anyway,
+and it cannot tell a graphic from a person the model merely found hard.
+That did not matter while a null read still produced a patch. It decides
+everything once a null read can be REFUSED one -- which is why the first
+build of that gate was reverted whole (loop 37c) after it refused HER.
+
+`nm` is faceres' descriptor magnitude before L2-normalisation: how much
+the network extracted, not which way it leaned. It has ridden in every
+read ring since R22 and had never been analysed.
+
+**The shipped predicate is an AND.** A read may not create a NEW track
+only when it is both a null read and `shape.norm < NULL_MINT_NM_FLOOR`.
+It never refuses an observation and never refuses a refresh, so a covered
+subject cannot be uncovered by it, and every read the floor exempts
+reverts to pre-gate behaviour -- the condition is monotone toward
+covering.
+
+**GROUND TRUTH, both arms, `nm` captured** (`app/gaze/bench/nm-floor.mjs`
+over `spikes/gauntlet/nmtruth-face.json` and `nmtruth-nonface.json`): 25
+faces BlazeFace found, and 85 corner crops from thumbnails where it found
+nothing, each degraded to 32/40/48/56/64px -- the sizes his player reads
+at.
+
+| floor | real FACES refused | in-band NON-FACES refused |
+|---|---|---|
+| 4 | 0 of 125 (0.0%) | 361 of 403 (89.6%) |
+| **5** | **0 of 125 (0.0%)** | **388 of 403 (96.3%)** |
+| 6 | 5 of 125 (4.0%) | 400 of 403 (99.3%) |
+
+Floor 0 is the control and refuses nothing in either arm, so every
+refusal above is the AND doing work rather than the band alone.
+
+6 was the number picked from his own ring and it is WRONG: it buys 3%
+more non-faces for five refused reads of a real face, four of them the
+woman a critic traced (in band at 32px and again at 48px, the modal face
+size in his player). Her lowest measured nm is 5.11, which the boundary
+test now pins.
+
+**It is not a knife edge.** By size:
+
+| px | real faces p05/p50 | non-faces p50/p95 |
+|---|---|---|
+| 32 | 8.34 / 10.24 | 2.75 / 5.37 |
+| 40 | 9.47 / 11.00 | 2.68 / 5.49 |
+| 48 | 10.36 / 11.75 | 2.52 / 4.67 |
+| 56 | 10.84 / 11.91 | 2.57 / 5.13 |
+| 64 | 10.99 / 12.48 | 2.56 / 4.56 |
+
+**AND HIS OWN HARDWARE AGREES, independently.** A read-only 90s sample of
+his phone on 1078 (300-entry ring, his regime, slotsNonZero 0) gives nm
+p50 **12.66** on reads that CLEAR and **2.88** on null reads -- landing on
+top of the two ground-truth arms (faces 10.2-12.5, non-faces 2.5-2.8).
+That is the only cross-device evidence for this constant and it is
+corroboration, not a device A/B.
+
+**nm is NOT the sigmoid restated.** Inside a narrow v slice its
+correlation with `|v-0.5|` collapses to -0.21..+0.30. By crop quality on
+6,281 banked video reads: `fc>=0.85 & px>=120` reads p50 11.99;
+`fc<=0.55 & px<=80` reads p50 4.23.
+
+**Two things refuted on this repo's own data and NOT built:**
+- **Track pooling** (weighted-logit pooling of a track's reads,
+  `app/gaze/bench/pool-vs-single.mjs`): rescues 4 men and loses 75.
+- **Lowering `GENDER_CLEAR_SCORE`** (`clear-bar-roc.mjs`): 0.60 -> 0.40
+  buys 80% -> 89% of men cleared for 2% more phantoms. Temperature
+  scaling is the same move, since temperature is monotone in v.
