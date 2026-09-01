@@ -31,7 +31,16 @@ import { lumaGrid, meanAbsDelta, CUT_DELTA as SHIPPED_DELTA, GATE_SIZE } from '.
 // so they are cached under bank/deltas.json keyed by GATE_SIZE and RATE
 // -- never by CUT_DELTA, which is only the comparison at the end.
 const CUT_DELTA = process.argv[2] ? Number(process.argv[2]) : SHIPPED_DELTA;
-const OUT = process.argv[3] || `${ROOT}/bank/cuts.json`;
+// THE DEFAULT PATH IS SELF-NAMING FOR ANY NON-SHIPPED VALUE, and that is
+// a guard, not a convenience. It used to default to bank/cuts.json for
+// every delta, so sweeping `for v in 35 50 75 90; do corpus-cuts $v` --
+// which is exactly how a sweep is run -- silently left the DEFAULT bank
+// holding whichever value ran last. It did: cuts.json ended up stamped
+// 50 against a bundle shipping 60, and every corpus arm refused to start
+// until it was noticed. The stamp check caught it, which is the point of
+// the stamp check; this stops it happening.
+const OUT = process.argv[3]
+  || `${ROOT}/bank/cuts${CUT_DELTA === SHIPPED_DELTA ? '' : `-${CUT_DELTA}`}.json`;
 if (!Number.isFinite(CUT_DELTA)) throw new Error('CUT_DELTA must be a number');
 
 // AT THE APP'S OWN RATE, NOT THE BANK'S.

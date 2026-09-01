@@ -68,9 +68,14 @@ export function setCutBank(path, expect) {
   const got = CUTS.__meta && CUTS.__meta.CUT_DELTA;
   if (expect !== undefined && got !== expect) throw new Error(
     `${path} is stamped CUT_DELTA ${got}, the sweep asked for ${expect}`);
-  cutBankDelta = got;
+  _cutBankDelta = got;
 }
-let cutBankDelta;
+let _cutBankDelta;
+/** The CUT_DELTA the loaded bank was derived at, from its own stamp. */
+export function cutBankDelta() {
+  return (CUTS.__meta && CUTS.__meta.CUT_DELTA) !== undefined
+    ? CUTS.__meta.CUT_DELTA : null;
+}
 
 // A BANKED DERIVATIVE OF A SHIPPED CONSTANT MUST DECLARE THE CONSTANT.
 // Throwing is deliberate: the failure this replaces was SILENT and ran
@@ -89,7 +94,7 @@ export function assertCutsFresh(shipped) {
     'bank/cuts.json has no __meta stamp -- it predates the check and its '
     + 'CUT_DELTA is unknown. Re-run bench/corpus-cuts.mjs.');
   // A sweep that deliberately swapped the bank is not stale.
-  if (cutBankDelta !== undefined) return;
+  if (_cutBankDelta !== undefined) return;
   if (shipped && meta.CUT_DELTA !== shipped.CUT_DELTA) throw new Error(
     `bank/cuts.json was banked at CUT_DELTA ${meta.CUT_DELTA}, the bundle `
     + `ships ${shipped.CUT_DELTA}. Re-run bench/corpus-cuts.mjs.`);
@@ -567,9 +572,28 @@ export function makeArms(mod) {
   };
 }
 
-const ARM = makeArms(SHIPPED);
-export const ARM_A0 = ARM({});                                   // 1078
-export const ARM_A0_HOLD = ARM({ hold: true });                  // 1079, what ships
-export const ARM_A5 = ARM({ hold: true, pool: true });
-export const ARM_CLAMP = ARM({ hold: true, pool: true, clampPad: 0.02 });
+// LAZY, AND THAT IS THE WHOLE POINT.
+// These were eager `const ARM = makeArms(SHIPPED)` at module scope, so
+// assertCutsFresh ran at IMPORT -- and the arm whose entire job is to
+// swap the bank (cut-sweep, which calls setCutBank first) could not
+// even import the function it needed to call. Every corpus arm at HEAD
+// died on a guard that was correct about a bank nobody had re-derived.
+// A guard that refuses the fix for the thing it is guarding is a
+// blocker, not a check.
+//
+// Importing is now side-effect-free; the first USE still asserts, which
+// is where the assertion was always meant to bite.
+let _arm;
+const ARM = (o) => (_arm || (_arm = makeArms(SHIPPED)))(o);
+export const lazyArm = (make) => {
+  let v;
+  return new Proxy(function () {}, {
+    apply(t, s, a) { return (v || (v = make()))(...a); },
+    get(t, k) { return (v || (v = make()))[k]; },
+  });
+};
+export const ARM_A0 = lazyArm(() => ARM({}));                    // 1078
+export const ARM_A0_HOLD = lazyArm(() => ARM({ hold: true }));   // 1079, what ships
+export const ARM_A5 = lazyArm(() => ARM({ hold: true, pool: true }));
+export const ARM_CLAMP = lazyArm(() => ARM({ hold: true, pool: true, clampPad: 0.02 }));
 export const armSubject = (opts) => ARM({ pool: true, ...(opts || {}) });

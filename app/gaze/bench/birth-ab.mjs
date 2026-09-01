@@ -17,10 +17,10 @@
 import fs from 'fs';
 import { ROOT, winFiles } from '../bench/corpus-lib.mjs';
 import { score } from './corpus-score.mjs';
-import { loadWin, makeArms } from './arch-arms.mjs';
+import { loadWin, makeArms, cutBankDelta } from './arch-arms.mjs';
 
 const g = process.env.GENDER || 'man';
-const src = fs.readFileSync('./.cache/shipped.mjs', 'utf8');
+const src = fs.readFileSync(new URL('./.cache/shipped.mjs', import.meta.url), 'utf8');
 // The BEFORE arm makes bornCleared always false, which is exactly the
 // pre-change behaviour (`state: 'blurred'` hardcoded) and leaves the
 // birthCleared/birthBlurred counters intact so both arms stay readable.
@@ -31,7 +31,7 @@ const src = fs.readFileSync('./.cache/shipped.mjs', 'utf8');
 // expression into bornCleared.
 const m = /(function bornCleared\([A-Za-z0-9_$]+\)\s*\{[\s\S]*?var\s+[A-Za-z0-9_$]+\s*=\s*)(!!\()/.exec(src);
 if (!m) throw new Error('bornCleared not found in the bundle -- it changed shape');
-fs.writeFileSync('./.cache/preBirth.mjs',
+fs.writeFileSync(new URL('./.cache/preBirth.mjs', import.meta.url),
   src.replace(m[0], m[1] + 'false && ('));
 const OLD = await import('./.cache/preBirth.mjs');
 
@@ -64,7 +64,13 @@ for (const k of [3, 1]) {
     return [e, fc, ph];
   };
   console.log(`\n${g} mode, k=${k} (${(k * 0.5).toFixed(1)}s per verdict), ` +
-    `${wins.length} windows, CUT_DELTA 50`);
+    // FROM THE BANK'S OWN STAMP. This was the literal `CUT_DELTA 50`,
+    // so when the shipped constant moved to 60 the arm kept PRINTING 50
+    // over numbers measured at 60 -- and the -38.0s it produced was
+    // copied into shipped source as the benefit of a change that
+    // actually costs +5.0s of exposure at the value that ships. A label
+    // that cannot be wrong is worth more than a comment saying so.
+    `${wins.length} windows, CUT_DELTA ${cutBankDelta()}`);
   const a = row('BEFORE (born blurred)', OLDARM(OPTS));
   const b = row('AFTER  (birth rung)', NEWARM(OPTS));
   console.log(`  ${'delta'.padEnd(22)}          ${(b[0] - a[0] >= 0 ? '+' : '')}` +

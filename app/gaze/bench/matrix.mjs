@@ -23,13 +23,13 @@ for (const c of JSON.parse(fs.readFileSync(`${ROOT}/bank/label/clusters.json`, '
 const wins = fs.readdirSync(`${ROOT}/bank/reads`).filter((f) => f.endsWith('.json')).map(loadWin);
 
 // A bundle with one shipped constant changed and nothing else.
-const src = fs.readFileSync('./.cache/shipped.mjs', 'utf8');
+const src = fs.readFileSync(new URL('./.cache/shipped.mjs', import.meta.url), 'utf8');
 const patched = src
   .replace('var GENDER_CLEAR_SCORE = 0.6;', 'var GENDER_CLEAR_SCORE = 0.45;')
   .replace('var GENDER_CLEAR_SCORE_FEMALE = 0.45;', 'var GENDER_CLEAR_SCORE_FEMALE = 0.35;');
 if (patched === src) throw new Error('constant patch failed -- the bundle changed shape');
 fs.mkdirSync('./.cache', { recursive: true });
-fs.writeFileSync('./.cache/lowbar.mjs', patched);
+fs.writeFileSync(new URL('./.cache/lowbar.mjs', import.meta.url), patched);
 const LOW = await import('./.cache/lowbar.mjs');
 
 const ARM = makeArms(await import('./.cache/shipped.mjs'));

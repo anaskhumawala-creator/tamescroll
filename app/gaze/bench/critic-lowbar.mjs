@@ -9,7 +9,7 @@ import { pathToFileURL } from 'url';
 import { ROOT, W, H } from './corpus-lib.mjs';
 import { score } from './corpus-score.mjs';
 import { loadWin, armSubject, ARM_A0 } from './arch-arms.mjs';
-const src = fs.readFileSync('./.cache/shipped.mjs','utf8');
+const src = fs.readFileSync(new URL('./.cache/shipped.mjs', import.meta.url),'utf8');
 const g=process.env.GENDER||'man';
 const L=JSON.parse(fs.readFileSync(`${ROOT}/bank/label/labels.json`,'utf8'));
 const cl=new Map();

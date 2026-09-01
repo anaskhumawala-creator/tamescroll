@@ -39,10 +39,26 @@ export var TUNE_CLAMPED = 0;  // values pulled back to a range edge
 var SPEC = {
   // The floor is the measured p90 of ordinary camera motion on his own
   // footage (28.2) -- under it the gate fires on a slow pan and every
-  // false cut costs a cleared man his clear. The ceiling is the measured
-  // knee: bench/cut-truth.mjs scores our gate against ffmpeg's scdet over
-  // 152,376 samples and real-cut recall falls 42.3% -> 26.0% between 75
-  // and 90 for almost no further reduction in false wipes.
+  // false cut costs a cleared man his clear.
+  //
+  // The ceiling is where the gate stops being a gate: at 90 it fires on
+  // TWO of 2,160 banked corpus frames. 75 still fires on 12.
+  //
+  // IT IS NOT SET BY CUT RECALL, AND THAT IS A DELIBERATE CHOICE BETWEEN
+  // TWO INSTRUMENTS THAT DISAGREE (engine-findings 10j). Against a
+  // hard-cut ground truth the gate catches 92.8% of real cuts at 60 and
+  // 50.0% at 75, which reads like a cliff. The LABELLED CORPUS measures
+  // the outcome that recall is a proxy for, and says the opposite: man
+  // exposure falls monotonically 82.5s -> 55.5s from 35 to 90, and false
+  // cover with it. Both hold, because a missed cut costs exposure only
+  // when a stale CLEARED track absorbs a DIFFERENT person's observation
+  // -- recall prices the cut, the corpus prices the conjunction, and the
+  // conjunction is rare. Where a proxy and a direct measurement of the
+  // thing it proxies disagree, the direct one decides.
+  //
+  // So the real cost of pushing up is PHANTOM (+3.5s at 75 over 60), and
+  // phantom is his loudest complaint. That is why 60 SHIPS and 75 is
+  // merely reachable.
   CUT_DELTA: [30, 75, function (v) { sceneGate.setCutDelta(v); }],
 
   // The bar a SAME-GENDER read must clear to earn a clear. Loop 38

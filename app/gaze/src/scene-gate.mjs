@@ -103,7 +103,7 @@ export function classifyScene(delta) {
 //   28          52.8%              4088
 //   50          50.4%              1678
 //   60          45.5%               739
-//   75          42.3%               190
+//   75           7.9%                24
 //
 // The gate catches only about HALF of real cuts at ANY threshold -- a
 // cut between two similarly-lit shots is invisible to a 16x16 luma grid
@@ -111,7 +111,22 @@ export function classifyScene(delta) {
 // never good, and removes 56% of the false wipes. Two independent
 // instruments, the corpus sweep and this, point the same way.
 //
-// IT STOPS AT 60 AND NOT AT THE MEASURED KNEE OF 75, because the cost is
+// THE TABLE ABOVE WAS RE-MEASURED (engine-findings 10j). The first
+// version of it paired each cut with the wrong 10Hz sample and hid its
+// ground-truth threshold; the corrected instrument sweeps both and
+// asserts its own pairing before it will print a number.
+//
+// AND THE TWO INSTRUMENTS DISAGREE ABOUT 75, which is worth knowing
+// before anyone acts on either. Cut recall reads like a cliff between 60
+// and 75 (92.8% -> 50.0% of HARD cuts); the LABELLED CORPUS, which
+// measures the outcome recall is a proxy for, reads man exposure FALLING
+// 67.0 -> 57.0 across the same step. A missed cut costs exposure only
+// when a stale CLEARED track absorbs a DIFFERENT person -- recall prices
+// the cut, the corpus prices the conjunction, and the conjunction is
+// rare. Where a proxy and a direct measurement of the thing it proxies
+// disagree, the direct one decides.
+//
+// IT STOPS AT 60 because the cost is
 // PHANTOM -- his loudest complaint, "random blur marks here and there" --
 // and 75 costs +13.0s of it in man mode and +29.5s in woman mode against
 // 60's +9.5s and +16.5s. 75 is where to go next if his rings say phantom

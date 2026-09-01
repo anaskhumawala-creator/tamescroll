@@ -35,8 +35,19 @@ const O = { hold: true, clampPad: 0.02, cut: true };
 console.log(`gender=${g}  k=3 (his 1.5s)\n`);
 console.log('CUT_DELTA  cutFrames  EXPOSURE  FALSECOVER   PHANTOM   births  cleared');
 for (const v of [35, 40, 50, 60, 75, 90]) {
-  const path = v === 50 ? `${ROOT}/bank/cuts.json` : `${ROOT}/bank/cuts-${v}.json`;
-  if (!fs.existsSync(path)) { console.log(`${v}  -- no bank, run corpus-cuts.mjs ${v}`); continue; }
+  // STAMP-DRIVEN, NEVER HARDCODED. This read `v === 50 ? cuts.json : ...`,
+  // which silently encoded "the default bank holds 50" -- and the moment
+  // the shipped constant moved to 60 the sweep asked cuts.json for 50 and
+  // died. Same class as every other staleness this file guards against:
+  // an assumption about a derivative that the derivative itself can state.
+  let path = `${ROOT}/bank/cuts-${v}.json`;
+  if (!fs.existsSync(path)) {
+    const d = `${ROOT}/bank/cuts.json`;
+    const stamp = fs.existsSync(d)
+      && (JSON.parse(fs.readFileSync(d, 'utf8')).__meta || {}).CUT_DELTA;
+    if (stamp === v) path = d;
+    else { console.log(`${String(v).padEnd(11)} -- no bank, run: node bench/corpus-cuts.mjs ${v}`); continue; }
+  }
   // The bank is swapped, not the constant: the replay wipes on
   // win.cuts[fi] and never reads a module's CUT_DELTA.
   setCutBank(path, v);

@@ -573,7 +573,17 @@ his loudest complaint. Not a trade to take on one arm.
 **IT WAS SETTLED AN HOUR LATER -- see 10g.** 54.9 was never a measurement
 of where cuts start, and the change was taken.
 
+**AND 10g's OWN TABLE WAS THEN RETRACTED -- see 10j.** The instrument
+that settled it was misaligned by one sample and hid its ground-truth
+threshold. The change survives; the numbers that justified it do not.
+
 ### 10g. Where real cuts actually start, measured -- and CUT_DELTA 60 ships
+
+> **EVERY NUMBER IN THIS SECTION IS RETRACTED. See 10j for the corrected
+> table.** The conclusion (60 ships) survives and is better supported than
+> this section claimed; the recall figures, the knee-at-75, and the
+> independent-instrument framing are all wrong. Left in place rather than
+> deleted so the shape of the error stays legible.
 
 `bench/cut-truth.mjs`. Ground truth from an INDEPENDENT instrument:
 ffmpeg's `scdet` filter, its own colour space and its own algorithm,
@@ -729,3 +739,149 @@ documentation and skipped; a genuinely unknown key still counts. Two
 tests, both proved to fail against the pre-fix source (14 pass / 2 fail
 -> 16 / 0), and the second loads the SHIPPED `rules/tuning.json`
 through the real path and asserts 0 refused and 0 clamped.
+
+
+### 10j. The cut-truth instrument was wrong in three ways at once, and the critic found all three
+
+An adversarial critic run (`docs/critic/phase-a-2026-09-02.md`, findings
+F1/F2/F6) took apart the instrument that settled CUT_DELTA in 10g. It was
+right on all three, and the corpus half of the argument it checked was
+clean. **The conclusion survives and is better supported than 10g
+claimed. Nothing else in 10g does.**
+
+**1. IT PAIRED EACH CUT WITH THE WRONG SAMPLE.** A cut at time `t` was
+matched to the 10Hz delta at `ceil(t*10)`; the correct sample is
+`round(t*10)`. They differ whenever `frac(t*10) < 0.5`, so roughly half
+the at-a-cut rows were the post-cut STEADY frame.
+
+This is not an alignment argument any more -- the pairing is a free
+parameter and it is now SWEPT, which settles it without appealing to how
+ffmpeg's `fps` resampler works:
+
+| offset | p05 | p25 | **p50** | p75 |
+|---|---|---|---|---|
+| -1 | 0.1 | 0.7 | **1.7** | 3.8 |
+| **0 (round)** | **46.6** | **53.7** | **59.8** | **68.1** |
+| +1 | 0.2 | 0.9 | **2.4** | 5.4 |
+
+A 25x separation. `bench/cut-truth.mjs` runs this sweep first and
+**throws** if offset 0 does not win, so the instrument can no longer
+print a number measured against the wrong sample.
+
+**THE TELL WAS IN THE COMMITTED TABLE AND I EXPLAINED IT AWAY.** It read
+`p05 0.0 at a real cut` -- a labelled shot change where the picture did
+not move at all -- and I wrote that up as "a cut between two similarly-lit
+shots is invisible to a 16x16 luma grid and always was". It was an
+off-by-one. **A physical story that rationalises an impossible reading is
+the most dangerous thing this repo produces**, because it closes the
+question. Corrected, p05 at a cut is 25.9 (scdet 8) rising to 58.5
+(scdet 25).
+
+**2. THE GROUND-TRUTH THRESHOLD WAS A HIDDEN DIAL.** The committed
+default was `SCDET=8`; the committed table only reproduces at 30. They
+disagree by a factor of four on the number that decided a shipped
+constant, and nobody could have reproduced the table from the repo. It is
+swept now, never chosen -- scdet emits a score per event, so one
+permissive run yields every stricter threshold by filtering.
+
+Corrected, aligned and swept:
+
+| scdet >= | cuts | @28 | @50 | **@60** | @75 |
+|---|---|---|---|---|---|
+| 8 | 3599 | 93.9% | 45.7% | **20.9%** | 6.4% |
+| 15 | 2765 | 99.9% | 57.4% | **26.3%** | 7.9% |
+| 20 | 1414 | 100.0% | 87.8% | **49.3%** | 15.0% |
+| 25 | 402 | 100.0% | 99.5% | **92.8%** | 50.0% |
+| 30 | 121 | 100.0% | 98.3% | **95.9%** | 90.9% |
+
+**HOW TO READ THE scdet AXIS, because the row you pick IS the answer you
+get:** low-score events are gradual changes and camera motion, which do
+NOT invalidate identity association -- the tracker follows them and
+should. High-score events are hard shot changes, the only thing this gate
+exists to catch. So the rows that bear on CUT_DELTA are the HIGH ones,
+where **60 catches 92.8-95.9%** -- not the 45.5% the bad table reported.
+
+**3. scdet IS NOT AN INDEPENDENT INSTRUMENT, and 10g leaned on that
+word.** It scores the LUMA plane, which is the same quantity our 16x16
+grid measures. Executed: a hard **red -> green cut at matched luma scores
+0.391**; red -> white scores **60.156**.
+
+So it is an independent *implementation* of a similar measurement, not an
+independent *instrument*, and it is blind to exactly the class of cut
+10g blamed our gate for missing. **The direction of that error is known
+and it is unflattering: true recall is LOWER than every number above**,
+because the ground truth cannot see the cuts we cannot see either.
+Pricing the chroma-only class needs a third instrument that is not
+luma-based.
+
+### 10k. Two instruments disagree about 75, and the direct one decides
+
+With the table corrected, cut recall reads like a cliff between 60 and 75
+(92.8% -> 50.0% at scdet 25). The **labelled corpus measures the outcome
+that recall is a proxy for**, and says the opposite:
+
+| CUT_DELTA | cut frames | EXPOSURE | FALSE COVER | PHANTOM | births |
+|---|---|---|---|---|---|
+| 35 | 200 | 82.5s | 173.5s | 141.0s | 377 |
+| 50 | 115 | 71.0s | 167.5s | 149.0s | 310 |
+| **60** | 59 | **67.0s** | **163.5s** | **158.5s** | 270 |
+| 75 | 12 | 57.0s | 157.0s | 162.0s | 230 |
+| 90 | 2 | 55.5s | 155.0s | 163.0s | 222 |
+
+Exposure falls monotonically all the way to 90. **Both can be true**: a
+missed cut costs exposure only when a stale CLEARED track absorbs a
+DIFFERENT person's observation. Recall prices the cut; the corpus prices
+the conjunction; the conjunction is rare.
+
+**WHERE A PROXY AND A DIRECT MEASUREMENT OF THE THING IT PROXIES
+DISAGREE, THE DIRECT ONE DECIDES.** The critic's F1 concluded that
+pushing 75 risks exposure. That is the proxy talking, and the corpus
+refutes it. The real cost of 75 is **PHANTOM** (+3.5s over 60), which is
+his loudest complaint -- so 60 ships and 75 stays reachable on the OTA
+channel, on phantom evidence and never on the recall table.
+
+The OTA ceiling stays 75 for that reason. It was briefly lowered to 60
+while acting on the proxy; lowering it would have been the same error in
+the opposite direction, and it is only recorded here because catching
+myself doing it is the point of the loop.
+
+### 10l. What went wrong underneath all of it: derivatives that do not declare themselves
+
+Five separate defects this round were one shape -- **a derived artefact
+that does not state what it was derived from**:
+
+- `bank/cuts.json` banked at 50, scored against a bundle shipping 60
+  (10a). Fixed by a `__meta` stamp plus `assertCutsFresh`.
+- `.cache/shipped.mjs` an hour stale (10d). Fixed by `_build.mjs`.
+- `birth-ab.mjs` printing `CUT_DELTA 50` as a **literal** while scoring
+  whatever bank was on disk. That literal is how "-38.0s false cover at
+  near-zero exposure cost" reached shipped source and a test comment; the
+  real number at the shipped 60 is **-30.5s of false cover for +5.0s of
+  EXPOSURE**, and "false cover roughly HALVES" was false at every bank
+  (-25.3% at 28, -18.5% at 50, -15.7% at 60). The label reads the bank's
+  own stamp now.
+- `corpus-cuts.mjs` defaulting every delta to `bank/cuts.json`, so
+  `for v in 35 50 75 90` -- which is how a sweep is actually run -- left
+  the DEFAULT bank holding whichever value ran last. It did. The default
+  path is self-naming for any non-shipped value now.
+- `cut-sweep.mjs` hardcoding `v === 50 ? cuts.json : ...`, silently
+  encoding "the default bank holds 50". Stamp-driven now.
+
+**THE RULE, and it is cheap: an artefact derived from a constant must
+carry the constant, and whatever PRINTS a number must read it from the
+artefact rather than restate it.** A comment saying which value a table
+came from is worth nothing -- it is the first thing to go stale, and it
+went stale here in the flattering direction twice.
+
+**AND A GUARD MUST NOT REFUSE ITS OWN FIX.** `assertCutsFresh` ran from a
+top-level `makeArms(SHIPPED)`, so it threw during module EVALUATION --
+and `cut-sweep`, whose entire job is to swap the bank, could not import
+the function it needed to call. Every corpus arm was dead at HEAD behind
+a guard that was correct about a bank nobody had re-derived. The arms are
+lazy now: importing is side-effect-free and the first USE still asserts.
+
+**A THIRD INSTANCE OF THE SAME SHAPE, IN MY OWN SHELL.** Two edits this
+round were silently reverted by `cp /tmp/sg.bak` and `cp /tmp/ie.bak`
+restoring backups written by an EARLIER command -- one of them putting
+back a version from before a committed change. A fixed backup path is a
+derivative that does not declare which run it came from. Use `mktemp`.

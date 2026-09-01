@@ -1517,8 +1517,15 @@ test('mergeTracks: the union carries headY and headH through', () => {
 // this change a birth could not take it. That is his "it keeps blurring
 // me" with a mechanism.
 //
-// Measured on 18 labelled windows, man mode: false cover roughly HALVES
-// at near-zero exposure cost, and phantom falls too.
+// Measured on 18 labelled windows, man mode, at the SHIPPED CUT_DELTA of
+// 60: false cover 194.0 -> 163.5s (-15.7%), phantom 164.5 -> 158.5s, for
+// +5.0s of EXPOSURE. It is a trade, not a free win.
+//
+// "Roughly HALVES at near-zero exposure cost" stood here and was false at
+// every bank (-25.3% at 28, -18.5% at 50, -15.7% at 60). It came from an
+// arm that printed `CUT_DELTA 50` as a literal while scoring whatever
+// bank was on disk. Quote the bank a corpus number came from, or the
+// number outlives the constant it was measured under.
 test('a birth takes the instant rung, and ONLY the instant rung', () => {
   // The control: a confident clear read that is not instant still starts
   // blurred, exactly as before. This is the same assertion as the very

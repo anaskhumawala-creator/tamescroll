@@ -16,11 +16,11 @@ import { faceMeta } from './.cache/shipped.mjs';
 import { ROOT } from './corpus-lib.mjs';
 import { loadWin } from './arch-arms.mjs';
 
-const src = fs.readFileSync('./.cache/shipped.mjs', 'utf8');
+const src = fs.readFileSync(new URL('./.cache/shipped.mjs', import.meta.url), 'utf8');
 const p = src.replace('var GENDER_CLEAR_SCORE = 0.6;', 'var GENDER_CLEAR_SCORE = 0.45;')
              .replace('var GENDER_CLEAR_SCORE_FEMALE = 0.45;', 'var GENDER_CLEAR_SCORE_FEMALE = 0.35;');
 if (p === src) throw new Error('patch failed');
-fs.writeFileSync('./.cache/lowbar.mjs', p);
+fs.writeFileSync(new URL('./.cache/lowbar.mjs', import.meta.url), p);
 const LOW = await import('./.cache/lowbar.mjs');
 
 const labels = JSON.parse(fs.readFileSync(`${ROOT}/bank/label/labels.json`, 'utf8'));

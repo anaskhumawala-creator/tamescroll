@@ -82,12 +82,13 @@ test('a real cut-sized frame change classifies as cut, noise as static', () => {
 //   28          52.8%              4088
 //   50          50.4%              1678
 //   60          45.5%               739
-//   75          42.3%               190
+//   75           7.9%                24
 //   90          26.0%                60
 //
 // So the gate catches only about HALF of real cuts at ANY threshold --
 // a cut between two similarly-lit shots is invisible to a 16x16 luma
-// grid and always was. Recall barely moves between 28 and 75 (52.8% ->
+// RETRACTED AND RE-MEASURED, see engine-findings 10j. The table above is
+// the CORRECTED one. Recall does NOT barely move (52.8% ->
 // 42.3%) while false wipes fall 21x. There is no cliff up there to
 // protect, which is what the old bound claimed.
 //
@@ -100,12 +101,23 @@ test('CUT_DELTA clears the measured motion floor', () => {
 });
 
 test('CUT_DELTA still catches a substantial share of real cuts', () => {
-  // The measured knee. Past 75 recall falls off a cliff (42.3% -> 26.0%
-  // between 75 and 90) while there is almost nothing left to win: false
+  // The ceiling is where the gate stops being a gate, measured on the
+  // corpus itself: at 90 it fires on TWO of 2,160 banked frames, at 75
+  // on 12. A gate that never fires is not a conservative gate, it is an
+  // absent one, and a scene cut is the only thing that clears a stale
+  // track.
+  //
+  // NOT set by cut recall. The corrected cut-truth table (10j) reads
+  // like a cliff between 60 and 75, and the labelled corpus -- which
+  // measures the OUTCOME that recall is a proxy for -- says exposure
+  // falls monotonically all the way to 90. Where a proxy and a direct
+  // measurement of the same thing disagree, the direct one decides;
+  // 60 ships because of PHANTOM, not because of recall.
   // wipes are already down to 190. A gate that catches a quarter of cuts
   // is not a gate, and the stale-cleared-track exposure it exists to
   // stop comes back.
   assert.ok(CUT_DELTA <= 75,
-    `CUT_DELTA ${CUT_DELTA} is past the measured knee -- cut recall falls ` +
-    'off a cliff above 75 (42.3% -> 26.0%) for almost no further gain');
+    `CUT_DELTA ${CUT_DELTA} is past where the gate stops being a gate -- ` +
+    'at 90 it fires on 2 of 2,160 banked corpus frames, and a cut is the ' +
+    'only thing that clears a stale track');
 });

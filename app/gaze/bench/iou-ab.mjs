@@ -19,7 +19,7 @@ import { score } from './corpus-score.mjs';
 import { loadWin, makeArms } from './arch-arms.mjs';
 
 const g = process.env.GENDER || 'man';
-const src = fs.readFileSync('./.cache/shipped.mjs', 'utf8');
+const src = fs.readFileSync(new URL('./.cache/shipped.mjs', import.meta.url), 'utf8');
 const RX = /var PTRACK_IOU_MIN = 0\.2;/;
 if (!RX.test(src)) throw new Error('PTRACK_IOU_MIN not found -- the bundle changed shape');
 const labels = JSON.parse(fs.readFileSync(`${ROOT}/bank/label/labels.json`, 'utf8'));

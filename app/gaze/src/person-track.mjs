@@ -186,10 +186,17 @@ function bump(key) {
 
 // A BIRTH THAT TAKES THE INSTANT RUNG, COUNTED.
 //
-// The corpus prices this change at -38.0s of false cover in his regime,
-// but a corpus number is an UPPER BOUND on device: it replays banked
+// The corpus prices this change at -30.5s of false cover in his regime
+// FOR +5.0s OF EXPOSURE -- and both halves of that matter. The -38.0s /
+// "near-zero exposure" first recorded here was measured against a bank
+// derived at CUT_DELTA 50 while the build shipped 60, on an arm whose
+// label said 50 either way. At the value that actually ships the trade
+// is real but smaller, and it is NOT free: 5 seconds of a person left
+// sharp, bought for 30 seconds of the wrong person covered.
+//
+// A corpus number is also an UPPER BOUND on device: it replays banked
 // reads, so it cannot know how often `instant` is actually reached on
-// his hardware. `birthCleared` is the number that settles it, and a
+// his hardware. Measured: 20.0% of births on his Redmi. `birthCleared` is the number that settles it, and a
 // change nobody has seen fire is a claim -- this repo has shipped a dead
 // constant for six rounds before.
 //

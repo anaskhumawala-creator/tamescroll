@@ -4477,6 +4477,15 @@ if (
       sceneState = 'motion';
       lastCutAt = 0;
       directPersonOk = true;
+      // The person-skip back-off is per-STREAM evidence: "MoveNet has
+      // admitted nobody for three passes running" is a statement about
+      // the footage, and a new stream makes it stale. Without this the
+      // back-off survives an SPA watch->watch, so the first passes of a
+      // new video that DOES contain people could be skipped on the last
+      // video's emptiness. Inert while PERSON_SKIP_EVERY is 1, which is
+      // exactly why it went unnoticed -- and it is on the OTA channel,
+      // so it would have armed itself the moment the dial was pushed.
+      resetPersonSkip();
       passEpoch++;
       if (!playerBlurOn) {
         playerBlurOn = true;

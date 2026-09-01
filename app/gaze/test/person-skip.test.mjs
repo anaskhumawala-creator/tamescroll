@@ -84,6 +84,18 @@ test('IT SHIPS INERT: the default never skips a pass', () => {
   // deliberately pushed. Its cost is PHANTOM -- his "random blur marks
   // here and there" -- so it has to be reversible in seconds, not in a
   // release.
+  // BOTH SOURCES OF THE VALUE, because they can disagree and only one of
+  // them decides what a device with no rules cache runs. This checked
+  // only tuning.json, so `PERSON_SKIP_EVERY = 3` in the module left this
+  // file fully green -- the test named for the inert default did not
+  // test the default.
+  // FROM THE DECLARATION, not from the live binding: setPersonSkipEvery
+  // mutates the export and the tests above it do exactly that, so an
+  // imported value says what the last test left behind, not what ships.
+  const src = readFileSync(new URL('../src/person-skip.mjs', import.meta.url), 'utf8');
+  assert.match(src, /^export var PERSON_SKIP_EVERY = 1;/m,
+    'the MODULE default is what a device with no rules cache runs, and a '
+    + 'build must behave like the one before it until a number is pushed');
   const shipped = JSON.parse(
     readFileSync(new URL('../../../rules/tuning.json', import.meta.url), 'utf8'),
   );
@@ -152,4 +164,34 @@ test('the page reads the policy from the module, not from a copy', () => {
   assert.match(page, /from '\.\/person-skip\.mjs'/);
   assert.match(page, /var askPersons = wantPersons\(\);/);
   assert.match(page, /notePersons\(/);
+});
+
+test('a new stream clears the back-off, through the shipped entry', () => {
+  // NOT by calling resetPersonSkip directly -- that is what the previous
+  // test did, and it passed for a fortnight against an init-entry that
+  // imported the function and never called it, so the reset was
+  // tree-shaken out of the emitted bundle entirely. A behaviour test
+  // that does not run the path the defect lives in is not evidence.
+  //
+  // The path is init-entry's `loadstart` handler, so this asserts on the
+  // SOURCE of that handler: the reset has to be inside the per-video
+  // reset block, beside the other stale-per-stream state.
+  const src = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
+  const i = src.indexOf("video.addEventListener('loadstart'");
+  assert.ok(i > 0, 'the loadstart handler moved -- re-anchor this test');
+  const handler = src.slice(i, src.indexOf('passEpoch++', i));
+  assert.match(handler, /resetPersonSkip\(\)/,
+    'the person-skip back-off is per-stream evidence and must be cleared '
+    + 'on loadstart, or a new video inherits the last one\'s emptiness');
+});
+
+test('the back-off actually decays once reset', () => {
+  // The property the source check above cannot give: that calling it
+  // puts the module back in the never-skip state.
+  setPersonSkipEvery(3);
+  for (let i = 0; i < 10; i++) notePersons([], false);   // drive it into back-off
+  assert.equal(wantPersons(), false, 'precondition: it must be skipping');
+  resetPersonSkip();
+  assert.equal(wantPersons(), true, 'a reset stream must run the model again');
+  setPersonSkipEvery(1);
 });
