@@ -1029,6 +1029,28 @@ earlier readings denied.
 now measured to cost 6.5s of exposure against the shipped value, so a
 push to it is a protection decision, not a tuning one.
 
+**THE ARM DEFAULTS TO THE APP, AND THAT REBASES 29 BENCH FILES.**
+`cutNoPass` is an opt-OUT, named for what it removes. Making the forced
+pass an opt-IN would have left every other arm in `bench/` -- birth-ab,
+cut-value, matrix, churn, and 25 more that pass `cut: true` -- silently
+running a handler the app does not, which is the defect this whole
+section exists to fix. **Every number any of those arms has produced is
+on the old model.** The one that was quoted in shipped source has been
+re-run:
+
+| birth rung, man, k=3 | exposure | false cover | phantom |
+|---|---|---|---|
+| as committed (wipe arm) | +5.0s | **-30.5s** | -6.0s |
+| shipped cut handler | +5.0s | **-25.5s** | -6.0s |
+
+The direction and the exposure cost are identical; only the size of the
+benefit moved. That figure has now been wrong twice in the same
+direction for two different instrument reasons (-38.0s from a bank
+derived at the wrong CUT_DELTA, -30.5s from the wipe arm), and
+`person-track.mjs` records the whole chain rather than just the current
+value -- a number that has moved twice is worth less than the fact that
+it keeps moving one way.
+
 ## 11. DETECTOR RECALL -- the error class every other sweep is downstream of
 
 Every threshold this repo has swept prices a DECISION. All of them are

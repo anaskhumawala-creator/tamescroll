@@ -40,14 +40,14 @@ const thin = (w, e) => ({ ...w, frames: w.frames.map((fr, i) =>
 // pass. `demote` is that minus the forced pass, which is the residue
 // that made a cut look more expensive than it is. `wipe` reproduces the
 // pre-2026-09-02 arm and is kept only to re-derive retracted numbers.
-const MODELS = { full: {}, demote: { noCutPass: 1 }, wipe: { cutWipe: 1 } };
+const MODELS = { full: 1, demote: 1, wipe: 1 };
 const CUT_MODEL = process.env.CUT_MODEL || 'full';
 if (!MODELS[CUT_MODEL]) {
   throw new Error(`CUT_MODEL must be full|demote|wipe, got ${CUT_MODEL}`);
 }
 const O = { hold: true, clampPad: 0.02, cut: true,
   cutWipe: CUT_MODEL === 'wipe',
-  cutPass: CUT_MODEL === 'full' };
+  cutNoPass: CUT_MODEL !== 'full' };
 
 console.log(`gender=${g}  k=3 (his 1.5s)  cut handler=${CUT_MODEL}`
   + (CUT_MODEL === 'full' ? '  (shipped: demote + forced pass)'

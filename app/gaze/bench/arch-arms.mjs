@@ -275,7 +275,12 @@ export function makeArms(mod) {
         // bias runs toward RAISING CUT_DELTA -- the direction a decision
         // was about to be made in. An instrument may not be left biased
         // toward the change it is being asked to price.
-        const fr = (cutHere && o.cutPass && fr0.faces.length === 0 && fr0._labelFaces)
+        // DEFAULT IS THE APP. Opting IN to the forced pass would leave
+        // every other arm in this directory (birth-ab, cut-value,
+        // matrix) silently on a model the app does not run, which is
+        // the whole defect this section exists to fix. The opt-out is
+        // named for what it removes.
+        const fr = (cutHere && !o.cutNoPass && fr0.faces.length === 0 && fr0._labelFaces)
           ? { ...fr0, faces: fr0._labelFaces }
           : fr0;
         // THE SHIPPED SCENE GATE. A cut wipes every track: IoU
