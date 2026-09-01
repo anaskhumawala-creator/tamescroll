@@ -70,7 +70,34 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-09-01 06:45 (**1077 PUBLISHED, sha 34463253**,
+**Last updated:** 2026-09-01 12:10 (**1078 PUBLISHED, sha 073eb405**,
+raw manifest + GitHub asset digest + downloaded APK all agree, isDraft
+false; 1077 before it, sha 34463253. rules 99394d11. **His phone is on
+1075**).
+
+**HE RULED THE GHOST GATE, 2026-09-01: "she needs to be blurred".**
+Shipped in 1078. The keypoint floor is a COUNTER now, not a refusal, and
+`faceEvidence = faces.length` so a detected face can no longer report an
+EMPTY FRAME and let wipeIfEmpty erase her. NO gate replaces it -- the
+null band is the right axis but as a MINT gate it refused HER (loop 37c,
+executed: tracks 0 with it, 1 without). **HONEST COST HE ACCEPTED: a
+graphic that reads as a face mints a patch again**, which is his "random
+blur marks here and there". Measured on a built APK in his regime
+(slotsNonZero 0, faceNoShape 40, 220s): her reads 2, **covered at read
+2 of 2, latency 0/0/0ms**, neverCovered 0, wipeErasedBlurred 2 (was 21),
+emptyFrame 3 (was 37). gaze 422/422, cargo 58/58.
+
+**AND THE CHILD GATE CANNOT PROTECT HER, which is why this had to be the
+fix.** `GENDER_CHILD_MASS` is 0.25 and she reads **childP 0.146-0.194,
+age 28-35** -- the model reads her as an adult, so nothing child-specific
+ever fires for her. The constant orders the two reference faces
+BACKWARDS (a 21-year-old at 0.49-0.94, a known 12-year-old at
+0.146-0.194), and loop 37d showed the guard is dead on 1,399 null reads
+(max childP 0.23). Do not reach for the child path to cover her.
+
+**Session 2026-09-01 (loop 37g) -- superseded header follows.**
+
+**Last updated (previous):** 2026-09-01 06:45 (**1077 PUBLISHED, sha 34463253**,
 raw manifest + GitHub asset digest + downloaded APK all agree, isDraft
 false; 1076 before it, sha 1c5437c3. rules 99394d11. **His phone is on
 1075** -- it has neither the clip-layer repair nor the counters that
