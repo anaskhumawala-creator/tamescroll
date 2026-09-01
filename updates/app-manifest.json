@@ -1,7 +1,7 @@
 {
-  "versionCode": 1079,
-  "versionName": "0.1.79",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.79/tamescroll-v0.1.79.apk",
-  "sha256": "b0ebc3d7f84de72b5818a2d9abbf27eedddf86fc4d22c667e55130e5935c2f5d",
-  "notes": "A null read mints on its second sighting: a graphic that reads as a face for one pass no longer creates a blur patch."
+  "versionCode": 1080,
+  "versionName": "0.1.80",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.80/tamescroll-v0.1.80.apk",
+  "sha256": "2451210bb5c43c367c737d98400ad2663312733c73d0bbd6c4d8233e071e4f83",
+  "notes": "Lower clear bar for real phone face sizes, plus an adjacency clamp so a patch stops short of someone already cleared."
 }
