@@ -70,6 +70,137 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-02 05:30 (HEAD 5b26a04, PUSHED. **1086 is
+still what his phone runs** -- nothing user-visible changed tonight and
+no constant moved. Everything below is instruments and numbers.)
+
+**Session 2026-09-02 (loop 41) -- FOUR INSTRUMENT DEFECTS IN ONE ARM,
+EACH OF WHICH HAD ALREADY PRODUCED A CONFIDENT PUBLISHED NUMBER. THE
+LAST ONE REBASED EVERY CORPUS NUMBER IN THE REPO.**
+
+- **THE CRITIC LOOP IS BINDING NOW.** `bench/critic-gate.mjs` exits
+  non-zero while any EXPOSURE or WRONG-NUMBER row in
+  `docs/critic/ledger.md` is OPEN, and a missing or unparseable ledger
+  exits 2 -- a gate that finds nothing to check is indistinguishable
+  from one wired to the wrong path. **15 rows, 15 CONFIRMED.**
+- **B1, AND IT RETRACTS 10k IN FULL: the corpus cut arm WIPED tracks
+  where the app DEMOTES them.** `arch-arms` did `tracks = []` under a
+  comment asserting "a cut wipes every track"; `init-entry` is
+  `videoTracks = demoteTracks(...)`, whose own call site says *"DEMOTE,
+  don't wipe: boxes persist so coverage holds through the pass gap"*. A
+  wipe leaves NOBODY covered until the next verdict, so the arm
+  manufactured one exposure gap per cut -- and `cutFrames` is the swept
+  axis (200 at delta 35, 2 at 90), so the defence written above that
+  line ("the same handicap applies to both") was exactly backwards.
+- **THE EXPOSURE COLUMN HAS NOW READ THREE WAYS UNDER THREE HANDLERS**,
+  and only the last is the app: wipe FALLS 82.5 -> 55.5 ("raise
+  CUT_DELTA, it's free"), demote-only FLAT ("raise it, no cost"), full
+  RISES ("raising it costs protection").
+- **AND THE SECOND DEFECT WAS BIASED TOWARD THE PENDING DECISION.** The
+  demote arm omits the app's FORCED VERDICT PASS at a cut, which is what
+  makes a cut cheap -- so it overstates what firing one costs, which is
+  exactly the bias that makes raising CUT_DELTA look free. It was about
+  to be used to push 75 over OTA. **An instrument may not be left biased
+  toward the change it is being asked to price.**
+- **THAT LANDS ON THE PROXY AND VINDICATES A CRITIC I OVERRULED TWICE.**
+  The recall arm says 60 catches 92.8-95.9% of hard cuts against 75's
+  50-90.9%; phase A's F1 concluded 75 risks exposure. I overruled it
+  once on the proxy and once on a broken direct arm. Corrected, two
+  instruments sharing no code and no input AGREE. **The rule "the direct
+  measurement decides" is fine and is not what failed -- what failed is
+  never asking whether the direct instrument models the shipped code
+  BEFORE letting it overrule something.**
+- **THE BIG ONE (13): `arch-arms` TOLD THE TRACKER A 500ms CADENCE IN
+  EVERY ARM**, because it passed the BANK's frame interval.
+  person-track SIZES ITS COAST WINDOWS from that number:
+
+  | effZoom told | coast | real gap | survives? |
+  |---|---|---|---|
+  | 500 | **1250ms** | 1500ms (k=3) | **no** |
+  | 1500 (correct) | 3000ms | 1500ms | yes |
+  | 2000 (correct) | 4000ms | 2000ms | yes |
+
+  **So every k=3 number this repo has ever produced -- which is every
+  corpus number, k=3 being "his regime" -- ran with tracks expiring
+  between every pair of verdicts.** `PTRACK_MIN_COAST_PASSES`, whose
+  entire job is "the window may never be too short to reach the next
+  pass", was floored at 2x500 instead of 2x1500 and could not do it.
+  The stride is INFERRED from the window now (`thin` marks silenced
+  frames via `_labelFaces`) -- an option is a thing 30 bench files can
+  forget -- and it is the MEDIAN gap, so an irregular policy cannot be
+  handed a stride of 1 by opening with two adjacent verdict frames.
+- **k=1 IS THE CONTROL AND IT DID NOT MOVE** (5.5 / 146.5 / 371.0 both
+  sides): stride 1 makes the fix a no-op there. Every thinned arm moved.
+- **CORRECTED, THE CADENCE DIAL HAS NO TRADE AT ALL.** k=4 29.5 / 204.0
+  / 551.5 -> k=1 5.5 / 146.5 / 371.0: exposure, false cover AND phantom
+  all improve as the clock speeds up. The CLIFF that used to sit at 2.0s
+  was the short coast. **The only cost of lowering
+  VERDICT_MAX_INTERVAL_MS is GPU duty**, which makes it the cleanest
+  lever in the system.
+- **THE HEADLINE THIS REPO QUOTED ALL WEEK IS RESTATED: "man exposure
+  81.0s at 1.5s against 8.0s at 0.5s" is 24.5s against 5.5s.** Still the
+  biggest single lever by a wide margin (19s against 1-3s for any
+  threshold); a quarter of the advertised size.
+- **12: THE VERDICT CLOCK COULD NOT TRAVEL, AND NOW IT CAN.**
+  `VERDICT_MAX_INTERVAL_MS` lived in a per-video closure. It is
+  `app/gaze/src/cadence.mjs` on the OTA channel, clamped [1200, 4000],
+  shipped at exactly 2000 so nothing changes until a number is pushed.
+  **His device is CAP-limited** (verdict cost p50 1250ms no-skip /
+  728ms skip-3; `effZoom = min(2000, cost*4) = 2000` in BOTH), which is
+  the complete explanation for the person-skip A/B buying four extra
+  verdicts in ninety seconds.
+- **BUT THE CAP IS A FLOOR ON THE GAP, NOT THE GAP.** The same 90s
+  window shows 58 verdicts = **1.55s** per verdict, because a cut sets
+  `lastSample = 0`. **The scene gate has been an unpriced cadence
+  mechanism all along**, so 2000 -> 1200 cannot buy 1.67x; the ceiling
+  is **1.29x**, and less on footage that cuts less often.
+- **10n: A CUT BUYS TWO DIFFERENT GOODS AND CUT_DELTA IS CHARGED FOR
+  BOTH** -- demotion (free, arithmetic) and a forced verdict (730-1250ms
+  of GPU). `bench/cut-vs-random.mjs` splits them with the same verdict
+  count scattered to deterministic-random frames, matched PER WINDOW.
+  Both genders: demotion buys **6.5s (man) / 7.5s (woman)** of exposure
+  and costs phantom; verdicts at cuts cost **~35s less phantom** than
+  the same verdicts elsewhere. **The gender disagreement in the first
+  version of this was the cadence defect**, not a real split.
+- **13b, MEASURED AND DELIBERATELY NOT PROPOSED:** an event-driven clock
+  (causal -- verdict when the gate's own delta clears a solved threshold
+  or a max gap starves) at the SAME 720-verdict budget buys 8.5s
+  exposure and 16.0s phantom for 31.5s false cover, at a 2.0s max gap.
+  At 3.0s it loses badly, so **the max gap is the load-bearing half, not
+  the threshold.** It is a new cadence architecture in the player and it
+  was measured hours after the instrument had been wrong three times
+  about this exact thing.
+- **B3/B4, both real:** `PERSON_SKIP_EVERY 3` does NOT stop the model, it
+  runs one pass in three, so "faceNoShape 48 -> 0 because the gate cannot
+  fire" predicts ~16 -- and **no counter for a skipped pass existed
+  anywhere in app/gaze/src**. `personPassSkipped` added on both paths,
+  verified twice in the emitted bundle. And the A5 guard was a source
+  match that `// resetPersonSkip();` satisfied; comments are stripped
+  first now (red 11/1 with the call commented, green 12/0 restored).
+- **THE BIRTH-RUNG NUMBER HAS NOW BEEN WRONG THREE TIMES, ALWAYS IN THE
+  SAME DIRECTION:** -38.0s (bank at the wrong CUT_DELTA) -> -30.5s (wipe
+  arm) -> -25.5s (no forced pass) -> **-19.5s false cover for +1.0s
+  exposure**. The DIRECTION survived all three; every magnitude moved.
+  person-track.mjs records the whole chain, because a number that keeps
+  moving one way is worth less than the fact that it keeps moving.
+- **NOTHING SHIPPED AND NO CONSTANT MOVED.** CUT_DELTA stays 60 (60 -> 75
+  is +4.5s exposure for -88.0s phantom; 60 -> 50 is -7.0s for +35.5s --
+  a real trade with no free direction). The OTA ceiling stays 75 as a
+  BOUND, now measured to cost exposure rather than assumed free.
+- **NEW/CHANGED INSTRUMENTS:** `bench/critic-gate.mjs`,
+  `bench/cut-vs-random.mjs`, `bench/cadence-place.mjs`,
+  `src/cadence.mjs`; `cut-sweep.mjs` takes `CUT_MODEL=full|demote|wipe`
+  and PRINTS which handler produced a table; `corpus-cuts.mjs` now
+  actually writes `bank/deltas.json` (its own header had claimed that
+  file for weeks while nothing wrote it); `probe_skip_ab.py` banks its
+  result and takes `REVERSED=1`; `loadWin` keeps `win.tag`.
+- gaze **512/512**, cargo 60/60, critic-gate 15/15.
+- **NEXT, and none of it needs a release:** phase C critic is running
+  against 13/13a/13b. Then the 32 contended births in the assignment
+  layer; the thumbnail path still has **NO null-read guard**; and
+  eventually a release so his phone gets the cadence channel -- **he is
+  tired of installing, so batch it.**
+
 **Last updated:** 2026-09-02 01:05 (**1086 PUBLISHED**, sha ad675ec7;
 1082/1083/1084/1085 all published the same night. He installed four of
 them and said "I'm tired of installing new versions" -- 1086 exists so
