@@ -95,9 +95,11 @@ try {
 //   hideClipped   per OVERLAY per reposition, so it scales with the
 //                 number of tracks.
 //   drawnZero     same.
+//   clipRebuilt   per OVERLAY re-parented, only when the page removed
+//                 our layer -- 0 is the healthy value.
 // Attribute with a rate only against `raf`, and never treat a delta as
 // milliseconds.
-var renderStats = { raf: 0, overlayFrames: 0, maskCalls: 0, maskWrites: 0, tfWrites: 0, sizeWrites: 0, dispWrites: 0, hideNoVr: 0, hideZeroVr: 0, hideClipped: 0, rectsNoBoxes: 0, drawnZero: 0 };
+var renderStats = { raf: 0, overlayFrames: 0, maskCalls: 0, maskWrites: 0, tfWrites: 0, sizeWrites: 0, dispWrites: 0, hideNoVr: 0, hideZeroVr: 0, hideClipped: 0, rectsNoBoxes: 0, drawnZero: 0, clipRebuilt: 0 };
 try {
   if (typeof window !== 'undefined') {
     window.__TS_GAZE_RENDER = function () {
@@ -114,6 +116,7 @@ try {
         hideClipped: renderStats.hideClipped,
         rectsNoBoxes: renderStats.rectsNoBoxes,
         drawnZero: renderStats.drawnZero,
+        clipRebuilt: renderStats.clipRebuilt,
       };
     };
   }
@@ -1203,6 +1206,24 @@ export function setTracks(video, tracks) {
   }
   entry.overlays = nextOverlays;
   entry.rendered = nextRendered;
+  // A CLIP LAYER THE PAGE REMOVED STRANDS EVERY REUSED OVERLAY.
+  // `clipLayer` rebuilds the layer only when it is ASKED for one, and it
+  // is asked only when a NEW overlay is created -- so a pass carrying the
+  // same boxes reuses every node and never reaches it. If YouTube rebuilt
+  // the player subtree and took our layer with it (which is exactly what
+  // a torn-down-and-re-created player does), the entry survives, its
+  // tracks survive, reposition keeps writing to elements that are in no
+  // document, and a covered subject goes sharp with nothing counting it.
+  //
+  // Re-parenting is monotone -- it can only ever put a patch BACK -- and
+  // costs one isConnected read per pass when nothing is wrong.
+  var layer = clipLayer(entry);
+  for (var a = 0; a < entry.overlays.length; a++) {
+    if (entry.overlays[a].parentNode !== layer) {
+      renderStats.clipRebuilt++;
+      layer.appendChild(entry.overlays[a]);
+    }
+  }
   reposition(entry, entry.at);
   if (!entry.raf) loop(video);
   return true;

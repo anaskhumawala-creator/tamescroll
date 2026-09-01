@@ -548,3 +548,33 @@ test('a host that generates no boxes is not asked for a rect', () => {
   assert.equal(patchesIn(player).length, 0);
   assert.equal(rectReads, 0);
 });
+
+// A DETACHED CLIP LAYER STRANDS EVERY OVERLAY, AND NOTHING PUTS THEM
+// BACK. `clipLayer` re-creates the layer only when it is asked for one,
+// and it is asked for one ONLY when a NEW overlay is created -- a pass
+// that reuses the same number of boxes never calls it. So if the page
+// takes our layer out of the player (a player rebuild does exactly that;
+// the gap frames of 2026-09-01 are a player being torn down and
+// re-created) the entry survives, its tracks survive, reposition keeps
+// writing to elements that are in no document, and a covered subject is
+// sharp with no counter moving.
+test('a clip layer removed by the page is rebuilt, not stranded', () => {
+  const { player, video } = playerWithVideo({ left: 0, top: 0, width: 640, height: 360 });
+  vr.setTracks(video, [{ box: { x1: 0.2, y1: 0.2, x2: 0.5, y2: 0.6 }, vx: 0, vy: 0 }]);
+  assert.equal(patchesIn(player).length, 1, 'a patch to begin with');
+
+  // What the page does: the player subtree is rebuilt and our layer goes
+  // with it. The host and the video are untouched, so refreshRects's
+  // connectedness check does not fire and the entry stays alive.
+  const clip = player.children.filter((c) => c.className === 'ts-gaze-vregion-clip')[0];
+  player.removeChild(clip);
+  clip.isConnected = false;
+  for (const o of clip.children) o.isConnected = false;
+  assert.equal(patchesIn(player).length, 0, 'the layer really is gone');
+
+  // The next pass carries the SAME box count, so every overlay is
+  // reused and clipLayer is never reached.
+  vr.setTracks(video, [{ box: { x1: 0.2, y1: 0.2, x2: 0.5, y2: 0.6 }, vx: 0, vy: 0 }]);
+  assert.equal(patchesIn(player).length, 1, 'the patch must be back in the player');
+  vr.clear(video);
+});
