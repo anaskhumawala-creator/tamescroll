@@ -586,8 +586,18 @@ export function sizeCompatible(a, b) {
   return r <= PTRACK_SIZE_RATIO_MAX;
 }
 
-export function updatePersonTracks(tracks, observations, dtMs) {
+/**
+ * @param hold boxes whose birth was refused on the PREVIOUS pass. The
+ *   caller owns this list per video and hands it back; the updated list
+ *   comes out as `next.nullHeld`. It is threaded rather than kept in a
+ *   module global on purpose -- ONE detector serves every video element
+ *   on a page, and a module global read from inside a promise is the R21
+ *   defect this file has already paid for once.
+ */
+export function updatePersonTracks(tracks, observations, dtMs, hold) {
   observations = dedupeObservations(observations);
+  var held = Array.isArray(hold) ? hold : [];
+  var nextHeld = [];
   var dt = dtMs > 0 ? dtMs : 250;
   var pairs = [];
   var i, j;
@@ -691,7 +701,43 @@ export function updatePersonTracks(tracks, observations, dtMs) {
     // refuse at most ONE consecutive birth, so a transient graphic is
     // refused and a real person is covered one pass later -- is the next
     // thing to build, and it needs state this pure function does not have.
-    if (observations[j].nullMint) bump('nullWouldDrop');
+    // REFUSE AT MOST ONE CONSECUTIVE BIRTH.
+    //
+    // An unbounded refusal shipped an EXPOSURE and was reverted: the tag
+    // is a property of CONTENT, so it lands on the same subject every
+    // pass, and once her track dies (coast expiry, or a cut plus
+    // wipeIfEmpty) the birth is the only way back. 40 tagged passes left
+    // 0 tracks where one untagged pass covered her.
+    //
+    // Holding the refusal for exactly one pass separates the two
+    // populations on the axis that actually distinguishes them --
+    // PERSISTENCE. A graphic that reads as a face is transient; a person
+    // is not. So a null read mints nothing the first time it is seen and
+    // mints normally the second, and the worst case is ONE pass of
+    // exposure (~1.5s at his measured cadence) instead of forever.
+    //
+    // The hold is matched by IoU against the SAME threshold association
+    // uses, so "the same thing again" means the same thing it means
+    // everywhere else in this file.
+    if (observations[j].nullMint) {
+      var seen = false;
+      for (var h = 0; h < held.length; h++) {
+        if (iou(held[h], observations[j].box) >= PTRACK_IOU_MIN) { seen = true; break; }
+      }
+      if (!seen) {
+        // Carried forward so the NEXT pass mints it. Copied, because the
+        // caller's observation objects are not ours to retain.
+        nextHeld.push({
+          x1: observations[j].box.x1, y1: observations[j].box.y1,
+          x2: observations[j].box.x2, y2: observations[j].box.y2,
+        });
+        bump('nullDropped');
+        continue;
+      }
+      // Second sighting. It mints, and it is counted apart so the
+      // artifact can say how much the hold is actually costing.
+      bump('nullMintedHeld');
+    }
     if (bestIou[j] <= 0) bump('birthFresh');
     else if (bestIou[j] < PTRACK_IOU_MIN) bump('birthNearMiss');
     else if (sizeBlocked[j]) bump('birthSizeRejected');
@@ -708,6 +754,10 @@ export function updatePersonTracks(tracks, observations, dtMs) {
     // patch that does not exist yet is refused.
     next.push(newTrack(observations[j]));
   }
+  // The hold rides OUT on the returned array as well as being the
+  // caller's to keep, so a call site that only reassigns `tracks` still
+  // gets it. A bounded list: it holds at most one pass of refusals.
+  next.nullHeld = nextHeld;
   return next;
 }
 

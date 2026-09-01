@@ -1661,6 +1661,9 @@ if (
     // identity changes (loadstart, pill re-enable, giveUp): old tracks
     // describe a video that no longer exists.
     var videoTracks = [];
+    // Boxes whose birth the null-mint hold refused last pass. See
+    // updatePersonTracks: a null read mints on its SECOND sighting.
+    var nullHeld = [];
     // Persons admitted by the LAST person pass, fed back into
     // parsePersons as its hysteresis input (R17). Continuity of the
     // DETECTOR, not of a verdict: it is dropped wherever positions stop
@@ -3871,7 +3874,12 @@ if (
               } catch (e) {
                 /* probes never break the pipeline */
               }
-              videoTracks = updatePersonTracks(videoTracks, observations, dt);
+              // `nullHeld` is a sibling of videoTracks and NOT part of
+              // it, deliberately: wipeIfEmpty and demoteTracks both
+              // replace the track array, and a hold that vanished with
+              // them would refuse the same subject a second time.
+              videoTracks = updatePersonTracks(videoTracks, observations, dt, nullHeld);
+              nullHeld = videoTracks.nullHeld || [];
               mark('tracks');
               // Calibration probe: per-track state after every pass, so
               // a "why is he not clearing" question is answered by

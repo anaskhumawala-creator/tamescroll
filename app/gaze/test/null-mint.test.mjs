@@ -1,23 +1,23 @@
-// A NULL READ IS TAGGED AND COUNTED. IT IS NOT REFUSED.
+// A NULL READ MINTS ON ITS SECOND SIGHTING, NEVER ITS FIRST.
 //
-// Three builds of this gate have now shipped an exposure, and the third
-// was mine. Refusing the OBSERVATION took the blur off a covered woman
-// in ~4s of coast (loop 37b). Refusing the BIRTH looked safe -- a live
-// track is still refreshed -- and is not: a track DIES on coast expiry
-// or on a cut plus wipeIfEmpty, and coming back needs a birth. Because
-// the tag is a property of CONTENT it lands on the same subject every
-// pass, so the refusal is PERMANENT. Reproduced against this tracker:
-// 40 tagged passes after a death leave 0 tracks, where one UNtagged
-// pass covers her immediately.
+// Three earlier builds of this gate shipped an exposure. Refusing the
+// OBSERVATION took the blur off a covered woman in ~4s of coast (loop
+// 37b). Refusing the BIRTH unboundedly looked safe -- a live track is
+// still refreshed -- and was not: a track DIES on coast expiry or on a
+// cut plus wipeIfEmpty, and coming back needs a birth. The tag is a
+// property of CONTENT, so it lands on the same subject every pass and
+// the refusal was PERMANENT: 40 tagged passes after a death left 0
+// tracks where one UNtagged pass covered her.
 //
-// So the tag now feeds two counters and changes no behaviour, and these
-// tests pin THAT: the tag survives dedupe (loop 37c laundered it), a
-// tagged observation still mints and still refreshes, and the counters
-// can tell "400 transient graphics" from "one real person 400 times" --
-// which is the number a bounded version of this gate needs.
+// The bound separates the two populations on the axis that actually
+// distinguishes them -- PERSISTENCE. A graphic that reads as a face is
+// transient; a person is not. Worst case is ONE pass of exposure
+// (~1.5s at his measured cadence) rather than forever.
 //
-// A bounded version -- refuse at most ONE consecutive birth -- is the
-// next thing to build. It needs state updatePersonTracks does not have.
+// Every test below runs the real tracker. The exposure test FAILS
+// against the unbounded source (0 tracks there, 1 here), which is the
+// bar this file exists to meet -- three earlier rounds shipped tests
+// that could not have failed.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -54,31 +54,56 @@ test('the fixture really is a null read, and it really produces the tag', () => 
   assert.ok(!ok.nullRead);
 });
 
-test('an unmatched null read is COUNTED and still creates its track', () => {
-  const obs = { box: box(0.1, 0.1, 0.4, 0.9), flagged: true, certain: false, abstained: true, nullMint: true };
+test('a null read is refused ONCE and mints on the second sighting', () => {
+  const obs = () => ({ box: box(0.1, 0.1, 0.4, 0.9), flagged: true, certain: false, abstained: true, nullMint: true });
+  let hold = [];
   const life = counters(() => {
-    assert.equal(updatePersonTracks([], [obs], 300).length, 1, 'the tag must not refuse a birth');
+    const first = updatePersonTracks([], [obs()], 300, hold);
+    assert.equal(first.length, 0, 'a first sighting must not mint');
+    hold = first.nullHeld;
+    assert.equal(hold.length, 1, 'the refusal has to be carried or it is unbounded');
+    const second = updatePersonTracks(first, [obs()], 300, hold);
+    assert.equal(second.length, 1, 'a second sighting MUST mint');
+    assert.equal(second[0].state, 'blurred');
   });
-  assert.equal(life.nullWouldDrop, 1, 'a counter nobody can see fire is a claim');
-  // The control: the identical observation without the tag behaves the
-  // same way, because the tag costs nothing but a number now.
-  const untagged = { ...obs, nullMint: false };
-  assert.equal(updatePersonTracks([], [untagged], 300).length, 1);
+  assert.equal(life.nullDropped, 1);
+  assert.equal(life.nullMintedHeld, 1, 'the cost of the hold needs its own number');
+  // The control: the identical observation without the tag mints at once.
+  assert.equal(updatePersonTracks([], [{ ...obs(), nullMint: false }], 300, []).length, 1);
+});
+
+test('A TRANSIENT TAGGED READ NEVER MINTS, AND THE HOLD DOES NOT ACCUMULATE', () => {
+  // The population the gate exists for: a graphic that reads as a face
+  // for one pass. It must cost nothing, and the hold must not grow into
+  // a list that eventually matches everything.
+  const obs = { box: box(0.1, 0.1, 0.4, 0.9), flagged: true, certain: false, abstained: true, nullMint: true };
+  let t = updatePersonTracks([], [obs], 300, []);
+  assert.equal(t.length, 0);
+  t = updatePersonTracks(t, [], 300, t.nullHeld);
+  assert.equal(t.length, 0);
+  assert.equal(t.nullHeld.length, 0, 'a hold nobody re-sighted must be dropped');
 });
 
 test('A TAGGED SUBJECT IS COVERED AGAIN AFTER HER TRACK DIES', () => {
-  // THE EXPOSURE THE THIRD BUILD OF THIS GATE SHIPPED, pinned so a
-  // fourth cannot. Refusing the birth is safe only while the track is
-  // alive; it dies on coast expiry (`coastExpired` 12 in one phone run)
-  // and a birth is then the only way back.
+  // THE EXPOSURE THE UNBOUNDED BUILD SHIPPED, pinned so a fourth cannot.
+  // Refusing the birth is safe only while the track is alive; it dies on
+  // coast expiry (`coastExpired` 12 in one phone run) and a birth is
+  // then the only way back. This test FAILS against the unbounded
+  // source, where the answer is 0 at every pass.
   const b = box(0.3, 0.2, 0.5, 0.7);
-  const tagged = { box: b, flagged: true, certain: false, abstained: true, nullMint: true };
-  let t = updatePersonTracks([], [{ box: b, flagged: true, certain: true }], 250);
+  const tagged = () => ({ box: { ...b }, flagged: true, certain: false, abstained: true, nullMint: true });
+  let hold = [];
+  let t = updatePersonTracks([], [{ box: b, flagged: true, certain: true }], 250, hold);
   assert.equal(t.length, 1);
-  for (let i = 0; i < 40; i++) t = updatePersonTracks(t, [], 250);
+  for (let i = 0; i < 40; i++) { hold = t.nullHeld; t = updatePersonTracks(t, [], 250, hold); }
   assert.equal(t.length, 0, 'the track has to actually die or this proves nothing');
-  // One pass. Not forty.
-  assert.equal(updatePersonTracks(t, [tagged], 250).length, 1);
+  let covered = 0;
+  for (let i = 0; i < 10; i++) {
+    hold = t.nullHeld;
+    t = updatePersonTracks(t, [tagged()], 250, hold);
+    if (t.length) { covered = i + 1; break; }
+  }
+  assert.equal(covered, 2, 'she must come back on the SECOND pass, not never');
 });
 
 test('a null read still refreshes a track that already exists', () => {
@@ -121,9 +146,9 @@ test('two null reads merged stay refused', () => {
   assert.equal(out.length, 1);
   assert.equal(out[0].nullMint, true);
   const life = counters(() => {
-    assert.equal(updatePersonTracks([], out, 300).length, 1);
+    assert.equal(updatePersonTracks([], out, 300, []).length, 0);
   });
-  assert.equal(life.nullWouldDrop, 1, 'the merged tag must reach the counter');
+  assert.equal(life.nullDropped, 1, 'the merged tag must reach the refusal');
 });
 
 test('the merge does not write the tag back into the caller\'s observation', () => {
@@ -167,12 +192,17 @@ test('a pass of nothing but tagged reads still covers everybody in it', () => {
     { box: box(0.05, 0.05, 0.30, 0.90), flagged: true, certain: false, abstained: true, nullMint: true },
     { box: box(0.60, 0.05, 0.90, 0.90), flagged: true, certain: false, abstained: true, nullMint: true },
   ];
+  let out;
   const life = counters(() => {
-    assert.equal(updatePersonTracks([], obs, 300).length, 2, 'both must be covered');
+    out = updatePersonTracks([], obs, 300, []);
+    assert.equal(out.length, 0, 'first sighting of both');
   });
-  assert.equal(life.nullWouldDrop, 2);
+  assert.equal(life.nullDropped, 2);
   assert.ok(!life.nullMatched, 'nothing matched -- this is the dangerous shape');
-  assert.equal(life.birthFresh, 2, 'a counted birth is still a birth');
+  // AND THE FRAME RECOVERS. Both are held, so the very next pass covers
+  // them -- which is the whole difference from the reverted build.
+  const again = updatePersonTracks(out, obs, 300, out.nullHeld);
+  assert.equal(again.length, 2, 'both must be covered one pass later');
 });
 
 test('a tagged observation that refreshes a track is counted apart', () => {
@@ -182,7 +212,7 @@ test('a tagged observation that refreshes a track is counted apart', () => {
     updatePersonTracks(tracks, [{ box: b, flagged: true, certain: false, abstained: true, nullMint: true }], 300);
   });
   assert.equal(life.nullMatched, 1, 'the harmless case needs its own number');
-  assert.ok(!life.nullWouldDrop, 'a matched observation is never a birth');
+  assert.ok(!life.nullDropped, 'a matched observation is never a birth');
 });
 
 test('a match just above PTRACK_IOU_MIN refreshes, just below is a fresh birth', () => {
@@ -205,12 +235,12 @@ test('a match just above PTRACK_IOU_MIN refreshes, just below is a fresh birth',
   assert.equal(above[0].id, id);
 
   const life = counters(() => {
-    const below = updatePersonTracks(tracks, [tagged(shifted(Math.max(0.01, PTRACK_IOU_MIN - 0.1)))], 300);
-    // The old track coasts AND the tagged observation mints its own.
-    assert.equal(below.length, 2, 'below the threshold it is a separate person');
-    assert.ok(below.some((t) => t.id !== id));
+    const below = updatePersonTracks(tracks, [tagged(shifted(Math.max(0.01, PTRACK_IOU_MIN - 0.1)))], 300, []);
+    // The old track coasts; the tagged observation is a BIRTH, so it is
+    // held for one pass rather than refreshing anything.
+    assert.ok(below.every((t) => t.id === id), 'a held birth is not a track yet');
   });
-  assert.equal(life.nullWouldDrop, 1, 'below the threshold it IS a birth');
+  assert.equal(life.nullDropped, 1, 'below the threshold it IS a birth');
 });
 
 test('init-entry copies the tag onto the observation, beside the others', () => {
@@ -230,20 +260,44 @@ test('init-entry copies the tag onto the observation, beside the others', () => 
   );
 });
 
-test('nothing in the birth loop refuses a tagged observation', () => {
-  // A STRING TEST THAT CANNOT FAIL is how this repo has been burned three
-  // times, and the version of this test that shipped an hour ago was one:
-  // `indexOf(a) < indexOf(b)` is TRUE when the first term is -1, so it
-  // passed with the whole gate deleted. Assert both indexes exist first.
+test('the refusal sits above the birth counters, and both really exist', () => {
+  // A STRING TEST THAT CANNOT FAIL is how this repo has been burned four
+  // times: `indexOf(a) < indexOf(b)` is TRUE when the first term is -1,
+  // so the previous version of this test passed with the gate deleted.
+  // Both indexes are asserted present before they are compared.
+  //
+  // The ordering matters because below the bumps, birthFresh and its
+  // three siblings would change meaning from "a track was born" to "a
+  // birth was attempted", rebasing every earlier round's reading of them.
   const pt = readFileSync(new URL('../src/person-track.mjs', import.meta.url), 'utf8');
   const loop = pt.slice(pt.indexOf('for (j = 0; j < observations.length; j++)'));
   const body = loop.slice(0, loop.indexOf('return next;'));
-  const would = body.indexOf("bump('nullWouldDrop')");
+  const dropped = body.indexOf("bump('nullDropped')");
   const fresh = body.indexOf("bump('birthFresh')");
-  assert.ok(would >= 0, 'the counter left the birth loop');
+  assert.ok(dropped >= 0, 'the refusal left the birth loop');
   assert.ok(fresh >= 0, 'the birth counters left the birth loop');
-  assert.ok(would < fresh, 'the tag check moved below the birth counters');
-  // The thing that actually matters: no early exit on the tag.
-  const near = body.slice(Math.max(0, would - 300), would + 300);
-  assert.ok(!/nullMint[\s\S]{0,120}continue/.test(near), 'the tag refuses a birth again');
+  assert.ok(dropped < fresh, 'the refusal moved below the birth counters');
+});
+
+test('THE HOLD IS THREADED, NEVER A MODULE GLOBAL', () => {
+  // ONE detector serves every video element on a page. A module-global
+  // hold read from inside a promise is the R21 defect this repo has
+  // already paid for once -- a watch page plus a feed preview would read
+  // each other's refusals.
+  const pt = readFileSync(new URL('../src/person-track.mjs', import.meta.url), 'utf8');
+  const fn = pt.slice(pt.indexOf('export function updatePersonTracks'));
+  const body = fn.slice(0, fn.indexOf('\nexport '));
+  assert.ok(/updatePersonTracks\(tracks, observations, dtMs, hold\)/.test(pt),
+    'the hold stopped being a parameter');
+  assert.ok(body.includes('next.nullHeld = nextHeld;'), 'the hold stopped riding out');
+  // Two independent videos cannot see each other's holds: the function
+  // reads nothing but its arguments.
+  const decls = pt.slice(0, pt.indexOf('export function updatePersonTracks'));
+  assert.ok(!/^\s*var\s+\w*[Hh]eld/m.test(decls), 'a module-level hold appeared');
+
+  // And the caller keeps it beside videoTracks rather than on it --
+  // wipeIfEmpty and demoteTracks both replace that array.
+  assert.match(page, /var nullHeld = \[\];/);
+  assert.match(page, /updatePersonTracks\(videoTracks, observations, dt, nullHeld\)/);
+  assert.match(page, /nullHeld = videoTracks\.nullHeld \|\| \[\];/);
 });
