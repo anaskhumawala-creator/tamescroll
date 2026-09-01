@@ -833,3 +833,9 @@ export function flaggedFaceIndices(userGender, faces) {
   }
   return out;
 }
+
+// OTA tuning setters. src/tuning.mjs owns the range and the clamp for
+// each of these; nothing else may write them.
+export function setClearScore(v) { GENDER_CLEAR_SCORE = v; }
+export function setClearScoreFemale(v) { GENDER_CLEAR_SCORE_FEMALE = v; }
+export function setNmFloor(v) { NULL_MINT_NM_FLOOR = v; }

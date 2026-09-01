@@ -161,3 +161,8 @@ function descCopy(d) {
   for (var i = 0; i < d.length; i++) out[i] = d[i];
   return out;
 }
+
+// OTA tuning setters. src/tuning.mjs owns the range and the clamp.
+export function setSim(v) { MEM_SIM = v; }
+export function setTrustMan(v) { MEM_TRUST_MAN = v; }
+export function setTrustWoman(v) { MEM_TRUST_WOMAN = v; }

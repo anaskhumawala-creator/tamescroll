@@ -73,3 +73,6 @@ export function classifyScene(delta) {
   if (delta <= STATIC_DELTA) return 'static';
   return 'motion';
 }
+
+/** OTA tuning setter (src/tuning.mjs owns the range and the clamp). */
+export function setCutDelta(v) { CUT_DELTA = v; }

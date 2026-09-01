@@ -416,6 +416,20 @@ fn gaze_script(mode: &str, host: &str) -> String {
     // his complaints recur. Not a channel: numbers and our own
     // constants, nothing read from the page and nothing sent anywhere.
     let diag = diag_app_json(px);
+    // THE NUMBERS TRAVEL, THE CODE DOES NOT.
+    // Rides the rules OTA already in place -- hashed in
+    // rules/manifest.json, SHA-256 verified and sanity-gated by ota.rs,
+    // cached in app data, silent on failure -- so a threshold change is
+    // a git push instead of a 56MB install. Four of those landed on the
+    // owner in one night and he asked for exactly this.
+    //
+    // Handed over as a STRING and parsed page-side, never interpolated
+    // as a JS object literal: a `${` reaching an injected template was
+    // remotely lethal once already (review 2026-08-23). Whatever arrives
+    // is then whitelisted and clamped by app/gaze/src/tuning.mjs, so
+    // nothing here has to trust the payload.
+    let tuning = serde_json::to_string(&ota::rules_text("tuning.json"))
+        .unwrap_or_else(|_| "\"\"".to_string());
     format!(
         r#"
 (function () {{
@@ -425,6 +439,7 @@ fn gaze_script(mode: &str, host: &str) -> String {
     window.__TS_GAZE_GENDER = "{gender}";
     window.__TS_USER_TERMS = {terms};
     window.__TS_DIAG_APP = {diag};
+    window.__TS_GAZE_TUNING__ = {tuning};
     var tsRoot = document.documentElement;
     if (tsRoot) {{
       tsRoot.style.setProperty("--ts-blur", "{px}px");
@@ -2226,6 +2241,14 @@ mod tests {
         assert!(script.contains("window.__TS_DIAG_APP = {\"versionCode\""));
     }
 
+    // THIS FUNCTION HAD NO `#[test]` AND HAD NEVER RUN.
+    // Ten assertions about which hosts and modes get the bundle, dead
+    // in the tree. `cargo test` reported 59 green with this one never
+    // executed, which is the same class as the string-match tests this
+    // repo has already thrown out: a check that cannot fail is not a
+    // check. Found by deliberately breaking an assertion inside it and
+    // watching the suite stay green.
+    #[test]
     fn page_load_gaze_script_dispatches_on_mode_and_host() {
         // A non-platform host: nothing to eval, in any mode.
         assert!(page_load_gaze_script("https://accounts.google.com/", "blur").is_none());
@@ -2283,6 +2306,22 @@ mod tests {
         assert!(page_load_gaze_script("https://old.reddit.com/", "blur").is_some());
         assert!(page_load_gaze_script("https://m.youtube.com:443/", "blur").is_some());
         assert!(page_load_gaze_script("https://notyoutube.com/", "blur").is_none());
+
+        // THE TUNING PAYLOAD IS A STRING, NOT AN OBJECT LITERAL.
+        // A `${` reaching an injected template was remotely lethal once
+        // already (review 2026-08-23), and this payload travels OTA --
+        // so it is JSON-escaped and parsed page-side, where
+        // app/gaze/src/tuning.mjs whitelists and clamps it. If this ever
+        // becomes a bare `{...}` in the script, a rules push could write
+        // arbitrary JS into every page we inject.
+        let js = page_load_gaze_script("https://m.youtube.com/", "smart").expect("smart");
+        assert!(js.contains("window.__TS_GAZE_TUNING__ = \""), "tuning must be a string literal");
+        assert!(!js.contains("__TS_GAZE_TUNING__ = {"), "tuning must not be an object literal");
+        // And what ships must actually parse, or the channel is dead on
+        // arrival on every device at once.
+        let t: serde_json::Value =
+            serde_json::from_str(crate::rules::TUNING_JSON).expect("tuning.json parses");
+        assert!(t.get("CUT_DELTA").and_then(|v| v.as_f64()).is_some());
         assert!(page_load_gaze_script("https://www.tiktok.com/following", "blur").is_some());
         assert!(page_load_gaze_script("https://www.tiktok.com/", "smart").is_some());
 

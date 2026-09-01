@@ -64,6 +64,7 @@ const BLUR_TIKTOK: &str = include_str!("../../../rules/blur/tiktok.css");
 const BLUR_INSTAGRAM: &str = include_str!("../../../rules/blur/instagram.css");
 const BLUR_FACEBOOK: &str = include_str!("../../../rules/blur/facebook.css");
 const SCRIPTLET_RULES: &str = include_str!("../../../rules/scriptlets.txt");
+pub const TUNING_JSON: &str = include_str!("../../../rules/tuning.json");
 
 /// Every rules file the OTA layer may override, keyed by its
 /// repo-relative name under `rules/` — the same names
@@ -103,6 +104,10 @@ pub fn embedded(name: &str) -> Option<&'static str> {
         "instagram.txt" => Some(INSTAGRAM_RULES),
         "facebook.txt" => Some(FACEBOOK_RULES),
         "scriptlets.txt" => Some(SCRIPTLET_RULES),
+        // NUMBERS, NOT CODE. Whitelisted and clamped page-side by
+        // app/gaze/src/tuning.mjs; see the header there for why each
+        // range is where it is.
+        "tuning.json" => Some(TUNING_JSON),
         "blur/youtube.css" => Some(BLUR_YOUTUBE),
         "blur/reddit.css" => Some(BLUR_REDDIT),
         "blur/x.css" => Some(BLUR_X),

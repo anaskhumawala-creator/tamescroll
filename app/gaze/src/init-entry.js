@@ -94,6 +94,7 @@ import { createWorkerClient } from './worker-client.mjs';
 import { startWorker } from './worker-entry.js';
 import { installMiniplayer } from './miniplayer.mjs';
 import { makeVerdictCache, verdictKey } from './verdict-cache.mjs';
+import { applyTuningFromWindow } from './tuning.mjs';
 
 // ONE ARTIFACT, TWO ROLES.
 //
@@ -118,6 +119,17 @@ if (
   // string literal — esbuild won't rename it) so the Rust side can prove
   // this exact bundle is what got injected. See lib.rs gaze tests.
   window.__TS_GAZE_BUNDLE__ = 'v7'; // v7: crowd path (faces past MoveNet's 6) + no cut blackout
+
+  // OTA TUNING, FIRST, BEFORE ANY VERDICT CAN BE MADE.
+  // The numbers ride the rules OTA so a threshold change costs a git
+  // push instead of a 56MB install -- four of those landed on the owner
+  // in one night. tuning.mjs whitelists the keys and CLAMPS every value
+  // to a range declared in code, and refuses everything else, so the
+  // worst a bad push can do is move a dial to an edge that file already
+  // considered safe. It cannot throw.
+  try {
+    applyTuningFromWindow(window);
+  } catch (e) {}
 
   // Drag-to-miniplayer (owner ask, twice). Installed BEFORE the mode
   // gate and before the bench hook: it is a player behaviour, not a

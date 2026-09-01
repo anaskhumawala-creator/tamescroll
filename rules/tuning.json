@@ -1,0 +1,10 @@
+{
+  "_comment": "OTA-tunable gaze numbers. Whitelisted and CLAMPED by app/gaze/src/tuning.mjs -- unknown keys are refused, out-of-range values are pulled to the nearest edge, and every range in that file is a protection decision with its reason written beside it. Numbers only: executable code stays in the binary, same store-policy split as scriptlets. Run scripts/gen-rules-manifest.mjs after editing or shipped apps never see the change.",
+  "CUT_DELTA": 50,
+  "GENDER_CLEAR_SCORE": 0.45,
+  "GENDER_CLEAR_SCORE_FEMALE": 0.35,
+  "NULL_MINT_NM_FLOOR": 5,
+  "MEM_TRUST_MAN": 2,
+  "MEM_TRUST_WOMAN": 1,
+  "MEM_SIM": 0.6
+}
