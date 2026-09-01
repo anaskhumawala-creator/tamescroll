@@ -24,6 +24,11 @@ import {
   FACE_MIN_NATIVE_PX,
 } from './gender-verdict.mjs';
 import { markShape, markRing } from './face-marks.mjs';
+import {
+  createIdentityMemory,
+  askIdentity,
+  trustNeeded,
+} from './identity-memory.mjs';
 import { clampBodies, BODY_CLAMP_PAD } from './body-clamp.mjs';
 import {
   personCropRegion,
@@ -1679,6 +1684,10 @@ if (
     // as unknown (⇒ covered). Registered in docs/detection-engine.md.
     var VERDICT_TIMEOUT_MS = 900;
     var lastPassAt = 0;
+    // Per-VIDEO, and wiped on loadstart with the rest of the per-video
+    // state. An identity that has earned a clear in this stream says
+    // nothing about the next one.
+    var identityMem = createIdentityMemory();
     // IDENTITY MEMORY WAS DELETED IN R13. Do not rebuild it without
     // reading this first — it was the owner's own idea (2026-08-24,
     // "keep the person in memory and always blur her/him"), it sounded
@@ -2939,7 +2948,7 @@ if (
                       ? 'readWeak'
                       : 'readUncertain'
             );
-            return {
+            var obsOut = {
               box: person,
               flagged: mine.flagged,
               certain: mine.certain,
@@ -2996,6 +3005,42 @@ if (
               faceFound: true,
               desc: faceDesc,
             };
+            // IDENTITY OUTLIVES THE TRACK. See identity-memory.mjs for
+            // why this exists and why R13's version is not being
+            // rebuilt: over the 482 frames a man is covered on the
+            // corpus, the covering track changes 260 times and a track
+            // is born blurred, so an earned clear cannot survive to the
+            // pass that would confirm it.
+            //
+            // Applied AFTER the observation is built rather than inside
+            // faceMeta, because faceMeta answers about THIS READ and
+            // this is a question about the subject across reads. It can
+            // only ever move an observation toward CLEAR, so it cannot
+            // add coverage 1081 did not have.
+            var memRead = genderReads && genderReads[own];
+            if (
+              askIdentity(identityMem, faceDesc, {
+                readClear: !mine.flagged && mine.certain,
+                certainOpposite: mine.flagged && mine.certain,
+                // Not "is it certain" -- just "does it point our way".
+                leansOwn: !!memRead && (userGender === 'man'
+                  ? memRead.raw >= 0.5
+                  : memRead.raw < 0.5),
+                hasSignal: hasDescriptorSignal(memRead),
+                need: trustNeeded(userGender),
+              })
+            ) {
+              obsOut.flagged = false;
+              obsOut.certain = true;
+              obsOut.abstained = false;
+              obsOut.weak = false;
+              // The shipped escape person-track already honours: clear a
+              // blurred track without waiting out CLEAR_STREAK_N, which
+              // is the requirement the churn makes unreachable.
+              obsOut.instant = true;
+              bumpLife('memClear');
+            }
+            return obsOut;
           });
         });
       }
@@ -3018,6 +3063,7 @@ if (
       videoTracks = [];
       heldPersons = [];
       lastPassAt = 0;
+      identityMem = createIdentityMemory();
       // eslint-disable-next-line no-console
       console.warn('tamescroll gaze: video unreadable, failing open (' + reason + ')', err);
     }

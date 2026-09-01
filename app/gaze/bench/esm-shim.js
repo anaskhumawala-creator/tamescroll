@@ -6,3 +6,4 @@ export * from '../src/person-track.mjs';
 export * from '../src/person-gate.mjs';
 export { clampAway, clampBodies, BODY_CLAMP_PAD } from '../src/body-clamp.mjs';
 export * from '../src/scene-gate.mjs';
+export * from '../src/identity-memory.mjs';

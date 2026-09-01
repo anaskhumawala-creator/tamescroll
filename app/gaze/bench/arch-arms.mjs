@@ -30,6 +30,7 @@
 // no standard-error argument applies to the pool.
 import fs from 'fs';
 import * as SHIPPED from './.cache/shipped.mjs';
+import { createIdentityMemory, askIdentity, trustNeeded } from './.cache/shipped.mjs';
 import { ROOT, W, H } from './corpus-lib.mjs';
 
 const ASPECT = W / H;
@@ -178,6 +179,7 @@ export function makeArms(mod) {
     const o = opts || {};
     return function (win, g) {
       let tracks = [];
+      const mem = createIdentityMemory();
       let measured = 0, faceTotal = 0;
       // 1079 threads the bounded null-mint hold back out of the tracker.
       // Omitting it does not run the shipped decision layer at all.
@@ -206,6 +208,49 @@ export function makeArms(mod) {
         if (o.cut && win.cuts && win.cuts[fi]) { tracks = []; held = o.hold ? [] : null; }
         const base = faceMeta(g, fr.faces.map(readOf));
         const decided = [];
+        // IDENTITY MEMORY AT BIRTH. churn.mjs measured the covering
+        // track over a MAN changing 260 times in 482 covered frames,
+        // median run ONE frame -- and a track is born blurred, so an
+        // earned clear dies with the id that earned it and the next id
+        // starts from scratch. That is why CLEAR_STREAK_N 1 recovered
+        // 4.5% and every geometry lever recovered ~1s: the clear never
+        // gets a second pass on the same track to accumulate on.
+        //
+        // The descriptor memory this app already ships stores EARNED
+        // clear states and is consulted on a read. It is not consulted
+        // at BIRTH, which is the exact moment being destroyed.
+        //
+        // `obs.instant` is the shipped escape: person-track clears a
+        // blurred track on `obs.instant` without waiting for the streak.
+        // So remembering an identity costs no new state machine.
+        //   'strict' the CURRENT read must still be clear-certain; the
+        //            memory only removes the SECOND-pass requirement.
+        //   'loose'  a remembered identity clears on any read that is
+        //            not certain-opposite. Strictly more exposure, so it
+        //            is priced rather than assumed.
+        const memMark = [];
+        if (o.mem) {
+          for (let i = 0; i < fr.faces.length; i++) {
+            const f = fr.faces[i], b = base[i] || {};
+            const d = f._noRead ? null : descOf(win, f.descIdx);
+            // THE SHIPPED CALL, not a bench reimplementation of it. The
+            // first version of this arm carried its own copy of the
+            // memory, so the number being reported was produced by code
+            // that could not ship -- the same defect the clamp arm was
+            // fixed for. askIdentity owns the trust counter, the
+            // revocation and the lean guard; the arm only supplies the
+            // read.
+            memMark.push(askIdentity(mem, d, {
+              readClear: b.flagged === false && b.certain === true,
+              certainOpposite: b.flagged === true && b.certain === true,
+              leansOwn: g === 'man' ? f.raw >= 0.5 : f.raw < 0.5,
+              hasSignal: f.nm >= NM_FLOOR,
+              need: o.mem === 'loose' ? 1 : (o.mem === 'loose2' ? 2 : trustNeeded(g)),
+            }));
+            if (memMark[i] && o.memAudit)
+              o.memAudit.push({ crop: f.crop, sim: 0, raw: f.raw, px: f.px, nm: f.nm });
+          }
+        }
         const meta = fr.faces.map((f, i) => {
           const b = base[i] || {};
           if (!o.pool || f._noRead) { decided.push(null); return b; }
@@ -227,17 +272,6 @@ export function makeArms(mod) {
           if (best.decided === 'clear') return { ...b, flagged: false, certain: true, abstained: false };
           return { ...b, flagged: true, certain: true, abstained: false, instant: true };
         });
-        // Only a DECIDED-CLEAR face WITH DESCRIPTOR SIGNAL may push an
-        // edge. Found by looking at the render: a projected graphic on a
-        // TED backdrop is detected as a face, decided clear, and pulls
-        // the speaker's patch off her side -- and the score cannot see
-        // that harm, because a graphic carries no label.
-        // WHOSE "CLEAR" DRIVES THE CLAMP. Coupling it to the POOL was a
-        // defect: the pool needs MIN_VOTES reads, and at his measured
-        // 1.5s verdict cadence it gets a third of the votes, so the
-        // clamp almost never fired -- which is why it bought nothing at
-        // his rate. The shipped per-frame verdict answers the same
-        // question every pass, for free, at any cadence.
         // MEASURED EXTENT ARM. `ssdMin` selects the detector score floor;
         // absent, every body is the synthetic guess exactly as today.
         let ssdBoxes = null;
@@ -249,7 +283,11 @@ export function makeArms(mod) {
             box = bodyFromSsd(ssdBoxes, f, o.ssdMin, o.ssdPad != null ? o.ssdPad : 0.045);
             if (box) nMeasured++;
           }
-          return obsOf(f, meta[i] || {}, dt, descOf(win, f.descIdx), box);
+          const m = meta[i] || {};
+          const mm = memMark[i]
+            ? { ...m, flagged: false, certain: true, abstained: false, instant: true }
+            : m;
+          return obsOf(f, mm, dt, descOf(win, f.descIdx), box);
         });
         measured += nMeasured;
         faceTotal += fr.faces.length;
