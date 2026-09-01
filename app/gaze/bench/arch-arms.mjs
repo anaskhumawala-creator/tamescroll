@@ -161,6 +161,15 @@ export function makeArms(mod) {
   const { faceMeta, personFromFace, dedupeObservations, updatePersonTracks,
     setVerdictCadence, clampBodies } = mod;
   const modBound = mod.boundBodyToSlot;
+  // FROM THE VARIANT, NOT THE MODULE SCOPE. These were imported from
+  // .cache/shipped.mjs at the top of this file, so a constant sweep
+  // built by rewriting a variant bundle could not move them and every
+  // row printed identical. That has now broken three sweeps in one
+  // session; a sweep that cannot move is a broken instrument, not a
+  // null result.
+  const modMakeMem = mod.createIdentityMemory;
+  const modAsk = mod.askIdentity;
+  const modTrust = mod.trustNeeded;
   const modParse = mod.parsePersons;
   const modRejected = mod.rejectedSlotBoxes;
   const modMinScore = mod.PERSON_MIN_SCORE;
@@ -196,7 +205,7 @@ export function makeArms(mod) {
     const o = opts || {};
     return function (win, g) {
       let tracks = [];
-      const mem = createIdentityMemory();
+      const mem = modMakeMem();
       let measured = 0, faceTotal = 0;
       // 1079 threads the bounded null-mint hold back out of the tracker.
       // Omitting it does not run the shipped decision layer at all.
@@ -282,12 +291,12 @@ export function makeArms(mod) {
             // fixed for. askIdentity owns the trust counter, the
             // revocation and the lean guard; the arm only supplies the
             // read.
-            memMark.push(askIdentity(mem, d, {
+            memMark.push(modAsk(mem, d, {
               readClear: b.flagged === false && b.certain === true,
               certainOpposite: b.flagged === true && b.certain === true,
               leansOwn: g === 'man' ? f.raw >= 0.5 : f.raw < 0.5,
               hasSignal: f.nm >= NM_FLOOR,
-              need: o.mem === 'loose' ? 1 : (o.mem === 'loose2' ? 2 : trustNeeded(g)),
+              need: o.mem === 'loose' ? 1 : (o.mem === 'loose2' ? 2 : modTrust(g)),
             }));
             if (memMark[i] && o.memAudit)
               o.memAudit.push({ crop: f.crop, sim: 0, raw: f.raw, px: f.px, nm: f.nm });

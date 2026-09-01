@@ -823,9 +823,35 @@ function sizeStepProbe(t, obs, dt, srcFlip) {
  * 0 = hold it for exactly this one pass.
  */
 function graceSpend(obs, t, clearStreak) {
-  // An abstention always spends: the age gate returns a CHILD as an
-  // abstention, so any grace here would be a grace for children.
-  if (obs.abstained) return 1;
+  // A CHILD ABSTENTION ALWAYS SPENDS. The age gate returns a child as an
+  // abstention, and a grace for children is exactly what must not exist:
+  // a child read is the one class the pipeline openly declares
+  // untrustworthy, and holding a rung on one keeps a clear alive over
+  // her.
+  //
+  // THE OTHER ABSTENTION IS NOT THAT. It is an adult face the model
+  // could not read -- faceMeta's null branch -- and "the same person is
+  // still there, we just could not read them well" is precisely the
+  // grace's own argument, already granted to a plain non-certain read.
+  // Refusing it was collateral from having no way to tell the two apart;
+  // `childAbstain` names the one that matters.
+  //
+  // WHY IT IS WORTH SEPARATING, measured live on his phone: 15
+  // abstentions against 9 clear-certain reads in one window, and of 31
+  // tracks, 8 peaked at clear-streak exactly 1 -- one read short, with
+  // an abstention in between spending the rung every time. Only 7 of 31
+  // ever cleared.
+  //
+  // The bound is unchanged in the direction that matters: this holds a
+  // rung for ONE pass, only when a certain clear read in THIS shot paid
+  // for it, and the `faceFound === false` term below still spends
+  // unconditionally -- so the substitution case the grace's exposure
+  // note names is untouched.
+  if (obs.abstained) {
+    if (obs.childAbstain || obs.faceFound === false) return 1;
+    if (clearStreak > 0) bump('clearGraceNull');
+    return t.lastVerdict === 'clear-certain' ? 0 : 1;
+  }
   // R30 CRITIC F1 — A PASS THAT FOUND NO FACE ALWAYS SPENDS, and this is
   // the term that keeps the grace's own safety argument true.
   //

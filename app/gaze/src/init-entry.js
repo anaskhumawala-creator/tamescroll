@@ -2983,6 +2983,16 @@ if (
               // you add a verdict field, add it HERE too, and prove it
               // with a life counter in a real run, not with a test.
               abstained: !!mine.abstained,
+              // WHICH KIND OF ABSTENTION. person-track's clear grace
+              // refuses every abstention because ONE of them is a child,
+              // and a grace for children is exactly what must not exist.
+              // The other kind is a face we simply could not read, which
+              // is the situation the grace already forgives. Carried
+              // here, per the warning above, because a builder that
+              // drops a field makes its consumer unreachable and the
+              // unit tests hand observations straight to
+              // updatePersonTracks. `clearGraceNull` is its counter.
+              childAbstain: !!mine.childAbstain,
               // Weak same-direction evidence (S6). Added HERE at the same
               // time as its producer and consumer, per the warning above:
               // R12 shipped `abstained` in gender-verdict and person-track

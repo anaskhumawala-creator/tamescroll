@@ -52,12 +52,16 @@ test('an uncertain read DECAYS the clear credit while blurred (never zeroes it)'
   // Interleave confident/unreadable so the fast-clear streak never fires
   // — this pins the ACCUMULATION path (a person looking down at a phone
   // reads uncertain most frames).
-  // R30: the interleaver has to be an ABSTENTION now. A plain uncertain
-  // read holds one rung for a single pass, so `c!, uncertain, c!` reaches
-  // CLEAR_STREAK_N and clears — which is that round's whole point, and is
-  // pinned separately. An abstention still spends the rung in full, so it
-  // isolates the clearMs path exactly as this test always meant to.
-  const gap = { box: boxA, flagged: true, certain: false, abstained: true };
+  // R30: the interleaver has to fully SPEND the rung, or the fast-clear
+  // streak fires and this stops testing accumulation at all. A plain
+  // uncertain read holds one rung for a single pass, and since loop 40 so
+  // does an abstention on an adult face the model could not read.
+  //
+  // The interleaver is therefore a read that found NO FACE, which is what
+  // "face turned away" below has always meant and is the one case that
+  // spends unconditionally -- back-turned, walked-in and substituted all
+  // arrive this way, and the grace may never forgive them.
+  const gap = { box: boxA, flagged: true, certain: false, abstained: true, faceFound: false };
   let tracks = updatePersonTracks([], [obs(boxA, false, true)], 250);
   tracks = updatePersonTracks(tracks, [gap], 250);
   tracks = updatePersonTracks(tracks, [obs(boxA, false, true)], 250);
@@ -262,17 +266,64 @@ test('fast clear: 2 consecutive certain adult clears lift the blur without the h
 });
 
 // R30 REVERSED THE PLAIN-UNCERTAIN HALF OF THIS TEST ON PURPOSE — see
-// `a certain clear split by ONE unreadable pass still clears`. What is
-// pinned here is the half that did NOT move: an ABSTENTION between two
-// certain reads still breaks the streak, because the age gate returns a
+// `a certain clear split by ONE unreadable pass still clears`. What was
+// pinned here is the half that did NOT move: an abstention between two
+// certain reads still breaks the streak, "because the age gate returns a
 // child as an abstention and S6's derivation depends on that read being
-// unable to accumulate anything.
-test('fast clear: an ABSTENTION in between still resets the streak', () => {
+// unable to accumulate anything."
+//
+// THAT REASON IS ABOUT THE CHILD, AND THE FIXTURE WAS NOT. `abstained`
+// has two producers -- a child, and an adult face the model could not
+// read -- and this test asserted the child's property using a fixture
+// that is the other one. So the split below is not a weakening: the
+// child half is pinned exactly as it was, and the half the stated reason
+// never covered is pinned to the behaviour the grace already grants a
+// plain non-certain read.
+test('fast clear: a CHILD abstention in between still resets the streak', () => {
   const box = { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 };
   let tracks = pt.updatePersonTracks([], [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
-  tracks = pt.updatePersonTracks(tracks, [{ box, flagged: true, certain: false, abstained: true, verdictDt: 250 }], 250);
+  tracks = pt.updatePersonTracks(tracks,
+    [{ box, flagged: true, certain: false, abstained: true, childAbstain: true, verdictDt: 250 }], 250);
   tracks = pt.updatePersonTracks(tracks, [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
   assert.equal(tracks[0].state, 'blurred'); // streak broken, one read again
+});
+
+// Measured live on his phone, which is why this half exists: 15
+// abstentions against 9 clear-certain reads in one window, and 8 of 31
+// tracks peaked at clear-streak exactly 1 -- one read short, with an
+// unreadable pass in between spending the rung every time.
+test('fast clear: an UNREADABLE ADULT in between does not reset the streak', () => {
+  const box = { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 };
+  let tracks = pt.updatePersonTracks([], [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
+  tracks = pt.updatePersonTracks(tracks,
+    [{ box, flagged: true, certain: false, abstained: true, verdictDt: 250 }], 250);
+  tracks = pt.updatePersonTracks(tracks, [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
+  assert.equal(tracks[0].state, 'cleared');
+});
+
+// The grace forgives ONE pass, not a run of them: two unreadable passes
+// in a row must still cost the rung, or a man could be cleared on one
+// real read and a stream of nothing.
+test('the grace is one pass only — two unreadable passes still reset', () => {
+  const box = { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 };
+  const dead = { box, flagged: true, certain: false, abstained: true, verdictDt: 250 };
+  let tracks = pt.updatePersonTracks([], [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
+  tracks = pt.updatePersonTracks(tracks, [dead], 250);
+  tracks = pt.updatePersonTracks(tracks, [dead], 250);
+  tracks = pt.updatePersonTracks(tracks, [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
+  assert.equal(tracks[0].state, 'blurred');
+});
+
+// A face that was never there cannot vouch for anyone: the back-turned,
+// walked-in and SUBSTITUTED cases all arrive as a non-abstained
+// no-face read, and the grace's own exposure note names them.
+test('an unreadable pass that found NO FACE still resets the streak', () => {
+  const box = { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 };
+  let tracks = pt.updatePersonTracks([], [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
+  tracks = pt.updatePersonTracks(tracks,
+    [{ box, flagged: true, certain: false, abstained: true, faceFound: false, verdictDt: 250 }], 250);
+  tracks = pt.updatePersonTracks(tracks, [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
+  assert.equal(tracks[0].state, 'blurred');
 });
 
 
@@ -585,14 +636,18 @@ test('a face found but unread keeps the rung', () => {
   assert.equal(tracks[0].state, 'cleared');
 });
 
-test('an abstention between two certain reads does NOT clear', () => {
+// The fixture is a CHILD abstention on purpose. `abstained` has two
+// producers and only one of them may never be forgiven; the other is an
+// adult face the model could not read, which the test above
+// ("a face found but unread keeps the rung") already grants the grace to.
+test('a child abstention between two certain reads does NOT clear', () => {
   let tracks = updatePersonTracks([], [obs(boxA, false, true)], 250);
   tracks = updatePersonTracks(
     tracks,
-    [{ box: boxA, flagged: true, certain: false, abstained: true }],
+    [{ box: boxA, flagged: true, certain: false, abstained: true, childAbstain: true }],
     250,
   );
-  assert.equal(tracks[0].clearStreak, 0, 'an abstention spends the rung');
+  assert.equal(tracks[0].clearStreak, 0, 'a child abstention spends the rung');
   tracks = updatePersonTracks(tracks, [obs(boxA, false, true)], 250);
   assert.equal(tracks[0].state, 'blurred');
 });
@@ -809,12 +864,21 @@ test('abstention on a blurred track cannot demote it or move its credit', () => 
     )[0];
   };
   const plain = grow({});
-  const abstained = grow({ abstained: true });
-  assert.equal(abstained.state, 'blurred');
-  assert.equal(abstained.state, plain.state);
-  assert.equal(abstained.clearMs, plain.clearMs);
+  // The child is the abstention the reason above is about, and she is
+  // the one that must still spend the rung.
+  const child = grow({ abstained: true, childAbstain: true });
+  const unread = grow({ abstained: true });
+  assert.equal(child.state, 'blurred');
+  assert.equal(child.state, plain.state);
+  assert.equal(child.clearMs, plain.clearMs);
   assert.equal(plain.clearStreak, 1, 'a plain uncertain read holds the rung');
-  assert.equal(abstained.clearStreak, 0, 'an abstention spends it');
+  assert.equal(child.clearStreak, 0, 'a child abstention spends it');
+  // And the equivalence the comment says was "ever argued for" holds for
+  // BOTH kinds: an unreadable read still cannot change a blurred track's
+  // state or its credit. Only the streak was split.
+  assert.equal(unread.state, 'blurred');
+  assert.equal(unread.clearMs, plain.clearMs);
+  assert.equal(unread.clearStreak, 1, 'an unreadable adult holds the rung');
 });
 
 // ---------------------------------------------------------------------

@@ -113,12 +113,12 @@ test('faceMeta: child faces never clear — gender untrusted below GENDER_ADULT_
   // GENDER_INSTANT_CLEAR and the child still never clears. R18 also makes
   // it an ABSTENTION, so it cannot buy CLEARED_TTL_MS of absorption on a
   // track that was cleared on somebody else.
-  assert.deepEqual(m[0], { flagged: true, certain: false, abstained: true });
+  assert.deepEqual(m[0], { flagged: true, certain: false, abstained: true, childAbstain: true });
   assert.deepEqual(m[1], { flagged: false, certain: true, instant: true, weak: true });
   // Child opposite-gender read: same treatment. It is still flagged, and
   // it may not act as a POSITIVE reading in either direction.
   const k2 = faceMeta('woman', [{ gender: 'male', score: 0.95, age: 10 }]);
-  assert.deepEqual(k2[0], { flagged: true, certain: false, abstained: true });
+  assert.deepEqual(k2[0], { flagged: true, certain: false, abstained: true, childAbstain: true });
 });
 
 test('faceMeta: child MASS gates the read even when the mean says adult', () => {
@@ -131,6 +131,9 @@ test('faceMeta: child MASS gates the read even when the mean says adult', () => 
     flagged: true,
     certain: false,
     abstained: true,
+    // A child abstention is NAMED, because person-track's clear grace
+    // forgives an unreadable adult and must never forgive her.
+    childAbstain: true,
   });
   // The teacher in the same footage: worst childP observed over 23 reads
   // was 0.18, and she must still be able to clear.
@@ -150,6 +153,7 @@ test('faceMeta: a read with no childP falls back to the mean, unchanged', () => 
     flagged: true,
     certain: false,
     abstained: true,
+    childAbstain: true,
   });
 });
 
@@ -444,10 +448,10 @@ test('R23 instant bar: a child read at 0.85 is still never certain', () => {
   // read can never be mistaken for evidence, not merely that one flag on
   // it is false.
   const m = faceMeta('man', [{ gender: 'male', score: 0.85, age: 9, childP: 0.42 }]);
-  assert.deepEqual(m[0], { flagged: true, certain: false, abstained: true });
+  assert.deepEqual(m[0], { flagged: true, certain: false, abstained: true, childAbstain: true });
   assert.ok(!m[0].instant);
   const byMass = faceMeta('man', [{ gender: 'male', score: 0.85, age: 31, childP: 0.3 }]);
-  assert.deepEqual(byMass[0], { flagged: true, certain: false, abstained: true });
+  assert.deepEqual(byMass[0], { flagged: true, certain: false, abstained: true, childAbstain: true });
   assert.ok(!byMass[0].instant, 'childP mass alone blocks it too');
 });
 

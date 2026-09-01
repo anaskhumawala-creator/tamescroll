@@ -755,7 +755,16 @@ export function faceMeta(userGender, faces) {
     // declares untrustworthy, and it was the only one not routed there.
     // Two consecutive child reads now demote a cleared track instead.
     if (directed && !adult) {
-      out.push({ flagged: true, certain: false, abstained: true });
+      // `childAbstain` NAMES THE ONE ABSTENTION THAT MAY NEVER BE
+      // FORGIVEN. person-track's clear grace refuses every abstention
+      // today, and its comment gives the reason exactly: "the age gate
+      // returns a CHILD as an abstention, so any grace here would be a
+      // grace for children." That reason is right and it is about THIS
+      // branch only -- the null branch above is a face we could not
+      // read, which is the same situation the grace already forgives.
+      // Without this flag the two are indistinguishable downstream and
+      // the child forces the unreadable adult to be refused too.
+      out.push({ flagged: true, certain: false, abstained: true, childAbstain: true });
       continue;
     }
     var certain;

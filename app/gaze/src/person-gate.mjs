@@ -63,6 +63,33 @@ export var LOW_TIER_MAX_SPRAWL = 3;
 // extrapolation is capped, and the cap itself in normalized-x half-width.
 // Both measured; see the block inside personFromFace.
 export var PFF_CLOSEUP_H = 0.18;
+// HOW FAR BELOW THE FACE THE SYNTHETIC BODY REACHES, in face-heights.
+//
+// SWEPT AND HELD AT 6.0. This was the last dimension of personFromFace
+// nobody had measured, and the corpus says shortening it is free or
+// better: at 3.5, man reads exposure 81.0 -> 80.0s, false cover 216.5 ->
+// 216.0s, phantom 144.0 -> 133.5s; woman holds exposure at 85.0s and
+// takes phantom 141.5 -> 132.0s. 2.5 costs exposure in both, so 3.5
+// looked like the edge and looked like a clear win.
+//
+// IT IS NOT, AND ONLY LOOKING COULD SAY SO. The corpus scores where
+// BlazeFace found a FACE, so it cannot see BODY exposure -- there is no
+// face at knee height to score. Rendered (bench/down-render.mjs, and it
+// had to be pointed at MID-SHOTS: in a true close-up both settings clamp
+// to y2 = 1 and produce byte-identical pictures, which the first run did
+// 25 times and proved nothing). On the RcGyVTAoXEU stage at t=580.5 the
+// speaker's legs are FULLY SHARP below a 3.5 patch and covered to the
+// knee by 6.0 -- real exposure, scored as an IMPROVEMENT.
+//
+// This is the same trap, on the same kind of subject, that refused the
+// earlier blanket narrowing after body-arm rendered a podium speaker
+// losing her dress. Do not re-sweep this against the score alone.
+//
+// So the large patch the owner sees is not over-reach: a person really
+// is that big in frame, and the frames where 6.0 covers only scenery are
+// worth 10.5s of phantom against somebody's legs.
+export var PFF_BODY_DOWN = 6.0;
+
 export var PFF_HALF_CAP = 0.35;
 // R21. Minimum keypoint confidence ANYWHERE in the frame before an
 // UNCORROBORATED face may be extrapolated into a body. See
@@ -1274,7 +1301,7 @@ export function personFromFace(face, aspect) {
     x1: Math.max(0, cx - halfX),
     y1: Math.max(0, cy - h * 1.4),
     x2: Math.min(1, cx + halfX),
-    y2: Math.min(1, cy + h * 6.0),
+    y2: Math.min(1, cy + h * PFF_BODY_DOWN),
     confidence: face.confidence,
     headX: cx,
     headY: cy,
