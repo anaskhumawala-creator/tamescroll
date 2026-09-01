@@ -328,6 +328,15 @@ export function buildReport(snap) {
       // apart, and one of them turned out to be the first.
       seen: num(s.seen),
       blocked: num(s.blocked),
+      // WHICH TUNED NUMBERS HIS PHONE IS ACTUALLY RUNNING.
+      //
+      // The OTA tuning channel exists so a threshold moves without an
+      // install. Until now the artifact could not say whether a pushed
+      // number REACHED his device, was CLAMPED to a range edge, or was
+      // REFUSED -- so a tuned phone and an untuned one produced
+      // identical reports, and every ring read since the channel shipped
+      // was unattributable to a set of constants.
+      tuning: tuningBlock(ids.tuning),
     },
     boot: {
       evalMs: num(s.evalMs),
@@ -495,6 +504,24 @@ export function lifeCounters(life, dropKey) {
     n++;
   }
   if (dropped) out[dropKey || 'lifeDropped'] = dropped;
+  return out;
+}
+
+// Numbers only, BY CONSTRUCTION: a value that is not finite is dropped
+// rather than coerced, so a hostile or malformed window value cannot put
+// a string into the report. `applied` is the tuning whitelist's own
+// output and could only hold known numeric keys -- it is filtered anyway,
+// because the report's guarantee is its shape check and never an
+// assumption about who wrote the object it read.
+function tuningBlock(t) {
+  var out = { refused: num(t && t.refused), clamped: num(t && t.clamped), applied: {} };
+  var a = t && t.applied;
+  if (a && typeof a === 'object') {
+    for (var k in a) {
+      if (!Object.prototype.hasOwnProperty.call(a, k)) continue;
+      if (typeof a[k] === 'number' && isFinite(a[k])) out.applied[k] = a[k];
+    }
+  }
   return out;
 }
 

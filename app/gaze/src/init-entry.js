@@ -95,7 +95,7 @@ import { createWorkerClient } from './worker-client.mjs';
 import { startWorker } from './worker-entry.js';
 import { installMiniplayer } from './miniplayer.mjs';
 import { makeVerdictCache, verdictKey } from './verdict-cache.mjs';
-import { applyTuningFromWindow } from './tuning.mjs';
+import { applyTuningFromWindow, TUNED, TUNE_REFUSED, TUNE_CLAMPED } from './tuning.mjs';
 
 // ONE ARTIFACT, TWO ROLES.
 //
@@ -130,6 +130,17 @@ if (
   // considered safe. It cannot throw.
   try {
     applyTuningFromWindow(window);
+    // WHICH NUMBERS IS HIS PHONE ACTUALLY RUNNING?
+    //
+    // Nothing recorded it. The channel exists so a threshold can move
+    // without an install, and the artifact he sends back could not say
+    // whether a pushed number reached his device, was CLAMPED to a range
+    // edge, or was refused -- so a tuned phone and an untuned one
+    // produced identical reports and every ring read since the channel
+    // shipped has been unattributable. Three numbers, all of them
+    // numeric or null, so the report's shape check passes them.
+    var ids = window.__TS_GAZE_IDS || (window.__TS_GAZE_IDS = {});
+    ids.tuning = { applied: TUNED, refused: TUNE_REFUSED, clamped: TUNE_CLAMPED };
   } catch (e) {}
 
   // Drag-to-miniplayer (owner ask, twice). Installed BEFORE the mode

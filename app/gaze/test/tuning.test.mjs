@@ -174,3 +174,48 @@ test('the shipped tuning.json equals the shipped constants exactly', () => {
       `${name} is tunable but absent from rules/tuning.json`);
   }
 });
+
+// WHICH NUMBERS IS HIS PHONE ACTUALLY RUNNING?
+//
+// The channel's whole point is that a threshold moves without an
+// install. Nothing recorded whether a pushed number REACHED a device,
+// was CLAMPED to a range edge, or was REFUSED -- so a tuned phone and an
+// untuned one produced identical reports, and every ring read since the
+// channel shipped was unattributable to a set of constants. That is the
+// same ambiguity that let the 1070 regression hide behind an absent
+// counter.
+test('the report says which tuned numbers took effect', async () => {
+  const { buildReport, reportViolations } = await import('../src/diag-report.mjs');
+  const r = buildReport({ ids: { tuning: {
+    applied: { CUT_DELTA: 60, GENDER_CLEAR_SCORE: 0.45 }, refused: 2, clamped: 1 } } });
+  assert.equal(r.engine.tuning.applied.CUT_DELTA, 60);
+  assert.equal(r.engine.tuning.refused, 2);
+  assert.equal(r.engine.tuning.clamped, 1);
+  // A ZERO MUST SURVIVE THE TRIP. "refused 0" and "the block never got
+  // hooked up" are different facts and the report has confused them
+  // before.
+  const z = buildReport({ ids: { tuning: { applied: {}, refused: 0, clamped: 0 } } });
+  assert.equal(z.engine.tuning.refused, 0);
+  assert.deepEqual(z.engine.tuning.applied, {});
+  // And an absent block must not throw or invent numbers.
+  const n = buildReport({});
+  assert.deepEqual(n.engine.tuning.applied, {});
+  assert.deepEqual(reportViolations(JSON.parse(JSON.stringify(r))), []);
+});
+
+test('nothing but a finite number can reach the tuning block', async () => {
+  // CODE MUST NEVER TRAVEL ON THIS CHANNEL, and the report is the last
+  // place a string could get laundered into an artifact he shares.
+  const { buildReport, reportViolations } = await import('../src/diag-report.mjs');
+  const r = buildReport({ ids: { tuning: { applied: {
+    CUT_DELTA: '60', GENDER_CLEAR_SCORE: NaN, MEM_SIM: 0.6,
+    evil: () => 1, worse: { toString() { return 'x'; } },
+  }, refused: 'lots', clamped: null } } });
+  assert.deepEqual(Object.keys(r.engine.tuning.applied), ['MEM_SIM']);
+  // NULL, NOT 0. A non-number becomes absent rather than being coerced
+  // to a plausible count -- "refused 0" is a fact about a healthy run and
+  // must never be manufactured out of a malformed one. The 1070
+  // regression hid behind exactly that confusion.
+  assert.equal(r.engine.tuning.refused, null);
+  assert.deepEqual(reportViolations(JSON.parse(JSON.stringify(r))), []);
+});

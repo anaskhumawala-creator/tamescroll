@@ -625,3 +625,36 @@ shape before (loop 38's circular score comparison). **A threshold
 between two classes has to be derived from the two classes, separately
 labelled -- not from a quantile of everything.**
 
+### 10h. CUT_DELTA 60 on the phone, and two gaps the A/B walked into
+
+**Device, n=1 per arm.** M2010J19SI, same video and timestamp, 120s:
+`cutDetected` **34 -> 29** at CUT_DELTA 50 -> 60, `wipeErasedBlurred`
+**4 -> 2**, births 15 -> 14, `birthCleared` 3 -> 4. Direction agrees with
+the corpus. One window per arm on one video is not a result -- it is a
+liveness check that the constant reached the device and moved the thing
+it is supposed to move.
+
+**GAP 1: nothing recorded which tuned numbers a phone is running.**
+The OTA channel exists so a threshold moves without an install, and the
+artifact he sends back could not say whether a pushed number REACHED his
+device, was CLAMPED to a range edge, or was REFUSED. **A tuned phone and
+an untuned one produced identical reports**, so every ring read since the
+channel shipped is unattributable to a set of constants. Now
+`engine.tuning = { applied, refused, clamped }`, filtered to finite
+numbers key by key -- the report's guarantee is its shape check, never an
+assumption about who wrote the object. A non-number becomes **null, not
+0**: "refused 0" is a fact about a healthy run and must not be
+manufactured out of a malformed one, which is the confusion the 1070
+regression hid behind.
+
+**GAP 2: the app's own write clobbers an injected dial**, so the first
+person-skip A/B ran the shipped value in BOTH arms and reported flat.
+lib.rs sets `window.__TS_GAZE_TUNING__` at `on_page_load`, which lands
+after `Page.addScriptToEvaluateOnNewDocument`. `probe_skip_ab.py` now
+COMPOSES over it -- an accessor whose setter merges the app's payload and
+re-applies the override, the same shape the repo's scriptlets use to
+compose over a page's -- **and refuses to run if the dial did not take**.
+It was caught only because the probe asserts the dial instead of assuming
+it; without that assertion it would have published "the person skip buys
+nothing" as a null result.
+
