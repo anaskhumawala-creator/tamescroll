@@ -205,7 +205,7 @@ export function makeArms(mod) {
   // threshold sweep from 0.8 to 0.3) -- a constant sweep that cannot
   // move is a harness failure, not a null result.
   const { faceMeta, personFromFace, dedupeObservations, updatePersonTracks,
-    setVerdictCadence, clampBodies } = mod;
+    setVerdictCadence, clampBodies, demoteTracks } = mod;
   const modBound = mod.boundBodyToSlot;
   // FROM THE VARIANT, NOT THE MODULE SCOPE. These were imported from
   // .cache/shipped.mjs at the top of this file, so a constant sweep
@@ -269,15 +269,34 @@ export function makeArms(mod) {
         // re-associating onto a stale CLEARED track left by a man in
         // the previous shot (bar-blame, z86LGEFyQpo t=57.5).
         //
-        // HALF-MODELLED, AND THE HALF THAT IS MISSING IS THE KIND ONE.
-        // The app's cut handler is "wipe tracks AND run an immediate
-        // full pass". The corpus banks reads only at its own frames, so
-        // there is nothing here to re-read with, and every wipe costs a
-        // full verdict interval of exposure that the app does not pay.
-        // So the ABSOLUTE numbers on a `cut` arm overstate exposure --
-        // read only the DIFFERENCE between two `cut` arms, where the
-        // same handicap applies to both.
-        if (o.cut && win.cuts && win.cuts[fi]) { tracks = []; held = o.hold ? [] : null; }
+        // IT CALLS THE SHIPPED HANDLER, AND FOR TWO ROUNDS IT DID NOT.
+        // Until 2026-09-02 this line was `tracks = []` under a comment
+        // asserting "a cut wipes every track". THE APP HAS NEVER WIPED:
+        // init-entry is `videoTracks = demoteTracks(videoTracks)`, whose
+        // own comment says "DEMOTE, don't wipe (review C2): boxes
+        // persist so coverage holds through the pass gap". A wipe leaves
+        // NOBODY COVERED until the next verdict frame -- 1.5s at his
+        // cadence -- so the arm manufactured one exposure gap per cut.
+        //
+        // AND THE OLD DEFENCE BELOW IT WAS EXACTLY BACKWARDS. It said to
+        // read only the DIFFERENCE between two cut arms because "the
+        // same handicap applies to both". The handicap is paid ONCE PER
+        // WIPE and `cutFrames` varies 100x across the CUT_DELTA axis
+        // (200 -> 59 -> 12 -> 2), so the difference between two arms is
+        // mostly the difference in how many gaps each one manufactured.
+        // That is how a flat exposure column was published as a fall of
+        // 67.0s -> 57.0s (engine-findings 10k, RETRACTED).
+        //
+        // STILL HALF-MODELLED, in the direction that overstates
+        // exposure: the app also forces an IMMEDIATE full pass at a cut,
+        // and the corpus banks reads only at its own frames, so there is
+        // nothing here to re-read with. That residue no longer scales
+        // with the swept axis the way the wipe did, but it is why a cut
+        // arm's ABSOLUTE exposure is still a bound rather than a figure.
+        if (o.cut && win.cuts && win.cuts[fi]) {
+          tracks = o.cutWipe ? [] : demoteTracks(tracks);
+          held = o.hold ? [] : null;
+        }
         let base = faceMeta(g, fr.faces.map(readOf));
         // A READ THAT CARRIED NO SIGNAL IS NOT AN ANSWER.
         // Measured LIVE on his phone (1082, 116 reads, one face per

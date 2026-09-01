@@ -74,7 +74,7 @@ test('a skipped pass can never report an empty frame', () => {
   assert.match(page, /emptyFrame = !persons\.skipped[\s\S]{0,40}persons\.length === 0 && faceEvidence === 0;/);
   // ...which needs the flag to survive both pass paths.
   assert.match(page, /persons\.skipped = !!r\.personsSkipped;/);
-  assert.match(page, /if \(!askPersons\) persons\.skipped = true;/);
+  assert.match(page, /if \(!askPersons\) \{ persons\.skipped = true;/);
 });
 
 test('IT SHIPS INERT: the default never skips a pass', () => {
@@ -179,7 +179,15 @@ test('a new stream clears the back-off, through the shipped entry', () => {
   const src = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
   const i = src.indexOf("video.addEventListener('loadstart'");
   assert.ok(i > 0, 'the loadstart handler moved -- re-anchor this test');
-  const handler = src.slice(i, src.indexOf('passEpoch++', i));
+  // COMMENTS STRIPPED FIRST (critic B4). A bare match on the handler
+  // text is green against `// resetPersonSkip();` -- the ordinary way a
+  // call gets disabled, and one this repo has shipped before. The
+  // behaviour half of this pair lives in the test below; what this one
+  // owns is the WIRING, and a wiring check that a comment satisfies is
+  // the dead-check shape critic-loop C2 names.
+  const handler = src.slice(i, src.indexOf('passEpoch++', i))
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^[ 	]*\/\/.*$/gm, '');
   assert.match(handler, /resetPersonSkip\(\)/,
     'the person-skip back-off is per-stream evidence and must be cleared '
     + 'on loadstart, or a new video inherits the last one\'s emptiness');

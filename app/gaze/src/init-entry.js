@@ -2005,7 +2005,17 @@ if (
             // there" and the eraser acted on. The flag rides the array
             // so every consumer can tell "the model looked and found
             // nobody" from "the model did not look".
+            // COUNT THE SKIP ITSELF (critic B3). `PERSON_SKIP_EVERY 3`
+            // does NOT stop the model: person-skip runs it ONE PASS IN
+            // THREE, so "faceNoShape went to 0 because the gate cannot
+            // fire on a pass that ran no model" predicts about a third
+            // of the old count, not zero. Nothing in the page could tell
+            // those two apart -- there has never been a counter for a
+            // skipped pass anywhere in app/gaze/src -- so the mechanism
+            // was asserted rather than measured. This is the number that
+            // settles it: skipped against passes, read on his phone.
             persons.skipped = !!r.personsSkipped;
+            if (persons.skipped) bumpLife('personPassSkipped');
             // notePersons stamps the held answer onto a skipped pass.
             notePersons(persons, !!r.personsSkipped);
             return { persons: persons, faces: r.faces || [] };
@@ -2028,7 +2038,7 @@ if (
         : Promise.resolve([]);
       return personsP
         .then(function (persons) {
-          if (!askPersons) persons.skipped = true;
+          if (!askPersons) { persons.skipped = true; bumpLife('personPassSkipped'); }
           notePersons(persons, !askPersons);
           return persons;
         })

@@ -30,9 +30,21 @@ for (const c of JSON.parse(fs.readFileSync(`${ROOT}/bank/label/clusters.json`, '
   if (labels[c.id]) for (const m of c.members) cropLabel.set(m.crop, labels[c.id]);
 const thin = (w, e) => ({ ...w, frames: w.frames.map((fr, i) =>
   i % e === 0 ? fr : { ...fr, faces: [], _labelFaces: fr.faces }) });
-const O = { hold: true, clampPad: 0.02, cut: true };
+// WHICH CUT HANDLER. `demote` is what the app ships and is the default;
+// `wipe` reproduces the pre-2026-09-02 arm, whose manufactured post-cut
+// exposure gap scaled with the very axis this file sweeps. A table from
+// one may never be compared to a table from the other, so the header
+// below STATES which one produced it -- a derivative that does not
+// declare itself is how 10k's retracted numbers travelled.
+const CUT_MODEL = process.env.CUT_MODEL || 'demote';
+if (CUT_MODEL !== 'demote' && CUT_MODEL !== 'wipe') {
+  throw new Error(`CUT_MODEL must be demote|wipe, got ${CUT_MODEL}`);
+}
+const O = { hold: true, clampPad: 0.02, cut: true, cutWipe: CUT_MODEL === 'wipe' };
 
-console.log(`gender=${g}  k=3 (his 1.5s)\n`);
+console.log(`gender=${g}  k=3 (his 1.5s)  cut handler=${CUT_MODEL}`
+  + (CUT_MODEL === 'wipe' ? '  <-- NOT WHAT THE APP DOES' : '  (shipped)'));
+console.log('');
 console.log('CUT_DELTA  cutFrames  EXPOSURE  FALSECOVER   PHANTOM   births  cleared');
 for (const v of [35, 40, 50, 60, 75, 90]) {
   // STAMP-DRIVEN, NEVER HARDCODED. This read `v === 50 ? cuts.json : ...`,

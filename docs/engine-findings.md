@@ -717,11 +717,42 @@ refusing now mints a patch. That is the phantom direction, which is
 what he calls "random blur marks here and there". 48 refusals in 100s
 is not a rounding error.
 
+**BUT THE STATED MECHANISM DOES NOT PREDICT ZERO, AND NOTHING IN THE
+PAGE COULD TELL (critic B3).** `PERSON_SKIP_EVERY 3` does not stop the
+model. `wantPersons` returns true when `skipsSince >= PERSON_SKIP_EVERY
+- 1`, so it runs **one pass in three** -- this repo's own test is named
+*"backed off, it still runs one pass in three -- never none"*. The gate
+is disarmed on the two skipped passes and armed on the third, so
+"skipping disarms the gate" predicts roughly **16**, not 0. Something
+else took the remaining refusals: plausibly the run simply had fewer
+uncorroborated faces, which would make the whole 48 an artefact of
+comparing two 100s windows rather than a cost of the dial at all. The
+derived figure **"~0.5 extra phantom mints per second" assumes all 48
+newly mint**, and on the stated mechanism it is at most ~0.32/s.
+
+**There was no counter anywhere in `app/gaze/src` for a skipped pass**,
+so the arithmetic above could not be checked from a report --
+`personPassSkipped` now exists on both pass paths for exactly that.
+`skipped` against `passes` in one ring settles it: if two thirds of
+passes skipped with `faceNoShape` still 0, the stated mechanism is
+refuted and the 48 was window-to-window variance.
+
 **NOT PUSHED.** `PERSON_SKIP_EVERY` stays 1 in `rules/tuning.json`. The
 frame-rate win is real and the exposure win is absent, so the trade is
 39% smoother rendering against ~0.5 extra phantom mints per second, and
 phantom is the complaint he has repeated most. It stays on the channel
 so it is one push away if his rings ever say the opposite.
+
+**THE WHOLE TABLE ABOVE IS n=1 PER ARM, AND THE ARMS WERE NOT ORDER-
+BALANCED (critic B7).** Both ran in one process with arm 1 first, so a
+warm HTTP/GPU cache is an unexcluded explanation for rAF 24.1 -> 33.6 Hz
+in the second arm. "reads/s flat at 1.00x" rests on 63 events per arm,
+a Poisson band of about +/-25%, which is wider than several of the
+differences read off it -- so "covered 61.6% vs 62.0%" is not a
+distinction this run can make. `probe_skip_ab.py` now banks its result
+to `spikes/gauntlet/skip-ab-<video>.json` and takes `REVERSED=1`; a real
+effect survives the swap, and until it has been run both ways every
+number in this section is a single sample.
 
 ### The instrument had a floor of 1 under its own refusal counter
 
@@ -801,6 +832,16 @@ should. High-score events are hard shot changes, the only thing this gate
 exists to catch. So the rows that bear on CUT_DELTA are the HIGH ones,
 where **60 catches 92.8-95.9%** -- not the 45.5% the bad table reported.
 
+**THAT FIGURE MAY NOT TRAVEL WITHOUT ITS ROW (critic B6), because the
+row is a selection on a correlated quantity.** scdet and our delta are
+both luma statistics at pearson 0.498 (A6), so filtering to scdet >= 25
+also filters toward cuts OUR OWN statistic already scores high: the
+median our-delta of the selected population rises 48.7 (>= 8) to 75.0
+(>= 25) to 93.5 (>= 30). At the >= 30 row the population median sits
+ABOVE the gate, so "60 catches 95.9%" is partly a restatement of the
+selection. The comparison that survives is BETWEEN COLUMNS on one row --
+60 against 75 at a fixed population -- never the percentage on its own.
+
 **3. scdet IS NOT AN INDEPENDENT INSTRUMENT, and 10g leaned on that
 word.** It scores the LUMA plane, which is the same quantity our 16x16
 grid measures. Executed: a hard **red -> green cut at matched luma scores
@@ -814,36 +855,72 @@ because the ground truth cannot see the cuts we cannot see either.
 Pricing the chroma-only class needs a third instrument that is not
 luma-based.
 
-### 10k. Two instruments disagree about 75, and the direct one decides
+### 10k. RETRACTED IN FULL: the "direct" instrument did not model the app
 
-With the table corrected, cut recall reads like a cliff between 60 and 75
-(92.8% -> 50.0% at scdet 25). The **labelled corpus measures the outcome
-that recall is a proxy for**, and says the opposite:
+**Everything this section concluded came from an arm that wipes tracks at
+a cut. The app has never wiped.** `init-entry` is
+`videoTracks = demoteTracks(videoTracks)`, and that function's own call
+site says why: *"DEMOTE, don't wipe (review C2): boxes persist so
+coverage holds through the pass gap."* `arch-arms.mjs` did `tracks = []`,
+under a comment asserting the opposite. A wipe leaves **nobody covered**
+until the next verdict frame -- 1.5s at his cadence -- so the arm
+manufactured one exposure gap per cut.
 
-| CUT_DELTA | cut frames | EXPOSURE | FALSE COVER | PHANTOM | births |
-|---|---|---|---|---|---|
-| 35 | 200 | 82.5s | 173.5s | 141.0s | 377 |
-| 50 | 115 | 71.0s | 167.5s | 149.0s | 310 |
-| **60** | 59 | **67.0s** | **163.5s** | **158.5s** | 270 |
-| 75 | 12 | 57.0s | 157.0s | 162.0s | 230 |
-| 90 | 2 | 55.5s | 155.0s | 163.0s | 222 |
+**And the defence written directly above that line was exactly backwards.**
+It said to read only the DIFFERENCE between two cut arms because "the
+same handicap applies to both". The handicap is paid ONCE PER WIPE, and
+`cutFrames` is the swept axis: 200 at CUT_DELTA 35 against 2 at 90. So
+the difference between two rows was mostly the difference in how many
+gaps each row invented.
 
-Exposure falls monotonically all the way to 90. **Both can be true**: a
-missed cut costs exposure only when a stale CLEARED track absorbs a
-DIFFERENT person's observation. Recall prices the cut; the corpus prices
-the conjunction; the conjunction is rare.
+Both arms, same instrument, same banks, `CUT_MODEL=wipe|demote`:
 
-**WHERE A PROXY AND A DIRECT MEASUREMENT OF THE THING IT PROXIES
-DISAGREE, THE DIRECT ONE DECIDES.** The critic's F1 concluded that
-pushing 75 risks exposure. That is the proxy talking, and the corpus
-refutes it. The real cost of 75 is **PHANTOM** (+3.5s over 60), which is
-his loudest complaint -- so 60 ships and 75 stays reachable on the OTA
-channel, on phantom evidence and never on the recall table.
+| CUT_DELTA | cuts | EXPOSURE wipe / **demote** | FALSE COVER | PHANTOM |
+|---|---|---|---|---|
+| 35 | 200 | 82.5s / **53.5s** | 173.5 / 198.0 | 141.0 / 202.5 |
+| 40 | 184 | 82.5s / **53.5s** | 173.0 / 194.5 | 145.5 / 203.5 |
+| 50 | 115 | 71.0s / **50.5s** | 167.5 / 183.0 | 149.0 / 191.5 |
+| 60 | 59 | 67.0s / **55.5s** | 163.5 / 170.5 | 158.5 / 182.0 |
+| 75 | 12 | 57.0s / **55.0s** | 157.0 / 158.0 | 162.0 / 166.5 |
+| 90 | 2 | 55.5s / **55.5s** | 155.0 / 155.5 | 163.0 / 163.5 |
 
-The OTA ceiling stays 75 for that reason. It was briefly lowered to 60
-while acting on the proxy; lowering it would have been the same error in
-the opposite direction, and it is only recorded here because catching
-myself doing it is the point of the loop.
+**"Exposure falls monotonically all the way to 90" was 95% instrument.**
+Under the shipped handler the column is FLAT and non-monotone -- 53.5,
+53.5, 50.5, 55.5, 55.0, 55.5 -- across a **100x** change in how often the
+gate fires. The published 67.0 -> 57.0 across 60 -> 75 is really
+55.5 -> 55.0.
+
+**And the sign of the stated cost inverts.** 10k said "the real cost of
+75 is PHANTOM (+3.5s over 60)" and shipped 60 on that basis. Under the
+shipped handler 60 -> 75 is phantom **-15.5s** and false cover
+**-12.5s**, with exposure -0.5s: 75 is better in every column, including
+the one the decision was justified by.
+
+**What survives, and it is not the rule I wrote.** "Where a proxy and a
+direct measurement disagree, the direct one decides" is fine as far as it
+goes, and it is not what failed. What failed is that I never asked
+whether the direct instrument models the shipped behaviour before letting
+it overrule the proxy. **A direct measurement earns its authority from
+fidelity, not from being direct** -- and this one contradicted a comment
+in the file it was modelling, which is a difference anybody could have
+read in ten seconds.
+
+**Where that leaves the number.** The corrected corpus says the scene
+gate's exposure protection is under 5s across the whole axis, while its
+false-cover and phantom cost is 40s+. That points the constant UP. The
+recall arm (11/A1) still says 75 agrees with scdet on only 50% of hard
+cuts against 92.8% at 60 -- and the corpus now explains why that is
+survivable: a missed cut costs exposure only when a stale CLEARED track
+absorbs a DIFFERENT person's observation, and the conjunction is rare
+enough that turning the gate almost entirely off (90, two cuts in the
+whole corpus) costs no measurable exposure at all.
+
+**The value is NOT moved in the same commit that admits the instrument
+was broken.** CUT_DELTA stays 60 here so a bisect can separate "the arm
+changed" from "his phone changed"; it travels on the OTA channel, so the
+push is free and reversible in seconds when it is made deliberately. The
+OTA ceiling stays 75.
+
 
 ### 10l. What went wrong underneath all of it: derivatives that do not declare themselves
 

@@ -16,7 +16,7 @@
 # BOTH ARMS RUN IN ONE INVOCATION, on the same video at the same
 # timestamp, because pass cost on this device varies by more between
 # sessions than the effect being measured.
-import json, sys, time
+import json, os, sys, time
 from emu_cdp import page, Tab
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 9231
@@ -101,8 +101,16 @@ def arm(skip_every):
     return {"tuned": tuned, "dur": dur, "life": d, "raf": rc.get("raf", 0),
             "cov": rc.get("cov", 0), "stages": s0}
 
+# ARM ORDER IS AN ARGUMENT, AND IT HAS TO BE (critic B7). Both arms run
+# in one process with arm 1 first, so a warm HTTP/GPU cache is an
+# unexcluded explanation for any improvement the SECOND arm shows -- and
+# the headline of the first run of this probe was rAF 24.1 -> 33.6 Hz in
+# exactly that direction. Run it once each way; a real effect survives
+# the swap.
+ORDER = (3, 1) if os.environ.get("REVERSED") else (1, 3)
+
 out = {}
-for n in (1, 3):
+for n in ORDER:
     print("--- PERSON_SKIP_EVERY %d ---" % n)
     r = arm(n); out[n] = r
     L = r["life"]
@@ -125,3 +133,17 @@ ra = (a["life"].get("readClearCertain",0)+a["life"].get("readAbstain",0)
 rb = (b["life"].get("readClearCertain",0)+b["life"].get("readAbstain",0)
       +b["life"].get("readUncertain",0)) / max(1.0, b["dur"])
 print("\nreads/s  off %.3f   skip3 %.3f   -> %.2fx" % (ra, rb, rb/max(1e-9, ra)))
+
+# PERSIST IT. The first run of this probe produced a table that lived
+# ONLY in docs/engine-findings.md prose -- nothing under spikes/ held the
+# numbers, so no later round could re-read them, re-derive from them, or
+# check them against a second run. Every other instrument in this
+# directory banks its raw output; this one did not, and a figure with no
+# artefact behind it is the shape this repo has been burned by all week.
+rec = {"order": list(ORDER), "video": VID, "secs": SECS,
+       "arms": {str(k): out[k] for k in out}}
+path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                    "skip-ab-%s%s.json" % (VID, "-rev" if ORDER[0] == 3 else ""))
+with open(path, "w") as fh:
+    json.dump(rec, fh, indent=1)
+print("banked %s" % path)
