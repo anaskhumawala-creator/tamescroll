@@ -553,3 +553,39 @@ TEST-HARNESS LIMIT worth knowing before trusting a green suite here: the
 DOM stub in `video-region.test.mjs` hardcodes `isConnected: true` and
 never propagates it, so no test could see the detached-host class of bug
 until one set it by hand.
+
+
+## A quoted heredoc through the agent Bash tool EATS ONE BACKSLASH (2026-09-02)
+
+`cat > f <<'EOF'` and `python - <<'PY'` are supposed to pass their body
+through literally. Through this harness they do not: one level of
+backslash is consumed. Measured three times in a row while writing one
+regex --
+
+    written                 landed in the file
+    /(?<!\)\|/               /(?<!\)\|/          (unterminated group)
+    "\n"                    a real newline
+    '\u0001'                a real control character
+
+Each produced a SyntaxError or a silently wrong parser, and the third
+one produced a file that PARSED and was wrong.
+
+**Write any file containing backslashes with the Write tool, not through
+a heredoc.** Regexes, escape sequences and Windows paths are all in
+scope. Rewriting the content to avoid backslashes entirely also works and
+is often better -- `split(/?
+/)` needs none, and matching a closed
+vocabulary by value needs no lookbehind at all.
+
+## A fixed /tmp backup path silently reverts an edit (2026-09-02)
+
+Two edits this round were undone by `cp /tmp/sg.bak f` and
+`cp /tmp/ie.bak f` restoring backups written by an EARLIER command --
+one of them putting back a version from before a committed change, which
+then showed up as a mystery deletion in `git diff`.
+
+The Bash tool's shell state does not persist between calls but the
+FILESYSTEM does, so a fixed backup name is shared across every invocation
+in the session. Use `mktemp` inside the same command that consumes it.
+This is the same shape as every staleness defect in engine-findings 10l:
+a derivative that does not declare which run it came from.
