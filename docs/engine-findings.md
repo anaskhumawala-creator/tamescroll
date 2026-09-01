@@ -905,21 +905,13 @@ fidelity, not from being direct** -- and this one contradicted a comment
 in the file it was modelling, which is a difference anybody could have
 read in ten seconds.
 
-**Where that leaves the number.** The corrected corpus says the scene
-gate's exposure protection is under 5s across the whole axis, while its
-false-cover and phantom cost is 40s+. That points the constant UP. The
-recall arm (11/A1) still says 75 agrees with scdet on only 50% of hard
-cuts against 92.8% at 60 -- and the corpus now explains why that is
-survivable: a missed cut costs exposure only when a stale CLEARED track
-absorbs a DIFFERENT person's observation, and the conjunction is rare
-enough that turning the gate almost entirely off (90, two cuts in the
-whole corpus) costs no measurable exposure at all.
-
-**The value is NOT moved in the same commit that admits the instrument
-was broken.** CUT_DELTA stays 60 here so a bisect can separate "the arm
-changed" from "his phone changed"; it travels on the OTA channel, so the
-push is free and reversible in seconds when it is made deliberately. The
-OTA ceiling stays 75.
+**Where that leaves the number: see 10m, because the demote arm was
+still biased and it was biased toward raising it.** The corrected arm
+above models demotion but not the app's forced verdict pass, which is
+what makes a cut CHEAP -- and that residue overstates the cost of firing
+one. Modelling it flips the exposure column a third time, back to what
+the recall proxy said. **CUT_DELTA stays 60**, and the value was never
+moved on either intermediate arm.
 
 
 ### 10l. What went wrong underneath all of it: derivatives that do not declare themselves
@@ -963,6 +955,79 @@ restoring backups written by an EARLIER command -- one of them putting
 back a version from before a committed change. A fixed backup path is a
 derivative that does not declare which run it came from. Use `mktemp`.
 
+
+### 10m. Model the forced pass too, and the exposure column flips a THIRD time -- onto the proxy
+
+The demote arm still did not model the whole handler. `init-entry` also
+sets `lastSample = 0; lastZoomAt = 0` at a cut, so the very next pass
+re-reads gender rather than only positions. **That forced pass is what
+makes a cut cheap**: demotion resets the clear ladder, and the immediate
+re-read is what lets a wrongly-demoted man pay it back at once.
+
+The corpus thins to k=3 to model his 1.5s cadence, which parks the real
+banked reads on `_labelFaces` -- so on a cut frame they can be handed
+straight back as INPUT. Same reads a verdict frame gets, nothing
+synthetic. `CUT_MODEL=full|demote|wipe`, all three reproducible:
+
+| CUT_DELTA | cuts | wipe | demote only | **full (shipped)** | FALSE COVER | PHANTOM |
+|---|---|---|---|---|---|---|
+| 35 | 200 | 82.5s | 53.5s | **33.0s** | 174.0s | 253.0s |
+| 40 | 184 | 82.5s | 53.5s | **33.0s** | 174.5s | 251.5s |
+| 50 | 115 | 71.0s | 50.5s | **35.5s** | 166.5s | 211.5s |
+| **60** | 59 | 67.0s | 55.5s | **46.0s** | **159.0s** | **199.5s** |
+| 75 | 12 | 57.0s | 55.0s | **52.5s** | 155.0s | 171.0s |
+| 90 | 2 | 55.5s | 55.5s | **55.5s** | 153.5s | 163.5s |
+
+**At 90 all three arms agree to the decimal (55.5s).** The gate fires
+twice in the entire corpus there, so the handler cannot matter -- the
+arms differ only where cuts fire, which is the sanity check that this is
+one instrument with three handlers and not three instruments.
+
+**EXPOSURE NOW RISES MONOTONICALLY WITH CUT_DELTA: 33.0 -> 55.5.** Every
+earlier reading of this column was an artefact of a handler that was not
+the app's:
+
+| arm | exposure vs CUT_DELTA | what it implied |
+|---|---|---|
+| wipe (published, retracted) | falls 82.5 -> 55.5 | raise it, exposure improves |
+| demote only | flat 53.5 -> 55.5 | raise it, exposure is free |
+| **full (shipped)** | **rises 33.0 -> 55.5** | **raising it costs protection** |
+
+**AND THAT IS THE RECALL PROXY'S ANSWER.** 11/A1 measured 60 catching
+92.8-95.9% of hard cuts against 75's 50-90.9%, and phase A's F1
+concluded from it that pushing 75 risks exposure. I reversed that on the
+wipe arm. Corrected, **the proxy and the direct measurement now agree**
+-- a missed cut leaves a stale CLEARED track, and that is exposure. Two
+instruments that share no code and no input converging is much stronger
+evidence than either alone, and it is only available because the direct
+one was made to model the app.
+
+**F1 WAS RIGHT AND I OVERRULED IT TWICE**, once by lowering the OTA
+ceiling on the proxy (wrong reasoning, right direction) and once by
+restoring it on a broken direct measurement (right reasoning, wrong
+instrument). The lesson is not "trust the critic" -- it is that **an
+instrument's fidelity to the shipped code is a precondition for its
+authority, and it must be checked BEFORE the instrument is used to
+overrule something, not after it disagrees.**
+
+**The bias had a direction and it was the direction of the pending
+decision.** The demote arm was about to be used to push CUT_DELTA to 75
+over the OTA channel. It overstates what a cut costs, which is exactly
+the bias that makes firing fewer cuts look free. An instrument may not
+be left biased toward the change it is being asked to price.
+
+**WHAT SHIPS: 60, unchanged, and now for a reason rather than by
+default.** Against 75 it costs 6.5s exposure and buys 28.5s phantom;
+against 50 it buys 10.5s exposure and costs 12.0s phantom. 60 is not
+optimal on either column alone -- 35 minimises exposure at 33.0s and 90
+minimises phantom at 163.5s -- and the corpus cannot pick between his two
+loudest complaints for him. What it can say is that the axis is a
+genuine trade with no free direction, which is the thing all three
+earlier readings denied.
+
+**The OTA ceiling stays 75, as a BOUND and not a recommendation.** It is
+now measured to cost 6.5s of exposure against the shipped value, so a
+push to it is a protection decision, not a tuning one.
 
 ## 11. DETECTOR RECALL -- the error class every other sweep is downstream of
 

@@ -260,8 +260,24 @@ export function makeArms(mod) {
       const subs = [];
       setVerdictCadence(dt);
       let fi = -1;
-      for (const fr of win.frames) {
+      for (const fr0 of win.frames) {
         fi++;
+        const cutHere = !!(o.cut && win.cuts && win.cuts[fi]);
+        // THE OTHER HALF OF THE SHIPPED CUT HANDLER: a forced verdict.
+        // init-entry sets `lastSample = 0; lastZoomAt = 0` at a cut, so
+        // the very next pass re-reads gender rather than only positions.
+        // The corpus thins to k=3 to model his 1.5s cadence, which parks
+        // the real reads on `_labelFaces` -- so on a cut frame they can
+        // be handed straight back as INPUT. Same banked reads a verdict
+        // frame gets; nothing synthetic.
+        //
+        // WITHOUT THIS THE ARM OVERSTATES WHAT A CUT COSTS, and that
+        // bias runs toward RAISING CUT_DELTA -- the direction a decision
+        // was about to be made in. An instrument may not be left biased
+        // toward the change it is being asked to price.
+        const fr = (cutHere && o.cutPass && fr0.faces.length === 0 && fr0._labelFaces)
+          ? { ...fr0, faces: fr0._labelFaces }
+          : fr0;
         // THE SHIPPED SCENE GATE. A cut wipes every track: IoU
         // association is meaningless across a shot change, and without
         // this the bench charges any change that clears more people for
@@ -293,7 +309,7 @@ export function makeArms(mod) {
         // nothing here to re-read with. That residue no longer scales
         // with the swept axis the way the wipe did, but it is why a cut
         // arm's ABSOLUTE exposure is still a bound rather than a figure.
-        if (o.cut && win.cuts && win.cuts[fi]) {
+        if (cutHere) {
           tracks = o.cutWipe ? [] : demoteTracks(tracks);
           held = o.hold ? [] : null;
         }
