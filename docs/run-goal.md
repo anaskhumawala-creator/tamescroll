@@ -73,7 +73,7 @@ Every ask gets a row, updated in the pass that does the work.
 | 3 | Verify every model is allowed | DONE | findings §5; traps recorded. Re-verify per model before adoption |
 | 4 | Findings/learnings document | DONE | `docs/engine-findings.md`, appended each loop |
 | 5 | Document the goal | DONE | this file |
-| 6 | Make the blur correct | IN PROGRESS | **birth verdict shipped** (the plan's B1, false cover roughly halves); person skip built, ships INERT on the OTA dial; device A/B next |
+| 6 | Make the blur correct | IN PROGRESS | **birth verdict shipped in 1088** (the plan's B1): false cover **-38.0s / -18.5%** in his regime for +1.0s exposure, re-measured after a stale-instrument retraction (findings 10a). Person skip built, ships INERT on the OTA dial. E5 answered: 47% of births had an overlapping track, so the association layer is the next lever. 1088 installed on the Redmi |
 | 7 | Thumbnails | NOT STARTED | needs the null-read guard the video path has |
 | 8 | All platforms | NOT STARTED | after the engine is right on YouTube |
 | 9 | Desktop parity | NOT STARTED | after mobile |
