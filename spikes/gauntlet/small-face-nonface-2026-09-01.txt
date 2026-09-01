@@ -2,85 +2,86 @@
 minecraft gameplay 12
 mechanical keyboard sound 12
 city timelapse 12
-ids 48 ['G1hKzCkywM8', 'lM02vNMRRB0', '6KL2QZ91kAM', 'bQmzk05I3nw', 'LQuLAbG62vY', 'HSsqzzuGTPo']
+ids 48 ['G1hKzCkywM8', 'NcBjx_eyvxc', 'lM02vNMRRB0', '6KL2QZ91kAM', 'kcfs1-ryKWE', '_DJb5HjeDkQ']
 bench ready True
 {
- "faces": 1,
- "detected": 67,
- "bigEnough": 1,
+ "faces": 2,
+ "detected": 62,
+ "bigEnough": 2,
  "refGenders": {
-  "male": 1
+  "male": 1,
+  "female": 1
  },
  "table": [
   {
    "px": 32,
-   "n": 1,
+   "n": 2,
    "agree": 1,
    "certainWrong": 0,
-   "scoreP50": 0.789,
+   "scoreP50": 0.952,
    "inRawBand": 0,
    "isNullRead": 0
   },
   {
    "px": 40,
-   "n": 1,
+   "n": 2,
    "agree": 1,
    "certainWrong": 0,
-   "scoreP50": 0.893,
+   "scoreP50": 0.979,
    "inRawBand": 0,
    "isNullRead": 0
   },
   {
    "px": 48,
-   "n": 1,
+   "n": 2,
    "agree": 1,
    "certainWrong": 0,
-   "scoreP50": 0.892,
+   "scoreP50": 0.986,
    "inRawBand": 0,
    "isNullRead": 0
   },
   {
    "px": 56,
-   "n": 1,
+   "n": 2,
    "agree": 1,
    "certainWrong": 0,
-   "scoreP50": 0.873,
+   "scoreP50": 0.989,
    "inRawBand": 0,
    "isNullRead": 0
   },
   {
    "px": 64,
-   "n": 1,
+   "n": 2,
    "agree": 1,
    "certainWrong": 0,
-   "scoreP50": 0.793,
+   "scoreP50": 0.989,
    "inRawBand": 0,
    "isNullRead": 0
   },
   {
    "px": 72,
-   "n": 1,
+   "n": 2,
    "agree": 1,
    "certainWrong": 0,
-   "scoreP50": 0.826,
+   "scoreP50": 0.989,
    "inRawBand": 0,
    "isNullRead": 0
   },
   {
    "px": 88,
-   "n": 1,
+   "n": 2,
    "agree": 1,
    "certainWrong": 0,
-   "scoreP50": 0.771,
+   "scoreP50": 0.988,
    "inRawBand": 0,
    "isNullRead": 0
   },
   {
    "px": 112,
-   "n": 1,
+   "n": 2,
    "agree": 1,
    "certainWrong": 0,
-   "scoreP50": 0.636,
+   "scoreP50": 0.981,
    "inRawBand": 0,
    "isNullRead": 0
   },
@@ -89,891 +90,596 @@ bench ready True
    "n": 1,
    "agree": 1,
    "certainWrong": 0,
-   "scoreP50": 0.54,
+   "scoreP50": 0.937,
    "inRawBand": 0,
    "isNullRead": 0
   }
  ],
- "nulls": 81,
+ "nulls": 85,
  "nullTable": [
   {
    "px": 32,
-   "n": 81,
-   "certain": 35,
-   "caughtByRawBand": 79,
-   "caughtByNullRead": 1,
-   "scoreP50": 0.239
+   "n": 85,
+   "certain": 38,
+   "caughtByRawBand": 83,
+   "caughtByNullRead": 83,
+   "scoreP50": 0.237
   },
   {
    "px": 40,
-   "n": 81,
-   "certain": 33,
-   "caughtByRawBand": 76,
-   "caughtByNullRead": 1,
+   "n": 85,
+   "certain": 37,
+   "caughtByRawBand": 83,
+   "caughtByNullRead": 82,
    "scoreP50": 0.234
   },
   {
    "px": 48,
-   "n": 81,
-   "certain": 29,
-   "caughtByRawBand": 75,
-   "caughtByNullRead": 1,
-   "scoreP50": 0.224
+   "n": 85,
+   "certain": 35,
+   "caughtByRawBand": 82,
+   "caughtByNullRead": 80,
+   "scoreP50": 0.233
   },
   {
    "px": 56,
-   "n": 81,
-   "certain": 26,
-   "caughtByRawBand": 74,
-   "caughtByNullRead": 1,
-   "scoreP50": 0.221
+   "n": 85,
+   "certain": 31,
+   "caughtByRawBand": 79,
+   "caughtByNullRead": 78,
+   "scoreP50": 0.223
   },
   {
    "px": 64,
-   "n": 81,
-   "certain": 25,
-   "caughtByRawBand": 74,
-   "caughtByNullRead": 1,
-   "scoreP50": 0.224
+   "n": 85,
+   "certain": 34,
+   "caughtByRawBand": 80,
+   "caughtByNullRead": 77,
+   "scoreP50": 0.234
   },
   {
    "px": 72,
-   "n": 81,
-   "certain": 23,
-   "caughtByRawBand": 74,
-   "caughtByNullRead": 1,
-   "scoreP50": 0.218
+   "n": 85,
+   "certain": 30,
+   "caughtByRawBand": 81,
+   "caughtByNullRead": 78,
+   "scoreP50": 0.23
   },
   {
    "px": 88,
-   "n": 81,
-   "certain": 23,
-   "caughtByRawBand": 74,
-   "caughtByNullRead": 1,
-   "scoreP50": 0.214
+   "n": 85,
+   "certain": 29,
+   "caughtByRawBand": 81,
+   "caughtByNullRead": 79,
+   "scoreP50": 0.222
   },
   {
    "px": 112,
-   "n": 81,
-   "certain": 20,
-   "caughtByRawBand": 74,
-   "caughtByNullRead": 1,
-   "scoreP50": 0.209
+   "n": 85,
+   "certain": 27,
+   "caughtByRawBand": 81,
+   "caughtByNullRead": 80,
+   "scoreP50": 0.219
   },
   {
    "px": 160,
-   "n": 81,
-   "certain": 21,
-   "caughtByRawBand": 74,
-   "caughtByNullRead": 1,
-   "scoreP50": 0.214
+   "n": 84,
+   "certain": 25,
+   "caughtByRawBand": 80,
+   "caughtByNullRead": 79,
+   "scoreP50": 0.21
   }
  ],
  "rows": [
   {
-   "id": "PAgmFeIvLcY",
+   "id": "rZ46kEk6aGg",
    "ref": {
-    "px": 214,
+    "px": 157,
     "gender": "male",
-    "score": 0.384,
-    "raw": 0.6921,
-    "age": 41,
-    "child": 0.034
+    "score": 0.975,
+    "raw": 0.9876,
+    "age": 30,
+    "child": 0.016
    },
    "series": [
     {
      "px": 32,
      "gender": "male",
-     "score": 0.789,
-     "raw": 0.8945,
-     "age": 38,
-     "child": 0.043
+     "score": 0.952,
+     "raw": 0.9762,
+     "age": 31,
+     "child": 0.017
     },
     {
      "px": 40,
      "gender": "male",
-     "score": 0.893,
-     "raw": 0.9465,
-     "age": 37,
-     "child": 0.072
+     "score": 0.979,
+     "raw": 0.9897,
+     "age": 30,
+     "child": 0.023
     },
     {
      "px": 48,
      "gender": "male",
-     "score": 0.892,
-     "raw": 0.9459,
-     "age": 40,
-     "child": 0.035
+     "score": 0.986,
+     "raw": 0.9929,
+     "age": 29,
+     "child": 0.017
     },
     {
      "px": 56,
      "gender": "male",
-     "score": 0.873,
-     "raw": 0.9366,
-     "age": 39,
-     "child": 0.042
+     "score": 0.989,
+     "raw": 0.9946,
+     "age": 29,
+     "child": 0.019
     },
     {
      "px": 64,
      "gender": "male",
-     "score": 0.793,
-     "raw": 0.8963,
-     "age": 39,
-     "child": 0.041
+     "score": 0.989,
+     "raw": 0.9946,
+     "age": 29,
+     "child": 0.021
     },
     {
      "px": 72,
      "gender": "male",
-     "score": 0.826,
-     "raw": 0.9131,
-     "age": 41,
-     "child": 0.025
+     "score": 0.989,
+     "raw": 0.9943,
+     "age": 29,
+     "child": 0.021
     },
     {
      "px": 88,
      "gender": "male",
-     "score": 0.771,
-     "raw": 0.8853,
-     "age": 41,
-     "child": 0.033
+     "score": 0.988,
+     "raw": 0.9941,
+     "age": 29,
+     "child": 0.019
     },
     {
      "px": 112,
      "gender": "male",
-     "score": 0.636,
-     "raw": 0.818,
-     "age": 40,
-     "child": 0.035
+     "score": 0.981,
+     "raw": 0.9904,
+     "age": 30,
+     "child": 0.017
+    }
+   ]
+  },
+  {
+   "id": "dhQsq22QYKM",
+   "ref": {
+    "px": 182,
+    "gender": "female",
+    "score": 0.936,
+    "raw": 0.0318,
+    "age": 27,
+    "child": 0.124
+   },
+   "series": [
+    {
+     "px": 32,
+     "gender": "female",
+     "score": 0.813,
+     "raw": 0.0935,
+     "age": 26,
+     "child": 0.195
+    },
+    {
+     "px": 40,
+     "gender": "female",
+     "score": 0.913,
+     "raw": 0.0437,
+     "age": 24,
+     "child": 0.274
+    },
+    {
+     "px": 48,
+     "gender": "female",
+     "score": 0.924,
+     "raw": 0.0382,
+     "age": 26,
+     "child": 0.177
+    },
+    {
+     "px": 56,
+     "gender": "female",
+     "score": 0.956,
+     "raw": 0.0219,
+     "age": 25,
+     "child": 0.199
+    },
+    {
+     "px": 64,
+     "gender": "female",
+     "score": 0.951,
+     "raw": 0.0244,
+     "age": 26,
+     "child": 0.137
+    },
+    {
+     "px": 72,
+     "gender": "female",
+     "score": 0.954,
+     "raw": 0.0228,
+     "age": 27,
+     "child": 0.122
+    },
+    {
+     "px": 88,
+     "gender": "female",
+     "score": 0.951,
+     "raw": 0.0243,
+     "age": 27,
+     "child": 0.134
+    },
+    {
+     "px": 112,
+     "gender": "female",
+     "score": 0.943,
+     "raw": 0.0283,
+     "age": 27,
+     "child": 0.135
     },
     {
      "px": 160,
-     "gender": "male",
-     "score": 0.54,
-     "raw": 0.7698,
-     "age": 41,
-     "child": 0.028
+     "gender": "female",
+     "score": 0.937,
+     "raw": 0.0317,
+     "age": 27,
+     "child": 0.128
     }
    ]
   }
  ],
  "nullRows": [
   {
-   "id": "bQmzk05I3nw",
+   "id": "NcBjx_eyvxc",
    "noFace": true,
    "series": [
     {
      "px": 32,
      "gender": "male",
-     "score": 0.273,
-     "raw": 0.6363
+     "score": 0.22,
+     "raw": 0.6099,
+     "age": 40,
+     "child": 0.135,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
-     "score": 0.272,
-     "raw": 0.6361
+     "score": 0.208,
+     "raw": 0.6038,
+     "age": 38,
+     "child": 0.148,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
-     "score": 0.263,
-     "raw": 0.6317
+     "score": 0.181,
+     "raw": 0.5907,
+     "age": 37,
+     "child": 0.169,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
-     "score": 0.252,
-     "raw": 0.6259
+     "score": 0.241,
+     "raw": 0.6204,
+     "age": 37,
+     "child": 0.17,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
-     "score": 0.244,
-     "raw": 0.622
+     "score": 0.224,
+     "raw": 0.6122,
+     "age": 36,
+     "child": 0.18,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
-     "score": 0.237,
-     "raw": 0.6186
+     "score": 0.229,
+     "raw": 0.6146,
+     "age": 36,
+     "child": 0.177,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
-     "score": 0.242,
-     "raw": 0.6211
+     "score": 0.25,
+     "raw": 0.625,
+     "age": 36,
+     "child": 0.179,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
-     "score": 0.241,
-     "raw": 0.6203
+     "score": 0.253,
+     "raw": 0.6266,
+     "age": 36,
+     "child": 0.178,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
-     "score": 0.246,
-     "raw": 0.623
+     "score": 0.256,
+     "raw": 0.6278,
+     "age": 36,
+     "child": 0.177,
+     "nullRead": 1
     }
    ]
   },
   {
-   "id": "bQmzk05I3nw",
+   "id": "NcBjx_eyvxc",
    "noFace": true,
    "series": [
     {
      "px": 32,
      "gender": "male",
      "score": 0.31,
-     "raw": 0.6551
+     "raw": 0.6548,
+     "age": 41,
+     "child": 0.148,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
-     "score": 0.264,
-     "raw": 0.6322
+     "score": 0.325,
+     "raw": 0.6626,
+     "age": 41,
+     "child": 0.131,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
-     "score": 0.271,
-     "raw": 0.6353
+     "score": 0.326,
+     "raw": 0.6631,
+     "age": 42,
+     "child": 0.122,
+     "nullRead": 0
     },
     {
      "px": 56,
      "gender": "male",
-     "score": 0.281,
-     "raw": 0.6404
+     "score": 0.351,
+     "raw": 0.6757,
+     "age": 42,
+     "child": 0.095,
+     "nullRead": 0
     },
     {
      "px": 64,
      "gender": "male",
-     "score": 0.275,
-     "raw": 0.6375
+     "score": 0.368,
+     "raw": 0.6841,
+     "age": 43,
+     "child": 0.094,
+     "nullRead": 0
     },
     {
      "px": 72,
      "gender": "male",
-     "score": 0.278,
-     "raw": 0.6391
+     "score": 0.359,
+     "raw": 0.6797,
+     "age": 42,
+     "child": 0.095,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
-     "score": 0.272,
-     "raw": 0.6362
+     "score": 0.342,
+     "raw": 0.6711,
+     "age": 41,
+     "child": 0.098,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
-     "score": 0.261,
-     "raw": 0.6305
+     "score": 0.359,
+     "raw": 0.6795,
+     "age": 41,
+     "child": 0.091,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
-     "score": 0.258,
-     "raw": 0.629
+     "score": 0.366,
+     "raw": 0.683,
+     "age": 40,
+     "child": 0.089,
+     "nullRead": 1
     }
    ]
   },
   {
-   "id": "bQmzk05I3nw",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.167,
-     "raw": 0.5834
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.141,
-     "raw": 0.5705
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.155,
-     "raw": 0.5776
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.137,
-     "raw": 0.5683
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.131,
-     "raw": 0.5657
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.121,
-     "raw": 0.5604
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.115,
-     "raw": 0.5573
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.098,
-     "raw": 0.549
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.102,
-     "raw": 0.5512
-    }
-   ]
-  },
-  {
-   "id": "bQmzk05I3nw",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.294,
-     "raw": 0.647
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.303,
-     "raw": 0.6514
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.302,
-     "raw": 0.6508
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.335,
-     "raw": 0.6673
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.329,
-     "raw": 0.6646
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.338,
-     "raw": 0.6692
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.353,
-     "raw": 0.6764
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.353,
-     "raw": 0.6765
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.361,
-     "raw": 0.6804
-    }
-   ]
-  },
-  {
-   "id": "LQuLAbG62vY",
+   "id": "NcBjx_eyvxc",
    "noFace": true,
    "series": [
     {
      "px": 32,
      "gender": "male",
      "score": 0.258,
-     "raw": 0.6292
+     "raw": 0.6292,
+     "age": 37,
+     "child": 0.133,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
-     "score": 0.255,
-     "raw": 0.6277
+     "score": 0.229,
+     "raw": 0.6144,
+     "age": 37,
+     "child": 0.13,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
-     "score": 0.245,
-     "raw": 0.6224
+     "score": 0.204,
+     "raw": 0.6022,
+     "age": 38,
+     "child": 0.137,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
-     "score": 0.248,
-     "raw": 0.6241
+     "score": 0.188,
+     "raw": 0.594,
+     "age": 38,
+     "child": 0.15,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
-     "score": 0.258,
-     "raw": 0.6289
+     "score": 0.157,
+     "raw": 0.5783,
+     "age": 39,
+     "child": 0.149,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
-     "score": 0.247,
-     "raw": 0.6235
+     "score": 0.142,
+     "raw": 0.571,
+     "age": 39,
+     "child": 0.148,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
-     "score": 0.225,
-     "raw": 0.6125
+     "score": 0.116,
+     "raw": 0.5578,
+     "age": 38,
+     "child": 0.15,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
-     "score": 0.217,
-     "raw": 0.6085
+     "score": 0.105,
+     "raw": 0.5523,
+     "age": 38,
+     "child": 0.154,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
-     "score": 0.217,
-     "raw": 0.6086
+     "score": 0.095,
+     "raw": 0.5476,
+     "age": 38,
+     "child": 0.153,
+     "nullRead": 1
     }
    ]
   },
   {
-   "id": "LQuLAbG62vY",
+   "id": "NcBjx_eyvxc",
    "noFace": true,
    "series": [
     {
      "px": 32,
      "gender": "male",
-     "score": 0.191,
-     "raw": 0.5955
+     "score": 0.205,
+     "raw": 0.6027,
+     "age": 39,
+     "child": 0.146,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.199,
-     "raw": 0.5995
+     "raw": 0.5993,
+     "age": 40,
+     "child": 0.147,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
-     "score": 0.174,
-     "raw": 0.5868
+     "score": 0.19,
+     "raw": 0.5951,
+     "age": 40,
+     "child": 0.148,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
-     "score": 0.192,
-     "raw": 0.5958
+     "score": 0.178,
+     "raw": 0.5891,
+     "age": 40,
+     "child": 0.148,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
-     "score": 0.171,
-     "raw": 0.5857
+     "score": 0.157,
+     "raw": 0.5783,
+     "age": 41,
+     "child": 0.147,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
-     "score": 0.156,
-     "raw": 0.578
+     "score": 0.147,
+     "raw": 0.5733,
+     "age": 41,
+     "child": 0.15,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
-     "score": 0.171,
-     "raw": 0.5857
+     "score": 0.133,
+     "raw": 0.5666,
+     "age": 40,
+     "child": 0.148,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
-     "score": 0.155,
-     "raw": 0.5775
+     "score": 0.115,
+     "raw": 0.5574,
+     "age": 40,
+     "child": 0.149,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
-     "score": 0.163,
-     "raw": 0.5815
-    }
-   ]
-  },
-  {
-   "id": "LQuLAbG62vY",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.219,
-     "raw": 0.6097
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.242,
-     "raw": 0.6211
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.192,
-     "raw": 0.596
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.215,
-     "raw": 0.6076
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.235,
-     "raw": 0.6175
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.221,
-     "raw": 0.6103
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.195,
-     "raw": 0.5975
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.214,
-     "raw": 0.607
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.204,
-     "raw": 0.6021
-    }
-   ]
-  },
-  {
-   "id": "LQuLAbG62vY",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.092,
-     "raw": 0.5461
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.14,
-     "raw": 0.5698
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.125,
-     "raw": 0.5624
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.096,
-     "raw": 0.548
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.112,
-     "raw": 0.5558
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.13,
-     "raw": 0.5649
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.169,
-     "raw": 0.5846
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.166,
-     "raw": 0.5829
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.156,
-     "raw": 0.5782
-    }
-   ]
-  },
-  {
-   "id": "YGAsG6_JgAI",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.317,
-     "raw": 0.6583
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.284,
-     "raw": 0.6419
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.282,
-     "raw": 0.6411
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.304,
-     "raw": 0.652
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.285,
-     "raw": 0.6423
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.284,
-     "raw": 0.6421
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.28,
-     "raw": 0.6399
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.266,
-     "raw": 0.6332
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.267,
-     "raw": 0.6337
-    }
-   ]
-  },
-  {
-   "id": "YGAsG6_JgAI",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.335,
-     "raw": 0.6676
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.323,
-     "raw": 0.6616
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.311,
-     "raw": 0.6554
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.284,
-     "raw": 0.6418
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.282,
-     "raw": 0.6408
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.268,
-     "raw": 0.634
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.28,
-     "raw": 0.6399
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.278,
-     "raw": 0.6391
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.265,
-     "raw": 0.6324
-    }
-   ]
-  },
-  {
-   "id": "YGAsG6_JgAI",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.206,
-     "raw": 0.6032
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.202,
-     "raw": 0.6012
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.216,
-     "raw": 0.6081
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.205,
-     "raw": 0.6024
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.236,
-     "raw": 0.6181
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.218,
-     "raw": 0.6089
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.228,
-     "raw": 0.6141
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.247,
-     "raw": 0.6236
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.244,
-     "raw": 0.6218
-    }
-   ]
-  },
-  {
-   "id": "YGAsG6_JgAI",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.332,
-     "raw": 0.6662
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.342,
-     "raw": 0.6712
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.355,
-     "raw": 0.6777
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.313,
-     "raw": 0.6567
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.325,
-     "raw": 0.6624
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.289,
-     "raw": 0.6443
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.271,
-     "raw": 0.6357
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.248,
-     "raw": 0.6242
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.254,
-     "raw": 0.627
+     "score": 0.11,
+     "raw": 0.555,
+     "age": 40,
+     "child": 0.151,
+     "nullRead": 1
     }
    ]
   },
@@ -985,55 +691,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.054,
-     "raw": 0.5272
+     "raw": 0.5272,
+     "age": 38,
+     "child": 0.191,
+     "nullRead": 0
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.033,
-     "raw": 0.5163
+     "raw": 0.5163,
+     "age": 38,
+     "child": 0.198,
+     "nullRead": 0
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.016,
-     "raw": 0.5079
+     "raw": 0.5079,
+     "age": 39,
+     "child": 0.198,
+     "nullRead": 0
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.006,
-     "raw": 0.5028
+     "raw": 0.5028,
+     "age": 39,
+     "child": 0.193,
+     "nullRead": 0
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.018,
-     "raw": 0.509
+     "raw": 0.509,
+     "age": 40,
+     "child": 0.179,
+     "nullRead": 0
     },
     {
      "px": 72,
      "gender": "female",
      "score": 0.002,
-     "raw": 0.4992
+     "raw": 0.4992,
+     "age": 39,
+     "child": 0.185,
+     "nullRead": 0
     },
     {
      "px": 88,
      "gender": "female",
      "score": 0.046,
-     "raw": 0.4772
+     "raw": 0.4772,
+     "age": 40,
+     "child": 0.178,
+     "nullRead": 0
     },
     {
      "px": 112,
      "gender": "female",
      "score": 0.047,
-     "raw": 0.4767
+     "raw": 0.4767,
+     "age": 41,
+     "child": 0.172,
+     "nullRead": 0
     },
     {
      "px": 160,
      "gender": "female",
      "score": 0.021,
-     "raw": 0.4896
+     "raw": 0.4896,
+     "age": 41,
+     "child": 0.167,
+     "nullRead": 0
     }
    ]
   },
@@ -1045,55 +778,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.264,
-     "raw": 0.6321
+     "raw": 0.6321,
+     "age": 37,
+     "child": 0.197,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.255,
-     "raw": 0.6273
+     "raw": 0.6273,
+     "age": 38,
+     "child": 0.178,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.233,
-     "raw": 0.6166
+     "raw": 0.6166,
+     "age": 37,
+     "child": 0.189,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.223,
-     "raw": 0.6116
+     "raw": 0.6116,
+     "age": 38,
+     "child": 0.185,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.227,
-     "raw": 0.6135
+     "raw": 0.6135,
+     "age": 38,
+     "child": 0.179,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.208,
-     "raw": 0.6041
+     "raw": 0.6041,
+     "age": 39,
+     "child": 0.175,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.206,
-     "raw": 0.6031
+     "raw": 0.6031,
+     "age": 39,
+     "child": 0.17,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.19,
-     "raw": 0.5952
+     "raw": 0.5952,
+     "age": 39,
+     "child": 0.174,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.191,
-     "raw": 0.5955
+     "raw": 0.5955,
+     "age": 39,
+     "child": 0.173,
+     "nullRead": 1
     }
    ]
   },
@@ -1105,55 +865,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.353,
-     "raw": 0.6766
+     "raw": 0.6766,
+     "age": 35,
+     "child": 0.183,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.283,
-     "raw": 0.6415
+     "raw": 0.6415,
+     "age": 37,
+     "child": 0.16,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.174,
-     "raw": 0.587
+     "raw": 0.587,
+     "age": 40,
+     "child": 0.149,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.144,
-     "raw": 0.5722
+     "raw": 0.5722,
+     "age": 40,
+     "child": 0.149,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.122,
-     "raw": 0.5611
+     "raw": 0.5611,
+     "age": 41,
+     "child": 0.147,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.116,
-     "raw": 0.5579
+     "raw": 0.5579,
+     "age": 41,
+     "child": 0.149,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.108,
-     "raw": 0.554
+     "raw": 0.554,
+     "age": 41,
+     "child": 0.149,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.109,
-     "raw": 0.5545
+     "raw": 0.5545,
+     "age": 41,
+     "child": 0.14,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.101,
-     "raw": 0.5505
+     "raw": 0.5505,
+     "age": 41,
+     "child": 0.138,
+     "nullRead": 1
     }
    ]
   },
@@ -1165,535 +952,2170 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.175,
-     "raw": 0.5875
+     "raw": 0.5875,
+     "age": 39,
+     "child": 0.165,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.149,
-     "raw": 0.5745
+     "raw": 0.5745,
+     "age": 40,
+     "child": 0.164,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.146,
-     "raw": 0.5732
+     "raw": 0.5732,
+     "age": 40,
+     "child": 0.158,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.149,
-     "raw": 0.5743
+     "raw": 0.5743,
+     "age": 41,
+     "child": 0.158,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.152,
-     "raw": 0.5758
+     "raw": 0.5758,
+     "age": 41,
+     "child": 0.15,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.142,
-     "raw": 0.5712
+     "raw": 0.5712,
+     "age": 41,
+     "child": 0.153,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.151,
-     "raw": 0.5757
+     "raw": 0.5757,
+     "age": 41,
+     "child": 0.148,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.164,
-     "raw": 0.5818
+     "raw": 0.5818,
+     "age": 41,
+     "child": 0.143,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.17,
-     "raw": 0.5852
+     "raw": 0.5852,
+     "age": 41,
+     "child": 0.141,
+     "nullRead": 1
     }
    ]
   },
   {
-   "id": "NcBjx_eyvxc",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.22,
-     "raw": 0.6099
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.208,
-     "raw": 0.6038
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.181,
-     "raw": 0.5907
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.241,
-     "raw": 0.6204
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.224,
-     "raw": 0.6122
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.229,
-     "raw": 0.6146
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.25,
-     "raw": 0.625
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.253,
-     "raw": 0.6266
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.256,
-     "raw": 0.6278
-    }
-   ]
-  },
-  {
-   "id": "NcBjx_eyvxc",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.31,
-     "raw": 0.6548
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.325,
-     "raw": 0.6626
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.326,
-     "raw": 0.6631
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.351,
-     "raw": 0.6757
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.368,
-     "raw": 0.6841
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.359,
-     "raw": 0.6797
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.342,
-     "raw": 0.6711
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.359,
-     "raw": 0.6795
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.366,
-     "raw": 0.683
-    }
-   ]
-  },
-  {
-   "id": "NcBjx_eyvxc",
+   "id": "LQuLAbG62vY",
    "noFace": true,
    "series": [
     {
      "px": 32,
      "gender": "male",
      "score": 0.258,
-     "raw": 0.6292
+     "raw": 0.6292,
+     "age": 41,
+     "child": 0.145,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
-     "score": 0.229,
-     "raw": 0.6144
+     "score": 0.255,
+     "raw": 0.6277,
+     "age": 41,
+     "child": 0.137,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
-     "score": 0.204,
-     "raw": 0.6022
+     "score": 0.245,
+     "raw": 0.6224,
+     "age": 40,
+     "child": 0.154,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
-     "score": 0.188,
-     "raw": 0.594
+     "score": 0.248,
+     "raw": 0.6241,
+     "age": 40,
+     "child": 0.155,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
-     "score": 0.157,
-     "raw": 0.5783
+     "score": 0.258,
+     "raw": 0.6289,
+     "age": 40,
+     "child": 0.153,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
-     "score": 0.142,
-     "raw": 0.571
+     "score": 0.247,
+     "raw": 0.6235,
+     "age": 40,
+     "child": 0.154,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
-     "score": 0.116,
-     "raw": 0.5578
+     "score": 0.225,
+     "raw": 0.6125,
+     "age": 40,
+     "child": 0.153,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
-     "score": 0.105,
-     "raw": 0.5523
+     "score": 0.217,
+     "raw": 0.6085,
+     "age": 40,
+     "child": 0.155,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
-     "score": 0.095,
-     "raw": 0.5476
+     "score": 0.217,
+     "raw": 0.6086,
+     "age": 40,
+     "child": 0.153,
+     "nullRead": 1
     }
    ]
   },
   {
-   "id": "NcBjx_eyvxc",
+   "id": "LQuLAbG62vY",
    "noFace": true,
    "series": [
     {
      "px": 32,
      "gender": "male",
-     "score": 0.205,
-     "raw": 0.6027
+     "score": 0.191,
+     "raw": 0.5955,
+     "age": 39,
+     "child": 0.142,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.199,
-     "raw": 0.5993
+     "raw": 0.5995,
+     "age": 38,
+     "child": 0.152,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
-     "score": 0.19,
-     "raw": 0.5951
+     "score": 0.174,
+     "raw": 0.5868,
+     "age": 39,
+     "child": 0.148,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
-     "score": 0.178,
-     "raw": 0.5891
+     "score": 0.192,
+     "raw": 0.5958,
+     "age": 39,
+     "child": 0.143,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
-     "score": 0.157,
-     "raw": 0.5783
+     "score": 0.171,
+     "raw": 0.5857,
+     "age": 38,
+     "child": 0.155,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
-     "score": 0.147,
-     "raw": 0.5733
+     "score": 0.156,
+     "raw": 0.578,
+     "age": 39,
+     "child": 0.16,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
-     "score": 0.133,
-     "raw": 0.5666
+     "score": 0.171,
+     "raw": 0.5857,
+     "age": 38,
+     "child": 0.162,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
-     "score": 0.115,
-     "raw": 0.5574
+     "score": 0.155,
+     "raw": 0.5775,
+     "age": 38,
+     "child": 0.169,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
-     "score": 0.11,
-     "raw": 0.555
+     "score": 0.163,
+     "raw": 0.5815,
+     "age": 39,
+     "child": 0.157,
+     "nullRead": 1
     }
    ]
   },
   {
-   "id": "hWagaTjEa3Y",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.278,
-     "raw": 0.6388
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.319,
-     "raw": 0.6594
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.283,
-     "raw": 0.6413
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.281,
-     "raw": 0.6403
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.269,
-     "raw": 0.6344
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.272,
-     "raw": 0.6362
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.258,
-     "raw": 0.6289
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.246,
-     "raw": 0.623
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.242,
-     "raw": 0.6212
-    }
-   ]
-  },
-  {
-   "id": "hWagaTjEa3Y",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.299,
-     "raw": 0.6494
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.299,
-     "raw": 0.6497
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.296,
-     "raw": 0.648
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.298,
-     "raw": 0.6489
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.295,
-     "raw": 0.6474
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.29,
-     "raw": 0.6448
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.279,
-     "raw": 0.6395
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.258,
-     "raw": 0.6288
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.254,
-     "raw": 0.6272
-    }
-   ]
-  },
-  {
-   "id": "hWagaTjEa3Y",
+   "id": "LQuLAbG62vY",
    "noFace": true,
    "series": [
     {
      "px": 32,
      "gender": "male",
      "score": 0.219,
-     "raw": 0.6097
+     "raw": 0.6097,
+     "age": 39,
+     "child": 0.153,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
-     "score": 0.239,
-     "raw": 0.6194
+     "score": 0.242,
+     "raw": 0.6211,
+     "age": 40,
+     "child": 0.14,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
-     "score": 0.251,
-     "raw": 0.6257
+     "score": 0.192,
+     "raw": 0.596,
+     "age": 40,
+     "child": 0.151,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
-     "score": 0.235,
-     "raw": 0.6177
+     "score": 0.215,
+     "raw": 0.6076,
+     "age": 40,
+     "child": 0.149,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
-     "score": 0.223,
-     "raw": 0.6116
+     "score": 0.235,
+     "raw": 0.6175,
+     "age": 41,
+     "child": 0.142,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
-     "score": 0.238,
-     "raw": 0.6191
+     "score": 0.221,
+     "raw": 0.6103,
+     "age": 41,
+     "child": 0.145,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
-     "score": 0.242,
-     "raw": 0.6211
+     "score": 0.195,
+     "raw": 0.5975,
+     "age": 41,
+     "child": 0.146,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
-     "score": 0.209,
-     "raw": 0.6044
+     "score": 0.214,
+     "raw": 0.607,
+     "age": 41,
+     "child": 0.145,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
-     "score": 0.217,
-     "raw": 0.6085
+     "score": 0.204,
+     "raw": 0.6021,
+     "age": 41,
+     "child": 0.145,
+     "nullRead": 1
     }
    ]
   },
   {
-   "id": "hWagaTjEa3Y",
+   "id": "LQuLAbG62vY",
    "noFace": true,
    "series": [
     {
      "px": 32,
      "gender": "male",
-     "score": 0.234,
-     "raw": 0.6169
+     "score": 0.092,
+     "raw": 0.5461,
+     "age": 39,
+     "child": 0.162,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.14,
+     "raw": 0.5698,
+     "age": 40,
+     "child": 0.142,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.125,
+     "raw": 0.5624,
+     "age": 41,
+     "child": 0.152,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.096,
+     "raw": 0.548,
+     "age": 39,
+     "child": 0.147,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.112,
+     "raw": 0.5558,
+     "age": 40,
+     "child": 0.148,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.13,
+     "raw": 0.5649,
+     "age": 39,
+     "child": 0.153,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.169,
+     "raw": 0.5846,
+     "age": 39,
+     "child": 0.145,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.166,
+     "raw": 0.5829,
+     "age": 39,
+     "child": 0.146,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.156,
+     "raw": 0.5782,
+     "age": 38,
+     "child": 0.147,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "nNjYd1Qh1Ws",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.305,
+     "raw": 0.6525,
+     "age": 38,
+     "child": 0.162,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.335,
+     "raw": 0.6673,
+     "age": 38,
+     "child": 0.156,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.333,
+     "raw": 0.6667,
+     "age": 38,
+     "child": 0.157,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.33,
+     "raw": 0.6652,
+     "age": 37,
+     "child": 0.155,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.286,
+     "raw": 0.6428,
+     "age": 37,
+     "child": 0.165,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.293,
+     "raw": 0.6464,
+     "age": 38,
+     "child": 0.157,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.254,
+     "raw": 0.6269,
+     "age": 38,
+     "child": 0.157,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.266,
+     "raw": 0.6332,
+     "age": 39,
+     "child": 0.148,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.265,
+     "raw": 0.6324,
+     "age": 39,
+     "child": 0.143,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "nNjYd1Qh1Ws",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.311,
+     "raw": 0.6553,
+     "age": 38,
+     "child": 0.165,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.296,
+     "raw": 0.6482,
+     "age": 37,
+     "child": 0.173,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.318,
+     "raw": 0.6588,
+     "age": 37,
+     "child": 0.17,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.311,
+     "raw": 0.6557,
+     "age": 37,
+     "child": 0.165,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.302,
+     "raw": 0.651,
+     "age": 37,
+     "child": 0.164,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.306,
+     "raw": 0.6531,
+     "age": 37,
+     "child": 0.165,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.292,
+     "raw": 0.6458,
+     "age": 37,
+     "child": 0.166,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.29,
+     "raw": 0.645,
+     "age": 37,
+     "child": 0.164,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.295,
+     "raw": 0.6473,
+     "age": 37,
+     "child": 0.165,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "nNjYd1Qh1Ws",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.227,
+     "raw": 0.6137,
+     "age": 38,
+     "child": 0.174,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.189,
+     "raw": 0.5946,
+     "age": 38,
+     "child": 0.18,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.194,
+     "raw": 0.5969,
+     "age": 39,
+     "child": 0.164,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.166,
+     "raw": 0.5828,
+     "age": 38,
+     "child": 0.167,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.211,
+     "raw": 0.6054,
+     "age": 39,
+     "child": 0.161,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.198,
+     "raw": 0.5989,
+     "age": 39,
+     "child": 0.162,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.222,
+     "raw": 0.6108,
+     "age": 39,
+     "child": 0.16,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.23,
+     "raw": 0.6149,
+     "age": 39,
+     "child": 0.158,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.207,
+     "raw": 0.6033,
+     "age": 39,
+     "child": 0.153,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "nNjYd1Qh1Ws",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.221,
+     "raw": 0.6103,
+     "age": 37,
+     "child": 0.181,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.242,
+     "raw": 0.621,
+     "age": 38,
+     "child": 0.171,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.249,
+     "raw": 0.6245,
+     "age": 38,
+     "child": 0.161,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.213,
+     "raw": 0.6064,
+     "age": 38,
+     "child": 0.163,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.217,
+     "raw": 0.6084,
+     "age": 39,
+     "child": 0.158,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.214,
+     "raw": 0.6071,
+     "age": 39,
+     "child": 0.157,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.217,
+     "raw": 0.6087,
+     "age": 39,
+     "child": 0.155,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.208,
+     "raw": 0.6041,
+     "age": 39,
+     "child": 0.156,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.21,
+     "raw": 0.6052,
+     "age": 39,
+     "child": 0.153,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "bQmzk05I3nw",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.273,
+     "raw": 0.6363,
+     "age": 38,
+     "child": 0.166,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.272,
+     "raw": 0.6361,
+     "age": 37,
+     "child": 0.17,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.263,
+     "raw": 0.6317,
+     "age": 38,
+     "child": 0.168,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.252,
+     "raw": 0.6259,
+     "age": 38,
+     "child": 0.166,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.244,
+     "raw": 0.622,
+     "age": 38,
+     "child": 0.174,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.237,
+     "raw": 0.6186,
+     "age": 38,
+     "child": 0.173,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.242,
+     "raw": 0.6211,
+     "age": 38,
+     "child": 0.174,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.241,
+     "raw": 0.6203,
+     "age": 38,
+     "child": 0.176,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.246,
+     "raw": 0.623,
+     "age": 38,
+     "child": 0.174,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "bQmzk05I3nw",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.31,
+     "raw": 0.6551,
+     "age": 41,
+     "child": 0.118,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.264,
+     "raw": 0.6322,
+     "age": 38,
+     "child": 0.138,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.271,
+     "raw": 0.6353,
+     "age": 40,
+     "child": 0.137,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.281,
+     "raw": 0.6404,
+     "age": 39,
+     "child": 0.145,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.275,
+     "raw": 0.6375,
+     "age": 39,
+     "child": 0.152,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.278,
+     "raw": 0.6391,
+     "age": 39,
+     "child": 0.155,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.272,
+     "raw": 0.6362,
+     "age": 39,
+     "child": 0.16,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.261,
+     "raw": 0.6305,
+     "age": 38,
+     "child": 0.162,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.258,
+     "raw": 0.629,
+     "age": 38,
+     "child": 0.161,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "bQmzk05I3nw",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.167,
+     "raw": 0.5834,
+     "age": 39,
+     "child": 0.129,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.141,
+     "raw": 0.5705,
+     "age": 39,
+     "child": 0.129,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.155,
+     "raw": 0.5776,
+     "age": 39,
+     "child": 0.128,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.137,
+     "raw": 0.5683,
+     "age": 39,
+     "child": 0.13,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.131,
+     "raw": 0.5657,
+     "age": 40,
+     "child": 0.135,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.121,
+     "raw": 0.5604,
+     "age": 39,
+     "child": 0.137,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.115,
+     "raw": 0.5573,
+     "age": 38,
+     "child": 0.14,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.098,
+     "raw": 0.549,
+     "age": 39,
+     "child": 0.142,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.102,
+     "raw": 0.5512,
+     "age": 38,
+     "child": 0.141,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "bQmzk05I3nw",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.294,
+     "raw": 0.647,
+     "age": 41,
+     "child": 0.125,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.303,
+     "raw": 0.6514,
+     "age": 41,
+     "child": 0.128,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.302,
+     "raw": 0.6508,
+     "age": 41,
+     "child": 0.136,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.335,
+     "raw": 0.6673,
+     "age": 41,
+     "child": 0.126,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.329,
+     "raw": 0.6646,
+     "age": 42,
+     "child": 0.122,
+     "nullRead": 0
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.338,
+     "raw": 0.6692,
+     "age": 42,
+     "child": 0.123,
+     "nullRead": 0
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.353,
+     "raw": 0.6764,
+     "age": 43,
+     "child": 0.117,
+     "nullRead": 0
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.353,
+     "raw": 0.6765,
+     "age": 43,
+     "child": 0.111,
+     "nullRead": 0
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.361,
+     "raw": 0.6804,
+     "age": 42,
+     "child": 0.113,
+     "nullRead": 0
+    }
+   ]
+  },
+  {
+   "id": "R_InO9bxuwU",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.28,
+     "raw": 0.6398,
+     "age": 40,
+     "child": 0.145,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.29,
+     "raw": 0.6449,
+     "age": 39,
+     "child": 0.15,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.29,
+     "raw": 0.645,
+     "age": 39,
+     "child": 0.154,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.293,
+     "raw": 0.6467,
+     "age": 39,
+     "child": 0.151,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.311,
+     "raw": 0.6557,
+     "age": 39,
+     "child": 0.139,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.298,
+     "raw": 0.649,
+     "age": 39,
+     "child": 0.145,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.297,
+     "raw": 0.6487,
+     "age": 38,
+     "child": 0.147,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.289,
+     "raw": 0.6443,
+     "age": 39,
+     "child": 0.141,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.284,
+     "raw": 0.6421,
+     "age": 39,
+     "child": 0.143,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "R_InO9bxuwU",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.286,
+     "raw": 0.6431,
+     "age": 39,
+     "child": 0.151,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.28,
+     "raw": 0.6399,
+     "age": 38,
+     "child": 0.163,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.306,
+     "raw": 0.6529,
+     "age": 38,
+     "child": 0.157,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.298,
+     "raw": 0.6491,
+     "age": 38,
+     "child": 0.161,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.321,
+     "raw": 0.6606,
+     "age": 38,
+     "child": 0.158,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.321,
+     "raw": 0.6605,
+     "age": 37,
+     "child": 0.162,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.342,
+     "raw": 0.671,
+     "age": 37,
+     "child": 0.16,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.373,
+     "raw": 0.6865,
+     "age": 37,
+     "child": 0.152,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.385,
+     "raw": 0.6926,
+     "age": 37,
+     "child": 0.149,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "R_InO9bxuwU",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.297,
+     "raw": 0.6486,
+     "age": 37,
+     "child": 0.149,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.354,
+     "raw": 0.6771,
+     "age": 38,
+     "child": 0.14,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.362,
+     "raw": 0.6809,
+     "age": 37,
+     "child": 0.141,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.358,
+     "raw": 0.6788,
+     "age": 37,
+     "child": 0.14,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.353,
+     "raw": 0.6764,
+     "age": 37,
+     "child": 0.141,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.346,
+     "raw": 0.6728,
+     "age": 37,
+     "child": 0.145,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.365,
+     "raw": 0.6825,
+     "age": 36,
+     "child": 0.15,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.354,
+     "raw": 0.6771,
+     "age": 36,
+     "child": 0.156,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.36,
+     "raw": 0.6798,
+     "age": 36,
+     "child": 0.154,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "R_InO9bxuwU",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.267,
+     "raw": 0.6335,
+     "age": 39,
+     "child": 0.147,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.309,
+     "raw": 0.6546,
+     "age": 39,
+     "child": 0.14,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.306,
+     "raw": 0.6532,
+     "age": 39,
+     "child": 0.141,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.314,
+     "raw": 0.657,
+     "age": 39,
+     "child": 0.139,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.299,
+     "raw": 0.6494,
+     "age": 39,
+     "child": 0.141,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.335,
+     "raw": 0.6676,
+     "age": 39,
+     "child": 0.138,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.319,
+     "raw": 0.6594,
+     "age": 38,
+     "child": 0.143,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.339,
+     "raw": 0.6693,
+     "age": 38,
+     "child": 0.145,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.337,
+     "raw": 0.6685,
+     "age": 38,
+     "child": 0.143,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "YGAsG6_JgAI",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.317,
+     "raw": 0.6583,
+     "age": 39,
+     "child": 0.126,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.284,
+     "raw": 0.6419,
+     "age": 39,
+     "child": 0.133,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.282,
+     "raw": 0.6411,
+     "age": 39,
+     "child": 0.148,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.304,
+     "raw": 0.652,
+     "age": 39,
+     "child": 0.143,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.285,
+     "raw": 0.6423,
+     "age": 38,
+     "child": 0.157,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.284,
+     "raw": 0.6421,
+     "age": 39,
+     "child": 0.153,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.28,
+     "raw": 0.6399,
+     "age": 39,
+     "child": 0.157,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.266,
+     "raw": 0.6332,
+     "age": 38,
+     "child": 0.165,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.267,
+     "raw": 0.6337,
+     "age": 38,
+     "child": 0.166,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "YGAsG6_JgAI",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.335,
+     "raw": 0.6676,
+     "age": 40,
+     "child": 0.112,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.323,
+     "raw": 0.6616,
+     "age": 40,
+     "child": 0.127,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.311,
+     "raw": 0.6554,
+     "age": 40,
+     "child": 0.143,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.284,
+     "raw": 0.6418,
+     "age": 39,
+     "child": 0.157,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.282,
+     "raw": 0.6408,
+     "age": 38,
+     "child": 0.168,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.268,
+     "raw": 0.634,
+     "age": 38,
+     "child": 0.168,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.28,
+     "raw": 0.6399,
+     "age": 38,
+     "child": 0.172,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.278,
+     "raw": 0.6391,
+     "age": 38,
+     "child": 0.175,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.265,
+     "raw": 0.6324,
+     "age": 38,
+     "child": 0.182,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "YGAsG6_JgAI",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.206,
+     "raw": 0.6032,
+     "age": 39,
+     "child": 0.134,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.202,
+     "raw": 0.6012,
+     "age": 38,
+     "child": 0.131,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.216,
+     "raw": 0.6081,
+     "age": 39,
+     "child": 0.138,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.205,
+     "raw": 0.6024,
+     "age": 38,
+     "child": 0.135,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.236,
+     "raw": 0.6181,
+     "age": 40,
+     "child": 0.122,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.218,
+     "raw": 0.6089,
+     "age": 40,
+     "child": 0.129,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.228,
+     "raw": 0.6141,
+     "age": 41,
+     "child": 0.124,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.247,
+     "raw": 0.6236,
+     "age": 40,
+     "child": 0.127,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.244,
+     "raw": 0.6218,
+     "age": 41,
+     "child": 0.121,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "YGAsG6_JgAI",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.332,
+     "raw": 0.6662,
+     "age": 38,
+     "child": 0.187,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.342,
+     "raw": 0.6712,
+     "age": 37,
+     "child": 0.179,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.355,
+     "raw": 0.6777,
+     "age": 37,
+     "child": 0.177,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.313,
+     "raw": 0.6567,
+     "age": 38,
+     "child": 0.163,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.325,
+     "raw": 0.6624,
+     "age": 38,
+     "child": 0.165,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.289,
+     "raw": 0.6443,
+     "age": 38,
+     "child": 0.167,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.271,
+     "raw": 0.6357,
+     "age": 38,
+     "child": 0.16,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.248,
+     "raw": 0.6242,
+     "age": 38,
+     "child": 0.164,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.254,
+     "raw": 0.627,
+     "age": 38,
+     "child": 0.156,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "_VCq2IYc-7A",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.268,
+     "raw": 0.6338,
+     "age": 36,
+     "child": 0.193,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.234,
-     "raw": 0.617
+     "raw": 0.6168,
+     "age": 37,
+     "child": 0.19,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
-     "score": 0.234,
-     "raw": 0.6172
+     "score": 0.251,
+     "raw": 0.6254,
+     "age": 37,
+     "child": 0.166,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
-     "score": 0.238,
-     "raw": 0.619
+     "score": 0.235,
+     "raw": 0.6176,
+     "age": 37,
+     "child": 0.157,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
-     "score": 0.238,
-     "raw": 0.619
+     "score": 0.259,
+     "raw": 0.6294,
+     "age": 38,
+     "child": 0.162,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
-     "score": 0.241,
-     "raw": 0.6206
+     "score": 0.232,
+     "raw": 0.6162,
+     "age": 38,
+     "child": 0.166,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
-     "score": 0.241,
-     "raw": 0.6204
+     "score": 0.235,
+     "raw": 0.6177,
+     "age": 38,
+     "child": 0.163,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
-     "score": 0.251,
-     "raw": 0.6256
+     "score": 0.219,
+     "raw": 0.6094,
+     "age": 38,
+     "child": 0.159,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
-     "score": 0.248,
-     "raw": 0.624
+     "score": 0.182,
+     "raw": 0.5911,
+     "age": 39,
+     "child": 0.163,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "_VCq2IYc-7A",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.268,
+     "raw": 0.6341,
+     "age": 38,
+     "child": 0.13,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.301,
+     "raw": 0.6505,
+     "age": 38,
+     "child": 0.124,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.265,
+     "raw": 0.6327,
+     "age": 38,
+     "child": 0.121,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.249,
+     "raw": 0.6244,
+     "age": 37,
+     "child": 0.134,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.261,
+     "raw": 0.6306,
+     "age": 37,
+     "child": 0.122,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.303,
+     "raw": 0.6514,
+     "age": 37,
+     "child": 0.116,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.216,
+     "raw": 0.6082,
+     "age": 37,
+     "child": 0.139,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.187,
+     "raw": 0.5934,
+     "age": 36,
+     "child": 0.145,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.174,
+     "raw": 0.587,
+     "age": 36,
+     "child": 0.15,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "_VCq2IYc-7A",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.261,
+     "raw": 0.6305,
+     "age": 37,
+     "child": 0.157,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.256,
+     "raw": 0.6279,
+     "age": 38,
+     "child": 0.148,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.24,
+     "raw": 0.6199,
+     "age": 39,
+     "child": 0.144,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.246,
+     "raw": 0.6231,
+     "age": 39,
+     "child": 0.139,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.259,
+     "raw": 0.6296,
+     "age": 39,
+     "child": 0.143,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.246,
+     "raw": 0.6232,
+     "age": 39,
+     "child": 0.145,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.263,
+     "raw": 0.6314,
+     "age": 38,
+     "child": 0.148,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.252,
+     "raw": 0.6258,
+     "age": 38,
+     "child": 0.152,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.243,
+     "raw": 0.6216,
+     "age": 38,
+     "child": 0.154,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "_VCq2IYc-7A",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.187,
+     "raw": 0.5934,
+     "age": 36,
+     "child": 0.151,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.227,
+     "raw": 0.6135,
+     "age": 38,
+     "child": 0.147,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.233,
+     "raw": 0.6166,
+     "age": 37,
+     "child": 0.153,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.193,
+     "raw": 0.5967,
+     "age": 37,
+     "child": 0.157,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.225,
+     "raw": 0.6126,
+     "age": 37,
+     "child": 0.154,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.243,
+     "raw": 0.6214,
+     "age": 37,
+     "child": 0.153,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.207,
+     "raw": 0.6037,
+     "age": 38,
+     "child": 0.152,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.228,
+     "raw": 0.6139,
+     "age": 38,
+     "child": 0.153,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.209,
+     "raw": 0.6046,
+     "age": 38,
+     "child": 0.157,
+     "nullRead": 1
     }
    ]
   },
@@ -1705,55 +3127,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.352,
-     "raw": 0.6762
+     "raw": 0.6762,
+     "age": 35,
+     "child": 0.176,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.292,
-     "raw": 0.6459
+     "raw": 0.6459,
+     "age": 35,
+     "child": 0.176,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.25,
-     "raw": 0.6248
+     "raw": 0.6248,
+     "age": 35,
+     "child": 0.166,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.211,
-     "raw": 0.6055
+     "raw": 0.6055,
+     "age": 35,
+     "child": 0.175,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.211,
-     "raw": 0.6053
+     "raw": 0.6053,
+     "age": 35,
+     "child": 0.171,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.161,
-     "raw": 0.5807
+     "raw": 0.5807,
+     "age": 36,
+     "child": 0.172,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.128,
-     "raw": 0.5639
+     "raw": 0.5639,
+     "age": 36,
+     "child": 0.171,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.094,
-     "raw": 0.5469
+     "raw": 0.5469,
+     "age": 36,
+     "child": 0.181,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.069,
-     "raw": 0.5347
+     "raw": 0.5347,
+     "age": 37,
+     "child": 0.183,
+     "nullRead": 1
     }
    ]
   },
@@ -1765,55 +3214,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.207,
-     "raw": 0.6033
+     "raw": 0.6033,
+     "age": 39,
+     "child": 0.175,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.183,
-     "raw": 0.5914
+     "raw": 0.5914,
+     "age": 39,
+     "child": 0.17,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.173,
-     "raw": 0.5864
+     "raw": 0.5864,
+     "age": 39,
+     "child": 0.173,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.157,
-     "raw": 0.5785
+     "raw": 0.5785,
+     "age": 40,
+     "child": 0.161,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.162,
-     "raw": 0.5809
+     "raw": 0.5809,
+     "age": 41,
+     "child": 0.167,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.173,
-     "raw": 0.5867
+     "raw": 0.5867,
+     "age": 40,
+     "child": 0.159,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.165,
-     "raw": 0.5824
+     "raw": 0.5824,
+     "age": 41,
+     "child": 0.161,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.164,
-     "raw": 0.5819
+     "raw": 0.5819,
+     "age": 42,
+     "child": 0.161,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.151,
-     "raw": 0.5755
+     "raw": 0.5755,
+     "age": 42,
+     "child": 0.163,
+     "nullRead": 1
     }
    ]
   },
@@ -1825,55 +3301,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.173,
-     "raw": 0.5867
+     "raw": 0.5867,
+     "age": 38,
+     "child": 0.136,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.088,
-     "raw": 0.544
+     "raw": 0.544,
+     "age": 36,
+     "child": 0.132,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.094,
-     "raw": 0.5469
+     "raw": 0.5469,
+     "age": 37,
+     "child": 0.139,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.053,
-     "raw": 0.5267
+     "raw": 0.5267,
+     "age": 37,
+     "child": 0.144,
+     "nullRead": 0
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.002,
-     "raw": 0.5009
+     "raw": 0.5009,
+     "age": 36,
+     "child": 0.145,
+     "nullRead": 0
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.016,
-     "raw": 0.5079
+     "raw": 0.5079,
+     "age": 37,
+     "child": 0.148,
+     "nullRead": 0
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.012,
-     "raw": 0.5059
+     "raw": 0.5059,
+     "age": 36,
+     "child": 0.144,
+     "nullRead": 0
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.025,
-     "raw": 0.5127
+     "raw": 0.5127,
+     "age": 36,
+     "child": 0.145,
+     "nullRead": 0
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.018,
-     "raw": 0.509
+     "raw": 0.509,
+     "age": 36,
+     "child": 0.148,
+     "nullRead": 0
     }
    ]
   },
@@ -1885,140 +3388,81 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.184,
-     "raw": 0.5918
+     "raw": 0.5918,
+     "age": 39,
+     "child": 0.14,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.2,
-     "raw": 0.6
+     "raw": 0.6,
+     "age": 38,
+     "child": 0.154,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.195,
-     "raw": 0.5976
+     "raw": 0.5976,
+     "age": 37,
+     "child": 0.16,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.199,
-     "raw": 0.5995
+     "raw": 0.5995,
+     "age": 36,
+     "child": 0.156,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.163,
-     "raw": 0.5816
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.131,
-     "raw": 0.5656
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.12,
-     "raw": 0.5598
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.109,
-     "raw": 0.5545
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.104,
-     "raw": 0.5518
-    }
-   ]
-  },
-  {
-   "id": "PAgmFeIvLcY",
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.315,
-     "raw": 0.6576,
-     "age": 37,
-     "child": 0.151,
-     "nullRead": 1
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.25,
-     "raw": 0.625,
-     "age": 37,
-     "child": 0.167,
-     "nullRead": 1
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.244,
-     "raw": 0.622,
-     "age": 38,
-     "child": 0.152,
-     "nullRead": 1
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.284,
-     "raw": 0.6422,
-     "age": 39,
-     "child": 0.138,
-     "nullRead": 1
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.219,
-     "raw": 0.6094,
-     "age": 38,
+     "raw": 0.5816,
+     "age": 36,
      "child": 0.162,
      "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
-     "score": 0.182,
-     "raw": 0.5909,
-     "age": 38,
-     "child": 0.159,
+     "score": 0.131,
+     "raw": 0.5656,
+     "age": 36,
+     "child": 0.162,
      "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
-     "score": 0.214,
-     "raw": 0.6069,
-     "age": 38,
-     "child": 0.163,
+     "score": 0.12,
+     "raw": 0.5598,
+     "age": 37,
+     "child": 0.159,
      "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
-     "score": 0.198,
-     "raw": 0.5992,
-     "age": 39,
-     "child": 0.15,
+     "score": 0.109,
+     "raw": 0.5545,
+     "age": 38,
+     "child": 0.153,
      "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
-     "score": 0.24,
-     "raw": 0.6202,
-     "age": 39,
-     "child": 0.151,
+     "score": 0.104,
+     "raw": 0.5518,
+     "age": 38,
+     "child": 0.149,
      "nullRead": 1
     }
    ]
@@ -2031,55 +3475,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.295,
-     "raw": 0.6473
+     "raw": 0.6473,
+     "age": 35,
+     "child": 0.156,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.273,
-     "raw": 0.6363
+     "raw": 0.6363,
+     "age": 35,
+     "child": 0.171,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.326,
-     "raw": 0.6631
+     "raw": 0.6631,
+     "age": 34,
+     "child": 0.17,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.297,
-     "raw": 0.6483
+     "raw": 0.6483,
+     "age": 36,
+     "child": 0.163,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.303,
-     "raw": 0.6515
+     "raw": 0.6515,
+     "age": 36,
+     "child": 0.168,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.261,
-     "raw": 0.6305
+     "raw": 0.6305,
+     "age": 36,
+     "child": 0.164,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.25,
-     "raw": 0.6251
+     "raw": 0.6251,
+     "age": 37,
+     "child": 0.165,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.224,
-     "raw": 0.612
+     "raw": 0.612,
+     "age": 36,
+     "child": 0.17,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.218,
-     "raw": 0.6092
+     "raw": 0.6092,
+     "age": 37,
+     "child": 0.168,
+     "nullRead": 1
     }
    ]
   },
@@ -2091,55 +3562,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.244,
-     "raw": 0.6222
+     "raw": 0.6222,
+     "age": 39,
+     "child": 0.15,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.233,
-     "raw": 0.6167
+     "raw": 0.6167,
+     "age": 38,
+     "child": 0.153,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.24,
-     "raw": 0.6199
+     "raw": 0.6199,
+     "age": 38,
+     "child": 0.15,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.245,
-     "raw": 0.6224
+     "raw": 0.6224,
+     "age": 38,
+     "child": 0.15,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.234,
-     "raw": 0.6171
+     "raw": 0.6171,
+     "age": 38,
+     "child": 0.158,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.238,
-     "raw": 0.6192
+     "raw": 0.6192,
+     "age": 38,
+     "child": 0.151,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.24,
-     "raw": 0.6202
+     "raw": 0.6202,
+     "age": 38,
+     "child": 0.157,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.241,
-     "raw": 0.6204
+     "raw": 0.6204,
+     "age": 38,
+     "child": 0.158,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.237,
-     "raw": 0.6184
+     "raw": 0.6184,
+     "age": 38,
+     "child": 0.157,
+     "nullRead": 1
     }
    ]
   },
@@ -2151,55 +3649,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.214,
-     "raw": 0.6072
+     "raw": 0.6072,
+     "age": 37,
+     "child": 0.16,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.257,
-     "raw": 0.6286
+     "raw": 0.6286,
+     "age": 38,
+     "child": 0.145,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.278,
-     "raw": 0.6388
+     "raw": 0.6388,
+     "age": 38,
+     "child": 0.15,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.298,
-     "raw": 0.6488
+     "raw": 0.6488,
+     "age": 37,
+     "child": 0.144,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.293,
-     "raw": 0.6467
+     "raw": 0.6467,
+     "age": 37,
+     "child": 0.156,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.282,
-     "raw": 0.6409
+     "raw": 0.6409,
+     "age": 36,
+     "child": 0.161,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.276,
-     "raw": 0.6379
+     "raw": 0.6379,
+     "age": 37,
+     "child": 0.152,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.268,
-     "raw": 0.6338
+     "raw": 0.6338,
+     "age": 37,
+     "child": 0.161,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.257,
-     "raw": 0.6287
+     "raw": 0.6287,
+     "age": 37,
+     "child": 0.157,
+     "nullRead": 1
     }
    ]
   },
@@ -2211,55 +3736,507 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.213,
-     "raw": 0.6063
+     "raw": 0.6063,
+     "age": 38,
+     "child": 0.188,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.161,
-     "raw": 0.5807
+     "raw": 0.5807,
+     "age": 36,
+     "child": 0.191,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.173,
-     "raw": 0.5865
+     "raw": 0.5865,
+     "age": 36,
+     "child": 0.188,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.186,
-     "raw": 0.593
+     "raw": 0.593,
+     "age": 36,
+     "child": 0.182,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.207,
-     "raw": 0.6033
+     "raw": 0.6033,
+     "age": 36,
+     "child": 0.182,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.217,
-     "raw": 0.6086
+     "raw": 0.6086,
+     "age": 36,
+     "child": 0.179,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.222,
-     "raw": 0.6109
+     "raw": 0.6109,
+     "age": 36,
+     "child": 0.181,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.199,
-     "raw": 0.5997
+     "raw": 0.5997,
+     "age": 37,
+     "child": 0.18,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.214,
-     "raw": 0.607
+     "raw": 0.607,
+     "age": 36,
+     "child": 0.176,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "-LcdpQ2LLK0",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.187,
+     "raw": 0.5936,
+     "age": 38,
+     "child": 0.156,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.196,
+     "raw": 0.5979,
+     "age": 38,
+     "child": 0.15,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.257,
+     "raw": 0.6283,
+     "age": 38,
+     "child": 0.146,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.244,
+     "raw": 0.6219,
+     "age": 39,
+     "child": 0.151,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.259,
+     "raw": 0.6297,
+     "age": 40,
+     "child": 0.133,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.272,
+     "raw": 0.636,
+     "age": 39,
+     "child": 0.137,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.27,
+     "raw": 0.6349,
+     "age": 39,
+     "child": 0.139,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.282,
+     "raw": 0.6408,
+     "age": 40,
+     "child": 0.126,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.293,
+     "raw": 0.6463,
+     "age": 40,
+     "child": 0.12,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "-LcdpQ2LLK0",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.287,
+     "raw": 0.6436,
+     "age": 37,
+     "child": 0.152,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.338,
+     "raw": 0.6691,
+     "age": 37,
+     "child": 0.137,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.346,
+     "raw": 0.6732,
+     "age": 38,
+     "child": 0.13,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.341,
+     "raw": 0.6703,
+     "age": 37,
+     "child": 0.146,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.341,
+     "raw": 0.6705,
+     "age": 37,
+     "child": 0.152,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.332,
+     "raw": 0.6662,
+     "age": 37,
+     "child": 0.15,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.351,
+     "raw": 0.6754,
+     "age": 38,
+     "child": 0.143,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.352,
+     "raw": 0.676,
+     "age": 38,
+     "child": 0.137,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.367,
+     "raw": 0.6836,
+     "age": 38,
+     "child": 0.127,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "-LcdpQ2LLK0",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.265,
+     "raw": 0.6326,
+     "age": 38,
+     "child": 0.158,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.259,
+     "raw": 0.6294,
+     "age": 38,
+     "child": 0.158,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.224,
+     "raw": 0.6121,
+     "age": 38,
+     "child": 0.162,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.211,
+     "raw": 0.6055,
+     "age": 39,
+     "child": 0.163,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.218,
+     "raw": 0.6091,
+     "age": 38,
+     "child": 0.165,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.242,
+     "raw": 0.6208,
+     "age": 38,
+     "child": 0.165,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.246,
+     "raw": 0.623,
+     "age": 38,
+     "child": 0.163,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.261,
+     "raw": 0.6306,
+     "age": 38,
+     "child": 0.161,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.255,
+     "raw": 0.6275,
+     "age": 38,
+     "child": 0.172,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "-LcdpQ2LLK0",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.231,
+     "raw": 0.6154,
+     "age": 38,
+     "child": 0.167,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.229,
+     "raw": 0.6143,
+     "age": 38,
+     "child": 0.166,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.233,
+     "raw": 0.6165,
+     "age": 37,
+     "child": 0.164,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.232,
+     "raw": 0.6162,
+     "age": 38,
+     "child": 0.163,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.236,
+     "raw": 0.6182,
+     "age": 38,
+     "child": 0.16,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.229,
+     "raw": 0.6143,
+     "age": 38,
+     "child": 0.162,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.238,
+     "raw": 0.6188,
+     "age": 38,
+     "child": 0.16,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.253,
+     "raw": 0.6265,
+     "age": 38,
+     "child": 0.155,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.273,
+     "raw": 0.6365,
+     "age": 38,
+     "child": 0.157,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "rZ46kEk6aGg",
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.219,
+     "raw": 0.6096,
+     "age": 37,
+     "child": 0.184,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.17,
+     "raw": 0.5852,
+     "age": 35,
+     "child": 0.198,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.236,
+     "raw": 0.6181,
+     "age": 35,
+     "child": 0.18,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.25,
+     "raw": 0.6248,
+     "age": 35,
+     "child": 0.169,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.254,
+     "raw": 0.6271,
+     "age": 35,
+     "child": 0.17,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.251,
+     "raw": 0.6256,
+     "age": 35,
+     "child": 0.189,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.268,
+     "raw": 0.6342,
+     "age": 36,
+     "child": 0.172,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.313,
+     "raw": 0.6565,
+     "age": 37,
+     "child": 0.156,
+     "nullRead": 1
     }
    ]
   },
@@ -2271,55 +4248,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.237,
-     "raw": 0.6185
+     "raw": 0.6185,
+     "age": 39,
+     "child": 0.16,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.236,
-     "raw": 0.618
+     "raw": 0.618,
+     "age": 39,
+     "child": 0.162,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.234,
-     "raw": 0.6172
+     "raw": 0.6172,
+     "age": 39,
+     "child": 0.166,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.234,
-     "raw": 0.6171
+     "raw": 0.6171,
+     "age": 38,
+     "child": 0.168,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.239,
-     "raw": 0.6197
+     "raw": 0.6197,
+     "age": 38,
+     "child": 0.167,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.235,
-     "raw": 0.6173
+     "raw": 0.6173,
+     "age": 38,
+     "child": 0.168,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.237,
-     "raw": 0.6186
+     "raw": 0.6186,
+     "age": 38,
+     "child": 0.167,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.237,
-     "raw": 0.6186
+     "raw": 0.6186,
+     "age": 38,
+     "child": 0.166,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.233,
-     "raw": 0.6166
+     "raw": 0.6166,
+     "age": 39,
+     "child": 0.166,
+     "nullRead": 1
     }
    ]
   },
@@ -2331,55 +4335,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.242,
-     "raw": 0.6211
+     "raw": 0.6211,
+     "age": 37,
+     "child": 0.184,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.252,
-     "raw": 0.626
+     "raw": 0.626,
+     "age": 37,
+     "child": 0.179,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.273,
-     "raw": 0.6367
+     "raw": 0.6367,
+     "age": 36,
+     "child": 0.188,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.281,
-     "raw": 0.6405
+     "raw": 0.6405,
+     "age": 36,
+     "child": 0.183,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.276,
-     "raw": 0.6379
+     "raw": 0.6379,
+     "age": 36,
+     "child": 0.183,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.256,
-     "raw": 0.6282
+     "raw": 0.6282,
+     "age": 36,
+     "child": 0.181,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.272,
-     "raw": 0.6362
+     "raw": 0.6362,
+     "age": 36,
+     "child": 0.175,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.272,
-     "raw": 0.6361
+     "raw": 0.6361,
+     "age": 37,
+     "child": 0.166,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.269,
-     "raw": 0.6345
+     "raw": 0.6345,
+     "age": 37,
+     "child": 0.159,
+     "nullRead": 1
     }
    ]
   },
@@ -2391,55 +4422,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.225,
-     "raw": 0.6127
+     "raw": 0.6127,
+     "age": 40,
+     "child": 0.149,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.198,
-     "raw": 0.599
+     "raw": 0.599,
+     "age": 39,
+     "child": 0.154,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.199,
-     "raw": 0.5997
+     "raw": 0.5997,
+     "age": 39,
+     "child": 0.156,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.183,
-     "raw": 0.5914
+     "raw": 0.5914,
+     "age": 38,
+     "child": 0.158,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.174,
-     "raw": 0.5872
+     "raw": 0.5872,
+     "age": 38,
+     "child": 0.156,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.17,
-     "raw": 0.5851
+     "raw": 0.5851,
+     "age": 38,
+     "child": 0.157,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.159,
-     "raw": 0.5795
+     "raw": 0.5795,
+     "age": 38,
+     "child": 0.16,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.159,
-     "raw": 0.5794
+     "raw": 0.5794,
+     "age": 38,
+     "child": 0.163,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.148,
-     "raw": 0.5742
+     "raw": 0.5742,
+     "age": 38,
+     "child": 0.166,
+     "nullRead": 1
     }
    ]
   },
@@ -2451,1015 +4509,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.33,
-     "raw": 0.6652
+     "raw": 0.6652,
+     "age": 38,
+     "child": 0.141,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.332,
-     "raw": 0.6661
+     "raw": 0.6661,
+     "age": 39,
+     "child": 0.138,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.35,
-     "raw": 0.675
+     "raw": 0.675,
+     "age": 39,
+     "child": 0.133,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.341,
-     "raw": 0.6704
+     "raw": 0.6704,
+     "age": 39,
+     "child": 0.136,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.334,
-     "raw": 0.667
+     "raw": 0.667,
+     "age": 39,
+     "child": 0.141,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.338,
-     "raw": 0.669
+     "raw": 0.669,
+     "age": 39,
+     "child": 0.138,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.343,
-     "raw": 0.6716
+     "raw": 0.6716,
+     "age": 39,
+     "child": 0.136,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.328,
-     "raw": 0.664
+     "raw": 0.664,
+     "age": 39,
+     "child": 0.139,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.31,
-     "raw": 0.6551
-    }
-   ]
-  },
-  {
-   "id": "nBW4Z9BYMuE",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.277,
-     "raw": 0.6385
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.28,
-     "raw": 0.6398
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.261,
-     "raw": 0.6307
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.239,
-     "raw": 0.6195
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.242,
-     "raw": 0.6208
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.237,
-     "raw": 0.6184
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.231,
-     "raw": 0.6156
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.214,
-     "raw": 0.6068
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.205,
-     "raw": 0.6023
-    }
-   ]
-  },
-  {
-   "id": "nBW4Z9BYMuE",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.256,
-     "raw": 0.6282
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.26,
-     "raw": 0.6302
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.227,
-     "raw": 0.6133
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.209,
-     "raw": 0.6043
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.214,
-     "raw": 0.6071
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.204,
-     "raw": 0.602
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.216,
-     "raw": 0.608
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.214,
-     "raw": 0.6072
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.219,
-     "raw": 0.6096
-    }
-   ]
-  },
-  {
-   "id": "nBW4Z9BYMuE",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.241,
-     "raw": 0.6206
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.206,
-     "raw": 0.6028
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.189,
-     "raw": 0.5947
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.179,
-     "raw": 0.5895
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.189,
-     "raw": 0.5946
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.186,
-     "raw": 0.5928
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.184,
-     "raw": 0.592
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.183,
-     "raw": 0.5916
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.183,
-     "raw": 0.5913
-    }
-   ]
-  },
-  {
-   "id": "nBW4Z9BYMuE",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.202,
-     "raw": 0.6012
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.258,
-     "raw": 0.6291
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.206,
-     "raw": 0.603
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.235,
-     "raw": 0.6177
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.213,
-     "raw": 0.6065
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.212,
-     "raw": 0.6062
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.238,
-     "raw": 0.6188
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.243,
-     "raw": 0.6214
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.242,
-     "raw": 0.6209
-    }
-   ]
-  },
-  {
-   "id": "uPZy6d_M3hg",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.129,
-     "raw": 0.5644
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.157,
-     "raw": 0.5787
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.141,
-     "raw": 0.5704
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.171,
-     "raw": 0.5857
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.176,
-     "raw": 0.5882
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.189,
-     "raw": 0.5947
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.203,
-     "raw": 0.6016
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.213,
-     "raw": 0.6066
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.227,
-     "raw": 0.6135
-    }
-   ]
-  },
-  {
-   "id": "uPZy6d_M3hg",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.22,
-     "raw": 0.6102
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.248,
-     "raw": 0.6242
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.273,
-     "raw": 0.6367
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.256,
-     "raw": 0.6281
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.246,
-     "raw": 0.6232
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.233,
-     "raw": 0.6163
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.232,
-     "raw": 0.6162
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.204,
-     "raw": 0.6022
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.174,
-     "raw": 0.587
-    }
-   ]
-  },
-  {
-   "id": "uPZy6d_M3hg",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.17,
-     "raw": 0.585
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.134,
-     "raw": 0.5668
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.08,
-     "raw": 0.5401
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.053,
-     "raw": 0.5266
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.042,
-     "raw": 0.5208
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.002,
-     "raw": 0.5008
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.033,
-     "raw": 0.5163
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.008,
-     "raw": 0.504
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.06,
-     "raw": 0.5298
-    }
-   ]
-  },
-  {
-   "id": "uPZy6d_M3hg",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.252,
-     "raw": 0.6262
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.239,
-     "raw": 0.6194
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.26,
-     "raw": 0.6298
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.249,
-     "raw": 0.6246
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.253,
-     "raw": 0.6265
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.254,
-     "raw": 0.6268
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.262,
-     "raw": 0.631
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.242,
-     "raw": 0.6212
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.233,
-     "raw": 0.6167
-    }
-   ]
-  },
-  {
-   "id": "Y1H2QA331ck",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.23,
-     "raw": 0.6152
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.221,
-     "raw": 0.6106
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.219,
-     "raw": 0.6096
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.214,
-     "raw": 0.607
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.206,
-     "raw": 0.6031
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.205,
-     "raw": 0.6023
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.202,
-     "raw": 0.601
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.216,
-     "raw": 0.6079
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.224,
-     "raw": 0.6119
-    }
-   ]
-  },
-  {
-   "id": "Y1H2QA331ck",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.249,
-     "raw": 0.6244
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.248,
-     "raw": 0.624
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.239,
-     "raw": 0.6195
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.218,
-     "raw": 0.6088
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.197,
-     "raw": 0.5987
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.197,
-     "raw": 0.5983
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.177,
-     "raw": 0.5883
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.177,
-     "raw": 0.5887
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.171,
-     "raw": 0.5854
-    }
-   ]
-  },
-  {
-   "id": "Y1H2QA331ck",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.195,
-     "raw": 0.5974
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.212,
-     "raw": 0.6061
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.2,
-     "raw": 0.6002
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.218,
-     "raw": 0.609
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.201,
-     "raw": 0.6004
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.219,
-     "raw": 0.6095
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.228,
-     "raw": 0.6142
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.225,
-     "raw": 0.6127
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.216,
-     "raw": 0.608
-    }
-   ]
-  },
-  {
-   "id": "Y1H2QA331ck",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.222,
-     "raw": 0.6109
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.214,
-     "raw": 0.6068
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.207,
-     "raw": 0.6037
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.203,
-     "raw": 0.6014
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.197,
-     "raw": 0.5987
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.197,
-     "raw": 0.5984
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.214,
-     "raw": 0.6069
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.223,
-     "raw": 0.6113
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.224,
-     "raw": 0.6119
-    }
-   ]
-  },
-  {
-   "id": "-1fP-hCptP8",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.136,
-     "raw": 0.5679
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.042,
-     "raw": 0.5212
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.029,
-     "raw": 0.5146
-    },
-    {
-     "px": 56,
-     "gender": "female",
-     "score": 0.002,
-     "raw": 0.4989
-    },
-    {
-     "px": 64,
-     "gender": "female",
-     "score": 0.005,
-     "raw": 0.4977
-    },
-    {
-     "px": 72,
-     "gender": "female",
-     "score": 0.008,
-     "raw": 0.496
-    },
-    {
-     "px": 88,
-     "gender": "female",
-     "score": 0.014,
-     "raw": 0.4932
-    },
-    {
-     "px": 112,
-     "gender": "female",
-     "score": 0.004,
-     "raw": 0.4978
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.016,
-     "raw": 0.5081
-    }
-   ]
-  },
-  {
-   "id": "-1fP-hCptP8",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.257,
-     "raw": 0.6284
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.277,
-     "raw": 0.6384
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.269,
-     "raw": 0.6343
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.253,
-     "raw": 0.6267
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.265,
-     "raw": 0.6327
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.276,
-     "raw": 0.6382
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.273,
-     "raw": 0.6367
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.26,
-     "raw": 0.63
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.266,
-     "raw": 0.6331
-    }
-   ]
-  },
-  {
-   "id": "-1fP-hCptP8",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.366,
-     "raw": 0.6831
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.342,
-     "raw": 0.6712
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.347,
-     "raw": 0.6737
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.337,
-     "raw": 0.6683
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.387,
-     "raw": 0.6933
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.347,
-     "raw": 0.6736
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.395,
-     "raw": 0.6977
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.421,
-     "raw": 0.7103
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.447,
-     "raw": 0.7236
-    }
-   ]
-  },
-  {
-   "id": "-1fP-hCptP8",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.294,
-     "raw": 0.647
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.286,
-     "raw": 0.6428
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.31,
-     "raw": 0.6552
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.268,
-     "raw": 0.6342
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.289,
-     "raw": 0.6446
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.291,
-     "raw": 0.6457
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.307,
-     "raw": 0.6533
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.303,
-     "raw": 0.6515
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.299,
-     "raw": 0.6495
+     "raw": 0.6551,
+     "age": 39,
+     "child": 0.141,
+     "nullRead": 1
     }
    ]
   },
@@ -3471,55 +4596,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.205,
-     "raw": 0.6024
+     "raw": 0.6024,
+     "age": 37,
+     "child": 0.165,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.231,
-     "raw": 0.6153
+     "raw": 0.6153,
+     "age": 36,
+     "child": 0.18,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.19,
-     "raw": 0.5951
+     "raw": 0.5951,
+     "age": 37,
+     "child": 0.16,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.173,
-     "raw": 0.5864
+     "raw": 0.5864,
+     "age": 38,
+     "child": 0.157,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.191,
-     "raw": 0.5957
+     "raw": 0.5957,
+     "age": 38,
+     "child": 0.158,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.196,
-     "raw": 0.5981
+     "raw": 0.5981,
+     "age": 38,
+     "child": 0.159,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.191,
-     "raw": 0.5956
+     "raw": 0.5956,
+     "age": 39,
+     "child": 0.165,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.202,
-     "raw": 0.6011
+     "raw": 0.6011,
+     "age": 39,
+     "child": 0.161,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.198,
-     "raw": 0.5992
+     "raw": 0.5992,
+     "age": 39,
+     "child": 0.168,
+     "nullRead": 1
     }
    ]
   },
@@ -3531,55 +4683,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.212,
-     "raw": 0.6061
+     "raw": 0.6061,
+     "age": 39,
+     "child": 0.165,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.209,
-     "raw": 0.6044
+     "raw": 0.6044,
+     "age": 38,
+     "child": 0.169,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.204,
-     "raw": 0.6019
+     "raw": 0.6019,
+     "age": 38,
+     "child": 0.167,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.203,
-     "raw": 0.6017
+     "raw": 0.6017,
+     "age": 39,
+     "child": 0.156,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.213,
-     "raw": 0.6067
+     "raw": 0.6067,
+     "age": 38,
+     "child": 0.162,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.219,
-     "raw": 0.6094
+     "raw": 0.6094,
+     "age": 39,
+     "child": 0.161,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.206,
-     "raw": 0.6029
+     "raw": 0.6029,
+     "age": 38,
+     "child": 0.178,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.227,
-     "raw": 0.6133
+     "raw": 0.6133,
+     "age": 38,
+     "child": 0.176,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.211,
-     "raw": 0.6056
+     "raw": 0.6056,
+     "age": 38,
+     "child": 0.177,
+     "nullRead": 1
     }
    ]
   },
@@ -3591,55 +4770,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.151,
-     "raw": 0.5755
+     "raw": 0.5755,
+     "age": 39,
+     "child": 0.146,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.143,
-     "raw": 0.5716
+     "raw": 0.5716,
+     "age": 40,
+     "child": 0.151,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.155,
-     "raw": 0.5777
+     "raw": 0.5777,
+     "age": 40,
+     "child": 0.149,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.099,
-     "raw": 0.5496
+     "raw": 0.5496,
+     "age": 40,
+     "child": 0.151,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.122,
-     "raw": 0.5611
+     "raw": 0.5611,
+     "age": 42,
+     "child": 0.142,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.124,
-     "raw": 0.5618
+     "raw": 0.5618,
+     "age": 42,
+     "child": 0.141,
+     "nullRead": 0
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.097,
-     "raw": 0.5486
+     "raw": 0.5486,
+     "age": 40,
+     "child": 0.146,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.116,
-     "raw": 0.5579
+     "raw": 0.5579,
+     "age": 41,
+     "child": 0.143,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.123,
-     "raw": 0.5613
+     "raw": 0.5613,
+     "age": 42,
+     "child": 0.14,
+     "nullRead": 1
     }
    ]
   },
@@ -3651,535 +4857,778 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.12,
-     "raw": 0.5602
+     "raw": 0.5602,
+     "age": 38,
+     "child": 0.166,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.18,
-     "raw": 0.5899
+     "raw": 0.5899,
+     "age": 38,
+     "child": 0.159,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.173,
-     "raw": 0.5863
+     "raw": 0.5863,
+     "age": 40,
+     "child": 0.153,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.147,
-     "raw": 0.5733
+     "raw": 0.5733,
+     "age": 39,
+     "child": 0.164,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.179,
-     "raw": 0.5893
+     "raw": 0.5893,
+     "age": 40,
+     "child": 0.155,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.167,
-     "raw": 0.5835
+     "raw": 0.5835,
+     "age": 40,
+     "child": 0.155,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.158,
-     "raw": 0.5788
+     "raw": 0.5788,
+     "age": 40,
+     "child": 0.155,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.137,
-     "raw": 0.5687
+     "raw": 0.5687,
+     "age": 40,
+     "child": 0.153,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.109,
-     "raw": 0.5546
+     "raw": 0.5546,
+     "age": 39,
+     "child": 0.156,
+     "nullRead": 1
     }
    ]
   },
   {
-   "id": "BWQFUPm6XE0",
+   "id": "uPZy6d_M3hg",
    "noFace": true,
    "series": [
     {
      "px": 32,
      "gender": "male",
-     "score": 0.345,
-     "raw": 0.6726
+     "score": 0.129,
+     "raw": 0.5644,
+     "age": 37,
+     "child": 0.176,
+     "nullRead": 1
     },
     {
      "px": 40,
-     "gender": "male",
-     "score": 0.283,
-     "raw": 0.6413
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.348,
-     "raw": 0.674
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.239,
-     "raw": 0.6194
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.292,
-     "raw": 0.6462
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.258,
-     "raw": 0.6292
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.248,
-     "raw": 0.6238
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.241,
-     "raw": 0.6206
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.261,
-     "raw": 0.6305
-    }
-   ]
-  },
-  {
-   "id": "BWQFUPm6XE0",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.253,
-     "raw": 0.6266
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.231,
-     "raw": 0.6157
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.206,
-     "raw": 0.6029
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.198,
-     "raw": 0.599
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.161,
-     "raw": 0.5805
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.188,
-     "raw": 0.5942
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.16,
-     "raw": 0.58
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.163,
-     "raw": 0.5817
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.202,
-     "raw": 0.6012
-    }
-   ]
-  },
-  {
-   "id": "BWQFUPm6XE0",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.18,
-     "raw": 0.5901
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.201,
-     "raw": 0.6003
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.241,
-     "raw": 0.6205
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.343,
-     "raw": 0.6714
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.284,
-     "raw": 0.6419
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.34,
-     "raw": 0.67
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.36,
-     "raw": 0.68
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.329,
-     "raw": 0.6647
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.358,
-     "raw": 0.6791
-    }
-   ]
-  },
-  {
-   "id": "BWQFUPm6XE0",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.438,
-     "raw": 0.7189
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.464,
-     "raw": 0.7322
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.462,
-     "raw": 0.7311
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.44,
-     "raw": 0.72
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.454,
-     "raw": 0.7269
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.462,
-     "raw": 0.7311
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.481,
-     "raw": 0.7406
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.515,
-     "raw": 0.7573
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.506,
-     "raw": 0.7532
-    }
-   ]
-  },
-  {
-   "id": "QNXtbsS633w",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.239,
-     "raw": 0.6193
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.231,
-     "raw": 0.6153
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.2,
-     "raw": 0.6001
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.205,
-     "raw": 0.6024
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.183,
-     "raw": 0.5914
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.203,
-     "raw": 0.6013
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.181,
-     "raw": 0.5907
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.189,
-     "raw": 0.5944
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.19,
-     "raw": 0.5948
-    }
-   ]
-  },
-  {
-   "id": "QNXtbsS633w",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.318,
-     "raw": 0.6592
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.266,
-     "raw": 0.6331
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.274,
-     "raw": 0.6371
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.246,
-     "raw": 0.623
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.232,
-     "raw": 0.616
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.238,
-     "raw": 0.619
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.246,
-     "raw": 0.6228
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.224,
-     "raw": 0.6121
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.198,
-     "raw": 0.5989
-    }
-   ]
-  },
-  {
-   "id": "QNXtbsS633w",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.198,
-     "raw": 0.5991
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.164,
-     "raw": 0.5822
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.178,
-     "raw": 0.5892
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.167,
-     "raw": 0.5835
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.142,
-     "raw": 0.5709
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.128,
-     "raw": 0.5639
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.151,
-     "raw": 0.5754
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.165,
-     "raw": 0.5823
-    },
-    {
-     "px": 160,
      "gender": "male",
      "score": 0.157,
-     "raw": 0.5786
+     "raw": 0.5787,
+     "age": 37,
+     "child": 0.174,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.141,
+     "raw": 0.5704,
+     "age": 37,
+     "child": 0.166,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.171,
+     "raw": 0.5857,
+     "age": 38,
+     "child": 0.168,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.176,
+     "raw": 0.5882,
+     "age": 38,
+     "child": 0.168,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.189,
+     "raw": 0.5947,
+     "age": 38,
+     "child": 0.166,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.203,
+     "raw": 0.6016,
+     "age": 38,
+     "child": 0.165,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.213,
+     "raw": 0.6066,
+     "age": 38,
+     "child": 0.167,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.227,
+     "raw": 0.6135,
+     "age": 38,
+     "child": 0.165,
+     "nullRead": 1
     }
    ]
   },
   {
-   "id": "QNXtbsS633w",
+   "id": "uPZy6d_M3hg",
    "noFace": true,
    "series": [
     {
      "px": 32,
      "gender": "male",
-     "score": 0.134,
-     "raw": 0.567
+     "score": 0.22,
+     "raw": 0.6102,
+     "age": 36,
+     "child": 0.166,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
-     "score": 0.078,
-     "raw": 0.5391
+     "score": 0.248,
+     "raw": 0.6242,
+     "age": 37,
+     "child": 0.164,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
-     "score": 0.012,
-     "raw": 0.5061
+     "score": 0.273,
+     "raw": 0.6367,
+     "age": 37,
+     "child": 0.159,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
-     "score": 0.02,
-     "raw": 0.5098
+     "score": 0.256,
+     "raw": 0.6281,
+     "age": 37,
+     "child": 0.17,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
-     "score": 0.023,
-     "raw": 0.5115
+     "score": 0.246,
+     "raw": 0.6232,
+     "age": 37,
+     "child": 0.171,
+     "nullRead": 1
     },
     {
      "px": 72,
-     "gender": "female",
-     "score": 0.004,
-     "raw": 0.4978
+     "gender": "male",
+     "score": 0.233,
+     "raw": 0.6163,
+     "age": 37,
+     "child": 0.174,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
-     "score": 0.044,
-     "raw": 0.5219
+     "score": 0.232,
+     "raw": 0.6162,
+     "age": 37,
+     "child": 0.172,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
-     "score": 0.073,
-     "raw": 0.5364
+     "score": 0.204,
+     "raw": 0.6022,
+     "age": 37,
+     "child": 0.173,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
-     "score": 0.088,
-     "raw": 0.5439
+     "score": 0.174,
+     "raw": 0.587,
+     "age": 37,
+     "child": 0.178,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "uPZy6d_M3hg",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.17,
+     "raw": 0.585,
+     "age": 35,
+     "child": 0.116,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.134,
+     "raw": 0.5668,
+     "age": 36,
+     "child": 0.133,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.08,
+     "raw": 0.5401,
+     "age": 36,
+     "child": 0.133,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.053,
+     "raw": 0.5266,
+     "age": 36,
+     "child": 0.138,
+     "nullRead": 0
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.042,
+     "raw": 0.5208,
+     "age": 36,
+     "child": 0.146,
+     "nullRead": 0
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.002,
+     "raw": 0.5008,
+     "age": 36,
+     "child": 0.145,
+     "nullRead": 0
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.033,
+     "raw": 0.5163,
+     "age": 36,
+     "child": 0.146,
+     "nullRead": 0
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.008,
+     "raw": 0.504,
+     "age": 36,
+     "child": 0.153,
+     "nullRead": 0
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.06,
+     "raw": 0.5298,
+     "age": 37,
+     "child": 0.149,
+     "nullRead": 0
+    }
+   ]
+  },
+  {
+   "id": "uPZy6d_M3hg",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.252,
+     "raw": 0.6262,
+     "age": 39,
+     "child": 0.155,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.239,
+     "raw": 0.6194,
+     "age": 39,
+     "child": 0.157,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.26,
+     "raw": 0.6298,
+     "age": 38,
+     "child": 0.162,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.249,
+     "raw": 0.6246,
+     "age": 38,
+     "child": 0.166,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.253,
+     "raw": 0.6265,
+     "age": 38,
+     "child": 0.159,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.254,
+     "raw": 0.6268,
+     "age": 38,
+     "child": 0.162,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.262,
+     "raw": 0.631,
+     "age": 38,
+     "child": 0.159,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.242,
+     "raw": 0.6212,
+     "age": 39,
+     "child": 0.156,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.233,
+     "raw": 0.6167,
+     "age": 39,
+     "child": 0.159,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "7eUDAlHLad0",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.292,
+     "raw": 0.646,
+     "age": 36,
+     "child": 0.134,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.303,
+     "raw": 0.6515,
+     "age": 36,
+     "child": 0.121,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.333,
+     "raw": 0.6666,
+     "age": 37,
+     "child": 0.103,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.342,
+     "raw": 0.671,
+     "age": 37,
+     "child": 0.11,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.323,
+     "raw": 0.6617,
+     "age": 37,
+     "child": 0.127,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.344,
+     "raw": 0.6719,
+     "age": 37,
+     "child": 0.123,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.333,
+     "raw": 0.6667,
+     "age": 38,
+     "child": 0.128,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.272,
+     "raw": 0.6362,
+     "age": 38,
+     "child": 0.135,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.236,
+     "raw": 0.6182,
+     "age": 38,
+     "child": 0.145,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "7eUDAlHLad0",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.163,
+     "raw": 0.5817,
+     "age": 34,
+     "child": 0.179,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.217,
+     "raw": 0.6086,
+     "age": 36,
+     "child": 0.174,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.159,
+     "raw": 0.5794,
+     "age": 36,
+     "child": 0.173,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.138,
+     "raw": 0.5689,
+     "age": 36,
+     "child": 0.176,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.121,
+     "raw": 0.5604,
+     "age": 36,
+     "child": 0.184,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.148,
+     "raw": 0.574,
+     "age": 36,
+     "child": 0.18,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.131,
+     "raw": 0.5657,
+     "age": 36,
+     "child": 0.181,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.134,
+     "raw": 0.5669,
+     "age": 36,
+     "child": 0.177,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.122,
+     "raw": 0.5609,
+     "age": 36,
+     "child": 0.176,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "7eUDAlHLad0",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.255,
+     "raw": 0.6274,
+     "age": 37,
+     "child": 0.171,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.27,
+     "raw": 0.6348,
+     "age": 37,
+     "child": 0.149,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.264,
+     "raw": 0.6319,
+     "age": 38,
+     "child": 0.155,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.273,
+     "raw": 0.6367,
+     "age": 37,
+     "child": 0.156,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.262,
+     "raw": 0.6311,
+     "age": 38,
+     "child": 0.158,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.262,
+     "raw": 0.6308,
+     "age": 38,
+     "child": 0.156,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.243,
+     "raw": 0.6214,
+     "age": 38,
+     "child": 0.15,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.242,
+     "raw": 0.6209,
+     "age": 37,
+     "child": 0.152,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.232,
+     "raw": 0.616,
+     "age": 37,
+     "child": 0.156,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "7eUDAlHLad0",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.204,
+     "raw": 0.602,
+     "age": 35,
+     "child": 0.141,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.191,
+     "raw": 0.5957,
+     "age": 35,
+     "child": 0.153,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.163,
+     "raw": 0.5817,
+     "age": 36,
+     "child": 0.159,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.213,
+     "raw": 0.6066,
+     "age": 37,
+     "child": 0.15,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.202,
+     "raw": 0.6012,
+     "age": 38,
+     "child": 0.146,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.198,
+     "raw": 0.5992,
+     "age": 37,
+     "child": 0.161,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.22,
+     "raw": 0.6099,
+     "age": 38,
+     "child": 0.15,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.23,
+     "raw": 0.6148,
+     "age": 38,
+     "child": 0.156,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.197,
+     "raw": 0.5987,
+     "age": 37,
+     "child": 0.174,
+     "nullRead": 1
     }
    ]
   },
@@ -4191,55 +5640,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.421,
-     "raw": 0.7105
+     "raw": 0.7105,
+     "age": 35,
+     "child": 0.178,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.381,
-     "raw": 0.6906
+     "raw": 0.6906,
+     "age": 36,
+     "child": 0.169,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.349,
-     "raw": 0.6744
+     "raw": 0.6744,
+     "age": 36,
+     "child": 0.171,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.315,
-     "raw": 0.6575
+     "raw": 0.6575,
+     "age": 35,
+     "child": 0.176,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.329,
-     "raw": 0.6646
+     "raw": 0.6646,
+     "age": 35,
+     "child": 0.178,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.348,
-     "raw": 0.6738
+     "raw": 0.6738,
+     "age": 35,
+     "child": 0.178,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.299,
-     "raw": 0.6493
+     "raw": 0.6493,
+     "age": 37,
+     "child": 0.175,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.315,
-     "raw": 0.6575
+     "raw": 0.6575,
+     "age": 37,
+     "child": 0.164,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.32,
-     "raw": 0.6602
+     "raw": 0.6602,
+     "age": 37,
+     "child": 0.157,
+     "nullRead": 1
     }
    ]
   },
@@ -4251,55 +5727,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.386,
-     "raw": 0.6931
+     "raw": 0.6931,
+     "age": 42,
+     "child": 0.119,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.414,
-     "raw": 0.707
+     "raw": 0.707,
+     "age": 39,
+     "child": 0.114,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.404,
-     "raw": 0.7022
+     "raw": 0.7022,
+     "age": 39,
+     "child": 0.123,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.396,
-     "raw": 0.6982
+     "raw": 0.6982,
+     "age": 39,
+     "child": 0.117,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.394,
-     "raw": 0.6971
+     "raw": 0.6971,
+     "age": 39,
+     "child": 0.12,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.398,
-     "raw": 0.6989
+     "raw": 0.6989,
+     "age": 38,
+     "child": 0.129,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.391,
-     "raw": 0.6957
+     "raw": 0.6957,
+     "age": 37,
+     "child": 0.141,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.371,
-     "raw": 0.6857
+     "raw": 0.6857,
+     "age": 38,
+     "child": 0.137,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.37,
-     "raw": 0.6849
+     "raw": 0.6849,
+     "age": 37,
+     "child": 0.149,
+     "nullRead": 1
     }
    ]
   },
@@ -4311,55 +5814,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.148,
-     "raw": 0.5741
+     "raw": 0.5741,
+     "age": 38,
+     "child": 0.159,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.156,
-     "raw": 0.578
+     "raw": 0.578,
+     "age": 38,
+     "child": 0.155,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.147,
-     "raw": 0.5733
+     "raw": 0.5733,
+     "age": 39,
+     "child": 0.148,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.108,
-     "raw": 0.5539
+     "raw": 0.5539,
+     "age": 38,
+     "child": 0.157,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.092,
-     "raw": 0.5462
+     "raw": 0.5462,
+     "age": 38,
+     "child": 0.163,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.09,
-     "raw": 0.5452
+     "raw": 0.5452,
+     "age": 38,
+     "child": 0.162,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.094,
-     "raw": 0.5468
+     "raw": 0.5468,
+     "age": 38,
+     "child": 0.15,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.044,
-     "raw": 0.5218
+     "raw": 0.5218,
+     "age": 41,
+     "child": 0.147,
+     "nullRead": 0
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.077,
-     "raw": 0.5385
+     "raw": 0.5385,
+     "age": 42,
+     "child": 0.143,
+     "nullRead": 1
     }
    ]
   },
@@ -4371,535 +5901,778 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.137,
-     "raw": 0.5687
+     "raw": 0.5687,
+     "age": 35,
+     "child": 0.114,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.164,
-     "raw": 0.5819
+     "raw": 0.5819,
+     "age": 37,
+     "child": 0.14,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.131,
-     "raw": 0.5656
+     "raw": 0.5656,
+     "age": 39,
+     "child": 0.141,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.123,
-     "raw": 0.5617
+     "raw": 0.5617,
+     "age": 38,
+     "child": 0.148,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.155,
-     "raw": 0.5775
+     "raw": 0.5775,
+     "age": 38,
+     "child": 0.142,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.119,
-     "raw": 0.5595
+     "raw": 0.5595,
+     "age": 39,
+     "child": 0.141,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.127,
-     "raw": 0.5633
+     "raw": 0.5633,
+     "age": 38,
+     "child": 0.136,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.121,
-     "raw": 0.5605
+     "raw": 0.5605,
+     "age": 39,
+     "child": 0.127,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.17,
-     "raw": 0.5849
+     "raw": 0.5849,
+     "age": 39,
+     "child": 0.138,
+     "nullRead": 1
     }
    ]
   },
   {
-   "id": "5TfBGZWFPPw",
+   "id": "QNXtbsS633w",
    "noFace": true,
    "series": [
     {
      "px": 32,
      "gender": "male",
-     "score": 0.121,
-     "raw": 0.5603
+     "score": 0.239,
+     "raw": 0.6193,
+     "age": 38,
+     "child": 0.165,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
-     "score": 0.021,
-     "raw": 0.5104
+     "score": 0.231,
+     "raw": 0.6153,
+     "age": 38,
+     "child": 0.156,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
-     "score": 0.012,
-     "raw": 0.5061
+     "score": 0.2,
+     "raw": 0.6001,
+     "age": 39,
+     "child": 0.154,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
-     "score": 0.032,
-     "raw": 0.5161
+     "score": 0.205,
+     "raw": 0.6024,
+     "age": 39,
+     "child": 0.157,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
-     "score": 0.034,
-     "raw": 0.5171
+     "score": 0.183,
+     "raw": 0.5914,
+     "age": 39,
+     "child": 0.151,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
-     "score": 0.03,
-     "raw": 0.5149
+     "score": 0.203,
+     "raw": 0.6013,
+     "age": 39,
+     "child": 0.151,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
-     "score": 0.023,
-     "raw": 0.5115
+     "score": 0.181,
+     "raw": 0.5907,
+     "age": 39,
+     "child": 0.145,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
-     "score": 0.046,
-     "raw": 0.5229
+     "score": 0.189,
+     "raw": 0.5944,
+     "age": 39,
+     "child": 0.142,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
-     "score": 0.091,
-     "raw": 0.5453
+     "score": 0.19,
+     "raw": 0.5948,
+     "age": 40,
+     "child": 0.139,
+     "nullRead": 1
     }
    ]
   },
   {
-   "id": "5TfBGZWFPPw",
+   "id": "QNXtbsS633w",
    "noFace": true,
    "series": [
     {
      "px": 32,
      "gender": "male",
-     "score": 0.294,
-     "raw": 0.647
+     "score": 0.318,
+     "raw": 0.6592,
+     "age": 36,
+     "child": 0.198,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
-     "score": 0.284,
-     "raw": 0.6421
+     "score": 0.266,
+     "raw": 0.6331,
+     "age": 36,
+     "child": 0.204,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
-     "score": 0.276,
-     "raw": 0.6379
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.261,
-     "raw": 0.6305
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.226,
-     "raw": 0.6129
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.222,
-     "raw": 0.611
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.198,
-     "raw": 0.5992
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.199,
-     "raw": 0.5994
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.222,
-     "raw": 0.6109
-    }
-   ]
-  },
-  {
-   "id": "5TfBGZWFPPw",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.249,
-     "raw": 0.6244
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.242,
-     "raw": 0.6208
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.24,
-     "raw": 0.6201
+     "score": 0.274,
+     "raw": 0.6371,
+     "age": 37,
+     "child": 0.184,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.246,
-     "raw": 0.6232
+     "raw": 0.623,
+     "age": 37,
+     "child": 0.193,
+     "nullRead": 1
     },
     {
      "px": 64,
-     "gender": "male",
-     "score": 0.304,
-     "raw": 0.6522
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.267,
-     "raw": 0.6333
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.278,
-     "raw": 0.6388
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.273,
-     "raw": 0.6367
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.269,
-     "raw": 0.6347
-    }
-   ]
-  },
-  {
-   "id": "5TfBGZWFPPw",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.304,
-     "raw": 0.652
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.258,
-     "raw": 0.6291
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.249,
-     "raw": 0.6243
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.24,
-     "raw": 0.6202
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.228,
-     "raw": 0.614
-    },
-    {
-     "px": 72,
-     "gender": "male",
-     "score": 0.224,
-     "raw": 0.6119
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.222,
-     "raw": 0.6109
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.2,
-     "raw": 0.5998
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.185,
-     "raw": 0.5926
-    }
-   ]
-  },
-  {
-   "id": "_R3kmPTp-Tg",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "male",
-     "score": 0.363,
-     "raw": 0.6814
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.409,
-     "raw": 0.7044
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.383,
-     "raw": 0.6913
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.25,
-     "raw": 0.6251
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.224,
-     "raw": 0.612
-    },
-    {
-     "px": 72,
      "gender": "male",
      "score": 0.232,
-     "raw": 0.6159
-    },
-    {
-     "px": 88,
-     "gender": "male",
-     "score": 0.166,
-     "raw": 0.5831
-    },
-    {
-     "px": 112,
-     "gender": "male",
-     "score": 0.156,
-     "raw": 0.5782
-    },
-    {
-     "px": 160,
-     "gender": "male",
-     "score": 0.159,
-     "raw": 0.5793
-    }
-   ]
-  },
-  {
-   "id": "_R3kmPTp-Tg",
-   "noFace": true,
-   "series": [
-    {
-     "px": 32,
-     "gender": "female",
-     "score": 0.042,
-     "raw": 0.4788
-    },
-    {
-     "px": 40,
-     "gender": "male",
-     "score": 0.08,
-     "raw": 0.5401
-    },
-    {
-     "px": 48,
-     "gender": "male",
-     "score": 0.182,
-     "raw": 0.5912
-    },
-    {
-     "px": 56,
-     "gender": "male",
-     "score": 0.154,
-     "raw": 0.5769
-    },
-    {
-     "px": 64,
-     "gender": "male",
-     "score": 0.193,
-     "raw": 0.5966
+     "raw": 0.616,
+     "age": 39,
+     "child": 0.177,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
-     "score": 0.195,
-     "raw": 0.5973
+     "score": 0.238,
+     "raw": 0.619,
+     "age": 39,
+     "child": 0.172,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
-     "score": 0.137,
-     "raw": 0.5683
+     "score": 0.246,
+     "raw": 0.6228,
+     "age": 38,
+     "child": 0.171,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
-     "score": 0.093,
-     "raw": 0.5467
+     "score": 0.224,
+     "raw": 0.6121,
+     "age": 39,
+     "child": 0.169,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
-     "score": 0.037,
-     "raw": 0.5183
+     "score": 0.198,
+     "raw": 0.5989,
+     "age": 39,
+     "child": 0.162,
+     "nullRead": 1
     }
    ]
   },
   {
-   "id": "_R3kmPTp-Tg",
+   "id": "QNXtbsS633w",
    "noFace": true,
    "series": [
     {
      "px": 32,
      "gender": "male",
-     "score": 0.072,
-     "raw": 0.5362
+     "score": 0.198,
+     "raw": 0.5991,
+     "age": 39,
+     "child": 0.147,
+     "nullRead": 1
     },
     {
      "px": 40,
-     "gender": "female",
-     "score": 0.001,
-     "raw": 0.4993
+     "gender": "male",
+     "score": 0.164,
+     "raw": 0.5822,
+     "age": 40,
+     "child": 0.153,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
-     "score": 0.02,
-     "raw": 0.51
+     "score": 0.178,
+     "raw": 0.5892,
+     "age": 40,
+     "child": 0.154,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
-     "score": 0.05,
-     "raw": 0.5249
+     "score": 0.167,
+     "raw": 0.5835,
+     "age": 39,
+     "child": 0.158,
+     "nullRead": 1
     },
     {
      "px": 64,
+     "gender": "male",
+     "score": 0.142,
+     "raw": 0.5709,
+     "age": 39,
+     "child": 0.158,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.128,
+     "raw": 0.5639,
+     "age": 39,
+     "child": 0.16,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.151,
+     "raw": 0.5754,
+     "age": 39,
+     "child": 0.15,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.165,
+     "raw": 0.5823,
+     "age": 39,
+     "child": 0.139,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.157,
+     "raw": 0.5786,
+     "age": 39,
+     "child": 0.138,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "QNXtbsS633w",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.134,
+     "raw": 0.567,
+     "age": 38,
+     "child": 0.165,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
      "gender": "male",
      "score": 0.078,
-     "raw": 0.5392
+     "raw": 0.5391,
+     "age": 37,
+     "child": 0.149,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.012,
+     "raw": 0.5061,
+     "age": 37,
+     "child": 0.144,
+     "nullRead": 0
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.02,
+     "raw": 0.5098,
+     "age": 37,
+     "child": 0.147,
+     "nullRead": 0
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.023,
+     "raw": 0.5115,
+     "age": 37,
+     "child": 0.139,
+     "nullRead": 0
     },
     {
      "px": 72,
-     "gender": "male",
-     "score": 0.14,
-     "raw": 0.5698
+     "gender": "female",
+     "score": 0.004,
+     "raw": 0.4978,
+     "age": 37,
+     "child": 0.141,
+     "nullRead": 0
     },
     {
      "px": 88,
      "gender": "male",
-     "score": 0.136,
-     "raw": 0.5682
+     "score": 0.044,
+     "raw": 0.5219,
+     "age": 37,
+     "child": 0.146,
+     "nullRead": 0
     },
     {
      "px": 112,
      "gender": "male",
-     "score": 0.182,
-     "raw": 0.5909
+     "score": 0.073,
+     "raw": 0.5364,
+     "age": 37,
+     "child": 0.144,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
-     "score": 0.188,
-     "raw": 0.5942
+     "score": 0.088,
+     "raw": 0.5439,
+     "age": 37,
+     "child": 0.141,
+     "nullRead": 1
     }
    ]
   },
   {
-   "id": "_R3kmPTp-Tg",
+   "id": "FO8PD63iMg0",
    "noFace": true,
    "series": [
     {
      "px": 32,
      "gender": "male",
-     "score": 0.308,
-     "raw": 0.6541
+     "score": 0.268,
+     "raw": 0.6339,
+     "age": 36,
+     "child": 0.16,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
-     "score": 0.229,
-     "raw": 0.6147
+     "score": 0.224,
+     "raw": 0.6119,
+     "age": 35,
+     "child": 0.171,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
-     "score": 0.108,
-     "raw": 0.5538
+     "score": 0.253,
+     "raw": 0.6267,
+     "age": 36,
+     "child": 0.175,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
-     "score": 0.162,
-     "raw": 0.5808
+     "score": 0.258,
+     "raw": 0.6289,
+     "age": 36,
+     "child": 0.158,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
-     "score": 0.242,
-     "raw": 0.6209
+     "score": 0.234,
+     "raw": 0.6168,
+     "age": 36,
+     "child": 0.17,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
-     "score": 0.191,
-     "raw": 0.5954
+     "score": 0.252,
+     "raw": 0.6262,
+     "age": 37,
+     "child": 0.167,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
-     "score": 0.232,
-     "raw": 0.6158
+     "score": 0.264,
+     "raw": 0.6321,
+     "age": 37,
+     "child": 0.16,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
-     "score": 0.2,
-     "raw": 0.6001
+     "score": 0.229,
+     "raw": 0.6146,
+     "age": 37,
+     "child": 0.162,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
-     "score": 0.222,
-     "raw": 0.6112
+     "score": 0.215,
+     "raw": 0.6073,
+     "age": 37,
+     "child": 0.164,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "FO8PD63iMg0",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.263,
+     "raw": 0.6314,
+     "age": 38,
+     "child": 0.167,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.264,
+     "raw": 0.632,
+     "age": 37,
+     "child": 0.174,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.258,
+     "raw": 0.6292,
+     "age": 37,
+     "child": 0.184,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.262,
+     "raw": 0.6311,
+     "age": 38,
+     "child": 0.172,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.263,
+     "raw": 0.6317,
+     "age": 38,
+     "child": 0.169,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.256,
+     "raw": 0.6282,
+     "age": 38,
+     "child": 0.169,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.249,
+     "raw": 0.6244,
+     "age": 39,
+     "child": 0.151,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.172,
+     "raw": 0.5861,
+     "age": 41,
+     "child": 0.142,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.139,
+     "raw": 0.5695,
+     "age": 40,
+     "child": 0.145,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "FO8PD63iMg0",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.302,
+     "raw": 0.6509,
+     "age": 36,
+     "child": 0.171,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.402,
+     "raw": 0.7012,
+     "age": 33,
+     "child": 0.204,
+     "nullRead": 0
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.403,
+     "raw": 0.7013,
+     "age": 33,
+     "child": 0.214,
+     "nullRead": 0
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.462,
+     "raw": 0.7308,
+     "age": 32,
+     "child": 0.235,
+     "nullRead": 0
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.402,
+     "raw": 0.7011,
+     "age": 32,
+     "child": 0.226,
+     "nullRead": 0
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.396,
+     "raw": 0.6979,
+     "age": 33,
+     "child": 0.216,
+     "nullRead": 0
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.382,
+     "raw": 0.691,
+     "age": 34,
+     "child": 0.208,
+     "nullRead": 0
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.307,
+     "raw": 0.6535,
+     "age": 35,
+     "child": 0.185,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.237,
+     "raw": 0.6187,
+     "age": 37,
+     "child": 0.17,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "FO8PD63iMg0",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.172,
+     "raw": 0.5859,
+     "age": 37,
+     "child": 0.139,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.192,
+     "raw": 0.5959,
+     "age": 37,
+     "child": 0.161,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.159,
+     "raw": 0.5794,
+     "age": 37,
+     "child": 0.153,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.202,
+     "raw": 0.6008,
+     "age": 36,
+     "child": 0.158,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.211,
+     "raw": 0.6057,
+     "age": 37,
+     "child": 0.158,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.206,
+     "raw": 0.6031,
+     "age": 37,
+     "child": 0.158,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.202,
+     "raw": 0.6008,
+     "age": 37,
+     "child": 0.143,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.23,
+     "raw": 0.615,
+     "age": 37,
+     "child": 0.147,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.257,
+     "raw": 0.6286,
+     "age": 37,
+     "child": 0.143,
+     "nullRead": 1
     }
    ]
   },
@@ -4911,55 +6684,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.319,
-     "raw": 0.6595
+     "raw": 0.6595,
+     "age": 37,
+     "child": 0.165,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.267,
-     "raw": 0.6337
+     "raw": 0.6337,
+     "age": 36,
+     "child": 0.175,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.312,
-     "raw": 0.6559
+     "raw": 0.6559,
+     "age": 38,
+     "child": 0.165,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.283,
-     "raw": 0.6415
+     "raw": 0.6415,
+     "age": 37,
+     "child": 0.178,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.268,
-     "raw": 0.6338
+     "raw": 0.6338,
+     "age": 37,
+     "child": 0.178,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.237,
-     "raw": 0.6184
+     "raw": 0.6184,
+     "age": 37,
+     "child": 0.191,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.209,
-     "raw": 0.6047
+     "raw": 0.6047,
+     "age": 38,
+     "child": 0.185,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.174,
-     "raw": 0.5868
+     "raw": 0.5868,
+     "age": 38,
+     "child": 0.189,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.157,
-     "raw": 0.5783
+     "raw": 0.5783,
+     "age": 39,
+     "child": 0.187,
+     "nullRead": 1
     }
    ]
   },
@@ -4971,55 +6771,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.254,
-     "raw": 0.6269
+     "raw": 0.6269,
+     "age": 38,
+     "child": 0.186,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.231,
-     "raw": 0.6157
+     "raw": 0.6157,
+     "age": 37,
+     "child": 0.189,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.224,
-     "raw": 0.6118
+     "raw": 0.6118,
+     "age": 37,
+     "child": 0.175,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.221,
-     "raw": 0.6103
+     "raw": 0.6103,
+     "age": 38,
+     "child": 0.177,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.237,
-     "raw": 0.6185
+     "raw": 0.6185,
+     "age": 38,
+     "child": 0.18,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.212,
-     "raw": 0.6061
+     "raw": 0.6061,
+     "age": 38,
+     "child": 0.177,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.198,
-     "raw": 0.5991
+     "raw": 0.5991,
+     "age": 38,
+     "child": 0.176,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.207,
-     "raw": 0.6037
+     "raw": 0.6037,
+     "age": 39,
+     "child": 0.167,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.202,
-     "raw": 0.601
+     "raw": 0.601,
+     "age": 39,
+     "child": 0.165,
+     "nullRead": 1
     }
    ]
   },
@@ -5031,55 +6858,82 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.219,
-     "raw": 0.6097
+     "raw": 0.6097,
+     "age": 36,
+     "child": 0.176,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.216,
-     "raw": 0.6081
+     "raw": 0.6081,
+     "age": 37,
+     "child": 0.163,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.217,
-     "raw": 0.6087
+     "raw": 0.6087,
+     "age": 37,
+     "child": 0.153,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.33,
-     "raw": 0.6648
+     "raw": 0.6648,
+     "age": 35,
+     "child": 0.154,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.307,
-     "raw": 0.6537
+     "raw": 0.6537,
+     "age": 35,
+     "child": 0.172,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.271,
-     "raw": 0.6355
+     "raw": 0.6355,
+     "age": 36,
+     "child": 0.14,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.349,
-     "raw": 0.6744
+     "raw": 0.6744,
+     "age": 35,
+     "child": 0.152,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.328,
-     "raw": 0.6642
+     "raw": 0.6642,
+     "age": 36,
+     "child": 0.145,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.339,
-     "raw": 0.6695
+     "raw": 0.6695,
+     "age": 36,
+     "child": 0.133,
+     "nullRead": 1
     }
    ]
   },
@@ -5091,55 +6945,778 @@ bench ready True
      "px": 32,
      "gender": "male",
      "score": 0.18,
-     "raw": 0.5899
+     "raw": 0.5899,
+     "age": 38,
+     "child": 0.173,
+     "nullRead": 1
     },
     {
      "px": 40,
      "gender": "male",
      "score": 0.219,
-     "raw": 0.6095
+     "raw": 0.6095,
+     "age": 38,
+     "child": 0.162,
+     "nullRead": 1
     },
     {
      "px": 48,
      "gender": "male",
      "score": 0.2,
-     "raw": 0.6001
+     "raw": 0.6001,
+     "age": 38,
+     "child": 0.165,
+     "nullRead": 1
     },
     {
      "px": 56,
      "gender": "male",
      "score": 0.179,
-     "raw": 0.5895
+     "raw": 0.5895,
+     "age": 38,
+     "child": 0.166,
+     "nullRead": 1
     },
     {
      "px": 64,
      "gender": "male",
      "score": 0.172,
-     "raw": 0.5862
+     "raw": 0.5862,
+     "age": 38,
+     "child": 0.17,
+     "nullRead": 1
     },
     {
      "px": 72,
      "gender": "male",
      "score": 0.176,
-     "raw": 0.5882
+     "raw": 0.5882,
+     "age": 38,
+     "child": 0.167,
+     "nullRead": 1
     },
     {
      "px": 88,
      "gender": "male",
      "score": 0.181,
-     "raw": 0.5907
+     "raw": 0.5907,
+     "age": 38,
+     "child": 0.166,
+     "nullRead": 1
     },
     {
      "px": 112,
      "gender": "male",
      "score": 0.179,
-     "raw": 0.5896
+     "raw": 0.5896,
+     "age": 38,
+     "child": 0.164,
+     "nullRead": 1
     },
     {
      "px": 160,
      "gender": "male",
      "score": 0.176,
-     "raw": 0.5881
+     "raw": 0.5881,
+     "age": 38,
+     "child": 0.166,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "_R3kmPTp-Tg",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.363,
+     "raw": 0.6814,
+     "age": 37,
+     "child": 0.188,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.409,
+     "raw": 0.7044,
+     "age": 35,
+     "child": 0.207,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.383,
+     "raw": 0.6913,
+     "age": 35,
+     "child": 0.214,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.25,
+     "raw": 0.6251,
+     "age": 37,
+     "child": 0.195,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.224,
+     "raw": 0.612,
+     "age": 36,
+     "child": 0.2,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.232,
+     "raw": 0.6159,
+     "age": 37,
+     "child": 0.2,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.166,
+     "raw": 0.5831,
+     "age": 38,
+     "child": 0.187,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.156,
+     "raw": 0.5782,
+     "age": 38,
+     "child": 0.183,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.159,
+     "raw": 0.5793,
+     "age": 39,
+     "child": 0.177,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "_R3kmPTp-Tg",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "female",
+     "score": 0.042,
+     "raw": 0.4788,
+     "age": 38,
+     "child": 0.166,
+     "nullRead": 0
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.08,
+     "raw": 0.5401,
+     "age": 37,
+     "child": 0.167,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.182,
+     "raw": 0.5912,
+     "age": 36,
+     "child": 0.186,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.154,
+     "raw": 0.5769,
+     "age": 36,
+     "child": 0.187,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.193,
+     "raw": 0.5966,
+     "age": 36,
+     "child": 0.195,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.195,
+     "raw": 0.5973,
+     "age": 36,
+     "child": 0.194,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.137,
+     "raw": 0.5683,
+     "age": 35,
+     "child": 0.195,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.093,
+     "raw": 0.5467,
+     "age": 35,
+     "child": 0.197,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.037,
+     "raw": 0.5183,
+     "age": 35,
+     "child": 0.199,
+     "nullRead": 0
+    }
+   ]
+  },
+  {
+   "id": "_R3kmPTp-Tg",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.072,
+     "raw": 0.5362,
+     "age": 38,
+     "child": 0.164,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "female",
+     "score": 0.001,
+     "raw": 0.4993,
+     "age": 39,
+     "child": 0.162,
+     "nullRead": 0
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.02,
+     "raw": 0.51,
+     "age": 39,
+     "child": 0.154,
+     "nullRead": 0
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.05,
+     "raw": 0.5249,
+     "age": 39,
+     "child": 0.154,
+     "nullRead": 0
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.078,
+     "raw": 0.5392,
+     "age": 40,
+     "child": 0.153,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.14,
+     "raw": 0.5698,
+     "age": 40,
+     "child": 0.143,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.136,
+     "raw": 0.5682,
+     "age": 41,
+     "child": 0.141,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.182,
+     "raw": 0.5909,
+     "age": 41,
+     "child": 0.132,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.188,
+     "raw": 0.5942,
+     "age": 41,
+     "child": 0.133,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "_R3kmPTp-Tg",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.308,
+     "raw": 0.6541,
+     "age": 36,
+     "child": 0.094,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.229,
+     "raw": 0.6147,
+     "age": 36,
+     "child": 0.113,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.108,
+     "raw": 0.5538,
+     "age": 37,
+     "child": 0.134,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.162,
+     "raw": 0.5808,
+     "age": 36,
+     "child": 0.121,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.242,
+     "raw": 0.6209,
+     "age": 37,
+     "child": 0.14,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.191,
+     "raw": 0.5954,
+     "age": 37,
+     "child": 0.136,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.232,
+     "raw": 0.6158,
+     "age": 37,
+     "child": 0.124,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.2,
+     "raw": 0.6001,
+     "age": 37,
+     "child": 0.116,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.222,
+     "raw": 0.6112,
+     "age": 38,
+     "child": 0.124,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "RPQ8Iu9iiNo",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.176,
+     "raw": 0.5879,
+     "age": 41,
+     "child": 0.126,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.122,
+     "raw": 0.561,
+     "age": 40,
+     "child": 0.142,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.092,
+     "raw": 0.5461,
+     "age": 39,
+     "child": 0.144,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.086,
+     "raw": 0.543,
+     "age": 38,
+     "child": 0.146,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.047,
+     "raw": 0.5235,
+     "age": 37,
+     "child": 0.15,
+     "nullRead": 0
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.105,
+     "raw": 0.5527,
+     "age": 38,
+     "child": 0.142,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.108,
+     "raw": 0.5538,
+     "age": 39,
+     "child": 0.143,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.078,
+     "raw": 0.5392,
+     "age": 38,
+     "child": 0.148,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.108,
+     "raw": 0.5541,
+     "age": 39,
+     "child": 0.145,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "RPQ8Iu9iiNo",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.246,
+     "raw": 0.6229,
+     "age": 39,
+     "child": 0.165,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.282,
+     "raw": 0.6409,
+     "age": 40,
+     "child": 0.155,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.293,
+     "raw": 0.6466,
+     "age": 41,
+     "child": 0.142,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.263,
+     "raw": 0.6315,
+     "age": 41,
+     "child": 0.145,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.279,
+     "raw": 0.6396,
+     "age": 41,
+     "child": 0.145,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.301,
+     "raw": 0.6506,
+     "age": 40,
+     "child": 0.146,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.265,
+     "raw": 0.6327,
+     "age": 40,
+     "child": 0.143,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.274,
+     "raw": 0.6371,
+     "age": 40,
+     "child": 0.139,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.277,
+     "raw": 0.6383,
+     "age": 39,
+     "child": 0.143,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "RPQ8Iu9iiNo",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.218,
+     "raw": 0.609,
+     "age": 35,
+     "child": 0.146,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.28,
+     "raw": 0.6399,
+     "age": 36,
+     "child": 0.142,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.2,
+     "raw": 0.6001,
+     "age": 37,
+     "child": 0.149,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.203,
+     "raw": 0.6016,
+     "age": 37,
+     "child": 0.145,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.216,
+     "raw": 0.608,
+     "age": 37,
+     "child": 0.152,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.199,
+     "raw": 0.5996,
+     "age": 37,
+     "child": 0.149,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.186,
+     "raw": 0.5929,
+     "age": 38,
+     "child": 0.15,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.198,
+     "raw": 0.5988,
+     "age": 38,
+     "child": 0.154,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.176,
+     "raw": 0.5881,
+     "age": 38,
+     "child": 0.156,
+     "nullRead": 1
+    }
+   ]
+  },
+  {
+   "id": "RPQ8Iu9iiNo",
+   "noFace": true,
+   "series": [
+    {
+     "px": 32,
+     "gender": "male",
+     "score": 0.228,
+     "raw": 0.614,
+     "age": 37,
+     "child": 0.144,
+     "nullRead": 1
+    },
+    {
+     "px": 40,
+     "gender": "male",
+     "score": 0.257,
+     "raw": 0.6287,
+     "age": 36,
+     "child": 0.152,
+     "nullRead": 1
+    },
+    {
+     "px": 48,
+     "gender": "male",
+     "score": 0.189,
+     "raw": 0.5946,
+     "age": 38,
+     "child": 0.151,
+     "nullRead": 1
+    },
+    {
+     "px": 56,
+     "gender": "male",
+     "score": 0.19,
+     "raw": 0.5951,
+     "age": 37,
+     "child": 0.164,
+     "nullRead": 1
+    },
+    {
+     "px": 64,
+     "gender": "male",
+     "score": 0.274,
+     "raw": 0.637,
+     "age": 38,
+     "child": 0.133,
+     "nullRead": 1
+    },
+    {
+     "px": 72,
+     "gender": "male",
+     "score": 0.23,
+     "raw": 0.6148,
+     "age": 38,
+     "child": 0.147,
+     "nullRead": 1
+    },
+    {
+     "px": 88,
+     "gender": "male",
+     "score": 0.195,
+     "raw": 0.5976,
+     "age": 38,
+     "child": 0.152,
+     "nullRead": 1
+    },
+    {
+     "px": 112,
+     "gender": "male",
+     "score": 0.216,
+     "raw": 0.6081,
+     "age": 38,
+     "child": 0.153,
+     "nullRead": 1
+    },
+    {
+     "px": 160,
+     "gender": "male",
+     "score": 0.198,
+     "raw": 0.5988,
+     "age": 38,
+     "child": 0.155,
+     "nullRead": 1
     }
    ]
   }

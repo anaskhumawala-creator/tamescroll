@@ -645,14 +645,41 @@ DISTRIBUTION, and nothing in this repo has measured what age a title card
 or a plank reads. The defensible statement is only: *a raw-band count is
 an upper bound on `isNullRead`, of unmeasured looseness on non-faces.*
 
-**THE NON-FACE ARM, MEASURED AT LAST** (`spikes/gauntlet/`
-`small-face-nonface-2026-09-01.txt`, 81 corner crops from thumbnails
-where BlazeFace found nothing, nine sizes each): `caughtByRawBand`
-**74-79 of 81** at every size -- which reproduces the old ~95% claim --
-while `certain` (score >= GENDER_MIN_SCORE on a crop of nothing) falls
-35 -> 21 as the crop grows. The `caughtByNullRead` column of that
-particular run is **an instrument artifact and must not be quoted**:
-`small-face.js` has TWO producers of control crops and only one was
-patched, so `nullRead` was `undefined` for all 81 and the column read 1.
-Both producers emit the same record now.
+**THE NON-FACE ARM, MEASURED PROPERLY** (`spikes/gauntlet/`
+`small-face-nonface-2026-09-01.txt`: 85 corner crops from thumbnails
+where BlazeFace found nothing -- landscape, gameplay, keyboard and
+timelapse queries -- nine sizes each, 764 reads):
 
+| px | n | certain | caughtByRawBand | **caughtByNullRead** |
+|---|---|---|---|---|
+| 32 | 85 | 38 | 83 | **83** |
+| 48 | 85 | 35 | 82 | **80** |
+| 64 | 85 | 34 | 80 | **77** |
+| 112 | 85 | 27 | 81 | **80** |
+| 160 | 84 | 25 | 80 | **79** |
+
+**`isNullRead` catches 77-83 of 85 non-faces -- 91-98% -- at every size**,
+and it is within a couple of crops of the raw band at every row. So the
+age condition, which removes 41.8% of in-band REAL FACES, costs almost
+nothing here: **723 of the 730 in-band control reads are also inside
+[34, 42]**.
+
+**AND THE REASON IS THE POINT OF THE WHOLE PREDICATE.** A non-face crop
+reads **age p05/p50/p95 = 35 / 38 / 41** -- dead centre of the window,
+because a null read IS the age head returning its training prior
+(~36.9). The window was drawn round the prior on purpose and the control
+lands in it. Real faces spread out of it, which is why the same
+condition costs 41.8% there and ~1% here.
+
+Taken with the face arm (1 of 25 false rejects at >= 56px, 2 of 25 at
+32-48px), the shipped `isNullRead` is a strong gate on the right axis:
+**~93% of non-faces caught for ~4-8% of real faces refused.**
+
+INSTRUMENT NOTE, because this figure was wrong once tonight in the
+exposure direction: `small-face.js` has TWO producers of control crops --
+the corner-crop arm for images with no detected face (which supplies
+essentially all of them) and a spots arm. Only one was patched at first,
+so `nullRead` was `undefined` for all 81 crops of that run and
+`caughtByNullRead` read **1 of 81**, which would have published "the
+shipped predicate catches 1 in 81 non-faces" -- an argument for weakening
+the gate, from a dead counter. Both producers emit the same record now.
