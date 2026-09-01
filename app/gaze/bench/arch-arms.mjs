@@ -279,9 +279,58 @@ export function makeArms(mod) {
         let nMeasured = 0;
         let obs = fr.faces.map((f, i) => {
           let box = null;
-          if (ssdBoxes && !f._noRead) {
+          // ONLY WHERE IT MATTERS. Replacing every body with the
+          // measured extent buys -55s of phantom and costs +7.5s of
+          // exposure, because the fat guess was covering people by
+          // accident all over the corpus. But the owner's complaint is
+          // specific: HER patch reaches the man beside her. So apply
+          // the measurement only on a frame that actually has a
+          // same-gender face to protect -- which is the same condition
+          // the adjacency clamp already fires on -- and leave a lone
+          // subject with the guess that was never hurting anybody.
+          const adjacent = !o.ssdAdjacentOnly || fr.faces.some((h, hi) => {
+            if (hi === i) return false;
+            const hb = base[hi] || {};
+            return hb.flagged === false && h.nm >= NM_FLOOR;
+          });
+          if (ssdBoxes && !f._noRead && adjacent) {
             box = bodyFromSsd(ssdBoxes, f, o.ssdMin, o.ssdPad != null ? o.ssdPad : 0.045);
             if (box) nMeasured++;
+            // WIDTH IS MEASURED, HEIGHT IS NOT TRUSTED SMALLER.
+            // On all 18 windows the detector box cut PHANTOM 142.5s ->
+            // 84s (-41%) -- it is the "random blur marks" complaint,
+            // measured -- and cost 15s of EXPOSURE. A person detector's
+            // box is the VISIBLE extent, so it stops at frame edges,
+            // at occlusions and at the crop of a seated subject, while
+            // the synthetic body deliberately over-runs downward. So
+            // take the measured WIDTH, which is what stops a patch
+            // reaching the man beside her, and refuse to shrink the
+            // HEIGHT below the guess, which is what keeps her covered.
+            // A MINIMUM IN FACE WIDTHS. The measured box is the
+            // VISIBLE extent, so a seated, occluded or edge-cropped
+            // subject gets a head-and-shoulders rectangle -- and the
+            // 15s of exposure the detector costs is exactly that,
+            // coverage the fat guess was providing by accident. A floor
+            // expressed in FACE widths scales with the subject instead
+            // of pinning a frame fraction that means different things
+            // at different distances.
+            if (box && o.ssdMinFaceW) {
+              const fw = f.x2 - f.x1, cx = (box.x1 + box.x2) / 2;
+              const want = fw * o.ssdMinFaceW;
+              if (box.x2 - box.x1 < want) {
+                box = { ...box,
+                  x1: Math.max(0, cx - want / 2),
+                  x2: Math.min(1, cx + want / 2) };
+              }
+            }
+            if (box && o.ssdUnionH) {
+              const g0 = personFromFace(f, W / H);
+              if (g0) {
+                box = { ...box,
+                  y1: Math.min(box.y1, g0.y1),
+                  y2: Math.max(box.y2, g0.y2) };
+              }
+            }
           }
           const m = meta[i] || {};
           const mm = memMark[i]

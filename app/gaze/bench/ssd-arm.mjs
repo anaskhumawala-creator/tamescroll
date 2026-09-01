@@ -37,19 +37,14 @@ function thin(win, every) {
 }
 
 const BASE = { hold: true, clampPad: 0.02, cut: true };
+const MEM = g === 'man' ? 'loose2' : 'loose';
+const B = { ...BASE, mem: MEM, ssdMin: 0.35, ssdPad: 0.15 };
 const ARMS = [
-  ['1081 SHIPPED (synthetic body)', ARM(BASE)],
-  // THE PAD IS THE WHOLE QUESTION. A detector box is the person's
-  // VISIBLE extent -- tight to the silhouette, and tighter than a patch
-  // needs to be: hair, motion between verdicts, and the owner's "not
-  // super tight" ruling all want margin the box does not carry. The
-  // first run at PATCH_MARGIN 0.045 cost +7s exposure for no false-cover
-  // gain, which is exactly what a too-tight rectangle looks like.
-  ['ssd @0.35 pad .045', ARM({ ...BASE, ssdMin: 0.35, ssdPad: 0.045 })],
-  ['ssd @0.35 pad .10', ARM({ ...BASE, ssdMin: 0.35, ssdPad: 0.10 })],
-  ['ssd @0.35 pad .15', ARM({ ...BASE, ssdMin: 0.35, ssdPad: 0.15 })],
-  ['ssd @0.35 pad .20', ARM({ ...BASE, ssdMin: 0.35, ssdPad: 0.20 })],
-  ['ssd @0.35 pad .30', ARM({ ...BASE, ssdMin: 0.35, ssdPad: 0.30 })],
+  ['1082 (no ssd)', ARM({ ...BASE, mem: MEM })],
+  ['ssd @0.35', ARM(B)],
+  ['ssd @0.25', ARM({ ...B, ssdMin: 0.25 })],
+  ['ssd @0.20', ARM({ ...B, ssdMin: 0.20 })],
+  ['ssd @0.20 pad .25', ARM({ ...B, ssdMin: 0.20, ssdPad: 0.25 })],
 ];
 
 console.log('\narm                             EXPOSURE  FALSECOVER   PHANTOM   measured/faces');

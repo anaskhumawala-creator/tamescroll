@@ -311,3 +311,51 @@ subject's coverage passes through 163 track ids, and whether an
 identity that already read clear-certain can carry across a re-birth
 (the descriptor memory already exists and already stores earned clear
 states -- it is not consulted at birth).
+
+## §4 — coco-ssd IS BETTER GEOMETRY AND IT IS NOT SHIPPABLE YET (loop 40)
+
+Full corpus, 18 of 18 windows, his regime, on top of 1082:
+
+| arm | exposure | false cover | phantom | measured/faces |
+|---|---|---|---|---|
+| 1082 | 82.0s | 218.0s | 142.0s | 0/1153 |
+| + coco-ssd @0.35 pad .15 | **89.5s** | 217.5s | **87.0s** | 1071/1153 |
+| + coco-ssd @0.20 pad .25 | 96.0s | 215.5s | **82.0s** | 1100/1153 |
+
+**The phantom win is real and it is his "random blur marks".** Verified
+against the obvious artifact -- an arm that simply draws fewer patches
+would score better without covering anybody differently
+(`bench/phantom-check.mjs`): patch count falls only 7% (1798 -> 1667)
+and MEAN PATCH AREA RISES (0.372 -> 0.393), while patches landing on
+nothing **halve, 229 -> 115**. Patches move onto people.
+
+**The exposure cost is two windows out of eighteen** (`bench/
+exp-where.mjs`): 8R1hy3uHds0_w1642 +5.0s and NWoT1ZVd1Lo_w702 +3.0s.
+Thirteen windows improve on phantom; sixteen are zero or better on
+exposure.
+
+**And rendering the worst one settles what it is.** A classroom: the
+synthetic body, 63% of frame width, was covering a girl seated to the
+RIGHT of the subject entirely by accident. The measured box is correct
+about the subject and stops covering her, and she has no patch of her
+own. So coco-ssd does not CREATE exposure -- it removes an accident
+that was hiding a recall hole.
+
+That is why it does not ship yet, and the fix is not a wider box:
+
+- **A minimum width in face widths makes exposure WORSE, not better**
+  (2.5 -> 93.5s, 3.5 -> 101.0s, 4.5 -> 121.0s). Widening feeds the
+  adjacency clamp more overlap with cleared faces and it pulls the edge
+  back harder. Do not re-derive this.
+- **Applying the measured box only beside a cleared face is worse
+  still** (102.5s, and phantom recovers to 117s). Mixing box SOURCES
+  frame to frame churns the tracker -- the same mechanism §3 measured,
+  arriving from a different direction. A subject's box must come from
+  one source for as long as it is that subject.
+- Raising detector recall does not touch it (0.35 -> 0.20 moves
+  measured 1071 -> 1100 and exposure 89.5 -> 92.5).
+
+**NEXT, and it is a recall question rather than a geometry one:** the
+people the fat patch was covering by accident need patches of their own.
+Until they do, narrowing anything -- ssd or otherwise -- trades his
+"random blur marks" for someone uncovered.
