@@ -21,6 +21,9 @@ import {
   updatePersonTracks, dedupeObservations, PTRACK_IOU_MIN,
 } from '../src/person-track.mjs';
 import { faceMeta, isNullRead } from '../src/gender-verdict.mjs';
+import { readFileSync } from 'node:fs';
+
+const page = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
 
 const box = (x1, y1, x2, y2) => ({ x1, y1, x2, y2 });
 // A face squarely inside the shipped null band, checked against the
@@ -188,4 +191,35 @@ test('a match just above PTRACK_IOU_MIN still refreshes, just below is a refused
     assert.ok(below.every((t) => t.id === id), 'a refused birth must not appear as a track');
   });
   assert.equal(life.nullDropped, 1, 'below the threshold it IS a birth, and it is refused');
+});
+
+test('init-entry copies the tag onto the observation, beside the others', () => {
+  // THE BOUNDARY NO BEHAVIOUR TEST IN THIS FILE CROSSES. Everything
+  // above hands an observation straight to updatePersonTracks, so if
+  // init-entry stopped copying the field every one of them would still
+  // pass and the gate would be silently dead -- which is exactly what
+  // happened to `abstained` for two releases, and the warning about it
+  // is written in that builder in this repo's own words.
+  const b = page.slice(page.indexOf('              weak: !!mine.weak,'));
+  const obs = b.slice(0, b.indexOf('faceFound: true'));
+  assert.ok(obs.includes('nullMint: !!mine.nullRead,'), 'the observation lost the tag');
+  // And the producer still emits it under the name the builder reads.
+  assert.ok(
+    /nullRead: mayNotMint\(f\)/.test(readFileSync(new URL('../src/gender-verdict.mjs', import.meta.url), 'utf8')),
+    'faceMeta stopped emitting nullRead, or renamed it'
+  );
+});
+
+test('the refusal sits above the birth counters', () => {
+  // Below them, birthFresh/birthNearMiss/birthSizeRejected/birthContended
+  // would change meaning from "a track was born" to "a birth was
+  // attempted" and every earlier round's reading of birthFresh would be
+  // rebased with nothing in the artifact saying so.
+  const pt = readFileSync(new URL('../src/person-track.mjs', import.meta.url), 'utf8');
+  const loop = pt.slice(pt.indexOf('for (j = 0; j < observations.length; j++)'));
+  const body = loop.slice(0, loop.indexOf('return next;'));
+  assert.ok(
+    body.indexOf("bump('nullDropped')") < body.indexOf("bump('birthFresh')"),
+    'the refusal moved below the birth counters and rebased them'
+  );
 });
