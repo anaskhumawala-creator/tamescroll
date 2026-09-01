@@ -558,7 +558,29 @@ export function isNullRead(face) {
 // shipped before this gate existed -- the condition is monotone toward
 // COVERING and cannot introduce an exposure the previous build did not
 // already have.
-export var NULL_MINT_NM_FLOOR = 6;
+//
+// THE FLOOR IS CALIBRATED ON GROUND TRUTH, NOT ON HIS RING, and the
+// first number I picked would have refused a real woman. Both arms
+// re-read with `nm` captured (app/gaze/bench/nm-floor.mjs, over
+// spikes/gauntlet/nmtruth-{face,nonface}.json): 25 faces BlazeFace
+// found, and 85 corner crops from thumbnails where it found nothing,
+// each degraded to 32/40/48/56/64px -- the sizes his player actually
+// reads at.
+//
+//   floor | real FACES refused | in-band NON-FACES refused
+//       4 |   0 of 125   0.0%  |  361 of 403   89.6%
+//       5 |   0 of 125   0.0%  |  388 of 403   96.3%
+//       6 |   5 of 125   4.0%  |  400 of 403   99.3%
+//
+// So 6 buys 3% more non-faces for FIVE REFUSED READS OF A REAL FACE --
+// four of them hers, at 32px and 48px. 5 refuses none, at every size.
+// A real face reads nm p05 8.34 at 32px rising to 10.99 at 64px; a
+// non-face reads p95 4.56-5.49. The two arms are separated by a factor
+// of two and the floor sits in the gap, so it is not a knife edge.
+//
+// Floor 0 is the control and refuses nothing in either arm -- so every
+// refusal below is the AND doing work, not the band alone.
+export var NULL_MINT_NM_FLOOR = 5;
 
 /**
  * May this read create a patch? False for everything except a null read

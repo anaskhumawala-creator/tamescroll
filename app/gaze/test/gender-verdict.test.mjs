@@ -240,7 +240,12 @@ test('the mint refusal needs BOTH the band and a dead descriptor', () => {
   // she goes sharp. `nm` is the axis that is not a function of the band.
   const inBand = { gender: 'male', score: 0.24, raw: 0.62, age: 38, childP: 0.15 };
   assert.equal(gv.isNullRead(inBand), true);
-  for (const [norm, refused] of [[0, true], [5.9, true], [6, false], [12.4, false]]) {
+  // The floor is 5, calibrated on both ground-truth arms: at 5 no real
+  // face in 125 reads is refused and 388 of 403 in-band non-face reads
+  // are; at 6, five real-face reads go -- four of them HERS. The pair
+  // either side of the boundary is pinned here so moving the constant
+  // has to move this test with it. 5.11 is her lowest measured nm.
+  for (const [norm, refused] of [[0, true], [4.9, true], [5, false], [5.11, false], [12.4, false]]) {
     assert.equal(
       gv.faceMeta('man', [{ ...inBand, shape: { norm } }])[0].nullRead, refused,
       'norm ' + norm
