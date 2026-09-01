@@ -67,3 +67,56 @@ export function grabRaw(file, t, n, fps) {
 export function nativePx(box) {
   return Math.min((box.x2 - box.x1) * W, (box.y2 - box.y1) * H);
 }
+
+// SCORING THE BAND HE ACTUALLY WATCHES IN.
+//
+// The record said this corpus was a "native-resolution instrument"
+// that could not reproduce his device, and three sweeps were written
+// off as flat on that reasoning. IT IS FALSE. grabRaw decodes at
+// 640x360 -- HIS decode -- and the whole corpus reads male raw p50
+// 0.762 only because it MIXES face sizes. Sliced by nativePx:
+//
+//   px band    n     nm<5    male raw p50   score p50
+//   0-40      805     35%       0.684         0.34
+//   40-64     923     35%       0.667         0.32
+//   64-100    929      8%       0.843         0.64
+//   100+      808      4%       0.890         0.70
+//
+// His phone reads male raw p50 0.657 with 36-42% of reads carrying no
+// descriptor signal. The 40-64 band is 0.667 / 35%. It is not a
+// different instrument -- it is the same instrument averaged over
+// footage he does not watch: NINE of the eighteen windows have a px
+// p50 above his band, up to 210.
+//
+// So an arm must be able to score HIS regime. This filters by WINDOW,
+// never by read, because every metric here is a DURATION -- dropping
+// individual reads out of a window would break the tracking continuity
+// the score is measuring and produce a number that means nothing.
+//
+// PXBAND=38-64 restricts to windows whose own px p50 is in the band.
+// Unset, everything is scored, which is the old behaviour exactly.
+export function winFiles(bank) {
+  const dir = `${ROOT}/${bank || BANK}/reads`;
+  const all = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
+  const spec = process.env.PXBAND;
+  if (!spec) return all;
+  const m = /^([\d.]+)-([\d.]+)$/.exec(spec.trim());
+  if (!m) throw new Error(`PXBAND must look like 38-64, got ${spec}`);
+  const lo = parseFloat(m[1]), hi = parseFloat(m[2]);
+  const kept = all.filter((f) => {
+    const px = [];
+    const d = JSON.parse(fs.readFileSync(`${dir}/${f}`, 'utf8'));
+    const frames = d.frames || d;
+    if (!Array.isArray(frames)) return false;
+    for (const fr of frames) for (const fa of fr.faces || [])
+      if (typeof fa.px === 'number') px.push(fa.px);
+    if (!px.length) return false;
+    px.sort((a, b) => a - b);
+    const p50 = px[Math.floor(px.length / 2)];
+    return p50 >= lo && p50 <= hi;
+  });
+  // A band that silently kept nothing would score 0.0s on every metric
+  // and read as a perfect arm.
+  if (!kept.length) throw new Error(`PXBAND ${spec} matched 0 of ${all.length} windows`);
+  return kept;
+}

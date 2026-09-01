@@ -17,6 +17,8 @@ import { readFileSync } from 'node:fs';
 const worker = readFileSync(new URL('../src/worker-entry.js', import.meta.url), 'utf8');
 const client = readFileSync(new URL('../src/worker-client.mjs', import.meta.url), 'utf8');
 const page = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
+const START = '>>> PERSON-SKIP POLICY (person-skip.test.mjs runs this block)';
+const END = '<<< PERSON-SKIP POLICY';
 
 test('the worker skips the person pass only when the page asks', () => {
   assert.match(worker, /var wantPersons = msg\.withPersons !== false;/);
@@ -49,15 +51,70 @@ test('both pass paths honour the decision', () => {
   assert.match(page, /askPersons\s*\?\s*detector\.detectPersons\(/);
 });
 
-test('the person model runs on EVERY pass again', () => {
-  // 1068-1070 skipped it after three empty passes. The cadence numbers
-  // were real and the owner still reported the only thing that counts:
-  // "it's not blurring the female". A pass the model never ran reports
-  // an empty person list to the tracker and the eraser, and no held flag
-  // fixes that -- one of the two directions is always wrong, and one of
-  // them is an exposure.
-  assert.match(page, /function wantPersons\(\) \{[^}]*return true;[^}]*\}/);
-  assert.ok(!/PERSON_SKIP_EVERY/.test(page), 'the skip constants are gone');
-  assert.ok(!/personEmptyStreak/.test(page), 'the streak is gone');
+test('a skipped pass can never report an empty frame', () => {
+  // THIS IS THE LINE 1070 GOT WRONG, and the only reason that revert
+  // was necessary. There, a skipped pass contributed
+  // `persons.length === 0` to emptyFrame; emptyStreak climbed on passes
+  // that had looked at nothing, wipeIfEmpty fired, and the owner
+  // reported "it's not blurring the female". The eraser may only ever
+  // act on evidence a pass actually gathered.
+  assert.match(page, /emptyFrame = !persons\.skipped[\s\S]{0,40}persons\.length === 0 && faceEvidence === 0;/);
+  // ...which needs the flag to survive both pass paths.
+  assert.match(page, /persons\.skipped = !!r\.personsSkipped;/);
+  assert.match(page, /if \(!askPersons\) persons\.skipped = true;/);
 });
 
+// The policy is pure arithmetic, so run the SHIPPED text rather than
+// asserting on it. A string match here would pass against a policy that
+// skips every pass, which is the failure that matters.
+function policy() {
+  // Sliced to a MARKER, never a fixed length -- a fixed window stops
+  // covering the block the moment a comment grows, which has cost this
+  // repo two rounds.
+  const a = page.indexOf(START), b = page.indexOf(END);
+  const m = a >= 0 && b > a ? [null, page.slice(a + START.length, b)] : null;
+  assert.ok(m, 'could not find the skip policy block');
+  // The slice ends on a dangling line comment, so the appended return
+  // needs its own line or it is commented out.
+  return new Function(m[1] + '\n; return { wantPersons, notePersons };')();
+}
+
+test('the model runs every pass until it has admitted nobody three times', () => {
+  const { wantPersons, notePersons } = policy();
+  assert.equal(wantPersons(), true);
+  for (let i = 0; i < 2; i++) {
+    notePersons([], false);
+    assert.equal(wantPersons(), true, 'still asked after ' + (i + 1) + ' empty passes');
+  }
+  notePersons([], false);
+  assert.equal(wantPersons(), false, 'backs off on the third');
+});
+
+test('one admitted person resets it instantly', () => {
+  const { wantPersons, notePersons } = policy();
+  for (let i = 0; i < 5; i++) notePersons([], false);
+  assert.equal(wantPersons(), false);
+  // On footage where MoveNet works, this whole mechanism is inert.
+  notePersons([{ x1: 0, y1: 0, x2: 1, y2: 1 }], false);
+  assert.equal(wantPersons(), true);
+  notePersons([{ x1: 0, y1: 0, x2: 1, y2: 1 }], false);
+  assert.equal(wantPersons(), true);
+});
+
+test('backed off, it still runs one pass in three -- never none', () => {
+  const { wantPersons, notePersons } = policy();
+  for (let i = 0; i < 3; i++) notePersons([], false);
+  // A model that is never asked again can never notice a person walking
+  // into frame, and the streak would never reset.
+  const ran = [];
+  for (let i = 0; i < 12; i++) {
+    const ask = wantPersons();
+    ran.push(ask);
+    notePersons(ask ? [] : null, !ask);
+  }
+  const n = ran.filter(Boolean).length;
+  assert.equal(n, 4, 'ran ' + n + ' of 12 passes, expected one in three');
+  // and never two real passes back to back
+  for (let i = 1; i < ran.length; i++)
+    assert.ok(!(ran[i] && ran[i - 1]), 'two consecutive real passes at ' + i);
+});

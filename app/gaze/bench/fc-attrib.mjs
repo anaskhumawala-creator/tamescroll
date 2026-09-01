@@ -37,10 +37,11 @@ function thin(win, every) {
   return { ...win, frames: win.frames.map((fr, i) =>
     i % every === 0 ? fr : { ...fr, faces: [], _labelFaces: fr.faces }) };
 }
-const BASE = { hold: true, clampPad: 0.02, cut: true };
+const BASE = { hold: true, clampPad: 0.02, cut: true, inertNoSignal: true, memSignal: true,
+  mem: g === 'man' ? 'loose2' : 'loose' };
 const ARMS = process.env.SSD
-  ? [['1081 SHIPPED', ARM(BASE)], ['ssd pad .15', ARM({ ...BASE, ssdMin: 0.35, ssdPad: 0.15 })]]
-  : [['1081 SHIPPED', ARM(BASE)]];
+  ? [['1087 SHIPPED', ARM(BASE)], ['ssd pad .15', ARM({ ...BASE, ssdMin: 0.35, ssdPad: 0.15 })]]
+  : [['1087 SHIPPED', ARM(BASE)]];
 
 console.log('\narm                      ABSORBED (one patch, two people)      OWN (his own read)');
 for (const [name, arm] of ARMS) {

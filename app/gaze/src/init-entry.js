@@ -1959,10 +1959,31 @@ if (
     // The worker protocol keeps `withPersons`, because it is the honest
     // way to express "this pass did not run the model" if a future round
     // ever needs it. It is always true here.
+    // AFTER THE MODEL HAS ADMITTED NOBODY THIS MANY PASSES RUNNING, it
+    // stops being asked every pass. One admitted person resets it
+    // instantly, so on footage where MoveNet works this is inert.
+    // >>> PERSON-SKIP POLICY (person-skip.test.mjs runs this block)
+    var PERSON_EMPTY_STREAK = 3;
+    // ...and is asked one pass in this many instead.
+    var PERSON_SKIP_EVERY = 3;
+    var personEmptyRun = 0;
+    var personSkipsSince = 0;
+
     function wantPersons() {
-      return true;
+      if (personEmptyRun < PERSON_EMPTY_STREAK) return true;
+      return personSkipsSince >= PERSON_SKIP_EVERY - 1;
     }
-    function notePersons() {}
+
+    function notePersons(persons, skipped) {
+      if (skipped) { personSkipsSince++; return; }
+      personSkipsSince = 0;
+      // `persons.length` is the only honest reading of "did the model
+      // admit anybody" -- noHumanShape is a FRAME statistic and is false
+      // on a pass that admitted nobody but saw keypoint noise.
+      if (persons && persons.length) personEmptyRun = 0;
+      else personEmptyRun++;
+    }
+    // <<< PERSON-SKIP POLICY
 
     function runPass(withFaces, mark, keepFrame) {
       var aspect = video.videoWidth / (video.videoHeight || 1);
@@ -1983,6 +2004,13 @@ if (
             persons.noHumanShape = !!r.noHumanShape;
             persons.maxKp = typeof r.maxKp === 'number' ? r.maxKp : null;
             persons.rejectedBoxes = r.rejectedBoxes || [];
+            // A SKIPPED PASS MUST BE READABLE AS ONE ALL THE WAY DOWN.
+            // 1070 shipped a skip whose only downstream signal was an
+            // empty person list, which `emptyFrame` read as "nobody is
+            // there" and the eraser acted on. The flag rides the array
+            // so every consumer can tell "the model looked and found
+            // nobody" from "the model did not look".
+            persons.skipped = !!r.personsSkipped;
             // notePersons stamps the held answer onto a skipped pass.
             notePersons(persons, !!r.personsSkipped);
             return { persons: persons, faces: r.faces || [] };
@@ -2005,6 +2033,7 @@ if (
         : Promise.resolve([]);
       return personsP
         .then(function (persons) {
+          if (!askPersons) persons.skipped = true;
           notePersons(persons, !askPersons);
           return persons;
         })
@@ -3778,7 +3807,17 @@ if (
                   // That is the same defect class as the 1070 skip,
                   // which was reverted for exactly this reason.
                   var faceEvidence = faces.length;
-                  emptyFrame = persons.length === 0 && faceEvidence === 0;
+                  // A PASS THAT NEVER RAN THE MODEL HAS NOTHING TO SAY
+                  // ABOUT AN EMPTY FRAME, and this is the exact line
+                  // 1070 got wrong. There, a skipped pass contributed
+                  // `persons.length === 0` to emptyFrame, emptyStreak
+                  // climbed on passes that had looked at nothing, and
+                  // wipeIfEmpty took the blur off a covered woman -- "it's
+                  // not blurring the female". A skip is INERT here: the
+                  // eraser only ever acts on evidence a pass actually
+                  // gathered.
+                  emptyFrame = !persons.skipped
+                    && persons.length === 0 && faceEvidence === 0;
                   // Largest thing this pass actually saw. It is the
                   // cheapest available read on subject scale — already
                   // computed, no extra pixels — and scale is what decides
