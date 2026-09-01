@@ -89,13 +89,22 @@ export function clampAway(body, face, others, pad) {
  * Returns a new array; observations that do not move are passed through
  * by reference.
  */
-export function clampBodies(observations, pad) {
+export function clampBodies(observations, pad, mode) {
   if (!observations || observations.length < 2) return observations;
   var gap = typeof pad === 'number' ? pad : BODY_CLAMP_PAD;
+  // 'cleared' (default) -- only a face the pipeline decided to leave
+  // SHARP may push an edge. 'signal' -- any DETECTED face carrying
+  // descriptor signal may push, whatever its verdict. The second is
+  // safe only because a face that needs covering mints its OWN patch in
+  // the same pass, so the strip a clamp uncovers is covered by that
+  // face's own rectangle rather than by its neighbour's guess. It is
+  // priced in bench/clamp-mode.mjs before it is allowed to default.
+  var any = mode === 'signal';
   var pushers = [];
   for (var i = 0; i < observations.length; i++) {
     var o = observations[i];
-    if (o && o.flagged === false && o.signal === true && o.box && o.box.faceBox) {
+    var ok = any ? o && o.signal === true : o && o.flagged === false && o.signal === true;
+    if (ok && o.box && o.box.faceBox) {
       pushers.push({ obs: o, face: o.box.faceBox });
     }
   }

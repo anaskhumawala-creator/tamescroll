@@ -206,3 +206,108 @@ sharper.
    vs `nullMintedHeld`. That is the only outstanding measurement from
    tonight and it is cheap.
 3. Then Section 1. Not before.
+
+---
+
+## §3 — WHY THE MAN IS BLURRED. IT IS NOT THE MODELS. (2026-09-01, loop 40)
+
+The owner ordered a better model twice. The measurements below say the
+models are not the constraint, and they are recorded here because the
+next round will otherwise spend a night swapping one.
+
+Everything is scored on the 10-video / 18-window / 3,465-read corpus in
+his own regime (man mode, verdict cadence 1.5s, scene gate on).
+
+### The gender model is right about his men
+
+`app/gaze/bench/man-clear.mjs`, 1,410 faces this corpus labels MAN:
+
+| | n | share |
+|---|---|---|
+| reads the WRONG gender | **5** | **0.4%** |
+| reads male, under the clear bar | 177 | 12.6% |
+| reads male AND clears the bar | **1228** | **87.1%** |
+
+male raw v p05/p50/p95 = **0.663 / 0.864 / 0.991**. Replacing faceres
+can recover at most the 13% tail, and 0.4% of that is actual misgender.
+
+### And the verdict layer mostly lets them through
+
+`app/gaze/bench/veto.mjs` runs every shipped gate over the same faces
+and charges each to the FIRST that would reject it:
+
+| veto | n | share |
+|---|---|---|
+| **survives everything -- should clear him** | **1023** | **72.6%** |
+| FACE_MIN_NATIVE_PX 40 (abstains, fails closed) | 249 | 17.7% |
+| null read (band + age) | 71 | 5.0% |
+| under the clear bar | 51 | 3.6% |
+| nm floor | 11 | 0.8% |
+| reads FEMALE | 5 | 0.4% |
+
+### So the clear reaches the verdict layer and not the screen
+
+`app/gaze/bench/lost-clears.mjs`, all time a MAN is covered:
+
+| what the pipeline already knew about him | | |
+|---|---|---|
+| no read yet -- cadence, correct, blur-first | 36.0s | 15% |
+| a weak read | 40.5s | 17% |
+| **had a CLEAR-CERTAIN read** | **164.5s** | **68%** |
+
+and of that 164.5s: a scene cut wiped it in only **8.5s (4%)**; **156.0s
+(65%)** had no cut at all. The clear was **0-3 seconds old** in 116.0s of
+it -- fresh, not coasted.
+
+### Every lever that changes geometry or thresholds moves ~1 second
+
+| change | exposure | false cover | phantom |
+|---|---|---|---|
+| 1081 shipped | 82.0s | 241.0s | 142.5s |
+| CLEAR_STREAK_N 2 -> 1 | 83.5s | **230.0s** | 141.5s |
+| coco-ssd measured body, pad .045 | 40.0s* | 40.5s* | 37.0s* |
+| coco-ssd measured body, pad .30 | 34.5s* | 40.5s* | 34.5s* |
+
+\* the ssd rows are the 5-window subset the bank had reached, not
+comparable to the full-corpus rows above -- but *within* that subset a
+**sevenfold change in patch area moved FALSE COVER by 1.0s**, from 40.5s
+to 40.5s. A quantity that ignores patch area is not a patch problem.
+
+FACE_MIN_NATIVE_PX could not be priced here at all: the corpus banks a
+read for every face regardless of px, so the floor never fires in
+replay. The 17.7% above is a property of the SHIPPED path. Pricing it
+needs a device A/B or a re-bank that records the abstain.
+
+### What is left: the covering track flaps
+
+`app/gaze/bench/churn.mjs`, over the 482 frames a MAN is covered:
+
+- covering track state: **blurred 482, other 0**
+- **covering-id CHANGES 260, distinct ids 163**
+- frames one id keeps covering him: **p50 1, p90 3, max 9**
+
+So the track that covers him is replaced about every pass, and a track
+is born blurred. A clear that has to survive two passes on one track
+cannot -- which is exactly why CLEAR_STREAK_N 1 recovered only 4.5% and
+why no threshold below it matters.
+
+### Honest limits on the above
+
+- The ABSORBED / OWN split (55.5s / 23% vs 174.5s / 72%) uses "the patch
+  is CENTRED on him" as provenance, because `newTrack` builds its box as
+  a literal and no faceBox rides the track. With the synthetic body at
+  **p50 0.696 of frame width**, two people 0.15 apart both read as
+  centred, so that split is a WEAK proxy and must not be quoted as a
+  measurement. Bench-only `id`/`state` provenance is now emitted on
+  patches so the next round can attribute properly.
+- 5 of 18 windows have coco-ssd boxes banked. The geometry comparison
+  (synthetic width p50 0.696 -> ssd 0.495, narrower in 61 of 69 pairs)
+  is real; the SCORE on that subset is preliminary.
+
+### The lead, and what it is not
+
+The next round is the tracker, not a model. Specifically: why one
+subject's coverage passes through 163 track ids, and whether an
+identity that already read clear-certain can carry across a re-birth
+(the descriptor memory already exists and already stores earned clear
+states -- it is not consulted at birth).

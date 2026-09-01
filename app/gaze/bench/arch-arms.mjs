@@ -59,6 +59,13 @@ export function loadWin(file) {
   // see corpus-cuts.mjs. Absent until that has been run, in which case
   // the `cut` arm is inert rather than wrong.
   win.cuts = CUTS[file.replace(/\.json$/, '')] || null;
+  // coco-ssd person boxes at the same frame times (bench/cocossd-bank.mjs).
+  // Absent until that has run, in which case an `ssd` arm falls back to
+  // the synthetic body everywhere and is simply the control again --
+  // inert, never silently half-measured.
+  try {
+    win.ssd = JSON.parse(fs.readFileSync(`${ROOT}/bank/ssd/${file}`, 'utf8'));
+  } catch (e) { win.ssd = null; }
   const dp = `${ROOT}/bank/reads/${file.replace(/\.json$/, '.desc')}`;
   win.desc = fs.existsSync(dp)
     ? new Float32Array(fs.readFileSync(dp).buffer.slice(0))
@@ -90,6 +97,45 @@ export function clampAway(body, face, others, pad) {
   return { ...body, x1, x2 };
 }
 
+/**
+ * THE MEASURED EXTENT, in place of the 7.4-face-heights guess.
+ *
+ * personFromFace paints a body 63% of frame width at his measured face
+ * sizes, which is why a two-shot puts the neighbour inside her patch.
+ * A detector box is the person's ACTUAL extent, so the patch stops
+ * where they do. Falls back to the guess whenever no box contains the
+ * face -- the arm must never be a mix of "measured" and "nothing".
+ *
+ * The box is padded by PATCH_MARGIN, the same margin boundBodyToSlot
+ * applies, so this is the shipped geometry with a better rectangle
+ * rather than a second set of constants nobody has calibrated.
+ */
+function bodyFromSsd(boxes, face, minScore, margin) {
+  if (!boxes || !boxes.length) return null;
+  const fcx = (face.x1 + face.x2) / 2, fcy = (face.y1 + face.y2) / 2;
+  let best = null;
+  for (const b of boxes) {
+    if (b.s < minScore) continue;
+    if (fcx < b.x1 || fcx > b.x2 || fcy < b.y1 || fcy > b.y2) continue;
+    // Smallest containing box: with two people overlapping, the tighter
+    // one is the person whose face this is. Taking the largest would
+    // reintroduce exactly the swallowing this exists to remove.
+    const a = (b.x2 - b.x1) * (b.y2 - b.y1);
+    if (!best || a < best.a) best = { a, b };
+  }
+  if (!best) return null;
+  const b = best.b;
+  const mw = (b.x2 - b.x1) * margin, mh = (b.y2 - b.y1) * margin;
+  // The face is never given up, whatever the detector says.
+  return {
+    x1: Math.max(0, Math.min(b.x1 - mw, face.x1)),
+    y1: Math.max(0, Math.min(b.y1 - mh, face.y1)),
+    x2: Math.min(1, Math.max(b.x2 + mw, face.x2)),
+    y2: Math.min(1, Math.max(b.y2 + mh, face.y2)),
+    fromFace: true, faceBox: face, fromSsd: true,
+  };
+}
+
 const readOf = (f) => ({ gender: f.gender, score: f.score, raw: f.raw, age: f.age,
   childP: f.childP, shape: f.shape, desc: null });
 
@@ -119,13 +165,20 @@ export function makeArms(mod) {
   // no observations for. Without it a coasted frame scores neither error
   // and the cadence comparison measures nothing.
   const frameOut = (fr, tracks) => ({ t: fr.t, faces: fr._labelFaces || fr.faces,
-    patches: tracks.filter((t) => t.state !== 'cleared').map((t) => ({ ...t.box })) });
+    // `id`/`state`/`born` are BENCH-ONLY provenance. newTrack builds its
+    // box as a literal, so nothing about which track drew a patch
+    // survives to the score -- which is why "one patch, two people" had
+    // to be inferred from geometry. An attribution that has to guess
+    // its own inputs is the thing that made three rounds unreadable.
+    patches: tracks.filter((t) => t.state !== 'cleared')
+      .map((t) => ({ ...t.box, id: t.id, state: t.state, born: t.born })) });
 
   /** opts: {hold, pool, clampPad} */
   return function arm(opts) {
     const o = opts || {};
     return function (win, g) {
       let tracks = [];
+      let measured = 0, faceTotal = 0;
       // 1079 threads the bounded null-mint hold back out of the tracker.
       // Omitting it does not run the shipped decision layer at all.
       let held = o.hold ? [] : null;
@@ -185,7 +238,21 @@ export function makeArms(mod) {
         // clamp almost never fired -- which is why it bought nothing at
         // his rate. The shipped per-frame verdict answers the same
         // question every pass, for free, at any cadence.
-        let obs = fr.faces.map((f, i) => obsOf(f, meta[i] || {}, dt, descOf(win, f.descIdx)));
+        // MEASURED EXTENT ARM. `ssdMin` selects the detector score floor;
+        // absent, every body is the synthetic guess exactly as today.
+        let ssdBoxes = null;
+        if (o.ssdMin != null && win.ssd && win.ssd[fi]) ssdBoxes = win.ssd[fi].p;
+        let nMeasured = 0;
+        let obs = fr.faces.map((f, i) => {
+          let box = null;
+          if (ssdBoxes && !f._noRead) {
+            box = bodyFromSsd(ssdBoxes, f, o.ssdMin, o.ssdPad != null ? o.ssdPad : 0.045);
+            if (box) nMeasured++;
+          }
+          return obsOf(f, meta[i] || {}, dt, descOf(win, f.descIdx), box);
+        });
+        measured += nMeasured;
+        faceTotal += fr.faces.length;
         // THE SHIPPED CALL, not a bench reimplementation of it. The
         // first version of this arm decided who may push an edge here,
         // which meant the number being reported was never produced by
@@ -194,12 +261,17 @@ export function makeArms(mod) {
         // pass carries no verdict and therefore pushes nothing, which is
         // what the app actually does between verdicts and is stricter
         // than what the bench used to model.
-        if (o.clampPad != null) obs = clampBodies(obs, o.clampPad);
+        if (o.clampPad != null) obs = clampBodies(obs, o.clampPad, o.clampMode);
         obs = dedupeObservations(obs);
         tracks = updatePersonTracks(tracks, obs, dt, held);
         if (o.hold) held = tracks.nullHeld || [];
         out.push(frameOut(fr, tracks));
       }
+      // Reported on the result so an arm cannot claim a measured extent
+      // it never had -- the coverage of the new source is the first
+      // thing to check before reading its score.
+      out.measured = measured;
+      out.faceTotal = faceTotal;
       return out;
     };
   };

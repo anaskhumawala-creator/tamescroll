@@ -79,7 +79,7 @@ export function replay(win, userGender, tweak) {
 }
 
 const COVER = 0.15;   // a face is "covered" when this much of it is inside a patch
-function overlapFrac(face, box) {
+export function overlapFrac(face, box) {
   const x1 = Math.max(face.x1, box.x1), y1 = Math.max(face.y1, box.y1);
   const x2 = Math.min(face.x2, box.x2), y2 = Math.min(face.y2, box.y2);
   if (x2 <= x1 || y2 <= y1) return 0;
