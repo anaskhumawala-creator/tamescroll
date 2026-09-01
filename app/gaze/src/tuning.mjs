@@ -27,6 +27,7 @@ import * as sceneGate from './scene-gate.mjs';
 import * as genderVerdict from './gender-verdict.mjs';
 import * as identityMemory from './identity-memory.mjs';
 import * as personSkip from './person-skip.mjs';
+import * as cadence from './cadence.mjs';
 
 export var TUNED = null;      // what actually took effect, for the report
 export var TUNE_REFUSED = 0;  // keys refused outright
@@ -98,6 +99,23 @@ var SPEC = {
   // wall clock in his regime, which is the slowest it can go and still
   // notice a person walking into frame before a shot ends.
   PERSON_SKIP_EVERY: [1, 4, function (v) { personSkip.setPersonSkipEvery(v); }],
+
+  // THE VERDICT CLOCK, and the biggest lever in the system -- the corpus
+  // prices it at 81.0s of exposure at 1.5s per verdict against 8.0s at
+  // 0.5s, where every threshold on this list moves 1-3s.
+  //
+  // Measured on his Redmi, the cadence is set by THIS CONSTANT and not by
+  // pass cost: a verdict costs 1250ms, effZoom wants 5000, and
+  // min(2000, 5000) pins it at 2000 in every arm. See cadence.mjs for the
+  // decomposition and the duty table.
+  //
+  // The floor is a DUTY decision, not a round number. At 1200 with no
+  // person-skip the pass (1250ms) is longer than its own interval, which
+  // cannot back up -- verdictBusy forbids it -- but leaves the page
+  // almost nothing, which is his "just the loading icon" complaint.
+  // BELOW ~1500 IS ONLY SAFE WITH PERSON_SKIP_EVERY ABOVE 1, and those
+  // two must be pushed together.
+  VERDICT_MAX_INTERVAL_MS: [1200, 4000, function (v) { cadence.setVerdictMaxInterval(v); }],
 };
 
 export function tunableNames() { return Object.keys(SPEC); }

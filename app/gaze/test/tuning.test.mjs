@@ -14,6 +14,7 @@ import * as sceneGate from '../src/scene-gate.mjs';
 import * as genderVerdict from '../src/gender-verdict.mjs';
 import * as identityMemory from '../src/identity-memory.mjs';
 import * as personSkip from '../src/person-skip.mjs';
+import * as cadence from '../src/cadence.mjs';
 
 // Every test restores the shipped values, because these modules hold
 // module-global state and a leaked dial would silently rebase every
@@ -27,6 +28,7 @@ const SHIPPED = {
   MEM_TRUST_WOMAN: identityMemory.MEM_TRUST_WOMAN,
   MEM_SIM: identityMemory.MEM_SIM,
   PERSON_SKIP_EVERY: personSkip.PERSON_SKIP_EVERY,
+  VERDICT_MAX_INTERVAL_MS: cadence.VERDICT_MAX_INTERVAL_MS,
 };
 const restore = () => applyTuning(SHIPPED);
 
@@ -172,6 +174,16 @@ test('the shipped tuning.json equals the shipped constants exactly', () => {
   for (const name of tunableNames()) {
     assert.ok(Object.prototype.hasOwnProperty.call(obj, name),
       `${name} is tunable but absent from rules/tuning.json`);
+    // AND THE MAP ABOVE IS HAND-MAINTAINED, so it can fall behind the
+    // whitelist -- at which point this whole test silently stops
+    // covering the new dial while still reporting green. That is the
+    // same shape as every staleness defect in engine-findings 10l: a
+    // derivative that does not declare what it was derived from. The
+    // guard is cheap and it is the only thing standing between here and
+    // a constant that reverts on every device the moment an OTA lands.
+    assert.ok(Object.prototype.hasOwnProperty.call(SHIPPED, name),
+      `${name} is tunable but missing from this test's SHIPPED map, so ` +
+      'nothing checks that rules/tuning.json agrees with the code for it');
   }
 });
 

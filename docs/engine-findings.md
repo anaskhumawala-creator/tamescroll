@@ -1021,3 +1021,103 @@ MoveNet does not buy it. So the two things actually worth a night are
 ~500ms MoveNet figure is unexplained and suspected to be shader
 recompiles from varying crop shapes -- and **(2) the 6%**, which needs a
 better detector rather than a better threshold.
+
+
+## 12. THE VERDICT CLOCK IS SET BY A CONSTANT, NOT BY COST -- and that constant could not travel
+
+The corpus prices the clock far above any threshold: man exposure 81.0s
+at 1.5s per verdict against 8.0s at 0.5s, where every gender, clear-bar,
+cut and birth constant swept this month moves 1-3s. 10i then measured
+that halving the pass cost on his device bought NOTHING in verdict rate,
+and left the reason unexplained. This is the reason.
+
+`init-entry.js:3382`:
+
+    effZoom = min(VERDICT_MAX_INTERVAL_MS,
+                  max(ZOOM_INTERVAL_MS, lastVerdictMs * VERDICT_DUTY))
+            = min(2000, max(400, lastVerdictMs * 4))
+
+Three regimes, and only two respond to a cheaper pass:
+
+| verdict cost | regime | cadence | does cheaper help? |
+|---|---|---|---|
+| < 500ms | duty-limited | cost x 4 | yes |
+| **500-2000ms** | **CAP-limited** | **2000ms** | **no** |
+| > 2000ms | busy-limited | ~cost | yes |
+
+**EVERY VERDICT COST THIS REPO HAS EVER MEASURED ON A DEVICE IS IN THE
+MIDDLE ROW** -- 794ms (loop 27), 618-639 (loop 29), 745-746 (loop 35),
+1250 tonight. So the clock has been a CONSTANT on his hardware the whole
+time, and every optimisation aimed at pass cost was aimed downstream of
+the thing that decides.
+
+### 12a. The pass, decomposed on his Redmi
+
+`spikes/gauntlet/probe_pass_cost.py`, 90s windows on his own watch page,
+reading the per-pass mark ring the player already keeps:
+
+| | SKIP 1 (shipped) | SKIP 3 |
+|---|---|---|
+| verdict pass p50 | **1250 ms** | **728 ms** |
+| persons (MoveNet) | 814 (65%) | 300 (41%) |
+| crops (face + gender) | 362 (29%) | 358 (49%) |
+| upload / tracks / end | ~2 / 0 / 1 | ~2 / 0 / 1 |
+| verdict passes | 58 | **62** |
+| position passes | 42 | **97** |
+| effZoom | min(2000, 5000) = **2000** | min(2000, 2912) = **2000** |
+
+**BOTH ARMS ARE CAP-LIMITED.** Halving the pass bought FOUR extra
+verdicts in ninety seconds, which is 10i's null result with a mechanism
+under it. The 2.3x rise in POSITION passes is where 10i's +39% render
+frame rate came from -- the freed time went to tracking, which is real
+and is not the clock.
+
+**MoveNet is 65% of a verdict and admits nobody in his regime.** That has
+been recorded since loop 27; what is new is that removing it still does
+not move the clock, because the cap is what binds.
+
+### 12b. So the constant travels now
+
+`VERDICT_MAX_INTERVAL_MS` lived in a per-video closure, where changing it
+meant a 56MB install -- and he has said plainly he is tired of installing
+versions. It is `app/gaze/src/cadence.mjs` now, on the OTA whitelist,
+**shipping at exactly the value it had**, so nothing changes until a
+number is deliberately pushed.
+
+It is READ at every use rather than copied into the closure: a copy taken
+at attachVideo time would freeze whatever the value was when that video
+attached, so a pushed number would apply to the next video and not this
+one -- the silent half-applied state the channel must never produce.
+Verified in the EMITTED bundle, not the source: `Xh=2e3`, setter
+`function d2(t){Xh=t}` wired as `VERDICT_MAX_INTERVAL_MS:[1200,4e3,...]`,
+and both effZoom sites read `Math.min(Xh,...)`.
+
+**THE RANGE IS A DUTY DECISION.** Duty is cost/interval, and starving the
+main thread is his "the page loads a lot ... just the loading icon"
+complaint:
+
+| interval | duty at 1250ms (no skip) | duty at 728ms (skip 3) |
+|---|---|---|
+| 2000 | 62% (today) | 36% |
+| 1500 | 83% | 49% |
+| 1200 | 104% saturated | 61% (= today's duty) |
+
+At 1200 with no skip the pass is longer than its own interval. That
+cannot build a backlog -- `verdictBusy` forbids a second pass while one
+runs -- but it leaves the page almost nothing. **Below ~1500 is only safe
+with PERSON_SKIP_EVERY above 1, and the two must be pushed together.**
+
+The interesting cell is the last one: **skip 3 at interval 1200 runs the
+same 61% duty the shipped build already runs at, for a 1.67x verdict
+rate.** That is the first credible route at the biggest lever, and it is
+now two numbers over the air rather than a release.
+
+### 12c. And the test map was hand-maintained, which is 10l again
+
+`tuning.test.mjs` checks that `rules/tuning.json` agrees with the code
+for every entry in a SHIPPED map -- written by hand. Adding a dial
+without adding it there leaves the new constant unchecked while the test
+still reports green, and an unchecked constant **reverts on every device
+the moment the OTA lands**. The test now fails if a tunable name is
+missing from its own map; proved red before green, as was the
+source/json mismatch it exists to catch.

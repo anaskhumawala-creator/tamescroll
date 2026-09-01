@@ -16,6 +16,7 @@
 import * as dom from './dom.js';
 import { shouldRetry } from './image-retry.mjs';
 import { wantPersons, notePersons, resetPersonSkip } from './person-skip.mjs';
+import * as cadence from './cadence.mjs';
 import * as detector from './detector.js';
 import {
   flaggedFaceIndices,
@@ -3235,7 +3236,12 @@ if (
     var POSITION_DUTY = 2;
     var POSITION_MAX_INTERVAL_MS = 1000;
     var VERDICT_DUTY = 4;
-    var VERDICT_MAX_INTERVAL_MS = 2000;
+    // VERDICT_MAX_INTERVAL_MS lives in cadence.mjs and is READ FROM THERE
+    // at every use, not copied here. It is on the OTA tuning channel, and
+    // a closure copy taken at attachVideo time would freeze whatever the
+    // value was when this video was attached -- so a pushed number would
+    // apply to the next video and not this one, which is exactly the
+    // silent half-applied state the channel must never produce.
 
     // See the yield block inside sampleOnce.
     var INPUT_YIELD_MAX = 3;
@@ -3373,10 +3379,11 @@ if (
         // parks this at the floor); a Helio G88 at 3-4x that cost is one
         // hiccup away from the runaway. verdictBusy already forbids
         // overlapping passes, so a cap cannot build a backlog.
-        var effZoom = Math.min(VERDICT_MAX_INTERVAL_MS, Math.max(ZOOM_INTERVAL_MS, lastVerdictMs * VERDICT_DUTY));
+        var effZoom = Math.min(cadence.VERDICT_MAX_INTERVAL_MS,
+          Math.max(ZOOM_INTERVAL_MS, lastVerdictMs * VERDICT_DUTY));
         // See the scroll gate above: while the page is moving, positions
         // keep updating and verdicts wait.
-        if (scrolling(now)) effZoom = Math.max(effZoom, VERDICT_MAX_INTERVAL_MS);
+        if (scrolling(now)) effZoom = Math.max(effZoom, cadence.VERDICT_MAX_INTERVAL_MS);
         // Never a second verdict pass while one is still running: one
         // GPU queue, and a backlog is indistinguishable from a hang.
         var wasVerdict = !verdictBusy && now - lastZoomAt >= effZoom;
