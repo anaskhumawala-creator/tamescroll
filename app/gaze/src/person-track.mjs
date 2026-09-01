@@ -184,6 +184,24 @@ function bump(key) {
   g.life[key] = (g.life[key] || 0) + 1;
 }
 
+// A BIRTH THAT TAKES THE INSTANT RUNG, COUNTED.
+//
+// The corpus prices this change at -38.0s of false cover in his regime,
+// but a corpus number is an UPPER BOUND on device: it replays banked
+// reads, so it cannot know how often `instant` is actually reached on
+// his hardware. `birthCleared` is the number that settles it, and a
+// change nobody has seen fire is a claim -- this repo has shipped a dead
+// constant for six rounds before.
+//
+// Counted against `birthFresh`/`birthNearMiss`/`birthContended`, which
+// together are every birth, so the ratio is readable without a second
+// instrument.
+function bornCleared(obs) {
+  var yes = !!(obs.instant && obs.certain && !obs.flagged && !obs.abstained);
+  bump(yes ? 'birthCleared' : 'birthBlurred');
+  return yes;
+}
+
 /** Dot product of two L2-normalized descriptors = cosine similarity. */
 export function cosineSim(a, b) {
   if (!a || !b) return 0;
@@ -1868,9 +1886,7 @@ function newTrack(obs) {
     // redundant conditions below are deliberate: this is a protection
     // decision, and a future change to `instant` upstream must not
     // silently become a change to what may be born sharp.
-    state: (obs.instant && obs.certain && !obs.flagged && !obs.abstained)
-      ? 'cleared'
-      : 'blurred',
+    state: bornCleared(obs) ? 'cleared' : 'blurred',
     clearMs: 0,
     missMs: 0,
     clearAge: 0,

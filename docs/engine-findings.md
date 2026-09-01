@@ -456,3 +456,24 @@ fortnight old. `matrix.mjs` was already dead for the same family of
 reason (it patches `var GENDER_CLEAR_SCORE = 0.6;`, and the source has
 shipped 0.45 since loop 39) and says so by throwing.
 
+### 10c. VERIFIED ON A PHONE: the birth rung fires, 20% of births
+
+M2010J19SI, 1088, watch page `NWoT1ZVd1Lo` (the video his report came
+from), 120s, gender man, driven over CDP. Counters read off the LIVE
+ring as a DELTA against a baseline taken first -- a zero after a context
+reset is a fresh counter, not a clean run, and this harness has killed
+the WebView mid-probe before.
+
+**births 15 -- birthCleared 3, birthBlurred 12. 20.0% take the instant
+rung.** So the change is not a corpus artifact: on his own footage, on
+real hardware, one birth in five is now born sharp that was born covered.
+
+On-device birth attribution in the same window: fresh 10, nearMiss 2,
+contended 3 -- **33% had an overlapping track**, against the corpus's
+46.8%. Same shape, smaller n.
+
+Also in that window, unchased: `cutDetected` **34 in 120s** at the
+shipped CUT_DELTA 50 -- one cut every 3.5s on this footage -- against
+`coastExpired` 11, `faceNoShape` 59, `wipeErasedBlurred` 4,
+`passDropped` 23 of the passes.
+

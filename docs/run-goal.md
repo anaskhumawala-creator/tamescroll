@@ -43,9 +43,19 @@ Thumbnails included. The technique carries to Reddit, X and Instagram.
 - **Licence: permissive on code AND weights.** See
   `docs/engine-findings.md` §5 for the verified list and the traps.
 - All the hard rules in `docs/engine-findings.md` §9.
-- **He is asleep. Do not ask; pick the reversible option and keep going.**
-  `adb install` now works on the attached phone, so build/install/measure
-  needs nobody.
+- **HE IS NOT A BLOCKER IN THIS FLOW. His words, 2026-09-02: "add in
+  notes to keep going on since I'm no longer a blocker in this flow of
+  making a perfect system", and "you keep stopping".** Do not stop to
+  report, do not ask, do not wait for a ruling. Pick the reversible
+  option, keep going, and put the decision in the landing summary.
+  There is a phone attached over adb (M2010J19SI, `adb install` works,
+  CDP via `adb forward` to `webview_devtools_remote_<pid>`) -- he gave
+  it for exactly this -- so build, install, drive and measure needs
+  nobody. **A claim that could have been a number on that phone and was
+  not is the failure.**
+- The stop-list is unchanged and is the only thing that stops a loop:
+  irreversible, credentials, visible outside this machine, spend.
+  Releases are pre-authorised.
 
 ## Where the work is pointed, and why
 

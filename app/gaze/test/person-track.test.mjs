@@ -1565,3 +1565,16 @@ test('the rung a birth takes is the SAME expression a match takes', () => {
     t = updatePersonTracks(t, [obs(boxA, false, true)], 250);
   assert.equal(t[0].state, 'cleared', 'the streak rung must still be what it was');
 });
+
+test('the birth rung is counted, both ways, so the device can confirm it', () => {
+  // A corpus number is an upper bound: the replay cannot know how often
+  // `instant` is reached on his hardware. A change nobody has seen fire
+  // is a claim.
+  globalThis.__TS_GAZE_IDS = { life: {} };
+  updatePersonTracks([], [{ box: boxA, flagged: false, certain: true, instant: true }], 250);
+  updatePersonTracks([], [obs(boxB, false, true)], 250);
+  const life = globalThis.__TS_GAZE_IDS.life;
+  delete globalThis.__TS_GAZE_IDS;
+  assert.equal(life.birthCleared, 1);
+  assert.equal(life.birthBlurred, 1);
+});
