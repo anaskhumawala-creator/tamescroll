@@ -37,11 +37,13 @@ export var TUNE_CLAMPED = 0;  // values pulled back to a range edge
 // The floors are not decoration. Each one is the point past which the
 // dial stops being a tuning knob and becomes an exposure.
 var SPEC = {
-  // Below the measured p90 of ordinary camera motion (28.2 on his own
-  // footage) this fires on motion and wipes cleared people; above the
-  // p95 where real cuts begin (54.9) it starts missing real cuts, and a
-  // missed cut is a patch associated onto the wrong person.
-  CUT_DELTA: [30, 90, function (v) { sceneGate.setCutDelta(v); }],
+  // The floor is the measured p90 of ordinary camera motion on his own
+  // footage (28.2) -- under it the gate fires on a slow pan and every
+  // false cut costs a cleared man his clear. The ceiling is the measured
+  // knee: bench/cut-truth.mjs scores our gate against ffmpeg's scdet over
+  // 152,376 samples and real-cut recall falls 42.3% -> 26.0% between 75
+  // and 90 for almost no further reduction in false wipes.
+  CUT_DELTA: [30, 75, function (v) { sceneGate.setCutDelta(v); }],
 
   // The bar a SAME-GENDER read must clear to earn a clear. Loop 38
   // measured a real woman reading `male raw 0.58-0.66` at the sizes his

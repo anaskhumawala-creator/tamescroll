@@ -38,7 +38,7 @@ export var GATE_SIZE = 16;
 // delete the gate: that arm wipes WITHOUT the immediate full pass the
 // app does, so its absolute exposure overstates and only the
 // DIFFERENCE between two cut arms is fair.
-export var CUT_DELTA = 50;
+export var CUT_DELTA = 60;
 // At or below this = static scene (talking-head letterboxes, paused
 // motion). Video noise on a still shot measures ~1-2.
 export var STATIC_DELTA = 3;
@@ -89,26 +89,37 @@ export function classifyScene(delta) {
 //
 // EXPOSURE FALLS MONOTONICALLY IN BOTH MODES all the way to 90, where
 // the gate is effectively off -- which is loop 39's finding quantified.
-// 60 WAS BUILT AND THEN REVERTED, by this repo's own test. scene-gate's
-// test pins CUT_DELTA <= 54.9, the p95 of 600 live luma deltas off his
-// phone, on the reasoning that above it real cuts get missed. So the
-// CORPUS and the DEVICE disagree: the corpus says missing cuts is cheap
-// (exposure falls), his own footage says 60 sits above where real cuts
-// start.
+// 60 WAS BUILT, REVERTED BY THIS REPO'S OWN TEST, AND THEN TAKEN AGAIN
+// ONCE THE TEST'S PREMISE WAS MEASURED. The test asserted
+// CUT_DELTA <= 54.9, "where real cuts start". 54.9 was the p95 of ALL
+// deltas on one video -- 5% of ORDINARY samples are above it -- so it
+// was never a measurement of cuts at all.
 //
-// Both can be true -- missing a cut costs exposure only when a stale
-// CLEARED track absorbs a new person, and the corpus prices that as
-// smaller than the churn a false cut causes. But it is corpus evidence
-// against a device measurement, on a PROTECTION constant, with the cost
-// landing on PHANTOM, which is his loudest complaint ("random blur marks
-// here and there"). That is not a trade to take on one arm.
+// bench/cut-truth.mjs measures it, with ffmpeg's `scdet` as an
+// INDEPENDENT ground truth over all ten corpus videos, 152,376 samples
+// at the app's own 10Hz:
 //
-// Loop 39's caveat also still binds: the corpus wipes WITHOUT the
-// immediate full pass the app runs, so only the DIFFERENCE between two
-// cut arms is fair and the absolute exposure of every row overstates.
-// WHAT WOULD SETTLE IT: the 54.9 is the p95 of ALL deltas on one video,
-// not a measurement of where cuts start. Label real cuts on his footage
-// and read the delta AT them.
+//   threshold   real cuts caught   ordinary frames wiped
+//   28          52.8%              4088
+//   50          50.4%              1678
+//   60          45.5%               739
+//   75          42.3%               190
+//
+// The gate catches only about HALF of real cuts at ANY threshold -- a
+// cut between two similarly-lit shots is invisible to a 16x16 luma grid
+// and always was. So 50 -> 60 costs FIVE POINTS of a recall that was
+// never good, and removes 56% of the false wipes. Two independent
+// instruments, the corpus sweep and this, point the same way.
+//
+// IT STOPS AT 60 AND NOT AT THE MEASURED KNEE OF 75, because the cost is
+// PHANTOM -- his loudest complaint, "random blur marks here and there" --
+// and 75 costs +13.0s of it in man mode and +29.5s in woman mode against
+// 60's +9.5s and +16.5s. 75 is where to go next if his rings say phantom
+// did not move. This is an OTA dial, so that is one push, not a release.
+//
+// Loop 39's caveat still binds and runs the other way: the corpus wipes
+// WITHOUT the immediate full pass the app runs, so it OVERSTATES what
+// wiping buys, which understates this change.
 //
 // The floor is not up for negotiation: it may never return under the p90
 // of his footage's ordinary motion (28.2), which is what made 28 fire on

@@ -570,9 +570,58 @@ FALSE cut causes -- but that is corpus evidence against a device
 measurement, on a protection constant, with the cost landing on PHANTOM,
 his loudest complaint. Not a trade to take on one arm.
 
-**WHAT WOULD SETTLE IT, and it is cheap:** 54.9 is the p95 of ALL deltas
-on one video, not a measurement of where cuts start. Label real cuts on
-his footage and read the delta AT them. Until then the guard stands, and
-it is the second time tonight a test written to pin a property has
-stopped a change rather than rubber-stamped it.
+**IT WAS SETTLED AN HOUR LATER -- see 10g.** 54.9 was never a measurement
+of where cuts start, and the change was taken.
+
+### 10g. Where real cuts actually start, measured -- and CUT_DELTA 60 ships
+
+`bench/cut-truth.mjs`. Ground truth from an INDEPENDENT instrument:
+ffmpeg's `scdet` filter, its own colour space and its own algorithm,
+knowing nothing about our 16x16 luma grid. All ten corpus videos at the
+app's own 10Hz -- 152,376 samples. Two instruments that agree is
+evidence; our gate agreeing with itself is not.
+
+| | p05 | p25 | p50 | p95 |
+|---|---|---|---|---|
+| **at a real cut** | 0.0 | 2.4 | **50.1** | 138.7 |
+| everywhere else | -- | -- | 0.8 (p90 6.9, p95 13.4, p99 51.4) | |
+
+| threshold | real cuts caught | ordinary frames wiped |
+|---|---|---|
+| 28 | 52.8% | 4088 |
+| 50 (was shipped) | 50.4% | 1678 |
+| **60 (now shipped)** | **45.5%** | **739** |
+| 75 | 42.3% | 190 |
+| 90 | 26.0% | 60 |
+
+**THE GATE CATCHES ABOUT HALF OF REAL CUTS AT ANY THRESHOLD.** A cut
+between two similarly-lit shots is invisible to a 16x16 luma grid and
+always was -- at a real cut our delta reads p05 **0.0**. Recall barely
+moves between 28 and 75 (52.8% -> 42.3%) while false wipes fall **21x**.
+There is no cliff up there, which is exactly what the old `<= 54.9`
+bound claimed there was.
+
+So 10f's revert was correct given what was known and wrong given what is
+now measured. **50 -> 60 costs five points of a recall that was never
+good and removes 56% of the false wipes**, and the corpus sweep agrees
+independently (man exposure 71.0 -> 67.0, false cover 167.5 -> 163.5,
+births 310 -> 270).
+
+**It stops at 60, not at the measured knee of 75**, because the cost is
+phantom -- his loudest complaint -- and 75 costs +13.0s man / +29.5s
+woman against 60's +9.5s / +16.5s. 75 is the next step if his rings say
+phantom did not move, and that is one OTA push, not a release.
+
+The test was **rewritten from the measurement, not deleted**: the motion
+floor stands, the false upper bound becomes the measured knee, and both
+guards were proved to fire (20 and 28 fail the floor, 76 and 100 fail the
+knee). The tuning whitelist range moves 30..90 -> 30..75 for the same
+reason.
+
+**THE TRANSFERABLE LESSON:** the old bound read the p95 of a mixed
+distribution as a class boundary. 5% of ORDINARY samples sit above 54.9,
+so it never described cuts at all. This repo has been caught by that
+shape before (loop 38's circular score comparison). **A threshold
+between two classes has to be derived from the two classes, separately
+labelled -- not from a quantile of everything.**
 
