@@ -96,7 +96,15 @@ try {
 //                 number of tracks.
 //   drawnZero     same.
 //   clipRebuilt   per OVERLAY re-parented, only when the page removed
-//                 our layer -- 0 is the healthy value.
+//                 our layer -- 0 is the healthy value. IT COUNTS THE
+//                 REPAIR, NOT THE STRAND: while the repair lived in
+//                 setTracks it read 0 through a measured 8-second
+//                 strand, because the exposure ended when the track
+//                 coasted out rather than when a pass arrived. Running
+//                 it in the rAF loop is what makes 0 mean "no strand" --
+//                 a live entry renders every frame, so a strand cannot
+//                 outlast one. And it can no longer rise on a DETACHED
+//                 host, where re-parenting recovered nothing.
 // Attribute with a rate only against `raf`, and never treat a delta as
 // milliseconds.
 var renderStats = { raf: 0, overlayFrames: 0, maskCalls: 0, maskWrites: 0, tfWrites: 0, sizeWrites: 0, dispWrites: 0, hideNoVr: 0, hideZeroVr: 0, hideClipped: 0, rectsNoBoxes: 0, drawnZero: 0, clipRebuilt: 0 };
@@ -920,6 +928,15 @@ export function clipToBounds(rect, bounds) {
 // band measured against the live player in 2026-08-25.
 function clipLayer(entry) {
   if (entry.clip && entry.clip.isConnected) return entry.clip;
+  // A DETACHED HOST MUST NOT BE HANDED A NEW LAYER, and now that the
+  // re-parent runs every FRAME rather than every pass, an unguarded
+  // rebuild is 60 orphan nodes a second into a corpse instead of 4.
+  // `refreshRects` tears the entry down when the host leaves the
+  // document, but it runs on a 250ms timer and a ResizeObserver, so
+  // ~15 frames can land in between. Returning null is safe in both
+  // directions: an overlay that finds no layer is simply not re-parented
+  // this frame, and the next frame with a live host puts it back.
+  if (entry.host && entry.host.isConnected === false) return null;
   var c = document.createElement('div');
   c.className = 'ts-gaze-vregion-clip';
   c.style.cssText =
@@ -930,6 +947,26 @@ function clipLayer(entry) {
 }
 
 function reposition(entry, now) {
+  // RE-PARENTING ONCE PER PASS IS TOO SLOW, MEASURED ON A BUILT APK.
+  // The first version of this guard lived only at the end of setTracks,
+  // so recovery took one VERDICT pass -- and the emulator's measured gap
+  // is p50 5,305ms against a blurred track's ~4s coast, so the track
+  // died before the pass arrived and the patch never came back at all.
+  // Live run: layer removed with 3 patches inside it, tracks still 3 at
+  // +2s and +4s, clipRebuilt 0, visible 0, then the entry was torn down.
+  //
+  // Here it costs one `isConnected` read plus one pointer compare per
+  // overlay per frame -- NO layout, unlike the forced-rect refresh that
+  // got a previous attempt at this reverted -- and recovery is one frame.
+  var layer = clipLayer(entry);
+  if (layer) {
+    for (var p = 0; p < entry.overlays.length; p++) {
+      if (entry.overlays[p].parentNode !== layer) {
+        renderStats.clipRebuilt++;
+        layer.appendChild(entry.overlays[p]);
+      }
+    }
+  }
   var vr = entry.vr;
   if (!vr || vr.width === 0 || vr.height === 0) {
     if (!vr) renderStats.hideNoVr++;
@@ -1194,7 +1231,8 @@ export function setTracks(video, tracks) {
       var o = makeOverlay(key);
       o.className = HOST_CLASS;
       o.__tsKey = key || '';
-      clipLayer(entry).appendChild(o);
+      var lay = clipLayer(entry);
+      if (lay) lay.appendChild(o);
       nextOverlays.push(o);
       nextRendered.push(null); // fresh patch snaps to place, no glide-in
     }
@@ -1209,21 +1247,24 @@ export function setTracks(video, tracks) {
   // A CLIP LAYER THE PAGE REMOVED STRANDS EVERY REUSED OVERLAY.
   // `clipLayer` rebuilds the layer only when it is ASKED for one, and it
   // is asked only when a NEW overlay is created -- so a pass carrying the
-  // same boxes reuses every node and never reaches it. If YouTube rebuilt
-  // the player subtree and took our layer with it (which is exactly what
-  // a torn-down-and-re-created player does), the entry survives, its
-  // tracks survive, reposition keeps writing to elements that are in no
-  // document, and a covered subject goes sharp with nothing counting it.
+  // same boxes reuses every node and never reaches it, and a pass whose
+  // box COUNT changed rebuilds the layer with only the NEW overlay in it
+  // and leaves the reused ones stranded (measured against the pre-fix
+  // source: 1 of 2 patches in the player).
+  //
+  // THE MECHANISM IS NOT A RE-CREATED PLAYER, and the first write-up of
+  // this said it was. `#movie_player` SURVIVES -- measured across a seek
+  // and two SPA navigations, hostSwaps 0 -- and the page removes OUR
+  // CHILD out of it. A genuinely re-created player would swap the host,
+  // and refreshRects's connectedness guard would tear the entry down and
+  // rebuild everything. Measured in the wild on the shipped build: a
+  // layer removed with three overlays still inside it, host connected,
+  // video connected.
   //
   // Re-parenting is monotone -- it can only ever put a patch BACK -- and
-  // costs one isConnected read per pass when nothing is wrong.
-  var layer = clipLayer(entry);
-  for (var a = 0; a < entry.overlays.length; a++) {
-    if (entry.overlays[a].parentNode !== layer) {
-      renderStats.clipRebuilt++;
-      layer.appendChild(entry.overlays[a]);
-    }
-  }
+  // it lives in `reposition`, which this call reaches and which the rAF
+  // loop reaches every frame. Once per PASS was measured too slow: the
+  // track coasts out before the next verdict arrives.
   reposition(entry, entry.at);
   if (!entry.raf) loop(video);
   return true;

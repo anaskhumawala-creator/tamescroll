@@ -283,6 +283,19 @@ test('the life pass-through drops anything that is not an integer counter', () =
 // every real counter out and the report still looked healthy. So the cap
 // is generous against the ~49 keys that exist, and whatever it drops is
 // itself a number in the report.
+// The render block passes `renderDropped` as the drop key, and nothing
+// tested it -- `__TS_GAZE_RENDER` returns a hand-built literal of numbers,
+// so the parameter is only reachable under the adversary model the
+// pass-through exists for (the page owns `window` and can replace the
+// hook). That model is the whole reason the shape check is there, so the
+// key it reports under has to be right.
+test('the render block reports its drops under its own key', () => {
+  const out = d.lifeCounters({ raf: 5, bad: 'x', 'not-an-ident': 1, noteR: 3 }, 'renderDropped');
+  assert.deepEqual(Object.keys(out).sort(), ['raf', 'renderDropped']);
+  assert.equal(out.renderDropped, 3);
+  assert.equal('lifeDropped' in out, false, 'the default key must not appear');
+});
+
 test('the life pass-through is bounded and says what it dropped', () => {
   const life = {};
   for (let i = 0; i < d.LIFE_MAX_KEYS + 44; i++) life['c' + String(i).padStart(4, '0')] = i;

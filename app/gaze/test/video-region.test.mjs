@@ -575,6 +575,68 @@ test('a clip layer removed by the page is rebuilt, not stranded', () => {
   // The next pass carries the SAME box count, so every overlay is
   // reused and clipLayer is never reached.
   vr.setTracks(video, [{ box: { x1: 0.2, y1: 0.2, x2: 0.5, y2: 0.6 }, vx: 0, vy: 0 }]);
-  assert.equal(patchesIn(player).length, 1, 'the patch must be back in the player');
+  const got = patchesIn(player).length;
+  // clear() BEFORE the assert: setTracks installs a 250ms setInterval,
+  // and an assert that throws above the teardown leaks it -- `npm test`
+  // is `node --test` with no force-exit, so a regression here HANGS the
+  // suite instead of reporting. Measured: 2-minute timeout, no output.
   vr.clear(video);
+  assert.equal(got, 1, 'the patch must be back in the player');
+});
+
+test('the rebuild does not wait for a pass -- one frame is enough', () => {
+  // MEASURED ON A BUILT APK, and it is why this guard moved out of
+  // setTracks: the layer was removed with 3 patches inside it, the
+  // tracks were still 3 at +2s and +4s, and NO verdict pass arrived
+  // before they coasted out -- so a once-per-pass rebuild left a
+  // covered subject sharp for good. The emulator's measured verdict gap
+  // is p50 5,305ms; a blurred track coasts about 4s.
+  const { player, video } = playerWithVideo({ left: 0, top: 0, width: 640, height: 360 });
+  vr.setTracks(video, [{ box: { x1: 0.2, y1: 0.2, x2: 0.5, y2: 0.6 }, vx: 0, vy: 0 }]);
+  assert.equal(patchesIn(player).length, 1, 'a patch to begin with');
+
+  const clip = player.children.filter((c) => c.className === 'ts-gaze-vregion-clip')[0];
+  player.removeChild(clip);
+  clip.isConnected = false;
+  for (const o of clip.children) o.isConnected = false;
+  assert.equal(patchesIn(player).length, 0, 'the layer really is gone');
+
+  // NO setTracks. Only the render loop, which is what actually runs
+  // between two verdicts.
+  const pending = [...scheduled.entries()];
+  assert.ok(pending.length, 'the render loop must be scheduled');
+  for (const [id, cb] of pending) {
+    scheduled.delete(id);
+    cb(performance.now());
+  }
+  const back = patchesIn(player).length;
+  vr.clear(video);
+  assert.equal(back, 1, 'one frame must put the patch back');
+});
+
+test('a detached host is never handed a new clip layer', () => {
+  // Re-parenting every frame turns an unguarded rebuild from ~4 orphan
+  // nodes a second into ~60, all appended to an element that is no
+  // longer in the document. refreshRects tears the entry down when the
+  // host goes, but it runs on a 250ms timer, so frames land in between.
+  const { player, video } = playerWithVideo({ left: 0, top: 0, width: 640, height: 360 });
+  vr.setTracks(video, [{ box: { x1: 0.2, y1: 0.2, x2: 0.5, y2: 0.6 }, vx: 0, vy: 0 }]);
+  const layer = player.children.filter((c) => c.className === 'ts-gaze-vregion-clip')[0];
+  const before = player.children.length;
+
+  // The page took the player out of the document, layer and all. The
+  // stub hardcodes isConnected, so this is the only way the suite can
+  // see this class of bug at all.
+  player.isConnected = false;
+  layer.isConnected = false;
+
+  const pending = [...scheduled.entries()];
+  for (const [id, cb] of pending) {
+    scheduled.delete(id);
+    cb(performance.now());
+  }
+  const after = player.children.length;
+  vr.clear(video);
+  player.isConnected = true;
+  assert.equal(after, before, 'no new layer may be appended to a detached host');
 });
