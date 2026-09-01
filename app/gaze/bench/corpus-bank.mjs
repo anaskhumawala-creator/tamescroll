@@ -33,7 +33,19 @@ function pickWindows(rows, every, duration) {
     else if (cur) { runs.push(cur); cur = null; }
   }
   if (cur) runs.push(cur);
-  const long = runs.filter((r) => r.t1 - r.t0 >= WINDOW_S);
+  // A VIDEO WITH FACES THROUGHOUT IS ONE RUN, AND THE FIRST VERSION
+  // TOOK ONE WINDOW FROM IT. Ary1gIbaOTc has faces in 465 of 467
+  // samples and z86LGEFyQpo in 136 of 136, so both collapsed to a
+  // single run and yielded a single window -- the two videos with the
+  // MOST footage contributed the least. Long runs are sliced into
+  // window-sized candidates instead.
+  const long = [];
+  for (const r of runs) {
+    if (r.t1 - r.t0 < WINDOW_S) continue;
+    const perS = r.faces / ((r.t1 - r.t0) / every + 1);
+    for (let t = r.t0; t + WINDOW_S <= r.t1; t += WINDOW_S)
+      long.push({ t0: t, t1: t + WINDOW_S, faces: perS * WINDOW_S });
+  }
   long.sort((a, b) => (b.faces / (b.t1 - b.t0 + every)) - (a.faces / (a.t1 - a.t0 + every)));
   const out = [];
   for (const r of long) {
@@ -73,12 +85,18 @@ function writeCrop(buf, box, file) {
 }
 
 let totalFrames = 0, totalFaces = 0;
+// ONLY_VID lets several processes bank different videos at once (16
+// cores here, one tfjs-cpu process uses few), and an already-written
+// window is skipped so a restart never redoes work or half-writes one.
+const ONLY = (process.env.ONLY_VID || '').split(',').filter(Boolean);
 for (const vid of VIDEOS) {
   const s = scan[vid];
   if (!s) continue;
+  if (ONLY.length && !ONLY.includes(vid)) continue;
   const windows = pickWindows(s.rows, s.scanEvery, s.duration);
   for (const t0 of windows) {
     const tag = `${vid}_w${t0}`;
+    if (fs.existsSync(`${ROOT}/bank/reads/${tag}.json`)) { console.log(tag, 'exists, skip'); continue; }
     const nFrames = WINDOW_S * FPS;
     const bufs = grabRaw(`${ROOT}/video/${vid}.mp4`, t0, nFrames, FPS);
     const descs = [];
