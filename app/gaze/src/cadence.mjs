@@ -35,6 +35,15 @@
 // in ninety seconds, because 2000 was the binding constraint in both
 // arms. Nothing downstream of cost can move the clock while that holds.
 //
+// THE CAP IS A FLOOR ON THE GAP, NOT THE GAP ITSELF, and reading it as
+// the gap overstates what lowering it buys. A scene cut sets
+// `lastSample = 0`, dragging the next verdict forward -- so the SAME
+// 90s window that computes effZoom 2000 shows 58 verdicts, i.e. one
+// every **1.55s**. The scene gate is an unpriced cadence mechanism
+// (engine-findings 10n). So 2000 -> 1200 cannot buy 1.67x; the ceiling
+// is 1.55/1.2 = **1.29x**, and less on footage that cuts less often
+// than that window did.
+//
 // SO THE CONSTANT TRAVELS. It used to live in a per-video closure, where
 // it could only change with a 56MB install -- and he has said plainly
 // that he is tired of installing versions. It ships at exactly the value

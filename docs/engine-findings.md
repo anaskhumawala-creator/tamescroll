@@ -1051,6 +1051,64 @@ derived at the wrong CUT_DELTA, -30.5s from the wipe arm), and
 value -- a number that has moved twice is worth less than the fact that
 it keeps moving one way.
 
+### 10n. A cut buys TWO different goods, and CUT_DELTA is charged for both
+
+The shipped handler DEMOTES (association hygiene) and FORCES A VERDICT
+(`lastSample = 0`). 10m's sweep cannot tell them apart -- lowering
+CUT_DELTA buys more of both at once. They have very different prices on
+his phone: a demotion is arithmetic on a list, a forced verdict is
+730-1250ms of GPU (12a).
+
+`bench/cut-vs-random.mjs` splits them with five arms, the control being
+the SAME NUMBER of forced verdicts scattered to deterministic-random
+frames (per window, seeded by window index, drawn without replacement --
+cuts cluster, and a global count would hand the control's verdicts to
+windows that never earned them). CUT_DELTA 60, 59 cut frames, k=3:
+
+| difference | isolates | EXPOSURE | FALSE COVER | PHANTOM |
+|---|---|---|---|---|
+| 2-1 | N verdicts ANYWHERE | +0.5 / **-4.0** | -3.0 / +1.0 | **+28.0 / +31.5** |
+| 3-2 | ...placed AT cuts | **-9.5** / +1.0 | -1.0 / +6.0 | **-14.5 / -15.5** |
+| 4-1 | demotion alone | 0.0 / -1.5 | **+17.0** / +3.5 | **+19.0 / +8.0** |
+| 5-3 | demotion on top | -0.5 / **-3.0** | +9.5 / 0.0 | **+23.0 / +14.5** |
+
+*(man / woman)*
+
+**WHAT SURVIVES BOTH GENDERS, and it is the phantom column:**
+
+1. **Extra verdicts are far cheaper AT CUTS than anywhere else**:
+   -14.5s and -15.5s of phantom for the identical verdict count. A
+   verdict spent where the picture actually changed produces fewer
+   spurious patches than one spent mid-shot.
+2. **Verdict COUNT is what drives phantom**, not demotion: +28.0s and
+   +31.5s for 59 extra verdicts scattered at random -- an 8% increase in
+   verdicts costing 15-19% more phantom. Phantom is his loudest
+   complaint, so this is the constraint on every cadence lever.
+3. **Demotion costs phantom in both directions** (+19.0/+8.0 alone,
+   +23.0/+14.5 on top) while buying at most 3.0s of exposure.
+
+**WHAT DOES NOT SURVIVE, AND SO NOTHING CHANGES.** In man mode demotion
+buys **0.0s** of exposure and placing verdicts at cuts buys 9.5s; in
+woman mode demotion buys 1.5-3.0s and placing verdicts at cuts buys
+**nothing** (+1.0s). The two arms disagree about which half of the
+handler is doing the protecting, so "demotion is the harmful half" is a
+MAN-MODE reading and is not a finding. **The cut handler is not
+changed.** What is established is that 10m's table prices a bundle, and
+that the phantom cost along that axis is mostly verdict count.
+
+**AND IT RECONCILES A DISCREPANCY IN 12a.** That section measured
+`effZoom = min(2000, cost * 4) = 2000ms` on his Redmi while the same
+window shows 58 verdicts in 90s = **1.55s** per verdict. The gap is
+these forced passes: a cut drags the next verdict forward, so his
+OBSERVED cadence is faster than his nominal one and **the scene gate has
+been an unpriced cadence mechanism all along**. The corpus's k=3 label
+("his 1.5s regime") is therefore correct as a description of what he
+gets, and 12b's arithmetic is not: pushing
+`VERDICT_MAX_INTERVAL_MS` 2000 -> 1200 cannot buy 1.67x, because the
+starting point is 1.55s and not 2.0s. **The ceiling on that push is
+1.55/1.2 = 1.29x**, and only on footage that cuts as often as the window
+it was measured in.
+
 ## 11. DETECTOR RECALL -- the error class every other sweep is downstream of
 
 Every threshold this repo has swept prices a DECISION. All of them are

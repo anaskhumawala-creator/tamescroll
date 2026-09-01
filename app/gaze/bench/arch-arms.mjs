@@ -280,6 +280,10 @@ export function makeArms(mod) {
         // matrix) silently on a model the app does not run, which is
         // the whole defect this section exists to fix. The opt-out is
         // named for what it removes.
+        // `cutNoDemote` splits the handler's two halves so they can be
+        // priced apart: a cut both DEMOTES (association hygiene) and
+        // FORCES A VERDICT (more reads). Those are different goods and
+        // the sweep in 10m charges CUT_DELTA for both at once.
         const fr = (cutHere && !o.cutNoPass && fr0.faces.length === 0 && fr0._labelFaces)
           ? { ...fr0, faces: fr0._labelFaces }
           : fr0;
@@ -314,7 +318,7 @@ export function makeArms(mod) {
         // nothing here to re-read with. That residue no longer scales
         // with the swept axis the way the wipe did, but it is why a cut
         // arm's ABSOLUTE exposure is still a bound rather than a figure.
-        if (cutHere) {
+        if (cutHere && !o.cutNoDemote) {
           tracks = o.cutWipe ? [] : demoteTracks(tracks);
           held = o.hold ? [] : null;
         }
