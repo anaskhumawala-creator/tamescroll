@@ -79,6 +79,7 @@ function grids(file, t0, secs) {
 
 const files = fs.readdirSync(`${ROOT}/bank/reads`).filter((f) => f.endsWith('.json'));
 const cuts = {};
+const peaks = {};
 let allD = [];
 for (const f of files) {
   const win = JSON.parse(fs.readFileSync(`${ROOT}/bank/reads/${f}`, 'utf8'));
@@ -90,13 +91,22 @@ for (const f of files) {
   // between its two verdict passes.
   const per = Math.max(1, Math.round(RATE / win.fps));
   const marks = new Array(n).fill(0);
+  // PER BANKED FRAME, THE LARGEST 10Hz DELTA IN THE WINDOW ENDING AT IT.
+  // Same mapping the marks use, with the VALUE kept instead of the
+  // comparison. That makes it a property of the footage and the gate's
+  // geometry only -- which is what the header above has always claimed
+  // for bank/deltas.json, while nothing ever wrote the file.
+  const peak = new Array(n).fill(0);
   const deltas = [];
   for (let i = 1; i < g.length; i++) {
     const d = meanAbsDelta(g[i - 1], g[i]);
     deltas.push(d);
-    if (d >= CUT_DELTA) { const k = Math.min(n - 1, Math.ceil(i / per)); marks[k] = 1; }
+    const k = Math.min(n - 1, Math.ceil(i / per));
+    if (d > peak[k]) peak[k] = d;
+    if (d >= CUT_DELTA) marks[k] = 1;
   }
   cuts[tag] = marks;
+  peaks[tag] = peak.map((d) => Math.round(d * 100) / 100);
   allD = allD.concat(deltas);
   const srt = deltas.slice().sort((a, b) => a - b);
   const q = (p) => (srt.length ? srt[Math.floor(p * (srt.length - 1))].toFixed(1) : '-');
@@ -115,6 +125,12 @@ for (const f of files) {
 const tot = Object.values(cuts).reduce((s, m) => s + m.reduce((a, b) => a + b, 0), 0);
 cuts.__meta = { CUT_DELTA, GATE_SIZE, rate: RATE };
 fs.writeFileSync(OUT, JSON.stringify(cuts));
+// NOT KEYED BY CUT_DELTA, and that is the point: the deltas are the
+// footage, the threshold is only the comparison at the end. One file
+// serves every value and every arm that wants to place work by how much
+// the picture moved rather than by a clock.
+peaks.__meta = { GATE_SIZE, rate: RATE };
+fs.writeFileSync(`${ROOT}/bank/deltas.json`, JSON.stringify(peaks));
 const over = allD.filter((d) => d >= CUT_DELTA).length;
 console.log(`
 wrote ${OUT}`);

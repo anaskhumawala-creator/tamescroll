@@ -186,10 +186,10 @@ function bump(key) {
 
 // A BIRTH THAT TAKES THE INSTANT RUNG, COUNTED.
 //
-// The corpus prices this change at -25.5s of false cover in his regime
-// FOR +5.0s OF EXPOSURE -- and both halves of that matter. This figure
-// has been wrong twice, in the same direction, for two different
-// instrument reasons:
+// The corpus prices this change at -19.5s of false cover in his regime
+// FOR +1.0s OF EXPOSURE -- and both halves of that matter. This figure
+// has been wrong three times, for three different instrument reasons,
+// and the chain is worth more than the current value:
 //
 //   -38.0s "near-zero exposure"  bank derived at CUT_DELTA 50 while the
 //                                build shipped 60, on an arm whose label
@@ -198,10 +198,13 @@ function bump(key) {
 //                                at a cut where the app demotes them and
 //                                forces a verdict (critic B1, 10m)
 //   -25.5s +5.0s                 arm models the shipped cut handler
+//   -19.5s +1.0s                 arm tells the tracker the cadence it is
+//                                actually running, so coast windows are
+//                                sized for it (10-findings 13)
 //
-// The direction and the exposure cost survived both corrections; only
-// the size of the benefit moved. It is NOT free: 5 seconds of a person
-// left sharp, bought for 25 seconds of the wrong person covered.
+// The DIRECTION has survived all three; every magnitude has moved. It is
+// still not free: 1 second of a person left sharp, bought for 19 seconds
+// of the wrong person covered.
 //
 // A corpus number is also an UPPER BOUND on device: it replays banked
 // reads, so it cannot know how often `instant` is actually reached on

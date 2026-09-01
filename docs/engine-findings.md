@@ -1026,8 +1026,25 @@ genuine trade with no free direction, which is the thing all three
 earlier readings denied.
 
 **The OTA ceiling stays 75, as a BOUND and not a recommendation.** It is
-now measured to cost 6.5s of exposure against the shipped value, so a
-push to it is a protection decision, not a tuning one.
+now measured to cost exposure against the shipped value, so a push to it
+is a protection decision, not a tuning one.
+
+**RE-DERIVED AFTER 13** (the arm was telling the tracker a 500ms cadence
+in every arm here too). The DIRECTION of everything above survives --
+exposure still rises with CUT_DELTA, there is still no free direction --
+and every magnitude moves:
+
+| CUT_DELTA | cuts | EXPOSURE | FALSE COVER | PHANTOM |
+|---|---|---|---|---|
+| 35 | 200 | 16.0s | 211.0s | **770.0s** |
+| 50 | 115 | 17.5s | 188.0s | 518.0s |
+| **60** | 59 | **24.5s** | **186.0s** | **482.5s** |
+| 75 | 12 | 29.0s | 178.5s | 394.5s |
+| 90 | 2 | 31.5s | 172.0s | 386.5s |
+
+60 -> 75 is +4.5s exposure for -88.0s phantom; 60 -> 50 is -7.0s exposure
+for +35.5s phantom. **60 stays**, and the phantom column at the low end
+(770s at 35) is far steeper than the pre-13 arm could see.
 
 **THE ARM DEFAULTS TO THE APP, AND THAT REBASES 29 BENCH FILES.**
 `cutNoPass` is an opt-OUT, named for what it removes. Making the forced
@@ -1067,12 +1084,12 @@ windows that never earned them). CUT_DELTA 60, 59 cut frames, k=3:
 
 | difference | isolates | EXPOSURE | FALSE COVER | PHANTOM |
 |---|---|---|---|---|
-| 2-1 | N verdicts ANYWHERE | +0.5 / **-4.0** | -3.0 / +1.0 | **+28.0 / +31.5** |
-| 3-2 | ...placed AT cuts | **-9.5** / +1.0 | -1.0 / +6.0 | **-14.5 / -15.5** |
-| 4-1 | demotion alone | 0.0 / -1.5 | **+17.0** / +3.5 | **+19.0 / +8.0** |
-| 5-3 | demotion on top | -0.5 / **-3.0** | +9.5 / 0.0 | **+23.0 / +14.5** |
+| 2-1 | N verdicts ANYWHERE | +1.0 / -7.0 | -1.0 / +2.0 | **+49.5 / +67.0** |
+| 3-2 | ...placed AT cuts | -7.0 / +1.5 | -2.0 / +3.5 | **-32.5 / -37.0** |
+| 4-1 | demotion alone | **-6.5 / -7.5** | +17.0 / +7.5 | +75.5 / +33.5 |
+| 5-3 | demotion on top | -1.0 / -4.0 | +17.0 / -1.5 | +80.5 / +29.5 |
 
-*(man / woman)*
+*(man / woman; re-derived after 13)*
 
 **WHAT SURVIVES BOTH GENDERS, and it is the phantom column:**
 
@@ -1087,14 +1104,19 @@ windows that never earned them). CUT_DELTA 60, 59 cut frames, k=3:
 3. **Demotion costs phantom in both directions** (+19.0/+8.0 alone,
    +23.0/+14.5 on top) while buying at most 3.0s of exposure.
 
-**WHAT DOES NOT SURVIVE, AND SO NOTHING CHANGES.** In man mode demotion
-buys **0.0s** of exposure and placing verdicts at cuts buys 9.5s; in
-woman mode demotion buys 1.5-3.0s and placing verdicts at cuts buys
-**nothing** (+1.0s). The two arms disagree about which half of the
-handler is doing the protecting, so "demotion is the harmful half" is a
-MAN-MODE reading and is not a finding. **The cut handler is not
-changed.** What is established is that 10m's table prices a bundle, and
-that the phantom cost along that axis is mostly verdict count.
+**THE GENDER DISAGREEMENT WAS THE INSTRUMENT.** Before 13 this section
+read "in man mode demotion buys 0.0s of exposure, in woman mode 1.5-3.0s"
+and concluded that the two arms disagreed about which half of the handler
+protects. Corrected, **they agree**: demotion buys **6.5s (man) and 7.5s
+(woman)** of exposure, and costs false cover and phantom in both. The
+disagreement was tracks expiring between verdicts, which swamps whatever
+the demotion does. **The cut handler is still not changed** -- but the
+reason is now that both halves earn their keep, not that the evidence
+contradicts itself.
+
+The one thing the arms still split on is whether PLACEMENT buys exposure
+(man -7.0s, woman +1.5s). The phantom half of that is consistent and
+large in both (-32.5s, -37.0s), and 13b takes it up properly.
 
 **AND IT RECONCILES A DISCREPANCY IN 12a.** That section measured
 `effZoom = min(2000, cost * 4) = 2000ms` on his Redmi while the same
@@ -1233,7 +1255,8 @@ The ranked open list had thresholds near the top. It should not. On this
 corpus:
 
 - a threshold sweep moves 1-3s of exposure (every sweep this month);
-- the verdict CLOCK moves 73s (81.0s at 1.5s/verdict, 8.0s at 0.5s);
+- the verdict CLOCK moves 19s (24.5s at 1.5s/verdict, 5.5s at 0.5s -- was
+  quoted as 73s from a mis-instrumented arm, see 13);
 - and **6% of people are never detected at all**, which is upstream of
   both and which no constant touches.
 
@@ -1245,10 +1268,100 @@ recompiles from varying crop shapes -- and **(2) the 6%**, which needs a
 better detector rather than a better threshold.
 
 
+## 13. THE ARM TOLD THE TRACKER A CADENCE IT WAS NOT RUNNING, and every corpus number in this repo is on it
+
+`arch-arms.mjs` called `setVerdictCadence(dt)` where `dt = 1000 / win.fps`
+= **500ms**, in every arm -- including the k=3 and k=4 arms where a
+verdict actually lands every 1500ms or 2000ms. That is not a label.
+`person-track` SIZES ITS COAST WINDOWS from that number:
+
+```
+cap          = max(PTRACK_MAX_COAST_MS 2000, 2 * effZoom)
+blurredCoast = min(cap, max(900, 2.5 * effZoom))
+```
+
+| effZoom told | coast | real gap at that k | track survives the gap? |
+|---|---|---|---|
+| 500 | **1250ms** | 1500ms (k=3) | **no** |
+| 500 | **1250ms** | 2000ms (k=4) | **no** |
+| 1500 (correct) | 3000ms | 1500ms | yes |
+| 2000 (correct) | 4000ms | 2000ms | yes |
+
+**So every k=3 number this repo has ever produced -- which is every
+corpus number, since k=3 is "his regime" -- ran with tracks expiring
+between every pair of verdicts.** `PTRACK_MIN_COAST_PASSES`, the constant
+whose entire stated job is *"the window may never be too short to reach
+the next pass"*, was floored at `2 x 500` instead of `2 x 1500` and could
+not do it. Same shape as 10k/10m: **the arm contradicted the module it
+was replaying.** Third time tonight.
+
+The stride is INFERRED, not passed in -- `thin` marks every frame it
+silences by moving the reads to `_labelFaces`, so the cadence is a
+property of the window the arm was handed and cannot disagree with it. A
+caller-supplied option is a thing 30 bench files can forget. It is the
+MEDIAN gap, because an irregular policy (13a) can open with two adjacent
+verdict frames and would otherwise be handed a stride of 1 -- the same
+defect, in the arm built to test against it.
+
+**k=1 IS THE CONTROL AND IT DID NOT MOVE.** At k=1 the stride is 1, so
+the fix is arithmetically a no-op there, and the arm reads 5.5s / 146.5s
+/ 371.0s before and after. Every thinned arm moved; the unthinned one
+did not.
+
+### 13a. Corrected, the cadence dial has NO trade -- all three columns improve
+
+| cadence | verdicts | EXPOSURE | FALSE COVER | PHANTOM | births |
+|---|---|---|---|---|---|
+| k=4 (2.0s) | 540 | 29.5s | 204.0s | 551.5s | 160 |
+| **k=3 (1.5s, his)** | 720 | **24.5s** | **186.0s** | **482.5s** | 174 |
+| k=2 (1.0s) | 1080 | 16.5s | 159.0s | 383.0s | 221 |
+| k=1 (0.5s) | 2160 | **5.5s** | **146.5s** | **371.0s** | 307 |
+
+**Every column improves as the clock speeds up**, and the previously
+published version of this table had a CLIFF at k=4 (exposure 160.0s)
+that was entirely the too-short coast. There is no exposure/phantom
+trade along this dial at all -- the only cost is GPU duty. That makes
+`VERDICT_MAX_INTERVAL_MS` the cleanest lever in the system: it is bounded
+by the device and by nothing in the model.
+
+It also corrects the headline this repo has quoted all week. **"Man
+exposure 81.0s at 1.5s against 8.0s at 0.5s" is 24.5s against 5.5s.**
+The clock is still the biggest single lever -- 19s across that range,
+against 1-3s for any threshold -- but it is a quarter of the advertised
+size, and the old figure was measured with tracks that could not coast.
+
+### 13b. Event-driven placement, priced honestly at last
+
+`bench/cadence-place.mjs` holds the verdict budget EXACTLY and chooses
+the frames, with a causal rule the app could run (`verdict if starved
+past MAXGAP, or if the gate's own delta clears a solved threshold T`).
+T is bisected until the arm spends the uniform budget, so the comparison
+is placement against placement and never budget against budget.
+
+| arm (720 verdicts each) | EXPOSURE | FALSE COVER | PHANTOM |
+|---|---|---|---|
+| UNIFORM k=3 (today) | 24.5s | 186.0s | 482.5s |
+| PLACED, max gap 4 (2.0s), T=13.2 | **16.0s** | 217.5s | **466.5s** |
+| PLACED, max gap 6 (3.0s), T=7.1 | 48.0s | 233.5s | 423.0s |
+
+At a max gap of 2.0s, spending the SAME verdicts where the picture moved
+buys **8.5s of exposure and 16.0s of phantom for 31.5s of false cover**.
+At 3.0s it loses badly -- so the max gap is the load-bearing half of the
+policy, not the threshold.
+
+**NOT PROPOSED, and the reason is 13, not caution.** Every arm above was
+re-derived hours ago on an instrument that had just been wrong three
+times in one night about exactly this kind of thing, and the policy
+would be a new cadence architecture in the player -- the highest-risk
+place in the app. What it establishes is that the idea is worth a proper
+round: it is the only cadence lever measured that does not spend more
+GPU, which is the constraint 12a says his phone is actually under.
+
 ## 12. THE VERDICT CLOCK IS SET BY A CONSTANT, NOT BY COST -- and that constant could not travel
 
-The corpus prices the clock far above any threshold: man exposure 81.0s
-at 1.5s per verdict against 8.0s at 0.5s, where every gender, clear-bar,
+The corpus prices the clock far above any threshold: man exposure 24.5s
+at 1.5s per verdict against 5.5s at 0.5s (RESTATED, see 13 -- the 81.0s /
+8.0s this said was measured with a tracker told the wrong cadence), where every gender, clear-bar,
 cut and birth constant swept this month moves 1-3s. 10i then measured
 that halving the pass cost on his device bought NOTHING in verdict rate,
 and left the reason unexplained. This is the reason.

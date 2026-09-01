@@ -105,7 +105,11 @@ export function loadWin(file) {
   // Cut marks from the SHIPPED scene gate, run at the app's own 10Hz --
   // see corpus-cuts.mjs. Absent until that has been run, in which case
   // the `cut` arm is inert rather than wrong.
-  win.cuts = CUTS[file.replace(/\.json$/, '')] || null;
+  // The bank key, kept on the window: every side bank in this directory
+  // (cuts, ssd, persons, deltas) is keyed by it, and a bench that has
+  // only the loaded window had to re-derive it or guess.
+  win.tag = file.replace(/\.json$/, '');
+  win.cuts = CUTS[win.tag] || null;
   // coco-ssd person boxes at the same frame times (bench/cocossd-bank.mjs).
   // Absent until that has run, in which case an `ssd` arm falls back to
   // the synthetic body everywhere and is simply the control again --
@@ -258,7 +262,46 @@ export function makeArms(mod) {
       let held = o.hold ? [] : null;
       const out = [], dt = 1000 / win.fps;
       const subs = [];
-      setVerdictCadence(dt);
+      // THE CADENCE THE TRACKER IS TOLD MUST BE THE CADENCE IT GETS.
+      //
+      // This passed `dt` -- the BANK's frame interval, 500ms -- in every
+      // arm, including the k=3 and k=4 arms where a verdict actually
+      // lands every 1500ms or 2000ms. That is not a label: person-track
+      // SIZES ITS COAST WINDOWS from this number, and sizing them for a
+      // cadence three times faster than the real one makes a track
+      // expire between every pair of verdicts.
+      //
+      //   effZoom   cap = max(2000, 2*ms)   blurredCoast    gap at that k
+      //     500            2000                1250            1500  k=3
+      //    1500            3000                3000            1500  k=3
+      //    2000            4000                4000            2000  k=4
+      //
+      // So the arm gave a k=3 run a 1250ms coast against a 1500ms gap
+      // where the app gives 3000ms, and PTRACK_MIN_COAST_PASSES -- the
+      // constant whose entire job is "the window may never be too short
+      // to reach the next pass" -- was floored at 2x500 instead of
+      // 2x1500 and could not do it. Same shape as the cut-wipe defect
+      // (10k/10m): the arm contradicted the module it was replaying.
+      //
+      // INFERRED, NOT PASSED IN. A caller-supplied option is a thing 30
+      // bench files can forget; `thin` marks every frame it silenced by
+      // moving the reads to `_labelFaces`, so the stride is a property
+      // of the window the arm was handed and cannot disagree with it.
+      // MEDIAN GAP, not the first one. A uniform arm gives the same
+      // answer either way, but an IRREGULAR policy (cadence-place, which
+      // spends its verdicts where the picture moved) can open with two
+      // adjacent verdict frames and would have been handed a stride of
+      // 1 -- reintroducing the very defect this block fixes, in exactly
+      // the arm built to be compared against it.
+      const vAt = [];
+      for (let i = 0; i < win.frames.length; i++) {
+        if (win.frames[i]._labelFaces === undefined) vAt.push(i);
+      }
+      const gaps = [];
+      for (let i = 1; i < vAt.length; i++) gaps.push(vAt[i] - vAt[i - 1]);
+      gaps.sort((a, b) => a - b);
+      const stride = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 1;
+      setVerdictCadence(dt * stride);
       let fi = -1;
       for (const fr0 of win.frames) {
         fi++;

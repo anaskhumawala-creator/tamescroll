@@ -1,9 +1,22 @@
 // THE VERDICT CLOCK, WHICH IS THE BIGGEST LEVER THIS SYSTEM HAS.
 //
 // The labelled corpus prices it far above any threshold: man exposure is
-// 81.0s at 1.5s per verdict and 8.0s at 0.5s, where every gender,
+// 24.5s at 1.5s per verdict and 5.5s at 0.5s, where every gender,
 // clear-bar, cut and birth constant swept this month moves 1-3s. So how
 // often a verdict lands matters more than what the verdict decides.
+//
+// (Those were 81.0s and 8.0s until 2026-09-02. The arm told the tracker
+// a 500ms cadence in every k arm, so its coast windows were sized for a
+// clock three times faster than the one it was running and tracks
+// expired between every pair of verdicts -- engine-findings 13. The
+// clock is still the biggest lever by a wide margin; it is a quarter of
+// the advertised size.)
+//
+// AND CORRECTED, THE DIAL HAS NO TRADE. Exposure, false cover AND
+// phantom all improve as the clock speeds up (13a) -- the cliff that
+// used to sit at 2.0s was the same instrument defect. The only cost of
+// lowering this number is GPU duty, which is why the table below is
+// about duty and nothing else.
 //
 // AND ON A DEVICE IT IS SET BY A CONSTANT, NOT BY COST. init-entry
 // computes
