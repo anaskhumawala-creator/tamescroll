@@ -70,6 +70,135 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-02 07:40 (HEAD 712b477, PUSHED. **1086 is
+still what his phone runs.** Nothing user-visible changed tonight; the
+new dial ships INERT and cannot travel until a release, because the
+whitelist that would accept it lives in the bundle.)
+
+**Session 2026-09-02 (loop 42) -- THE ADVERSARIAL CRITIC FOUND THAT MY
+BIGGEST CADENCE CLAIM WAS BACKWARDS, AND THE CONFOUND UNDER IT WAS
+HIDING THE BIGGEST LEVER IN THE SYSTEM.**
+
+- **PHASE C CRITIC: 8 ROWS, 8 CONFIRMED, NONE REFUTED.** Five were
+  WRONG-NUMBER. Two changed a CONCLUSION rather than a number, which is
+  what the loop exists for. Every one is fixed at the source rather than
+  annotated. critic-gate reads 23 rows / 23 CONFIRMED.
+- **"THE CADENCE DIAL HAS NO TRADE" WAS THE COAST WINDOW, NOT THE
+  CLOCK.** `person-track.setVerdictCadence(ms)` derives blurredCoastMs
+  AND clearedCoastMs AND cutCoastMs from the number it is handed, so
+  every row of the 13a table moved TWO variables (k=4 coasts 4000ms,
+  k=1 coasts 1250ms). Pin the coast and only exposure responds to the
+  clock -- **phantom moves the OTHER way by 70%** (460.5 -> 784.0s from
+  k=3 to k=1). That agrees with 10n twenty lines above it, which the
+  withdrawn sentence contradicted. Three sentences withdrawn, including
+  "VERDICT_MAX_INTERVAL_MS is the cleanest lever in the system".
+- **AND HALF THAT TABLE COULD NEVER BE BOUGHT:** tuning.mjs clamps
+  VERDICT_MAX_INTERVAL_MS to [1200, 4000], so the k=2 and k=1 rows
+  carrying the headline are unreachable by the constant the section is
+  about.
+- **THE LEVER THE CONFOUND WAS HIDING: THE COAST, AND IT COSTS NO GPU.**
+  Verdict count pinned at his k=3 -- not one extra inference -- sweeping
+  `PTRACK_MIN_COAST_PASSES`, both gender arms, in his real regime:
+
+  | passes | coast | man exp/fc/phantom | woman exp/fc/phantom |
+  |---|---|---|---|
+  | 1.0 | 2000ms | 38.0 / 134.0 / 365.0 | 35.5 / 186.0 / 419.0 |
+  | **1.33** | 2660ms | **26.5 / 136.5 / 424.0** | **29.5 / 193.5 / 494.5** |
+  | 1.5 | 3000ms | 25.5 / 140.5 / 488.5 | 29.0 / 196.0 / 568.0 |
+  | **2 SHIPPED** | 4000ms | **22.0 / 155.0 / 573.5** | **25.5 / 201.0 / 679.5** |
+
+  **2 -> 1.33 costs +4.5s of exposure (man) / +4.0s (woman) and buys
+  149.5s and 185.0s of PHANTOM (-26%) plus 18.5s and 7.5s of false
+  cover.** Both arms agree on direction and winner. Compare the cadence
+  dial: k=3 -> k=2 buys 101.5s of phantom and needs **50% more
+  inference** on a device 12a measured as cap-limited.
+- **SO THE DECOMPOSITION IS: VERDICTS BUY EXPOSURE, THE COAST BUYS
+  PHANTOM AND FALSE COVER.** They were tied together in one function and
+  the tie is what made the dial look free.
+- **IT IS AN EXPOSURE TRADE AND IT IS HIS CALL.** Ships at 2, clamped
+  [1.33, 3.0], with a test pinning that rules/tuning.json agrees with
+  the code. **BUT IT CANNOT TRAVEL YET** -- the whitelist that accepts
+  the key is compiled into the bundle, so 1086 would REFUSE it. Reaching
+  it needs a release, and he is tired of installing, so batch it.
+- **THREE NUMBERS DESCRIBE HIS REGIME AND THE ARM HAD ONE.** Verdict
+  ARRIVAL (k=3, because cuts drag verdicts forward), the cadence TOLD
+  (**2000**, his cap-pinned effZoom -- `init-entry.js:4036` hands
+  `setVerdictCadence(effZoom)`, the SCHEDULE, not the achieved gap), and
+  `verdictDt` = min(1000, arrival), which credits a clear and which the
+  arm was passing as the 500ms BANK interval. `HIS_EFFZOOM = 2000` is
+  named in arch-arms with the citation.
+- **THAT INVALIDATED A RECOMMENDATION I HAD COMMITTED AN HOUR EARLIER.**
+  The coast dial was first swept at told 1500 -- his ACHIEVED gap, a
+  regime his phone is not in -- and named 1.67, which is a NO-OP at his
+  real told (identical to 1.5, because the cap steps in 500ms). The
+  clamp floor's justification was wrong the same way: "below 1.33 the
+  cap floors at 2000 anyway" is true at told 1500 and FALSE at 2000.
+- **AND THE CROSS-CHECK IS THE BEST THIS INSTRUMENT HAS HAD:** with C4
+  and C6 corrected the shipped row landed on **22.0 / 155.0 / 573.5**,
+  exactly what the critic predicted independently before I ran it.
+- **EVENT-DRIVEN PLACEMENT (13b) BOUGHT NO PHANTOM EITHER -- SAME
+  CONFOUND.** The stride inference takes the MEDIAN gap, and in a
+  starvation-dominated policy most gaps ARE MAXGAP, so 13 of 18 windows
+  were handed a 4000ms coast against the control's 3000ms at the
+  IDENTICAL mean gap of 3.00 frames. Told the same cadence, placement
+  buys 7.0s of exposure and **COSTS** 32.5s false cover and 80.5s
+  phantom. Its "worth a proper round because it is the only cadence
+  lever that does not spend more GPU" argument is dead on its own terms.
+- **THE A-SERIES LADDER WAS FIVE LABELS ON ONE ARM.** arch-ab printed
+  A1..A5 as 5.5 / 210.0 / 314.0 five times: `armSubject` passed
+  `nmWeight`, `ghost` and `poolBar` and `ARM` read NONE of them. Found
+  by RUNNING the arm and looking at the rows. It does not invalidate the
+  numbers -- it invalidates every DECOMPOSITION built on differences
+  between them, and that file's own header carried one ("pooling alone
+  cost 0.5s, the drop cost 3.0s more"), which is zero by construction.
+  `poolBar` threaded; `nmWeight`/`ghost` DELETED rather than given
+  invented behaviour. **The pool is refused again on a real curve**: at
+  its best exposure point it buys 2.0s over A0 and pays 21.5s false
+  cover + 31.5s phantom.
+- **THE CLEAR BAR IS ALREADY IN THE RIGHT PLACE.** Every step below the
+  shipped 0.45/0.35 costs exposure and buys almost nothing: -0.20 on the
+  bar moves false cover 7.5s and phantom 11.0s while exposure RISES 73%.
+  Do not push GENDER_CLEAR_SCORE lower over OTA.
+- **THE THUMBNAIL PATH HAD NO NULL-READ GUARD** and the video path has
+  had one since 1079. score is 2|raw - 0.5|, which folds a null read at
+  raw ~0.62 to 0.24 -- under the 0.4 image bar, so it gets FLAGGED. A
+  patch on a crop the model said nothing about. Measured BEFORE it was
+  built on banked ground truth: **461 of 501 non-face flags removed
+  (92.0%), 0 of 99 real faces uncovered, 0 of 141 opposite-gender reads
+  uncovered.** `adult` is tested FIRST (the loop-37b defect restored --
+  a null read has its age pinned at the prior, so a child with no signal
+  looks like one).
+- **THREE BENCHES HAD BEEN EXITING ON THEIR OWN GUARD SINCE LOOP 39**
+  because they patched the literal `var GENDER_CLEAR_SCORE = 0.6;` and
+  0.45 shipped. Credit where due: the guards WORKED. `bench/_patch.mjs`
+  patches by NAME out of the built bundle and throws if the declaration
+  is gone; a value EQUAL to the shipped one is allowed and is the
+  control point, which is how critic-lowbar's first row reproduces
+  ARM_A0 line for line. **Its own number class had to admit `2e3`** --
+  esbuild minifies 2000 that way and the first version refused it.
+- **THE HEREDOC BACKSLASH TRAP, FOUR MORE TIMES.** A backslash-s inside
+  a template literal is just an `s`, and that is how `_patch.mjs` itself
+  matched nothing on its first run. **Write bench regexes with character
+  classes only.** Long heredocs through the shell tool are unreliable
+  here in general -- write the file with the editor tool instead.
+- **THE STRIDE INFERENCE WAS BLIND TO `position` MODE** -- the loop-41
+  defect surviving one mode away from its own fix, under a comment
+  asserting it could not happen, and `position` is matrix.mjs's default.
+  `inferCadence` is exported and `test/cadence-infer.test.mjs` covers
+  both modes at k=1..4 plus the median-gap property and the NaN
+  fallback. It had NO test at all before.
+- **RED-BEFORE-GREEN PROVED ON EVERY NEW GUARD THIS SESSION** (the
+  thumbnail guard, the coast re-derive, the stride inference), because
+  this repo has twice shipped a check that could not fail.
+- gaze **531/531**, cargo **60/60**, critic-gate **23/23 CONFIRMED**.
+- **NEXT:** a Phase D critic is running against tonight's own claims
+  (14/14a/15/15a and the OTA wiring). Then: the assignment layer (32
+  contended births), and a release so the coast dial can travel.
+- **THE QUESTION FOR HIM, and it is the only one:** the coast dial is a
+  protection trade. 1.33 buys 26% of the phantom he complains about most
+  for ~4.5s more exposure across 18 windows. Ships at 2 until he says.
+
+
 **Last updated:** 2026-09-02 05:30 (HEAD 5b26a04, PUSHED. **1086 is
 still what his phone runs** -- nothing user-visible changed tonight and
 no constant moved. Everything below is instruments and numbers.)
