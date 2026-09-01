@@ -1317,12 +1317,46 @@ did not.
 | k=2 (1.0s) | 1080 | 16.5s | 159.0s | 383.0s | 221 |
 | k=1 (0.5s) | 2160 | **5.5s** | **146.5s** | **371.0s** | 307 |
 
-**Every column improves as the clock speeds up**, and the previously
-published version of this table had a CLIFF at k=4 (exposure 160.0s)
-that was entirely the too-short coast. There is no exposure/phantom
-trade along this dial at all -- the only cost is GPU duty. That makes
-`VERDICT_MAX_INTERVAL_MS` the cleanest lever in the system: it is bounded
-by the device and by nothing in the model.
+**RETRACTED IN PART, 2026-09-02 (critic C1, reproduced independently).**
+This table is real and it is the honest model of moving
+`VERDICT_MAX_INTERVAL_MS` on a device. What was wrong is reading it as a
+DECOMPOSITION and drawing a mechanism out of it.
+
+Every row moves **two** variables. `person-track.setVerdictCadence(ms)`
+derives `blurredCoastMs` and `clearedCoastMs` from the number it is
+handed, so k=4 coasts 4000ms and k=1 coasts 1250ms. "The clock got
+faster" and "the coast got shorter" arrive in the same row, and the
+second is the one that moves phantom. On a device the two really are
+coupled -- `effZoom` feeds `setVerdictCadence` -- which is why the table
+stands as a model of the dial and falls as an explanation of it.
+
+**WITHDRAWN:** "there is no exposure/phantom trade along this dial at
+all", "the only cost is GPU duty", and "that makes
+`VERDICT_MAX_INTERVAL_MS` the cleanest lever in the system". Pin the
+coast at the k=3 control and only exposure still responds to the clock;
+phantom moves the OTHER way, hard (`bench/cadence-ab.mjs`, which prints
+both families side by side now):
+
+| coast PINNED at 3000ms | EXPOSURE | FALSE COVER | PHANTOM |
+|---|---|---|---|
+| k=4 (2.0s) | 33.5s | 150.5s | 382.0s |
+| **k=3 (1.5s, his)** | **27.5s** | **137.0s** | **460.5s** |
+| k=2 (1.0s) | 14.0s | 121.0s | 496.0s |
+| k=1 (0.5s) | **9.0s** | 141.0s | **784.0s (+70%)** |
+
+That agrees with §10n, measured independently in this same document
+("**verdict COUNT is what drives phantom**"), which the withdrawn
+sentence contradicted. More verdicts buy exposure and cost phantom; the
+diagonal hid the second half because the shortening coast was paying it
+back.
+
+**AND THE HEADLINE ROWS CANNOT BE BOUGHT.** `tuning.mjs:118` clamps
+`VERDICT_MAX_INTERVAL_MS` to **[1200, 4000]**, so the k=2 (1000ms) and
+k=1 (500ms) rows are unreachable by the constant this section is about.
+What IS reachable is 2000 -> 1200-1500, i.e. the k=4 -> k=3 step, and on
+the DIAL family that step buys 5.0s exposure, 28.5s false cover and
+71.5s phantom. Still worth doing, for a different reason than the one
+published.
 
 It also corrects the headline this repo has quoted all week. **"Man
 exposure 81.0s at 1.5s against 8.0s at 0.5s" is 24.5s against 5.5s.**
@@ -1561,3 +1595,56 @@ unrunnable rather than wrong: `critic-lowbar.mjs` wrote its variant to a
 first draft of `_patch.mjs` itself matched nothing, because a heredoc
 eats one backslash and `\s` inside a template literal is just `s`. The
 pattern uses character classes only, and says why.
+
+## 15. THE COAST WINDOW IS THE BIGGEST LEVER IN THE SYSTEM, AND IT COSTS NO GPU
+
+Found by decomposing the confound in §13a rather than by looking for it.
+If the coast is what was paying phantom back along the cadence dial,
+then move the coast **on its own** and spend nothing.
+
+`bench/cadence-ab.mjs`, third family. Verdict count PINNED at k=3 -- his
+regime, not one extra inference on his phone -- and only the coast
+window varied:
+
+| blurredCoast | EXPOSURE | FALSE COVER | PHANTOM |
+|---|---|---|---|
+| 1000ms | 50.0s | **110.0s** | **163.0s** |
+| 1500ms | 48.0s | 115.5s | 240.0s |
+| 2000ms | 40.5s | 124.5s | 305.5s |
+| **3000ms (SHIPPED at his cadence)** | **27.5s** | **137.0s** | **460.5s** |
+| 4000ms | **23.5s** | 152.0s | 568.0s |
+
+**Phantom moves 3.5x across this dial and false cover 1.4x, for zero
+extra GPU.** 3000 -> 2000ms alone cuts phantom **155.0s (-34%)** and
+false cover 12.5s. Compare the cadence dial, which is the lever this
+repo has been treating as the important one: k=3 -> k=2 buys 101.5s of
+phantom and needs **50% more inference on a device that measured
+cap-limited** (12a), and is barely inside the OTA clamp.
+
+**SO THE DECOMPOSITION IS: verdicts buy EXPOSURE, the coast buys PHANTOM
+AND FALSE COVER.** They were tied together in one function and the tie
+is what made the dial look free.
+
+**THIS IS A PROTECTION TRADE AND IT IS HIS CALL, NOT MINE.** Exposure
+nearly doubles at 2000ms (27.5 -> 40.5s) and is 82% worse at 1000ms.
+Exposure is the number that means a person the user asked to cover was
+left sharp, and §9 says protection decisions are the owner's. What can
+be said without him: phantom is the complaint he has repeated most
+("random blur marks here and there"), and 34% of it is available for
+one number.
+
+**AND THE LEVER CANNOT TRAVEL.** None of `PTRACK_MAX_COAST_MS`,
+`PTRACK_MIN_COAST_PASSES`, `PTRACK_MAX_MISS_BLURRED_MS` or
+`PTRACK_MAX_MISS_MS` is on the OTA channel, and the `2.5 *` inside
+`setVerdictCadence` is a bare literal that is not a named constant at
+all. That is exactly the §12 finding again in a new place: the biggest
+dial in the system is reachable only by shipping a build.
+
+**HONEST LIMITS.** (1) The corpus is 18 windows of his footage class at
+640x360, and coast is the constant most sensitive to how often the
+detector drops a subject -- a device whose MoveNet admits people will
+coast less often than his, where all twelve slots read n:0. (2) The
+scoring counts a phantom second and an exposure second as one second
+each; he does not weigh them equally and has never been asked to.
+(3) Every row here is `cut: true` with the shipped demote-and-force
+handler, so the coast is already being cut short at every scene change.

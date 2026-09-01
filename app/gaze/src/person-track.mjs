@@ -1582,8 +1582,40 @@ export var PTRACK_MIN_COAST_PASSES = 2;
 // CLEARED_TTL_MS still expires a clear nobody has re-confirmed.
 var clearedCoastMs = PTRACK_MAX_MISS_MS;
 
+// The last cadence handed in, so the coast can be re-derived when the
+// OTA channel moves PTRACK_MIN_COAST_PASSES between verdicts. Without
+// it a pushed value would sit inert until the next cadence change.
+var lastCadenceMs = 0;
+
+/**
+ * OTA setter for PTRACK_MIN_COAST_PASSES. Re-derives the coast windows
+ * immediately from the cadence already in force.
+ *
+ * THE COAST IS THE BIGGEST LEVER IN THE SYSTEM AND IT COSTS NO GPU
+ * (engine-findings 15). At his measured 1500ms cadence the `cap` below
+ * is what binds -- the 2.5x term is 3750 and never wins -- so this one
+ * number IS the coast. Corpus, both gender arms, verdict count fixed at
+ * his k=3:
+ *
+ *   passes  coast     man exp/fc/phantom      woman exp/fc/phantom
+ *   1.33    2000ms    40.5 / 130.0 / 344.0    36.5 / 182.0 / 397.0
+ *   1.67    2505ms    28.5 / 133.0 / 401.5    31.5 / 188.5 / 473.0
+ *   2 SHIP  3000ms    27.5 / 137.0 / 460.5    31.0 / 190.5 / 542.5
+ *
+ * 1.67 costs <= 1.0s of exposure in both arms and buys 59-69s of
+ * phantom -- his loudest complaint -- plus 2-4s of false cover, for no
+ * extra inference at all. It is still an EXPOSURE trade and exposure is
+ * the protection number, so the value that SHIPS is 2 and the decision
+ * to push is his.
+ */
+export function setCoastPasses(v) {
+  PTRACK_MIN_COAST_PASSES = v;
+  if (lastCadenceMs > 0) setVerdictCadence(lastCadenceMs);
+}
+
 export function setVerdictCadence(effZoomMs) {
   var ms = typeof effZoomMs === 'number' && effZoomMs > 0 ? effZoomMs : 0;
+  lastCadenceMs = ms;
   var cap = Math.max(PTRACK_MAX_COAST_MS, Math.round(PTRACK_MIN_COAST_PASSES * ms));
   blurredCoastMs = Math.min(cap, Math.max(PTRACK_MAX_MISS_BLURRED_MS, Math.round(2.5 * ms)));
   clearedCoastMs = Math.min(cap, Math.max(PTRACK_MAX_MISS_MS, Math.round(2.5 * ms)));
@@ -1629,6 +1661,15 @@ var cutCoastMs = PTRACK_CUT_COAST_MS;
 /** Effective cut-coast budget after cadence scaling (test/diagnostic). */
 export function cutCoastBudgetMs() {
   return cutCoastMs;
+}
+
+/**
+ * Effective blurred-track coast after cadence scaling (test/diagnostic).
+ * Exposed because it is the number the OTA coast dial actually moves,
+ * and a dial nobody can read is a dial nobody can verify pushed.
+ */
+export function blurredCoastBudgetMs() {
+  return blurredCoastMs;
 }
 
 function coastStep(t, dt) {

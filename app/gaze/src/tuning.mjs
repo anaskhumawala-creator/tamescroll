@@ -28,6 +28,7 @@ import * as genderVerdict from './gender-verdict.mjs';
 import * as identityMemory from './identity-memory.mjs';
 import * as personSkip from './person-skip.mjs';
 import * as cadence from './cadence.mjs';
+import * as personTrack from './person-track.mjs';
 
 export var TUNED = null;      // what actually took effect, for the report
 export var TUNE_REFUSED = 0;  // keys refused outright
@@ -100,9 +101,28 @@ var SPEC = {
   // notice a person walking into frame before a shot ends.
   PERSON_SKIP_EVERY: [1, 4, function (v) { personSkip.setPersonSkipEvery(v); }],
 
-  // THE VERDICT CLOCK, and the biggest lever in the system -- the corpus
-  // prices it at 81.0s of exposure at 1.5s per verdict against 8.0s at
-  // 0.5s, where every threshold on this list moves 1-3s.
+  // THE COAST WINDOW, and it is the biggest lever in the system -- the
+  // one that does NOT spend a millisecond of GPU. At his 1500ms cadence
+  // the `cap` in setVerdictCadence binds, so this constant IS the coast.
+  // Corpus, both gender arms, verdict count fixed at his k=3: 2 -> 1.67
+  // costs <= 1.0s of exposure and buys 59-69s of phantom plus 2-4s of
+  // false cover. See person-track.setCoastPasses and engine-findings 15.
+  //
+  // THE FLOOR IS A PROTECTION DECISION. Below ~1.33 the cap floors at
+  // PTRACK_MAX_COAST_MS 2000 anyway, so nothing lower can reach; 1.33 is
+  // stated so the refusal is deliberate rather than incidental. The
+  // ceiling is 3.0 because above ~2.5 the 2.5x term wins and the dial
+  // stops doing anything.
+  //
+  // IT IS AN EXPOSURE TRADE, so it ships at the measured value and moves
+  // only when he says so.
+  PTRACK_MIN_COAST_PASSES: [1.33, 3.0, function (v) { personTrack.setCoastPasses(v); }],
+
+  // THE VERDICT CLOCK. RESTATED 2026-09-02: the "81.0s of exposure at
+  // 1.5s per verdict against 8.0s at 0.5s" this comment used to quote is
+  // 24.5s against 5.5s, and even that diagonal moves the coast alongside
+  // the clock (engine-findings 13a, critic C1). What the clock alone
+  // buys is EXPOSURE; phantom moves the other way.
   //
   // Measured on his Redmi, the cadence is set by THIS CONSTANT and not by
   // pass cost: a verdict costs 1250ms, effZoom wants 5000, and

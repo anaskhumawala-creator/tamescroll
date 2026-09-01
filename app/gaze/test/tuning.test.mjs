@@ -15,6 +15,7 @@ import * as genderVerdict from '../src/gender-verdict.mjs';
 import * as identityMemory from '../src/identity-memory.mjs';
 import * as personSkip from '../src/person-skip.mjs';
 import * as cadence from '../src/cadence.mjs';
+import * as personTrack from '../src/person-track.mjs';
 
 // Every test restores the shipped values, because these modules hold
 // module-global state and a leaked dial would silently rebase every
@@ -29,6 +30,7 @@ const SHIPPED = {
   MEM_SIM: identityMemory.MEM_SIM,
   PERSON_SKIP_EVERY: personSkip.PERSON_SKIP_EVERY,
   VERDICT_MAX_INTERVAL_MS: cadence.VERDICT_MAX_INTERVAL_MS,
+  PTRACK_MIN_COAST_PASSES: personTrack.PTRACK_MIN_COAST_PASSES,
 };
 const restore = () => applyTuning(SHIPPED);
 
@@ -258,5 +260,42 @@ test('the shipped file is clean through the real path', () => {
   applyTuning(obj);
   assert.equal(TUNE_REFUSED, 0, 'the shipped tuning.json has a key this build refuses');
   assert.equal(TUNE_CLAMPED, 0, 'the shipped tuning.json has a value this build clamps');
+  restore();
+});
+
+// THE COAST DIAL RE-DERIVES, IT DOES NOT WAIT FOR THE NEXT CADENCE
+// CHANGE.
+//
+// `blurredCoastMs` is computed inside `setVerdictCadence`, so a setter
+// that only assigned the constant would leave a pushed value INERT
+// until the clock happened to move -- and on his phone the clock is
+// pinned by the cap, so "happened to move" can be never. The behaviour
+// this pins is the whole reason the dial is worth having.
+test('a pushed coast value re-derives the window immediately', () => {
+  personTrack.setVerdictCadence(1500);            // his measured cadence
+  const before = personTrack.blurredCoastBudgetMs();
+  assert.equal(before, 3000, 'precondition: the shipped cap binds at 1500ms');
+
+  applyTuning({ PTRACK_MIN_COAST_PASSES: 1.67 });
+  const after = personTrack.blurredCoastBudgetMs();
+  assert.equal(after, 2505, 'the coast must move without another cadence call');
+
+  // and back, because a dial that cannot be un-pushed is not a dial
+  restore();
+  assert.equal(personTrack.blurredCoastBudgetMs(), 3000);
+});
+
+test('the coast dial cannot be pushed below the shipped cap floor', () => {
+  // THE CLAMP IS A PROTECTION DECISION. Exposure rises as the coast
+  // shortens -- 27.5s -> 40.5s in the man arm at 2000ms -- so the OTA
+  // channel must not be able to reach further than the corpus measured.
+  personTrack.setVerdictCadence(1500);
+  applyTuning({ PTRACK_MIN_COAST_PASSES: 0.1 });
+  assert.equal(personTrack.PTRACK_MIN_COAST_PASSES, 1.33, 'clamped to the floor');
+  assert.equal(personTrack.blurredCoastBudgetMs(), 2000,
+    'and the floor lands exactly on PTRACK_MAX_COAST_MS, which is what '
+    + 'makes the refusal meaningful rather than incidental');
+  applyTuning({ PTRACK_MIN_COAST_PASSES: 99 });
+  assert.equal(personTrack.PTRACK_MIN_COAST_PASSES, 3.0, 'clamped to the ceiling');
   restore();
 });

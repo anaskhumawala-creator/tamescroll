@@ -33,7 +33,12 @@
 // backslash, and `\s` inside a template literal is just `s` -- which is
 // how the first version of this very file silently matched nothing, the
 // same failure it exists to prevent. Character classes only.
-const decl = (name) => new RegExp('(var ' + name + '[ ]*=[ ]*)([-0-9.]+)[ ]*;');
+// THE NUMBER CLASS ADMITS EXPONENT FORM, because esbuild writes 2000
+// as `2e3` and a pattern of digits and dots alone refuses it -- which
+// this file did on its first real use, on PTRACK_MAX_COAST_MS. It
+// refused loudly, which is the contract working; the pattern was still
+// wrong. `Number('2e3')` is 2000.
+const decl = (name) => new RegExp('(var ' + name + '[ ]*=[ ]*)([-+0-9.eE]+)[ ]*;');
 
 // The value the built bundle carries today.
 export function readConst(src, name) {

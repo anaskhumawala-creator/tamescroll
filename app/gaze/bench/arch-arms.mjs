@@ -301,7 +301,24 @@ export function makeArms(mod) {
       for (let i = 1; i < vAt.length; i++) gaps.push(vAt[i] - vAt[i - 1]);
       gaps.sort((a, b) => a - b);
       const stride = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 1;
-      setVerdictCadence(dt * stride);
+      // `setVerdictCadence` SETS TWO THINGS, and a cadence sweep that
+      // does not know it moves both per row (critic C1, 2026-09-02). It
+      // derives `blurredCoastMs` and `clearedCoastMs` from the number it
+      // is handed -- so k=4 coasts 4000ms and k=1 coasts 1250ms, and
+      // "the clock got faster" and "the coast got shorter" arrive in the
+      // same row. The second is the one that drives phantom.
+      //
+      // On a DEVICE the two really are coupled: `effZoom` feeds
+      // setVerdictCadence, so lowering VERDICT_MAX_INTERVAL_MS shortens
+      // the coast too. The diagonal is therefore the honest model of
+      // THAT DIAL. It is not a decomposition, and §13a read it as one.
+      //
+      // `fixedCadence` pins the cadence told to the tracker while the
+      // verdict frames are thinned as before, which is the only way to
+      // ask what the CLOCK alone is worth.
+      const told = typeof o.fixedCadence === 'number' ? o.fixedCadence : dt * stride;
+      setVerdictCadence(told);
+      if (o.onCadence) o.onCadence({ stride, told, verdictFrames: vAt.length });
       let fi = -1;
       for (const fr0 of win.frames) {
         fi++;
