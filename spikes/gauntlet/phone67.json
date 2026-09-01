@@ -1,0 +1,345 @@
+{"collector": "started"}
+{
+ "device": "M2010J19SI (bengal / SD662), Android 12, WebView 151",
+ "windowSecs": 60.0,
+ "rafFrames": 2574,
+ "rafHz": 42.7,
+ "frameGapMs_p50": 16.7,
+ "frameGapMs_p95": 37,
+ "frameGapMs_max": 361.1,
+ "diagBefore": {
+  "player": {
+   "attached": true,
+   "verdictP50": 1300,
+   "verdictP95": 4062,
+   "passP50": 472,
+   "passes": 11,
+   "passFails": null,
+   "timeouts": null,
+   "lastFailR": null,
+   "lumaHist": [
+    29,
+    88,
+    54,
+    4,
+    7,
+    0
+   ],
+   "slots": [
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    }
+   ],
+   "reads": [
+    {
+     "g": "male",
+     "s": 0.9,
+     "a": 32,
+     "pc": 0.01,
+     "v": 0.95,
+     "px": 106
+    },
+    {
+     "g": "male",
+     "s": 0.51,
+     "a": 28,
+     "pc": 0.24,
+     "v": 0.755,
+     "px": 86
+    },
+    {
+     "g": "male",
+     "s": 0.76,
+     "a": 32,
+     "pc": 0.03,
+     "v": 0.882,
+     "px": 84
+    },
+    {
+     "g": "male",
+     "s": 0.01,
+     "a": 34,
+     "pc": 0.12,
+     "v": 0.503,
+     "px": 74
+    }
+   ]
+  },
+  "worker": {
+   "up": 3471,
+   "ready": 5218,
+   "backend": "webgl",
+   "loadedFace": 3873,
+   "loadedGender": 5218,
+   "loadedNsfw": 5216,
+   "loadedPerson": 6900,
+   "askedPerson": 5827,
+   "dead": false,
+   "whyR": null,
+   "bannedR": null
+  },
+  "engine": {
+   "rulesGen": "c12184ef",
+   "otaLast": "ok",
+   "otaAgeH": 0,
+   "activeRules": null,
+   "cssBytes": 35966,
+   "seen": 38,
+   "blocked": 1
+  }
+ },
+ "diagAfter": {
+  "player": {
+   "attached": true,
+   "verdictP50": 754,
+   "verdictP95": 1436,
+   "passP50": 495,
+   "passes": 40,
+   "passFails": null,
+   "timeouts": null,
+   "lastFailR": null,
+   "lumaHist": [
+    134,
+    226,
+    197,
+    18,
+    25,
+    0
+   ],
+   "slots": [
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    },
+    {
+     "n": 0,
+     "hd": 0,
+     "ha": 0
+    }
+   ],
+   "reads": [
+    {
+     "g": "male",
+     "s": 0.9,
+     "a": 32,
+     "pc": 0.01,
+     "v": 0.95,
+     "px": 106
+    },
+    {
+     "g": "male",
+     "s": 0.51,
+     "a": 28,
+     "pc": 0.24,
+     "v": 0.755,
+     "px": 86
+    },
+    {
+     "g": "male",
+     "s": 0.76,
+     "a": 32,
+     "pc": 0.03,
+     "v": 0.882,
+     "px": 84
+    },
+    {
+     "g": "male",
+     "s": 0.01,
+     "a": 34,
+     "pc": 0.12,
+     "v": 0.503,
+     "px": 74
+    },
+    {
+     "g": "male",
+     "s": 0.65,
+     "a": 34,
+     "pc": 0.03,
+     "v": 0.826,
+     "px": 138
+    },
+    {
+     "g": "male",
+     "s": 0.07,
+     "a": 38,
+     "pc": 0.11,
+     "v": 0.533,
+     "px": 124
+    },
+    {
+     "g": "male",
+     "s": 0.17,
+     "a": 36,
+     "pc": 0.17,
+     "v": 0.584,
+     "px": 86
+    },
+    {
+     "g": "male",
+     "s": 0.06,
+     "a": 38,
+     "pc": 0.13,
+     "v": 0.532,
+     "px": 71
+    },
+    {
+     "g": "male",
+     "s": 0.93,
+     "a": 32,
+     "pc": 0.01,
+     "v": 0.966,
+     "px": 77
+    },
+    {
+     "g": "female",
+     "s": 0.53,
+     "a": 28,
+     "pc": 0.24,
+     "v": 0.234,
+     "px": 66
+    },
+    {
+     "g": "male",
+     "s": 0.78,
+     "a": 29,
+     "pc": 0.12,
+     "v": 0.89,
+     "px": 78
+    },
+    {
+     "g": "female",
+     "s": 0.08,
+     "a": 37,
+     "pc": 0.1,
+     "v": 0.461,
+     "px": 127
+    }
+   ]
+  },
+  "worker": {
+   "up": 3471,
+   "ready": 5218,
+   "backend": "webgl",
+   "loadedFace": 3873,
+   "loadedGender": 5218,
+   "loadedNsfw": 5216,
+   "loadedPerson": 6900,
+   "askedPerson": 5827,
+   "dead": false,
+   "whyR": null,
+   "bannedR": null
+  },
+  "engine": {
+   "rulesGen": "c12184ef",
+   "otaLast": "ok",
+   "otaAgeH": 0,
+   "activeRules": null,
+   "cssBytes": 35966,
+   "seen": 38,
+   "blocked": 1
+  }
+ }
+}

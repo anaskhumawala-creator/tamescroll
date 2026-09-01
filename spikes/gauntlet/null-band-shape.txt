@@ -1,12 +1,24 @@
-reads with age + recoverable raw: 14969
-raw band, SHIPPED [0.53, 0.72]      : 3188 21.3%
-raw band, BENCH   [0.545, 0.705]    : 2821 18.8%   -- the bench band is 88.5% of the shipped one
-FULL isNullRead (male + raw + age)  : 1979 13.2%
-  the age condition removes 1209 of 3188 = 37.9% of in-band reads
-  of those removed: 1178 age < 34 / 31 age > 42 / 0 labelled female
-  removed age p05/p50/p95 = 20 31 33
+files walked 713   raw records 15083
+ABSTENTIONS EXCLUDED (gender unknown, the sub-floor sentinel): 990
+denominator (real gender reads)         13979  100.0%   distinct 9266
+raw band, SHIPPED [0.53, 0.72]           3188   22.8%   distinct 1973
+raw band, BENCH   [0.545, 0.705]         2821   20.2%   distinct 1745
+FULL isNullRead (banked where known)     1857   13.3%   distinct 977
+  the bench band is 88.5% of the shipped one
+  the age condition removes 1331 of 3188 = 41.8% of in-band reads
+  as a share of MALE-labelled reads (the only ones it can fire on): 18.1%
 
-CONSEQUENCE: any figure quoted as "the null band catches N of M"
-is an UPPER BOUND on what isNullRead catches, and on this corpus the
-bound is loose by the fraction printed above. Re-run small-face.js
-for the real non-face number -- it now reports caughtByNullRead.
+ROUNDED-AGE CHECK against the banked `ab` on 11008 reads:
+  agree 1431  offline FALSE POSITIVES 122  offline false negatives 0
+  the reconstruction overstates by 8.5%  false positives by banked age: {"34":111,"35":2,"42":9}
+
+  of the in-band reads removed: 1178 read younger than 34 / 31 older than 42
+  removed age p05/p50/p95 = 20 31 34
+
+IDENTITY CHECK (NOT evidence): female labels inside the band = 0 -- guaranteed 0 by NULL_V_LO 0.53 > the 0.5 label boundary.
+
+CONSEQUENCE: a raw-band count is an UPPER BOUND on isNullRead. The
+looseness above is measured ON FACES and must not be carried across to
+non-faces -- that is a property of the age distribution, and nothing
+here has measured what a non-face reads. small-face.js reports
+caughtByNullRead on BOTH control producers now; that is the real number.

@@ -302,3 +302,27 @@ test('a flood of junk keys cannot evict the real counters', () => {
     assert.equal(out[k], 7, k + ' was evicted by the flood');
   }
 });
+
+// THE RENDER BLOCK WAS THE SAME WHITELIST, ONE BLOCK BELOW `player.life`
+// IN THE SAME FILE. Every counter added to video-region would have
+// stopped there.
+test('the render counters are not a whitelist either', () => {
+  const r = d.buildReport(snap({
+    render: {
+      raf: 1800, overlayFrames: 120, maskCalls: 300, maskWrites: 4,
+      tfWrites: 9, sizeWrites: 2, dispWrites: 1,
+      hideNoVr: 0, hideZeroVr: 0, hideClipped: 0, rectsNoBoxes: 3,
+      drawnZero: 0, clipRebuilt: 7,
+    },
+  }));
+  assert.equal(r.render.raf, 1800);
+  for (const k of ['hideNoVr', 'hideZeroVr', 'hideClipped', 'rectsNoBoxes',
+                   'drawnZero', 'clipRebuilt', 'maskCalls']) {
+    assert.equal(typeof r.render[k], 'number', k + ' missing from the report');
+  }
+  // clipRebuilt > 0 means the page removed our overlay layer and we put
+  // the patches back. It is the one counter here whose non-zero value is
+  // an incident, so it must survive the trip intact.
+  assert.equal(r.render.clipRebuilt, 7);
+  assert.equal(d.reportViolations(JSON.parse(JSON.stringify(r))).length, 0);
+});

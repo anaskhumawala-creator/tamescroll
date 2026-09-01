@@ -577,7 +577,7 @@ instrument.
   "1-2 of 28 real faces rejected" are BOUNDS. Re-derive against the
   real constants before building on them.
 
-## The null-band figures overstate `isNullRead` by about a third (2026-09-01)
+## The null-band figures measured half a predicate (2026-09-01)
 
 Every "the null band catches 30-33 of 34 non-faces / rejects 1-2 of 28
 faces" figure in this repo came from `app/gaze/bench/small-face.js`, and
@@ -595,29 +595,64 @@ separate errors, the second much larger than the first:
    `px/gender/score/raw` -- no age at all -- so it could not have
    evaluated the real predicate even in principle.
 
-**MEASURED on 14,969 banked reads carrying an age and a recoverable raw**
-(`app/gaze/bench/null-band-shape.mjs`, output in
-`spikes/gauntlet/null-band-shape.txt`):
+**MEASURED, `app/gaze/bench/null-band-shape.mjs`**, output banked in
+`spikes/gauntlet/null-band-shape.txt`:
 
-| | n | of all reads |
-|---|---|---|
-| raw band, shipped [0.53, 0.72] | 3,188 | 21.3% |
-| raw band, bench [0.545, 0.705] | 2,821 | 18.8% |
-| **full `isNullRead`** | **1,979** | **13.2%** |
+| | n | of reads | distinct |
+|---|---|---|---|
+| denominator (real gender reads) | 13,979 | 100% | 9,266 |
+| raw band, shipped [0.53, 0.72] | 3,188 | 22.8% | 1,973 |
+| raw band, bench [0.545, 0.705] | 2,821 | 20.2% | 1,745 |
+| **full `isNullRead`** | **1,857** | **13.3%** | 977 |
 
-**The age condition removes 1,209 of 3,188 in-band reads = 37.9%**, and
-**1,178 of those 1,209 are removed for reading YOUNGER than 34** (removed
-age p05/p50/p95 = 20 / 31 / 33). So a raw-band count overstates what
-`isNullRead` actually catches by roughly a third on this population.
+**The age condition removes 1,331 of 3,188 in-band reads = 41.8%**, and
+**1,178 of them read YOUNGER than 34** (removed age p05/p50/p95 =
+20/31/34). As a share of male-labelled reads -- the only reads
+`isNullRead` can ever fire on -- it is **18.1%**.
 
-HONEST LIMIT: this corpus is REAL FACES off the player and image rings,
-not the bench's non-face control, so it bounds the mechanism rather than
-re-deriving the non-face number. `small-face.js` now imports `isNullRead`
-and the constants instead of restating them, captures age and childP on
-the non-face control too, and reports `caughtByRawBand` and
-`caughtByNullRead` side by side. The real figure needs one device run.
+FOUR THINGS THAT MOVED THE NUMBERS, all found by a critic pass, all of
+which a naive offline reconstruction gets wrong:
 
-**AND IT RECONFIRMS THE VACUOUS GUARD, independently.** Of the 3,188
-in-band reads, **0 are labelled female** -- `NULL_V_LO 0.53` sits above
-the 0.5 label boundary, so `gender !== 'male'` inside `isNullRead` can
-never reject anything. Loop 37b argued this; 3,188 reads now show it.
+- **`ab` IS BANKED, AND IT IS THE GROUND TRUTH.** `init-entry` stores
+  `isNullRead(pick)` evaluated in page at full precision. The rings bank
+  `a: Math.round(age)`, and `isNullRead` reads the UNROUNDED age -- so a
+  read at 33.7 is banked as 34 and an offline reconstruction counts it.
+  Against the banked answer on 11,008 reads: agree 1,431, **offline
+  false positives 122, false negatives 0 -- the reconstruction overstates
+  by 8.5%**, and **111 of the 122 sit at exactly age 34**. The bench uses
+  the banked answer wherever it exists now.
+- **AN ABSTENTION IS NOT A READ.** A face under `FACE_MIN_NATIVE_PX`
+  banks `gender:'unknown', score:0, age:0` -- sentinels, and the raw
+  reconstruction turns score 0 into `v = 0.5` for every one. There are
+  **990** of them and they were 6.6% of the first denominator this bench
+  printed. Excluded.
+- **A RECORD COUNT IS NOT A SAMPLE SIZE.** The same ring is dumped into
+  more than one probe artifact. Distinct signatures are ~2/3 of the raw
+  counts (3,188 in-band -> 1,973 distinct), and the reads come from a
+  handful of gauntlet videos, so even those are heavily autocorrelated.
+  Do not quote n as confidence.
+- **"0 FEMALE LABELS IN THE BAND" IS AN IDENTITY, NOT A MEASUREMENT.**
+  `NULL_V_LO 0.53` is above the 0.5 label boundary and `detector.js`
+  labels female iff `v <= 0.5`, so `raw >= 0.53` IMPLIES male by
+  construction. It confirms `gender !== 'male'` inside `isNullRead` is
+  vacuous -- but as algebra, not as evidence, and quoting it at n=3,188
+  is the same error as calling 12 == 12 an independent agreement. The
+  bench prints it labelled IDENTITY CHECK now.
+
+**AND THE RATIO MUST NOT TRAVEL TO NON-FACES.** This corpus is real faces
+off the player and image rings. The looseness is a property of the AGE
+DISTRIBUTION, and nothing in this repo has measured what age a title card
+or a plank reads. The defensible statement is only: *a raw-band count is
+an upper bound on `isNullRead`, of unmeasured looseness on non-faces.*
+
+**THE NON-FACE ARM, MEASURED AT LAST** (`spikes/gauntlet/`
+`small-face-nonface-2026-09-01.txt`, 81 corner crops from thumbnails
+where BlazeFace found nothing, nine sizes each): `caughtByRawBand`
+**74-79 of 81** at every size -- which reproduces the old ~95% claim --
+while `certain` (score >= GENDER_MIN_SCORE on a crop of nothing) falls
+35 -> 21 as the crop grows. The `caughtByNullRead` column of that
+particular run is **an instrument artifact and must not be quoted**:
+`small-face.js` has TWO producers of control crops and only one was
+patched, so `nullRead` was `undefined` for all 81 and the column read 1.
+Both producers emit the same record now.
+

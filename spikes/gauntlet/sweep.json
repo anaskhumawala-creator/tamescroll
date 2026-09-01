@@ -1,0 +1,162 @@
+{
+ "start": {
+  "mini": false,
+  "drag": false,
+  "box": [
+   0,
+   48,
+   412,
+   232
+  ],
+  "paused": false,
+  "pill": 1,
+  "pillLabel": "Blur on",
+  "btns": 0,
+  "cover": 0,
+  "placeholder": 232
+ },
+ "tapDrift8px": {
+  "mini": false,
+  "drag": false,
+  "box": [
+   0,
+   48,
+   412,
+   232
+  ],
+  "paused": false,
+  "pill": 1,
+  "pillLabel": "Blur on",
+  "btns": 0,
+  "cover": 0,
+  "placeholder": 232
+ },
+ "dragToMini": {
+  "mini": true,
+  "drag": false,
+  "box": [
+   169,
+   697,
+   231,
+   130
+  ],
+  "paused": false,
+  "pill": 1,
+  "pillLabel": "Blur on",
+  "btns": 2,
+  "cover": 1,
+  "placeholder": 0
+ },
+ "miniTapBody": {
+  "mini": false,
+  "drag": false,
+  "box": [
+   0,
+   48,
+   412,
+   232
+  ],
+  "paused": false,
+  "pill": 1,
+  "pillLabel": "Blur on",
+  "btns": 0,
+  "cover": 0,
+  "placeholder": 232
+ },
+ "dragCancelled": {
+  "mini": false,
+  "drag": true,
+  "box": [
+   169,
+   697,
+   231,
+   130
+  ],
+  "paused": false,
+  "pill": 1,
+  "pillLabel": "Blur on",
+  "btns": 0,
+  "cover": 0,
+  "placeholder": 232
+ },
+ "dragToMini2": {
+  "mini": true,
+  "drag": false,
+  "box": [
+   169,
+   697,
+   231,
+   130
+  ],
+  "paused": false,
+  "pill": 1,
+  "pillLabel": "Blur on",
+  "btns": 2,
+  "cover": 1,
+  "placeholder": 0
+ },
+ "miniButtons": [
+  {
+   "label": "Play or pause",
+   "c": [
+    340,
+    719
+   ]
+  },
+  {
+   "label": "Close mini player",
+   "c": [
+    378,
+    719
+   ]
+  }
+ ],
+ "pressPlayPause": {
+  "mini": true,
+  "drag": false,
+  "box": [
+   169,
+   697,
+   231,
+   130
+  ],
+  "paused": true,
+  "pill": 1,
+  "pillLabel": "Blur on",
+  "btns": 2,
+  "cover": 1,
+  "placeholder": 0
+ },
+ "pressClose": {
+  "mini": false,
+  "drag": false,
+  "box": [
+   0,
+   48,
+   412,
+   232
+  ],
+  "paused": true,
+  "pill": 1,
+  "pillLabel": "Blur on",
+  "btns": 0,
+  "cover": 0,
+  "placeholder": 232
+ },
+ "end": {
+  "mini": false,
+  "drag": false,
+  "box": [
+   0,
+   48,
+   412,
+   232
+  ],
+  "paused": true,
+  "pill": 1,
+  "pillLabel": "Blur on",
+  "btns": 0,
+  "cover": 0,
+  "placeholder": 232
+ }
+}

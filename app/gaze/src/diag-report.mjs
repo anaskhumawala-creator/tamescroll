@@ -423,16 +423,13 @@ export function buildReport(snap) {
         };
       }),
     },
-    render: s.render
-      ? {
-          raf: num(s.render.raf),
-          overlayFrames: num(s.render.overlayFrames),
-          maskWrites: num(s.render.maskWrites),
-          tfWrites: num(s.render.tfWrites),
-          sizeWrites: num(s.render.sizeWrites),
-          dispWrites: num(s.render.dispWrites),
-        }
-      : null,
+    // THE SAME WHITELIST, IN THE SAME FILE, ONE BLOCK DOWN. Every hide
+    // counter added to video-region -- hideNoVr, hideZeroVr, hideClipped,
+    // rectsNoBoxes, drawnZero, clipRebuilt -- would have stopped here and
+    // never reached the artifact he sends, which is exactly the defect
+    // `player.life` was just fixed for. Same shape check, so the same
+    // guarantee.
+    render: s.render ? lifeCounters(s.render) : null,
     // `ours` means one of our own recorded main-thread segments fell
     // inside that task -- overlap, not authorship. A 360ms task can be
     // the page's with 20ms of ours in it. Zero overlaps would settle the

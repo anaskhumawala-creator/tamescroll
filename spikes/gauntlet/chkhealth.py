@@ -1,0 +1,4 @@
+import json
+from emu_cdp import page, Tab
+t=Tab(page()); t.cmd('Runtime.enable')
+print(json.dumps(t.eval("(function(){\n  var v=document.querySelector('#movie_player video')||document.querySelector('video');\n  var d=null; try{ d=window.__TS_DIAG_NOW&&window.__TS_DIAG_NOW();\n    if(typeof d==='string') d=JSON.parse(d);}catch(e){}\n  return {paused:v?v.paused:null, t:v?+v.currentTime.toFixed(1):null,\n    readyState:v?v.readyState:null,\n    patches:document.querySelectorAll('.ts-gaze-vregion-host').length,\n    pending:document.querySelectorAll('.ts-gaze-pending').length,\n    imgTotal:window.__TS_GAZE_IMGTOTAL||0,\n    hook:typeof window.__TS_GAZE_VTRACKS,\n    player:d&&d.player?{attached:d.player.attached,passes:d.player.passes,fails:d.player.fails}:null,\n    worker:d&&d.worker?{backend:d.worker.backend, ready:d.worker.readyMs}:null,\n    mode:window.__TS_GAZE_MODE||null};})()"), indent=1))

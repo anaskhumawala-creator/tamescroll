@@ -89,7 +89,17 @@ window.__RUN = async function (ids) {
           cg.drawImage(full, spots[sp][0], spots[sp][1], nside, nside, 0, 0, SN, SN);
           var co = await classifyFaceGenders(
             gender, cc, [{ x1: 0, y1: 0, x2: 1, y2: 1 }], null, { square: true });
-          ser.push({ px: SN, gender: co[0].gender, score: +co[0].score.toFixed(3), raw: +co[0].raw.toFixed(4) });
+          // THE SECOND PRODUCER, and it is the one that supplies almost
+          // every control sample. Leaving it on the old shape made
+          // `ne.nullRead` undefined for all 81 crops, so caughtByNullRead
+          // read 1 of 81 and looked like a devastating result about the
+          // predicate. It was a result about this line.
+          ser.push({
+            px: SN, gender: co[0].gender, score: +co[0].score.toFixed(3),
+            raw: +co[0].raw.toFixed(4),
+            age: Math.round(co[0].age), child: +(co[0].childP || 0).toFixed(3),
+            nullRead: isNullRead(co[0]) ? 1 : 0,
+          });
         }
         nulls.push({ id: ids[i], noFace: true, series: ser });
       }

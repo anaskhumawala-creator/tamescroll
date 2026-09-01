@@ -1,0 +1,52 @@
+{
+ "label": "1067-control-2",
+ "windowSecs": 150.1,
+ "passesInWindow": 26,
+ "passesPerMin": 10.4,
+ "secsPerVerdict": 5.77,
+ "passP50": 504,
+ "verdictP50": 794,
+ "verdictP95": 1111,
+ "slotsN": [
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0
+ ],
+ "worker": {
+  "up": 1858,
+  "ready": 3924,
+  "backend": "webgl",
+  "loadedFace": 2182,
+  "loadedGender": 3311,
+  "loadedNsfw": 3310,
+  "loadedPerson": 5105,
+  "askedPerson": 4655,
+  "dead": false,
+  "whyR": null,
+  "bannedR": null
+ },
+ "bundle": "336b7a6-dirty",
+ "readsN": 24,
+ "genderCounts": {
+  "male": 14,
+  "female": 2,
+  "unknown": 8
+ },
+ "facePx_p50": 74,
+ "facePx_min": 53,
+ "facePx_max": 215,
+ "coverageDuty": 0.17,
+ "dutyFrames": [
+  1083,
+  5282
+ ]
+}
