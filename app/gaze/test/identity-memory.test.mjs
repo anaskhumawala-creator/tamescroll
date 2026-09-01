@@ -129,3 +129,31 @@ test('a read carrying no descriptor signal goes INERT, not abstained', () => {
   assert.ok(!/continue|return null/.test(block),
     'the observation must still be pushed, or a covered person goes sharp');
 });
+
+// A REMEMBERED IDENTITY MAY PUSH A NEIGHBOUR'S PATCH EDGE BACK.
+//
+// clampBodies refuses a pusher whose read carried no descriptor signal.
+// On his phone 36-42% of reads carry none (loop 40, `noSignalInert`), so
+// the man beside her stopped being able to push her patch off his own
+// face on exactly the passes where faceres failed -- measured live at
+// bodyClampFired 2-3 in 75 seconds while her body spanned x 0.371-0.916
+// and his head sat at x 0.463, inside it.
+//
+// The corpus CANNOT test this: only 2.3% of its clear-bar reads carry no
+// signal against his 36-42%, so the arm has no blocked pusher to unblock
+// and scores flat. This test therefore pins the SOURCE, which is where
+// the evidence is.
+test('a memory-cleared observation carries signal, so it may push a clamp edge', () => {
+  const src = entry;
+  // Sliced to a MARKER, never a fixed character count: this repo has
+  // twice had a structural test silently stop covering the code it was
+  // written for once the comments above it grew.
+  const a = src.indexOf('askIdentity(identityMem');
+  const i = src.indexOf("bumpLife('memClear')", a);
+  assert.ok(a > 0 && i > a, 'memClear block not found');
+  const block = src.slice(a, i);
+  assert.match(block, /obsOut\.signal = true;/,
+    'a memory clear must set signal, or clampBodies refuses it as a pusher');
+  assert.match(block, /obsOut\.flagged = false;/,
+    'signal alone is not enough -- clampBodies wants flagged === false too');
+});

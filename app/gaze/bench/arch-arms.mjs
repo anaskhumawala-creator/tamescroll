@@ -424,8 +424,17 @@ export function makeArms(mod) {
             if (bound && bound !== g0) { box = { ...bound, faceBox: g0.faceBox, fromFace: true }; nMeasured++; }
           }
           const m = meta[i] || {};
+          // A REMEMBERED IDENTITY MAY PUSH AN EDGE.
+          // clampBodies only lets `flagged === false && signal === true`
+          // push a neighbour's patch back, and `signal` is THIS read's
+          // descriptor magnitude -- absent 36-42% of the time on his
+          // phone. So on the passes where faceres failed, the man
+          // standing beside her could not push her patch off his own
+          // face. The trust counter is the evidence the guard wanted:
+          // it only rises on reads that carried nm >= NM_FLOOR.
           const mm = memMark[i]
-            ? { ...m, flagged: false, certain: true, abstained: false, instant: true }
+            ? { ...m, flagged: false, certain: true, abstained: false, instant: true,
+                ...(o.memSignal ? { signal: true } : {}) }
             : m;
           return obsOf(f, mm, dt, descOf(win, f.descIdx), box);
         });

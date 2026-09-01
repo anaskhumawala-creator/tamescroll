@@ -3079,6 +3079,26 @@ if (
               // blurred track without waiting out CLEAR_STREAK_N, which
               // is the requirement the churn makes unreachable.
               obsOut.instant = true;
+              // AND IT MAY PUSH A NEIGHBOUR'S PATCH EDGE BACK.
+              // clampBodies only lets `flagged === false && signal ===
+              // true` push, and `signal` is this read's descriptor
+              // magnitude -- which on his phone is absent 36-42% of the
+              // time (see the noSignalInert note above). So the man
+              // standing next to her could not push her patch off his
+              // own face on the very passes where the model failed,
+              // which is measured: bodyClampFired 2-3 in 75 seconds
+              // while her body box spanned x 0.371-0.916 and his head
+              // sat at x 0.463, inside it.
+              //
+              // A REMEMBERED identity is not a graphic: it is trusted
+              // only after `need` reads that each carried nm >=
+              // NULL_MINT_NM_FLOOR, so the signal requirement is
+              // satisfied by its history rather than by this one
+              // inference. That is exactly the evidence the guard was
+              // asking for, and the guard exists to stop a projected
+              // graphic pushing an edge -- a graphic never accumulates
+              // trusted clears.
+              obsOut.signal = true;
               bumpLife('memClear');
             }
             return obsOut;
