@@ -1,7 +1,7 @@
 {
-  "versionCode": 1085,
-  "versionName": "0.1.85",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.85/tamescroll-v0.1.85.apk",
-  "sha256": "f17fd9b64f592f937166264f5d9a4cb1842d59feb23bce54a7adf82e79e04c05",
-  "notes": "The cut threshold was sitting on top of ordinary camera motion."
+  "versionCode": 1086,
+  "versionName": "0.1.86",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.86/tamescroll-v0.1.86.apk",
+  "sha256": "ad675ec728485010f1ea2255bd3c4ae314210a28633f56584dc7ed531f7ebee6",
+  "notes": "Tuning numbers now travel over the air."
 }
