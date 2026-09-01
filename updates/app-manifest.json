@@ -1,7 +1,7 @@
 {
-  "versionCode": 1080,
-  "versionName": "0.1.80",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.80/tamescroll-v0.1.80.apk",
-  "sha256": "2451210bb5c43c367c737d98400ad2663312733c73d0bbd6c4d8233e071e4f83",
-  "notes": "Lower clear bar for real phone face sizes, plus an adjacency clamp so a patch stops short of someone already cleared."
+  "versionCode": 1081,
+  "versionName": "0.1.81",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.81/tamescroll-v0.1.81.apk",
+  "sha256": "44f2ef858207826ccf0b987d05f18a9b54f8d5c3eabe85fa9942eabce18d10c8",
+  "notes": "Fixes 1080: every face was blurred regardless of gender."
 }
