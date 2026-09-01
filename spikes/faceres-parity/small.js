@@ -55648,7 +55648,15 @@ return a / b;`;
                   null,
                   { square: true }
                 );
-                ser.push({ px: SN, gender: co[0].gender, score: +co[0].score.toFixed(3), raw: +co[0].raw.toFixed(4) });
+                ser.push({
+                  px: SN,
+                  gender: co[0].gender,
+                  score: +co[0].score.toFixed(3),
+                  raw: +co[0].raw.toFixed(4),
+                  age: Math.round(co[0].age),
+                  child: +(co[0].childP || 0).toFixed(3),
+                  nullRead: isNullRead(co[0]) ? 1 : 0
+                });
               }
               nulls.push({ id: ids[i], noFace: true, series: ser });
             }
