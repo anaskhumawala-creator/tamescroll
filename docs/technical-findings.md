@@ -484,3 +484,29 @@ TWO INSTRUMENT NOTES, both of which produced a wrong attribution first:
   then ROUNDS the size, so a 0.4px overlap survives the null test and is
   written as `width: 0px`: an overlay that exists, is `display: ''`, and
   paints nothing. `drawnZero` counts it now.
+
+### Running the small-face bench (2026-09-01)
+
+It is a plain local page, so it needs the two models served alongside it
+and `adb reverse` pointing at the host:
+
+```
+node app/gaze/build/build.js            # not needed, but keeps the tree consistent
+cd app/gaze && npx esbuild bench/small-face.js --bundle --format=iife \
+  --outfile=../../spikes/faceres-parity/small.js
+```
+
+Then serve `spikes/faceres-parity` on 8899 and give it the models the
+bench asks for -- `/face/model.json` (blazeface) and `/a/model.json`
+(faceres). `app/gaze/models/*.json` name their weights `<name>.bin`, so
+the manifest `paths` must be rewritten to the file actually served:
+
+```python
+j = json.load(open('app/gaze/models/blazeface.json'))
+for g in j['weightsManifest']: g['paths'] = ['weights.bin']
+```
+
+`adb reverse tcp:8899 tcp:8899`, then
+`python spikes/gauntlet/probe_face_px_curve.py <cdp-port>`. Without the
+models it fails with a 404 on `/face/model.json` after collecting ids,
+which costs the whole collection pass.
