@@ -102,16 +102,22 @@ var SPEC = {
   PERSON_SKIP_EVERY: [1, 4, function (v) { personSkip.setPersonSkipEvery(v); }],
 
   // THE COAST WINDOW, and it is the biggest lever in the system -- the
-  // one that does NOT spend a millisecond of GPU. At his 1500ms cadence
-  // the `cap` in setVerdictCadence binds, so this constant IS the coast.
-  // Corpus, both gender arms, verdict count fixed at his k=3: 2 -> 1.67
-  // costs <= 1.0s of exposure and buys 59-69s of phantom plus 2-4s of
+  // one that does NOT spend a millisecond of GPU. The `cap` in
+  // setVerdictCadence binds at every value his device reaches, so this
+  // constant IS the coast. Corpus, both gender arms, in his real regime
+  // (k=3 arrival, 2000ms told): 2 -> 1.33 costs +4.0 to +5.0s of
+  // exposure and buys 147.5-183.0s of phantom (-26%) plus 8.0-17.5s of
   // false cover. See person-track.setCoastPasses and engine-findings 15.
   //
-  // THE FLOOR IS A PROTECTION DECISION. Below ~1.33 the cap floors at
-  // PTRACK_MAX_COAST_MS 2000 anyway, so nothing lower can reach; 1.33 is
-  // stated so the refusal is deliberate rather than incidental. The
-  // ceiling is 3.0 because above ~2.5 the 2.5x term wins and the dial
+  // THE FLOOR IS A PROTECTION DECISION AND IT BINDS. An earlier version
+  // of this comment justified 1.33 as "nothing lower can reach anyway",
+  // which was computed at a cadence of 1500 -- a regime his device is
+  // not in. At his 2000 the cap is 1.33 * 2000 = 2660ms and 1.0 really
+  // does reach 2000ms, costing +17.0s (man) and +9.0s (woman) of
+  // exposure against the shipped value. THAT is what the floor refuses,
+  // measured rather than assumed.
+  //
+  // The ceiling is 3.0 because past ~2.5 the 2.5x term wins and the dial
   // stops doing anything.
   //
   // IT IS AN EXPOSURE TRADE, so it ships at the measured value and moves

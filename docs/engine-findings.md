@@ -1602,9 +1602,15 @@ Found by decomposing the confound in §13a rather than by looking for it.
 If the coast is what was paying phantom back along the cadence dial,
 then move the coast **on its own** and spend nothing.
 
+**QUOTED IN THE WRONG REGIME BELOW, AND CORRECTED IN 15a.** The table
+that follows was measured with the tracker told a cadence of 1500ms --
+his ACHIEVED verdict gap -- when his device tells it **2000** (critic C4:
+`init-entry.js:4036` hands `setVerdictCadence` the cap-pinned `effZoom`,
+not the gap). The direction and the size of the lever survive; the
+winning value does not. Read 15a for the numbers to act on.
+
 `bench/cadence-ab.mjs`, third family. Verdict count PINNED at k=3 -- his
-regime, not one extra inference on his phone -- and only the coast
-window varied:
+verdict arrival -- and only the coast window varied:
 
 | blurredCoast | EXPOSURE | FALSE COVER | PHANTOM |
 |---|---|---|---|
@@ -1648,3 +1654,47 @@ scoring counts a phantom second and an exposure second as one second
 each; he does not weigh them equally and has never been asked to.
 (3) Every row here is `cut: true` with the shipped demote-and-force
 handler, so the coast is already being cut short at every scene change.
+
+### 15a. The same dial, swept as the constant, in the regime his phone is in
+
+Two corrections at once, and each moved the answer:
+
+1. §15's decomposition varied the coast by lying to the tracker about
+   the clock, which also moves `cutCoastMs`. `bench/coast-ab.mjs` sweeps
+   `PTRACK_MIN_COAST_PASSES` -- the constant an OTA push really moves.
+2. It sweeps it at `told = 2000`, his device's `effZoom`, not at his
+   1.5s arrival gap.
+
+| passes | coast | man exp / fc / phantom | woman exp / fc / phantom |
+|---|---|---|---|
+| 1.0 | 2000ms | 40.5 / 131.5 / 363.0 | 35.5 / 183.0 / 417.0 |
+| **1.33** | 2660ms | **28.5 / 134.5 / 420.5** | **30.5 / 189.5 / 492.5** |
+| 1.5 | 3000ms | 27.5 / 138.5 / 484.0 | 30.0 / 192.0 / 565.0 |
+| **2 (SHIPPED)** | 4000ms | **23.5 / 152.0 / 568.0** | **26.5 / 197.5 / 675.5** |
+| 2.5 | 5000ms | 22.5 / 162.0 / 619.0 | 26.5 / 201.0 / 742.0 |
+
+**2 -> 1.33 costs +5.0s of exposure (man) and +4.0s (woman), and buys
+147.5s and 183.0s of phantom -- 26% and 27% -- plus 17.5s and 8.0s of
+false cover. No extra inference at all.** Both arms agree on direction
+and on the winner.
+
+**The value §15 named is a no-op here.** At told 2000, passes 1.67 and
+1.5 produce the identical row -- the cap steps in 500ms because `missMs`
+accrues in 500ms frames -- so the "1.67 buys 59-69s of phantom" from the
+wrong regime is withdrawn. That is the second time in this section that
+an arm which did not model the app named the wrong number, and both were
+found by asking the same question: *what does the app actually hand this
+function?*
+
+**THE CLAMP FLOOR'S JUSTIFICATION WAS ALSO WRONG, in the same way.**
+`tuning.mjs` first said 1.33 was safe because "below that the cap floors
+at `PTRACK_MAX_COAST_MS` 2000 anyway, so nothing lower can reach". True
+at told 1500; false at his 2000, where 1.33 gives 2660ms and passes 1.0
+really does reach 2000ms -- at a cost of **+17.0s (man) and +9.0s
+(woman)** of exposure. The floor stays at 1.33, now for the measured
+reason instead of an arithmetic one that did not hold.
+
+**STILL HIS CALL.** Exposure is the number that means a person he asked
+to cover was left sharp. The constant ships at 2, a test pins that
+`rules/tuning.json` agrees with the code, and 1.33 is one push away with
+no install.

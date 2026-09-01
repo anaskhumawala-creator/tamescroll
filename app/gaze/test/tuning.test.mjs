@@ -272,29 +272,34 @@ test('the shipped file is clean through the real path', () => {
 // pinned by the cap, so "happened to move" can be never. The behaviour
 // this pins is the whole reason the dial is worth having.
 test('a pushed coast value re-derives the window immediately', () => {
-  personTrack.setVerdictCadence(1500);            // his measured cadence
+  // 2000 IS WHAT HIS DEVICE HANDS THE TRACKER -- effZoom is cap-pinned
+  // there (critic C4). An earlier draft of this test used 1500, his
+  // ACHIEVED gap, which is a different number and a regime his phone is
+  // not in.
+  personTrack.setVerdictCadence(2000);
   const before = personTrack.blurredCoastBudgetMs();
-  assert.equal(before, 3000, 'precondition: the shipped cap binds at 1500ms');
+  assert.equal(before, 4000, 'precondition: the shipped cap binds at 2000ms');
 
-  applyTuning({ PTRACK_MIN_COAST_PASSES: 1.67 });
+  applyTuning({ PTRACK_MIN_COAST_PASSES: 1.33 });
   const after = personTrack.blurredCoastBudgetMs();
-  assert.equal(after, 2505, 'the coast must move without another cadence call');
+  assert.equal(after, 2660, 'the coast must move without another cadence call');
 
   // and back, because a dial that cannot be un-pushed is not a dial
   restore();
-  assert.equal(personTrack.blurredCoastBudgetMs(), 3000);
+  assert.equal(personTrack.blurredCoastBudgetMs(), 4000);
 });
 
 test('the coast dial cannot be pushed below the shipped cap floor', () => {
   // THE CLAMP IS A PROTECTION DECISION. Exposure rises as the coast
-  // shortens -- 27.5s -> 40.5s in the man arm at 2000ms -- so the OTA
-  // channel must not be able to reach further than the corpus measured.
-  personTrack.setVerdictCadence(1500);
+  // shortens -- in his regime 23.5s at the shipped value against 40.5s
+  // at passes 1.0 -- so the OTA channel must not reach past what the
+  // corpus measured and the owner accepted.
+  personTrack.setVerdictCadence(2000);
   applyTuning({ PTRACK_MIN_COAST_PASSES: 0.1 });
   assert.equal(personTrack.PTRACK_MIN_COAST_PASSES, 1.33, 'clamped to the floor');
-  assert.equal(personTrack.blurredCoastBudgetMs(), 2000,
-    'and the floor lands exactly on PTRACK_MAX_COAST_MS, which is what '
-    + 'makes the refusal meaningful rather than incidental');
+  assert.equal(personTrack.blurredCoastBudgetMs(), 2660,
+    'the floor still leaves a real coast; it refuses the 2000ms window '
+    + 'that costs +17.0s of exposure, which is the point of the clamp');
   applyTuning({ PTRACK_MIN_COAST_PASSES: 99 });
   assert.equal(personTrack.PTRACK_MIN_COAST_PASSES, 3.0, 'clamped to the ceiling');
   restore();

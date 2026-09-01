@@ -26,7 +26,7 @@
 import fs from 'fs';
 import { ROOT, winFiles } from './corpus-lib.mjs';
 import { score } from './corpus-score.mjs';
-import { loadWin, makeArms } from './arch-arms.mjs';
+import { loadWin, makeArms, HIS_EFFZOOM } from './arch-arms.mjs';
 import { patchConsts, readConst } from './_patch.mjs';
 
 const g = process.env.GENDER || 'man';
@@ -44,11 +44,17 @@ const thin = (win, e) => ({ ...win, frames: win.frames.map((fr, i) =>
 const src = fs.readFileSync(new URL('./.cache/shipped.mjs', import.meta.url), 'utf8');
 const SHIPPED = readConst(src, 'PTRACK_MIN_COAST_PASSES');
 const MAXCOAST = readConst(src, 'PTRACK_MAX_COAST_MS');
+// TOLD IS NOT THE ARRIVAL GAP ON HIS DEVICE, and this dial lives inside
+// the function that consumes it -- so sweeping it in the wrong regime
+// prices the wrong window. k=3 is when verdicts ARRIVE for him; 2000 is
+// what his effZoom HANDS the tracker. See HIS_EFFZOOM.
+const TOLD = Number(process.env.TOLD || HIS_EFFZOOM);
 const OPTS = { hold: true, clampPad: 0.02, cut: true, inertNoSignal: true,
-  memSignal: true, mem: g === 'man' ? 'loose2' : 'loose' };
+  memSignal: true, mem: g === 'man' ? 'loose2' : 'loose', fixedCadence: TOLD };
 
 console.log(`gender=${g}  ${wins.length} windows  k=${K} (${(K * 0.5).toFixed(1)}s/verdict)`);
 console.log(`shipped PTRACK_MIN_COAST_PASSES ${SHIPPED}   PTRACK_MAX_COAST_MS ${MAXCOAST}`);
+console.log(`cadence TOLD to the tracker ${TOLD}ms (his effZoom; override with TOLD=)`);
 console.log('');
 console.log('passes   coast   EXPOSURE  FALSECOVER   PHANTOM  births');
 
@@ -68,7 +74,7 @@ for (const passes of PASSES) {
   const births = (L.birthCleared || 0) + (L.birthBlurred || 0);
   // What the constant actually produces at this cadence, printed rather
   // than asserted -- the cap floors it and that is the point.
-  const ms = K * 500;
+  const ms = TOLD;
   const coast = Math.min(Math.max(MAXCOAST, Math.round(passes * ms)),
     Math.max(900, Math.round(2.5 * ms)));
   console.log(String(passes).padEnd(8) + (coast + 'ms').padStart(6)

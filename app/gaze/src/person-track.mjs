@@ -1592,21 +1592,28 @@ var lastCadenceMs = 0;
  * immediately from the cadence already in force.
  *
  * THE COAST IS THE BIGGEST LEVER IN THE SYSTEM AND IT COSTS NO GPU
- * (engine-findings 15). At his measured 1500ms cadence the `cap` below
- * is what binds -- the 2.5x term is 3750 and never wins -- so this one
- * number IS the coast. Corpus, both gender arms, verdict count fixed at
- * his k=3:
+ * (engine-findings 15). `cap = max(PTRACK_MAX_COAST_MS, passes * ms)`
+ * binds at every value his device reaches -- the 2.5x term is 5000 at
+ * his cadence and never wins -- so this one number IS the coast.
+ *
+ * QUOTED IN HIS REGIME, which is k=3 verdict ARRIVAL and a cadence of
+ * 2000ms TOLD (his effZoom is cap-pinned; see bench HIS_EFFZOOM). An
+ * earlier version of this table was measured told 1500 and named the
+ * wrong winner -- 1.67 is a no-op here, identical to 1.5.
  *
  *   passes  coast     man exp/fc/phantom      woman exp/fc/phantom
- *   1.33    2000ms    40.5 / 130.0 / 344.0    36.5 / 182.0 / 397.0
- *   1.67    2505ms    28.5 / 133.0 / 401.5    31.5 / 188.5 / 473.0
- *   2 SHIP  3000ms    27.5 / 137.0 / 460.5    31.0 / 190.5 / 542.5
+ *   1.0     2000ms    40.5 / 131.5 / 363.0    35.5 / 183.0 / 417.0
+ *   1.33    2660ms    28.5 / 134.5 / 420.5    30.5 / 189.5 / 492.5
+ *   1.5     3000ms    27.5 / 138.5 / 484.0    30.0 / 192.0 / 565.0
+ *   2 SHIP  4000ms    23.5 / 152.0 / 568.0    26.5 / 197.5 / 675.5
  *
- * 1.67 costs <= 1.0s of exposure in both arms and buys 59-69s of
- * phantom -- his loudest complaint -- plus 2-4s of false cover, for no
- * extra inference at all. It is still an EXPOSURE trade and exposure is
- * the protection number, so the value that SHIPS is 2 and the decision
- * to push is his.
+ * 1.33 costs +5.0s of exposure (man) and +4.0s (woman) and buys
+ * 147.5s and 183.0s of phantom -- 26% and 27%, his loudest complaint --
+ * plus 17.5s and 8.0s of false cover, for no extra inference at all.
+ *
+ * IT IS STILL AN EXPOSURE TRADE, and exposure is the number that means
+ * somebody he asked to cover was left sharp. So the value that SHIPS is
+ * 2 and the decision to push is his.
  */
 export function setCoastPasses(v) {
   PTRACK_MIN_COAST_PASSES = v;

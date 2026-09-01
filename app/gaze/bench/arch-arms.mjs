@@ -50,6 +50,26 @@ export const NM_FLOOR = 5;      // NULL_MINT_NM_FLOOR, shipped
 export const MIN_VOTES = 3;
 export const POOL_BAR = 0.40;
 
+// WHAT HIS DEVICE ACTUALLY TELLS THE TRACKER (critic C4, 2026-09-02).
+//
+// `init-entry.js:4036` calls `setVerdictCadence(effZoom)`, and effZoom
+// (:3392) is `min(VERDICT_MAX_INTERVAL_MS, max(ZOOM_INTERVAL_MS,
+// lastVerdictMs * VERDICT_DUTY))` -- the SCHEDULED interval, capped. On
+// his Redmi a verdict costs 1250ms, so effZoom wants 5000 and the cap
+// pins it at 2000 in every arm (cadence.mjs's measured duty table).
+//
+// His ACHIEVED gap in the same 90s window is 1.55s (10n), because a cut
+// forces the next verdict forward. So arrival and told are DIFFERENT
+// numbers on his phone -- k=3 frames and a cadence of 2000 -- and an arm
+// that derives `told` from the frame stride models a device where they
+// coincide, which his is not.
+//
+// It is not a rounding difference: his regime reads 23.5 / 152.0 / 568.0
+// told 2000 against 27.5 / 137.0 / 460.5 told 1500. Phantom, the column
+// 10n names as the constraint on every cadence lever, is understated by
+// 23%.
+export const HIS_EFFZOOM = 2000;
+
 const logit = (v) => Math.log(Math.max(1e-6, v) / Math.max(1e-6, 1 - v));
 const sigm = (z) => 1 / (1 + Math.exp(-z));
 
