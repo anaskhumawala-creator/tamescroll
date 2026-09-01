@@ -30,6 +30,15 @@ import {
 import { ROOT, W, H } from './corpus-lib.mjs';
 
 const ASPECT = W / H;
+const D = 1024;
+// person-track's identity memory needs the descriptor or it cannot let a
+// re-appearing face inherit a clear. Passing null made the shipped
+// tracker look worse than it is.
+function descOf(win, i) {
+  if (!win.desc || i == null || i < 0) return null;
+  const o = i * D;
+  return o + D <= win.desc.length ? win.desc.subarray(o, o + D) : null;
+}
 
 /** Rebuild the read object faceMeta expects from a banked face. */
 function readOf(f) {
@@ -55,7 +64,7 @@ export function replay(win, userGender, tweak) {
         // His regime: MoveNet admits nobody, so noShape holds for every
         // face and the mint tag is never scoped away.
         nullMint: !!m.nullRead,
-        faceFound: true, verdictDt: dt, desc: null,
+        faceFound: true, verdictDt: dt, desc: descOf(win, f.descIdx),
       };
     });
     obs = dedupeObservations(obs);
@@ -89,9 +98,19 @@ export function score(frames, userGender, labelOf) {
                                                    : (lab === 'man' || lab === 'child');
   for (const fr of frames) {
     const claimed = new Set();
+    // AN UNLABELLED FACE STILL CLAIMS ITS PATCH. Skipping the face but
+    // not its patch counted the patch as "on nothing" -- which made the
+    // first published phantom figure 272s when the real one is 88s, and
+    // 136s of the difference was purely my own `mixed` labels. A face I
+    // refused to label is a face the score must be silent about in BOTH
+    // directions, not one direction.
     for (const f of fr.faces) {
       const lab = labelOf(f.crop);
-      if (!lab || lab === 'mixed') { skipped++; continue; }
+      if (!lab || lab === 'mixed') {
+        skipped++;
+        fr.patches.forEach((p, i) => { if (overlapFrac(f, p) >= COVER) claimed.add(i); });
+        continue;
+      }
       let best = -1, bestF = 0;
       fr.patches.forEach((p, i) => { const o = overlapFrac(f, p); if (o > bestF) { bestF = o; best = i; } });
       const covered = bestF >= COVER;
@@ -133,6 +152,8 @@ if (process.argv[1] && process.argv[1].endsWith('corpus-score.mjs')) {
   let agg = { durS: 0, exposureS: 0, falseCoverS: 0, phantomS: 0, coveredS: 0, sharpOkS: 0, skipped: 0 };
   for (const f of files) {
     const win = JSON.parse(fs.readFileSync(`${ROOT}/bank/reads/${f}`, 'utf8'));
+    const dp = `${ROOT}/bank/reads/${f.replace(/\.json$/, '.desc')}`;
+    if (fs.existsSync(dp)) win.desc = new Float32Array(fs.readFileSync(dp).buffer.slice(0));
     const frames = replay(win, userGender);
     const s = score(frames, userGender, (c) => cropLabel.get(c));
     for (const k of Object.keys(agg)) agg[k] += s[k];
