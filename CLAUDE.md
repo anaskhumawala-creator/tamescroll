@@ -70,6 +70,104 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-01 21:10 (**1079 PUBLISHED**; HEAD 06c1ba8 is
+UNRELEASED and carries the clear-bar move and the adjacency clamp,
+neither measured on a device.)
+
+**Session 2026-09-01 (loop 39) -- THE VIDEO-BLUR REDO, §2. THE ANSWER
+IS "DO NOT REBUILD THE DECISION LAYER": ONE CONSTANT PLUS A CLAMP BEAT
+THE PER-SUBJECT ARCHITECTURE ON TWICE THE FOOTAGE.**
+
+- **THE CORPUS IS 10 VIDEOS NOW**: 18 windows, 3,465 reads, 107
+  labelled clusters covering **93.7%** (woman 975 / man 1410 / mixed
+  515 / child 151 / notperson 135 / bodypart 59). All 67 earlier labels
+  survived the re-cluster unchanged -- nothing was relabelled to fit.
+- **HIS REGIME, 1.5s PER VERDICT, MAN MODE (his setting):**
+
+  | arm | EXPOSURE | FALSE COVER | PHANTOM |
+  |---|---|---|---|
+  | 1079 SHIPPED | 38.5s | 292.0s | 197.0s |
+  | + bar .45 | 44.5s | 231.5s | 173.5s |
+  | **+ bar .45 + CLAMP** | **45.0s** | **186.5s** | **172.5s** |
+  | A5 per-subject pool | 39.5s | 277.0s | 199.0s |
+
+  Woman mode, cross-check: the change costs **ZERO** exposure (39.0 ->
+  39.0) and buys -18.5s false cover, -9.0s phantom.
+- **SHIPPED IN HEAD, NOT RELEASED:** `GENDER_CLEAR_SCORE` 0.60 -> 0.45
+  and `_FEMALE` 0.45 -> 0.35 (both were calibrated at NATIVE resolution;
+  his player decodes 640x360 and faces reach faceres at **px p50
+  38-62**), plus `app/gaze/src/body-clamp.mjs` -- an adjacency clamp
+  that pulls ONE EDGE of ONE RECTANGLE back so a synthetic body stops
+  short of a face the pipeline left sharp. Never past the subject's own
+  face, never vertical, never on a MoveNet-measured body. **Patches stay
+  SOLID** -- nothing subtracted, split or windowed.
+- **A FACE WITH NO DESCRIPTOR SIGNAL MAY NEVER PUSH AN EDGE**, and the
+  score cannot see why. Found by LOOKING at the render: a projected
+  graphic on a TED backdrop is detected as a face, reads clear, and
+  pulls the speaker's patch off her side. A graphic carries no label, so
+  the strip it uncovers costs zero in the score. `nm >= 5` refuses it.
+- **THE BENCH WAS LETTING A FRAME WITH NO INFERENCE PUSH A CLAMP EDGE**,
+  and it inflated the clamp's value by 10x. The old arm read the verdict
+  off `base[i]` even on a frame it had marked as spending no inference.
+  The arm calls the SHIPPED `clampBodies` now, so the number reported is
+  produced by code that can ship.
+- **AND THE CADENCE MODEL WAS WRONG FOR HIS DEVICE.** `thin` turned a
+  non-verdict frame into a position-only observation carrying a
+  FULL-WIDTH body -- right where MoveNet admits people, wrong for him
+  (all twelve slots n:0, three loops running). `mode: 'coast'` models
+  the real thing; it moves false cover from 133s to 292s and is the
+  regime every number above is quoted in.
+- **THE +6.5s OF EXPOSURE IS MOSTLY A STALE TRACK ACROSS A CUT, NOT THE
+  BAR.** Every frame the low bar uncovers was traced: five, all on
+  verdict passes, and two are a woman reading **female 0.71-0.78** -- a
+  score `GENDER_CLEAR_SCORE` cannot touch, since it gates only the
+  same-gender branch. The mechanism is a shot change where her
+  observation re-associates onto a stale CLEARED track left by a man in
+  the previous shot. `scene-gate.mjs` wipes tracks on a cut for exactly
+  that, and arch-arms never ran it; with the gate on BOTH sides the cost
+  falls to **+2.5s**.
+- **THE CUT ARM IS HALF THE SHIPPED BEHAVIOUR** -- it wipes without the
+  immediate full pass, because the corpus banks reads only at its own
+  frames. So its ABSOLUTE exposure overstates; only the DIFFERENCE
+  between two cut arms is fair. Said so in the code.
+- **THREE INSTRUMENT DEFECTS, each of which produced a confident wrong
+  number.** (1) `lumaGrid` reads the first N PIXELS of a FLAT RGBA
+  buffer, so handing it an ImageData-shaped object yields NaN and
+  `NaN >= CUT_DELTA` is false: **ZERO cuts over 2,160 frames** of
+  footage that plainly cuts. (2) Detected between frames 500ms apart,
+  `CUT_DELTA` 28 -- calibrated for <=100ms samples -- catches ordinary
+  MOTION: one window read **72 cuts in 120 frames** at median delta
+  35.9. Re-run at the app's own 10Hz it is 2.28% of deltas. (3) The
+  first clamp test fixture **did not overlap at all**, so three no-move
+  assertions were passing vacuously; they assert their own precondition
+  now.
+- **`clampFired` WAS ALREADY TAKEN**, by region-blur's patch-geometry
+  clamp (clampFired / clampNoLegalEdge / clampNoCore). A new counter of
+  the same name would have merged two unrelated events into one number
+  and silently rebased every reading any earlier round has quoted. It is
+  **`bodyClampFired`**; a test fails if it goes back. Caught by reading
+  the EMITTED BUNDLE, which also confirms `t==="female"?vfe:yfe` with
+  `yfe=.45, vfe=.35` -- the constants are READ, not merely emitted.
+- **A TEST WAS DELETED, deliberately.** It asserted a MALE read at 0.54
+  must not clear a man, on the reasoning that the male distribution sits
+  at 0.87+. That reasoning is what the px 38-62 measurement overturns.
+  The replacement is built FROM the two constants and pins the property
+  that survived: clearing a man takes more certainty than clearing a
+  woman.
+- **THUMBNAILS, REPORTED NOT SHIPPED:** the image path has NO null-read
+  guard. `faceVerdict` and `imageFlagIndices` test only same-gender +
+  adult + `score >= GENDER_IMAGE_MIN_SCORE`, while the video path guards
+  the identical failure with `isNullRead` + `nm`. On 25 banked
+  native-resolution faces (px 152-360) nm min is **6.19**, none below
+  the floor of 5 -- so the guard would refuse 0 of 25. The SAFETY half
+  is clean; the BENEFIT half needs a non-face arm at thumbnail
+  resolution, which needs a live feed.
+- **NEXT, AND IT IS THE ONLY THING THAT CLOSES THIS:** read
+  `bodyClampFired` against `readClearCertain` over 90s on his phone.
+  A clamp nobody has seen fire is a claim.
+- gaze 461/461.
+
+
 **Last updated:** 2026-09-01 15:40 (**1078 PUBLISHED, sha 073eb405**;
 his phone is ON 1078 and he is watching a video on it. HEAD 29abfa5 is
 UNRELEASED and carries the null-mint gate, unverified on a device.)
