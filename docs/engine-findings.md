@@ -885,3 +885,120 @@ round were silently reverted by `cp /tmp/sg.bak` and `cp /tmp/ie.bak`
 restoring backups written by an EARLIER command -- one of them putting
 back a version from before a committed change. A fixed backup path is a
 derivative that does not declare which run it came from. Use `mktemp`.
+
+
+## 11. DETECTOR RECALL -- the error class every other sweep is downstream of
+
+Every threshold this repo has swept prices a DECISION. All of them are
+downstream of a DETECTION, and if BlazeFace and MoveNet both come back
+empty on a frame containing a person, no constant anywhere can cover
+her. Worse, she is invisible to every arm we own: the corpus banks
+READS, so a frame with no read contributes nothing and quietly scores as
+a frame with nobody in it.
+
+`bench/detector-recall.mjs`. The instrument is **coco-ssd**, already
+banked per frame at the same frame times -- a genuinely independent
+detector: different architecture, different training set, whole-person
+boxes, and crucially neither face-based nor luma-based. That last point
+is not decoration; 10j is the record of what happens when ground truth
+turns out to share the blind spot it was brought in to measure.
+
+**2,131 person-instances over 18 windows**, coco-ssd score >= 0.5,
+height >= 0.15 of frame:
+
+| | count | share |
+|---|---|---|
+| seen by a FACE | 1706 | **80.1%** |
+| seen by a POSE only | 306 | **14.4%** |
+| **MISSED ENTIRELY** | **119** | **5.6%** |
+
+**THE INSTRUMENT SURVIVES ITS OWN SENSITIVITY CHECK.** A bare
+containment test would credit us with seeing person B when we only saw
+person A's face inside B's box -- inflating recall in the flattering
+direction. Requiring the face centre in the top HALF of the body box
+moves the miss rate 5.6% -> 6.2%; the headline is robust. (At the top
+0.35 it reads 10.5%, but that band wrongly rejects head-and-shoulders
+framings, where the ssd box is mostly head.) A first run of this sweep
+read IDENTICAL at all three bands -- the patch had not applied. **A flat
+sweep is a broken instrument until proven otherwise**, for the fourth
+time in this repo.
+
+### 11a. MoveNet finds one person in seven that the face model does not
+
+**306 person-instances -- 14.4% -- are seen by POSE ONLY.** That is the
+single most useful number here, and it lands on a live decision: the
+`PERSON_SKIP_EVERY` dial on the OTA channel turns MoveNet down. 10i
+measured what skipping BUYS on his phone (+39% render frame rate, zero
+verdict cadence); this measures what it COSTS, on different evidence
+entirely, and the answer is up to one person in seven.
+
+**HONEST, AND IT CUTS THE OTHER WAY: this is a NATIVE-RESOLUTION
+number.** The corpus decodes at source; his player decodes 640x360, and
+on his phone MoveNet admits NOBODY -- all twelve slots n:0, measured
+repeatedly across loops 35-40. So on his device the pose column may be
+near zero and **his real recall may be the face column alone, ~80%**,
+not 94%. That is a hypothesis with a clear test: run coco-ssd against
+his own downscaled frames. It has not been run and nothing here should
+be quoted as if it had.
+
+### 11b. The misses are not small, and PERSON_MIN_SCORE is not the lever
+
+The obvious hypothesis was that misses are distant background people the
+detectors legitimately drop. **They are not: missed persons run p50
+0.38 of frame height, p95 0.99.** These are large, foreground people.
+
+The next hypothesis was a threshold: MoveNet nearly saw her and
+`PERSON_MIN_SCORE` 0.35 refused it. Measured against the shipped slot
+diagnostic (`lastSlotDiag`, which the gate itself fills in):
+
+- a REJECTED slot sat on her: **82 of 119 (68.9%)**
+- no slot there at all: **37 (31.1%)**
+- those slots score **p05 0.011, p50 0.110, p95 0.264**
+
+| PERSON_MIN_SCORE | misses it would recover |
+|---|---|
+| 0.30 | 2 of 119 (1.7%) |
+| 0.25 | 7 (5.9%) |
+| 0.20 | 16 (13.4%) |
+| 0.10 | 44 (37.0%) |
+
+**SO THE FLOOR IS NOT THE LEVER.** Recovering even a third of the misses
+means 0.10, which is indistinguishable from admitting every noise slot,
+and PERSON_MIN_SCORE was raised 0.25 -> 0.35 deliberately. The rejected
+slots on missed people sit at NOISE level, not just under the bar. This
+is genuine detector blindness, and the fix is a different model, not a
+different number. **That is worth more than a tuning win: it says a
+night spent on this constant would have bought 5.9%.**
+
+### 11c. How long is she unseen
+
+55 contiguous miss runs. **p50 1 frame** -- a detector blink the tracker
+coasts straight through, and not an exposure. But **p95 4 frames and max
+14**, and 7 runs (12.7%) last 3+ frames. At the corpus 0.5s spacing that
+longest run is **seven seconds of a large, foreground person with
+nothing over her**, which no threshold in this repo can reach.
+
+Weak attribution on who those people are (nearest labelled face at the
+same spot in the same window): mixed 39, **woman 37**, other 26, man 14.
+So roughly a third of the misses are where a woman stands.
+
+**EVERY NUMBER ABOVE IS AN UPPER BOUND ON US.** coco-ssd has its own
+misses, and a person neither detector finds appears in neither column.
+It cannot be run the other way round to clear us.
+
+### 11d. What this changes about where to spend the next night
+
+The ranked open list had thresholds near the top. It should not. On this
+corpus:
+
+- a threshold sweep moves 1-3s of exposure (every sweep this month);
+- the verdict CLOCK moves 73s (81.0s at 1.5s/verdict, 8.0s at 0.5s);
+- and **6% of people are never detected at all**, which is upstream of
+  both and which no constant touches.
+
+The clock is still the biggest lever and 10i just measured that skipping
+MoveNet does not buy it. So the two things actually worth a night are
+**(1) why a verdict pass costs what it costs on his device** -- the
+~500ms MoveNet figure is unexplained and suspected to be shader
+recompiles from varying crop shapes -- and **(2) the 6%**, which needs a
+better detector rather than a better threshold.
