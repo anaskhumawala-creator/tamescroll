@@ -1,7 +1,7 @@
 {
-  "versionCode": 1076,
-  "versionName": "0.1.76",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.76/tamescroll-v0.1.76.apk",
-  "sha256": "1c5437c32e59af792dc960251e5c8d9b4fd2cf523e2c582aa8a3d367df95bac0",
-  "notes": "A blur could vanish for good if YouTube rebuilt the video player. It comes back now."
+  "versionCode": 1077,
+  "versionName": "0.1.77",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.77/tamescroll-v0.1.77.apk",
+  "sha256": "344632538e67c844ff25a74aafdf4a493e0f03866ff75af71821403daf87af7f",
+  "notes": "A blur that vanished when YouTube took our overlay layer now comes back on the next frame."
 }
