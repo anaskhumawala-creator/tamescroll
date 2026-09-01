@@ -170,3 +170,29 @@ test("the clamp counter does not collide with the geometry clamp's", () => {
   assert.ok(!/bumpLife\('clampFired'\)/.test(block),
     "the body clamp must not bump the geometry clamp's counter");
 });
+
+test('`signal` is read from a binding the observation builder can SEE', () => {
+  // SHIPPED BROKEN IN 1080 AND CAUGHT ON A DEVICE, not by the suite.
+  // `genders` is the parameter of the classifyBest .then, and that
+  // callback CLOSES before the `metaP.then` that builds the
+  // observation -- siblings, not nested. So `hasDescriptorSignal(
+  // genders[own])` was a ReferenceError on EVERY read: observeThrew 84
+  // on 84 reads, the chain rejected, the pass dropped, and every face
+  // failed closed to covered. A correctly cleared man, blurred.
+  //
+  // 461 tests were green throughout, because none of them cross this
+  // boundary -- they hand observations straight to updatePersonTracks.
+  // So the assertion has to be structural: the identifier used at the
+  // builder must be one that is in scope there.
+  const a = page.indexOf('nullMint: !!mine.nullRead,');
+  const b = page.indexOf('desc: faceDesc,', a);
+  const block = page.slice(a, b);
+  const m = block.match(/signal:\s*hasDescriptorSignal\(([^)]*)\)/);
+  assert.ok(m, 'the observation must carry `signal`');
+  assert.ok(!/genders/.test(m[1]),
+    '`genders` is out of scope in the observation builder -- ' +
+    'reading it there is a ReferenceError that drops the whole pass');
+  // ...and the binding it DOES use must be assigned outside that closure.
+  assert.match(page, /var genderReads = null;/);
+  assert.match(page, /genderReads = genders;/);
+});

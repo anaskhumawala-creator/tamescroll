@@ -2726,8 +2726,21 @@ if (
             return { box: person, flagged: true, certain: false, faceFound: true, desc: null };
           }
           var faceDesc = null;
+          // THE RAW READS, HOISTED OUT OF THE CLOSURE THEY ARRIVE IN.
+          // `genders` is the parameter of the .then below, and that
+          // callback CLOSES before the `metaP.then` that builds the
+          // observation -- they are siblings, not nested. Reading
+          // `genders` from the builder is a ReferenceError, which
+          // rejects the whole chain and drops the pass SILENTLY: every
+          // face then fails closed to covered, which is a correctly
+          // cleared man being blurred. That is exactly the trap the
+          // loop-37b note on `mintNoShape` describes, and it was walked
+          // into again on 2026-09-01 -- 84 `observeThrew` on 84 reads,
+          // caught on a device and not by 461 green tests.
+          var genderReads = null;
           var metaP = genderAvailable()
             ? classifyBest(faces).then(function (genders) {
+                genderReads = genders;
                 // Identity descriptor comes from the natively-cropped
                 // primary face (index 0 when it was the only face).
                 var ownI = ownFaceIndex(faces);
@@ -2979,7 +2992,7 @@ if (
               // on `abstained` above: a builder that drops a field makes
               // its consumer unreachable and no unit test can see it.
               // `clampFired` is the life counter that proves it alive.
-              signal: hasDescriptorSignal(genders[own]),
+              signal: hasDescriptorSignal(genderReads && genderReads[own]),
               faceFound: true,
               desc: faceDesc,
             };
