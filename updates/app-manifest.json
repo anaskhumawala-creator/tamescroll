@@ -1,7 +1,7 @@
 {
-  "versionCode": 1081,
-  "versionName": "0.1.81",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.81/tamescroll-v0.1.81.apk",
-  "sha256": "44f2ef858207826ccf0b987d05f18a9b54f8d5c3eabe85fa9942eabce18d10c8",
-  "notes": "Fixes 1080: every face was blurred regardless of gender."
+  "versionCode": 1082,
+  "versionName": "0.1.82",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.82/tamescroll-v0.1.82.apk",
+  "sha256": "4afd4503ec87a5a51e68e91a4ea7171b6fdc523b7acc8fb2843b5d313213a162",
+  "notes": "Identity memory: a man the model already got right stays sharp when his track is replaced."
 }
