@@ -3477,6 +3477,25 @@ if (
                     // rings below are what tells them apart: if the
                     // refused population looks like the kept one, the
                     // floor is refusing people.
+                    // OWNER RULING 2026-09-01: "she needs to be blurred".
+                    // The gate is now a COUNTER, not a refusal. What it
+                    // was refusing is measured and it is people: on his
+                    // phone 60 refused against 19 kept, conf p50 0.78 vs
+                    // 0.79, px p50 72 vs 79 -- the same population, split
+                    // by whether MoveNet's frame noise happened to clear
+                    // 0.1 that pass. 48 of 60 refusals were a face
+                    // nothing else covered, and an audit that ran the
+                    // real gender read on every refused face found 25 of
+                    // 60 would have produced a patch.
+                    //
+                    // HONEST COST, HIS CALL AND HE MADE IT: a graphic
+                    // that reads as a face now mints a patch, which is
+                    // his "random blur marks here and there". The null
+                    // band is the discriminator on the right axis, but
+                    // shipping it as a MINT gate was refuted -- it lands
+                    // on the same subject every pass, and it refused HER
+                    // (loop 37c, executed: tracks 0 with the gate, 1
+                    // without). So no gate replaces this one.
                     if (noShape) {
                       auditRefusedFace(
                         noteFaceGate('gateRefused', faces[fi], persons, video),
@@ -3487,9 +3506,14 @@ if (
                         dbgN.life = dbgN.life || {};
                         dbgN.life.faceNoShape = (dbgN.life.faceNoShape || 0) + 1;
                       } catch (e) {}
-                      continue;
                     }
-                    noteFaceGate('gateKept', faces[fi], persons, video);
+                    // The two rings must stay two POPULATIONS even now
+                    // that both mint: `gateRefused` is what the keypoint
+                    // floor would have thrown away, `gateKept` is what it
+                    // corroborated. Recording every face in both would
+                    // make the comparison that found this defect
+                    // meaningless.
+                    if (!noShape) noteFaceGate('gateKept', faces[fi], persons, video);
                     // THE COMPOSITE FRAME (R29). A face with no admitted
                     // person still gets a body, but where MoveNet
                     // MEASURED that person and merely refused to admit
@@ -3562,7 +3586,16 @@ if (
                   // the ghost was a BIRTH; a cut from a person to a title
                   // card is the common case and the gate alone would not
                   // clear it.
-                  var faceEvidence = noShape ? 0 : faces.length;
+                  // A DETECTED FACE IS EVIDENCE OF A FACE, whatever the
+                  // keypoint floor thought of the frame. While this read
+                  // `noShape ? 0 : faces.length`, a pass that DETECTED
+                  // faces reported an EMPTY FRAME, emptyStreak climbed
+                  // and wipeIfEmpty ERASED a patch that was already on
+                  // her. Measured in his regime over 220s: wipeErased
+                  // 10, erasing 21 BLURRED tracks, with faceNoShape 74.
+                  // That is the same defect class as the 1070 skip,
+                  // which was reverted for exactly this reason.
+                  var faceEvidence = faces.length;
                   emptyFrame = persons.length === 0 && faceEvidence === 0;
                   // Largest thing this pass actually saw. It is the
                   // cheapest available read on subject scale — already
@@ -3574,7 +3607,11 @@ if (
                     var ph = persons[mb].y2 - persons[mb].y1;
                     if (ph > passMaxBoxH) passMaxBoxH = ph;
                   }
-                  // Same reason, and this one is sharper: a refused face
+                  // DELIBERATELY STILL GATED ON noShape, and it is the
+                  // one place that stays. A face the keypoint floor did
+                  // not corroborate now MINTS a patch (owner ruling), but
+                  // letting it set the subject SCALE is a different
+                  // question and it runs the erasing way: a face
                   // feeds faceHeight * 3 into the NEXT pass's `prevMaxH`,
                   // so a hallucinated face 0.357 tall reports a subject
                   // scale of 1.07 and ARMS wipeIfEmpty's one-pass `big`

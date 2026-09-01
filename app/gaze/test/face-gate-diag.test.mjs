@@ -26,7 +26,11 @@ test('both sides of the gate are recorded, and only those sides', () => {
   // every face reaching the branch, which would have made the two rings
   // the same population and the comparison meaningless.
   assert.match(page, /if \(noShape\) \{\s*\n\s*auditRefusedFace\(\s*\n\s*noteFaceGate\('gateRefused'/);
-  assert.match(page, /continue;\s*\n\s*\}\s*\n\s*noteFaceGate\('gateKept'/);
+  // The floor no longer REFUSES (owner ruling 2026-09-01). `gateKept`
+  // has to be guarded explicitly now, or every face lands in BOTH
+  // rings and the comparison that found the defect stops meaning
+  // anything.
+  assert.match(page, /if \(!noShape\) noteFaceGate\('gateKept'/);
 });
 
 test('the ring carries three numbers and nothing else', () => {
@@ -95,7 +99,25 @@ test('the refused-face audit is diagnostic only and cannot run in a shipped buil
   for (const forbidden of ['videoTracks', 'personFromFace', 'applyRegion', 'identityMemory']) {
     assert.ok(!body.includes(forbidden), 'the audit reached into ' + forbidden);
   }
-  // And the refusal still happens either way.
-  assert.match(page, /auditRefusedFace\([\s\S]{0,800}?continue;/);
+  // THE GATE NO LONGER REFUSES (owner ruling 2026-09-01, "she needs to
+  // be blurred"). The audit still runs on the same faces, so the ring
+  // keeps recording what the floor would have thrown away -- but there
+  // must be no `continue` behind it, or the ruling is not shipped.
+  const gate = page.slice(page.indexOf('if (noShape) {', page.indexOf('auditRefusedFace(')));
+  const block = gate.slice(0, gate.indexOf("noteFaceGate('gateKept'"));
+  assert.ok(block.includes('auditRefusedFace('), 'the audit left the gate branch');
+  assert.ok(!/continue;/.test(block), 'the keypoint floor still refuses a detected face');
   assert.ok(!/__TS_GATE_AUDIT\s*=/.test(page), 'the app sets the audit flag itself');
+});
+
+test('a detected face is evidence of a face, whatever the keypoint floor thought', () => {
+  // `faceEvidence = noShape ? 0 : faces.length` made a pass that
+  // DETECTED faces report an EMPTY FRAME, so emptyStreak climbed and
+  // wipeIfEmpty erased a patch that was already on her. Measured in his
+  // regime over 220s: wipeErased 10, erasing 21 BLURRED tracks.
+  assert.match(page, /var faceEvidence = faces\.length;/);
+  assert.ok(
+    !/faceEvidence\s*=\s*noShape\s*\?/.test(page),
+    'the eraser can see a detected face as an empty frame again'
+  );
 });
