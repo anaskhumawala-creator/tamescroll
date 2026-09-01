@@ -2599,6 +2599,62 @@ mod tests {
         assert!(kt.contains("syntheticFiles[key]"), "cache must be keyed by url path");
     }
 
+    /// THE OFFLINE SCREEN MUST NOT SWALLOW A REAL FAILURE.
+    ///
+    /// Owner ask 2026-09-01: with no internet, opening a platform showed
+    /// Chromium's "the link isn't valid", which reads like OUR app is
+    /// broken. Replacing it is right; replacing it too widely is how a
+    /// genuine bug starts looking like a network problem and sends him
+    /// to his router instead of to this repo.
+    #[test]
+    fn the_offline_screen_is_narrow_and_asks_for_nothing() {
+        let kt = include_str!(
+            "../gen/android/app/src/main/java/app/tamescroll/client/MainActivity.kt"
+        );
+        let f = kt
+            .split("private fun shouldShowOffline")
+            .nth(1)
+            .expect("the offline guard is gone");
+        let body = &f[..f.find("
+  }").unwrap_or(f.len())];
+        // A subresource must never blank the app -- on a feed we block
+        // them ourselves, constantly and on purpose.
+        assert!(body.contains("request.isForMainFrame"), "a subresource can blank the app");
+        // Our own urls failing is a bug in us, not a network problem.
+        assert!(body.contains("tauri.localhost"), "our own page could show a network error");
+        assert!(body.contains("/__tamescroll/"), "our synthetic urls could show a network error");
+        // Network errors only. An SSL or unsupported-scheme failure is
+        // not "you are offline" and must keep its own page.
+        assert!(body.contains("ERROR_HOST_LOOKUP") && body.contains("ERROR_TIMEOUT"));
+        assert!(
+            !body.contains("ERROR_FAILED_SSL_HANDSHAKE") && !body.contains("=> true
+"),
+            "the error filter became a catch-all"
+        );
+
+        // NO NAGS, and an error screen is exactly where one creeps in.
+        let html = kt
+            .split("private fun offlineHtml")
+            .nth(1)
+            .expect("the offline page is gone");
+        // Bounded by the DOCUMENT, not by the next function: offlineHtml
+        // is the last one in its block, so slicing to "the next fn" ran
+        // to the end of the file and matched words in unrelated code.
+        let start = html.find("<!doctype html>").expect("no document");
+        let end = html.find("</html>").expect("unterminated document");
+        let page = &html[start..end];
+        for beg in ["Retry later", "sign in", "Sign in", "Upgrade", "notification", "Enable"] {
+            assert!(!page.contains(beg), "the offline screen asks for something: {}", beg);
+        }
+        // Self-contained: it is shown when NOTHING can be fetched, so a
+        // remote font or image on it would fail too.
+        for remote in ["http://fonts", "https://", "src=\"http", "@import"] {
+            assert!(!page.contains(remote), "the offline screen fetches {}", remote);
+        }
+        // The two ways out, and the second is the one that always works.
+        assert!(page.contains("http://tauri.localhost/"), "no way back to the launcher");
+    }
+
     /// The stamp only decides the FIRST navigation of a session, and it
     /// must never turn the worker on in a mode that did not ask for it.
     #[test]

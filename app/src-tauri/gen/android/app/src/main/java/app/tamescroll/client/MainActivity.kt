@@ -681,8 +681,119 @@ class MainActivity : TauriActivity() {
         view: WebView,
         request: WebResourceRequest,
         error: WebResourceError,
-      ) = wry.onReceivedError(view, request, error)
+      ) {
+        // OFFLINE SCREEN (owner ask 2026-09-01: "when there is no
+        // internet and we try to open the YouTube app, it shows the link
+        // isn't valid or something like that").
+        //
+        // WebView's own error page is a Chromium string about an invalid
+        // URL, which reads like OUR app is broken rather than like the
+        // network is down. Replace it with ours -- but only in the
+        // narrow case where that is actually what happened.
+        if (shouldShowOffline(request, error)) {
+          view.loadDataWithBaseURL(
+            null,
+            offlineHtml(request.url.toString()),
+            "text/html",
+            "utf-8",
+            // The failing url as the history entry, so Back behaves the
+            // way it would have if the page HAD loaded, and a reload
+            // retries the real page rather than re-rendering this one.
+            request.url.toString(),
+          )
+          return
+        }
+        wry.onReceivedError(view, request, error)
+      }
     }
+  }
+
+  /// Deliberately narrow. Three things have to be true, and each one is
+  /// a way this could otherwise hide a real bug behind a friendly page:
+  ///
+  ///  - MAIN FRAME ONLY. A failed image or an XHR must not blank the
+  ///    app; on a feed those fail constantly and by design (we block
+  ///    them ourselves).
+  ///  - A NETWORK error, not any error. An SSL failure or a bad scheme
+  ///    is not "you are offline" and must keep its own page.
+  ///  - NOT OUR OWN URLS. If tauri.localhost or a /__tamescroll/ url
+  ///    fails, the app is broken and saying "check your connection"
+  ///    would send the owner looking at his router.
+  private fun shouldShowOffline(request: WebResourceRequest, error: WebResourceError): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false
+    if (!request.isForMainFrame) return false
+    val url = request.url.toString()
+    if (!url.startsWith("http")) return false
+    if (url.contains("tauri.localhost") || url.contains("/__tamescroll/")) return false
+    return when (error.errorCode) {
+      WebViewClient.ERROR_HOST_LOOKUP,
+      WebViewClient.ERROR_CONNECT,
+      WebViewClient.ERROR_TIMEOUT,
+      WebViewClient.ERROR_IO,
+      WebViewClient.ERROR_UNKNOWN,
+      -> true
+      else -> false
+    }
+  }
+
+  /// Self-contained: no network, no fonts, no images. It is the page
+  /// shown when nothing can be fetched, so anything it references would
+  /// fail too. Colours and type are the launcher's own tokens
+  /// (app/src/styles.css) so it reads as part of the app rather than as
+  /// a browser error, and the font stacks fall back to the system.
+  ///
+  /// It states a fact and offers two ways out. It does not apologise,
+  /// does not blame, and asks for nothing -- NO NAGS is a hard rule here
+  /// and an error screen is exactly where one usually creeps in.
+  private fun offlineHtml(failed: String): String {
+    val safe = failed
+      .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+      .replace("\"", "&quot;")
+    return """<!doctype html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>No connection</title>
+<style>
+  :root {
+    --bg:#141414; --ink:#e7e5e1; --muted:#a3a09a; --faint:#757169;
+    --line:#343434; --hairline:rgba(255,255,255,.07);
+    --elev:rgba(255,255,255,.035); --gold:#c9a45e;
+    --font-ui:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --font-display:"Spectral",Georgia,serif;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; }
+  body {
+    background:var(--bg); color:var(--ink); font-family:var(--font-ui);
+    display:flex; align-items:center; justify-content:center;
+    padding:32px calc(24px + env(safe-area-inset-left)) 32px calc(24px + env(safe-area-inset-right));
+    -webkit-user-select:none; user-select:none;
+  }
+  main { max-width:340px; width:100%; text-align:center;
+         animation:ts-enter .18s cubic-bezier(.2,0,0,1) both; }
+  @keyframes ts-enter { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce) { main { animation:none; } }
+  .mark { font-family:var(--font-display); font-size:26px; letter-spacing:.01em; color:var(--gold); }
+  h1 { font-size:19px; font-weight:600; margin-top:22px; }
+  p { color:var(--muted); font-size:14.5px; line-height:1.5; margin-top:10px; }
+  .host { color:var(--faint); font-size:12.5px; margin-top:18px; word-break:break-all; }
+  .row { display:flex; gap:10px; margin-top:26px; }
+  a { flex:1; display:block; text-decoration:none; padding:12px 14px; border-radius:10px;
+      font-size:14.5px; border:1px solid var(--hairline); background:var(--elev);
+      color:var(--muted); transition:border-color .15s ease, transform .15s ease; }
+  a.primary { border-color:var(--gold); color:var(--ink); }
+  a:active { transform:scale(.97); }
+</style></head>
+<body><main>
+  <div class="mark">tamescroll</div>
+  <h1>No connection</h1>
+  <p>This page needs the internet, and your phone cannot reach it right now.</p>
+  <div class="row">
+    <a class="primary" href="$safe">Try again</a>
+    <a href="http://tauri.localhost/">Home</a>
+  </div>
+  <p class="host">$safe</p>
+</main></body></html>"""
   }
 
   override fun onWebViewCreate(webView: WebView) {
