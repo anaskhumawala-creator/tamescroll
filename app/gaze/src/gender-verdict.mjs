@@ -617,6 +617,23 @@ export var NULL_MINT_NM_FLOOR = 5;
  * refuse on", and this project's default when it has no evidence is to
  * cover.
  */
+/**
+ * Did this crop carry descriptor signal at all?
+ *
+ * The MIRROR of `mayNotMint`, and the asymmetry is deliberate. A missing
+ * `norm` means "no evidence to refuse on", so `mayNotMint` answers false
+ * and the read keeps its power to MINT -- this project covers when it
+ * has no evidence. This predicate is asked in the opposite direction: it
+ * gates whether a cleared face may pull a neighbour's patch edge back,
+ * which REDUCES coverage. So a missing norm must answer false here too,
+ * and both refusals point the same way.
+ */
+export function hasDescriptorSignal(face) {
+  var nm = face && face.shape ? face.shape.norm : null;
+  if (typeof nm !== 'number' || !isFinite(nm)) return false;
+  return nm >= NULL_MINT_NM_FLOOR;
+}
+
 function mayNotMint(face) {
   var nm = face && face.shape ? face.shape.norm : null;
   if (typeof nm !== 'number' || !isFinite(nm)) return false;

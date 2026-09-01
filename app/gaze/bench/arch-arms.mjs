@@ -90,7 +90,7 @@ const readOf = (f) => ({ gender: f.gender, score: f.score, raw: f.raw, age: f.ag
  */
 export function makeArms(mod) {
   const { faceMeta, personFromFace, dedupeObservations, updatePersonTracks,
-    setVerdictCadence } = mod;
+    setVerdictCadence, clampBodies } = mod;
 
   // `f._noRead` marks a frame the cadence bench chose not to spend a
   // faceres pass on. It becomes a POSITION-ONLY observation, which is
@@ -101,11 +101,15 @@ export function makeArms(mod) {
     positionOnly: true, faceFound: true, verdictDt: dt, desc: null,
   } : {
     box: box || personFromFace(f, ASPECT),
+    signal: f.nm >= NM_FLOOR,
     flagged: m.flagged, certain: m.certain, abstained: m.abstained,
     instant: m.instant, weak: m.weak, nullMint: !!m.nullRead,
     faceFound: true, verdictDt: dt, desc: desc || null,
   });
-  const frameOut = (fr, tracks) => ({ t: fr.t, faces: fr.faces,
+  // `_labelFaces` carries the ground truth on a frame the ARM was given
+  // no observations for. Without it a coasted frame scores neither error
+  // and the cadence comparison measures nothing.
+  const frameOut = (fr, tracks) => ({ t: fr.t, faces: fr._labelFaces || fr.faces,
     patches: tracks.filter((t) => t.state !== 'cleared').map((t) => ({ ...t.box })) });
 
   /** opts: {hold, pool, clampPad} */
@@ -154,19 +158,16 @@ export function makeArms(mod) {
         // clamp almost never fired -- which is why it bought nothing at
         // his rate. The shipped per-frame verdict answers the same
         // question every pass, for free, at any cadence.
-        const isClear = (f, i) => (o.pool && decided[i] != null)
-          ? decided[i] === 'clear'
-          : (base[i] && base[i].flagged === false);
-        const clears = o.clampPad == null ? []
-          : fr.faces.filter((f, i) => isClear(f, i) && f.nm >= NM_FLOOR);
-        let obs = fr.faces.map((f, i) => {
-          const m = meta[i] || {};
-          let box = personFromFace(f, ASPECT);
-          if (o.clampPad != null && !isClear(f, i)) {
-            box = clampAway(box, f, clears.filter((c) => c !== f), o.clampPad);
-          }
-          return obsOf(f, m, dt, descOf(win, f.descIdx), box);
-        });
+        let obs = fr.faces.map((f, i) => obsOf(f, meta[i] || {}, dt, descOf(win, f.descIdx)));
+        // THE SHIPPED CALL, not a bench reimplementation of it. The
+        // first version of this arm decided who may push an edge here,
+        // which meant the number being reported was never produced by
+        // code that could ship. clampBodies keys on the OBSERVATION --
+        // `flagged === false && signal === true` -- so a position-only
+        // pass carries no verdict and therefore pushes nothing, which is
+        // what the app actually does between verdicts and is stricter
+        // than what the bench used to model.
+        if (o.clampPad != null) obs = clampBodies(obs, o.clampPad);
         obs = dedupeObservations(obs);
         tracks = updatePersonTracks(tracks, obs, dt, held);
         if (o.hold) held = tracks.nullHeld || [];

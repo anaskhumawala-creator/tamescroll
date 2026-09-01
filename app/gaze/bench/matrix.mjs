@@ -50,23 +50,46 @@ const ARMS = [
   ['A0  1079 + CLAMP only', ARM({ hold: true, clampPad: 0.02 })],
 ];
 
-/** Every Nth frame keeps its reads; the rest become position-only. */
-function thin(win, every) {
+/**
+ * Every Nth frame keeps its reads. What the OTHER frames become is a
+ * modelling choice, and it turns out to decide the answer:
+ *
+ *   'position'  the face is still observed, the box still moves, no
+ *               verdict is remade -- a position pass in the GENERAL
+ *               case, where MoveNet admitted somebody.
+ *   'coast'     no observation at all; the track coasts on velocity.
+ *               HIS regime, measured three times (loops 35/36/37): all
+ *               twelve MoveNet slots read n:0 on his phone, so a pass
+ *               that does not run faceres observes nobody.
+ *
+ * The first version of this bench had only 'position', and modelled it
+ * with the face still carrying its read -- which let a face push a
+ * clamp edge on a frame the app spent no inference on. No shippable
+ * code can do that.
+ */
+function thin(win, every, mode) {
   if (every <= 1) return win;
-  return { ...win, frames: win.frames.map((fr, i) => (i % every === 0 ? fr
-    : { ...fr, faces: fr.faces.map((f) => ({ ...f, _noRead: true })) })) };
+  return { ...win, frames: win.frames.map((fr, i) => {
+    if (i % every === 0) return fr;
+    if (mode === 'coast') return { ...fr, faces: [], _labelFaces: fr.faces };
+    return { ...fr, faces: fr.faces.map((f) => ({ ...f, _noRead: true })) };
+  }) };
 }
 
-for (const every of [1, 3]) {
+const MODES = [[1, 'position'], [3, 'position'], [3, 'coast']];
+for (const [every, mode] of MODES) {
   const secs = (0.5 * every).toFixed(1);
-  console.log(`\n=== ${secs}s per verdict ` +
-    (every === 3 ? '<- HIS MEASURED CADENCE (1.45s, loop 35, 1073 on his phone)'
-      : '(3x his rate -- the corpus bank rate, not the app)') + ' ===');
+  console.log(`
+=== ${secs}s per verdict, non-verdict frames ${mode} ` +
+    (every === 3 ? (mode === 'coast'
+      ? '<- HIS REGIME (MoveNet n:0, a non-verdict pass observes NOBODY)'
+      : '<- his cadence, general regime')
+      : '(3x his rate -- the bank rate, not the app)') + ' ===');
   console.log('arm                                EXPOSURE  FALSECOVER   PHANTOM   covered  sharp');
   for (const [name, arm] of ARMS) {
     const agg = { exposureS: 0, falseCoverS: 0, phantomS: 0, coveredS: 0, sharpOkS: 0 };
     for (const win of wins) {
-      const s = score(arm(thin(win, every), g), g, (c) => cropLabel.get(c));
+      const s = score(arm(thin(win, every, mode), g), g, (c) => cropLabel.get(c));
       for (const k of Object.keys(agg)) agg[k] += s[k];
     }
     console.log(name.padEnd(33) +
