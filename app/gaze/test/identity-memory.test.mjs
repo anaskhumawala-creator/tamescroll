@@ -115,3 +115,17 @@ test('the memory may only ever move an observation toward CLEAR', () => {
     'it must be incapable of covering somebody it did not cover before');
   assert.match(block, /flagged = false/);
 });
+
+test('a read carrying no descriptor signal goes INERT, not abstained', () => {
+  const i = entry.indexOf('mine.abstained && !hasDescriptorSignal');
+  assert.ok(i > 0, 'the signal-less branch must exist');
+  const block = entry.slice(i, i + 600);
+  assert.match(block, /positionOnly = true/);
+  assert.match(block, /abstained = false/,
+    'an abstain REVOKES an earned clear -- that is the whole defect');
+  assert.match(block, /bumpLife\('noSignalInert'\)/);
+  // Inert is not dropped. A dropped observation lets a blurred track
+  // coast to death and uncovers somebody (loop 37b).
+  assert.ok(!/continue|return null/.test(block),
+    'the observation must still be pushed, or a covered person goes sharp');
+});

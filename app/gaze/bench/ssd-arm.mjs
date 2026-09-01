@@ -41,10 +41,8 @@ const MEM = g === 'man' ? 'loose2' : 'loose';
 const B = { ...BASE, mem: MEM, ssdMin: 0.35, ssdPad: 0.15 };
 const P = { ...B, ssdPersons: true, ssdPersonsAccidentOnly: true };
 const ARMS = [
-  ['1082 (no ssd)', ARM({ ...BASE, mem: MEM })],
-  ['ssd bodies only', ARM(B)],
-  ['ssd EDGE toward cleared face', ARM({ ...BASE, mem: MEM, ssdMin: 0.35, ssdEdge: true })],
-  ['ssd EDGE @0.20', ARM({ ...BASE, mem: MEM, ssdMin: 0.20, ssdEdge: true })],
+  ['1082', ARM({ ...BASE, mem: MEM })],
+  ['1082 + signal-less read INERT', ARM({ ...BASE, mem: MEM, inertNoSignal: true })],
 ];
 
 console.log('\narm                             EXPOSURE  FALSECOVER   PHANTOM   measured/faces');

@@ -3018,6 +3018,47 @@ if (
             // only ever move an observation toward CLEAR, so it cannot
             // add coverage 1081 did not have.
             var memRead = genderReads && genderReads[own];
+            // A READ THAT CARRIED NO SIGNAL IS NOT AN ANSWER.
+            // MEASURED LIVE ON HIS PHONE (1082, 116 reads, one face per
+            // read, px p50 140, face confidence p50 0.80): faceres'
+            // descriptor magnitude alternates on the SAME subject --
+            // 11.0, 1.1, 3.8, 11.0, 0.2, 0.2, 0.3, 6.5 -- with 57 flips
+            // in 116 reads and 42% under NULL_MINT_NM_FLOOR. The two
+            // populations are indistinguishable on size, confidence,
+            // frame position and edge contact, and every low one reads
+            // v~0.62 age~37, which is this model's PRIOR. That is an
+            // execution failure on his GPU, not a property of the
+            // picture; the corpus decodes frames from files and almost
+            // never reproduces it.
+            //
+            // Until 1083 such a read ABSTAINED, and an abstain is an
+            // EVENT: it fails closed and it REVOKES an earned clear
+            // (abstainStreak). So a man who had been correctly cleared
+            // was re-covered by a read containing nothing, twice a
+            // second, which is the flicker he reports as "messy" and
+            // "the blur stays up longer".
+            //
+            // Inert is not the same as dropped, and the difference is
+            // the loop-37b defect: a DROPPED observation lets a blurred
+            // track coast to death and uncovers somebody. positionOnly
+            // still moves the box and still refreshes the track -- it
+            // simply carries no verdict, so blurred stays blurred and
+            // cleared stays cleared. An UNMATCHED one still births, and
+            // newTrack starts BLURRED, so a new subject is covered.
+            //
+            // The corpus cannot price this (it is device-only) but it
+            // does prove it harmless: exposure 82.0s -> 81.0s, false
+            // cover unchanged at 218.0s in man mode, unchanged in woman
+            // mode. `noSignalInert` is the counter that proves it alive
+            // in a real run.
+            if (mine.abstained && !hasDescriptorSignal(memRead)) {
+              obsOut.positionOnly = true;
+              obsOut.abstained = false;
+              obsOut.certain = false;
+              obsOut.instant = false;
+              obsOut.weak = false;
+              bumpLife('noSignalInert');
+            }
             if (
               askIdentity(identityMem, faceDesc, {
                 readClear: !mine.flagged && mine.certain,

@@ -206,7 +206,32 @@ export function makeArms(mod) {
         // read only the DIFFERENCE between two `cut` arms, where the
         // same handicap applies to both.
         if (o.cut && win.cuts && win.cuts[fi]) { tracks = []; held = o.hold ? [] : null; }
-        const base = faceMeta(g, fr.faces.map(readOf));
+        let base = faceMeta(g, fr.faces.map(readOf));
+        // A READ THAT CARRIED NO SIGNAL IS NOT AN ANSWER.
+        // Measured LIVE on his phone (1082, 116 reads, one face per
+        // read): faceres' descriptor magnitude alternates 11.0, 1.1,
+        // 3.8, 11.0, 0.2, 0.2 ... on the SAME subject at px p50 140 and
+        // face confidence 0.80 -- 57 flips in 116 reads. The two
+        // populations are indistinguishable on size, confidence,
+        // position and frame-edge contact, and every low one reads
+        // v~0.62 age~37, which is the model's prior. That is an
+        // execution failure on his GPU, not a property of the picture,
+        // and the corpus never reproduces it because it decodes frames
+        // from files.
+        //
+        // Today such a read ABSTAINS, and an abstain is an event: it
+        // fails closed AND it revokes an earned clear. So a man who has
+        // been cleared is re-covered by a read that contains nothing.
+        // Making it INERT keeps the track exactly where the last real
+        // read left it -- blurred stays blurred, cleared stays cleared.
+        if (o.inertNoSignal) {
+          base = base.map((b, i) => {
+            const f = fr.faces[i];
+            if (!f || f._noRead || typeof f.nm !== 'number' || f.nm >= NM_FLOOR) return b;
+            return { ...b, positionOnly: true, abstained: false, certain: false,
+                     instant: false, weak: false };
+          });
+        }
         const decided = [];
         // IDENTITY MEMORY AT BIRTH. churn.mjs measured the covering
         // track over a MAN changing 260 times in 482 covered frames,

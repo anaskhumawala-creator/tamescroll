@@ -1,0 +1,122 @@
+{
+ "done": true,
+ "backend": "webgl",
+ "flags": {
+  "WEBGL_VERSION": 2,
+  "WEBGL_RENDER_FLOAT32_ENABLED": true,
+  "WEBGL_FORCE_F16_TEXTURES": false,
+  "WEBGL_PACK": true
+ },
+ "n": 15,
+ "admittedTotal": 24,
+ "framesWithNobody": 3,
+ "maxKpP50": 0.802,
+ "maxKpMax": 0.886,
+ "rows": [
+  {
+   "name": "NWoT1ZVd1Lo_t2.png",
+   "w": 0,
+   "admitted": 1,
+   "maxKp": 0.759,
+   "noShape": false
+  },
+  {
+   "name": "NWoT1ZVd1Lo_t402.png",
+   "w": 0,
+   "admitted": 2,
+   "maxKp": 0.824,
+   "noShape": false
+  },
+  {
+   "name": "NWoT1ZVd1Lo_t752.png",
+   "w": 0,
+   "admitted": 2,
+   "maxKp": 0.656,
+   "noShape": false
+  },
+  {
+   "name": "H14bBuluwB8_t2.png",
+   "w": 0,
+   "admitted": 1,
+   "maxKp": 0.328,
+   "noShape": false
+  },
+  {
+   "name": "H14bBuluwB8_t122.png",
+   "w": 0,
+   "admitted": 1,
+   "maxKp": 0.788,
+   "noShape": false
+  },
+  {
+   "name": "H14bBuluwB8_t252.png",
+   "w": 0,
+   "admitted": 3,
+   "maxKp": 0.809,
+   "noShape": false
+  },
+  {
+   "name": "z86LGEFyQpo_t2.png",
+   "w": 0,
+   "admitted": 4,
+   "maxKp": 0.834,
+   "noShape": false
+  },
+  {
+   "name": "z86LGEFyQpo_t452.png",
+   "w": 0,
+   "admitted": 2,
+   "maxKp": 0.881,
+   "noShape": false
+  },
+  {
+   "name": "z86LGEFyQpo_t902.png",
+   "w": 0,
+   "admitted": 4,
+   "maxKp": 0.886,
+   "noShape": false
+  },
+  {
+   "name": "Ary1gIbaOTc_t2.png",
+   "w": 0,
+   "admitted": 2,
+   "maxKp": 0.819,
+   "noShape": false
+  },
+  {
+   "name": "Ary1gIbaOTc_t1572.png",
+   "w": 0,
+   "admitted": 1,
+   "maxKp": 0.872,
+   "noShape": false
+  },
+  {
+   "name": "Ary1gIbaOTc_t3122.png",
+   "w": 0,
+   "admitted": 1,
+   "maxKp": 0.802,
+   "noShape": false
+  },
+  {
+   "name": "RcGyVTAoXEU_t2.png",
+   "w": 0,
+   "admitted": 0,
+   "maxKp": 0.391,
+   "noShape": false
+  },
+  {
+   "name": "RcGyVTAoXEU_t332.png",
+   "w": 0,
+   "admitted": 0,
+   "maxKp": 0.605,
+   "noShape": false
+  },
+  {
+   "name": "RcGyVTAoXEU_t602.png",
+   "w": 0,
+   "admitted": 0,
+   "maxKp": 0.319,
+   "noShape": false
+  }
+ ]
+}
