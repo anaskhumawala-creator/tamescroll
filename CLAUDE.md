@@ -139,10 +139,37 @@ AND THE CRITIC WHO FOUND MY OWN GATE REFUSING A REAL WOMAN.**
 
   **NOT the sigmoid restated:** overall pearson with |v-0.5| is 0.464,
   but inside a narrow v slice it collapses to **-0.21..+0.30**.
-  `NULL_MINT_NM_FLOOR` 6 refuses 48% of in-band reads for 0.3-3.3% of
-  the out-of-band reads the verdict actually uses. Every read the floor
-  exempts goes back to minting a patch, so **the condition is monotone
-  toward COVERING** and cannot add an exposure 1078 did not have.
+  Every read the floor exempts goes back to minting a patch, so **the
+  condition is monotone toward COVERING** and cannot add an exposure
+  1078 did not have.
+- **THE FLOOR IS 5, AND THE 6 I PICKED OFF HIS OWN RING WOULD HAVE
+  REFUSED A REAL WOMAN FIVE TIMES.** Ground truth, both arms, nm
+  captured (`app/gaze/bench/nm-floor.mjs` over
+  spikes/gauntlet/nmtruth-{face,nonface}.json): 25 faces BlazeFace
+  found and 85 corner crops from thumbnails where it found nothing,
+  each degraded to 32/40/48/56/64px -- the sizes his player reads at.
+
+  | floor | real FACES refused | in-band NON-FACES refused |
+  |---|---|---|
+  | 4 | 0 of 125 | 361 of 403 (89.6%) |
+  | **5** | **0 of 125** | **388 of 403 (96.3%)** |
+  | 6 | **5 of 125 (4.0%)** | 400 of 403 (99.3%) |
+
+  Four of those five are the woman the critic traced, in band at 32px
+  and again at 48px. Her lowest nm is **5.11**, which the boundary test
+  pins. **Floor 0 is the control and refuses nothing in either arm**, so
+  every refusal in that table is the AND doing work, not the band alone.
+  Not a knife edge either: real faces read nm p05 **8.34** at 32px
+  rising to **10.99** at 64px against non-faces p95 **4.56-5.49**.
+- **AND HIS OWN HARDWARE CORROBORATES IT INDEPENDENTLY:** his live ring
+  reads nm p50 12.66 clearing / 2.88 null, landing on top of the two
+  ground-truth arms (faces 10.2-12.5, non-faces 2.5-2.8). That is
+  corroboration, **not a device A/B** -- his phone dropped off adb
+  before one could run, so 1079 ships calibrated but not measured in
+  his regime.
+- **VERIFIED R15-STYLE IN THE EMITTED BUNDLE**, because this repo has
+  shipped a dead constant for six rounds before: the minifier emits
+  `Cfe=5` and `...isFinite(e)?!1:e<Cfe`.
 - **THE CHILD ORDERING DEFECT WAS BACK.** `isNullRead` ran ahead of the
   child branch, and a null read has its age head pinned at the training
   prior (~36.9), INSIDE NULL_AGE_LO..HI by construction -- so a child
