@@ -932,14 +932,33 @@ measured what skipping BUYS on his phone (+39% render frame rate, zero
 verdict cadence); this measures what it COSTS, on different evidence
 entirely, and the answer is up to one person in seven.
 
-**HONEST, AND IT CUTS THE OTHER WAY: this is a NATIVE-RESOLUTION
-number.** The corpus decodes at source; his player decodes 640x360, and
-on his phone MoveNet admits NOBODY -- all twelve slots n:0, measured
-repeatedly across loops 35-40. So on his device the pose column may be
-near zero and **his real recall may be the face column alone, ~80%**,
-not 94%. That is a hypothesis with a clear test: run coco-ssd against
-his own downscaled frames. It has not been run and nothing here should
-be quoted as if it had.
+**RETRACTED WITHIN THE HOUR, BY ME, AND THE CORRECTION MAKES THE
+FINDING STRONGER.** This section first carried a caveat saying the 14.4%
+was a NATIVE-RESOLUTION number that might not transfer, because his
+player decodes 640x360 and on his phone MoveNet admits nobody. **The
+corpus is not native resolution.** `corpus-lib.mjs:8` reads
+`W = 640, H = 360; // his measured decode, itag 134`, and ffprobe on all
+ten videos confirms it: 640x360 h264 at 101-595 kbps, which is his
+stream class exactly.
+
+So the 14.4% IS measured at his resolution and his bitrate, and the
+argument against pushing `PERSON_SKIP_EVERY` is stronger than stated,
+not weaker: the dial gives up the only detector that sees one person in
+seven, at the decode he actually watches.
+
+**AND IT RE-FRAMES THE n:0 OBSERVATION RATHER THAN CONTRADICTING IT.**
+MoveNet reading all twelve slots empty on his phone is real and was
+measured repeatedly across loops 35-40. It is not resolution -- loop 36
+already established that, driving the emulator to HIS timestamps and
+reproducing the n:0 regime exactly, and concluding "it is FOOTAGE, not
+hardware". Both hold: MoveNet finds people on typical 640x360 footage,
+and found nobody in the specific moments he happened to be watching.
+
+**THE LESSON IS THE ONE FROM 10j AGAIN, one section later.** I wrote a
+plausible physical caveat about an instrument without reading the eight
+lines at the top of the file that define it. A story that sounds right
+about a measurement is not a fact about the measurement, and it is
+cheapest to check before it is written down.
 
 ### 11b. The misses are not small, and PERSON_MIN_SCORE is not the lever
 
