@@ -526,6 +526,56 @@ export function isNullRead(face) {
   );
 }
 
+// THE DESCRIPTOR'S MAGNITUDE IS THE ONLY SIGNAL IN THIS PIPELINE THAT IS
+// ABOUT THE CROP RATHER THAN ABOUT THE ANSWER.
+//
+// `isNullRead` decides on the sigmoid, which is the same number the
+// verdict uses -- so a read it refuses is a read the verdict could not
+// have used anyway, and it cannot tell a graphic from a person the model
+// simply found hard. That distinction did not matter while a null read
+// still produced a patch. It decides everything now that it can refuse
+// one, and a critic found the exposure in the first version of this
+// gate: a real woman in this repo's own ground-truth control arm
+// (small-face-2026-09-01, reference read px 206 female) lands in the
+// band at 32px and again at 48px -- which is the modal face size in his
+// player. Refusing her birth leaves her sharp.
+//
+// `nm` is faceres' descriptor magnitude BEFORE L2-normalisation: how
+// much the network extracted, not which way it leaned. It has ridden in
+// every read ring since R22 and was never analysed. MEASURED:
+//
+//   his phone, live, 300 reads   nm p50 12.66 clearing / 2.88 null
+//   corpus, 6,281 video reads    male in-band 3.87 / out-of-band 11.40
+//                                female 11.78
+//   corpus, by CROP quality      fc>=0.85 & px>=120  p50 11.99
+//                                fc<=0.55 & px<=80   p50  4.23
+//
+// And it is NOT the sigmoid restated: inside a narrow v slice the
+// correlation with |v-0.5| collapses to -0.21..+0.30.
+//
+// So the birth refusal is conditioned on BOTH. Every read the floor
+// exempts goes back to minting a patch, i.e. to the behaviour that
+// shipped before this gate existed -- the condition is monotone toward
+// COVERING and cannot introduce an exposure the previous build did not
+// already have.
+export var NULL_MINT_NM_FLOOR = 6;
+
+/**
+ * May this read create a patch? False for everything except a null read
+ * whose crop also carried no descriptor signal.
+ *
+ * A MISSING norm never refuses. The image path strips `shape` before it
+ * crosses the worker boundary, and an in-page fallback verdict may carry
+ * an older shape; in both cases the honest answer is "no evidence to
+ * refuse on", and this project's default when it has no evidence is to
+ * cover.
+ */
+function mayNotMint(face) {
+  var nm = face && face.shape ? face.shape.norm : null;
+  if (typeof nm !== 'number' || !isFinite(nm)) return false;
+  return nm < NULL_MINT_NM_FLOOR;
+}
+
 export function faceMeta(userGender, faces) {
   var opposite = OPPOSITE[userGender];
   var out = [];
@@ -538,20 +588,42 @@ export function faceMeta(userGender, faces) {
     // Refuse the model's prior before it can become evidence. This lands
     // on exactly the state an unreadable face already gets: covered, but
     // powerless to condemn, revoke a clear, or enter identity memory.
-    if (isNullRead(f)) {
+    // ADULT FIRST. This is the loop-37b ordering defect, and it became
+    // load bearing the moment the null branch started deciding whether a
+    // patch exists at all instead of merely how it behaves. A null read
+    // has its age head pinned at the training prior (~36.9), which is
+    // INSIDE NULL_AGE_LO..HI by construction -- so a child carrying no
+    // signal reads as a null read, and refusing HER birth is exactly the
+    // exposure that got the first attempt at this gate reverted whole.
+    var adult = isAdultRead(f);
+    if (adult && isNullRead(f)) {
       // `abstained` is NOT decoration. A cleared track absorbs an
       // uncertain read for CLEARED_TTL_MS, so folding the null into plain
       // `uncertain` handed it 5s of protection where the certain flag it
       // replaced took 2 reads to revoke — R12 measured 4800ms of sharp
       // against 400ms. person-track keys the revocation streak off this.
-      out.push({ flagged: true, certain: false, abstained: true });
+      //
+      // `nullRead` is the SECOND consumer of the same fact, and it is a
+      // different question from `abstained`. `abstained` says what this
+      // read may do to a track that already exists; `nullRead` says
+      // whether it may CREATE one. A null read is the model's prior, and
+      // a prior is not evidence that anybody is there -- so it may keep
+      // a patch alive and may never mint one.
+      //
+      // MEASURED, on the two control arms this repo banked
+      // 2026-09-01, at the sizes his player actually produces (32-64px):
+      // real men read score p05/p50 0.335/0.814, non-faces read
+      // p50/p95 0.234/0.352, and his own 41 player reads read p50 0.23 --
+      // his male population IS the non-face population to three decimals.
+      out.push({ flagged: true, certain: false, abstained: true, nullRead: mayNotMint(f) });
       continue;
     }
     var same = f.gender === (opposite === 'female' ? 'male' : 'female');
     var directed = f.gender === 'male' || f.gender === 'female';
     // Child faces: gender untrusted in BOTH directions (see
     // GENDER_ADULT_AGE). Missing age (older callers) trusts the read.
-    var adult = isAdultRead(f);
+    // `adult` is computed above, ahead of the null branch -- see the note
+    // there for why the ordering is not cosmetic.
     // A CHILD READ IS AN ABSTENTION, not merely an uncertain flag
     // (gauntlet R18). Both branches below already refuse to CLEAR on a
     // child, and that half was right. The half that was wrong is what a

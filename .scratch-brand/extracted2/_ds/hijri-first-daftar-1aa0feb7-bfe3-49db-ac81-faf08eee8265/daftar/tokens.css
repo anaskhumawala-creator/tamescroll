@@ -1,0 +1,133 @@
+/* Vendored from the Daftar design system, 2026-07-28 (the zip supplied by the
+   product owner). This is tokens/colors.css + typography.css + layout.css
+   concatenated, byte-for-byte. It SUPERSEDES the earlier MCP-imported copy,
+   which predated the light-theme hairline fix. Do not hand-edit. */
+/* Daftar color tokens — ground truth: "Daftar One Screen.dc.html" (approved 2026-07-23).
+   Default theme = Night (approved default). Alternate themes via [data-theme] on <html> or any subtree. */
+:root {
+  /* neutrals — pure gray, no color cast on chrome */
+  --bg: #141414;
+  --surface: #1f1f1f;        /* paper: cards in "Carded" grid, week columns */
+  --surface-2: #262626;
+  --zebra: #2b2b2b;          /* hover wash, segmented-control track */
+  --ink: #e7e5e1;
+  --text-muted: #a3a09a;
+  --text-faint: #757169;
+  --line: #343434;           /* structural rules */
+  --hairline: rgba(255,255,255,.07); /* borderless month-grid cell rules */
+  /* micro-elevation — widgets are barely-lighter translucent surfaces */
+  --elev: rgba(255,255,255,.035);
+  --elev-border: rgba(255,255,255,.055);
+  /* semantic */
+  --gold: #c9a45e;           /* uncertainty + sacred marks: ±1, sighting, qadr, dashed borders */
+  --gold-ink: #d4af6a;
+  --green: #86a893;          /* kept / confirmed / synced — the ONLY "success"; never a red sibling */
+  /* a clash, lateness, or the present moment — and never a missed act of worship.
+     Widened from "scheduling clashes ONLY" by the owner on 28 Jul 2026 (HANDOFF
+     banner item 8, closing #136): the kit itself puts --alert on the overdue task
+     group and the Delete button, and every reference calendar paints the now-line
+     red. So overdue tasks, destructive affordances and the now-line are in; a
+     missed prayer or an unwritten page stay out. */
+  --alert: #d0604a;
+  /* accent — content accents only (¶ marks, links inside content); chrome stays neutral */
+  --accent: #8fbcb0;         /* Sea glass (approved default) */
+  --accent-ink: #12201c;
+  --accent-soft: color-mix(in srgb, var(--accent) 15%, transparent);
+  /* calendar identities (approved screen; HF v8 full 8-color system in readme) */
+  --cal-personal: #a493d6; --cal-personal-ink: #221c36;
+  --cal-deen: #c9a45e;     --cal-deen-ink: #2c2318;
+  --cal-family: #86a893;   --cal-family-ink: #182620;
+  --cal-work: #7f96b8;     --cal-work-ink: #161f2b;
+  /* on-solid */
+  --btn-primary-bg: var(--ink);
+  --btn-primary-ink: var(--bg);
+  --journal-trace: color-mix(in srgb, var(--text-faint) 75%, transparent);
+  /* brand mark — the finalized Hijri First logo: gold crescent on a night tile.
+     Tweak these in one place and every HijriMark across the kits updates. */
+  --logo-crescent: #c9a45f;      /* @kind color */
+  --logo-tile: linear-gradient(150deg, #242424, #131313);  /* @kind color */
+  --logo-radius: 0.24em;   /* proportional to tile size */
+}
+[data-theme="dark-gray"] {
+  --bg:#1b1b1e; --surface:#232327; --surface-2:#28282c; --zebra:#2e2e33;
+  --ink:#ebeae8; --text-muted:#b1b0ac; --text-faint:#807f7b; --line:#37373c;
+  --hairline:rgba(255,255,255,.06);
+}
+[data-theme="ash"] {
+  --bg:#232327; --surface:#2b2b30; --surface-2:#313136; --zebra:#37373c;
+  --ink:#eae9e6; --text-muted:#b3b1ac; --text-faint:#84827c; --line:#404046;
+  --hairline:rgba(255,255,255,.08);
+}
+[data-theme="graphite"] {
+  --bg:#161616; --surface:#1d1d1d; --surface-2:#232323; --zebra:#292929;
+  --ink:#e9e8e4; --text-muted:#bab8b1; --text-faint:#8f8e88; --line:#2f2f2d;
+  --hairline:rgba(255,255,255,.07);
+}
+[data-theme="parchment"], [data-theme="paper"] {
+  /* light themes need a stronger hairline than dark: at .055 on cream the edge disappears.
+     Landing v3 and the kits both had to override this locally — fixed here instead. */
+  --elev: rgba(0,0,0,.028);
+  --elev-border: rgba(31,29,24,.10);
+  --gold:#c9a45e; --gold-ink:#a8823c; --green:#5d8270; --alert:#b3402e;
+  --accent:#37655a; --accent-ink:#ffffff;
+}
+[data-theme="parchment"] {
+  --bg:#f2efe6; --surface:#fdfbf5; --surface-2:#faf7ef; --zebra:#f0ece1;
+  --ink:#26231d; --text-muted:#54503f; --text-faint:#9a9280; --line:#e6e0d1;
+  --hairline:rgba(31,29,24,.10);
+}
+[data-theme="paper"] {
+  /* neutral light — pure gray, no colour cast */
+  --bg:#eaeaea; --surface:#f9f9f9; --surface-2:#f2f2f2; --zebra:#e9e9e9;
+  --ink:#1e1e1e; --text-muted:#515151; --text-faint:#868686; --line:#dddddd;
+  --hairline:rgba(31,29,24,.10);
+  --gold:#a3803a; --gold-ink:#8a6a2c; --green:#37655a;
+}
+/* accent alternates */
+[data-accent="lavender"] { --accent:#a493d6; --accent-ink:#181420; }
+[data-accent="gold"] { --accent:#c9a45e; --accent-ink:#201a10; }
+[data-accent="slate"] { --accent:#93a7c4; --accent-ink:#131a24; }
+[data-theme="parchment"][data-accent="lavender"], [data-theme="paper"][data-accent="lavender"] { --accent:#5b4c87; --accent-ink:#fff; }
+[data-theme="parchment"][data-accent="gold"], [data-theme="paper"][data-accent="gold"] { --accent:#8a6a2c; --accent-ink:#fff; }
+[data-theme="parchment"][data-accent="slate"], [data-theme="paper"][data-accent="slate"] { --accent:#44597a; --accent-ink:#fff; }
+/* Daftar typography tokens. Approved defaults: UI = Inter; display & mono = Match UI.
+   Serif quote voice (Newsreader) is reserved for journal excerpts + verses; Amiri for Arabic. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Amiri:ital,wght@0,400;0,700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=Karla:wght@400;500;600;700;800&display=swap');
+:root {
+  --font-ui: Inter, system-ui, sans-serif;
+  --font-display: var(--font-ui);        /* "Match UI" default; Spectral is the serif alternate */
+  --font-display-serif: Spectral, serif;
+  --font-mono: var(--font-ui);           /* "Match UI" default; IBM Plex Mono alternate for times/labels */
+  --font-mono-true: 'IBM Plex Mono', monospace;
+  --font-quote: Newsreader, serif;       /* journal excerpts, verses, month letters */
+  --font-arabic: Amiri, serif;           /* Arabic day/month/prayer names — never faked with the UI font */
+  /* scale (from the approved 1600px screen) */
+  --text-microcap: 600 9px/1.2 var(--font-mono);      /* +letter-spacing: .14em, uppercase */
+  --text-label: 600 11px/1.35 var(--font-ui);
+  --text-body: 500 12.5px/1.55 var(--font-ui);
+  --text-daynum: 700 15px/1 var(--font-ui);           /* month-cell Hijri numeral */
+  --text-title: 600 21px/1.2 var(--font-display);     /* month title */
+  --text-hero: 800 22px/1 var(--font-ui);             /* day-view numeral */
+}
+/* Daftar layout tokens: spacing, radii, elevation, motion. */
+:root {
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px;
+  /* corners — approved default "Soft" = minor roundedness only */
+  --r-sm: 6px;   /* controls, chips, pills */
+  --r-lg: 10px;  /* widget cards, floating panel */
+  --r-col: 4px;  /* week/3-day columns + timed blocks: always minimal, even on Soft */
+  /* density (Comfortable default; Compact scope) */
+  --cell-pad: 9px 12px;
+  --grid-gap: 9px;             /* carded grid only; borderless = 0 */
+  /* motion — HF v8 law: 120–260ms, settling, nothing bouncy */
+  --dur-fast: 120ms; /* @kind other */
+  --dur-slow: 260ms; /* @kind other */
+  --ease-settle: cubic-bezier(.2, .7, .2, 1); /* @kind other */
+}
+[data-corners="squared"] { --r-sm: 3px; --r-lg: 5px; }
+[data-density="compact"] { --cell-pad: 7px 9px; --grid-gap: 6px; }
+/* base resets for kit pages */
+.daftar-root { background: var(--bg); color: var(--ink); font-family: var(--font-ui); }
+.daftar-root a { color: var(--ink); }
+.daftar-root a:hover { color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { :root { --dur-fast: 0ms; /* @kind other */ --dur-slow: 0ms; /* @kind other */ } }

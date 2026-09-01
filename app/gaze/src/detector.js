@@ -688,6 +688,13 @@ function ensureAnchors() {
  * squarified in model space for downstream gender crops). Empty array =
  * no faces. Decode adapted from vladmandic/human getBoxes (MIT).
  */
+/** The 6 landmark pairs of one row, normalized to 0..1 of the source. */
+function readMarks(data, off) {
+  var out = new Array(12);
+  for (var k = 0; k < 12; k++) out[k] = data[off + k] / INPUT_SIZE;
+  return out;
+}
+
 export async function detectFaceBoxes(model, pixelSource, sharedImg) {
   var anchors = ensureAnchors();
   var out = tf.tidy(function () {
@@ -709,10 +716,27 @@ export async function detectFaceBoxes(model, pixelSource, sharedImg) {
     var halfSizes = tf.div(tf.slice(batch, [0, 3], [-1, 2]), 2);
     var starts = tf.sub(centers, halfSizes);
     var ends = tf.add(centers, halfSizes);
-    // One [896, 5] tensor: [score, x1, y1, x2, y2] per row, so the whole
-    // decode needs exactly ONE GPU->CPU download. NMS runs in JS.
+    // THE SIX FACIAL LANDMARKS WERE COMPUTED AND THROWN AWAY.
+    // Columns 5..16 are 6 (x, y) pairs -- right eye, left eye, nose,
+    // mouth, right ear, left ear -- regressed RELATIVE TO THE ANCHOR
+    // CENTRE, exactly like dx/dy. They cost no inference: the model
+    // already produced them and they are sitting on the GPU beside the
+    // box. They are the only per-face signal we have that describes the
+    // INSIDE of a face, which is what separates a face from a graphic
+    // that happens to be face-shaped -- the axis the keypoint floor and
+    // the confidence score both failed on (measured: refused conf p50
+    // 0.78 vs kept 0.79, same population).
+    //
+    // COST: one [896, 17] download instead of [896, 5] -- 61KB against
+    // 18KB, still exactly ONE GPU->CPU round trip, which is the part
+    // that costs. Gathering only the kept rows would be fewer bytes and
+    // a SECOND fence wait, which is the wrong trade on this backend.
     var scores = tf.sigmoid(tf.slice(batch, [0, 0], [-1, 1]));
-    return tf.concat([scores, starts, ends], 1);
+    var marks = tf.add(
+      tf.slice(batch, [0, 5], [-1, 12]),
+      tf.tile(anchors, [1, 6])
+    );
+    return tf.concat([scores, starts, ends, marks], 1);
   });
   var data;
   try {
@@ -720,15 +744,16 @@ export async function detectFaceBoxes(model, pixelSource, sharedImg) {
   } finally {
     tf.dispose(out);
   }
-  var rows = data.length / 5;
+  var STRIDE = 17;
+  var rows = data.length / STRIDE;
   var scoresArr = new Float32Array(rows);
   var boxesArr = new Float32Array(rows * 4);
   for (var r = 0; r < rows; r++) {
-    scoresArr[r] = data[r * 5];
-    boxesArr[r * 4] = data[r * 5 + 1];
-    boxesArr[r * 4 + 1] = data[r * 5 + 2];
-    boxesArr[r * 4 + 2] = data[r * 5 + 3];
-    boxesArr[r * 4 + 3] = data[r * 5 + 4];
+    scoresArr[r] = data[r * STRIDE];
+    boxesArr[r * 4] = data[r * STRIDE + 1];
+    boxesArr[r * 4 + 1] = data[r * STRIDE + 2];
+    boxesArr[r * 4 + 2] = data[r * STRIDE + 3];
+    boxesArr[r * 4 + 3] = data[r * STRIDE + 4];
   }
   var idx = nonMaxSuppression(boxesArr, scoresArr, FACE_MAX, FACE_IOU, FACE_MIN_CONFIDENCE);
   var kept = [];
@@ -745,6 +770,11 @@ export async function detectFaceBoxes(model, pixelSource, sharedImg) {
       x2: Math.min(1, (cx + half) / INPUT_SIZE),
       y2: Math.min(1, (cy + half) / INPUT_SIZE),
       confidence: scoresArr[idx[i]],
+      // Normalized to 0..1 of the source the SAME WAY the box is, so a
+      // landmark and a box edge are comparable numbers. The row is the
+      // pre-NMS row, not the enlarged/squarified box -- FACE_ENLARGE is
+      // a crop convenience and must not move a measured point.
+      marks: readMarks(data, idx[i] * STRIDE + 5),
     });
   }
   return kept;

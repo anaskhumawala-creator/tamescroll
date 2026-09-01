@@ -1,0 +1,281 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": []
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "daftar/components/calendar/**",
+              "daftar/components/core/**",
+              "daftar/components/deen/**",
+              "daftar/desktop/**",
+              "daftar/docs/**",
+              "daftar/mobile/**"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      },
+      {
+        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:Inter|IBM Plex Mono|Amiri|Newsreader|Spectral|Karla))/i]",
+        "message": "Font not provided by the design system. Available: Inter, IBM Plex Mono, Amiri, Newsreader, Spectral, Karla."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='AhdTracker'] > JSXAttribute > JSXIdentifier[name!=/^(?:routines|onEdit|editLabel|key|ref|className|style|children)$/]",
+        "message": "<AhdTracker> doesn't accept that prop. Declared props: routines, onEdit, editLabel."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='AnchoredTasks'] > JSXAttribute > JSXIdentifier[name!=/^(?:tasks|onToggle|source|key|ref|className|style|children)$/]",
+        "message": "<AnchoredTasks> doesn't accept that prop. Declared props: tasks, onToggle, source."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute > JSXIdentifier[name!=/^(?:variant|children|onClick|style|key|ref|className|style|children)$/]",
+        "message": "<Button> doesn't accept that prop. Declared props: variant, children, onClick, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute[name.name='variant'] > Literal[value!=/^(?:primary|outline|quiet|surface)$/]",
+        "message": "<Button> variant must be one of 'primary' | 'outline' | 'quiet' | 'surface'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='ConfidenceChip'] > JSXAttribute > JSXIdentifier[name!=/^(?:state|label|key|ref|className|style|children)$/]",
+        "message": "<ConfidenceChip> doesn't accept that prop. Declared props: state, label."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='ConfidenceChip'] > JSXAttribute[name.name='state'] > Literal[value!=/^(?:provisional|confirmed|firm)$/]",
+        "message": "<ConfidenceChip> state must be one of 'provisional' | 'confirmed' | 'firm'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='DayCell'] > JSXAttribute > JSXIdentifier[name!=/^(?:hijri|greg|today|selected|dim|moon|tag|tagStyle|page|trace|chips|anchored|chipVariant|span|onSelect|style|key|ref|className|style|children)$/]",
+        "message": "<DayCell> doesn't accept that prop. Declared props: hijri, greg, today, selected, dim, moon, tag, tagStyle, page, trace, chips, anchored, chipVariant, span, onSelect, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='DayCell'] > JSXAttribute[name.name='chipVariant'] > Literal[value!=/^(?:square|bar)$/]",
+        "message": "<DayCell> chipVariant must be one of 'square' | 'bar'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='EventChip'] > JSXAttribute > JSXIdentifier[name!=/^(?:color|ink|time|label|variant|key|ref|className|style|children)$/]",
+        "message": "<EventChip> doesn't accept that prop. Declared props: color, ink, time, label, variant."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='EventChip'] > JSXAttribute[name.name='variant'] > Literal[value!=/^(?:square|bar)$/]",
+        "message": "<EventChip> variant must be one of 'square' | 'bar'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='HijriMark'] > JSXAttribute > JSXIdentifier[name!=/^(?:size|tile|variant|crescent|radius|key|ref|className|style|children)$/]",
+        "message": "<HijriMark> doesn't accept that prop. Declared props: size, tile, variant, crescent, radius."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='HijriMark'] > JSXAttribute[name.name='variant'] > Literal[value!=/^(?:night|paper|gold|flat)$/]",
+        "message": "<HijriMark> variant must be one of 'night' | 'paper' | 'gold' | 'flat'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='MiniMonth'] > JSXAttribute > JSXIdentifier[name!=/^(?:title|weekdays|leading|days|today|selected|onSelect|yearLabel|onYear|key|ref|className|style|children)$/]",
+        "message": "<MiniMonth> doesn't accept that prop. Declared props: title, weekdays, leading, days, today, selected, onSelect, yearLabel, onYear."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='SalahTimes'] > JSXAttribute > JSXIdentifier[name!=/^(?:rows|nextIndex|authority|place|arabic|footer|key|ref|className|style|children)$/]",
+        "message": "<SalahTimes> doesn't accept that prop. Declared props: rows, nextIndex, authority, place, arabic, footer."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='ViewSwitcher'] > JSXAttribute > JSXIdentifier[name!=/^(?:views|value|onChange|key|ref|className|style|children)$/]",
+        "message": "<ViewSwitcher> doesn't accept that prop. Declared props: views, value, onChange."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {
+      "AhdTracker": {
+        "replaces": []
+      },
+      "AnchoredTasks": {
+        "replaces": []
+      },
+      "Button": {
+        "replaces": []
+      },
+      "ConfidenceChip": {
+        "replaces": []
+      },
+      "DayCell": {
+        "replaces": []
+      },
+      "EventChip": {
+        "replaces": []
+      },
+      "HijriMark": {
+        "replaces": []
+      },
+      "MiniMonth": {
+        "replaces": []
+      },
+      "SalahTimes": {
+        "replaces": []
+      },
+      "ViewSwitcher": {
+        "replaces": []
+      }
+    },
+    "tokens": [
+      "--accent",
+      "--accent-ink",
+      "--accent-soft",
+      "--alert",
+      "--bg",
+      "--btn-primary-bg",
+      "--btn-primary-ink",
+      "--cal-deen",
+      "--cal-deen-ink",
+      "--cal-family",
+      "--cal-family-ink",
+      "--cal-personal",
+      "--cal-personal-ink",
+      "--cal-work",
+      "--cal-work-ink",
+      "--cell-pad",
+      "--dur-fast",
+      "--dur-slow",
+      "--ease-settle",
+      "--elev",
+      "--elev-border",
+      "--font-arabic",
+      "--font-display",
+      "--font-display-serif",
+      "--font-mono",
+      "--font-mono-true",
+      "--font-quote",
+      "--font-ui",
+      "--gold",
+      "--gold-ink",
+      "--green",
+      "--grid-gap",
+      "--hairline",
+      "--ink",
+      "--journal-trace",
+      "--line",
+      "--logo-crescent",
+      "--logo-radius",
+      "--logo-tile",
+      "--r-col",
+      "--r-lg",
+      "--r-sm",
+      "--s-1",
+      "--s-2",
+      "--s-3",
+      "--s-4",
+      "--s-5",
+      "--s-6",
+      "--surface",
+      "--surface-2",
+      "--text-body",
+      "--text-daynum",
+      "--text-faint",
+      "--text-hero",
+      "--text-label",
+      "--text-microcap",
+      "--text-muted",
+      "--text-title",
+      "--zebra"
+    ],
+    "tokenKinds": {
+      "--bg": "color",
+      "--surface": "color",
+      "--surface-2": "color",
+      "--zebra": "color",
+      "--ink": "color",
+      "--text-muted": "font",
+      "--text-faint": "font",
+      "--line": "color",
+      "--hairline": "color",
+      "--elev": "shadow",
+      "--elev-border": "shadow",
+      "--gold": "color",
+      "--gold-ink": "color",
+      "--green": "color",
+      "--alert": "color",
+      "--accent": "color",
+      "--accent-ink": "color",
+      "--accent-soft": "color",
+      "--cal-personal": "color",
+      "--cal-personal-ink": "color",
+      "--cal-deen": "color",
+      "--cal-deen-ink": "color",
+      "--cal-family": "color",
+      "--cal-family-ink": "color",
+      "--cal-work": "color",
+      "--cal-work-ink": "color",
+      "--btn-primary-bg": "color",
+      "--btn-primary-ink": "color",
+      "--journal-trace": "color",
+      "--logo-crescent": "color",
+      "--logo-tile": "color",
+      "--logo-radius": "radius",
+      "--font-ui": "font",
+      "--font-display": "font",
+      "--font-display-serif": "font",
+      "--font-mono": "font",
+      "--font-mono-true": "font",
+      "--font-quote": "font",
+      "--font-arabic": "font",
+      "--text-microcap": "font",
+      "--text-label": "font",
+      "--text-body": "font",
+      "--text-daynum": "font",
+      "--text-title": "font",
+      "--text-hero": "font",
+      "--s-1": "spacing",
+      "--s-2": "spacing",
+      "--s-3": "spacing",
+      "--s-4": "spacing",
+      "--s-5": "spacing",
+      "--s-6": "spacing",
+      "--r-sm": "spacing",
+      "--r-lg": "spacing",
+      "--r-col": "spacing",
+      "--cell-pad": "spacing",
+      "--grid-gap": "spacing",
+      "--dur-fast": "other",
+      "--dur-slow": "other",
+      "--ease-settle": "other"
+    },
+    "fontFamilies": [
+      "Amiri",
+      "IBM Plex Mono",
+      "Inter",
+      "Karla",
+      "Newsreader",
+      "Spectral"
+    ]
+  }
+}

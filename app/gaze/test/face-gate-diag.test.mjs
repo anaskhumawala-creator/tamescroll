@@ -46,12 +46,12 @@ test('the ring carries three numbers and nothing else', () => {
 test('the report carries both rings and stays clean', () => {
   const r = buildReport({
     ids: {
-      gateRefused: [{ ms: null, c: 0.42, px: 71, k: 0.06, cov: 0, g: null, s: null }],
-      gateKept: [{ ms: null, c: 0.88, px: 103, k: 0.31, cov: 1, g: null, s: null }],
+      gateRefused: [{ ms: null, c: 0.42, px: 71, k: 0.06, cov: 0, g: null, s: null, m: null }],
+      gateKept: [{ ms: null, c: 0.88, px: 103, k: 0.31, cov: 1, g: null, s: null, m: null }],
     },
   });
-  assert.deepEqual(r.player.gateRefused, [{ ms: null, c: 0.42, px: 71, k: 0.06, cov: 0, g: null, s: null }]);
-  assert.deepEqual(r.player.gateKept, [{ ms: null, c: 0.88, px: 103, k: 0.31, cov: 1, g: null, s: null }]);
+  assert.deepEqual(r.player.gateRefused, [{ ms: null, c: 0.42, px: 71, k: 0.06, cov: 0, g: null, s: null, m: null }]);
+  assert.deepEqual(r.player.gateKept, [{ ms: null, c: 0.88, px: 103, k: 0.31, cov: 1, g: null, s: null, m: null }]);
   assert.deepEqual(reportViolations(r, 'https://m.youtube.com/watch?v=abcdefghijk'), []);
 });
 

@@ -22,6 +22,7 @@ import {
   isNullRead,
   FACE_MIN_NATIVE_PX,
 } from './gender-verdict.mjs';
+import { markShape, markRing } from './face-marks.mjs';
 import {
   personCropRegion,
   headCropRegion,
@@ -1802,6 +1803,17 @@ if (
           px: px,
           k: typeof persons.maxKp === 'number' ? persons.maxKp : null,
           cov: faceAlreadyCovered(face),
+          // WHAT THE INSIDE OF THE DETECTION LOOKS LIKE. Confidence,
+          // size and the frame keypoint max all failed to separate the
+          // refused population from the kept one (refused conf p50 0.78
+          // vs kept 0.79, px 72 vs 79, and the keypoint separator sat at
+          // 0.098 against 0.101). BlazeFace's own six landmarks are the
+          // only per-face signal we have that describes the ARRANGEMENT
+          // inside the box, and they cost no inference. Recorded on BOTH
+          // sides so the populations can be compared before any rule is
+          // written -- every previous version of this gate was
+          // calibrated on one side and refused people.
+          m: markRing(markShape(face)),
         };
         r.push(entry);
         if (r.length > 60) r.shift();
@@ -2940,6 +2952,14 @@ if (
               // its life counter — if it never appears in a run, this
               // line is the first place to look.
               weak: !!mine.weak,
+              // MAY THIS READ CREATE A PATCH? (see faceMeta's null
+              // branch.) Copied here for the same reason `abstained` is:
+              // the builder that drops a field makes its consumer
+              // unreachable, and a green suite cannot see that because
+              // the unit tests hand observations straight to
+              // updatePersonTracks. `nullDropped` is the counter that
+              // proves this line is alive in a real run.
+              nullMint: !!mine.nullRead,
               faceFound: true,
               desc: faceDesc,
             };

@@ -253,6 +253,15 @@ function gateEntry(e) {
     cov: num(e.cov),
     g: num(e.g),
     s: num(e.s),
+    // The landmark geometry, flattened: nine numbers, no nesting, so the
+    // report invariant checks each one the same way it checks the rest.
+    // Absent on a detection with no landmarks (the in-page fallback and
+    // any synthetic face-from-body), and absent is `null`, never a guess.
+    m: e.m ? {
+      es: num(e.m.es), md: num(e.m.md), nd: num(e.m.nd), ea: num(e.m.ea),
+      ti: num(e.m.ti), as: num(e.m.as), ib: num(e.m.ib), sp: num(e.m.sp),
+      dg: num(e.m.dg),
+    } : null,
   };
 }
 

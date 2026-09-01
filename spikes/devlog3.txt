@@ -1,0 +1,786 @@
+     Running BeforeDevCommand (`pnpm dev`)
+
+> app@0.1.0 dev Z:\Apps\Disconnect\app
+> vite
+
+
+  [32m[1mVITE[22m v6.4.3[39m  [2mready in [0m[1m398[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m1420[22m/[39m
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info Watching Z:\Apps\Disconnect\app\src-tauri for changes...
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 3.76s
+[1m[92m     Running[0m `target\debug\app.exe`
+adblock engine warmed in 1.7381118s
+rules ota: rules up to date
+open_platform id=reddit
+open_platform build id=reddit -> Ok(())
+open_platform id=reddit
+open_platform id=reddit
+open_platform id=reddit
+open_platform id=x
+open_platform build id=x -> Ok(())
+open_platform id=x
+open_platform id=x
+open_platform id=x
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 14.03s
+[1m[92m     Running[0m `target\debug\app.exe`
+adblock engine warmed in 1.5387941s
+rules ota: rules up to date
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 11.61s
+[1m[92m     Running[0m `target\debug\app.exe`
+adblock engine warmed in 1.761144s
+rules ota: rules up to date
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+open_platform id=youtube
+open_platform existing label=youtube visible=Ok(true) alive=true
+open_platform id=youtube
+open_platform existing label=youtube visible=Ok(true) alive=true
+open_platform id=youtube
+open_platform existing label=youtube visible=Ok(true) alive=true
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 7.86s
+[1m[92m     Running[0m `target\debug\app.exe`
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 7.64s
+[1m[92m     Running[0m `target\debug\app.exe`
+adblock engine warmed in 1.487695s
+rules ota: rules up to date
+open_platform id=reddit
+open_platform build id=reddit -> Ok(())
+open_platform id=reddit
+open_platform existing label=reddit visible=Ok(true) alive=true
+open_platform id=reddit
+open_platform existing label=reddit visible=Ok(true) alive=true
+open_platform id=reddit
+open_platform existing label=reddit visible=Ok(true) alive=true
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 10.53s
+[1m[92m     Running[0m `target\debug\app.exe`
+adblock engine warmed in 1.4588946s
+rules ota: rules up to date
+open_platform id=x
+open_platform build id=x -> Ok(())
+open_platform id=x
+open_platform existing label=x visible=Ok(true) eval=Ok(()) alive=true
+open_platform id=x
+open_platform existing label=x visible=Ok(true) eval=Ok(()) alive=true
+open_platform id=x
+open_platform existing label=x visible=Ok(true) eval=Ok(()) alive=true
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 11.22s
+[1m[92m     Running[0m `target\debug\app.exe`
+adblock engine warmed in 1.851272s
+rules ota: rules up to date
+open_platform id=x
+open_platform build id=x -> Ok(())
+open_platform id=x
+open_platform id=x
+open_platform id=x
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 7.99s
+[1m[92m     Running[0m `target\debug\app.exe`
+adblock engine warmed in 1.4502874s
+rules ota: rules up to date
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 7.98s
+[1m[92m     Running[0m `target\debug\app.exe`
+adblock engine warmed in 1.6442937s
+rules ota: rules up to date
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+open_platform id=reddit
+open_platform build id=reddit -> Ok(())
+open_platform id=reddit
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 9.02s
+[1m[92m     Running[0m `target\debug\app.exe`
+adblock engine warmed in 1.496333s
+rules ota: rules up to date
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 11.42s
+[1m[92m     Running[0m `target\debug\app.exe`
+adblock engine warmed in 1.4919336s
+rules ota: rules up to date
+open_platform id=reddit
+open_platform build id=reddit -> Ok(())
+page_load_rules platform=reddit shown=[]
+open_platform id=reddit
+open_platform id=reddit
+page_load_rules platform=reddit shown=["discovery"]
+page_load_rules platform=reddit shown=["discovery"]
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 11.27s
+[1m[92m     Running[0m `target\debug\app.exe`
+adblock engine warmed in 1.5383685s
+rules ota: rules up to date
+open_platform id=reddit
+open_platform build id=reddit -> Ok(())
+page_load_rules platform=reddit shown=[]
+open_platform id=reddit
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 12.69s
+[1m[92m     Running[0m `target\debug\app.exe`
+adblock engine warmed in 1.5282107s
+rules ota: rules up to date
+        Info File src-tauri\tauri.conf.json changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 387/390: app(bui…[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 11.77s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.6842165s
+open_platform id=reddit
+open_platform build id=reddit -> Ok(())
+open_platform id=reddit
+open_platform id=x
+open_platform build id=x -> Ok(())
+open_platform id=x
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on package cache
+[1m[92m    Blocking[0m waiting for file lock on package cache
+[1m[92m    Blocking[0m waiting for file lock on package cache
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 35.82s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.6122994s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 11.02s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.3897855s
+open_platform id=instagram
+open_platform build id=instagram -> Ok(())
+open_platform id=instagram
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 9.06s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.5300863s
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 11.28s
+[1m[92m     Running[0m `target\debug\app.exe`
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 10.38s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.9400171s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 25.57s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.430129s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+open_platform id=youtube
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 7.86s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.3783455s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+open_platform id=youtube
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.40s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.5958997s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+open_platform id=youtube
+open_platform id=youtube
+open_platform id=youtube
+open_platform id=youtube
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.65s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.3648406s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+open_platform id=reddit
+open_platform build id=reddit -> Ok(())
+open_platform id=x
+open_platform build id=x -> Ok(())
+open_platform id=youtube
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 12.80s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.9500129s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 12.90s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.5692808s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 13.84s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.4307993s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 16.17s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.3776624s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.28s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.3565062s
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.69s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.529171s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.74s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.442805s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.00s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.3191562s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.91s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.4674853s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 7.95s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.3924677s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.03s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.4193073s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.57s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.3835107s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+open_platform id=youtube
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.00s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.5627297s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.52s
+[1m[92m     Running[0m `target\debug\app.exe`
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.94s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.3709213s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app                                                                 [1m[93mwarning[0m[1m[97m: function `worker_prestart_script` is never used[0m
+    [1m[96m--> [0msrc\lib.rs:1083:4
+     [1m[96m|[0m
+[1m[96m1083[0m [1m[96m|[0m fn worker_prestart_script() -> &'static str {
+     [1m[96m|[0m    [1m[93m^^^^^^^^^^^^^^^^^^^^^^[0m
+     [1m[96m|[0m
+     [1m[96m= [0m[1m[97mnote[0m: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+[1m[96m    Building[0m [=======================> ] 388/390: app             Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 12.93s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.4742436s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 11.04s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.4506737s
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.78s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.4160979s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 7.93s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.4035024s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+open_platform id=youtube
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 16.72s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.4996247s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.05s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.4106106s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 9.04s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 2.2116107s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 13.17s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.44296s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 7.96s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.3730135s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app                                                                 [1m[91merror[E0425][0m[1m[97m: cannot find type `HashSet` in this scope[0m
+   [1m[96m--> [0msrc\lib.rs:335:38
+    [1m[96m|[0m
+[1m[96m335[0m [1m[96m|[0m static SYNTHETIC_HOSTS: Mutex<Option<HashSet<String>>> = Mutex::new(None);
+    [1m[96m|[0m                                      [1m[91m^^^^^^^[0m [1m[91mnot found in this scope[0m
+    [1m[96m|[0m
+[1m[96mhelp[0m: consider importing this struct
+    [1m[96m|[0m
+[1m[96m  7[0m [92m+ use std::collections::HashSet;[0m
+    [1m[96m|[0m
+
+[1m[96m    Building[0m [=======================> ] 388/390: app                                                                 [1m[91merror[E0433][0m[1m[97m: failed to resolve: use of undeclared type `HashSet`[0m
+   [1m[96m--> [0msrc\lib.rs:340:30
+    [1m[96m|[0m
+[1m[96m340[0m [1m[96m|[0m         g.get_or_insert_with(HashSet::new).insert(host);
+    [1m[96m|[0m                              [1m[91m^^^^^^^[0m [1m[91muse of undeclared type `HashSet`[0m
+    [1m[96m|[0m
+[1m[96mhelp[0m: consider importing this struct
+    [1m[96m|[0m
+[1m[96m  7[0m [92m+ use std::collections::HashSet;[0m
+    [1m[96m|[0m
+
+[1m[96m    Building[0m [=======================> ] 388/390: app                                                                 [1m[91merror[E0282][0m[1m[97m: type annotations needed[0m
+   [1m[96m--> [0msrc\lib.rs:340:9
+    [1m[96m|[0m
+[1m[96m340[0m [1m[96m|[0m         g.get_or_insert_with(HashSet::new).insert(host);
+    [1m[96m|[0m         [1m[91m^[0m [1m[91mcannot infer type[0m
+
+[1m[96m    Building[0m [=======================> ] 388/390: app                                                                 [1m[91merror[E0282][0m[1m[97m: type annotations needed[0m
+   [1m[96m--> [0msrc\lib.rs:348:20
+    [1m[96m|[0m
+[1m[96m348[0m [1m[96m|[0m         .and_then(|g| g.as_ref().map(|set| set.contains(host)))
+    [1m[96m|[0m                    [1m[91m^[0m  [1m[96m-[0m [1m[96mtype must be known at this point[0m
+    [1m[96m|[0m
+[1m[96mhelp[0m: consider giving this closure parameter an explicit type
+    [1m[96m|[0m
+[1m[96m348[0m [1m[96m| [0m        .and_then(|g[92m: /* Type */[0m| g.as_ref().map(|set| set.contains(host)))
+    [1m[96m|[0m                     [92m++++++++++++[0m
+
+[1m[91merror[E0282][0m[1m[97m: type annotations needed[0m
+   [1m[96m--> [0msrc\lib.rs:348:39
+    [1m[96m|[0m
+[1m[96m348[0m [1m[96m|[0m         .and_then(|g| g.as_ref().map(|set| set.contains(host)))
+    [1m[96m|[0m                                       [1m[91m^^^[0m  [1m[96m---[0m [1m[96mtype must be known at this point[0m
+    [1m[96m|[0m
+[1m[96mhelp[0m: consider giving this closure parameter an explicit type
+    [1m[96m|[0m
+[1m[96m348[0m [1m[96m| [0m        .and_then(|g| g.as_ref().map(|set[92m: /* Type */[0m| set.contains(host)))
+    [1m[96m|[0m                                          [92m++++++++++++[0m
+
+[1m[96m    Building[0m [=======================> ] 388/390: app                                                                 [1m[97mSome errors have detailed explanations: E0282, E0425, E0433.[0m
+[1m[97mFor more information about an error, try `rustc --explain E0282`.[0m
+[1m[96m    Building[0m [=======================> ] 388/390: app                                                                 [1m[91merror[0m: could not compile `app` (lib) due to 5 previous errors
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 11.78s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.3708194s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.05s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.4610495s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 10.11s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.3857172s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 10.54s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.4251993s
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.75s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.3705969s
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.65s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.5369173s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.24s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.4595172s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+open_platform id=youtube
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 9.74s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.5243457s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.35s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.6102226s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+open_platform id=youtube
+open_platform id=reddit
+open_platform build id=reddit -> Ok(())
+open_platform id=x
+open_platform build id=x -> Ok(())
+open_platform id=instagram
+open_platform build id=instagram -> Ok(())
+open_platform id=facebook
+open_platform build id=facebook -> Ok(())
+        Info File src-tauri\tauri.conf.json changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 387/390: app(bui…[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 12.53s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.6833022s
+        Info File src-tauri\Cargo.toml changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 23.02s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.5083083s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app                                                                 [1m[91merror[E0425][0m[1m[97m: cannot find type `OnceLock` in this scope[0m
+   [1m[96m--> [0msrc\lib.rs:378:23
+    [1m[96m|[0m
+[1m[96m378[0m [1m[96m|[0m     static MODELS_JS: OnceLock<&'static str> = OnceLock::new();
+    [1m[96m|[0m                       [1m[91m^^^^^^^^[0m [1m[91mnot found in this scope[0m
+    [1m[96m|[0m
+[1m[96mhelp[0m: consider importing this struct
+    [1m[96m|[0m
+[1m[96m  7[0m [92m+ use std::sync::OnceLock;[0m
+    [1m[96m|[0m
+
+[1m[96m    Building[0m [=======================> ] 388/390: app                                                                 [1m[91merror[E0433][0m[1m[97m: failed to resolve: use of undeclared type `OnceLock`[0m
+   [1m[96m--> [0msrc\lib.rs:378:48
+    [1m[96m|[0m
+[1m[96m378[0m [1m[96m|[0m     static MODELS_JS: OnceLock<&'static str> = OnceLock::new();
+    [1m[96m|[0m                                                [1m[91m^^^^^^^^[0m [1m[91muse of undeclared type `OnceLock`[0m
+    [1m[96m|[0m
+[1m[96mhelp[0m: consider importing this struct
+    [1m[96m|[0m
+[1m[96m  7[0m [92m+ use std::sync::OnceLock;[0m
+    [1m[96m|[0m
+
+[1m[96m    Building[0m [=======================> ] 388/390: app                                                                 [1m[97mSome errors have detailed explanations: E0425, E0433.[0m
+[1m[97mFor more information about an error, try `rustc --explain E0425`.[0m
+[1m[96m    Building[0m [=======================> ] 388/390: app                                                                 [1m[91merror[0m: could not compile `app` (lib) due to 2 previous errors
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 12.49s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.4963862s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 13.06s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.6098968s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 9.47s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.4179931s
+        Info File src-tauri\gaze-init.js changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 3.21s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 2.550893s
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 7.83s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.4733153s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+open_platform id=youtube
+open_platform id=youtube
+open_platform id=youtube
+open_platform id=youtube
+open_platform id=youtube
+open_platform id=youtube
+open_platform id=youtube
+open_platform id=youtube
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 8.15s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.3369184s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+open_platform id=youtube
+        Info File src-tauri\src\lib.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m    Blocking[0m waiting for file lock on artifact directory
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 17.57s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 1.5969699s
+        Info File src-tauri\tauri.conf.json changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info File src-tauri\src\appupdate.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 387/390: app(bui…[1m[96m    Building[0m [=======================> ] 388/390: app             Info File src-tauri\src\appupdate.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[96m    Building[0m [=======================> ] 388/390: app     [1m[96m    Building[0m [=======================> ] 389/390: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 13.13s
+[1m[92m     Running[0m `target\debug\app.exe`
+rules ota: rules up to date
+adblock engine warmed in 2.5153019s
+open_platform id=youtube
+open_platform build id=youtube -> Ok(())
+open_platform id=youtube
+       Error The "beforeDevCommand" terminated with a non-zero status code.

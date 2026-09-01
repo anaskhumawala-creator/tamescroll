@@ -219,7 +219,72 @@ test('R12: the faceres null output is refused instead of believed', () => {
     // Covered (blur-first is untouched) but NOT certain, so it can no
     // longer condemn, or poison identity memory. `abstained` is what lets
     // person-track still revoke a clear in 2 reads rather than 5 seconds.
-    assert.deepEqual(m, { flagged: true, certain: false, abstained: true });
+    // `nullRead` is the SEPARATE half: this read may keep a patch alive
+    // and may never create one (person-track refuses the birth). It is
+    // conditioned on the DESCRIPTOR too, so a fixture carrying no shape
+    // fails OPEN -- it mints, exactly as it did before the gate existed.
+    assert.deepEqual(m, { flagged: true, certain: false, abstained: true, nullRead: false });
+    const [lo] = gv.faceMeta('woman', [{ ...n, shape: { norm: 2.9 } }]);
+    assert.equal(lo.nullRead, true, 'no descriptor signal: refuse the birth');
+    const [hi] = gv.faceMeta('woman', [{ ...n, shape: { norm: 12.6 } }]);
+    assert.equal(hi.nullRead, false, 'real descriptor signal: this is a person, cover them');
+    assert.equal(hi.abstained, true, 'exempting the birth must not make it evidence');
+  }
+});
+
+test('the mint refusal needs BOTH the band and a dead descriptor', () => {
+  // The exposure a critic found in the first version, from this repo's
+  // own ground-truth arm: a woman whose reference read at px 206 is
+  // female lands in the band at 32px and again at 48px -- the modal face
+  // size in his player. On the sigmoid alone her birth is refused and
+  // she goes sharp. `nm` is the axis that is not a function of the band.
+  const inBand = { gender: 'male', score: 0.24, raw: 0.62, age: 38, childP: 0.15 };
+  assert.equal(gv.isNullRead(inBand), true);
+  for (const [norm, refused] of [[0, true], [5.9, true], [6, false], [12.4, false]]) {
+    assert.equal(
+      gv.faceMeta('man', [{ ...inBand, shape: { norm } }])[0].nullRead, refused,
+      'norm ' + norm
+    );
+  }
+  // A dead descriptor OUTSIDE the band is not refused either -- the gate
+  // is an AND, and a directed read is evidence whatever its magnitude.
+  const outOfBand = { gender: 'male', score: 0.9, raw: 0.95, age: 30, childP: 0.02, shape: { norm: 1.2 } };
+  assert.ok(!gv.faceMeta('man', [outOfBand])[0].nullRead);
+  // NaN and Infinity fail open. A NaN reaching the ring also fails the
+  // report invariant, so this guards two things at once.
+  for (const norm of [NaN, Infinity, undefined, null, 'small']) {
+    assert.equal(gv.faceMeta('man', [{ ...inBand, shape: { norm } }])[0].nullRead, false, String(norm));
+  }
+});
+
+test('a child in the null band keeps her patch', () => {
+  // isNullRead ran AHEAD of the child branch, and a null read has its age
+  // head pinned at the training prior (~36.9) which is inside
+  // NULL_AGE_LO..HI by construction -- so a child carrying no signal was
+  // classified as the prior. That was harmless while the branch only set
+  // `abstained`; it decides whether she gets a patch at all now.
+  const kid = { gender: 'male', score: 0.24, raw: 0.62, age: 38, childP: 0.4, shape: { norm: 1.5 } };
+  const [m] = gv.faceMeta('man', [kid]);
+  assert.equal(m.abstained, true, 'still covered');
+  assert.ok(!m.nullRead, 'a child read may never refuse a birth');
+});
+
+test('a CHILD abstention is not a null read, and must never refuse a birth', () => {
+  // The two abstentions look identical in every field the tracker reads,
+  // and they must NOT be treated the same at the mint. A null read is the
+  // model answering with its prior -- no evidence anybody is there. A
+  // child read is evidence that somebody IS there whose gender we refuse
+  // to trust, and refusing HER birth is the exposure that got the first
+  // attempt at this gate reverted whole (loop 37c: tracks 1 -> 0 on the
+  // person whose report started the round).
+  for (const kid of [
+    { gender: 'male', score: 0.95, age: 9 },
+    { gender: 'male', score: 0.85, age: 31, childP: 0.3 },
+    { gender: 'female', score: 0.6, age: 12 },
+  ]) {
+    const [m] = faceMeta('man', [kid]);
+    assert.equal(m.abstained, true, 'a child read still abstains');
+    assert.ok(!m.nullRead, 'a child read must not be tagged as the prior');
   }
 });
 

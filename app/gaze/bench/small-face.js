@@ -1,3 +1,14 @@
+// R38: `nm` AND THE AGE-POSTERIOR SHAPE ARE CAPTURED ON BOTH ARMS NOW.
+// `nm` is the faceres descriptor's magnitude before L2-normalisation --
+// how much the network extracted, as opposed to which way it leaned. It
+// has ridden in every read ring since R22 and has never been measured
+// against GROUND TRUTH, which is the only thing this bench has and the
+// device rings do not. Measured live on his phone 2026-09-01, 300 reads:
+// nm p50 12.66 on reads clearing GENDER_CLEAR_SCORE against 2.88 on null
+// reads, and inside a narrow sigmoid slice the correlation with
+// |v-0.5| collapses to -0.21..+0.30 -- so it is NOT the sigmoid
+// restated. Whether it separates a real face from a non-face is exactly
+// what these two arms can answer and the rings cannot.
 // AT WHAT SIZE DOES faceres STOP ANSWERING AND START GUESSING?
 //
 // FACE_MIN_NATIVE_PX is 64: a face whose native square side is smaller
@@ -98,6 +109,8 @@ window.__RUN = async function (ids) {
             px: SN, gender: co[0].gender, score: +co[0].score.toFixed(3),
             raw: +co[0].raw.toFixed(4),
             age: Math.round(co[0].age), child: +(co[0].childP || 0).toFixed(3),
+            nm: co[0].shape ? +co[0].shape.norm.toFixed(2) : null,
+            aEnt: co[0].shape ? +co[0].shape.ageEnt.toFixed(2) : null,
             nullRead: isNullRead(co[0]) ? 1 : 0,
           });
         }
@@ -137,6 +150,8 @@ window.__RUN = async function (ids) {
           px: N, gender: r.gender, score: +r.score.toFixed(3),
           raw: +r.raw.toFixed(4),
           age: Math.round(r.age), child: +(r.childP || 0).toFixed(3),
+          nm: r.shape ? +r.shape.norm.toFixed(2) : null,
+          aEnt: r.shape ? +r.shape.ageEnt.toFixed(2) : null,
         };
         if (s < 0) { ref = rec; } else { series.push(rec); }
       }
@@ -173,6 +188,8 @@ window.__RUN = async function (ids) {
             px: NN, gender: nr.gender, score: +nr.score.toFixed(3),
             raw: +nr.raw.toFixed(4),
             age: Math.round(nr.age), child: +(nr.childP || 0).toFixed(3),
+            nm: nr.shape ? +nr.shape.norm.toFixed(2) : null,
+            aEnt: nr.shape ? +nr.shape.ageEnt.toFixed(2) : null,
             nullRead: isNullRead(nr) ? 1 : 0,
           });
         }

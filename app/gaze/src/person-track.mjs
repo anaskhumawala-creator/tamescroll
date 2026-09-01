@@ -521,7 +521,27 @@ export function dedupeObservations(observations) {
       continue;
     }
     bump('dedupeMerged');
-    out[dup] = preferred(out[dup], o);
+    // THE TAG HAS TO SURVIVE THE MERGE, AND `preferred` CANNOT CARRY IT.
+    // It picks by positionOnly then by AREA and never looks at the tag,
+    // so a graphic's synthetic body -- 7.4 face heights, usually the
+    // larger box -- would absorb a real read merged with it and the
+    // merged observation would come out untagged. Loop 37c measured that
+    // exact laundering and it is why the first attempt at this gate was
+    // reverted.
+    //
+    // The rule is AND, and it is the covering direction: the merged
+    // observation may mint if ANY of the observations that went into it
+    // was real evidence. A merge can therefore only ever make a birth
+    // MORE likely, never less.
+    var wasNull = !!out[dup].nullMint && !!o.nullMint;
+    // Copied, not mutated: `preferred` returns one of the caller's own
+    // observation objects, and writing the tag back into it would change
+    // what the caller sees for the rest of the pass.
+    var merged = preferred(out[dup], o);
+    var copy = {};
+    for (var k in merged) if (Object.prototype.hasOwnProperty.call(merged, k)) copy[k] = merged[k];
+    copy.nullMint = wasNull;
+    out[dup] = copy;
   }
   return out;
 }
@@ -613,6 +633,13 @@ export function updatePersonTracks(tracks, observations, dtMs) {
     if (trackClaimed[pair.t] || obsClaimed[pair.o]) continue;
     trackClaimed[pair.t] = true;
     obsClaimed[pair.o] = true;
+    // `nullDropped` ALONE CANNOT ANSWER THE QUESTION IT EXISTS FOR.
+    // A run reading nullDropped 400 could be 400 transient graphics
+    // refused, or the same real person refused 400 times, and those want
+    // opposite fixes. A tagged observation that MATCHED is the harmless
+    // case -- the subject already has a patch and keeps it -- so counting
+    // the two side by side is what makes the ratio readable.
+    if (observations[pair.o].nullMint) bump('nullMatched');
     next.push(matchedStep(tracks[pair.t], observations[pair.o], dt));
   }
   for (i = 0; i < tracks.length; i++) {
@@ -636,10 +663,30 @@ export function updatePersonTracks(tracks, observations, dtMs) {
     // (contention), and one refused by sizeCompatible. They want
     // opposite fixes, and R17 lost a section of analysis to not being
     // able to tell them apart from the artifact.
+    // THE REFUSAL COMES FIRST, and that ordering is an instrument
+    // decision rather than a stylistic one. Below the bumps, the four
+    // birth counters would silently change meaning from "a track was
+    // born" to "a birth was attempted", and every previous round's
+    // reading of `birthFresh` would be rebased without anything in the
+    // artifact saying so.
+    if (observations[j].nullMint) {
+      bump('nullDropped');
+      continue;
+    }
     if (bestIou[j] <= 0) bump('birthFresh');
     else if (bestIou[j] < PTRACK_IOU_MIN) bump('birthNearMiss');
     else if (sizeBlocked[j]) bump('birthSizeRejected');
     else bump('birthContended');
+    // A NULL READ MAY NOT CREATE A PATCH -- refused above, before the
+    // birth counters, so those keep counting births.
+    //
+    // Refuse the BIRTH, never the observation and never a refresh. That
+    // distinction is the whole safety argument and the first attempt got
+    // it wrong: dropping the observation lets `coastStep` expire the
+    // track (~4s at his cadence) and takes the blur OFF somebody already
+    // covered. Here the observation still reaches every matched track
+    // above, so a covered subject is refreshed exactly as before; only a
+    // patch that does not exist yet is refused.
     next.push(newTrack(observations[j]));
   }
   return next;

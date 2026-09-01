@@ -1,0 +1,64 @@
+=== all HIDDEN
+{
+ "url": "https://www.instagram.com/explore/",
+ "cssBytes": 594,
+ "hasReels": true,
+ "hasExplore": true,
+ "reels": [
+  {
+   "href": "/reels/",
+   "display": "none",
+   "w": 0,
+   "h": 0,
+   "hits": [
+    "tamescroll-rules :: a[href^=\"/reels\"]",
+    "page :: .x78zum5",
+    "page :: .xt0psk2"
+   ]
+  }
+ ],
+ "explore": [
+  {
+   "href": "/explore/",
+   "display": "none",
+   "w": 0,
+   "h": 0,
+   "hits": [
+    "tamescroll-rules :: a[href^=\"/explore\"]",
+    "page :: .x78zum5",
+    "page :: .xt0psk2"
+   ]
+  }
+ ]
+}
+=== reels+explore SHOWN
+{
+ "url": "https://www.instagram.com/explore/",
+ "cssBytes": 429,
+ "hasReels": false,
+ "hasExplore": false,
+ "reels": [
+  {
+   "href": "/reels/",
+   "display": "block",
+   "w": 24,
+   "h": 44,
+   "hits": [
+    "page :: .x78zum5",
+    "page :: .xt0psk2"
+   ]
+  }
+ ],
+ "explore": [
+  {
+   "href": "/explore/",
+   "display": "block",
+   "w": 24,
+   "h": 44,
+   "hits": [
+    "page :: .x78zum5",
+    "page :: .xt0psk2"
+   ]
+  }
+ ]
+}
