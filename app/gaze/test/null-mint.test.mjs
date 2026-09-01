@@ -1,20 +1,23 @@
-// A NULL READ MAY NOT CREATE A PATCH, AND MUST STILL BE ABLE TO KEEP ONE.
+// A NULL READ IS TAGGED AND COUNTED. IT IS NOT REFUSED.
 //
-// This gate has been built and reverted twice, both times for a real
-// exposure, and both times the tests that were supposed to pin it COULD
-// NOT HAVE FAILED -- one was a string match on source, the other handed
-// its observation straight to updatePersonTracks and so never ran the
-// path the defect lived in. These run the real tracker and every one of
-// them fails against the pre-fix source.
+// Three builds of this gate have now shipped an exposure, and the third
+// was mine. Refusing the OBSERVATION took the blur off a covered woman
+// in ~4s of coast (loop 37b). Refusing the BIRTH looked safe -- a live
+// track is still refreshed -- and is not: a track DIES on coast expiry
+// or on a cut plus wipeIfEmpty, and coming back needs a birth. Because
+// the tag is a property of CONTENT it lands on the same subject every
+// pass, so the refusal is PERMANENT. Reproduced against this tracker:
+// 40 tagged passes after a death leave 0 tracks, where one UNtagged
+// pass covers her immediately.
 //
-// The two failures being guarded against, in order of severity:
-//   1. Dropping the OBSERVATION rather than the BIRTH. coastStep expires
-//      a blurred track in ~4s at his cadence, so three refused passes
-//      take the blur off a woman who was already covered (loop 37b).
-//   2. dedupeObservations LAUNDERING the tag. `preferred` picks by area
-//      and never reads it, so a graphic's synthetic body -- usually the
-//      larger box -- absorbed a real read and came out untagged
-//      (loop 37c).
+// So the tag now feeds two counters and changes no behaviour, and these
+// tests pin THAT: the tag survives dedupe (loop 37c laundered it), a
+// tagged observation still mints and still refreshes, and the counters
+// can tell "400 transient graphics" from "one real person 400 times" --
+// which is the number a bounded version of this gate needs.
+//
+// A bounded version -- refuse at most ONE consecutive birth -- is the
+// next thing to build. It needs state updatePersonTracks does not have.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -51,15 +54,31 @@ test('the fixture really is a null read, and it really produces the tag', () => 
   assert.ok(!ok.nullRead);
 });
 
-test('an unmatched null read creates no track', () => {
+test('an unmatched null read is COUNTED and still creates its track', () => {
   const obs = { box: box(0.1, 0.1, 0.4, 0.9), flagged: true, certain: false, abstained: true, nullMint: true };
   const life = counters(() => {
-    assert.equal(updatePersonTracks([], [obs], 300).length, 0);
+    assert.equal(updatePersonTracks([], [obs], 300).length, 1, 'the tag must not refuse a birth');
   });
-  assert.equal(life.nullDropped, 1, 'the refusal must be counted or nobody can see it fire');
-  // The control: the identical observation without the tag DOES mint.
+  assert.equal(life.nullWouldDrop, 1, 'a counter nobody can see fire is a claim');
+  // The control: the identical observation without the tag behaves the
+  // same way, because the tag costs nothing but a number now.
   const untagged = { ...obs, nullMint: false };
   assert.equal(updatePersonTracks([], [untagged], 300).length, 1);
+});
+
+test('A TAGGED SUBJECT IS COVERED AGAIN AFTER HER TRACK DIES', () => {
+  // THE EXPOSURE THE THIRD BUILD OF THIS GATE SHIPPED, pinned so a
+  // fourth cannot. Refusing the birth is safe only while the track is
+  // alive; it dies on coast expiry (`coastExpired` 12 in one phone run)
+  // and a birth is then the only way back.
+  const b = box(0.3, 0.2, 0.5, 0.7);
+  const tagged = { box: b, flagged: true, certain: false, abstained: true, nullMint: true };
+  let t = updatePersonTracks([], [{ box: b, flagged: true, certain: true }], 250);
+  assert.equal(t.length, 1);
+  for (let i = 0; i < 40; i++) t = updatePersonTracks(t, [], 250);
+  assert.equal(t.length, 0, 'the track has to actually die or this proves nothing');
+  // One pass. Not forty.
+  assert.equal(updatePersonTracks(t, [tagged], 250).length, 1);
 });
 
 test('a null read still refreshes a track that already exists', () => {
@@ -101,7 +120,10 @@ test('two null reads merged stay refused', () => {
   const out = dedupeObservations([a, b]);
   assert.equal(out.length, 1);
   assert.equal(out[0].nullMint, true);
-  assert.equal(updatePersonTracks([], out, 300).length, 0);
+  const life = counters(() => {
+    assert.equal(updatePersonTracks([], out, 300).length, 1);
+  });
+  assert.equal(life.nullWouldDrop, 1, 'the merged tag must reach the counter');
 });
 
 test('the merge does not write the tag back into the caller\'s observation', () => {
@@ -136,24 +158,21 @@ test('a female LABEL is never refused, and that is not the same as a woman', () 
   assert.ok(!faceMeta('man', [misread])[0].nullRead, 'and her birth is not refused');
 });
 
-test('a pass whose every observation is refused leaves NOTHING, and says so', () => {
-  // THE EXPOSURE A CRITIC NAMED, pinned rather than argued. In his regime
-  // MoveNet admits nobody, so every observation comes from a face -- and
-  // if the gate refuses them all, `updatePersonTracks` returns an empty
-  // list and the caller clears the player outright. This test does not
-  // claim that is wrong; it claims the artifact must be able to SEE it,
-  // because a run cannot otherwise tell "400 graphics refused" from "one
-  // real person refused 400 times".
+test('a pass of nothing but tagged reads still covers everybody in it', () => {
+  // In his regime MoveNet admits nobody, so EVERY observation comes from
+  // a face. A gate that refused them all returned an empty list and the
+  // caller cleared the player outright -- the exposure above, at frame
+  // scale.
   const obs = [
     { box: box(0.05, 0.05, 0.30, 0.90), flagged: true, certain: false, abstained: true, nullMint: true },
     { box: box(0.60, 0.05, 0.90, 0.90), flagged: true, certain: false, abstained: true, nullMint: true },
   ];
   const life = counters(() => {
-    assert.equal(updatePersonTracks([], obs, 300).length, 0);
+    assert.equal(updatePersonTracks([], obs, 300).length, 2, 'both must be covered');
   });
-  assert.equal(life.nullDropped, 2);
+  assert.equal(life.nullWouldDrop, 2);
   assert.ok(!life.nullMatched, 'nothing matched -- this is the dangerous shape');
-  assert.ok(!life.birthFresh, 'a refused birth is not a birth');
+  assert.equal(life.birthFresh, 2, 'a counted birth is still a birth');
 });
 
 test('a tagged observation that refreshes a track is counted apart', () => {
@@ -163,12 +182,12 @@ test('a tagged observation that refreshes a track is counted apart', () => {
     updatePersonTracks(tracks, [{ box: b, flagged: true, certain: false, abstained: true, nullMint: true }], 300);
   });
   assert.equal(life.nullMatched, 1, 'the harmless case needs its own number');
-  assert.ok(!life.nullDropped, 'a matched observation is never a refused birth');
+  assert.ok(!life.nullWouldDrop, 'a matched observation is never a birth');
 });
 
-test('a match just above PTRACK_IOU_MIN still refreshes, just below is a refused birth', () => {
-  // The birth refusal keys off "unmatched", so the association threshold
-  // became load bearing. The first version of this test compared two
+test('a match just above PTRACK_IOU_MIN refreshes, just below is a fresh birth', () => {
+  // The two counters split on "unmatched", so the association threshold
+  // decides which one fires. The first version of this test compared two
   // boxes at IoU 0.835 against a threshold of 0.2 and proved nothing.
   // These are built FROM the constant, so they move with it.
   const base = box(0.2, 0.1, 0.5, 0.9);
@@ -187,10 +206,11 @@ test('a match just above PTRACK_IOU_MIN still refreshes, just below is a refused
 
   const life = counters(() => {
     const below = updatePersonTracks(tracks, [tagged(shifted(Math.max(0.01, PTRACK_IOU_MIN - 0.1)))], 300);
-    // The old track coasts; the tagged observation mints nothing.
-    assert.ok(below.every((t) => t.id === id), 'a refused birth must not appear as a track');
+    // The old track coasts AND the tagged observation mints its own.
+    assert.equal(below.length, 2, 'below the threshold it is a separate person');
+    assert.ok(below.some((t) => t.id !== id));
   });
-  assert.equal(life.nullDropped, 1, 'below the threshold it IS a birth, and it is refused');
+  assert.equal(life.nullWouldDrop, 1, 'below the threshold it IS a birth');
 });
 
 test('init-entry copies the tag onto the observation, beside the others', () => {
@@ -210,16 +230,20 @@ test('init-entry copies the tag onto the observation, beside the others', () => 
   );
 });
 
-test('the refusal sits above the birth counters', () => {
-  // Below them, birthFresh/birthNearMiss/birthSizeRejected/birthContended
-  // would change meaning from "a track was born" to "a birth was
-  // attempted" and every earlier round's reading of birthFresh would be
-  // rebased with nothing in the artifact saying so.
+test('nothing in the birth loop refuses a tagged observation', () => {
+  // A STRING TEST THAT CANNOT FAIL is how this repo has been burned three
+  // times, and the version of this test that shipped an hour ago was one:
+  // `indexOf(a) < indexOf(b)` is TRUE when the first term is -1, so it
+  // passed with the whole gate deleted. Assert both indexes exist first.
   const pt = readFileSync(new URL('../src/person-track.mjs', import.meta.url), 'utf8');
   const loop = pt.slice(pt.indexOf('for (j = 0; j < observations.length; j++)'));
   const body = loop.slice(0, loop.indexOf('return next;'));
-  assert.ok(
-    body.indexOf("bump('nullDropped')") < body.indexOf("bump('birthFresh')"),
-    'the refusal moved below the birth counters and rebased them'
-  );
+  const would = body.indexOf("bump('nullWouldDrop')");
+  const fresh = body.indexOf("bump('birthFresh')");
+  assert.ok(would >= 0, 'the counter left the birth loop');
+  assert.ok(fresh >= 0, 'the birth counters left the birth loop');
+  assert.ok(would < fresh, 'the tag check moved below the birth counters');
+  // The thing that actually matters: no early exit on the tag.
+  const near = body.slice(Math.max(0, would - 300), would + 300);
+  assert.ok(!/nullMint[\s\S]{0,120}continue/.test(near), 'the tag refuses a birth again');
 });

@@ -37,21 +37,64 @@ console.log('  in band:', fB.length, 'of', faceSeries.length, 'real faces  |',
   nB.length, 'of', nullSeries.length, 'non-faces');
 if (!nullSeries.length) { console.log('\nNON-FACE ARM MISSING -- nothing can be concluded.'); process.exit(0); }
 console.log('');
-console.log('floor | real FACES refused        | NON-FACES refused         | ratio');
+// THE DENOMINATOR IS THE IN-BAND POPULATION, AND THE FIRST VERSION OF
+// THIS BENCH USED THE WHOLE ARM.
+//
+// The gate is an AND, so a read outside the band can never be refused
+// whatever its nm. Dividing by every read counted 118 of 125 real-face
+// reads that were never eligible, which flatters the face column, and
+// printed non-face percentages against 425 while the write-up quoted 403
+// -- so nobody re-running this could reconcile it with the source
+// comment. Both columns are over the IN-BAND population now.
+//
+// AND THE READS ARE NOT INDEPENDENT. The face arm's in-band reads come
+// from a HANDFUL of distinct faces, and a subject refused at every size
+// is uncoverable while one refused at a single size is not -- so the
+// per-FACE count is the one that describes the harm.
+const faceOf = new Map();
+for (const r of face.rows) for (const s of r.series) faceOf.set(s, r);
+const idsIn = new Set(fB.map((s) => faceOf.get(s).id));
+console.log('  in-band real faces come from', idsIn.size, 'distinct subjects:',
+  [...idsIn].map((id) => id + '(' + face.rows.find((r) => r.id === id).ref.gender + ')').join(' '));
+console.log('');
+
+console.log('floor | real FACE reads |  faces wholly | in-band NON-FACE reads');
 for (const floor of [0, 3, 4, 5, 6, 7, 8, 9, 10]) {
-  const fr = fB.filter((s) => typeof s.nm === 'number' && s.nm < floor).length;
-  const nr = nB.filter((s) => typeof s.nm === 'number' && s.nm < floor).length;
+  const hit = (s) => typeof s.nm === 'number' && s.nm < floor;
+  const fr = fB.filter(hit);
+  const nr = nB.filter(hit).length;
+  // A subject every one of whose in-band reads is refused is the one
+  // that matters: at his cadence there is no size at which she recovers.
+  let whole = 0;
+  for (const id of idsIn) {
+    const mine = fB.filter((s) => faceOf.get(s).id === id);
+    if (mine.length && mine.every(hit)) whole++;
+  }
   console.log(
     String(floor).padStart(5), '|',
-    String(fr).padStart(4), 'of', String(faceSeries.length).padStart(4),
-    (100 * fr / faceSeries.length).toFixed(1).padStart(5) + '%  |',
-    String(nr).padStart(4), 'of', String(nullSeries.length).padStart(4),
-    (100 * nr / nullSeries.length).toFixed(1).padStart(5) + '%  |',
-    fr ? (nr / fr).toFixed(1) : (nr ? 'inf' : '-')
+    String(fr.length + ' of ' + fB.length).padStart(15), '|',
+    String(whole + ' of ' + idsIn.size).padStart(13), '|',
+    String(nr + ' of ' + nB.length).padStart(14),
+    (100 * nr / (nB.length || 1)).toFixed(1).padStart(6) + '%'
   );
 }
 console.log('');
 console.log('floor 0 is the control: the gate off. Anything it refuses is a bug.');
+console.log('');
+console.log('WHO the face column is, at every floor that touches anybody:');
+for (const s of fB.slice().sort((a, b) => a.nm - b.nm)) {
+  const r = faceOf.get(s);
+  console.log('  nm', String(s.nm).padStart(6), ' px', String(s.px).padStart(3),
+    ' ref', r.ref.gender, ' (refPx ' + r.ref.px + ')', r.id);
+}
+console.log('');
+console.log('OVERLAP in the deciding region -- the arms are NOT far apart here:');
+const nms = (a) => a.map((x) => x.nm).filter((v) => typeof v === 'number').sort((x, y) => x - y);
+const fN = nms(fB), nN = nms(nB);
+const qq = (a, p) => (a.length ? a[Math.min(a.length - 1, Math.floor(p * a.length))] : null);
+console.log('  in-band real faces  n=' + fN.length, ' min', fN[0], ' p50', qq(fN, 0.5), ' max', fN[fN.length - 1]);
+console.log('  in-band non-faces   n=' + nN.length, ' min', nN[0], ' p50', qq(nN, 0.5),
+  ' p95', qq(nN, 0.95), ' max', nN[nN.length - 1]);
 console.log('');
 const q = (a, p) => (a.length ? [...a].sort((x, y) => x - y)[Math.min(a.length - 1, Math.floor(p * a.length))] : null);
 const f2 = (v) => (v == null ? '  -  ' : v.toFixed(2));

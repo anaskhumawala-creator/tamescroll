@@ -240,11 +240,14 @@ test('the mint refusal needs BOTH the band and a dead descriptor', () => {
   // she goes sharp. `nm` is the axis that is not a function of the band.
   const inBand = { gender: 'male', score: 0.24, raw: 0.62, age: 38, childP: 0.15 };
   assert.equal(gv.isNullRead(inBand), true);
-  // The floor is 5, calibrated on both ground-truth arms: at 5 no real
-  // face in 125 reads is refused and 388 of 403 in-band non-face reads
-  // are; at 6, five real-face reads go -- four of them HERS. The pair
-  // either side of the boundary is pinned here so moving the constant
-  // has to move this test with it. 5.11 is her lowest measured nm.
+  // The floor is 5. RETRACTED: the five reads floor 6 refuses are ONE
+  // MAN (RcGyVTAoXEU, ref male 231px, nm 5.11-5.85), not the woman --
+  // she reads nm 9.93 and 11.48 and is untouched until floor 10. 5.11 is
+  // HIS lowest measured nm, and it is pinned here so the constant cannot
+  // walk back up without this test moving with it.
+  //
+  // The tag no longer refuses a birth (person-track.mjs), so this pins
+  // what the COUNTERS see, not what the tracker does.
   for (const [norm, refused] of [[0, true], [4.9, true], [5, false], [5.11, false], [12.4, false]]) {
     assert.equal(
       gv.faceMeta('man', [{ ...inBand, shape: { norm } }])[0].nullRead, refused,

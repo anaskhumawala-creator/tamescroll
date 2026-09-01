@@ -663,16 +663,35 @@ export function updatePersonTracks(tracks, observations, dtMs) {
     // (contention), and one refused by sizeCompatible. They want
     // opposite fixes, and R17 lost a section of analysis to not being
     // able to tell them apart from the artifact.
-    // THE REFUSAL COMES FIRST, and that ordering is an instrument
-    // decision rather than a stylistic one. Below the bumps, the four
-    // birth counters would silently change meaning from "a track was
-    // born" to "a birth was attempted", and every previous round's
-    // reading of `birthFresh` would be rebased without anything in the
-    // artifact saying so.
-    if (observations[j].nullMint) {
-      bump('nullDropped');
-      continue;
-    }
+    // A NULL-MINT READ IS COUNTED AND THEN ALLOWED THROUGH. It used to
+    // `continue` here, and that shipped an EXPOSURE -- the third build of
+    // this gate to do so, after loops 37b and 37c.
+    //
+    // The safety argument was "the observation still refreshes every
+    // matched track, so nobody already covered can be uncovered". That is
+    // true only while the track is ALIVE. A track dies on coast expiry
+    // (measured: `coastExpired` 12 in one phone run) or on a cut plus
+    // wipeIfEmpty, and coming back then needs a BIRTH -- which is exactly
+    // what was refused. The tag is a property of CONTENT, so it lands on
+    // the same subject every pass and the refusal is PERMANENT, not
+    // intermittent. Reproduced against this tracker:
+    //
+    //   born untagged                        1 blurred
+    //   12 tagged refreshes, track alive     1 blurred   (refresh is safe)
+    //   40 empty passes (10s)                0           (track dies)
+    //   40 tagged passes after that          0 TRACKS    <- sharp, forever
+    //   CONTROL, one UNtagged pass           1 blurred   (covered in one)
+    //
+    // So "monotone toward covering" held for floor 5 against floor 6 and
+    // NOT for gate against no gate, which is what the comment claimed.
+    //
+    // The counter stays, because the measurement it feeds is worth having
+    // and costs nothing: `nullWouldDrop` against `nullMatched` says how
+    // much a bounded version of this would be worth. A bounded version --
+    // refuse at most ONE consecutive birth, so a transient graphic is
+    // refused and a real person is covered one pass later -- is the next
+    // thing to build, and it needs state this pure function does not have.
+    if (observations[j].nullMint) bump('nullWouldDrop');
     if (bestIou[j] <= 0) bump('birthFresh');
     else if (bestIou[j] < PTRACK_IOU_MIN) bump('birthNearMiss');
     else if (sizeBlocked[j]) bump('birthSizeRejected');

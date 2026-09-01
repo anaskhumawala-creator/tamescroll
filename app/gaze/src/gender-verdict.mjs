@@ -559,27 +559,52 @@ export function isNullRead(face) {
 // COVERING and cannot introduce an exposure the previous build did not
 // already have.
 //
-// THE FLOOR IS CALIBRATED ON GROUND TRUTH, NOT ON HIS RING, and the
-// first number I picked would have refused a real woman. Both arms
-// re-read with `nm` captured (app/gaze/bench/nm-floor.mjs, over
-// spikes/gauntlet/nmtruth-{face,nonface}.json): 25 faces BlazeFace
-// found, and 85 corner crops from thumbnails where it found nothing,
-// each degraded to 32/40/48/56/64px -- the sizes his player actually
-// reads at.
+// THE FLOOR NO LONGER REFUSES ANYTHING. It feeds two counters, and the
+// reason it stopped is an EXPOSURE I shipped and a critic found.
 //
-//   floor | real FACES refused | in-band NON-FACES refused
-//       4 |   0 of 125   0.0%  |  361 of 403   89.6%
-//       5 |   0 of 125   0.0%  |  388 of 403   96.3%
-//       6 |   5 of 125   4.0%  |  400 of 403   99.3%
+// Refusing the BIRTH looked safe because a live track is still refreshed.
+// A track DIES -- coast expiry (`coastExpired` 12 in one phone run) or a
+// cut plus wipeIfEmpty -- and coming back needs a birth. The tag is a
+// property of CONTENT, so it lands on the same subject every pass and the
+// refusal is PERMANENT. Reproduced against the real tracker: 40 tagged
+// passes after a death leave 0 tracks; one UNtagged pass covers her.
+// person-track.mjs carries the table. Third build of this gate to ship an
+// exposure, and the argument "monotone toward covering" was true of floor
+// 5 against floor 6 and false of gate against no gate.
 //
-// So 6 buys 3% more non-faces for FIVE REFUSED READS OF A REAL FACE --
-// four of them hers, at 32px and 48px. 5 refuses none, at every size.
-// A real face reads nm p05 8.34 at 32px rising to 10.99 at 64px; a
-// non-face reads p95 4.56-5.49. The two arms are separated by a factor
-// of two and the floor sits in the gap, so it is not a knife edge.
+// RETRACTED, MINE: "6 would have refused a real woman five times." All
+// five refused reads are ONE MAN (`RcGyVTAoXEU`, ref male at 231px, nm
+// 5.11-5.85 across every size). The woman in the band (`X0Qyuw5ietg`,
+// ref female at 206px) reads nm 9.93 and 11.48 and is not refused at 5,
+// 6, 8 or 9 -- she first appears at floor 10. So the 6 -> 5 move bought
+// her nothing and cost 12 in-band non-face reads. It still refuses a real
+// face, which is an exposure in the mode where that person is covered,
+// but the reason on record was fabricated.
 //
-// Floor 0 is the control and refuses nothing in either arm -- so every
-// refusal below is the AND doing work, not the band alone.
+// AND THE EVIDENCE IS THINNER THAN IT LOOKED. The gate is an AND, so only
+// IN-BAND reads are eligible: 7 of 125 face reads, from TWO subjects, and
+// 403 of 425 non-face reads from 22 thumbnail ids. In that region the
+// arms OVERLAP -- real faces min 5.11, non-faces max 6.66 -- so the
+// "factor of two apart" figure was computed over the whole arm, 118
+// reads of which the gate can never touch.
+//
+//   floor | real FACE reads | faces wholly | in-band NON-FACE reads
+//       4 |          0 of 7 |       0 of 2 |   361 of 403   89.6%
+//       5 |          0 of 7 |       0 of 2 |   388 of 403   96.3%
+//       6 |          5 of 7 |       1 of 2 |   400 of 403   99.3%
+//
+// WHAT SURVIVES, and it is why the tag stays: `nm` is faceres' descriptor
+// magnitude before L2-normalisation -- how much the network extracted,
+// not which way it leaned -- and it is NOT the sigmoid restated (inside a
+// narrow v slice its correlation with |v-0.5| collapses to -0.21..+0.30).
+// On his phone, live, 300 reads: nm p50 12.66 on reads that clear, 2.88
+// on null reads. 89 of 300 reads carry no signal and each one mints a
+// patch, which is his "random blur marks here and there" quantified.
+//
+// The next build is a BOUNDED refusal -- refuse at most one consecutive
+// birth, so a transient graphic is refused and a real person is covered
+// one pass later. `nullWouldDrop` against `nullMatched` is what says
+// whether it is worth the state it needs.
 export var NULL_MINT_NM_FLOOR = 5;
 
 /**
