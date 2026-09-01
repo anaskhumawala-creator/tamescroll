@@ -1845,7 +1845,32 @@ function newTrack(obs) {
     // shortcuts this — not recognition, not a prior sighting; the
     // fast-clear streak is what lifts blur off a correctly-read
     // same-gender adult within ~0.8s.
-    state: 'blurred',
+    //
+    // ...EXCEPT THAT A BIRTH MAY RUN THE SAME LADDER A MATCH RUNS, and
+    // until now it could not. matchedStep clears on
+    // `obs.instant || clearMs >= CLEAR_HOLD_MS || clearStreak >= CLEAR_STREAK_N`.
+    // At birth clearMs is 0 and clearStreak is at most 1 against a
+    // CLEAR_STREAK_N of 2, so that expression reduces EXACTLY to
+    // `obs.instant` -- this is the same rung, not a weaker one.
+    //
+    // It matters because a fresh track almost never survives to a second
+    // verdict. churn.mjs: the id covering a labelled MAN changes 260
+    // times over 479 frames, MEDIAN RUN ONE FRAME, against a 1.5s
+    // verdict. The ladder needs two verdicts on one id and the id does
+    // not last one, so `obs.instant` -- added precisely to stop 'it keeps
+    // blurring me' -- has been unreachable for every subject the tracker
+    // re-mints, which is most of them in a handheld two-shot.
+    //
+    // `instant` is `certain && score >= instantClearScoreFor(gender)` and
+    // sits in the branch where `flagged = !certain`, so it already
+    // implies a confident SAME-GENDER read; the other setter is the
+    // identity memory, which grants it only on an EARNED clear. The three
+    // redundant conditions below are deliberate: this is a protection
+    // decision, and a future change to `instant` upstream must not
+    // silently become a change to what may be born sharp.
+    state: (obs.instant && obs.certain && !obs.flagged && !obs.abstained)
+      ? 'cleared'
+      : 'blurred',
     clearMs: 0,
     missMs: 0,
     clearAge: 0,

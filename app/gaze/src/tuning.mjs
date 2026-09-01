@@ -26,6 +26,7 @@
 import * as sceneGate from './scene-gate.mjs';
 import * as genderVerdict from './gender-verdict.mjs';
 import * as identityMemory from './identity-memory.mjs';
+import * as personSkip from './person-skip.mjs';
 
 export var TUNED = null;      // what actually took effect, for the report
 export var TUNE_REFUSED = 0;  // keys refused outright
@@ -64,6 +65,21 @@ var SPEC = {
   MEM_TRUST_MAN: [1, 5, function (v) { identityMemory.setTrustMan(v); }],
   MEM_TRUST_WOMAN: [1, 5, function (v) { identityMemory.setTrustWoman(v); }],
   MEM_SIM: [0.5, 0.9, function (v) { identityMemory.setSim(v); }],
+
+  // One pass in this many runs the person model once it has admitted
+  // nobody PERSON_EMPTY_STREAK times running. ONE IS OFF -- the shipped
+  // value, and the reason a build carrying this changes nothing.
+  //
+  // It is on the channel rather than in the binary because its cost is
+  // PHANTOM. Skipping buys pass time, pass time buys cadence, and the
+  // corpus prices that same clock change at up to +116s of phantom
+  // against -72.5s of exposure. Phantom is what he calls "random blur
+  // marks here and there", so this must be reversible in seconds.
+  //
+  // The ceiling is 4, not higher: at 4 the model still runs every ~6s of
+  // wall clock in his regime, which is the slowest it can go and still
+  // notice a person walking into frame before a shot ends.
+  PERSON_SKIP_EVERY: [1, 4, function (v) { personSkip.setPersonSkipEvery(v); }],
 };
 
 export function tunableNames() { return Object.keys(SPEC); }

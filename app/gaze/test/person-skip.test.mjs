@@ -13,12 +13,25 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import {
+  wantPersons,
+  notePersons,
+  resetPersonSkip,
+  setPersonSkipEvery,
+  PERSON_EMPTY_STREAK,
+} from '../src/person-skip.mjs';
 
 const worker = readFileSync(new URL('../src/worker-entry.js', import.meta.url), 'utf8');
 const client = readFileSync(new URL('../src/worker-client.mjs', import.meta.url), 'utf8');
 const page = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
-const START = '>>> PERSON-SKIP POLICY (person-skip.test.mjs runs this block)';
-const END = '<<< PERSON-SKIP POLICY';
+
+// The policy is pure arithmetic in its own module, so RUN it rather than
+// asserting on its text. A string match would pass against a policy that
+// skips every pass, which is the failure that matters.
+function fresh(every) {
+  resetPersonSkip();
+  setPersonSkipEvery(every);
+}
 
 test('the worker skips the person pass only when the page asks', () => {
   assert.match(worker, /var wantPersons = msg\.withPersons !== false;/);
@@ -64,23 +77,27 @@ test('a skipped pass can never report an empty frame', () => {
   assert.match(page, /if \(!askPersons\) persons\.skipped = true;/);
 });
 
-// The policy is pure arithmetic, so run the SHIPPED text rather than
-// asserting on it. A string match here would pass against a policy that
-// skips every pass, which is the failure that matters.
-function policy() {
-  // Sliced to a MARKER, never a fixed length -- a fixed window stops
-  // covering the block the moment a comment grows, which has cost this
-  // repo two rounds.
-  const a = page.indexOf(START), b = page.indexOf(END);
-  const m = a >= 0 && b > a ? [null, page.slice(a + START.length, b)] : null;
-  assert.ok(m, 'could not find the skip policy block');
-  // The slice ends on a dangling line comment, so the appended return
-  // needs its own line or it is commented out.
-  return new Function(m[1] + '\n; return { wantPersons, notePersons };')();
-}
+test('IT SHIPS INERT: the default never skips a pass', () => {
+  // The whole reason the mechanism can sit in a build at all.
+  // PERSON_SKIP_EVERY rides the OTA tuning channel, so a build carrying
+  // it must behave exactly like the build before it until a number is
+  // deliberately pushed. Its cost is PHANTOM -- his "random blur marks
+  // here and there" -- so it has to be reversible in seconds, not in a
+  // release.
+  const shipped = JSON.parse(
+    readFileSync(new URL('../../../rules/tuning.json', import.meta.url), 'utf8'),
+  );
+  assert.equal(shipped.PERSON_SKIP_EVERY, 1, 'the shipped value must be the off value');
+  fresh(shipped.PERSON_SKIP_EVERY);
+  for (let i = 0; i < 20; i++) {
+    assert.equal(wantPersons(), true, 'pass ' + i + ' must run the model');
+    notePersons([], false);
+  }
+});
 
 test('the model runs every pass until it has admitted nobody three times', () => {
-  const { wantPersons, notePersons } = policy();
+  fresh(3);
+  assert.equal(PERSON_EMPTY_STREAK, 3);
   assert.equal(wantPersons(), true);
   for (let i = 0; i < 2; i++) {
     notePersons([], false);
@@ -91,7 +108,7 @@ test('the model runs every pass until it has admitted nobody three times', () =>
 });
 
 test('one admitted person resets it instantly', () => {
-  const { wantPersons, notePersons } = policy();
+  fresh(3);
   for (let i = 0; i < 5; i++) notePersons([], false);
   assert.equal(wantPersons(), false);
   // On footage where MoveNet works, this whole mechanism is inert.
@@ -102,7 +119,7 @@ test('one admitted person resets it instantly', () => {
 });
 
 test('backed off, it still runs one pass in three -- never none', () => {
-  const { wantPersons, notePersons } = policy();
+  fresh(3);
   for (let i = 0; i < 3; i++) notePersons([], false);
   // A model that is never asked again can never notice a person walking
   // into frame, and the streak would never reset.
@@ -117,4 +134,22 @@ test('backed off, it still runs one pass in three -- never none', () => {
   // and never two real passes back to back
   for (let i = 1; i < ran.length; i++)
     assert.ok(!(ran[i] && ran[i - 1]), 'two consecutive real passes at ' + i);
+});
+
+test('a fresh video starts from an unbacked-off state', () => {
+  // A backed-off run surviving a navigation would carry "MoveNet finds
+  // nobody on this footage" into footage where it does.
+  fresh(3);
+  for (let i = 0; i < 5; i++) notePersons([], false);
+  assert.equal(wantPersons(), false);
+  resetPersonSkip();
+  assert.equal(wantPersons(), true);
+});
+
+test('the page reads the policy from the module, not from a copy', () => {
+  // An inline duplicate is how the crop-geometry defect lived four days
+  // across three model swaps.
+  assert.match(page, /from '\.\/person-skip\.mjs'/);
+  assert.match(page, /var askPersons = wantPersons\(\);/);
+  assert.match(page, /notePersons\(/);
 });

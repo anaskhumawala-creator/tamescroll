@@ -1505,3 +1505,63 @@ test('mergeTracks: the union carries headY and headH through', () => {
   assert.equal(out[0].headY, 0.3, 'the wider head wins, on both axes');
   assert.equal(out[0].headH, 0.12);
 });
+
+// ---------------------------------------------------------------------
+// A BIRTH MAY RUN THE SAME LADDER A MATCH RUNS.
+//
+// Loop 41. The tracker re-mints most subjects: on the labelled corpus the
+// id covering one MAN changes 260 times over 479 frames, MEDIAN RUN ONE
+// FRAME, against a 1.5s verdict cadence. Both other rungs of the clear
+// ladder need a track to survive to a SECOND verdict, so for every
+// re-minted subject the only reachable rung is `obs.instant` -- and until
+// this change a birth could not take it. That is his "it keeps blurring
+// me" with a mechanism.
+//
+// Measured on 18 labelled windows, man mode: false cover roughly HALVES
+// at near-zero exposure cost, and phantom falls too.
+test('a birth takes the instant rung, and ONLY the instant rung', () => {
+  // The control: a confident clear read that is not instant still starts
+  // blurred, exactly as before. This is the same assertion as the very
+  // first test in this file, restated here so a future edit that widens
+  // the birth has to break BOTH.
+  let t = updatePersonTracks([], [obs(boxA, false, true)], 250);
+  assert.equal(t[0].state, 'blurred', 'certain alone may not clear a birth');
+
+  // ...and the instant rung, which a MATCH has always been allowed to
+  // take on this same read, now works at birth too.
+  t = updatePersonTracks([], [{ box: boxA, flagged: false, certain: true, instant: true }], 250);
+  assert.equal(t[0].state, 'cleared');
+  assert.equal(blurredTracks(t).length, 0);
+});
+
+test('the birth rung is refused by every covering signal, redundantly', () => {
+  // Three conditions beyond `instant` itself. They are redundant against
+  // today's upstream (`instant` is set inside the branch where
+  // `flagged = !certain`), and they are here because this is a
+  // protection decision: a future change to what sets `instant` must not
+  // silently become a change to who may be born sharp.
+  for (const [name, o] of [
+    ['flagged', { box: boxA, flagged: true, certain: true, instant: true }],
+    ['uncertain', { box: boxA, flagged: false, certain: false, instant: true }],
+    ['abstained', { box: boxA, flagged: false, certain: true, abstained: true, instant: true }],
+  ]) {
+    const t = updatePersonTracks([], [o], 250);
+    assert.equal(t[0].state, 'blurred', `${name} must still be born covered`);
+  }
+});
+
+test('the rung a birth takes is the SAME expression a match takes', () => {
+  // At birth clearMs is 0 and clearStreak is at most 1 against a
+  // CLEAR_STREAK_N of 2, so `obs.instant || clearMs >= CLEAR_HOLD_MS ||
+  // clearStreak >= CLEAR_STREAK_N` reduces exactly to `obs.instant`.
+  // Pinned by CONSTRUCTION rather than by a literal, so it moves if the
+  // constant does: a birth-and-then-one-more-read must still take two
+  // verdicts to clear without `instant`.
+  assert.ok(pt.CLEAR_STREAK_N >= 2,
+    'at CLEAR_STREAK_N 1 a birth would clear on any certain read, which is not this change');
+  let t = updatePersonTracks([], [obs(boxA, false, true)], 250);
+  assert.equal(t[0].state, 'blurred');
+  for (let i = 1; i < pt.CLEAR_STREAK_N; i++)
+    t = updatePersonTracks(t, [obs(boxA, false, true)], 250);
+  assert.equal(t[0].state, 'cleared', 'the streak rung must still be what it was');
+});

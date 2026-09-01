@@ -68,21 +68,40 @@ Every ask gets a row, updated in the pass that does the work.
 
 | # | ask | status | note |
 |---|---|---|---|
-| 1 | Implementation plan via Fable | IN PROGRESS | agent running; four research docs written under `docs/research/` |
+| 1 | Implementation plan via Fable | DONE | `docs/plan-engine-v3.md`, ~1290 lines, 7 research docs incorporated, 3 inter-doc conflicts adjudicated |
 | 2 | Online research, fan out | DONE | 5 surveys: models, low-res gender, person detect, embeddings, runtimes |
 | 3 | Verify every model is allowed | DONE | findings §5; traps recorded. Re-verify per model before adoption |
 | 4 | Findings/learnings document | DONE | `docs/engine-findings.md`, appended each loop |
 | 5 | Document the goal | DONE | this file |
-| 6 | Make the blur correct | IN PROGRESS | person skip built + tested; device A/B next |
+| 6 | Make the blur correct | IN PROGRESS | **birth verdict shipped** (the plan's B1, false cover roughly halves); person skip built, ships INERT on the OTA dial; device A/B next |
 | 7 | Thumbnails | NOT STARTED | needs the null-read guard the video path has |
 | 8 | All platforms | NOT STARTED | after the engine is right on YouTube |
 | 9 | Desktop parity | NOT STARTED | after mobile |
 | 10 | Open-source-quality model | HELD | see the EU AI Act flag in findings §5 — releasing a standalone gender model is a worse legal posture than shipping it in the app. Releasing the engine is unaffected. His call. |
+| 11 | Critic / feedback mechanism | DONE (design) | `docs/critic-loop.md`, 761 lines, 24 cited sources. Event-triggered, not interval -- the evidence says fixed intervals under-escalate. Wired into the loop brief above; `bench/critic-gate.mjs` still to build |
 
 ## Loop protocol
 
-- Update `docs/engine-findings.md` with anything durable; update the
-  ledger above in the same pass.
-- Never report a device result that was not watched on a device.
-- Break an assertion to prove a new test can fail.
-- Commit and push finished work without asking.
+**Cadence: 25 minutes**, at his instruction ("you can increase the loop
+duration to 25 minutes"). It is a session-only cron, so it dies with the
+session -- **if the loop is gone, recreate it from the brief below.**
+
+The tick brief:
+
+1. Read this file and the tail of `docs/engine-findings.md` first. They
+   override anything remembered.
+2. Work in findings §0 order: cadence and the decision layer before
+   models, because a perfect classifier buys only 13.7% of scored error.
+3. Follow `docs/plan-engine-v3.md`. Stage 0-1 is zero-install -- he
+   installs nothing.
+4. Every claim becomes a number, on a device or on the labelled corpus.
+   Verify shipped constants in the EMITTED bundle, never in source.
+   Break an assertion to prove a new test can fail.
+5. Run the critic (`docs/critic-loop.md`) on the events it names, and at
+   minimum once per two ticks. Feed it the script-assembled packet,
+   NEVER my own summary -- that is the finding the whole design rests
+   on. OPEN rows tagged EXPOSURE or WRONG-NUMBER block a release.
+6. Append anything durable to `docs/engine-findings.md` and update the
+   ledger above in the SAME pass.
+7. Commit and push. Releases are pre-authorised. Never report a device
+   result that was not watched on a device.

@@ -15,6 +15,7 @@
 // sampling — never its AGPL-3.0 source; see NOTICE / VISION.md).
 import * as dom from './dom.js';
 import { shouldRetry } from './image-retry.mjs';
+import { wantPersons, notePersons, resetPersonSkip } from './person-skip.mjs';
 import * as detector from './detector.js';
 import {
   flaggedFaceIndices,
@@ -1962,28 +1963,10 @@ if (
     // AFTER THE MODEL HAS ADMITTED NOBODY THIS MANY PASSES RUNNING, it
     // stops being asked every pass. One admitted person resets it
     // instantly, so on footage where MoveNet works this is inert.
-    // >>> PERSON-SKIP POLICY (person-skip.test.mjs runs this block)
-    var PERSON_EMPTY_STREAK = 3;
-    // ...and is asked one pass in this many instead.
-    var PERSON_SKIP_EVERY = 3;
-    var personEmptyRun = 0;
-    var personSkipsSince = 0;
-
-    function wantPersons() {
-      if (personEmptyRun < PERSON_EMPTY_STREAK) return true;
-      return personSkipsSince >= PERSON_SKIP_EVERY - 1;
-    }
-
-    function notePersons(persons, skipped) {
-      if (skipped) { personSkipsSince++; return; }
-      personSkipsSince = 0;
-      // `persons.length` is the only honest reading of "did the model
-      // admit anybody" -- noHumanShape is a FRAME statistic and is false
-      // on a pass that admitted nobody but saw keypoint noise.
-      if (persons && persons.length) personEmptyRun = 0;
-      else personEmptyRun++;
-    }
-    // <<< PERSON-SKIP POLICY
+    // The person-skip policy lives in person-skip.mjs so its constants
+    // can ride the OTA tuning channel. It ships INERT (PERSON_SKIP_EVERY
+    // = 1 means never skip); see that file for why the cost is kept
+    // reversible.
 
     function runPass(withFaces, mark, keepFrame) {
       var aspect = video.videoWidth / (video.videoHeight || 1);

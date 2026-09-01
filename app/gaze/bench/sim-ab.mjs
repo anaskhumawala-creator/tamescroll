@@ -12,7 +12,7 @@
 // and two different people become one identity, so a man's earned clear
 // lands on the woman beside him. That is EXPOSURE.
 import fs from 'fs';
-import { ROOT } from './corpus-lib.mjs';
+import { ROOT, winFiles } from './corpus-lib.mjs';
 import { score } from './corpus-score.mjs';
 import { loadWin, makeArms } from './arch-arms.mjs';
 
@@ -21,7 +21,7 @@ const labels = JSON.parse(fs.readFileSync(`${ROOT}/bank/label/labels.json`, 'utf
 const cropLabel = new Map();
 for (const c of JSON.parse(fs.readFileSync(`${ROOT}/bank/label/clusters.json`, 'utf8')))
   if (labels[c.id]) for (const m of c.members) cropLabel.set(m.crop, labels[c.id]);
-const wins = fs.readdirSync(`${ROOT}/bank/reads`).filter((f) => f.endsWith('.json')).map(loadWin);
+const wins = winFiles().map(loadWin);
 const thin = (win, e) => ({ ...win, frames: win.frames.map((fr, i) =>
   i % e === 0 ? fr : { ...fr, faces: [], _labelFaces: fr.faces }) });
 const O = { hold: true, clampPad: 0.02, cut: true, inertNoSignal: true, memSignal: true,

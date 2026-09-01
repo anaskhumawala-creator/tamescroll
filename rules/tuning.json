@@ -6,5 +6,6 @@
   "NULL_MINT_NM_FLOOR": 5,
   "MEM_TRUST_MAN": 2,
   "MEM_TRUST_WOMAN": 1,
-  "MEM_SIM": 0.6
+  "MEM_SIM": 0.6,
+  "PERSON_SKIP_EVERY": 1
 }

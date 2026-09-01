@@ -13,6 +13,7 @@ import {
 import * as sceneGate from '../src/scene-gate.mjs';
 import * as genderVerdict from '../src/gender-verdict.mjs';
 import * as identityMemory from '../src/identity-memory.mjs';
+import * as personSkip from '../src/person-skip.mjs';
 
 // Every test restores the shipped values, because these modules hold
 // module-global state and a leaked dial would silently rebase every
@@ -25,6 +26,7 @@ const SHIPPED = {
   MEM_TRUST_MAN: identityMemory.MEM_TRUST_MAN,
   MEM_TRUST_WOMAN: identityMemory.MEM_TRUST_WOMAN,
   MEM_SIM: identityMemory.MEM_SIM,
+  PERSON_SKIP_EVERY: personSkip.PERSON_SKIP_EVERY,
 };
 const restore = () => applyTuning(SHIPPED);
 

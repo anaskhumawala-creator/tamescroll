@@ -15,28 +15,47 @@ Training, fine-tuning, distillation and model surgery are explicitly on
 the table. Shipping to him still comes first; the open-source ambition
 shapes the module boundaries (§10), not the schedule.
 
-**Sourcing status.** Six parallel research docs existed when this was
-finalised and are incorporated: `research/models-2026-09-02.md` (+ the
-`-partial` salvage), `gender-lowres-2026-09-02.md`,
+**Sourcing status.** Seven parallel research docs existed when this
+was finalised and are incorporated: `research/models-2026-09-02.md`
+(+ the `-partial` salvage), `gender-lowres-2026-09-02.md`,
 `embeddings-2026-09-02.md`, `person-detect-2026-09-02.md`,
-`runtimes-2026-09-02.md`. Two are pending and the affected sections
-say so: `custom-model-2026-09-02.md` (§3.6 — the dataset-licence crux
-is flagged, not resolved) and `temporal-2026-09-02.md` (§4). One
-conflict between the surveys is adjudicated in §3.4 (EdgeFace's weight
-licence) with the reason given. Nothing below *depends* on a pending
-doc; decisions that could move on arrival are marked.
+`runtimes-2026-09-02.md`, `custom-model-2026-09-02.md`, and
+`temporal-2026-09-02.md`, which arrived last and changed this plan the
+most: its birth-clear finding (B1) is adopted as the cheapest headline
+change in the whole plan (§4.2), its three-state `personEvidence` is
+adopted over this plan's own weaker `personsSkipped` boolean (§2.2),
+and its streak-ladder negative result is added to the refused list so
+the obvious proposal is never made again. Three conflicts between sources
+are adjudicated with reasons — the third against the temporal doc
+itself (§1.3, the corpus/device gap): EdgeFace's weight licence (§3.4) and
+FairFace's split dataset-vs-checkpoint licence (§3.6). One premise of
+the brief itself is **corrected against the repo's own source**: the
+corpus is not a native-resolution instrument — `corpus-lib.mjs:8`
+decodes at 640x360, his measured itag — and the corpus/device gap is a
+*slicing* failure, not an instrument failure (§1.3, verified against
+the file this session).
 
 The one-sentence verdict up front, because everything else follows from
 it: **this engine's remaining failures are dominated by the clock and
-the association layer, not by the models.** The corpus says the gender
-model reads his men right 99.6% of the time; cadence alone is worth 73
-of the 81 seconds of exposure; 77% of misread false cover is a correct
-verdict arriving after its track already died; and the single most
-expensive component in the system — MoveNet, 78% of a pass on low-end
-hardware — has admitted zero persons in every measured pass on the
-footage that matters. The model swaps this plan does propose (§3) are
-the two with measured headroom: a separating re-ID descriptor, and a
-small-face gender model (spike first, distillation if the spike loses).
+the association layer, not by the models — and that is now a measured
+ceiling, not an impression.** A *perfect* gender model, substituted
+read-for-read and re-scored through the shipped decision layer, removes
+only 14% of total scored error in man mode and 24% in woman mode; the
+other 76-86% is code. Cadence alone is worth 73 of the 81 seconds of
+exposure; 77% of misread false cover is a correct verdict arriving
+after its track already died; and the single most expensive component
+in the system — MoveNet, 78% of a pass on low-end hardware — has
+admitted zero persons in every measured pass on the footage that
+matters. The sharpest single illustration is five lines of code:
+`newTrack()` hardcodes `state: 'blurred'` and never applies the verdict
+that created the track, so the read that proved a man clear is thrown
+away at the moment it matters most — applying it (B1, §4.2) buys
+**−106.5s of false cover and −21.5s of phantom for +2.5s of exposure**,
+measured in both modes. The model work this plan keeps is the residue that survives
+that ceiling: a separating re-ID descriptor (§3.4), a cheap
+gender-model swap spike (§3.2), a targeted female-recall fine-tune
+behind a gate (§3.6), and the one error class no instrument has ever
+measured — detector recall (§7.2).
 
 ---
 
@@ -111,44 +130,107 @@ remembered identity re-inherits its clear. Nothing yet attacks the
 *cause*: association is body-box IoU, and on his phone every body is
 synthetic — 7.4 face-heights of geometry manufactured from a face box,
 flopping with the face box's jitter. §4 is the cause-side fix.
-(`research/temporal-2026-09-02.md` is pending; §4 is this plan's own
-design and will be reconciled against it on arrival.)
 
-### 1.3 The instrument — the corpus systematically disagrees with the device. Failure class: MEASUREMENT.
+The temporal doc closed the last piece of this diagnosis: **why the
+clear ladder never protects anyone.** `CLEAR_STREAK_N`/`GENDER_INSTANT_CLEAR`
+are evaluated in `matchedStep` — a track that survives — while
+`newTrack()` hardcodes `state: 'blurred'` and ignores the verdict on
+the observation that births it. With a median id run of ONE frame, the
+ladder is unreachable: sweeping the entire ladder to the floor (every
+certain read an instant clear) recovers **6.5s of 216.5** — nearly
+worthless — while applying the verdict at the one reachable place, the
+birth, recovers **106.5s** (§4.2). "Lower the streak" is the obvious
+proposal and it is measured dead; it is on the refused list.
 
-The corpus is native-resolution. His player decodes **640x360** (m.
-youtube picks quality from a 393px player box), so faces reach faceres
-at px p50 38-62. Consequences, all measured: corpus men read v p50
-**0.864**, his phone **0.657 on the same video**; corpus clear-bar
-reads carry no descriptor signal 2.3% of the time, his phone
-**36-42%**. Three sweeps read flat this month for exactly this reason.
-**Until the instrument is fixed, every threshold tuned offline is a
-guess about his device.** And the complement is also true and now part
-of the bar: essentially all measurement to date is Android — desktop
-"perfectly" is asserted, not measured (§7.5). Stage 0 fixes both.
+### 1.3 The instrument — the corpus/device gap is a SLICING failure, and that is good news. Failure class: MEASUREMENT.
 
-### 1.4 The model layer — real but bounded, with two exceptions. Failure class: MODEL.
+Loop 40 (and this plan's own brief) recorded "the corpus is a
+native-resolution instrument and his phone is not". **That framing is
+wrong, verified against the source this session:** `corpus-lib.mjs:8`
+is `export const W = 640, H = 360; // his measured decode, itag 134`.
+The corpus already decodes at the device's resolution. The
+custom-model doc measured what the gap actually is: **49.9% of the
+3,465 banked reads are under 64px and 26.8% sit inside the device's
+own 38-62px band** — and sliced like-for-like the two instruments
+agree: corpus reads at px 38-62 carry no descriptor signal **37.5%**
+of the time against his phone's 36-42% (the old "2.3% vs 36-42%"
+contrast compared his small-face band against the *whole* corpus,
+which is dominated by larger faces — same for "0.864 vs 0.657").
 
-- faceres direction is right 99.6% on corpus men, and degradation to
-  32px flipped zero of 28 reads on stills — but live 360p video reads
-  materially worse than degraded stills (0.657 vs 0.864 p50; the
-  degradation harness has no motion blur or video compression). The
-  device's weak reads are missing *pixels* plus *video artefacts*. A
-  drop-in replacement model is not obviously the answer; a model
-  *built for* 24-96px faces might be (§3.2, §3.6).
-- The descriptor is exception one: 17% of DIFFERENT-person pairs score
-  >= 0.9 against a same-person p05 of 0.28 — no operating point. A
-  separating descriptor makes memory and association dramatically
-  stronger (§3.4).
+**The device regime has been sitting in the corpus the entire time.**
+The three flat sweeps were run over a population dominated by faces
+larger than the device sees, so the fix is free: **slice by px, never
+re-bank.** Standing rule adopted from the doc: any sweep that reads
+flat is re-run restricted to `px < 64` before it is written down as a
+null result. What the corpus still genuinely cannot see, and a device
+run remains mandatory for: live MSE decode artefacts vs ffmpeg's,
+Adreno WebGL fp behaviour, and **detector recall** (§7.2) — labels
+only cover faces BlazeFace found.
+
+**Adjudicated disagreement with the temporal doc.** Its §10.1 calls the
+gap "execution fidelity", quoting loop 40's contrast (corpus `v` p50
+0.864 vs phone 0.657; 2.3% vs 36-42% no-signal) — but those are the
+*unsliced* numbers the custom-model doc corrected: sliced like-for-like
+at px 38-62 the two instruments agree on the no-signal rate. Slicing
+wins for the aggregate rates. The temporal doc still contributes one
+piece of evidence slicing cannot explain and it stands: faceres'
+descriptor magnitude **alternates 11.0, 1.1, 3.8, 11.0, 0.2 on the
+same subject on his GPU — 57 flips in 116 reads** — same subject, same
+px, so that residual is genuinely device-execution and belongs on the
+device-mandatory list above. Consequence carried into §4.2 and §7:
+any arm whose benefit depends on reads being *informative* (B1 needs
+`instant`-grade reads) reads better offline than it performs on-device
+— its corpus number is an upper bound; conversely `inertNoSignal` and
+the `nm` floor are MORE valuable on-device, and a flat offline sweep of
+them is a broken instrument, not a null result.
+
+The complement is also true and now part of the bar: essentially all
+measurement to date is Android — desktop "perfectly" is asserted, not
+measured (§7.5). Stage 0 fixes both.
+
+### 1.4 The model layer — now bounded by a measured ceiling. Failure class: MODEL.
+
+The custom-model doc ran the experiment that settles how much any
+model work can ever be worth: substitute a **perfect oracle** for
+every labelled read and re-score through the shipped decision layer.
+**A perfect gender model removes 13.7% of total scored error in man
+mode and 24.1% in woman mode (~68s, man mode); a perfect face/non-face
+detector on top adds ~5 points more. The remaining 76-86% is produced
+by code** — geometry, association, coasting. (That arm replays the
+bank's own stride, so its absolute numbers sit in a different regime
+from the 81.0/216.5/144.0 headline — compare ratios, not rows.) This
+is the strongest single fact in the plan: it caps §3 and funds §2/§4.
+
+Within that cap, what the model layer actually contains:
+
+- **Resolution does not flip the gender decision — measured twice,
+  two instruments.** The within-identity paired test (18 clusters,
+  same person small vs large): correctness delta **−1.6 points**, no
+  signal; what degrades with size is `nm` (+0.97) and certainty
+  (+0.091), not the answer. This reproduces the older 28-of-28
+  degraded-stills result on real video frames. The apparent 8-point
+  accuracy hole at 40-64px is a *subject-mix confound*.
+- **The real defect is per-subject female recall.** Man recall is
+  99-100% at every size; every error is a woman read as a man, and it
+  is concentrated: **7 of 22 woman clusters read below 50%** (96 of
+  975 woman reads), including one at 42% with a *98px* face and
+  healthy nm 9.9. A per-identity bias in faceres, not a resolution
+  artefact — and it matches loop 38's per-subject finding exactly.
+- **Detector recall is the one error class never measured**, and the
+  oracle experiment is structurally blind to it (labels cover faces
+  BlazeFace found). A 40px face reaches BlazeFace's 256 model space at
+  ~13-16px. This is the one crack through which a model project could
+  still be justified, and it is gated on a measurement (§7.2), not an
+  argument.
+- The descriptor: 17% of DIFFERENT-person pairs score >= 0.9 against
+  a same-person p05 of 0.28 — no operating point. A separating
+  descriptor makes memory and association stronger (§3.4).
 - MoveNet is not wrong, it is *irrelevant on his footage* and ruinous
-  on low-end hardware (§1.1). §2 demotes it; replacing it with
-  coco-ssd is already refused on measurement (phantom −41% but
-  exposure 82 → 89.5s, four recovery attempts failed).
-- The 2025/26 field itself: `models-2026-09-02-partial.md`'s headline
-  negative — **no licence-clean edge model does two of our three jobs
-  in one pass.** A multi-task net would be our own distillation
-  project. That is now on the table (§3.6), scheduled behind the
-  things that move his numbers this month.
+  on low-end hardware (§1.1). §2 demotes it; coco-ssd as a
+  replacement is already refused on measurement.
+- The 2025/26 field: **no licence-clean edge model does two of our
+  three jobs in one pass** — and the ceiling above is why building
+  one ourselves is NO-GO as an accuracy play (§3.6).
 
 ### 1.5 The image path — behind the video path on safety. Failure class: POLICY DRIFT.
 
@@ -234,6 +316,19 @@ contribute:
 Everywhere else — faces present, tracks live, no cut — the pass skips
 MoveNet.
 
+**The skip's data shape is the temporal doc's three-state, adopted over
+this plan's original boolean.** The worker returns
+`personEvidence: 'found' | 'empty' | 'absent'` — `'empty'` means the
+model ran and admitted nobody (real evidence), `'absent'` means the
+model did not run (no evidence). Every predicate currently derived from
+`persons` (`emptyFrame`, the ghost gate, `wipeIfEmpty`'s inputs,
+`bodyFromSlot`) must handle `'absent'` explicitly, and every default on
+`'absent'` fails toward covering — covering **by construction**, not by
+each call site remembering to check a flag. That is a stronger
+invariant than a `personsSkipped` boolean threaded past four consumers,
+and it is testable as one property: no path from `'absent'` to an
+uncover.
+
 ### 2.3 Why the 1070 disaster cannot recur — read before objecting
 
 Loops 28-30 shipped a skip (1068-1070) and reverted it after "it's not
@@ -259,10 +354,10 @@ built against it:
   still wired in init-entry.js and the worker keeps `withPersons` —
   the comment there says it is "the honest way to express 'this pass
   did not run the model' if a future round ever needs it". This is
-  that round. A skipped pass stamps `personsSkipped: true`; the ghost
-  gate is inert on it; the eraser does not advance `emptyStreak` on
-  it; `heldPersons` geometry is reused for association only, never as
-  evidence.
+  that round. A skipped pass carries `personEvidence: 'absent'`; the
+  ghost gate is inert on it; the eraser does not advance `emptyStreak`
+  on it; `heldPersons` geometry is reused for association only, never
+  as evidence.
 
 ### 2.4 Expected effect, and the measurements that prove it
 
@@ -272,8 +367,18 @@ dial room opens below 1.0s; on the Redmi, ~850ms passes put a device
 that today manages one verdict per 40s at ~3.4s cadence — from absent
 to functional. `cadence-ab` prices 1.0s at exposure 43.5s / fc 192.5s:
 **roughly half the exposure and −24s of false cover, from removing
-work that was producing a constant.** Honest costs: phantom rises with
-cadence (160s @1.0s, 260.5s @0.5s) — the accepted direction, but said;
+work that was producing a constant.** The temporal doc adds the
+lever-split this implies, measured: `cadence-ab` thins *observations*,
+so **exposure responds only to verdict rate — a cheaper position
+tracker between verdicts cannot buy exposure back**; false cover
+responds to birth-verdicts (§4.2) and track survival. Spend the two
+budgets on the right levers. Honest costs: phantom rises with
+cadence (160s @1.0s, 260.5s @0.5s) — the accepted direction, but said
+— and the temporal doc's caution stands: corpus phantom is priced on
+clean decoded frames, while 36-42% of his phone's reads carry no
+descriptor signal, exactly the population the null-mint hold guards;
+E4 (phantom vs cadence crossed with the mint guards, `NULL_MINT_NM_FLOOR`
+swept) is the corpus half of the answer and his rings are the rest;
 and body geometry for face-visible people is synthetic between
 heartbeats even on footage where MoveNet would have measured it.
 
@@ -292,8 +397,9 @@ Three measurements, in order:
    counters — **`wipeErasedBlurred` must not rise; that is the 1070
    signature and the tripwire on every A/B.**
 3. **His phone, rings only, post-release**: secsPerVerdict ~0.9-1.2
-   against today's 1.45; `personsSkipped` proves the machinery is
-   live; `wipeErasedBlurred` flat at the 1073-era baseline.
+   against today's 1.45; `personEvidence: 'absent'` counts prove the
+   machinery is live; `wipeErasedBlurred` flat at the 1073-era
+   baseline.
 
 ### 2.5 The second cadence lever: stop re-reading settled faces
 
@@ -402,7 +508,7 @@ From `gender-lowres-2026-09-02.md`, the field at our face sizes
   already a TFJS graph model.** 16x smaller than faceres (6.98MB),
   same deployment shape, no published low-res curve. **This is the
   cheapest real experiment on the list and it is scheduled (Stage 3):**
-  run it through `small-face.js` + the 360p corpus against faceres on
+  run it through `small-face.js` + the px-sliced corpus against faceres on
   identical crops. Three possible outcomes, all valuable: it wins at
   38-62px (swap candidate + distillation teacher), it ties (bundle −6.5MB
   and a faster Redmi pass for free, if the abstention machinery ports —
@@ -440,13 +546,20 @@ From `gender-lowres-2026-09-02.md`, the field at our face sizes
   found (arXiv 2511.14689) bottoms out at 64px. The niche §3.6
   proposes to fill is genuinely empty.
 
-What moves the gender numbers on his device regardless of model, in
-order: (a) the decode-quality ladder — 640x360 → 854x480 puts p50
-faces from ~50px to ~66px, above every degraded band; a page mutation
-beyond hide/blur/remove that spends his data, so it is HIS call and
-the plan only prepares the measurement (one A/B on the Redmi); (b)
-device-calibrated thresholds on the 360p instrument via tuning.json;
-(c) §3.6.
+What moves the gender numbers on his device, re-ranked after the
+custom-model doc's within-identity finding (§1.4 — resolution degrades
+*confidence*, not *correctness*): (a) the misread-female-recall
+defect is per-subject, so the highest-value gender work is the GO-IF
+the doc names — a **head-only fine-tune targeted at female recall on
+domain-matched crops**, gated on its own measurement (recall
+recoverable to >95% on the 975 woman reads, held out BY CLUSTER, plus
+a re-score showing the oracle gap actually closes) and capped by the
+~68s ceiling; (b) the decode-quality ladder — 640x360 → 854x480 —
+now buys *confidence and nm* (fewer null reads, fewer blocked memory
+pushes), not recall; still a page mutation that spends his data, HIS
+call, measurement prepared on the Redmi; (c) device-band thresholds
+via tuning.json on the px-sliced corpus; (d) the face-api.js swap
+spike above, which might buy 6.5MB of bundle even at parity.
 
 ### 3.3 Person detection — demoted, not replaced
 
@@ -525,8 +638,8 @@ thousands from the 107 labelled clusters), bar written before running
 — **different-person pairs >= 0.9 under 2%, at same-person p50 >=
 0.8** — an order of magnitude over shipped, because integration costs
 a second per-face inference. Only a candidate clearing the bar gets a
-Redmi latency measurement. If nothing clears: the fallback is
-geometric association (§4.2), which needs no model and attacks the
+Redmi latency measurement. If nothing clears: the fallback is B1 plus
+geometric association (§4.2-4.3), which need no model and attack the
 same 115s.
 
 ### 3.5 Runtimes (sourced: runtimes-2026-09-02.md)
@@ -564,85 +677,91 @@ than.
   the safe middle ground. Do not re-litigate inside TF.js/WebGL.
 - Native LiteRT / Rust `ort`: §2.1-D. WebNN/WebGPU: §2.6.
 
-### 3.6 The custom model — fine-tune, distil, or train, and the open-source deliverable
+### 3.6 The custom model — the doc's verdict is adopted: NO-GO as framed, one GO-IF
 
-(`custom-model-2026-09-02.md` pending; this section states the plan's
-own position and flags the crux it must resolve.)
+An earlier draft of this section recommended distilling a
+purpose-built small-face gender model. `custom-model-2026-09-02.md`
+ran the experiments that kill that framing, and this plan adopts its
+verdict because the evidence is measured, not argued:
 
-The survey's two headline facts point at the same conclusion. No
-licence-clean model does our jobs in one pass, and no licence-clean
-gender model is *built for* 24-96px faces — while the evidence says
-the task is tractable there (FaceHop: 94.6% gender at 32px greyscale
-with 16.9K parameters; compact pipelines lose ~1 MAE point at 64px).
-Meanwhile our production model is a 224px network fed 38-62px faces,
-returning its prior on 36-42% of device reads. **The gap in the world
-is exactly the model we need — which is also why it is the component
-worth open-sourcing standalone.**
+- **The ceiling.** A *perfect* gender model is worth 13.7%/24.1% of
+  total scored error (~68s, man mode) — the upper bound on any
+  fine-tune, distillation, or from-scratch training, combined. A
+  distilled student is normally worse than its teachers, so the
+  realistic prize is a fraction of that.
+- **The premise was wrong.** "Built for 24-96px faces" targeted
+  resolution, and resolution does not flip the decision (§1.4's
+  within-identity test, −1.6 points, no signal). Low-res *recognition*
+  gains in the literature (Ge et al. 32px LFW +19.5pp, etc.) are
+  identity-embedding results — the capability this repo deleted in
+  R13 — and quoting them as gender gains is a category error.
+- **Test-time super-resolution is refused twice over:** nothing to fix
+  (resolution doesn't flip decisions), and generative SR *fabricates
+  attributes* (the PULSE failure class) — a confident wrong answer
+  manufactured out of nothing, strictly worse than today's abstention.
 
-Three routes, in ascending cost:
+What survives, in the doc's order, adopted as this plan's order:
 
-1. **Fine-tune faceres on degraded inputs.** Teacher = faceres itself
-   at native resolution; student = faceres fine-tuned on the same
-   images pushed through our degradation pipeline (the 360p re-bank
-   machinery IS the augmentation: decode-scale, video compression,
-   motion blur). Cheapest, keeps the descriptor head and the abstention
-   semantics. Risk: 6.98MB stays 6.98MB, and a 224px architecture may
-   simply not have headroom at 40px input.
-2. **Distil into a purpose-built small student (RECOMMENDED ROUTE).**
-   Target: 24-96px input, gender + age + childP + an explicit
-   abstention head (replacing the `nm` proxy with a trained "no
-   signal" output — the nm floor and null band are hand-derived
-   approximations of exactly this), 0.3-1.5MB, TFJS + ONNX exports.
-   Architecture informed by MiVOLO v1's finding: an optional body-crop
-   second input, because this pipeline always has a body box and a
-   40px face usually comes attached to a much larger body. Teachers:
-   faceres (MIT — distilling from an MIT model is clean) at native
-   res, optionally face-api.js age_gender (MIT) as a second opinion.
-3. **Train from scratch.** Only if the custom-model doc's dataset
-   findings make supervised labels cheap and clean. Weeks-class;
-   default no.
+1. **Measure detector recall — the gating experiment for the whole
+   model question** (promoted into §7.2/Stage 0). ~200 frames across
+   the 18 windows, half from frames where the pipeline found nothing,
+   every face hand-annotated, recall sliced by px. An afternoon, $0.
+   High recall at px<64 closes the model question for good; low
+   recall is the only fact that justifies a detector project — and
+   the swap (`face_det_lite`, YuNet) is tried before any training.
+   WIDER FACE is explicitly non-commercial, so training a detector
+   has its own data trap; one more reason the swap goes first.
+2. **The GO-IF that replaces the distillation ambition: a head-only
+   fine-tune targeted at FEMALE RECALL on domain-matched crops**
+   (§3.2a) — aimed at the defect that actually exists (7 of 22 woman
+   clusters under 50%), not at resolution. Gate: recall recoverable
+   to >95% on held-out-BY-CLUSTER woman reads AND a re-score showing
+   the oracle gap closes. Compute is a non-issue ($0.50-$25 rental);
+   the real costs are the export path (PyTorch → TF → TFJS, the one
+   this repo has already debugged; ORT-Web-in-WebView is UNVERIFIED)
+   and the permanent maintenance burden of a bespoke model on a solo
+   beginner developer — which is why the face-api.js *swap* (a day,
+   no training, no data licence) is bench-raced first.
+3. **Multi-task distillation survives only as a latency play** and
+   only *after* the free version of the same win — not running
+   MoveNet where it admits nobody (§2) — has shipped and been
+   measured insufficient. As an accuracy play it is strictly
+   dominated by the ceiling.
 
-**The crux is data, and it is flagged, not solved.** The survey already
-demolished the easy answers: IMDB-WIKI is research-only and the
-restriction travels with weights; FairFace's "CC BY 4.0" sits under a
-Data heading with no LICENSE file and no checkpoint terms — treat as
-ambiguous until the authors answer, and do not build the open-source
-claim on it; UTKFace and CelebA are non-commercial/research. The route
-that avoids the whole problem: **teacher-labelled distillation needs
-unlabeled face images only**, so the training set can be frames from
-openly-licensed video (YouTube CC-BY, Wikimedia Commons) plus our own
-degradation pipeline — provenance recorded per source. If
-`custom-model-2026-09-02.md` finds a genuinely clean labelled corpus,
-route 3 reopens; until then route 2's data story is the defensible one.
+**Data, resolved by the doc's table.** Nearly every face-attribute
+dataset is non-commercial with the restriction reaching derived
+weights (CelebA/AgeDB/VGGFace2 say "derived data" explicitly; FFHQ's
+ShareAlike would infect weights; MS-Celeb-1M/MegaFace are withdrawn —
+never touch, and every "MS1MV2" checkpoint in the wild inherits it).
+Genuinely permissive: **FairFace (dataset CC BY 4.0 — lawful to TRAIN
+ON; its unlicensed checkpoints still may not be SHIPPED — the two
+surveys' conflict is resolved by keeping those questions separate)**
+and Open Images/MIAP (CC BY annotations, per-image pixel provenance
+disclaimed by Google). And the best domain-matched set is the one we
+already own: 3,465 crops at the real decode with 2,385 cluster-level
+labels — usable for internal training/eval, **never redistributable**
+(copyrighted YouTube frames). Held-out splits are BY CLUSTER, never by
+read.
 
-**Acceptance bar, written before training:** the student must beat
-faceres on the 360p corpus at px 32-96 on (a) direction agreement with
-native-res truth, (b) abstention quality (catch >= 90% of the non-face
-control at <= 5% real-face refusal — the shipped nm floor's own
-numbers are the baseline: 96.3% / 0%), and (c) must not regress the
-native-res bands faceres serves well. Lose any of the three and it
-dies in the bench like everything else.
-
-**What a standalone release needs** (the "people use this as well"
-half, scoped so it cannot inflate the schedule): Apache-2.0 weights +
-training code; a model card stating task, input regime (24-96px),
-training-data provenance table, and the abstention head's semantics;
-the eval harness (our bench runs on a corpus the user banks themselves
-— the harness ships, YouTube-derived footage does not); ONNX + TFJS
-exports; and a fairness/misuse section — a gender classifier release
-must publish its error rates across demographic slices and state the
-protective purpose plainly. This is a deliverable checklist, not a
-schedule item, until Stage 6.
+**Quantization rule for any trained artifact:** f16 only. int8 on a
+small-margin classifier is the measured faceres failure (17/100 and
+8/100 decision flips); TF.js's own docs concur.
 
 ---
 
 ## 4. The association/identity layer
 
 The target: the 115s of "verdict was right, track was gone", and the
-churn number behind it (median id run 1 frame). Pending
-`temporal-2026-09-02.md`; reconcile on arrival — where it disagrees
-with the following, the disagreement gets settled by the corpus, not
-by seniority.
+churn number behind it (median id run 1 frame). Reconciled against
+`temporal-2026-09-02.md`: its B1 birth-clear is adopted as this
+section's headline (§4.2 — it out-measures everything this plan had
+drafted here); its buffered-IoU proposal and this plan's face-anchored
+key attack the same mechanism and are raced, both gated on the E5
+counters (§4.3); its graded cut response composes with this plan's
+`CUT_MODE` (§4.5). Its refusals are recorded in the appendix so they
+stay refused: no Kalman filter, no ByteTrack second pass, no DeepSORT
+cascade (GPL besides), no log-odds rebuild until E6 says the residual
+is evidence-combination rather than churn.
 
 ### 4.1 What already shipped and what it must show
 
@@ -651,10 +770,53 @@ mode, reachable wrong firings zero, trust 2-man/1-woman). Device
 checkpoint: `memClear` against `readClearCertain` on his rings over
 90s. If memClear ~0 on-device while the corpus fires 359, that is the
 calibration gap again (36-42% signal-less reads block the pusher) —
-already half-expected, and the 360p corpus is what tunes `MEM_*`
+already half-expected, and the px<64 corpus slice is what tunes `MEM_*`
 honestly. The dials are already OTA.
 
-### 4.2 Face-anchored association — attack the churn at its source
+### 4.2 Apply the verdict at birth (B1) — five lines, the largest measured lever in the plan
+
+`newTrack()` hardcodes `state: 'blurred'` and never reads the verdict
+on the observation that creates the track. The fix, verbatim from the
+temporal doc:
+
+```js
+state: (!obs.flagged && obs.instant) ? 'cleared' : 'blurred',
+```
+
+A birth is cleared **only** when the birthing read is an unflagged
+*instant*-grade certain read (`GENDER_INSTANT_CLEAR` 0.80) — no
+prediction, no lowered bar; a verdict that has already arrived is
+applied to the track it arrived about. Measured, his regime, both
+modes: man **81.0 / 216.5 / 144.0 → 83.5 / 110.0 / 122.5** (exposure /
+false cover / phantom); the woman-mode cost is +4.5s exposure. It
+**composes with the clock**: 0.5s cadence + B1 reads **9.5 / 96.0 /
+245.5** — exposure down 88%, false cover down 56%, phantom up 70%, a
+trade the owner is shown, not made for him. B2 (clearing on a
+non-instant certain read) is refused: its exposure cost scales with the
+clock, B1's does not.
+
+Why this and not the obvious "lower the streak": §1.2. The ladder is
+worth 6.5s because a median id run of one frame never reaches rung two;
+B1 is the same idea applied at the only reachable place, worth 106.5s.
+
+Gates before it ships, adopted verbatim: **E1** — attribute the +2.5s
+per-window (kill: the cost concentrated on one confidently-misread
+woman rather than diffuse; then render those frames and look). **E2** —
+judge B1 on exported frames, not the score (kill: a patch visibly
+flickering off and on within a second). And the honest device caveat:
+the corpus benefit is an **upper bound** — instant-eligible reads are
+~34% of same-gender corpus reads and his phone reads weaker (`v` p50
+0.657 vs 0.864), so B1 needs a birth-clear counter read against
+`readClearCertain` on his rings before it is called real there. If the
+instant bar is rarely reached on his device, the answer is **not** to
+lower `GENDER_INSTANT_CLEAR` (measured ~2s); it is to let the identity
+memory be the birth-clear authority — which it already is in HEAD
+(fires 359x in man mode, zero reachable wrong firings) and which B1's
+guard structure leaves untouched.
+
+~5 lines + 3 tests; it rides the Stage 2 APK as its cheapest item.
+
+### 4.3 Face-anchored association and buffered IoU — two keys, one measured mechanism, raced
 
 Association is body-IoU (`PTRACK_IOU_MIN` 0.2). On his phone every
 body is synthetic, 7.4 face-heights wide, jittering with the face box;
@@ -680,7 +842,31 @@ mismatch reset, `CLEARED_TTL_MS` re-prove), the corpus scores exactly
 this class, and the variant ships only with the ABSORBED attribution
 (today 56.5s) not degraded.
 
-### 4.3 The descriptor as association glue — only after §3.4
+**The temporal doc's ordered proposal is adopted around this race,
+smallest first:** (1) read `birthFresh` / `birthNearMiss` /
+`birthContended` / `birthSizeRejected` / `coastExpired` on the corpus
+AND his phone — they ship today and have never been quoted in any
+session summary; this is **E5**, zero lines, and it decides everything
+below. If near-miss births are a small share, the churn is coast
+expiry, and *survival* (coast windows, §4.2's birth fix) is the lever —
+neither key change ships. (2) **Buffered IoU, two-stage** (C-BIoU,
+arXiv:2211.14317, idea from the paper — the reference repos are
+checked and several are GPL, see appendix): pad track and observation
+by `BIOU_PAD_1` 0.1 of own size, second pass at 0.3 on the leftovers,
+same `PTRACK_IOU_MIN`; keep `sizeCompatible` unchanged — buffering
+makes the immortal-oversized-track risk worse, not better. (3) The
+face-anchored key above — raced against (2) as corpus arms on the same
+`churn.mjs` target; both attack the same near-miss mechanism and the
+corpus picks. (4) Later, with the R1 ring only: **OC-SORT-style ORU**
+(re-fit the coasted boxes backwards when a verdict lands; verdicts
+still apply forward only) and **global-motion compensation** of the
+predicted box before IoU — handheld p90 motion 28.2 compounds over a
+1.5s gap into displacement the tracker attributes to the subject.
+Greedy-by-descending-IoU stays; with <= 6 tracks Hungarian buys
+nothing and greedy is auditable. No Kalman filter — deliberate refusal,
+recorded in the appendix.
+
+### 4.4 The descriptor as association glue — only after §3.4
 
 If a separating descriptor lands, it becomes a *tiebreaker* in
 association (never clear evidence — that stays memory's job with its
@@ -689,7 +875,7 @@ association: at 17% false-match >= 0.9 it would bridge different
 people — the exposure direction — and pooling-style aggregation is
 already refused on measurement (rescues 4 men, loses 75).
 
-### 4.4 Scene cuts — run the fair experiment the corpus already hints at
+### 4.5 Scene cuts — a better signal, a graded response, and the fair experiment
 
 The cut-never-wipes arm reads man 81.0 → 53.5s exposure and 218 →
 154s false cover — but that arm is HALF the shipped behaviour (it
@@ -708,8 +894,34 @@ re-clearing needs fresh certain reads, so the inherited state is
 covered, not clear. A state-machine review of exactly that transition
 is a named precondition of shipping the flip.
 
-`CUT_DELTA` itself is done: 50, OTA-clamped [30,90], calibrated on his
-phone's own luma ring. Nothing further without new device data.
+**The signal itself gets the ffmpeg scdet transform — ~5 lines, the
+highest-prior cheap change in this section.** Score
+`min(mafd, |mafd − prev_mafd|)` instead of raw delta: a pan produces a
+*sustained* elevated delta (small second term), a cut produces a
+*spike* (both terms large) — it suppresses exactly the ordinary-camera-
+motion false fires that put `CUT_DELTA` on top of the p90 in loop 40,
+and it ships in ffmpeg's scdet filter, not a paper sketch. Known
+weakness, named so E7 can kill it honestly: a cut *from* one
+high-motion shot *to* another has elevated `prev_mafd` and the `min`
+suppresses it — E7(a) re-runs `corpus-cuts.mjs` with the transform
+against `bank/cuts.json` plus a hand-labelled cut list for two windows.
+
+**The response gets graded — decouple what a cut forces from what it
+destroys** (temporal §7.3, adopted; it composes with `CUT_MODE` above):
+`CUT_STRONG` keeps today's full behaviour; `CUT_WEAK` does **not**
+demote and does **not** bump `passEpoch` (dropping the in-flight pass
+throws away the evidence that would resolve the ambiguity) — it only
+forces an immediate verdict pass, suppresses `wipeIfEmpty`'s `big`
+shortcut for one interval, and clears `heldPersons`. The forced pass is
+the valuable half of a cut ("cuts are where new people appear"); the
+demotion is the half that costs a cleared man his clear, and today they
+are bought together. Failure direction: `CUT_WEAK` missing a real cut
+leaves a stale cleared track able to absorb the new shot's subject —
+exposure — which is exactly why `CUT_STRONG` keeps current behaviour
+and weak only *adds* a pass. Both thresholds OTA-clamped.
+
+`CUT_DELTA` itself is otherwise done: 50, OTA-clamped [30,90],
+calibrated on his phone's own luma ring.
 
 ---
 
@@ -825,29 +1037,47 @@ its bench.
 
 ## 7. The measurement plan — fix the instrument before the engine
 
-### 7.1 The 360p corpus
+Experiment IDs **E1-E8** cited throughout §§4, 8 and 9 are the temporal
+doc's §10 battery, adopted whole — each names its arm, what it holds
+constant, and the result that kills the idea (E1/E2 gate B1; E3 prices
+a MoveNet-free pass on-device; E4 phantom-vs-cadence; E5 the birth
+counters; E6 gates the log-odds rebuild; E7 the cut transform; E8 the
+flow tracker offline). They are not restated here; this section covers
+the instruments they run on.
 
-Re-bank the existing 18 windows with frames decoded at **640x360**
-(and an 854x480 arm for the quality-ladder question) — same videos,
-same labels (cluster-level; loop 40 proved labels survive
-re-clustering unchanged), same arch-arms machinery, new
-`bank/reads360/`. The uncommitted bench work already points here
-(`export-frames.mjs`, `live-frames.mjs`, `movenet-frames-*`, the
-`oldphone-*-360p.json` rings with px/nm/raw distributions banked from
-a real device at 360p): finish it, don't restart it. The 360p bank
-also answers BlazeFace's recall question (§3.1) as a side effect.
+### 7.1 The px-sliced corpus — the fix is free
 
-**The instrument gets an acceptance test before any tuning trusts it**
-— the step that was always missing: on the re-bank, male v p50 must
-land near the phone's 0.657 (not 0.864), the no-signal share near
-36-42% (not 2.3%), and the nm split near the phone ring's 12.66-clear
-/ 2.88-null. The banked `oldphone-*-360p.json` distributions are the
-reference. If the re-bank does NOT reproduce the device statistics,
-the resolution hypothesis is falsified and the gap is something else
-(codec, capture path) — either result is worth more than any sweep
-run before it.
+§1.3: the corpus already decodes at 640x360; the gap was population
+mix. So the instrument work is **slicing, not re-banking**: every
+sweep and every arm reports its result sliced by px (`<40 / 40-64 /
+>=64` minimum), and a flat result is re-run restricted to `px < 64`
+before it is recorded as null. The acceptance test survives in
+cheaper form: the px-38-62 slice must keep matching the device rings
+(no-signal share ~37.5% vs his 36-42% — already verified once by the
+custom-model doc; the `oldphone-*-360p.json` distributions are the
+standing reference).
 
-### 7.2 The device-in-the-loop harness
+One genuine re-bank remains: an **854x480 arm for the quality-ladder
+question** (what would upgrading the decode buy — now priced in
+confidence/nm terms per §3.2, not recall). The uncommitted bench work
+(`export-frames.mjs`, `live-frames.mjs`, `movenet-frames-*`) is the
+machinery for it.
+
+The corpus's three standing blind spots, each with its assigned
+instrument: live MSE decode artefacts (device rings), Adreno WebGL fp
+behaviour (Redmi A/B), detector recall (§7.2's annotation
+experiment).
+
+**The evaluation protocol** — adopted verbatim from the custom-model
+doc for ANY candidate model or read-policy change: re-run over the
+banked crops with the decision layer byte-identical; report all three
+errors, both gender modes, always; hold out BY CLUSTER, never by
+read; slice by px; report per-class recall, never accuracy (man
+recall is 99-100% everywhere, so accuracy mostly counts men); score
+against the oracle arm, not against zero; confirm any corpus win on
+device rings before calling it a win.
+
+### 7.2 The device-in-the-loop harness, and the detector-recall experiment
 
 The Redmi (M2010J19SI, Android 12, Adreno 610 — the fp32-verified GPU
 class, and the 2026-09-02 stage marks prove the probe path works) is
@@ -859,6 +1089,17 @@ its Redmi A/B before release. Probes exist (`probe_phone_cadence.py`,
 two-install choreography. The Redmi is also the *floor* device: a
 change that works there works everywhere above it, which is what
 "works on mobile perfectly" cashes out to.
+
+**The detector-recall annotation experiment** (from the custom-model
+doc, promoted to Stage 0): ~200 frames stratified across the 18
+windows, half from frames where the pipeline found nothing; every
+human face hand-annotated; BlazeFace recall computed overall and by
+px band. An afternoon, $0, and it is the only error class this
+product has never measured — the class "she doesn't get blurred"
+would live in, and the sole gate on any detector project (§3.6).
+Decision rule, written before running: recall >= ~85% at px < 64
+closes the model question; below it, try the `face_det_lite` / YuNet
+swap through the same bench before any training is discussed.
 
 ### 7.3 The zero-install tuning loop on his daily phone
 
@@ -912,41 +1153,54 @@ He is tired of installing. Stages 0, 1, 3 need **no release**; stages
 conditional APK; stage 6 is the long-pole open-source/model work and
 gates nothing before it.
 
-**Stage 0 — the instruments (no APK).** The 360p corpus + its
-acceptance test (§7.1); the Redmi A/B choreography (§7.2); the desktop
-baseline session (§7.5); and the two five-minute runtime probes the
-survey put first — `navigator.gpu.requestAdapter()` inside WebView2
-(likely yes) and inside the Redmi's WebView (likely no), results
-banked. Checkpoint he can see: nothing — this stage is for us; its
-deliverable is that every later number is about *his devices*. Exit:
-acceptance test passes or the resolution hypothesis is falsified in
-writing; desktop baseline banked; WebGPU answer on file.
+**Stage 0 — the instruments (no APK).** The px-slicing discipline +
+its acceptance check (§7.1 — mostly free, the corpus already decodes
+at 640x360); the detector-recall annotation experiment (§7.2 — an
+afternoon, and it gates the entire model question); the Redmi A/B
+choreography (§7.2); the desktop baseline session (§7.5); and the two
+five-minute runtime probes the survey put first —
+`navigator.gpu.requestAdapter()` inside WebView2 (likely yes) and
+inside the Redmi's WebView (likely no), results banked. Plus the
+zero-line experiment that decides the association key: **E5** — read
+`birthFresh` / `birthNearMiss` / `birthContended` / `coastExpired` on
+the corpus and his rings; they ship today and have never been quoted. Checkpoint he
+can see: nothing — this stage is for us; its deliverable is that
+every later number is about *his devices*. Exit: slice check matches
+the device rings; detector recall on file with its decision rule
+applied; desktop baseline banked; WebGPU answer on file.
 
 **Stage 1 — tune what already ships (no APK, no install).** On the
-validated 360p instrument, re-sweep the dials already in SPEC
+px-sliced corpus, re-sweep the dials already in SPEC
 (GENDER_CLEAR_SCORE within its floor, MEM_TRUST_*, MEM_SIM,
 NULL_MINT_NM_FLOOR, CUT_DELTA) and push tuning.json. Checkpoint he can
 see: fewer wrong blurs on the videos he actually watches, zero
 installs. Exit: his rings move in the predicted direction
 (readClearCertain up, memClear firing, wipe counters flat).
 
-**Stage 2 — the engine release (ONE APK).** Together: MoveNet-on-
-demand (§2.2) with its counters (`personsSkipped`, heartbeat);
-the unified read-policy module + image null guard (§5.1);
-face-anchored association (§4.2, corpus-proven first); the `CUT_MODE`
-constant shipped in today's behaviour (§4.4); the WebGPU/WebNN probe
-line; SPEC widened with the new dials (heartbeat, verdict duty /
-max-interval, CUT_MODE), each clamped, embedded-equality test extended
-in the same diff. Redmi A/B before release (§2.4). Checkpoints he can
+**Stage 2 — the engine release (ONE APK).** Cheapest headline item
+first: **B1, apply the verdict at birth (§4.2)** — ~5 lines + 3 tests,
+E1/E2 corpus gates cleared before the build, a birth-clear counter in
+the rings so the device can confirm it fired. Then, together:
+MoveNet-on-demand (§2.2) with the three-state `personEvidence` and its
+counters; the **scdet transform** in the scene gate (~5 lines, §4.5);
+the `CUT_WEAK`/`CUT_STRONG` decoupling (§4.5, ~20 lines); the unified
+read-policy module + image null guard (§5.1); the association-key
+winner from the §4.3 race **only if E5 said near-miss births are a
+real share** — otherwise nothing there ships; the `CUT_MODE` constant
+shipped in today's behaviour (§4.5); the WebGPU/WebNN probe line; SPEC
+widened with the new dials (heartbeat, verdict duty / max-interval,
+CUT_MODE, CUT_WEAK/STRONG thresholds, BIOU pads if raced in), each
+clamped, embedded-equality test extended in the same diff. Redmi A/B
+before release (§2.4). Checkpoints he can
 see: the blur *keeps up* — verdicts ~2x more often on his phone, and
 a Redmi-class device goes from one verdict per 40s to one per ~3.5s —
 and thumbnails stop clearing on graphics. Exit numbers: secsPerVerdict
-<= 1.2 on his ring; `wipeErasedBlurred` flat; 360p-corpus exposure
+<= 1.2 on his ring; `wipeErasedBlurred` flat; corpus exposure
 <= 45s at the device cadence; desktop ring re-run shows no regression.
 
 **Stage 3 — two offline spikes (no APK, parallelisable).**
 (a) face-api.js age_gender vs faceres at 38-62px through
-`small-face.js` + the 360p corpus, abstention portability included
+`small-face.js` + the px-sliced corpus, abstention portability included
 (§3.2). (b) The descriptor ROC (§3.4) — the licence pass is already
 done by the surveys: dlib-128 (public-domain weights, TFJS-ready) is
 the primary arm, MobileFace the fallback, alignment cost included in
@@ -955,23 +1209,37 @@ arms fail on back-turned coasting cases. Exit: each candidate either
 clears its bar or dies in the bench with the table banked.
 
 **Stage 4 — conditional follow-ups (OTA-first).** CUT_MODE flip if
-the fair corpus arm holds (§4.4) — zero-install, reversible.
+the fair corpus arm holds (§4.5) — zero-install, reversible.
 Settled-face sampling (§2.5) only under its +<=2s corpus exposure
 budget — rides the next planned APK, never forces one. Descriptor or
 gender-model integration only if Stage 3 cleared — one APK, Redmi
-A/B, ABSORBED-attribution guard.
+A/B, ABSORBED-attribution guard. After B1 lands, re-run `fc-why.mjs`
+(**E6**): today's misread-`other` is 115.0s (77%); **if it collapses,
+the temporal doc's log-odds accumulator rebuild is not justified and is
+not built** — that is the standing gate on the most expensive proposal
+either document contains. ORU + camera-motion compensation + any KLT
+flow tracker (temporal §5/§11 #7, ~400 lines) stay behind E8's offline
+arm and are the only two-directional-risk item in the whole plan: a
+drifting flow track moves a solid patch off its subject with every
+counter healthy, so if ever built it carries a hard leash — an absolute
+cap on unconfirmed box movement (~one box-width) and a surviving-
+feature floor below which it hands back to `coastStep`.
 
 **Stage 5 — platforms (ONE APK).** Player adapters + the one-active-
 pipeline budget for Reddit/X/IG in-feed video (§6.2),
 emulator-verified per platform, one site per invocation. Checkpoint he
 can see: gaze blur working on Reddit video and the IG feed.
 
-**Stage 6 — the custom model and the open-source cut (long pole,
-gates nothing).** Route 2 distillation (§3.6) once
-`custom-model-2026-09-02.md` settles the data question; the standalone
-release checklist (§3.6, §10). iOS delivery spike stays pinned to the
-cousin window (§6.3) and is prepared before it. Native TFLite stays
-gated behind Stage 2's measured remainder on the Redmi.
+**Stage 6 — conditional model work and the open-source cut (long
+pole, gates nothing).** Only what survived §3.6's verdict: the
+female-recall head fine-tune if its gate measurement passes, or a
+detector project if Stage 0's recall experiment plus a failed swap
+demand one — each through §7.1's evaluation protocol. The open-source
+cut per §10 (methodology and harness first; any model artifact only
+with the legal posture resolved). iOS delivery spike stays pinned to
+the cousin window (§6.3) and is prepared before it. Native
+LiteRT/`ort` stays gated behind Stage 2's measured remainder on the
+Redmi.
 
 ---
 
@@ -985,19 +1253,23 @@ Failure directions: **exposure** = should-be-covered left sharp
 |---|---|---|---|
 | MoveNet-on-demand | exposure (weak tier) | back-turned person while faces>0 elsewhere, no cut | heartbeat <= 4s + cut-forced + faces==0 rule; corpus arm prices it before ship |
 | MoveNet-on-demand | over-cover (phantom) | higher cadence mints more graphic patches | nm floor + null band already gate births; phantom counter watched |
-| skip machinery regression | exposure (the 1070 class) | a skipped pass mis-reported to the eraser | skip only when faces>0; `wipeErasedBlurred` is the tripwire on every A/B |
-| face-anchored association | exposure | too-loose key bridges two people; cleared track absorbs a woman | IDENT_SIM_MIN reset + CLEARED_TTL_MS; ship only with ABSORBED-s not degraded on corpus |
+| skip machinery regression | exposure (the 1070 class) | a skipped pass mis-reported to the eraser | skip only when faces>0; three-state `personEvidence` fails toward covering on 'absent' by construction; `wipeErasedBlurred` is the tripwire on every A/B |
+| B1 birth-clear | exposure | a confidently-wrong instant read at birth leaves a woman sharp one verdict interval | priced +2.5s man / +4.5s woman, does **not** scale with the clock; E1 attribution (kill: cost concentrated on one subject) + E2 render check before ship; flag stays instant |
+| association key (face-anchored or buffered IoU) | exposure | too-loose key bridges two people; cleared track absorbs a woman | IDENT_SIM_MIN reset + CLEARED_TTL_MS + `sizeCompatible` kept; gated on E5; ship only with ABSORBED-s not degraded on corpus |
+| scdet cut transform | exposure (edge) | motion-to-motion cut suppressed by the `min` → stale cleared track absorbs new subject | E7(a) vs hand-labelled cuts before ship; `CUT_WEAK` still forces a verdict pass on the weaker signal |
+| CUT_WEAK misses a real cut | exposure | tracks not demoted; stale cleared track absorbs the new shot | CUT_STRONG keeps today's full behaviour; weak only *adds* a forced pass; both thresholds OTA-revertible |
+| KLT flow tracker (if ever built) | **two-directional** | drift = phantom at drift site + exposure at true site, all counters healthy | E8 offline first; hard leash: unconfirmed-move cap ~1 box-width + feature floor → `coastStep`; a tracker that gives up beats one confidently wrong |
 | image null guard | over-cover only | null/low-nm read stays covered | monotone by construction; 0 of 25 banked thumbnail faces refused at floor 5 |
 | unified read-policy | drift removed, regression added | one module feeds both paths; a bad constant hits both | OTA clamps + embedded-equality test; dials revert over the air |
-| CUT_MODE demote | exposure (edge) | same-position person inherits a demoted track across a cut | inherited state is blurred; re-clear needs fresh certain reads; state-machine review named in §4.4 |
+| CUT_MODE demote | exposure (edge) | same-position person inherits a demoted track across a cut | inherited state is blurred; re-clear needs fresh certain reads; state-machine review named in §4.5 |
 | CUT_MODE demote | over-cover (phantom) | patch survives cut onto a title card | wipeIfEmpty + cut coast; OTA-revertible in one push |
 | settled-face sampling | exposure | revocation delayed one verdict | ships only under a measured +<=2s corpus budget, else dropped permanently |
 | gender-model swap (face-api.js) | exposure | no descriptor → no nm axis → abstention machinery weakened | abstention portability is IN the bench bar; no swap without an equivalent no-signal test |
 | descriptor swap | exposure | a false match feeding association/memory | dies in the bench unless <2% false-match at 0.9; memory's trust/revoke guards retained regardless |
-| custom distilled model | exposure | student confidently wrong where teacher abstained | three-part acceptance bar (§3.6) incl. abstention quality vs the shipped 96.3%/0% baseline |
-| 360p corpus | wrong-instrument | tuning against a bank that still doesn't match the device | the §7.1 acceptance test is mandatory before any Stage 1 push |
+| px slicing discipline | wrong-instrument | a sweep run unsliced reads flat and ships a dead number | §7.1: every result sliced by px; flat results re-run at px<64 before being recorded; slice check against device rings |
 | wider OTA SPEC | both | a bad push moves more dials | every range clamped at a protection-reviewed edge; unknown keys refused; worst case is a dial at a considered edge |
-| open-source model release | reputational/licence | dataset provenance challenged after release | provenance table per source; ambiguous sources (FairFace) excluded until resolved in writing |
+| open-source model release | legal/reputational | a standalone gender classifier loses the EU AI Act "ancillary" posture; dataset provenance challengeable | release the methodology, not the model (§10); any model artifact waits on counsel + a provenance table with ambiguous sources excluded |
+| custom fine-tune | exposure | student confidently wrong on subjects the oracle-capped bench never saw | §7.1 protocol: cluster-held-out, px-sliced, per-class recall, device-ring confirmation |
 | iOS inline delivery | over-cover (stuck) | multi-MB parse fails mid-boot, blur-first never lifts | the fail-closed-forever class; retry bound + fail-open sweep verified in the spike matrix |
 | platform adapters | over-cover | wrong selector whole-blurs a player | selectors from live DOM only, [unverified] until emulator-verified; player red line test per adapter |
 
@@ -1026,16 +1298,39 @@ everything later if ignored.
   kit. The corpus itself (YouTube-derived frames) cannot ship;
   the harness plus bank-your-own instructions can, and that is the
   honest cut.
-- **The low-resolution gender/attribute model (§3.6) is the flagship
-  candidate** — the survey shows the niche is genuinely empty. Its
-  release checklist (model card, provenance, fairness slice
-  evaluation, abstention semantics, ONNX+TFJS exports, Apache-2.0) is
-  written in §3.6 and is the definition of done for Stage 6, not a
-  vague aspiration.
+- **The flagship release is the METHODOLOGY, not a model — a
+  deliberate redirection of the brief's ambition, with the reason.**
+  The custom-model doc found that a *standalone* gender classifier is
+  a materially worse legal posture than the in-app use: the EU AI
+  Act's Annex III(1)(b) makes biometric categorisation by protected
+  attributes high-risk, and the Article 3(40) escape ("ancillary to
+  another commercial service and strictly necessary") protects the
+  blur feature but **does not travel with a general-purpose published
+  model** — a released artifact has no service to be ancillary to.
+  Three of the four things a credible model release needs (a
+  redistributable eval set, warranted training-data provenance, the
+  ancillary-use posture) we cannot currently supply. What nobody else
+  has published, costs no licence and carries no exposure: **the
+  oracle-ceiling technique, the within-identity paired test, the
+  corpus-slicing correction, and the exposure/false-cover/phantom
+  scoring method** — "here is how much a perfect attribute model is
+  worth in a real blur product, measured." That is the release, and
+  it is genuinely useful to strangers. A model artifact is revisited
+  only if Stage 6's fine-tune happens AND counsel clears the posture;
+  the §3.6 checklist (model card, provenance table, per-slice recall,
+  abstention semantics, f16 exports) stands ready for that day.
 - **What is NOT released:** rules/scriptlets stay CC0 as today; the
   identity-memory constants and protection floors ship as code like
   everything else (they are already public in this MPL repo — the
-  boundary is not secrecy, it is packaging).
+  boundary is not secrecy, it is packaging); the corpus never ships
+  (copyrighted frames).
+- Owner-visible caveat that belongs to him, not to counsel-less docs:
+  the custom-model doc flags Illinois BIPA as the sharpest unresolved
+  legal risk of the *product itself* (face-geometry processing of
+  third parties in others' content; no on-device exemption; private
+  right of action). Independent of open-sourcing, it deserves real
+  counsel before any US marketing push. Recorded here so it is not
+  lost in a research doc.
 
 ---
 
@@ -1046,7 +1341,26 @@ boxes (exposure 82 → 89.5s). GENDER_CLEAR_SCORE below 0.36 (a real
 woman reads male raw 0.58-0.66 at his sizes). Shortening PFF_BODY_DOWN
 from 6.0 (a speaker's legs went sharp). Cross-image inference batching
 (BlazeFace fixes its batch dim). SharedWorker (absent in Android
-WebView). Full-uint8 faceres requant (8/100 cover flips, 2 sign
+WebView). Lowering `CLEAR_STREAK_N` / `GENDER_INSTANT_CLEAR` — the
+entire clear ladder is worth 6.5s of 216.5s because churn makes rung
+two unreachable; B1 is the reachable form of the same idea (temporal
+§8.1 — the obvious proposal, measured nearly worthless). A Kalman
+filter (C-BIoU's own result: the smoothness assumption is part of the
+problem under irregular motion; EMA + `missMs` is legible in existing
+counters — revisit only if E5 shows errors a covariance gate would
+catch). ByteTrack's low-confidence second pass (solves a within-frame
+weak-detection problem; between verdicts we have *no* detections, not
+weak ones). DeepSORT's appearance cascade (GPL, and our descriptor is
+a gross-mismatch veto, not a matching cost, on its measured 17%
+false-match rate). The log-odds accumulator rebuild before E6 shows
+the post-B1 residual is evidence-combination rather than churn. SPRT
+as the verdict frame (i.i.d.-from-one-hypothesis assumption is false
+across cuts and re-associations; the clamped decaying accumulator IS
+the truncated-SPRT limit, if E6 ever justifies it). Full-frame
+blackout on a cut (measured and refused in `gateTick` — cuts every
+~2.8s left the player mostly blurred). B2, clearing a birth on a
+non-instant certain read (exposure cost scales with the clock; B1's
+does not). Full-uint8 faceres requant (8/100 cover flips, 2 sign
 flips). URL verdict cache beyond the shipped page-scoped one (2-6.5%
 hit). A 64px size floor on images (covers a man who read male 0.99 at
 53px). gender-ssrnet-imdb in any wrapper (saturated output, retired
@@ -1066,6 +1380,9 @@ including the one published joint face+person model), mmyolo's RTMDet
 re-host (GPL — take RTMDet only from mmdetection), **EdgeFace weights
 (CC BY-NC-SA on Idiap's own model card; the MIT-badged ONNX re-host is
 a repackager and cannot relicense them)**, every MobileFaceNet lineage
-tracing to MS-Celeb-1M, DukeMTMC-trained OSNet variants. Holes,
+tracing to MS-Celeb-1M, DukeMTMC-trained OSNet variants,
+**abewley/sort and nwojke/deep_sort (both GPL-3.0 — deep_sort is
+commonly assumed permissive and is not), StrongSORT (GPL-3.0)** — every
+tracking idea in §4 is taken from the papers, never the repos. Holes,
 windows, splits or silhouette-tight masks in any patch (owner rule,
 twice).
