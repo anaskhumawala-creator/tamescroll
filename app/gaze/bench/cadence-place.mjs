@@ -32,7 +32,7 @@
 import fs from 'fs';
 import { ROOT, winFiles } from './corpus-lib.mjs';
 import { score } from './corpus-score.mjs';
-import { loadWin, makeArms } from './arch-arms.mjs';
+import { loadWin, makeArms, HIS_EFFZOOM } from './arch-arms.mjs';
 
 const g = process.env.GENDER || 'man';
 const GAPS = (process.argv[2] || '4,5,6,8').split(',').map(Number);
@@ -49,6 +49,19 @@ if (!fs.existsSync(dPath)) {
   throw new Error('no bank/deltas.json -- run: node bench/corpus-cuts.mjs');
 }
 const PEAK = JSON.parse(fs.readFileSync(dPath, 'utf8'));
+// FRESHNESS, because a stale bank is a silent wrong answer (critic C8).
+// deltas.json is produced by corpus-cuts from the same reads the arms
+// replay; if a window is re-banked and this is not, the placement policy
+// chooses frames from footage that no longer exists.
+{
+  const bank = fs.statSync(dPath).mtimeMs;
+  const stale = winFiles()
+    .filter((f) => fs.statSync(`${ROOT}/bank/reads/${f}`).mtimeMs > bank);
+  if (stale.length) throw new Error(
+    `bank/deltas.json is older than ${stale.length} window file(s) -- `
+    + 'the placement policy would choose frames from footage that has '
+    + 'since been re-banked. Re-run: node bench/corpus-cuts.mjs');
+}
 const wins = winFiles().map(loadWin);
 
 // The tag a window is banked under; deltas.json is keyed the same way.
@@ -71,6 +84,13 @@ function placedSet(w, T, MAXGAP) {
   let last = 0;
   for (let i = 1; i < w.frames.length; i++) {
     const starved = i - last >= MAXGAP;
+    // MINGAP IS INERT AT 1 AND THE BENCH SAID SO WITHOUT CHECKING
+    // (critic C8): `i - last >= 1` is true for every i after the first,
+    // since `last` is only ever set to an earlier index. It is kept
+    // because the app's ZOOM_INTERVAL_MS floor is real and a MAXGAP
+    // policy at a finer frame rate would need it -- but at the corpus's
+    // 2fps it constrains nothing, and a reader must not infer that the
+    // floor was exercised here.
     const moved = peak[i] >= T && i - last >= MINGAP;
     if (starved || moved) { s.add(i); last = i; }
   }
@@ -92,8 +112,25 @@ function solveT(MAXGAP) {
 const thinTo = (w, set) => ({ ...w, frames: w.frames.map((fr, i) =>
   set.has(i) ? fr : { ...fr, faces: [], _labelFaces: fr.faces }) });
 
+// THE COAST MUST BE PINNED OR THIS BENCH MEASURES THE COAST (critic C3).
+//
+// The stride inference takes the MEDIAN gap between verdict frames. In a
+// starvation-dominated policy most gaps ARE `MAXGAP`, so the median is
+// the WORST gap rather than the typical one, and it varies per window:
+// at max gap 4, thirteen of eighteen windows were handed a 4000ms coast
+// against the uniform control's 3000ms, and at max gap 6 nine windows
+// got 6000ms -- while every arm had the IDENTICAL mean gap of 3.00
+// frames. So the budget was held exactly, as advertised, and the coast
+// was not, and 15 has since established that the coast is what moves two
+// of the three columns.
+//
+// Every arm is told the same cadence now, which is what makes this a
+// comparison of PLACEMENT. `HIS_EFFZOOM` rather than the control's
+// stride: it is what his device hands the tracker (C4), and pinning to
+// anything else would answer a question about a device nobody owns.
 const mod = await import('./.cache/shipped.mjs');
-const arm = makeArms(mod)({ hold: true, clampPad: 0.02, cut: true });
+const arm = makeArms(mod)({ hold: true, clampPad: 0.02, cut: true,
+  fixedCadence: HIS_EFFZOOM });
 
 function run(setFor) {
   const agg = { exposureS: 0, falseCoverS: 0, phantomS: 0 };

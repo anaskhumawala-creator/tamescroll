@@ -1388,24 +1388,50 @@ past MAXGAP, or if the gate's own delta clears a solved threshold T`).
 T is bisected until the arm spends the uniform budget, so the comparison
 is placement against placement and never budget against budget.
 
+**CORRECTED, 2026-09-02 (critic C3). The budget was held exactly, as
+advertised. The COAST was not.** The stride inference takes the MEDIAN
+gap between verdict frames, and in a starvation-dominated policy most
+gaps ARE `MAXGAP` -- so the median is the WORST gap, not the typical
+one, and it varies per window. Thirteen of eighteen windows were handed
+a 4000ms coast at max gap 4 against the control's 3000ms, and nine got
+**6000ms** at max gap 6, while every arm had the IDENTICAL mean gap of
+3.00 frames. §15 has since established that the coast is what moves two
+of the three columns, so the placement arms were being scored partly on
+a longer coast they were never granted by the policy.
+
+Every arm is told `HIS_EFFZOOM` now, which is what makes this a
+comparison of placement:
+
 | arm (720 verdicts each) | EXPOSURE | FALSE COVER | PHANTOM |
 |---|---|---|---|
-| UNIFORM k=3 (today) | 24.5s | 186.0s | 482.5s |
-| PLACED, max gap 4 (2.0s), T=13.2 | **16.0s** | 217.5s | **466.5s** |
-| PLACED, max gap 6 (3.0s), T=7.1 | 48.0s | 233.5s | 423.0s |
+| UNIFORM k=3 (today) | 20.5s | **197.0s** | **592.0s** |
+| PLACED, max gap 4 (2.0s), T=13.2 | **13.5s** | 229.5s | 672.5s |
+| PLACED, max gap 6 (3.0s), T=7.1 | 30.0s | 226.0s | 648.5s |
 
-At a max gap of 2.0s, spending the SAME verdicts where the picture moved
-buys **8.5s of exposure and 16.0s of phantom for 31.5s of false cover**.
-At 3.0s it loses badly -- so the max gap is the load-bearing half of the
-policy, not the threshold.
+**THE CONCLUSION FLIPS.** The published version said placement buys
+"8.5s of exposure AND 16.0s of phantom for 31.5s of false cover" -- a
+lever that improved two columns at once, which is what made it look
+worth a round. With the coast held it buys **7.0s of exposure and costs
+32.5s of false cover and 80.5s of phantom**. The phantom benefit was the
+coast.
 
-**NOT PROPOSED, and the reason is 13, not caution.** Every arm above was
-re-derived hours ago on an instrument that had just been wrong three
-times in one night about exactly this kind of thing, and the policy
-would be a new cadence architecture in the player -- the highest-risk
-place in the app. What it establishes is that the idea is worth a proper
-round: it is the only cadence lever measured that does not spend more
-GPU, which is the constraint 12a says his phone is actually under.
+That leaves placement behaving exactly like more verdicts do (§10n): it
+buys exposure and it costs phantom. It is not a free lunch and it is not
+a third kind of lever. At max gap 3.0s it still loses on every column,
+so the max gap remains the load-bearing half of the policy.
+
+**NOT PROPOSED, and the reason is now the measurement rather than
+caution about the measurement.** It would be a new cadence architecture
+in the player -- the highest-risk place in the app -- to buy 7.0s of
+exposure at a cost of 80.5s of phantom, when the coast dial (15a) buys
+149.5s of phantom for 4.5s of exposure by changing one number over the
+air. If the exposure column is what he wants bought, placement is a
+candidate; nothing else about it is special.
+
+The original "NOT PROPOSED" note said the idea was worth a proper round
+because it was "the only cadence lever measured that does not spend more
+GPU". That was true and it is no longer the interesting property: the
+coast dial does not spend more GPU either, and it wins.
 
 ## 12. THE VERDICT CLOCK IS SET BY A CONSTANT, NOT BY COST -- and that constant could not travel
 
