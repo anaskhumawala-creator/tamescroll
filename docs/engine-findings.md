@@ -658,3 +658,74 @@ It was caught only because the probe asserts the dial instead of assuming
 it; without that assertion it would have published "the person skip buys
 nothing" as a null result.
 
+
+## §10i — SKIPPING THE PERSON MODEL BUYS FRAMES, NOT VERDICTS
+
+The hypothesis was cadence: MoveNet is 63-78% of a verdict pass on
+measured hardware and admits ZERO persons in every one of those passes,
+so skipping it should buy verdicts, and the corpus prices the clock at
+81.0s of exposure at 1.5s/verdict against 8.0s at 0.5s. That is a
+bigger lever than any threshold swept this month.
+
+**IT DOES NOT BUY VERDICTS.** Redmi M2010J19SI, `NWoT1ZVd1Lo` seeked to
+t=55, both arms in ONE invocation on the same video (pass cost on this
+device varies by more between sessions than the effect), 100s windows,
+`probe_skip_ab.py`:
+
+| | SKIP 1 (shipped) | SKIP 3 |
+|---|---|---|
+| reads | 63 | 63 |
+| **reads/s** | **0.627** | **0.629 (1.00x)** |
+| rAF | 2424 (24.1 Hz) | **3368 (33.6 Hz)** |
+| covered | 61.6% | 62.0% |
+| passDropped | 20 | **11** |
+| births (cleared) | 10 (2) | 12 (5) |
+| coastExpired | 9 | 12 |
+| faceNoShape | 48 | **0** |
+
+So the freed GPU time went to the RENDER LOOP, not to more passes:
+**+39% frame rate** for the same verdict rate. That is a real win — the
+render loop is what keeps a patch stuck to a moving subject between
+verdicts, and it is the quantity his "jittery / low quality" reports
+have always been about — but it is NOT the exposure lever the corpus
+priced, because exposure is set by the verdict clock and the verdict
+clock did not move.
+
+**WHY THE CADENCE DID NOT MOVE IS UNMEASURED**, and saying so matters
+more than the number: the pass is cheaper and the cadence is
+cost-proportional (`effZoom = lastVerdictMs * 4`), so more passes were
+the prediction. Candidates, none tested: the verdict interval is
+clamped by `VERDICT_MAX_INTERVAL_MS` 2000 rather than by cost on this
+device; or the saved MoveNet time is not on the critical path of the
+next pass at all. Do not push this dial for cadence until that is
+answered.
+
+**AND THE COST IS VISIBLE IN THE SAME TABLE: `faceNoShape` 48 -> 0.**
+The ghost gate cannot fire on a pass that ran no model, by design
+(`persons.skipped`) — so every uncorroborated face that the gate was
+refusing now mints a patch. That is the phantom direction, which is
+what he calls "random blur marks here and there". 48 refusals in 100s
+is not a rounding error.
+
+**NOT PUSHED.** `PERSON_SKIP_EVERY` stays 1 in `rules/tuning.json`. The
+frame-rate win is real and the exposure win is absent, so the trade is
+39% smoother rendering against ~0.5 extra phantom mints per second, and
+phantom is the complaint he has repeated most. It stays on the channel
+so it is one push away if his rings ever say the opposite.
+
+### The instrument had a floor of 1 under its own refusal counter
+
+`engine.tuning` shipped in the same round and read `refused: 1` in BOTH
+arms on a healthy device. The cause: `rules/tuning.json` carries a
+`_comment` explaining the channel, and `applyTuning` counted it as a
+key it did not know.
+
+That is not cosmetic. `TUNE_REFUSED` exists to say *this build does not
+know a key the pushed file contains* — which is exactly what an old app
+fetching a newer tuning.json looks like, and the only warning that a
+device is silently running different numbers than intended. With a
+floor of 1, the signal was invisible. Keys starting with `_` are
+documentation and skipped; a genuinely unknown key still counts. Two
+tests, both proved to fail against the pre-fix source (14 pass / 2 fail
+-> 16 / 0), and the second loads the SHIPPED `rules/tuning.json`
+through the real path and asserts 0 refused and 0 clamped.

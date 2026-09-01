@@ -99,6 +99,14 @@ export function applyTuning(raw) {
   if (!raw || typeof raw !== 'object') { TUNED = null; return applied; }
   for (var key in raw) {
     if (!Object.prototype.hasOwnProperty.call(raw, key)) continue;
+    // A LEADING UNDERSCORE IS DOCUMENTATION, NOT A REFUSAL.
+    // rules/tuning.json carries a `_comment` explaining the channel, and
+    // counting it made TUNE_REFUSED read 1 on every healthy device --
+    // so a REAL refusal (a key this build does not know, which is what
+    // an old app fetching a new tuning.json looks like) would have been
+    // invisible against a floor of 1. Measured on a phone before it was
+    // fixed: refused 1, applied 8, nothing actually wrong.
+    if (key.charAt(0) === '_') continue;
     var spec = SPEC[key];
     if (!spec) { TUNE_REFUSED++; continue; }
     var v = raw[key];

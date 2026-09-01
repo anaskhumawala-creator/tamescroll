@@ -219,3 +219,32 @@ test('nothing but a finite number can reach the tuning block', async () => {
   assert.equal(r.engine.tuning.refused, null);
   assert.deepEqual(reportViolations(JSON.parse(JSON.stringify(r))), []);
 });
+
+test('a documentation key is not a refusal', () => {
+  // TUNE_REFUSED has to mean "this build does not know that key", which
+  // is what an old app fetching a newer tuning.json looks like. The
+  // shipped file carries a `_comment`, and counting it put a floor of 1
+  // under the counter -- so the one signal it exists to give would have
+  // been invisible. Measured on a phone reading refused 1 with nothing
+  // wrong.
+  applyTuning({ _comment: 'why this channel exists', CUT_DELTA: 44 });
+  assert.equal(TUNE_REFUSED, 0);
+  assert.equal(sceneGate.CUT_DELTA, 44);
+  // ...and a genuinely unknown key still counts.
+  applyTuning({ _note: 'x', NOT_A_DIAL: 1, CUT_DELTA: 44 });
+  assert.equal(TUNE_REFUSED, 1);
+  restore();
+});
+
+test('the shipped file is clean through the real path', () => {
+  // The end-to-end property: load rules/tuning.json exactly as the app
+  // does and nothing may be refused or clamped. A refusal here means the
+  // file and the build disagree, which is the silent-revert failure the
+  // channel's other test guards from the opposite direction.
+  const obj = JSON.parse(
+    readFileSync(new URL('../../../rules/tuning.json', import.meta.url), 'utf8'));
+  applyTuning(obj);
+  assert.equal(TUNE_REFUSED, 0, 'the shipped tuning.json has a key this build refuses');
+  assert.equal(TUNE_CLAMPED, 0, 'the shipped tuning.json has a value this build clamps');
+  restore();
+});
