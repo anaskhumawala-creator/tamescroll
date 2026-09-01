@@ -70,6 +70,102 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-02 01:05 (**1086 PUBLISHED**, sha ad675ec7;
+1082/1083/1084/1085 all published the same night. He installed four of
+them and said "I'm tired of installing new versions" -- 1086 exists so
+that stops.)
+
+**Session 2026-09-01/02 (loop 40) -- THE CUT THRESHOLD WAS SITTING ON
+TOP OF ORDINARY CAMERA MOTION, AND THE NUMBERS NOW TRAVEL OVER THE
+AIR.**
+
+- **HIS REPORT: "Linus is fully blurred ... the blur stays up longer",
+  "still messed up", "You check properly".** The counters said nothing
+  was wrong. Reading his phone's own rings found it in one number.
+- **`CUT_DELTA` 28 WAS THE p90 OF HIS FOOTAGE'S ORDINARY MOTION.** 600
+  live luma deltas off his phone on the vlog he was complaining about:
+  p50 8.7, p75 16.3, **p90 28.2**, p95 54.9, max 108.5. So the cut gate
+  fired on **10.2%** of samples -- `cutDetected` 39 in ninety seconds.
+  Its own comment said "slow pans measure under ~15", which is FALSE for
+  handheld footage and is what put it at 28.
+- **EVERY FALSE CUT COSTS A CLEARED MAN HIS CLEAR**: the gate wipes the
+  tracks, he is re-born blurred and must earn it again, and a cut
+  landing mid-pass DROPS that pass (`passDropped` 29 against those 39).
+  **1085 ships 50**, in the gap between motion (p90 28.2) and real cuts
+  (p95 54.9). MEASURED AFTER on the same video: would-fire-at-28 **27
+  (6.6%)**, fires-at-50 **10 (2.5%)** -- 17 of 27 "cuts" were his camera
+  moving.
+- **AND THE RISK RUNS THE OTHER WAY, which is what made it safe.**
+  Raising it can only move behaviour toward the cut-never-wipes arm, and
+  on the 18-window labelled corpus that arm is BETTER on both numbers
+  that matter: man **81.0 -> 53.5s exposure, 218.0 -> 154.0s false
+  cover**; woman **85.0 -> 41.5s, 223.5 -> 196.0s**; worse only on
+  phantom. Loop 39's caveat is why that is a BOUND and not a licence to
+  delete the gate -- the arm wipes without the immediate full pass.
+- **`CUT_DELTA` CANNOT BE SWEPT ON THE CORPUS AT ALL:** bank/cuts.json
+  holds BOOLEANS, not raw deltas, so a variant constant has nothing to
+  re-decide. Said so in bench/cut-value.mjs rather than reporting a flat
+  sweep as a null result.
+- **THE CORPUS IS A NATIVE-RESOLUTION INSTRUMENT AND HIS PHONE IS NOT.
+  THREE SWEEPS READ FLAT TONIGHT FOR THAT ONE REASON**, and each could
+  have been written down as "no effect": close-up geometry (PFF_HALF_CAP
+  0.35 -> 0.22 and PFF_CLOSEUP_H 0.18 -> 0.08, all within 1.5s), the
+  clear bar (0.45 -> 0.30, **218.0s at every step**), and memory-may-push.
+  The reasons are measurable: corpus men read **v p50 0.864** where his
+  phone read 0.657 on the SAME video, so almost no corpus man sits in
+  the band the bar cuts through; and only **2.3%** of corpus clear-bar
+  reads carry no descriptor signal against his **36-42%**, so the arm
+  has no blocked pusher to unblock. **Verify a flat sweep is real before
+  recording it** -- two of tonight's earlier flats were broken
+  instruments (the arm called module-level functions instead of the
+  variant's).
+- **1084: A REMEMBERED IDENTITY MAY PUSH A PATCH OFF ITS OWN FACE.**
+  clampBodies only lets `flagged === false && signal === true` push, and
+  `signal` is THAT read's descriptor magnitude -- absent 36-42% of the
+  time on his phone. So the man beside her could not push her patch off
+  his own face on exactly the passes where faceres failed. Trust only
+  rises on reads carrying nm >= NULL_MINT_NM_FLOOR, so the evidence the
+  guard wants comes from the identity's history; a graphic never
+  accumulates trusted clears.
+- **1086: THE NUMBERS TRAVEL OVER THE AIR.** `rules/tuning.json` rides
+  the rules OTA already in place -- hashed in rules/manifest.json,
+  SHA-256 verified, sanity-gated, cached, silent on failure. Whitelisted
+  and CLAMPED page-side by `app/gaze/src/tuning.mjs`; unknown keys
+  refused, non-finite refused, out-of-range pulled to the nearest edge.
+  **The floors are protection decisions**: GENDER_CLEAR_SCORE stops at
+  0.36 (a real woman reads male raw 0.58-0.66 at his player's sizes),
+  NULL_MINT_NM_FLOOR below 6 (at 6 the ground-truth arm refused five
+  real faces), CUT_DELTA cannot return under the motion p90.
+  **CODE MAY NEVER TRAVEL HERE** -- it runs inside YouTube's page, same
+  split that keeps scriptlets in the binary. Handed over JSON-ESCAPED as
+  a STRING and parsed page-side, never as an object literal (a `${`
+  reaching an injected template was remotely lethal once already), and a
+  test fails if it becomes `= {`.
+- **SHIPPING THE CHANNEL CHANGES NOTHING**, and a test pins it: the
+  embedded tuning.json equals the shipped constants exactly, so 1086
+  behaves identically to 1085 until a number is deliberately pushed.
+  **A CONSTANT CHANGED IN SOURCE AND NOT IN THAT FILE WOULD SILENTLY
+  REVERT ON EVERY DEVICE THE MOMENT THE OTA LANDED** -- that test is the
+  only thing standing between here and that.
+- **A TEST FUNCTION IN lib.rs HAD NO `#[test]` AND HAD NEVER RUN.** Ten
+  assertions about which hosts and modes get the bundle, dead in the
+  tree while cargo reported 59 green. Found by deliberately breaking an
+  assertion inside it and watching the suite stay green. Enabled; it
+  passes. **Break an assertion to prove a new test can fail** -- that is
+  twice this repo has shipped a check that could not.
+- Verified R15-style in the EMITTED bundle, not the source:
+  `function ej(t){return t>=Nde?"cut":...}` with `Nde = 50`, and
+  `signal=!0,no("memClear")`.
+- gaze **488/488**, cargo **60/60**.
+- **NEXT, and it needs no release:** he is on 1086, so tune by pushing
+  `rules/tuning.json` and re-reading his rings. The open geometry
+  question is the VERTICAL of `personFromFace` (`cy + 6.0h`, uncapped by
+  design) -- a live observation read `b:[0.1, 0.098, 0.8, 1.0]`, 70% of
+  frame width by 90% of its height, for ONE face. It is the one
+  dimension never swept, and the corpus will not price it, so it must be
+  judged by LOOKING.
+
+
 **Last updated:** 2026-09-01 21:10 (**1079 PUBLISHED**; HEAD 06c1ba8 is
 UNRELEASED and carries the clear-bar move and the adjacency clamp,
 neither measured on a device.)
