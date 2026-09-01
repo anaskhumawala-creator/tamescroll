@@ -1596,20 +1596,21 @@ var lastCadenceMs = 0;
  * binds at every value his device reaches -- the 2.5x term is 5000 at
  * his cadence and never wins -- so this one number IS the coast.
  *
- * QUOTED IN HIS REGIME, which is k=3 verdict ARRIVAL and a cadence of
- * 2000ms TOLD (his effZoom is cap-pinned; see bench HIS_EFFZOOM). An
- * earlier version of this table was measured told 1500 and named the
- * wrong winner -- 1.67 is a no-op here, identical to 1.5.
+ * QUOTED IN HIS REGIME, which takes THREE numbers and not one: k=3
+ * verdict ARRIVAL, 2000ms TOLD (his effZoom is cap-pinned; see bench
+ * HIS_EFFZOOM), and verdictDt min(1000, arrival). Two earlier versions
+ * of this table each got one of them wrong and each named a different
+ * winner -- 1.67 was one of them and is a no-op here, identical to 1.5.
  *
  *   passes  coast     man exp/fc/phantom      woman exp/fc/phantom
- *   1.0     2000ms    40.5 / 131.5 / 363.0    35.5 / 183.0 / 417.0
- *   1.33    2660ms    28.5 / 134.5 / 420.5    30.5 / 189.5 / 492.5
- *   1.5     3000ms    27.5 / 138.5 / 484.0    30.0 / 192.0 / 565.0
- *   2 SHIP  4000ms    23.5 / 152.0 / 568.0    26.5 / 197.5 / 675.5
+ *   1.0     2000ms    38.0 / 134.0 / 365.0    35.5 / 186.0 / 419.0
+ *   1.33    2660ms    26.5 / 136.5 / 424.0    29.5 / 193.5 / 494.5
+ *   1.5     3000ms    25.5 / 140.5 / 488.5    29.0 / 196.0 / 568.0
+ *   2 SHIP  4000ms    22.0 / 155.0 / 573.5    25.5 / 201.0 / 679.5
  *
- * 1.33 costs +5.0s of exposure (man) and +4.0s (woman) and buys
- * 147.5s and 183.0s of phantom -- 26% and 27%, his loudest complaint --
- * plus 17.5s and 8.0s of false cover, for no extra inference at all.
+ * 1.33 costs +4.5s of exposure (man) and +4.0s (woman) and buys
+ * 149.5s and 185.0s of phantom -- 26% and 27%, his loudest complaint --
+ * plus 18.5s and 7.5s of false cover, for no extra inference at all.
  *
  * IT IS STILL AN EXPOSURE TRADE, and exposure is the number that means
  * somebody he asked to cover was left sharp. So the value that SHIPS is

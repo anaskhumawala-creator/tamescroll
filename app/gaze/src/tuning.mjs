@@ -105,15 +105,15 @@ var SPEC = {
   // one that does NOT spend a millisecond of GPU. The `cap` in
   // setVerdictCadence binds at every value his device reaches, so this
   // constant IS the coast. Corpus, both gender arms, in his real regime
-  // (k=3 arrival, 2000ms told): 2 -> 1.33 costs +4.0 to +5.0s of
-  // exposure and buys 147.5-183.0s of phantom (-26%) plus 8.0-17.5s of
+  // (k=3 arrival, 2000ms told): 2 -> 1.33 costs +4.0 to +4.5s of
+  // exposure and buys 149.5-185.0s of phantom (-26%) plus 7.5-18.5s of
   // false cover. See person-track.setCoastPasses and engine-findings 15.
   //
   // THE FLOOR IS A PROTECTION DECISION AND IT BINDS. An earlier version
   // of this comment justified 1.33 as "nothing lower can reach anyway",
   // which was computed at a cadence of 1500 -- a regime his device is
   // not in. At his 2000 the cap is 1.33 * 2000 = 2660ms and 1.0 really
-  // does reach 2000ms, costing +17.0s (man) and +9.0s (woman) of
+  // does reach 2000ms, costing +16.0s (man) and +10.0s (woman) of
   // exposure against the shipped value. THAT is what the floor refuses,
   // measured rather than assumed.
   //

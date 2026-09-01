@@ -1667,16 +1667,26 @@ Two corrections at once, and each moved the answer:
 
 | passes | coast | man exp / fc / phantom | woman exp / fc / phantom |
 |---|---|---|---|
-| 1.0 | 2000ms | 40.5 / 131.5 / 363.0 | 35.5 / 183.0 / 417.0 |
-| **1.33** | 2660ms | **28.5 / 134.5 / 420.5** | **30.5 / 189.5 / 492.5** |
-| 1.5 | 3000ms | 27.5 / 138.5 / 484.0 | 30.0 / 192.0 / 565.0 |
-| **2 (SHIPPED)** | 4000ms | **23.5 / 152.0 / 568.0** | **26.5 / 197.5 / 675.5** |
-| 2.5 | 5000ms | 22.5 / 162.0 / 619.0 | 26.5 / 201.0 / 742.0 |
+| 1.0 | 2000ms | 38.0 / 134.0 / 365.0 | 35.5 / 186.0 / 419.0 |
+| **1.33** | 2660ms | **26.5 / 136.5 / 424.0** | **29.5 / 193.5 / 494.5** |
+| 1.5 | 3000ms | 25.5 / 140.5 / 488.5 | 29.0 / 196.0 / 568.0 |
+| **2 (SHIPPED)** | 4000ms | **22.0 / 155.0 / 573.5** | **25.5 / 201.0 / 679.5** |
+| 2.5 | 5000ms | 21.0 / 165.0 / 624.5 | 25.5 / 204.5 / 746.0 |
 
-**2 -> 1.33 costs +5.0s of exposure (man) and +4.0s (woman), and buys
-147.5s and 183.0s of phantom -- 26% and 27% -- plus 17.5s and 8.0s of
+**2 -> 1.33 costs +4.5s of exposure (man) and +4.0s (woman), and buys
+149.5s and 185.0s of phantom -- 26% and 27% -- plus 18.5s and 7.5s of
 false cover. No extra inference at all.** Both arms agree on direction
 and on the winner.
+
+**THREE NUMBERS DESCRIBE HIS REGIME, AND THE ARM HAD ONE OF THEM.**
+Verdict ARRIVAL (k=3), the cadence TOLD (2000, his cap-pinned effZoom),
+and `verdictDt` -- which `person-track` credits a clear by
+(`clearMs += obs.verdictDt`) and the app computes as
+`min(1000, now - lastZoomAt)`. The arm passed the 500ms BANK interval,
+so a man needed THREE verdicts here to earn the hold his device earns in
+two (critic C6). Fixing it moved the shipped row to exactly the value
+the critic predicted independently, **22.0 / 155.0 / 573.5**, which is
+the closest thing to a cross-check this instrument has had.
 
 **The value §15 named is a no-op here.** At told 2000, passes 1.67 and
 1.5 produce the identical row -- the cap steps in 500ms because `missMs`
@@ -1690,7 +1700,7 @@ function?*
 `tuning.mjs` first said 1.33 was safe because "below that the cap floors
 at `PTRACK_MAX_COAST_MS` 2000 anyway, so nothing lower can reach". True
 at told 1500; false at his 2000, where 1.33 gives 2660ms and passes 1.0
-really does reach 2000ms -- at a cost of **+17.0s (man) and +9.0s
+really does reach 2000ms -- at a cost of **+16.0s (man) and +10.0s
 (woman)** of exposure. The floor stays at 1.33, now for the measured
 reason instead of an arithmetic one that did not hold.
 

@@ -338,6 +338,18 @@ export function makeArms(mod) {
       // ask what the CLOCK alone is worth.
       const told = typeof o.fixedCadence === 'number' ? o.fixedCadence : dt * stride;
       setVerdictCadence(told);
+      // `verdictDt` IS A THIRD NUMBER, and the arm was passing a fourth
+      // (critic C6). person-track credits a clear by the gap between
+      // READS -- `clearMs += obs.verdictDt` -- and the app computes that
+      // as `Math.min(1000, now - lastZoomAt)` (init-entry.js:3601). The
+      // arm passed `dt`, the 500ms BANK interval, in every arm at every
+      // k: exactly the defect 13 fixed one line above, one line away.
+      //
+      // At k=3 the app passes min(1000, 1500) = 1000, so a man needed
+      // THREE verdicts here to earn the hold his device earns in two.
+      // It is ARRIVAL, not the cap -- a real elapsed gap, not a schedule
+      // -- so it is derived from the stride and never from `told`.
+      const vdt = Math.min(1000, dt * stride);
       if (o.onCadence) o.onCadence({ stride, told, verdictFrames: vAt.length });
       let fi = -1;
       for (const fr0 of win.frames) {
@@ -626,7 +638,7 @@ export function makeArms(mod) {
             ? { ...m, flagged: false, certain: true, abstained: false, instant: true,
                 ...(o.memSignal ? { signal: true } : {}) }
             : m;
-          return obsOf(f, mm, dt, descOf(win, f.descIdx), box);
+          return obsOf(f, mm, vdt, descOf(win, f.descIdx), box);
         });
         // A DETECTED PERSON NOBODY READ IS STILL A PERSON.
         // Rendering the worst exposure window showed what the narrowing
@@ -677,7 +689,7 @@ export function makeArms(mod) {
                      x2: Math.min(1, p.x2 + w), y2: Math.min(1, p.y2 + h) },
               flagged: true, certain: false, abstained: false, instant: false,
               weak: false, nullMint: false, signal: false, faceFound: false,
-              verdictDt: dt, desc: null,
+              verdictDt: vdt, desc: null,
             });
           }
         }
