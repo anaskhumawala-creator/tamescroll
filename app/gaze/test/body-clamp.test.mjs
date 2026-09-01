@@ -119,3 +119,54 @@ test('hasDescriptorSignal is the MIRROR of the mint floor, and refuses on missin
 test('BODY_CLAMP_PAD is the value the corpus was scored at', () => {
   assert.strictEqual(BODY_CLAMP_PAD, 0.02);
 });
+
+// ---------------------------------------------------------------------
+// THE WIRING. init-entry.js is a browser bundle entry and cannot be
+// imported here, so these read its source -- the same technique the
+// repo already uses for the eraser counters. Both assertions slice to a
+// MARKER rather than a fixed character window: a fixed slice stopped
+// covering the block it was written for twice in this repo once the
+// comments above it grew, and an assertion that has drifted out of its
+// own window passes forever.
+import { readFileSync } from 'node:fs';
+const page = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
+
+test('the observation builder emits `signal` -- the field-drop failure', () => {
+  // init-entry warns about this twice in its own comments: R12 shipped
+  // `abstained` in gender-verdict AND person-track and forgot the one
+  // line in this builder, so the consumer was unreachable for two
+  // releases and every unit test passed, because they hand observations
+  // straight to updatePersonTracks and never cross this boundary.
+  const a = page.indexOf('nullMint: !!mine.nullRead,');
+  const b = page.indexOf('desc: faceDesc,', a);
+  assert.ok(a > 0 && b > a, 'the observation return block moved -- fix the markers');
+  const block = page.slice(a, b);
+  assert.match(block, /signal:\s*hasDescriptorSignal\(/,
+    'the observation must carry `signal`, or clampBodies can never push an edge');
+});
+
+test('the clamp runs BEFORE the tracker, not after', () => {
+  // updatePersonTracks dedupes internally (person-track.mjs), so the
+  // clamp has to be a property of the box that enters the merge. Called
+  // afterwards it would narrow a box the tracker had already used, and
+  // every measurement behind it would be describing something else.
+  const clamp = page.indexOf('clampBodies(observations');
+  const track = page.indexOf('updatePersonTracks(videoTracks, observations');
+  assert.ok(clamp > 0, 'clampBodies is not called from the video pass at all');
+  assert.ok(track > 0, 'the updatePersonTracks call site moved -- fix the marker');
+  assert.ok(clamp < track, 'clampBodies must run before updatePersonTracks');
+});
+
+test("the clamp counter does not collide with the geometry clamp's", () => {
+  // region-blur already ships `clampFired` / `clampNoLegalEdge` /
+  // `clampNoCore` for the PATCH-geometry clamp. Two unrelated events in
+  // one counter silently rebases every reading any earlier round has
+  // quoted of it, and the only place that is visible is the emitted
+  // bundle.
+  const a = page.indexOf('clampBodies(observations');
+  const b = page.indexOf('updatePersonTracks(videoTracks, observations', a);
+  const block = page.slice(a, b);
+  assert.match(block, /bumpLife\('bodyClampFired'\)/);
+  assert.ok(!/bumpLife\('clampFired'\)/.test(block),
+    "the body clamp must not bump the geometry clamp's counter");
+});

@@ -66,7 +66,48 @@ export var GENDER_IMAGE_MIN_SCORE = 0.4;
 // count as certainly-SAME-gender (the read that lifts blur) only at
 // this much higher certainty. Flagging keeps the low bar — over-blur
 // stays cheap, under-blur is the failure that matters.
-export var GENDER_CLEAR_SCORE = 0.6;
+//
+// 0.60 -> 0.45, AND 0.45 -> 0.35 BELOW, 2026-09-01. Both bars were set
+// on faces read at NATIVE resolution. His player decodes 640x360 and
+// faces reach faceres at px p50 38-62, where the same model is far less
+// certain about the same person -- so a bar calibrated at px 200 is a
+// bar almost nobody clears at px 45, and every man who fails it is
+// covered. That is his standing complaint in one sentence: "the male
+// should not be blurred".
+//
+// PRICED TWICE, BOTH WAYS.
+//
+// Per READ, on 10 videos of his own regime, 1,494 labelled reads: 0 of
+// 701 must-cover reads in man mode cross from covered to clear, 0 of
+// 793 in woman mode, and 197 of 793 men (24.8%) newly clear CORRECTLY.
+// 95% upper bound on the exposure rate 0.43%.
+//
+// Over TIME, which is what a user sees, at his measured 1.45s verdict
+// cadence with MoveNet admitting nobody (loops 35/36/37):
+//
+//   man mode      EXPOSURE  FALSECOVER  PHANTOM
+//   shipped 1079     38.5s      292.0s   197.0s
+//   this + clamp     45.0s      186.5s   172.5s
+//   woman mode
+//   shipped 1079     39.0s      291.0s   225.0s
+//   this + clamp     39.0s      273.5s   216.0s
+//
+// THE +6.5s IS NOT THE BAR CLEARING A WOMAN. Every frame it uncovers
+// was traced: two of them are a woman reading FEMALE 0.71-0.78, a score
+// this constant cannot touch, because it gates only the same-gender
+// branch. The mechanism is a shot change where her observation
+// re-associates onto a stale CLEARED track left by a man in the
+// previous shot. scene-gate.mjs wipes tracks on a cut for exactly that
+// reason, and with the gate modelled on both sides the cost falls to
+// +2.5s.
+//
+// The direction argument that justified the female bar still holds and
+// is what bounds this: faceres is directionally correct even when it is
+// uncertain -- across the whole corpus not one man was read female with
+// conviction -- so lowering CERTAINTY does not let the opposite gender
+// through, it lets the SAME gender through at the sizes his player
+// actually produces.
+export var GENDER_CLEAR_SCORE = 0.45;
 // ...but 0.6 was calibrated on MALE faces, and faceres is not equally
 // confident about the two genders. Measured in gauntlet R6 on a 3-person
 // news panel (runs/r6-woman), same shot, same lighting, faces all
@@ -91,7 +132,12 @@ export var GENDER_CLEAR_SCORE = 0.6;
 // female bar is that direction is reliable: a man reads male at 0.87+,
 // so he cannot sneak through a female-clear gate at 0.45 — he would have
 // to be misread as female first, which was not observed once.
-export var GENDER_CLEAR_SCORE_FEMALE = 0.45;
+//
+// Moved 0.45 -> 0.35 with the male bar above, keeping the same ~0.10
+// gap the R6 measurement set. Moving one and not the other would change
+// the RELATIVE treatment of the two genders, which no measurement here
+// asked for.
+export var GENDER_CLEAR_SCORE_FEMALE = 0.35;
 // R30 — THE SAFETY ARGUMENT DIRECTLY ABOVE DOES NOT SURVIVE THE CORPUS,
 // AND THIS IS THE HIGHEST-VALUE WOMAN-DIRECTION CALIBRATION ITEM OPEN.
 // The constant is NOT moved here: moving it blind, from a man-direction

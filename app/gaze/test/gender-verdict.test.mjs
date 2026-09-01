@@ -10,6 +10,7 @@ import {
   GENDER_MIN_SCORE,
   GENDER_IMAGE_MIN_SCORE,
   GENDER_CLEAR_SCORE,
+  GENDER_CLEAR_SCORE_FEMALE,
   GENDER_ADULT_AGE,
 } from '../src/gender-verdict.mjs';
 import * as gv from '../src/gender-verdict.mjs';
@@ -182,13 +183,31 @@ test('clear bar is per-gender: faceres is ~0.4 less certain about women', () => 
     'a typical female read must clear for a woman user'
   );
 
-  // The same score from a MALE read must still NOT clear a man: the male
-  // distribution sits at 0.87+, so 0.54 is genuinely anomalous there.
-  const weakMan = [{ gender: 'male', score: 0.54, age: 47 }];
+  // THE GAP, NOT A FIXED SCORE. This half used to assert that a MALE
+  // read at 0.54 does not clear a man, on the reasoning that "the male
+  // distribution sits at 0.87+, so 0.54 is anomalous". That was measured
+  // at NATIVE resolution on a 3-person panel. His player decodes 640x360
+  // and faces reach faceres at px p50 38-62, where men read p50 0.786
+  // over a wide spread -- 0.54 is ordinary there, not anomalous, and
+  // both bars moved down on 2026-09-01 because of it.
+  //
+  // So the test is built FROM the constants and pins the PROPERTY that
+  // survived the re-measurement: clearing a man takes more certainty
+  // than clearing a woman. A fixed number here would have to be edited
+  // every time the bars move, which is how an assertion silently stops
+  // testing anything.
+  const between = (GENDER_CLEAR_SCORE + GENDER_CLEAR_SCORE_FEMALE) / 2;
+  assert.ok(GENDER_CLEAR_SCORE > GENDER_CLEAR_SCORE_FEMALE,
+    'the male bar must stay above the female bar');
   assert.equal(
-    faceMeta('man', weakMan)[0].certain,
+    faceMeta('woman', [{ gender: 'female', score: between, age: 47 }])[0].certain,
+    true,
+    'a score between the two bars must clear a woman'
+  );
+  assert.equal(
+    faceMeta('man', [{ gender: 'male', score: between, age: 47 }])[0].certain,
     false,
-    'the male clear bar must not be lowered by this change'
+    'the same score must NOT clear a man -- the two bars are not one bar'
   );
 
   // Symmetry gate: a confident man is still COVERED in woman mode.
@@ -196,8 +215,9 @@ test('clear bar is per-gender: faceres is ~0.4 less certain about women', () => 
   const inWomanMode = faceMeta('woman', confidentMan)[0];
   assert.equal(inWomanMode.flagged, true, 'a man must stay covered in woman mode');
 
-  // ...and a woman below even the lowered bar stays covered.
-  const unsureWoman = [{ gender: 'female', score: 0.22, age: 40 }];
+  // ...and a woman below even the lowered bar stays covered. Derived
+  // from the constant for the same reason as above.
+  const unsureWoman = [{ gender: 'female', score: GENDER_CLEAR_SCORE_FEMALE - 0.01, age: 40 }];
   assert.equal(faceMeta('woman', unsureWoman)[0].certain, false);
 });
 

@@ -20,9 +20,11 @@ import {
   flaggedFaceIndices,
   faceMeta,
   isNullRead,
+  hasDescriptorSignal,
   FACE_MIN_NATIVE_PX,
 } from './gender-verdict.mjs';
 import { markShape, markRing } from './face-marks.mjs';
+import { clampBodies, BODY_CLAMP_PAD } from './body-clamp.mjs';
 import {
   personCropRegion,
   headCropRegion,
@@ -2963,6 +2965,21 @@ if (
               // updatePersonTracks. `nullDropped` is the counter that
               // proves this line is alive in a real run.
               nullMint: !!mine.nullRead,
+              // DID THIS CROP CARRY DESCRIPTOR SIGNAL? Read from the raw
+              // gender read, not from `mine`, because faceMeta answers
+              // about the VERDICT and this is a question about the
+              // evidence. clampBodies uses it to decide who may push a
+              // neighbour's patch edge back, and a graphic that reads
+              // clear must never be allowed to -- measured on the
+              // RcGyVTAoXEU stage, where a projected backdrop graphic is
+              // detected as a face, reads clear, and pulls the speaker's
+              // patch off her side.
+              //
+              // Added HERE and not only in body-clamp, per the warning
+              // on `abstained` above: a builder that drops a field makes
+              // its consumer unreachable and no unit test can see it.
+              // `clampFired` is the life counter that proves it alive.
+              signal: hasDescriptorSignal(genders[own]),
               faceFound: true,
               desc: faceDesc,
             };
@@ -3825,6 +3842,44 @@ if (
               // on a slow device the cadence is what decides whether a
               // covered person's patch survives to the next pass.
               setVerdictCadence(effZoom);
+              // THE ADJACENCY CLAMP. A synthetic body is 7.4 face-heights
+              // wide, and in his regime EVERY body is synthetic --
+              // MoveNet admits nobody (loops 35/36/37, all twelve slots
+              // n:0 on his phone, three times). In a two-shot that width
+              // swallows the man standing next to the subject, and a man
+              // the pipeline correctly CLEARED being covered by his
+              // neighbour's patch is the single biggest error left:
+              // measured on a 10-video labelled corpus at his measured
+              // 1.45s verdict cadence, FALSE COVER 292.0s against
+              // EXPOSURE 38.5s.
+              //
+              // BEFORE the provenance probe on purpose, so `obs` records
+              // the boxes the TRACKER is handed rather than the ones it
+              // would have been handed. And before updatePersonTracks,
+              // which dedupes internally (person-track.mjs:598) -- the
+              // clamp has to be a property of the box that goes into the
+              // merge, not something applied after one won it.
+              var preClamp = observations;
+              observations = clampBodies(observations, BODY_CLAMP_PAD);
+              try {
+                var nClamped = 0;
+                for (var ci = 0; ci < observations.length; ci++) {
+                  if (observations[ci] !== preClamp[ci]) nClamped++;
+                }
+                // NOT `clampFired` -- that name is TAKEN, by the patch
+                // geometry clamp in region-blur (clampFired /
+                // clampNoLegalEdge / clampNoCore). Reusing it would have
+                // added two unrelated events into one number and
+                // silently rebased every reading of it that any earlier
+                // round has quoted. Caught by reading the EMITTED
+                // bundle, not the source.
+                //
+                // bumpLife counts by ONE; an edge moved on three
+                // observations in a pass is three, because the question
+                // this answers is "did the clamp fire in the wild, and
+                // how often", and a per-pass boolean cannot say.
+                for (var cj = 0; cj < nClamped; cj++) bumpLife('bodyClampFired');
+              } catch (e) {}
               // OBSERVATION PROVENANCE (gauntlet R19). `slots` shows what
               // MoveNet raw-produced and `tracks` shows what survived, and
               // between them sits the one step no artifact has ever
