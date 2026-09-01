@@ -1,0 +1,783 @@
+{
+ "frames": [
+  {
+   "name": "Ary1gIbaOTc_t1572.png",
+   "w": 640,
+   "h": 360,
+   "nA": 1,
+   "nB": 1,
+   "pairs": [
+    {
+     "a": 0,
+     "b": 0,
+     "d": 0.0287,
+     "A": {
+      "gender": "male",
+      "score": 0.582,
+      "raw": 0.7908,
+      "age": 45,
+      "childP": 0.031,
+      "nm": 7.81,
+      "nullRead": 0
+     },
+     "B": {
+      "gender": "male",
+      "score": 0.581,
+      "raw": 0.7903,
+      "age": 49,
+      "childP": 0.037,
+      "nm": 9.93,
+      "nullRead": 0
+     }
+    }
+   ],
+   "onlyA": [],
+   "onlyB": [],
+   "flagManA": 0,
+   "flagManB": 0,
+   "flagWomanA": 1,
+   "flagWomanB": 1
+  },
+  {
+   "name": "Ary1gIbaOTc_t2.png",
+   "w": 640,
+   "h": 360,
+   "nA": 1,
+   "nB": 1,
+   "pairs": [
+    {
+     "a": 0,
+     "b": 0,
+     "d": 0.025,
+     "A": {
+      "gender": "male",
+      "score": 0.544,
+      "raw": 0.7721,
+      "age": 43,
+      "childP": 0.045,
+      "nm": 8.03,
+      "nullRead": 0
+     },
+     "B": {
+      "gender": "male",
+      "score": 0.596,
+      "raw": 0.798,
+      "age": 50,
+      "childP": 0.033,
+      "nm": 10.18,
+      "nullRead": 0
+     }
+    }
+   ],
+   "onlyA": [],
+   "onlyB": [],
+   "flagManA": 0,
+   "flagManB": 0,
+   "flagWomanA": 1,
+   "flagWomanB": 1
+  },
+  {
+   "name": "Ary1gIbaOTc_t3122.png",
+   "w": 640,
+   "h": 360,
+   "nA": 1,
+   "nB": 1,
+   "pairs": [
+    {
+     "a": 0,
+     "b": 0,
+     "d": 0.0224,
+     "A": {
+      "gender": "male",
+      "score": 0.825,
+      "raw": 0.9125,
+      "age": 45,
+      "childP": 0.012,
+      "nm": 10.34,
+      "nullRead": 0
+     },
+     "B": {
+      "gender": "male",
+      "score": 0.894,
+      "raw": 0.9472,
+      "age": 46,
+      "childP": 0.007,
+      "nm": 10.52,
+      "nullRead": 0
+     }
+    }
+   ],
+   "onlyA": [],
+   "onlyB": [],
+   "flagManA": 0,
+   "flagManB": 0,
+   "flagWomanA": 1,
+   "flagWomanB": 1
+  },
+  {
+   "name": "H14bBuluwB8_t122.png",
+   "w": 640,
+   "h": 360,
+   "nA": 1,
+   "nB": 1,
+   "pairs": [
+    {
+     "a": 0,
+     "b": 0,
+     "d": 0.026,
+     "A": {
+      "gender": "female",
+      "score": 0.757,
+      "raw": 0.1213,
+      "age": 27,
+      "childP": 0.262,
+      "nm": 10.33,
+      "nullRead": 0
+     },
+     "B": {
+      "gender": "female",
+      "score": 0.792,
+      "raw": 0.1042,
+      "age": 25,
+      "childP": 0.324,
+      "nm": 10.42,
+      "nullRead": 0
+     }
+    }
+   ],
+   "onlyA": [],
+   "onlyB": [],
+   "flagManA": 1,
+   "flagManB": 1,
+   "flagWomanA": 1,
+   "flagWomanB": 1
+  },
+  {
+   "name": "H14bBuluwB8_t2.png",
+   "w": 640,
+   "h": 360,
+   "nA": 1,
+   "nB": 1,
+   "pairs": [
+    {
+     "a": 0,
+     "b": 0,
+     "d": 0.0223,
+     "A": {
+      "gender": "male",
+      "score": 0.301,
+      "raw": 0.6505,
+      "age": 38,
+      "childP": 0.124,
+      "nm": 2.14,
+      "nullRead": 1
+     },
+     "B": {
+      "gender": "male",
+      "score": 0.359,
+      "raw": 0.6796,
+      "age": 39,
+      "childP": 0.098,
+      "nm": 3.36,
+      "nullRead": 1
+     }
+    }
+   ],
+   "onlyA": [],
+   "onlyB": [],
+   "flagManA": 1,
+   "flagManB": 1,
+   "flagWomanA": 1,
+   "flagWomanB": 1
+  },
+  {
+   "name": "H14bBuluwB8_t252.png",
+   "w": 640,
+   "h": 360,
+   "nA": 1,
+   "nB": 1,
+   "pairs": [
+    {
+     "a": 0,
+     "b": 0,
+     "d": 0.0331,
+     "A": {
+      "gender": "male",
+      "score": 0.14,
+      "raw": 0.5702,
+      "age": 35,
+      "childP": 0.139,
+      "nm": 2.68,
+      "nullRead": 1
+     },
+     "B": {
+      "gender": "male",
+      "score": 0.252,
+      "raw": 0.6262,
+      "age": 36,
+      "childP": 0.125,
+      "nm": 5.13,
+      "nullRead": 1
+     }
+    }
+   ],
+   "onlyA": [],
+   "onlyB": [],
+   "flagManA": 1,
+   "flagManB": 1,
+   "flagWomanA": 1,
+   "flagWomanB": 1
+  },
+  {
+   "name": "NWoT1ZVd1Lo_t2.png",
+   "w": 640,
+   "h": 360,
+   "nA": 1,
+   "nB": 1,
+   "pairs": [
+    {
+     "a": 0,
+     "b": 0,
+     "d": 0.0343,
+     "A": {
+      "gender": "male",
+      "score": 0.92,
+      "raw": 0.9602,
+      "age": 35,
+      "childP": 0.004,
+      "nm": 11.43,
+      "nullRead": 0
+     },
+     "B": {
+      "gender": "male",
+      "score": 0.966,
+      "raw": 0.9828,
+      "age": 30,
+      "childP": 0.007,
+      "nm": 12.09,
+      "nullRead": 0
+     }
+    }
+   ],
+   "onlyA": [],
+   "onlyB": [],
+   "flagManA": 0,
+   "flagManB": 0,
+   "flagWomanA": 1,
+   "flagWomanB": 1
+  },
+  {
+   "name": "NWoT1ZVd1Lo_t402.png",
+   "w": 640,
+   "h": 360,
+   "nA": 2,
+   "nB": 2,
+   "pairs": [
+    {
+     "a": 0,
+     "b": 0,
+     "d": 0.0163,
+     "A": {
+      "gender": "male",
+      "score": 0.004,
+      "raw": 0.5021,
+      "age": 30,
+      "childP": 0.152,
+      "nm": 7.33,
+      "nullRead": 0
+     },
+     "B": {
+      "gender": "female",
+      "score": 0.053,
+      "raw": 0.4735,
+      "age": 31,
+      "childP": 0.175,
+      "nm": 8.44,
+      "nullRead": 0
+     }
+    },
+    {
+     "a": 1,
+     "b": 1,
+     "d": 0.0209,
+     "A": {
+      "gender": "male",
+      "score": 0.59,
+      "raw": 0.7952,
+      "age": 34,
+      "childP": 0.03,
+      "nm": 10.3,
+      "nullRead": 0
+     },
+     "B": {
+      "gender": "male",
+      "score": 0.558,
+      "raw": 0.7788,
+      "age": 34,
+      "childP": 0.035,
+      "nm": 10.25,
+      "nullRead": 0
+     }
+    }
+   ],
+   "onlyA": [],
+   "onlyB": [],
+   "flagManA": 1,
+   "flagManB": 1,
+   "flagWomanA": 1,
+   "flagWomanB": 1
+  },
+  {
+   "name": "NWoT1ZVd1Lo_t752.png",
+   "w": 640,
+   "h": 360,
+   "nA": 3,
+   "nB": 2,
+   "pairs": [
+    {
+     "a": 0,
+     "b": 1,
+     "d": 0.0146,
+     "A": {
+      "gender": "male",
+      "score": 0.581,
+      "raw": 0.7903,
+      "age": 34,
+      "childP": 0.034,
+      "nm": 9.24,
+      "nullRead": 0
+     },
+     "B": {
+      "gender": "male",
+      "score": 0.62,
+      "raw": 0.8101,
+      "age": 33,
+      "childP": 0.029,
+      "nm": 10.33,
+      "nullRead": 0
+     }
+    },
+    {
+     "a": 1,
+     "b": 0,
+     "d": 0.0173,
+     "A": {
+      "gender": "male",
+      "score": 0.201,
+      "raw": 0.6007,
+      "age": 32,
+      "childP": 0.153,
+      "nm": 9.53,
+      "nullRead": 0
+     },
+     "B": {
+      "gender": "female",
+      "score": 0.246,
+      "raw": 0.3771,
+      "age": 30,
+      "childP": 0.198,
+      "nm": 10.29,
+      "nullRead": 0
+     }
+    }
+   ],
+   "onlyA": [
+    {
+     "c": {
+      "cx": 0.8659283757209778,
+      "cy": 0.2155364453792572
+     },
+     "read": {
+      "gender": "male",
+      "score": 0.293,
+      "raw": 0.6465,
+      "age": 38,
+      "childP": 0.142,
+      "nm": 2.56,
+      "nullRead": 1
+     }
+    }
+   ],
+   "onlyB": [],
+   "flagManA": 1,
+   "flagManB": 1,
+   "flagWomanA": 1,
+   "flagWomanB": 1
+  },
+  {
+   "name": "RcGyVTAoXEU_t2.png",
+   "w": 640,
+   "h": 360,
+   "nA": 1,
+   "nB": 1,
+   "pairs": [
+    {
+     "a": 0,
+     "b": 0,
+     "d": 0.0423,
+     "A": {
+      "gender": "male",
+      "score": 0.265,
+      "raw": 0.6324,
+      "age": 39,
+      "childP": 0.116,
+      "nm": 1.71,
+      "nullRead": 1
+     },
+     "B": {
+      "gender": "male",
+      "score": 0.284,
+      "raw": 0.6422,
+      "age": 38,
+      "childP": 0.125,
+      "nm": 2.52,
+      "nullRead": 1
+     }
+    }
+   ],
+   "onlyA": [],
+   "onlyB": [],
+   "flagManA": 1,
+   "flagManB": 1,
+   "flagWomanA": 1,
+   "flagWomanB": 1
+  },
+  {
+   "name": "RcGyVTAoXEU_t332.png",
+   "w": 640,
+   "h": 360,
+   "nA": 1,
+   "nB": 1,
+   "pairs": [
+    {
+     "a": 0,
+     "b": 0,
+     "d": 0.04,
+     "A": {
+      "gender": "female",
+      "score": 0.562,
+      "raw": 0.219,
+      "age": 30,
+      "childP": 0.059,
+      "nm": 11.75,
+      "nullRead": 0
+     },
+     "B": {
+      "gender": "female",
+      "score": 0.803,
+      "raw": 0.0986,
+      "age": 31,
+      "childP": 0.026,
+      "nm": 13.36,
+      "nullRead": 0
+     }
+    }
+   ],
+   "onlyA": [],
+   "onlyB": [],
+   "flagManA": 1,
+   "flagManB": 1,
+   "flagWomanA": 0,
+   "flagWomanB": 0
+  },
+  {
+   "name": "RcGyVTAoXEU_t602.png",
+   "w": 640,
+   "h": 360,
+   "nA": 2,
+   "nB": 2,
+   "pairs": [],
+   "onlyA": [
+    {
+     "c": {
+      "cx": 0.38091298937797546,
+      "cy": 0.1604483425617218
+     },
+     "read": {
+      "gender": "male",
+      "score": 0.216,
+      "raw": 0.608,
+      "age": 35,
+      "childP": 0.152,
+      "nm": 3.28,
+      "nullRead": 1
+     }
+    },
+    {
+     "c": {
+      "cx": 0.653907835483551,
+      "cy": 0.472093403339386
+     },
+     "read": {
+      "gender": "male",
+      "score": 0.237,
+      "raw": 0.6186,
+      "age": 40,
+      "childP": 0.131,
+      "nm": 3.4,
+      "nullRead": 1
+     }
+    }
+   ],
+   "onlyB": [
+    {
+     "c": {
+      "cx": 0.6087586283683777,
+      "cy": 0.5648680792914497
+     },
+     "read": {
+      "gender": "male",
+      "score": 0.091,
+      "raw": 0.5457,
+      "age": 36,
+      "childP": 0.134,
+      "nm": 2.95,
+      "nullRead": 1
+     }
+    },
+    {
+     "c": {
+      "cx": 0.7135323286056519,
+      "cy": 0.455966764026218
+     },
+     "read": {
+      "gender": "male",
+      "score": 0.397,
+      "raw": 0.6984,
+      "age": 35,
+      "childP": 0.115,
+      "nm": 3.35,
+      "nullRead": 1
+     }
+    }
+   ],
+   "flagManA": 1,
+   "flagManB": 1,
+   "flagWomanA": 1,
+   "flagWomanB": 1
+  },
+  {
+   "name": "z86LGEFyQpo_t2.png",
+   "w": 640,
+   "h": 360,
+   "nA": 2,
+   "nB": 4,
+   "pairs": [
+    {
+     "a": 0,
+     "b": 3,
+     "d": 0.0078,
+     "A": {
+      "gender": "male",
+      "score": 0.499,
+      "raw": 0.7494,
+      "age": 40,
+      "childP": 0.067,
+      "nm": 4.79,
+      "nullRead": 0
+     },
+     "B": {
+      "gender": "male",
+      "score": 0.582,
+      "raw": 0.7912,
+      "age": 43,
+      "childP": 0.052,
+      "nm": 5.59,
+      "nullRead": 0
+     }
+    },
+    {
+     "a": 1,
+     "b": 0,
+     "d": 0.0034,
+     "A": {
+      "gender": "male",
+      "score": 0.56,
+      "raw": 0.78,
+      "age": 33,
+      "childP": 0.107,
+      "nm": 4.97,
+      "nullRead": 0
+     },
+     "B": {
+      "gender": "male",
+      "score": 0.686,
+      "raw": 0.8429,
+      "age": 33,
+      "childP": 0.075,
+      "nm": 6.05,
+      "nullRead": 0
+     }
+    }
+   ],
+   "onlyA": [],
+   "onlyB": [
+    {
+     "c": {
+      "cx": 0.1341496706008911,
+      "cy": 0.4187784194946289
+     },
+     "read": {
+      "gender": "male",
+      "score": 0.126,
+      "raw": 0.5631,
+      "age": 37,
+      "childP": 0.157,
+      "nm": 4.84,
+      "nullRead": 1
+     }
+    },
+    {
+     "c": {
+      "cx": 0.8879116177558899,
+      "cy": 0.402930842505561
+     },
+     "read": {
+      "gender": "male",
+      "score": 0.393,
+      "raw": 0.6966,
+      "age": 35,
+      "childP": 0.116,
+      "nm": 3.52,
+      "nullRead": 1
+     }
+    }
+   ],
+   "flagManA": 0,
+   "flagManB": 1,
+   "flagWomanA": 1,
+   "flagWomanB": 1
+  },
+  {
+   "name": "z86LGEFyQpo_t452.png",
+   "w": 640,
+   "h": 360,
+   "nA": 1,
+   "nB": 1,
+   "pairs": [
+    {
+     "a": 0,
+     "b": 0,
+     "d": 0.0218,
+     "A": {
+      "gender": "male",
+      "score": 0.857,
+      "raw": 0.9287,
+      "age": 32,
+      "childP": 0.051,
+      "nm": 12.68,
+      "nullRead": 0
+     },
+     "B": {
+      "gender": "male",
+      "score": 0.935,
+      "raw": 0.9675,
+      "age": 31,
+      "childP": 0.034,
+      "nm": 14.2,
+      "nullRead": 0
+     }
+    }
+   ],
+   "onlyA": [],
+   "onlyB": [],
+   "flagManA": 0,
+   "flagManB": 0,
+   "flagWomanA": 1,
+   "flagWomanB": 1
+  },
+  {
+   "name": "z86LGEFyQpo_t902.png",
+   "w": 640,
+   "h": 360,
+   "nA": 2,
+   "nB": 4,
+   "pairs": [
+    {
+     "a": 0,
+     "b": 0,
+     "d": 0.0083,
+     "A": {
+      "gender": "male",
+      "score": 0.497,
+      "raw": 0.7484,
+      "age": 35,
+      "childP": 0.115,
+      "nm": 5.02,
+      "nullRead": 0
+     },
+     "B": {
+      "gender": "male",
+      "score": 0.531,
+      "raw": 0.7657,
+      "age": 36,
+      "childP": 0.081,
+      "nm": 5.93,
+      "nullRead": 0
+     }
+    },
+    {
+     "a": 1,
+     "b": 1,
+     "d": 0.0049,
+     "A": {
+      "gender": "male",
+      "score": 0.13,
+      "raw": 0.5651,
+      "age": 37,
+      "childP": 0.115,
+      "nm": 5.67,
+      "nullRead": 1
+     },
+     "B": {
+      "gender": "male",
+      "score": 0.119,
+      "raw": 0.5594,
+      "age": 34,
+      "childP": 0.116,
+      "nm": 6.2,
+      "nullRead": 1
+     }
+    }
+   ],
+   "onlyA": [],
+   "onlyB": [
+    {
+     "c": {
+      "cx": 0.8979294300079346,
+      "cy": 0.421915160285102
+     },
+     "read": {
+      "gender": "male",
+      "score": 0.402,
+      "raw": 0.7009,
+      "age": 37,
+      "childP": 0.121,
+      "nm": 2.89,
+      "nullRead": 1
+     }
+    },
+    {
+     "c": {
+      "cx": 0.37034741044044495,
+      "cy": 0.4106184111701118
+     },
+     "read": {
+      "gender": "male",
+      "score": 0.388,
+      "raw": 0.6939,
+      "age": 38,
+      "childP": 0.1,
+      "nm": 5.47,
+      "nullRead": 1
+     }
+    }
+   ],
+   "flagManA": 1,
+   "flagManB": 1,
+   "flagWomanA": 1,
+   "flagWomanB": 1
+  }
+ ],
+ "inputSize": 256
+}

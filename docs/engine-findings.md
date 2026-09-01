@@ -1750,3 +1750,242 @@ reason instead of an arithmetic one that did not hold.
 to cover was left sharp. The constant ships at 2, a test pins that
 `rules/tuning.json` agrees with the code, and 1.33 is one push away with
 no install.
+
+## 16. THE ENTIRE PER-PERSON PIPELINE IS YOUTUBE-ONLY, GATED ON A LITERAL `#movie_player`
+
+Read from source 2026-09-02, all four sites cited. **Not a measurement --
+this is a reachability argument, and every step of it is one line.**
+
+The standing instruction is that this technique is for all the platforms.
+It reaches exactly one.
+
+### The two gates, both keyed on a YouTube-only id
+
+`dom.js:54`
+
+```js
+export function hasPlayerAncestor(el) {
+  if (el.closest) return !!el.closest('#movie_player');
+```
+
+`video-region.mjs:214`, inside `resolveHost`, which is the whole of
+`canRegionVideo`:
+
+```js
+  return video.closest('#movie_player') || null;
+```
+
+`init-entry.js:1612` and `:1686`:
+
+```js
+var isPlayer = dom.hasPlayerAncestor(video);
+...
+var useRegionVideo = isPlayer && regionBlur && videoRegion.canRegionVideo(video);
+```
+
+`#movie_player` is YouTube's element. Reddit, X, Instagram and Facebook
+have no node with that id, so on those four platforms **`isPlayer` is
+`false` for every video that has ever played**, and `useRegionVideo` is
+false twice over. These are two INDEPENDENT gates on the same literal --
+removing one changes nothing.
+
+### What that switches off, by line
+
+| line | guarded by | what the other platforms therefore never get |
+|---|---|---|
+| `:3298` | `if (isPlayer) gateTick(now)` | the **scene gate** -- no cut detection, no `CUT_DELTA`, no static-shot 1Hz floor |
+| `:3311` | `isPlayer ? ... : sampleInterval` | the **adaptive cadence** -- fixed 500ms, no `effZoom`, no `POSITION_DUTY` |
+| `:3323` | `if (isPlayer && scrolling(now))` | the scroll slow-lane |
+| `:3337` | `if (isPlayer && overBudget(now))` | the main-thread budget |
+| `:3382` | `if (useRegionVideo && ...)` | **the whole person-primary path**: MoveNet, person tracks, coast, identity memory, the null-mint hold, the body clamp, patches at all |
+| `:1657` | `if (isPlayer && 'disablePictureInPicture')` | the PiP hole stays open |
+| `:1683` | `isPlayer ? 2 : VIDEO_CLEAN_STREAK_TO_UNBLUR` | unblur takes 4 clean samples (2.0s) instead of 2 |
+
+**So every number tuned in §13, §14 and §15 -- the coast window, the
+verdict cadence, `CUT_DELTA`, the clear bar's video branch,
+`NULL_MINT_NM_FLOOR` on the video path -- describes behaviour that only
+ever runs on YouTube.** `rules/tuning.json` travels to those platforms
+and is read there; almost nothing it sets is consulted.
+
+### What they get instead: `wholeFrameFlagged`, and it is a boolean
+
+`init-entry.js:4334-4353` is the fall-through. Per sample:
+
+```js
+ctx2d.drawImage(video, 0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
+var pixels = ctx2d.getImageData(0, 0, ...);
+wholeFrameFlagged(pixels).then(function (anyFlagged) { ... })
+```
+
+`wholeFrameFlagged` (`:1918`) returns **one boolean for the frame** --
+`faceMeta(...)` then `if (meta[mi].flagged) return true`. No boxes, no
+tracks, no temporal state of any kind. Flagged applies a CSS `filter` to
+the video element; four consecutive clean samples remove it.
+
+**This is not an exposure bug and should not be reported as one.** The
+predicate is monotone toward covering: a weak read, a null read and a
+failed read all flag (`.catch(function () { return true; })` at `:1938`
+-- "a read we could not get is a face we cannot clear"). Off YouTube the
+app over-covers. The gap is quality, not safety.
+
+### AND THE FRAME IS STRETCHED BEFORE ANYONE LOOKS AT IT
+
+`drawImage(video, 0, 0, 256, 256)` is the four-argument form: no source
+rectangle, no aspect preservation. A 640x360 stream is squashed to a
+square, so **every face reaches BlazeFace and faceres 1.78x taller than
+wide**.
+
+That is the identical distortion fixed on the IMAGE path on 2026-08-28,
+where it made "a clear front-facing man read `male` at 0.06" and cost
+four days. The repair became `crop-geometry.mjs`, with a test that fails
+if an inline copy of the arithmetic reappears -- and that test does not
+cover this call site, because this one never crops at all.
+
+**MEASURED -- see 16a below. The squash is real and it costs signal on
+17 faces in 18.**
+
+### The comment at `:1680` is about a different question
+
+```
+// Owner ask 2026-08-24: the watch player blurs just the face regions,
+// not the whole video (feed videos keep whole blur — too small/fast
+// to track).
+```
+
+That reasoning is sound and is about **m.youtube feed previews** -- small,
+transient, and on that site they play through the shared `#movie_player`
+anyway, so they are `isPlayer` TRUE and are handled separately by
+`feedPreview()` (`:1616`, a `location.pathname` test) and by the scroll
+branch at `:3287`. The preview case never needed `isPlayer` to exclude
+it.
+
+So `isPlayer` is doing a **second, undocumented job**: excluding every
+non-YouTube platform. Nothing recorded anywhere decided that. It is what
+`closest('#movie_player')` happens to do.
+
+### NOT SHIPPED, AND THE REASON IS THE REASON
+
+Widening the selector is a five-word change and it must not be made
+blind:
+
+1. **The emulator cannot test it.** Loop 8 measured the emulator process
+   *dying* on `reddit.com/r/pics` three times, once with gaze OFF -- so
+   the one surface most affected is the one this harness cannot reach.
+   X and Instagram signed out are login walls (loops 25-26).
+2. **`resolveHost` is not merely an id test.** It returns the element the
+   patch layer is appended to, and every geometry assumption in
+   `video-region.mjs` -- host scale, clip bounds, the isolate write, the
+   occluder clamp -- was calibrated against YouTube's player tree. Reddit's
+   player is inside an **open shadow root** (loop 2026-08-19, `shreddit`),
+   which is a different containing block and a different stacking story.
+3. **It would spend MoveNet on every video on four more sites**, on a
+   device §12a measured as already cap-limited.
+
+The honest next step is a `PLAYER_HOSTS` table read from the live DOM of
+each platform, one platform at a time, verified visually -- which is the
+`grill-with-docs` path, not a momentum edit.
+
+**Recorded so the scope is not mistaken for a decision.**
+
+## 16a. THE SQUASH COSTS SIGNAL ON 17 FACES IN 18, AND IT IS THE SIGNAL `NULL_MINT_NM_FLOOR` GATES ON
+
+Measured 2026-09-02 on the emulator. Bench `app/gaze/bench/stretch-arm.js`,
+probe `spikes/gauntlet/probe_stretch.py`, raw
+`spikes/gauntlet/stretch-arms.json`. **15 native 640x360 frames** from five
+videos already banked under `spikes/faceres-parity/vframes/`, each run
+twice through the SHIPPING `detectFaceBoxes` / `classifyFaceGenders` /
+`faceMeta`:
+
+| arm | how the 256 square is made |
+|---|---|
+| **A, SHIPPED** | `drawImage(img, 0, 0, 256, 256)` -- squashed, 1.78x taller than wide |
+| **B, LETTERBOX** | aspect preserved, centred, black bars |
+
+Arm B gives every face **fewer pixels** than arm A (0.40x in both
+dimensions, against A's 0.40x wide by 0.711x tall), so anything B wins, it
+wins on geometry and not on resolution.
+
+### The result that does not depend on a label
+
+`nm` -- faceres' descriptor magnitude before L2-normalisation, "how much
+the network extracted" -- across the 18 faces both arms found:
+
+| | value |
+|---|---|
+| HIGHER in the letterboxed arm | **17 of 18** |
+| delta p50 / mean / max | **+1.08 / +1.06 / +2.45** |
+| restricted to nm >= 5 in both arms (n=13) | p50 **+0.91**, higher in 12 |
+| sign test, all pairs | **p = 1.45e-4** |
+
+**This is not a cosmetic quality metric. `nm` is the exact axis
+`NULL_MINT_NM_FLOOR` gates on** (loop 38: floor 5, calibrated so 0 of 125
+real faces are refused). Four of the eighteen pairs cross that floor when
+the aspect is corrected:
+
+```
+H14bBuluwB8_t252   nm 2.68 -> 5.13
+z86LGEFyQpo_t2     nm 4.79 -> 5.59
+z86LGEFyQpo_t2     nm 4.97 -> 6.05
+z86LGEFyQpo_t902   nm 5.02 -> 5.93
+```
+
+So the squash pushes real faces into the population this repo has
+classified as "the model said nothing".
+
+### Two gender labels flip, both on faces with solid signal
+
+Of 13 pairs where BOTH arms carried real signal (nm >= 5 each side),
+**2 flip (15%)**:
+
+```
+NWoT1ZVd1Lo_t752   stretched male 0.601 (nm 9.53) -> letterboxed female 0.377 (nm 10.29)
+NWoT1ZVd1Lo_t402   stretched male 0.502 (nm 7.33) -> letterboxed female 0.473 (nm  8.44)
+```
+
+The first is a 0.224 move straight across the boundary on a face with
+strong signal on both sides, in his own reference footage. Raw |diff|
+over those 13 is p50 0.023, max 0.224 -- so the squash is usually small
+and occasionally decisive, which is the shape a distortion has.
+
+### THE RECALL GAP IS JUNK ON BOTH SIDES -- do not quote it
+
+The raw counts look damning and are not: stretched 21 detections,
+letterboxed 24, with 3 only-in-A and 6 only-in-B. **All nine unmatched
+detections are null reads**, nm 1.71-5.47, five of the six only-in-B
+below the floor of 5. Neither arm is finding faces the other misses; both
+are producing detector noise, and B produces a little more of it.
+
+I nearly wrote that 6-face gap up as an exposure finding. It is not one.
+
+### AND THE ONE FRAME THAT FLIPS, FLIPS TOWARD PHANTOM
+
+`anyFlagged` -- the single boolean this path ships -- differs on **1 of 15
+frames in man mode (0 of 15 in woman mode)**, and it is
+`z86LGEFyQpo_t2.png` reading **stretched 0, letterboxed 1**: the
+letterboxed arm flags because of the two junk null reads listed above.
+
+So **16's claim survives its own test**: on this path the visible
+behaviour is monotone toward covering, and correcting the aspect does not
+uncover anybody in this sample. The cost of the squash is carried in the
+READ quality -- signal, and therefore who is eligible to be cleared --
+not in the frame boolean.
+
+### What this does and does not license
+
+- **It does license fixing the draw.** A source-rectangle drawImage that
+  preserves aspect is a two-line change in one call site, it is monotone
+  in the direction of *more* signal, and `crop-geometry.mjs` already
+  holds the arithmetic and the test that forbids an inline copy.
+- **It does not license shipping it tonight.** The call site is
+  `init-entry.js:4342`, inside `app/gaze/src`, and the Phase D critic is
+  running against arms that rebuild from src. It is also the path four
+  unverified platforms depend on, and this repo's rule is that a change
+  to who gets covered is verified visually on the surface it happens on.
+- **HONEST LIMITS.** 15 frames, five videos, all YouTube footage at one
+  resolution; the frame boolean moved once and in the harmless direction;
+  and the emulator's swiftshader ran both arms, so this is a parity
+  result and not a timing one.
+
+**Next: fix the draw at `:4342` with `crop-geometry`'s arithmetic, re-run
+this bench as the A/B, and only then widen `isPlayer` -- in that order,
+because a wider selector on a distorted path spreads the distortion.**
