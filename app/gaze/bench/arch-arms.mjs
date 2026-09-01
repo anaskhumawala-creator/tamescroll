@@ -31,6 +31,7 @@
 import fs from 'fs';
 import * as SHIPPED from './.cache/shipped.mjs';
 import { createIdentityMemory, askIdentity, trustNeeded } from './.cache/shipped.mjs';
+import { parsePersons, rejectedSlotBoxes, lastSlotDiag, boundBodyToSlot, PERSON_MIN_SCORE } from './.cache/shipped.mjs';
 import { ROOT, W, H } from './corpus-lib.mjs';
 
 const ASPECT = W / H;
@@ -67,6 +68,13 @@ export function loadWin(file) {
   try {
     win.ssd = JSON.parse(fs.readFileSync(`${ROOT}/bank/ssd/${file}`, 'utf8'));
   } catch (e) { win.ssd = null; }
+  // Raw MoveNet [1,6,56] per frame (bench/corpus-persons.mjs), so a
+  // slot arm can call the SHIPPED parsePersons/rejectedSlotBoxes rather
+  // than a bench re-derivation of the coordinate layout.
+  try {
+    const b = fs.readFileSync(`${ROOT}/bank/persons/${file.replace(/\.json$/, '.f32')}`);
+    win.persons = new Float32Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
+  } catch (e) { win.persons = null; }
   const dp = `${ROOT}/bank/reads/${file.replace(/\.json$/, '.desc')}`;
   win.desc = fs.existsSync(dp)
     ? new Float32Array(fs.readFileSync(dp).buffer.slice(0))
@@ -145,8 +153,17 @@ const readOf = (f) => ({ gender: f.gender, score: f.score, raw: f.raw, age: f.ag
  *             patched, which is the whole point of the factory)
  */
 export function makeArms(mod) {
+  // FROM `mod`, not from the top-level import. The first version of the
+  // slot arm called the module-level boundBodyToSlot, so every variant
+  // bundle scored identically (bound/faces pinned at 81 across a
+  // threshold sweep from 0.8 to 0.3) -- a constant sweep that cannot
+  // move is a harness failure, not a null result.
   const { faceMeta, personFromFace, dedupeObservations, updatePersonTracks,
     setVerdictCadence, clampBodies } = mod;
+  const modBound = mod.boundBodyToSlot;
+  const modParse = mod.parsePersons;
+  const modRejected = mod.rejectedSlotBoxes;
+  const modMinScore = mod.PERSON_MIN_SCORE;
 
   // `f._noRead` marks a frame the cadence bench chose not to spend a
   // faceres pass on. It becomes a POSITION-ONLY observation, which is
@@ -299,6 +316,23 @@ export function makeArms(mod) {
         });
         // MEASURED EXTENT ARM. `ssdMin` selects the detector score floor;
         // absent, every body is the synthetic guess exactly as today.
+        // MEASURED MoveNet EXTENT. boundBodyToSlot already ships and
+        // already shrinks the synthetic body onto a REJECTED slot box;
+        // guard-why.mjs measured that SLOT_BOUND_FACE_INSIDE 0.8 is what
+        // refuses 77.4% of them, against 0.6% and 2.3% for the other
+        // two, with a box available for 96.8% of faces. So this arm
+        // changes nothing except how often the shipped path is allowed
+        // to use a measurement it already has.
+        let slotBoxes = null;
+        if (o.slotBound && win.persons) {
+          const off = fi * 336;
+          if (off + 336 <= win.persons.length) {
+            try {
+              modParse(win.persons.subarray(off, off + 336), modMinScore, W / H, null);
+              slotBoxes = modRejected(mod.lastSlotDiag);
+            } catch (e) { slotBoxes = null; }
+          }
+        }
         let ssdBoxes = null;
         if (o.ssdMin != null && win.ssd && win.ssd[fi]) ssdBoxes = win.ssd[fi].p;
         let nMeasured = 0;
@@ -383,6 +417,11 @@ export function makeArms(mod) {
                   y2: Math.max(box.y2, g0.y2) };
               }
             }
+          }
+          if (slotBoxes && slotBoxes.length && !box && !f._noRead) {
+            const g0 = personFromFace(f, W / H);
+            const bound = g0 ? modBound(g0, f, slotBoxes) : null;
+            if (bound && bound !== g0) { box = { ...bound, faceBox: g0.faceBox, fromFace: true }; nMeasured++; }
           }
           const m = meta[i] || {};
           const mm = memMark[i]
