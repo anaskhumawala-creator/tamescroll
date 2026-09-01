@@ -1,7 +1,7 @@
 {
-  "versionCode": 1075,
-  "versionName": "0.1.75",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.75/tamescroll-v0.1.75.apk",
-  "sha256": "38ea380d36e8ef9518ed8136c8ed417a0bc5d4a7e507f28ded3ebb43d4f62f42",
-  "notes": "Faces down to 40px are judged instead of covered unasked."
+  "versionCode": 1076,
+  "versionName": "0.1.76",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.76/tamescroll-v0.1.76.apk",
+  "sha256": "1c5437c32e59af792dc960251e5c8d9b4fd2cf523e2c582aa8a3d367df95bac0",
+  "notes": "A blur could vanish for good if YouTube rebuilt the video player. It comes back now."
 }
