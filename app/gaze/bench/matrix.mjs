@@ -7,13 +7,22 @@
 // flatters.
 //
 // AND IT CARRIES THE CONTROL THE FIRST VERSION LACKED: the shipped
-// per-frame layer with ONE CONSTANT CHANGED (GENDER_CLEAR_SCORE 0.60 ->
-// 0.45). Without it, "the per-subject architecture won" cannot be told
-// apart from "the bar got lower", and the pooled arm's own bar is 0.40.
+// per-frame layer with ONE CONSTANT CHANGED. Without it, "the
+// per-subject architecture won" cannot be told apart from "the bar got
+// lower", and the pooled arm's own bar is 0.40.
+//
+// THE CONTROL'S NUMBER IS NOT A CONSTANT IN THIS FILE ANY MORE. It was
+// written as 0.60 -> 0.45, and loop 39 then SHIPPED 0.45/0.35 -- so the
+// control became a second copy of the shipped arm, and the literal it
+// patched stopped existing, which took this whole bench down. The bar is
+// read out of the bundle and the variant is one step BELOW whatever
+// ships today, so the control keeps doing its job across a constant
+// move. Override with LOWBAR=0.30,0.25.
 import fs from 'fs';
 import { ROOT } from './corpus-lib.mjs';
 import { score } from './corpus-score.mjs';
 import { loadWin, makeArms } from './arch-arms.mjs';
+import { patchConsts, shippedBar } from './_patch.mjs';
 
 const g = process.env.GENDER || 'man';
 const labels = JSON.parse(fs.readFileSync(`${ROOT}/bank/label/labels.json`, 'utf8'));
@@ -24,10 +33,15 @@ const wins = fs.readdirSync(`${ROOT}/bank/reads`).filter((f) => f.endsWith('.jso
 
 // A bundle with one shipped constant changed and nothing else.
 const src = fs.readFileSync(new URL('./.cache/shipped.mjs', import.meta.url), 'utf8');
-const patched = src
-  .replace('var GENDER_CLEAR_SCORE = 0.6;', 'var GENDER_CLEAR_SCORE = 0.45;')
-  .replace('var GENDER_CLEAR_SCORE_FEMALE = 0.45;', 'var GENDER_CLEAR_SCORE_FEMALE = 0.35;');
-if (patched === src) throw new Error('constant patch failed -- the bundle changed shape');
+const [SHIP_M, SHIP_F] = shippedBar(src);
+const [LOW_M, LOW_F] = (process.env.LOWBAR || '0.30,0.25').split(',').map(Number);
+if (!(LOW_M < SHIP_M)) throw new Error(
+  `LOWBAR male ${LOW_M} is not below the shipped ${SHIP_M} -- the control `
+  + 'arm would be a second copy of the shipped arm and the table would '
+  + 'read as "the architecture won" when nothing was varied.');
+const patched = patchConsts(src, {
+  GENDER_CLEAR_SCORE: LOW_M, GENDER_CLEAR_SCORE_FEMALE: LOW_F,
+});
 fs.mkdirSync('./.cache', { recursive: true });
 fs.writeFileSync(new URL('./.cache/lowbar.mjs', import.meta.url), patched);
 const LOW = await import('./.cache/lowbar.mjs');
@@ -38,10 +52,10 @@ const ARM_LOW = makeArms(LOW);
 const ARMS = [
   ['A0  1078 (hold off)', ARM({})],
   ['A0  1079 SHIPPED', ARM({ hold: true })],
-  ['A0  1079 + bar .45  <- control', ARM_LOW({ hold: true })],
+  [`A0  SHIPPED + bar ${LOW_M}  <- control`, ARM_LOW({ hold: true })],
   ['A5  per-subject pool', ARM({ hold: true, pool: true })],
   ['A5  + adjacency clamp', ARM({ hold: true, pool: true, clampPad: 0.02 })],
-  ['A5  + clamp, bar .45', ARM_LOW({ hold: true, pool: true, clampPad: 0.02 })],
+  [`A5  + clamp, bar ${LOW_M}`, ARM_LOW({ hold: true, pool: true, clampPad: 0.02 })],
   // The cheap candidate the review points at: keep the SHIPPED per-frame
   // verdict, lower the one constant, and clamp the body box off that
   // verdict. No pooling, no identity memory, no vote counting -- so

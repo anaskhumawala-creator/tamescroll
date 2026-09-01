@@ -11,7 +11,7 @@ const cl=new Map();
 for(const c of JSON.parse(fs.readFileSync(`${ROOT}/bank/label/clusters.json`,'utf8'))) if(L[c.id]) for(const m of c.members) cl.set(m.crop,L[c.id]);
 const wins=fs.readdirSync(`${ROOT}/bank/reads`).filter(f=>f.endsWith('.json')).map(loadWin);
 const vids=[...new Set(wins.map(w=>w.vid))];
-const A5=armSubject({nmWeight:true,poolBar:0.40});
+const A5=armSubject({poolBar:0.40});
 console.log('PER-VIDEO  (falseCover / phantom / exposure)');
 console.log('video            A0 fc    A5 fc   delta |  A0 ph   A5 ph  delta |  A0 ex  A5 ex');
 let wins5=0;
@@ -31,11 +31,11 @@ const grid=[0.60,0.50,0.45,0.40,0.30,0.20];
 for(const v of vids){
   const train=wins.filter(w=>w.vid!==v), test=wins.filter(w=>w.vid===v);
   let bestPb=null,bestScore=Infinity;
-  for(const pb of grid){ const arm=armSubject({nmWeight:true,poolBar:pb}); let fc=0,ex=0,ph=0;
+  for(const pb of grid){ const arm=armSubject({poolBar:pb}); let fc=0,ex=0,ph=0;
     for(const w of train){const s=score(arm(w,g),g,c=>cl.get(c)); fc+=s.falseCoverS;ex+=s.exposureS;ph+=s.phantomS;}
     const obj=fc+ph+10*ex;   // exposure is severest
     if(obj<bestScore){bestScore=obj;bestPb=pb;} }
-  const arm=armSubject({nmWeight:true,poolBar:bestPb});
+  const arm=armSubject({poolBar:bestPb});
   let a={fc:0,ph:0,ex:0},b={fc:0,ph:0,ex:0};
   for(const w of test){const s0=score(ARM_A0(w,g),g,c=>cl.get(c));const s5=score(arm(w,g),g,c=>cl.get(c));
     a.fc+=s0.falseCoverS;a.ph+=s0.phantomS;a.ex+=s0.exposureS;b.fc+=s5.falseCoverS;b.ph+=s5.phantomS;b.ex+=s5.exposureS;}

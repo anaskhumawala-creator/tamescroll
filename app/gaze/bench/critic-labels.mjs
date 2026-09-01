@@ -34,7 +34,7 @@ function sc(frames,g,labelOf,symmetric){
  return{ex,fc,ph};}
 const g='man';
 const wins=fs.readdirSync(`${ROOT}/bank/reads`).filter(f=>f.endsWith('.json')).map(loadWin);
-const A5=armSubject({nmWeight:true,poolBar:0.40});
+const A5=armSubject({poolBar:0.40});
 function tot(arm,map,sym){const a={ex:0,fc:0,ph:0};for(const w of wins){const s=sc(arm(w,g),g,c=>map.get(c),sym);for(const k in a)a[k]+=s[k];}return a;}
 const show=(n,a)=>console.log(n.padEnd(52)+('exp '+a.ex.toFixed(1)).padStart(9)+('  fc '+a.fc.toFixed(1)).padStart(11)+('  ph '+a.ph.toFixed(1)).padStart(11));
 const base=mk();

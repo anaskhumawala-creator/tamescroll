@@ -1456,3 +1456,108 @@ still reports green, and an unchecked constant **reverts on every device
 the moment the OTA lands**. The test now fails if a tunable name is
 missing from its own map; proved red before green, as was the
 source/json mismatch it exists to catch.
+
+## 14. THE A-SERIES LADDER WAS FIVE LABELS ON ONE ARM
+
+`arch-ab.mjs` printed six rows. Five of them were the same arm.
+
+```
+A0 shipped (per-frame verdict)         7.5s      188.5s    282.5s
+A1 per-subject window + hold           5.5s      210.0s    314.0s
+A2 A1 + nm-weighted pool               5.5s      210.0s    314.0s
+A3 A2 + per-subject ghost drop         5.5s      210.0s    314.0s
+A4 A3, pooled bar floor .40            5.5s      210.0s    314.0s
+A5 pooled bar .40, NO ghost drop       5.5s      210.0s    314.0s
+```
+
+`armSubject(opts)` is `ARM({ pool: true, ...opts })`, and `ARM` reads
+**none** of `nmWeight`, `ghost` or `poolBar`. Eight call sites across six
+files passed them. The pooled decision ran at the module constant
+`POOL_BAR = 0.40` in every arm, in every file, always.
+
+**What that invalidates, precisely.** Not the numbers -- 5.5 / 210.0 /
+314.0 is a real measurement of a real arm (the per-subject pool at bar
+0.40). What it invalidates is every DECOMPOSITION claim built on
+differences between those rows, and this file's own header carried one:
+*"pooling alone cost 0.5s, the drop cost 3.0s more."* A2 − A1 is zero by
+construction. That sentence could never have been measured here.
+
+**The fix, and what was deliberately not done.** `poolBar` is threaded
+into the pooled decision, because the label names a number and a label
+that names a number must be honoured. `nmWeight` and `ghost` are read
+nowhere at all, so they were DELETED from the call sites rather than
+given behaviour: an arm invented to justify a label is worse than a
+missing arm, and neither of those options has a specification anywhere
+in the repo to implement against.
+
+**The dimension is real now, and it is a hard trade.** Sweeping the one
+option that survived, same corpus, same k=3, man mode:
+
+| pooled bar | EXPOSURE | FALSE COVER | PHANTOM |
+|---|---|---|---|
+| A0 shipped (no pool) | 7.5s | **188.5s** | **282.5s** |
+| 0.25 | 15.5s | 205.5s | 299.0s |
+| 0.40 (what every "A5" ran at) | 5.5s | 210.0s | 314.0s |
+| 0.60 | 2.0s | 251.5s | 349.0s |
+| 0.80 | **1.5s** | 430.0s | 408.5s |
+
+**SO THE PER-SUBJECT POOL IS REFUSED AGAIN, now on a curve instead of on
+five identical rows.** At its best exposure point it buys **2.0s** over
+A0 and pays **21.5s of false cover and 31.5s of phantom** for it. A0
+dominates on both of the numbers he actually complains about, at every
+bar where exposure is comparable. Raising the bar to 0.80 nearly closes
+exposure and more than doubles false cover -- it is covering everyone.
+
+**How it was found:** by running the arm and looking at the rows, not by
+reading the source. Five identical lines in a printed table is the
+signature; `grep -c "o\.poolBar" arch-arms.mjs` returning **0** is the
+confirmation. Any future arm that takes an options object should be
+checked the same way -- an unread option is silent, and it always fails
+in the direction of "the change did nothing".
+
+### 14a. The clear bar is already at the right place, and lower is worse
+
+Same run (`critic-lowbar.mjs`, which had been exiting on its own guard
+since loop 39 moved the constant it patched by literal text):
+
+| clear bar male/female | EXPOSURE | FALSE COVER | PHANTOM |
+|---|---|---|---|
+| **0.45 / 0.35 (SHIPPED)** | **7.5s** | 188.5s | 282.5s |
+| 0.40 / 0.30 | 10.5s | 187.0s | 276.0s |
+| 0.30 / 0.25 | 13.0s | 185.5s | 272.5s |
+| 0.25 / 0.25 | 13.0s | 181.0s | 271.5s |
+
+Every step down costs exposure and buys almost nothing: −0.20 on the bar
+moves false cover by **7.5s** and phantom by **11.0s** while exposure
+**rises 73%**. So `GENDER_CLEAR_SCORE` should not be pushed lower over
+the OTA channel, and the floor of 0.36 in `tuning.mjs` is not the
+binding constraint -- the corpus refuses the move well above it.
+
+The first row is also this file's self-check: it is produced by patching
+the bundle to the values it already ships, and it reproduces the
+untouched `ARM_A0` row **line for line**. A variant builder that cannot
+reproduce its own control is not measuring the constant it names.
+
+### 14b. Patch a constant by NAME, never by literal text
+
+Three benches built their variant with
+`src.replace('var GENDER_CLEAR_SCORE = 0.6;', ...)`, and loop 39 shipped
+that constant at 0.45. Credit where due: all three carried an
+`if (patched === src) throw` guard and it WORKED -- they exited rather
+than printing a table of one arm against itself, which is more than the
+A-series managed. What it cost was three copies of one literal to edit
+in lockstep on every constant move, and a failure message
+("the bundle changed shape") that sends the next reader to esbuild
+instead of to `git log`.
+
+`bench/_patch.mjs` reads the constant by name out of the built bundle
+and throws if the declaration is gone. A value equal to the shipped one
+is allowed on purpose: that is the control point of a sweep and it must
+produce a byte-identical bundle.
+
+Two further defects fixed on the way, both of which made an arm
+unrunnable rather than wrong: `critic-lowbar.mjs` wrote its variant to a
+**cwd-relative** path, so it only ran from inside `bench/`; and the
+first draft of `_patch.mjs` itself matched nothing, because a heredoc
+eats one backslash and `\s` inside a template literal is just `s`. The
+pattern uses character classes only, and says why.

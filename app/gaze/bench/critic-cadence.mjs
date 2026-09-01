@@ -13,7 +13,7 @@ const base=fs.readdirSync(`${ROOT}/bank/reads`).filter(f=>f.endsWith('.json')).m
 // mark every k-th frame as a READ frame, the rest position-only
 function thin(win,k){const w={...win,frames:win.frames.map((fr,i)=>({...fr,
   faces:fr.faces.map(f=>(i%k===0)?f:{...f,_noRead:true})}))}; return w;}
-const A5=armSubject({nmWeight:true,poolBar:0.40});
+const A5=armSubject({poolBar:0.40});
 console.log('read every k-th 0.5s frame      arm  EXPOSURE  FALSECOVER  PHANTOM');
 for(const k of [1,2,3,4]){
  for(const [n,a] of [['A0',ARM_A0],['A5',A5]]){

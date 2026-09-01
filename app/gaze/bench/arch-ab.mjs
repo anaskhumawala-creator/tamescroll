@@ -1,20 +1,29 @@
 // Runs every architecture arm over the Section 1 corpus and prints all
 // three errors for each. See arch-arms.mjs for what the arms are and why.
+//
+// THE A-SERIES LADDER WAS FIVE LABELS ON ONE ARM, and this file is what
+// proved it (2026-09-02): A1 through A5 printed IDENTICAL rows --
+// 5.5 / 210.0 / 314.0 / 557.5 / 495.0 -- because `nmWeight`, `ghost` and
+// `poolBar` were all passed to `armSubject` and NONE of them were read
+// by `ARM`. So "pooling alone cost 0.5s, the ghost drop cost 3.0s more"
+// could never have been measured here: A2 - A1 is zero by construction.
+//
+// `poolBar` is real now (arch-arms.mjs threads it). `nmWeight` and
+// `ghost` are read NOWHERE, so they are gone from the call sites rather
+// than given behaviour nobody specified -- an arm invented to justify a
+// label is worse than a missing arm.
+//
+// What is left is the one dimension that exists: the pooled decision bar.
 import fs from 'fs';
 import { ROOT } from './corpus-lib.mjs';
 import { score } from './corpus-score.mjs';
 import { loadWin, ARM_A0, armSubject } from './arch-arms.mjs';
 
+const BARS = (process.env.POOLBARS || '0.25,0.40,0.60,0.80').split(',').map(Number);
 const ARMS = [
   ['A0 shipped (per-frame verdict)', ARM_A0],
-  ['A1 per-subject window + hold', armSubject({})],
-  ['A2 A1 + nm-weighted pool', armSubject({ nmWeight: true })],
-  ['A3 A2 + per-subject ghost drop', armSubject({ nmWeight: true, ghost: true })],
-  ['A4 A3, pooled bar floor .40', armSubject({ nmWeight: true, ghost: true, poolBar: 0.40 })],
-  // A5 ISOLATES THE GHOST DROP, which is where A3/A4's exposure came
-  // from -- pooling alone cost 0.5s, the drop cost 3.0s more. Any arm
-  // that moves exposure has to name which half did it.
-  ['A5 pooled bar .40, NO ghost drop', armSubject({ nmWeight: true, poolBar: 0.40 })],
+  ...BARS.map((b) => [`A1 per-subject pool, bar ${b.toFixed(2)}`,
+    armSubject({ poolBar: b })]),
 ];
 
 const g = process.env.GENDER || 'man';

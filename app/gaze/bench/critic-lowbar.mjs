@@ -5,10 +5,11 @@
 // what is buying it.
 import fs from 'fs';
 import path from 'path';
-import { pathToFileURL } from 'url';
+import { pathToFileURL, fileURLToPath } from 'url';
 import { ROOT, W, H } from './corpus-lib.mjs';
 import { score } from './corpus-score.mjs';
-import { loadWin, armSubject, ARM_A0 } from './arch-arms.mjs';
+import { loadWin, armSubject, ARM_A0, POOL_BAR } from './arch-arms.mjs';
+import { patchConsts, shippedBar } from './_patch.mjs';
 const src = fs.readFileSync(new URL('./.cache/shipped.mjs', import.meta.url),'utf8');
 const g=process.env.GENDER||'man';
 const L=JSON.parse(fs.readFileSync(`${ROOT}/bank/label/labels.json`,'utf8'));
@@ -22,13 +23,22 @@ function run(a){const agg={exposureS:0,falseCoverS:0,phantomS:0,coveredS:0,sharp
  for(const w of wins){const s=score(a(w,g),g,c=>cl.get(c)); for(const k in agg)agg[k]+=s[k];} return agg;}
 const line=(n,af)=>{const a=run(af);console.log(n.padEnd(38)+a.exposureS.toFixed(1).padStart(8)+a.falseCoverS.toFixed(1).padStart(12)+a.phantomS.toFixed(1).padStart(9)+a.coveredS.toFixed(1).padStart(10)+a.sharpOkS.toFixed(1).padStart(9));};
 console.log('arm                                 EXPOSURE  FALSECOVER  PHANTOM   covered   sharp');
-line('A0 shipped (bar .60/.45)', ARM_A0);
+const [SHIP_M, SHIP_F] = shippedBar(src);
+line(`A0 shipped (bar ${SHIP_M}/${SHIP_F})`, ARM_A0);
 for(const [m,f] of [[0.45,0.35],[0.40,0.30],[0.30,0.25],[0.25,0.25]]){
-  const patched = src.replace('var GENDER_CLEAR_SCORE = 0.6;',`var GENDER_CLEAR_SCORE = ${m};`)
-                     .replace('var GENDER_CLEAR_SCORE_FEMALE = 0.45;',`var GENDER_CLEAR_SCORE_FEMALE = ${f};`);
-  if(patched===src) throw new Error('patch failed');
-  const p='./.cache/critic-lb.mjs'; fs.writeFileSync(p,patched);
-  const mod = await import(pathToFileURL(path.resolve(p)).href+'?v='+m);
+  // BY NAME, not by literal: the sweep used to patch `0.6`, and loop 39
+  // shipped 0.45 -- so this file has been exiting on its own guard.
+  // The FIRST row of the sweep is now the shipped pair, which makes it a
+  // self-check: it must reproduce ARM_A0 above it, line for line.
+  const patched = patchConsts(src,
+    { GENDER_CLEAR_SCORE: m, GENDER_CLEAR_SCORE_FEMALE: f });
+  // MODULE-RELATIVE, not cwd-relative. It was './.cache/critic-lb.mjs',
+  // so this arm only ran from inside bench/ and threw ENOENT from the
+  // repo root -- which is where every other bench in this repo is run.
+  const p = fileURLToPath(new URL('./.cache/critic-lb.mjs', import.meta.url));
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, patched);
+  const mod = await import(pathToFileURL(p).href + '?v=' + m);
   const arm=(win,gg)=>{let tracks=[];const out=[],dt=1000/win.fps;mod.setVerdictCadence(dt);
     for(const fr of win.frames){const meta=mod.faceMeta(gg,fr.faces.map(readOf));
       let obs=fr.faces.map((ff,i)=>{const mm=meta[i]||{};return{box:mod.personFromFace(ff,ASPECT),
@@ -39,5 +49,9 @@ for(const [m,f] of [[0.45,0.35],[0.40,0.30],[0.30,0.25],[0.25,0.25]]){
     return out;};
   line(`A0 per-frame, clear bar ${m}/${f}`, arm);
 }
-line('A2 pool, bar .60 (no floor)', armSubject({nmWeight:true}));
-line('A5 pool, bar .40', armSubject({nmWeight:true,poolBar:0.40}));
+// THESE TWO WERE THE SAME ARM. `poolBar` was never read, so "bar .60"
+// and "bar .40" both ran at the module constant 0.40 and printed
+// identical rows -- 5.5 / 210.0 / 314.0. Labelled by the number that is
+// actually applied now.
+line(`A1 pool, bar ${POOL_BAR.toFixed(2)} (default)`, armSubject({}));
+line('A1 pool, bar 0.60', armSubject({poolBar:0.60}));

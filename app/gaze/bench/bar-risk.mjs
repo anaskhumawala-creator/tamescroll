@@ -15,11 +15,23 @@ import fs from 'fs';
 import { faceMeta } from './.cache/shipped.mjs';
 import { ROOT } from './corpus-lib.mjs';
 import { loadWin } from './arch-arms.mjs';
+import { patchConsts, shippedBar } from './_patch.mjs';
 
+// THE BAR IS READ, NOT ASSUMED. This file used to patch the literal
+// `0.6`, which loop 39 replaced with 0.45 -- so it has been exiting on
+// its own guard ever since. The variant is one step below whatever ships
+// today (override with LOWBAR=0.30,0.25), and both numbers are printed,
+// because a per-read exposure table is unreadable without them.
 const src = fs.readFileSync(new URL('./.cache/shipped.mjs', import.meta.url), 'utf8');
-const p = src.replace('var GENDER_CLEAR_SCORE = 0.6;', 'var GENDER_CLEAR_SCORE = 0.45;')
-             .replace('var GENDER_CLEAR_SCORE_FEMALE = 0.45;', 'var GENDER_CLEAR_SCORE_FEMALE = 0.35;');
-if (p === src) throw new Error('patch failed');
+const [SHIP_M, SHIP_F] = shippedBar(src);
+const [LOW_M, LOW_F] = (process.env.LOWBAR || '0.30,0.25').split(',').map(Number);
+if (!(LOW_M < SHIP_M)) throw new Error(
+  `LOWBAR male ${LOW_M} is not below the shipped ${SHIP_M} -- there is no `
+  + 'exposure to price if the two arms are the same bundle.');
+console.log(`shipped bar ${SHIP_M}/${SHIP_F}   candidate ${LOW_M}/${LOW_F}`);
+const p = patchConsts(src, {
+  GENDER_CLEAR_SCORE: LOW_M, GENDER_CLEAR_SCORE_FEMALE: LOW_F,
+});
 fs.writeFileSync(new URL('./.cache/lowbar.mjs', import.meta.url), p);
 const LOW = await import('./.cache/lowbar.mjs');
 

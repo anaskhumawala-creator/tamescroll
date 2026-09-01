@@ -450,7 +450,18 @@ export function makeArms(mod) {
           }
           if (best.votes >= MIN_VOTES) {
             const p = sigm(best.sumLogit / best.votes);
-            if (2 * Math.abs(p - 0.5) >= POOL_BAR) best.decided = p > 0.5 ? 'cover' : 'clear';
+            // `o.poolBar` IS READ HERE NOW, and until 2026-09-02 it was
+            // not. Eight call sites across six files passed it -- one of
+            // them (critic-lovo) SWEPT it over a grid and reported a
+            // "best" -- and `ARM` never looked at it, so every one of
+            // those arms ran at the module constant. Proved by running
+            // arch-ab.mjs: A1 through A5 printed IDENTICAL rows
+            // (5.5 / 210.0 / 314.0 / 557.5 / 495.0), five labels on one
+            // arm. Same for `ghost` and `nmWeight`, which are read
+            // nowhere at all and have been deleted from the call sites
+            // rather than given invented behaviour.
+            const bar = typeof o.poolBar === 'number' ? o.poolBar : POOL_BAR;
+            if (2 * Math.abs(p - 0.5) >= bar) best.decided = p > 0.5 ? 'cover' : 'clear';
           }
           decided.push(best.decided);
           if (best.decided === 'clear') return { ...b, flagged: false, certain: true, abstained: false };
