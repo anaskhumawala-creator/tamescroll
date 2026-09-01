@@ -70,15 +70,23 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-09-01 00:45 (**1075 PUBLISHED, sha 38ea380d**,
-raw manifest + served APK agree, isDraft false; 1074 before it, sha
-712c382a. rules 99394d11. **His phone is on 1073** -- it has neither the
-gate diagnostics nor the new size floor).
+**Last updated:** 2026-09-01 05:55 (**1076 PUBLISHED, sha 1c5437c3**,
+raw manifest + GitHub asset digest + downloaded APK all agree, isDraft
+false; 1075 before it, sha 38ea380d. rules 99394d11. **His phone is on
+1075** -- it has neither the clip-layer fix nor the counters that now
+actually reach the report).
 
-**Session 2026-09-01 (loop 37e) -- THE PLAYER-REGION GAP IS A PLAYER
-WITH NO PICTURE, SO THERE IS NOTHING TO FIX, AND THE REPORT COULD HAVE
-DROPPED EVERY COUNTER IT WAS BUILT TO CARRY.** No release: nothing
-user-visible changed after 1075. gaze 416/416.
+**Session 2026-09-01 (loop 37e) -- THE GAP HE CHASED IS A PLAYER WITH NO
+PICTURE, AND LOOKING FOR IT FOUND A REAL EXPOSURE NEXT TO IT. 1076
+PUBLISHED (sha 1c5437c3, raw manifest + asset digest + downloaded APK all
+agree, isDraft false).** gaze 418/418, cargo 58/58.
+
+- **1076 REGRESSION-CHECKED ON A REAL ANDROID WEBVIEW BEFORE PUBLISHING**
+  (spikes/gauntlet/sweep-1076.txt): search feed judged **28 images, 0
+  on-screen pending**, clear 10 / face 17 / 1 error, **18 patches, 18
+  inside their own image, 0 stray**; player mints a host; **all six new
+  counters read 0**. `player.life` carries **26** counters in the report
+  now (was 6) and `render` carries **12** (was 6).
 
 - **THE 84ms WINDOW IS ATTRIBUTED AND IT IS NOT AN EXPOSURE.** Five
   frame counters in video-region (`hideNoVr`, `hideZeroVr`,
