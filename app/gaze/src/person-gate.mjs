@@ -309,6 +309,77 @@ function kp(data, o, i) {
   return { y: data[o + i * 3], x: data[o + i * 3 + 1], s: data[o + i * 3 + 2] };
 }
 
+// THE INVERSE OF THE LETTERBOX, AND IT LIVES AT THE BOUNDARY ON PURPOSE.
+//
+// `detectPersons` resizes the frame to a SQUARE, so a 640x360 stream
+// reaches MoveNet 1.78x taller than wide -- the identical defect fixed
+// on the whole-frame face path in 1089 (findings 16a) and on the image
+// crop path on 2026-08-28. Measured over 241 frames of five videos
+// through the shipping graph, letterboxing instead admits **219 -> 269
+// persons (+22.8%)**, with **35 frames where the squash admits NOBODY
+// and the letterbox admits somebody** against 4 the other way (findings
+// 16b).
+//
+// WHY IT WAS NOT SIMPLY FIXED THERE AND THEN: MoveNet's outputs are
+// normalized to ITS OWN INPUT, and that is safe today only because a
+// squash is a uniform per-axis scale of the whole frame -- every
+// coordinate is still 0..1 of the frame on both axes. Letterbox it and
+// every coordinate is 0..1 of a PADDED canvas, so a y of 0.5 is the
+// middle of the canvas, not the middle of the picture.
+//
+// `parsePersons` reads raw coordinates from `data` in more than a dozen
+// places -- `kp`, the bbox at 51..54, the ear/eye/shoulder x deltas, the
+// keypoint-union extent -- and un-distorting at each of them is a change
+// that only has to be forgotten once to be wrong. So the buffer is
+// rewritten ONCE, here, before anything reads it, and `parsePersons` is
+// untouched and cannot miss a site.
+//
+// A NEW BUFFER, never in place: `detectPersons` hands over the tensor
+// download, and the same download is what `lastSlotDiag` reports and
+// what benches bank. Rewriting it under them would silently rebase every
+// number any run has quoted off a raw slot.
+//
+// `fit` is `crop-geometry.fitBox(srcW, srcH, size)` -- the same function
+// the draw uses, so the forward and inverse cannot drift apart.
+export function unpadPersons(data, fit, size) {
+  // A fit that fills the square is the identity, and that includes the
+  // degenerate fallback fitBox returns for a 0x0 source. Returning the
+  // input unchanged there means a caller cannot tell "no padding" from
+  // "not letterboxed", which is correct: they are the same picture.
+  if (!fit || !(size > 0) || !(fit.dw > 0) || !(fit.dh > 0)) return data;
+  var ox = fit.dx / size;
+  var oy = fit.dy / size;
+  var sx = fit.dw / size;
+  var sy = fit.dh / size;
+  if (!(sx > 0) || !(sy > 0)) return data;
+  if (ox === 0 && oy === 0 && sx === 1 && sy === 1) return data;
+
+  var out = new Float32Array(data.length);
+  out.set(data);
+  // CLAMPED TO THE FRAME. A coordinate that maps outside 0..1 landed in
+  // the black bar, which is not a place anything in the video is, and
+  // every consumer downstream treats a box as normalized 0..1. Clamping
+  // can only move a point ONTO the frame edge, which for a box is the
+  // covering direction; and a keypoint out there cannot be confident,
+  // because the bar is flat black.
+  var cl = function (v) { return v < 0 ? 0 : v > 1 ? 1 : v; };
+  for (var p = 0; p < 6; p++) {
+    var o = p * 56;
+    for (var i = 0; i < 17; i++) {
+      out[o + i * 3] = cl((data[o + i * 3] - oy) / sy);
+      out[o + i * 3 + 1] = cl((data[o + i * 3 + 1] - ox) / sx);
+    }
+    // The bounding box, in the model's own order: ymin, xmin, ymax, xmax.
+    out[o + 51] = cl((data[o + 51] - oy) / sy);
+    out[o + 52] = cl((data[o + 52] - ox) / sx);
+    out[o + 53] = cl((data[o + 53] - oy) / sy);
+    out[o + 54] = cl((data[o + 54] - ox) / sx);
+    // 55 is the slot score and is not a coordinate. Touching it is the
+    // shape of bug this whole function exists to make impossible.
+  }
+  return out;
+}
+
 /**
  * Raw MoveNet MultiPose output -> person boxes. data: the flat [1,6,56]
  * tensor download (6 slots x [17 keypoints x (y,x,score) = 51, then

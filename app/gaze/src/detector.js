@@ -15,7 +15,7 @@
 // extra GPU->CPU download is a fence wait, and hidden pages clamp those
 // to ~1s each (Chrome nested-timer throttling, found 2026-08-23).
 import * as tf from '@tensorflow/tfjs-core';
-import { squareBox } from './crop-geometry.mjs';
+import { squareBox, fitBox } from './crop-geometry.mjs';
 import '@tensorflow/tfjs-backend-cpu';
 import '@tensorflow/tfjs-backend-webgl';
 import * as tfconv from '@tensorflow/tfjs-converter';
@@ -31,6 +31,7 @@ import {
   frameMaxKp,
   rejectedSlotBoxes,
   lastSlotDiag,
+  unpadPersons,
 } from './person-gate.mjs';
 import { nonMaxSuppression } from './nms.mjs';
 
@@ -360,6 +361,25 @@ export async function loadGenderModel() {
 // phone lever instead. Registered in docs/detection-engine.md.
 export var PERSON_INPUT_SIZE = 256;
 
+// LETTERBOX THE PERSON PASS INSTEAD OF SQUASHING IT (findings 16b).
+//
+// The resize below has always been an unconditional square, so on his
+// 640x360 decode every person reaches a COCO-trained detector at 56% of
+// natural width. Measured over 241 corpus frames through the shipping
+// graph: letterboxing admits **219 -> 269 persons (+22.8%)**, with 35
+// frames where the squash admits NOBODY and the letterbox admits
+// somebody against 4 the reverse (p < 1e-5), the same direction in all
+// five videos.
+//
+// SHIPS OFF. The geometry fix (`unpadPersons`) is correct and tested,
+// but the ENTIRE labelled corpus -- every exposure, false-cover and
+// phantom number this repo owns -- was banked against squashed person
+// extents, so flipping this changes the placement layer under all of
+// them at once. It is a round, not an edit: the flag exists so both arms
+// run on one build and the corpus can be re-scored before it moves.
+export var PERSON_LETTERBOX = false;
+export function setPersonLetterbox(v) { PERSON_LETTERBOX = !!v; }
+
 /**
  * Loads the person/pose model (MoveNet MultiPose Lightning, Apache-2.0
  * — see NOTICE; our hybrid uint8/f16 requant of Google's f16 tfjs
@@ -580,6 +600,26 @@ export function disposeFrame(t) {
 }
 
 export async function detectPersons(model, pixelSource, aspect, held, sharedImg) {
+  // The pad, computed OUTSIDE the tidy and kept as a LOCAL. One detector
+  // module instance serves every video element on the page, so module
+  // state here would hand a caller another element's geometry -- the R21
+  // defect `lastSlotDiag` already carries a paragraph about.
+  // fitBox only needs the RATIO and `aspect` is that ratio; the integers
+  // below are what the pad is actually built from, so the forward pad and
+  // the inverse map cannot disagree by a rounding.
+  var lbFit = null;
+  if (PERSON_LETTERBOX) {
+    var ar = typeof aspect === 'number' && aspect > 0 ? aspect : 16 / 9;
+    var f0 = fitBox(ar, 1, PERSON_INPUT_SIZE);
+    var dwI = Math.max(1, Math.min(PERSON_INPUT_SIZE, Math.round(f0.dw)));
+    var dhI = Math.max(1, Math.min(PERSON_INPUT_SIZE, Math.round(f0.dh)));
+    lbFit = {
+      dx: Math.floor((PERSON_INPUT_SIZE - dwI) / 2),
+      dy: Math.floor((PERSON_INPUT_SIZE - dhI) / 2),
+      dw: dwI,
+      dh: dhI,
+    };
+  }
   var out = tf.tidy(function () {
     // `sharedImg` = a frame already uploaded by the caller. See uploadFrame:
     // the person pass and the full-frame face pass run back to back on the
@@ -588,7 +628,21 @@ export async function detectPersons(model, pixelSource, aspect, held, sharedImg)
     // tensor created OUTSIDE this tidy is not disposed by it, so ownership
     // stays with the caller.
     var img = sharedImg || tf.browser.fromPixels(pixelSource);
-    var resized = tf.image.resizeBilinear(tf.expandDims(img, 0), [PERSON_INPUT_SIZE, PERSON_INPUT_SIZE]);
+    var resized;
+    if (lbFit) {
+      // Fit, then pad with ZERO -- black bars, the same contract as the
+      // whole-frame face path's fillRect. MoveNet takes int32 0..255, so
+      // 0 is black rather than an undefined value.
+      var fitted = tf.image.resizeBilinear(tf.expandDims(img, 0), [lbFit.dh, lbFit.dw]);
+      resized = tf.pad(fitted, [
+        [0, 0],
+        [lbFit.dy, PERSON_INPUT_SIZE - lbFit.dh - lbFit.dy],
+        [lbFit.dx, PERSON_INPUT_SIZE - lbFit.dw - lbFit.dx],
+        [0, 0],
+      ]);
+    } else {
+      resized = tf.image.resizeBilinear(tf.expandDims(img, 0), [PERSON_INPUT_SIZE, PERSON_INPUT_SIZE]);
+    }
     return model.execute(tf.cast(resized, 'int32'));
   });
   var data;
@@ -597,6 +651,13 @@ export async function detectPersons(model, pixelSource, aspect, held, sharedImg)
   } finally {
     tf.dispose(out);
   }
+  // MoveNet normalizes its outputs to ITS OWN INPUT, so with a pad in
+  // front of it every coordinate is 0..1 of the PADDED CANVAS. Mapped
+  // back here, at the boundary, before anything reads a coordinate --
+  // `parsePersons` reads them from more than a dozen places and a
+  // per-site fix only has to be forgotten once to be wrong. A null fit
+  // returns the buffer untouched, so the squash arm is bit-identical.
+  data = unpadPersons(data, lbFit, PERSON_INPUT_SIZE);
   // `held` = the persons this same video returned on the PREVIOUS pass,
   // for parsePersons' admission hysteresis (R17). Passed through rather
   // than stored here: one module instance serves every video element, so
