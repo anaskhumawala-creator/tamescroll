@@ -23,7 +23,41 @@
 // Clean-room (SORT/IoU-tracker literature structure only; abewley/sort
 // is GPL and was never read — see NOTICE).
 
-export var PTRACK_IOU_MIN = 0.2; // below this, no association
+// THE ASSOCIATION THRESHOLD. Below this overlap an observation is not
+// the same person and a new track is born.
+//
+// 0.20 UNTIL 2026-09-02, and it was refused at 0.15 on a table that had
+// been measured in a regime his phone is not in (findings 10e, retracted
+// -- the bench told the tracker the 500ms BANK interval and derived a
+// 1250ms coast, where his device is told 2000 and coasts 4000). In HIS
+// regime, 18 windows, both gender arms:
+//
+//              man exp / fc / phantom      woman exp / fc / phantom
+//   0.20       22.0 / 155.0 / 573.5        25.5 / 201.0 / 679.5
+//   0.15       23.0 / 139.0 / 561.0        24.5 / 200.5 / 663.0
+//
+// -16.0s of FALSE COVER and -12.5s of PHANTOM in man mode, -16.5s of
+// phantom in woman mode, and the exposure NETS TO ZERO across the two
+// arms (+1.0 / -1.0).
+//
+// AND THE EXPOSURE IS NOT A PERSON GOING SHARP -- traced per window
+// rather than quoted as a total (bench/iou-where.mjs), because 1.0s
+// landing on one subject and 1.0s spread over the corpus are different
+// events. It is **one banked frame in each of two windows** of eighteen
+// (man: 4u3jS_cTHH0_w252 +0.5s, 8R1hy3uHds0_w1052 +0.5s), against
+// -9.5s of false cover in a single window. Woman mode moves two windows
+// too, one worse by a frame and one BETTER by three.
+//
+// THE DIAL IS NOT FREE FURTHER DOWN, which is why this stops at 0.15:
+// man exposure is monotone (22.0 -> 23.0 -> 24.0 -> 26.0 -> 27.5 across
+// 0.20/0.15/0.10/0.05/0.02) while false cover is flat below 0.15
+// (139.0 / 138.5 / 139.5 / 139.5). The first step buys the false cover;
+// every step after it buys phantom with exposure. 10e's warning was
+// right about the mechanism -- a looser threshold can associate a
+// woman's observation onto a man's CLEARED track -- and only wrong that
+// the first step costs anything worth having.
+export var PTRACK_IOU_MIN = 0.15;
+export function setIouMin(v) { PTRACK_IOU_MIN = v; }
 // How fast a box may SHRINK across an observation-source flip. See the
 // note in matchedStep: slower shrink only ever over-covers.
 export var PTRACK_FLIP_SHRINK_ALPHA = 0.2;

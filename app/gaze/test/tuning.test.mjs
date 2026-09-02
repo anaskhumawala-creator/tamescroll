@@ -31,6 +31,7 @@ const SHIPPED = {
   PERSON_SKIP_EVERY: personSkip.PERSON_SKIP_EVERY,
   VERDICT_MAX_INTERVAL_MS: cadence.VERDICT_MAX_INTERVAL_MS,
   PTRACK_MIN_COAST_PASSES: personTrack.PTRACK_MIN_COAST_PASSES,
+  PTRACK_IOU_MIN: personTrack.PTRACK_IOU_MIN,
 };
 const restore = () => applyTuning(SHIPPED);
 
@@ -357,4 +358,39 @@ test('the top of the coast clamp range is a no-op at his cadence', () => {
   restore();
   assert.equal(at25, 5000, 'the 2.5x term has taken over by 2.5');
   assert.equal(at30, at25, 'so 3.0 buys nothing over 2.5 -- the range top is inert');
+});
+
+// THE ASSOCIATION THRESHOLD IS ON THE CHANNEL, AND IT MUST BE ABLE TO
+// TIGHTEN AS WELL AS LOOSEN.
+//
+// It ships at 0.15 (findings 10g). The direction that MATTERS for
+// safety is upward: man-mode exposure is monotone in this dial, so if
+// his own rings show re-association going wrong on his footage -- which
+// the corpus cannot see -- the fix is to push it back up without an
+// install. A clamp that could only loosen would make that impossible.
+test('the association threshold pushes both ways and is clamped', () => {
+  assert.equal(personTrack.PTRACK_IOU_MIN, 0.15,
+    'precondition: 10g shipped 0.15');
+
+  // Tighter than it has ever run -- the direction the ceiling exists for.
+  applyTuning({ PTRACK_IOU_MIN: 0.30 });
+  assert.equal(personTrack.PTRACK_IOU_MIN, 0.30);
+
+  // Looser, to the floor.
+  applyTuning({ PTRACK_IOU_MIN: 0.10 });
+  assert.equal(personTrack.PTRACK_IOU_MIN, 0.10);
+
+  // BELOW THE FLOOR IS AN EXPOSURE FLOOR, not a formatting rule: 0.05
+  // costs +4.0s of man exposure against the shipped value and buys no
+  // false cover at all. Clamped, never refused, so a bad push degrades
+  // to the nearest safe value instead of leaving the dial wherever the
+  // previous push left it.
+  applyTuning({ PTRACK_IOU_MIN: 0.02 });
+  assert.equal(personTrack.PTRACK_IOU_MIN, 0.10, 'clamped up to the floor');
+
+  applyTuning({ PTRACK_IOU_MIN: 0.90 });
+  assert.equal(personTrack.PTRACK_IOU_MIN, 0.35, 'clamped down to the ceiling');
+
+  restore();
+  assert.equal(personTrack.PTRACK_IOU_MIN, 0.15);
 });

@@ -154,6 +154,25 @@ var SPEC = {
   // only when he says so.
   PTRACK_MIN_COAST_PASSES: [1.33, 3.0, function (v) { personTrack.setCoastPasses(v); }],
 
+  // THE ASSOCIATION THRESHOLD. Below this overlap an observation is not
+  // the same person and a new track is born. Moved 0.20 -> 0.15 on
+  // 2026-09-02 (findings 10g, and the reasoning is on the constant
+  // itself in person-track.mjs).
+  //
+  // THE FLOOR IS 0.10 AND IT IS AN EXPOSURE FLOOR. Man-mode exposure is
+  // monotone in this dial -- 22.0 / 23.0 / 24.0 / 26.0 / 27.5s at
+  // 0.20 / 0.15 / 0.10 / 0.05 / 0.02 -- because a looser threshold can
+  // associate a woman's observation onto a man's CLEARED track, which
+  // is the mechanism loop 39 traced this corpus's largest exposure to.
+  // 0.10 costs +2.0s against the shipped value; 0.05 costs +4.0s and
+  // buys no false cover at all (139.5 against 139.0). The range does not
+  // reach it.
+  //
+  // The ceiling of 0.35 exists so this can be TIGHTENED past where it
+  // has ever run, without a release, if his rings show re-association
+  // going wrong on his own footage -- which the corpus cannot see.
+  PTRACK_IOU_MIN: [0.10, 0.35, function (v) { personTrack.setIouMin(v); }],
+
   // THE VERDICT CLOCK. RESTATED 2026-09-02: the "81.0s of exposure at
   // 1.5s per verdict against 8.0s at 0.5s" this comment used to quote is
   // 24.5s against 5.5s, and even that diagonal moves the coast alongside
