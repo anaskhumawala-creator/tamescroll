@@ -1,0 +1,25 @@
+18 windows, k=3 (1.5s/verdict), his regime
+CONTROL must read PTRACK_IOU_MIN 0.15, CUT_DELTA 60, PTRACK_ASSIGN optimal, PTRACK_MIN_COAST_PASSES 2
+
+-- MAN --
+arm                             exposure  falseCover     phantom
+CONTROL  synthetic guess            22.5     136.5     547.5
+mnBody   s>=0.00                    53.0 (+30.5)     129.5 (-7.0)     371.5 (-176.0)
+mnBody   s>=0.00  faceW 2.0         48.5 (+26.0)     136.5 (+0.0)     368.0 (-179.5)
+mnBody   s>=0.00  faceW 3.0         49.0 (+26.5)     132.5 (-4.0)     350.5 (-197.0)
+mnBody   s>=0.40                    28.5 (+6.0)     137.5 (+1.0)     501.5 (-46.0)
+mnBody   EDGE ONLY                  22.0 (-0.5)     135.5 (-1.0)     536.0 (-11.5)
+
+-- WOMAN --
+arm                             exposure  falseCover     phantom
+CONTROL  synthetic guess            25.5     201.5     628.0
+mnBody   s>=0.00                    44.0 (+18.5)     186.5 (-15.0)     466.5 (-161.5)
+mnBody   s>=0.00  faceW 2.0         43.0 (+17.5)     182.5 (-19.0)     466.5 (-161.5)
+mnBody   s>=0.00  faceW 3.0         46.0 (+20.5)     186.0 (-15.5)     435.0 (-193.0)
+mnBody   s>=0.40                    30.5 (+5.0)     192.0 (-9.5)     603.0 (-25.0)
+mnBody   EDGE ONLY                  27.0 (+1.5)     201.0 (-0.5)     627.0 (-1.0)
+
+READ THE SIGNS, NOT THE TOTALS: a body source that buys phantom
+and false cover while costing exposure is the trade this repo
+has refused twice already at 15s. It is an EXPOSURE trade and
+therefore HIS call, not one to push over OTA.

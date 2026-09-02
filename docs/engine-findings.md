@@ -3162,3 +3162,71 @@ must be run as a matched A/B in both genders before a single sentence is
 written about it.
 
 **Raw: `spikes/gauntlet/extent-reach.txt`.**
+
+
+## 21 -- THE MEASURED BODY IS WORTH A THIRD OF THE PHANTOM, AND THE FULL VERSION COSTS MORE EXPOSURE THAN THIS REPO HAS EVER SPENT
+
+Findings 20 established that the corpus arm paints a synthetic body for
+100% of observations while the app takes the admitted MoveNet person on
+83.2% of these faces. `bench/mnbody-ab.mjs` prices the difference. Both
+arms byte-identical downstream of the box; only the source changes.
+`ssdMin` is a floor on the slot confidence, `faceW` refuses to shrink
+the body below N face widths, EDGE ONLY keeps the guess and lets the
+measurement pull back only the side facing a cleared face.
+
+**MAN (his setting), against the 1091 control 22.5 / 136.5 / 547.5:**
+
+| arm | exposure | false cover | phantom |
+|---|---|---|---|
+| CONTROL synthetic guess | 22.5 | 136.5 | 547.5 |
+| mnBody s>=0.00 | 53.0 (**+30.5**) | 129.5 (-7.0) | 371.5 (**-176.0**) |
+| mnBody s>=0.00 faceW 2.0 | 48.5 (+26.0) | 136.5 (0.0) | 368.0 (-179.5) |
+| mnBody s>=0.00 faceW 3.0 | 49.0 (+26.5) | 132.5 (-4.0) | 350.5 (-197.0) |
+| **mnBody s>=0.40** | **28.5 (+6.0)** | 137.5 (+1.0) | **501.5 (-46.0)** |
+| **mnBody EDGE ONLY** | **22.0 (-0.5)** | **135.5 (-1.0)** | **536.0 (-11.5)** |
+
+**WOMAN, against 25.5 / 201.5 / 628.0:**
+
+| arm | exposure | false cover | phantom |
+|---|---|---|---|
+| mnBody s>=0.00 | 44.0 (**+18.5**) | 186.5 (-15.0) | 466.5 (**-161.5**) |
+| mnBody s>=0.00 faceW 2.0 | 43.0 (+17.5) | 182.5 (-19.0) | 466.5 (-161.5) |
+| mnBody s>=0.00 faceW 3.0 | 46.0 (+20.5) | 186.0 (-15.5) | 435.0 (-193.0) |
+| **mnBody s>=0.40** | **30.5 (+5.0)** | 192.0 (-9.5) | **603.0 (-25.0)** |
+| **mnBody EDGE ONLY** | **27.0 (+1.5)** | 201.0 (-0.5) | 627.0 (-1.0) |
+
+- **THE FULL SWAP IS REFUSED, and it is not close.** +30.5s of exposure
+  on the man arm **more than doubles it** (22.5 -> 53.0). The largest
+  exposure this repo has ever deliberately spent is the coast dial's
+  +5.0s, and that one buys 141.0s of phantom -- a ratio of 28:1 against
+  this arm's 5.8:1. The mechanism is the one the `ssd` arms already
+  measured: a detector box is the VISIBLE extent, so it stops at
+  occlusions, crops and frame edges where the synthetic body
+  deliberately over-runs downward, and the score counts that over-run
+  as protection because it often is.
+- **THE FACE-WIDTH FLOOR DOES NOT RESCUE IT.** faceW 2.0 and 3.0 move
+  exposure 53.0 -> 48.5 -> 49.0, so most of the cost is NOT a
+  too-narrow body. It is height and it is occlusion.
+- **`s >= 0.40` IS THE FIRST DEFENSIBLE ROW: 46.0s / 25.0s of phantom
+  for +6.0s / +5.0s of exposure**, both arms agreeing on all three
+  signs. That is the same exposure price as the coast dial for a third
+  of the phantom, so it is strictly the worse buy of the two -- but it
+  is a real one and it is on a different mechanism, so they compose.
+- **EDGE ONLY IS THE ROW THAT MATTERS, AND IN HIS MODE IT IS FREE.**
+  Man: **-0.5s exposure, -1.0s false cover, -11.5s phantom** -- better
+  on all three, which is the first arm this session to manage that.
+  Woman: +1.5s exposure for -0.5s and -1.0s, so roughly a wash. The
+  design is "measured edge, guessed body": nothing loses coverage
+  anywhere except the side where somebody who should be sharp is
+  standing, which IS the owner's complaint ("her patch reaches the man
+  beside her").
+- **NOT SHIPPED THIS PASS, deliberately.** EDGE ONLY in the woman arm
+  costs 1.5s of exposure and a mode toggle changes which arm he is in,
+  so it is an EXPOSURE trade under this repo's own rule. It also has no
+  counter yet: nothing says how OFTEN the edge moves, and an arm whose
+  effect is 11.5s of phantom across 2,160 frames could be one window
+  doing all the work. **Before it ships: a per-window trace, a
+  `mnEdgeMoved` counter, and the critic.**
+
+**Raw: `spikes/gauntlet/mnbody-ab.txt`. New: `bench/mnbody-ab.mjs`,
+`bench/extent-reach.mjs`, the `mnBody` arm in `arch-arms.mjs`.**

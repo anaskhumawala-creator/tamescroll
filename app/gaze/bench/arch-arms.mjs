@@ -726,6 +726,38 @@ export function makeArms(mod) {
         }
         let ssdBoxes = null;
         if (o.ssdMin != null && win.ssd && win.ssd[fi]) ssdBoxes = win.ssd[fi].p;
+        // THE BODY SOURCE THE APP ACTUALLY HAS.
+        //
+        // The `ssd*` arms above measure extent with coco-ssd, which is
+        // not in the bundle -- so their numbers describe a detector the
+        // app would have to ship. MoveNet IS shipped, its raw [1,6,56]
+        // has been banked all along, and `extent-reach.mjs` measured
+        // that on this corpus it admits somebody on 88.0% of frames and
+        // contains 83.2% of banked faces (findings 20). So this arm is
+        // the same geometry with the source swapped for the one that
+        // costs nothing to adopt.
+        //
+        // Deliberately reusing `ssdBoxes` and `bodyFromSsd`: the point
+        // is a comparison between BODY SOURCES, and it is only fair if
+        // everything downstream of the box is byte-identical. `s` is the
+        // slot confidence, so `ssdMin` prices the two on one axis.
+        if (o.mnBody && win.persons) {
+          const off = fi * 336;
+          if (off + 336 <= win.persons.length) {
+            try {
+              const ps = modParse(win.persons.subarray(off, off + 336), modMinScore, W / H, null) || [];
+              ssdBoxes = ps.map((q) => ({
+                x1: q.x1, y1: q.y1, x2: q.x2, y2: q.y2,
+                s: typeof q.confidence === 'number' ? q.confidence : 1,
+              }));
+            } catch (e) { ssdBoxes = null; }
+          }
+          // A frame with no admitted person must fall through to the
+          // guess, not to an EMPTY box list that silently means the same
+          // thing -- `bodyFromSsd` returns null on both, but only one of
+          // them is honest about why.
+          if (ssdBoxes && !ssdBoxes.length) ssdBoxes = null;
+        }
         let nMeasured = 0;
         let obs = fr.faces.map((f, i) => {
           // *** THE SINGLE BIGGEST LIMIT ON EVERY NUMBER THIS FILE
