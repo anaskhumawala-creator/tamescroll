@@ -578,7 +578,31 @@ export function sameHuman(a, b) {
   if (containment(a.box, b.box) < MERGE_CONTAIN_MIN) return false;
   var ax = a.box.headX;
   var bx = b.box.headX;
-  if (typeof ax !== 'number' || typeof bx !== 'number') return true;
+  if (typeof ax !== 'number' || typeof bx !== 'number') {
+    // H2 (phase-h critic): containment alone used to be enough here,
+    // which merges any two boxes at MERGE_CONTAIN_MIN whenever EITHER
+    // side has no head anchor -- including a headless MoveNet person box
+    // (bodyFromSsd, or a person facing away) sitting on top of a
+    // DIFFERENT headed person. If one side does have a head, that head's
+    // own centre still has to land inside the other box before they can
+    // be the same human; only when NEITHER side has anything to
+    // separate on do we fall back to containment alone, as before.
+    var headedBox = typeof ax === 'number' ? a.box : typeof bx === 'number' ? b.box : null;
+    if (!headedBox) {
+      bump('dedupeHeadUnknown');
+      return true;
+    }
+    var headlessBox = headedBox === a.box ? b.box : a.box;
+    var hcx = headedBox.headX;
+    var hcy = headedBox.headY;
+    if (typeof hcy !== 'number') {
+      bump('dedupeHeadUnknown');
+      return true;
+    }
+    return (
+      hcx >= headlessBox.x1 && hcx <= headlessBox.x2 && hcy >= headlessBox.y1 && hcy <= headlessBox.y2
+    );
+  }
   var ay = a.box.headY;
   var by = b.box.headY;
   var ah = a.box.headH;

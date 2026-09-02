@@ -96,3 +96,80 @@ it should follow, but this is unverified).
    pause/resume and rate changes are correct by construction.
 4. Only then wire detection: verdict keyed per `mediaTime`, mask final
    before presentation. That is the step that actually delivers the bar.
+
+---
+
+# Android arm64 results (2026-09-02, Redmi M2010J19SI / SD662 / Adreno 610, app 1091, m.youtube watch page, 720p60 stream)
+
+`probe_android.js` + `run_android.py`, raw in `result_android.json`. Three
+configs, 45s each, a +5s seek at 40% and a 3s pause at 70% of every run.
+
+| config | captured / presented | capture ms p50 / p95 | present ms | ring p50 / max | A/V skew p50 | audio through delay | pause |
+|---|---|---|---|---|---|---|---|
+| VideoFrame, native, D=1.5s | 69 / 9 | 0.1 / 0.3 | 1.9 | 13 / 22 | -100 | 31 of 181 samples | suspended |
+| ImageBitmap, native 1280x720, D=2.5s | 689 / 249 | 2.1 / 6.2 | 0.1 | 40 / 66 | -49 | 143 of 150 | suspended |
+| ImageBitmap, 640x360, D=2.5s | 526 / 230 | 1.3 / 6.3 | 0.1 | 33 / 41 | -49 | 132 of 142 | suspended |
+
+**ANSWERED, on the device class that matters:**
+
+- **A `VideoFrame` ring STARVES THE HARDWARE DECODER on Android.** Holding
+  22 VideoFrames dropped the stream to 314 decoded frames in 45s (~7fps)
+  and rVFC fired 69 times; the identical page under the ImageBitmap ring
+  decoded 2,543. `new VideoFrame(video)` references MediaCodec output
+  buffers; a ring of them exhausts the pool. **The ring must be COPIES**
+  (`createImageBitmap`). The desktop spike could not see this because
+  WebView2's decoder pool is larger.
+- **The copy is cheap: 1.3-2.1ms per frame** on this GPU, presentation
+  0.1ms. A native 1280x720 ring reached 66 frames (~244MB of bitmaps)
+  with **zero capture failures and zero evictions**; the 640x360 ring
+  (his phone's decode size, findings loop 38) is 41 x 0.9MB = ~37MB.
+- **AUDIO FLOWS THROUGH THE DELAY, UNMUTED.** AnalyserNode RMS on the
+  delayed output non-zero on 143 of 150 samples with the source
+  non-zero on 118 of 150 (the source analyser reads the same graph so
+  this is corroboration, not proof of the delay length). `pause` ->
+  `AudioContext.suspend()` froze it: RMS tail 0.005 and state
+  `suspended` 3s into the pause, then `play` resumed it.
+- **Presentation keyed on `mediaTime` survives a pause**: A/V skew p50
+  -49ms (the ring's frames are presented within one frame of D), and
+  the pause did not collapse the delay on resume (the desktop probe's
+  wall-clock pick would have).
+- **The delayed canvas paints the real picture.** Read back with
+  getImageData: mean luma 26 -> 81, sd 30 -> 64 across 8s. The CDP
+  screenshot reads BLACK for a `desynchronized: true` canvas -- that is
+  the screenshot path, not the display; do not use screenshots as
+  evidence for this canvas.
+- **The app's own pipeline kept running on the opacity-0 video** (its
+  rVFC loop and patches are on the same element). Our canvas at z-index
+  15 sits under the app's clip layer at 20, so the existing patches
+  paint over the delayed picture with no renderer change.
+- No DRM (`encrypted` never fired), no errors in any run.
+
+**COSTS, honest:**
+
+- **Seek recovery is 3.2-4.8s at D=2.5s, not D.** The player itself
+  takes 1-2s to resume after a seek on this device and the ring only
+  starts refilling once frames arrive. Every seek is a covered (whole
+  blur) window of that length. Blur-first says that is correct; it is
+  still the most visible cost of the design.
+- **Frame drops were 39% with the native ring against 22-38% without**
+  on a 720p60 stream this device cannot play cleanly with or without
+  us; inconclusive here, and this device is not his (his phone decodes
+  640x360 at 30fps).
+- rAF read 20-22Hz with the ring and 11.7Hz in a control taken
+  afterwards on the same page -- the render-loop number on this device
+  is too noisy to attribute; the per-frame cost above is the honest
+  figure.
+- A seek/`resize`/`ratechange`/`loadstart` all flush; `seeking` is
+  still the single choke point.
+
+**WHAT THIS BUYS, sized against the shipped pipeline on this device
+(live stage ring, 75s, all MoveNet slots n:0):** verdict pass 1337ms =
+MoveNet+BlazeFace 799 (MoveNet alone 511, read off the position passes,
+which admit nobody) + gender 536; verdicts every 2.1s; position passes
+511ms each producing zero observations. So a frame captured at t has a
+verdict by t + 2.1 + 1.3 = 3.4s worst case today. The delay the design
+needs is (verdict interval + verdict latency) at whatever cadence the
+GPU allows; dropping MoveNet where it admits nobody (his regime, 100%
+of his phone) and running gender only for NEW or unresolved face tracks
+brings the per-frame verdict to ~300ms (BlazeFace) and the interval to
+the same, which puts D near 1s. That is the round that follows a yes.

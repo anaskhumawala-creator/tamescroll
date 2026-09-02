@@ -59,8 +59,22 @@ function run(cmd, args, cwd) {
 // treat the directory as one test file and report a single opaque
 // failure -- a packet whose oracle says "1 failed" with no name is worse
 // than no oracle, because it reads exactly like a real regression.
-const t1 = run(process.execPath, ['--test', 'test/**/*.test.mjs'], path.join(REPO, 'app/gaze'));
-w('04-gaze-test.txt', `EXIT CODE ${t1.code}\n\n${t1.out}`);
+//
+// H3 (phase-h critic): `pretest` (bench/_build.mjs) only runs when the
+// suite goes through npm, and the line above bypasses npm on purpose --
+// so the packet's own oracle was the one path G4's fix does not cover.
+// A src/ edit made after the last build then landed here as three
+// unattributed "test failed" lines and fifteen tests that never ran,
+// which is the exact unreadable shape phase-g recorded costing a
+// previous packet a false alarm. Run the same rebuild `pretest` runs,
+// directly, before the oracle rather than through it.
+const tbuild = run(process.execPath, ['bench/_build.mjs'], path.join(REPO, 'app/gaze'));
+if (tbuild.code !== 0) {
+  w('04-gaze-test.txt', `BUILD FAILED BEFORE THE ORACLE COULD RUN, EXIT CODE ${tbuild.code}\n\n${tbuild.out}`);
+} else {
+  const t1 = run(process.execPath, ['--test', 'test/**/*.test.mjs'], path.join(REPO, 'app/gaze'));
+  w('04-gaze-test.txt', `BUILD: ${tbuild.out.trim()}\n\nEXIT CODE ${t1.code}\n\n${t1.out}`);
+}
 const t2 = run('cargo', ['test'], path.join(REPO, 'app/src-tauri'));
 w('05-cargo-test.txt', `EXIT CODE ${t2.code}\n\n${t2.out}`);
 

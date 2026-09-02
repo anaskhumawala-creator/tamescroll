@@ -101,3 +101,21 @@ test('and the switch is real -- the two modes disagree through the tracker', () 
   const o = step('optimal');
   assert.notEqual(g.life.birthContended || 0, o.life.birthContended || 0);
 });
+
+// H4 (phase-h critic): `assign.test.mjs` had a comment claiming
+// "`test/assign-seed` below pins the seed itself" -- no such test
+// existed anywhere in the tree, in this file or that one, and deleting
+// the whole seed block in person-track.mjs left the suite fully green.
+// This is that test: it goes through `updatePersonTracks`, the only
+// site that knows the optimal assignment is about to run, which is
+// exactly where G8's seed lives and `assign.test.mjs` cannot reach it.
+test('the G8 seed reaches 0 through the tracker in optimal mode, and is absent in greedy', () => {
+  const o = step('optimal');
+  assert.equal(o.life.assignFellBackGreedy, 0,
+    'a run that never falls back must still read 0, not undefined --'
+    + ' that is the whole point of seeding it (G8)');
+  const g = step('greedy');
+  assert.equal(g.life.assignFellBackGreedy, undefined,
+    'greedy never calls optimalAssign, so a seeded 0 here would read as'
+    + ' a measurement of an assignment that did not run');
+});

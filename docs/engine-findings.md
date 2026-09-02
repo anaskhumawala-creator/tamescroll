@@ -295,8 +295,17 @@ than shipping it inside the app.** Releasing the *engine* is unaffected.
 
 - **Track pooling of gender logits**: rescues 4 men, loses 75.
   Two-consecutive-over-the-bar is max-like and beats a mean.
-- **coco-ssd person boxes** replacing the synthetic body: phantom -41%
-  but exposure 82 to 89.5s. Four recovery attempts failed.
+- **coco-ssd person boxes** replacing the synthetic body: this line's
+  original "phantom -41% but exposure 82 to 89.5s" predates the current
+  cadence-pinned corpus and does not reproduce here. **Re-measured
+  H1-clean (phase-h critic) on `his regime`, man `ssdMin 0.5`: exposure
+  22.5 -> 27.0 (+4.5), false cover 136.5 -> 147.5 (+11.0), phantom
+  547.5 -> 551.0 (+3.5, i.e. WORSE, not -41%).** The old headline
+  described a bench defect (`bodyFromSsd` carried no head anchor, so
+  `sameHuman` merged distinct people on containment alone) rather than
+  the coco-ssd source; with the anchor restored the phantom "win"
+  is gone in both genders. Four recovery attempts still failed, on the
+  right numbers now.
 - **`GENDER_CLEAR_SCORE` below 0.36**: a real woman reads male raw
   0.58-0.66 at his face sizes.
 - **`PFF_BODY_DOWN` 6.0 to 3.5**: the corpus said better; **rendering
@@ -3189,10 +3198,16 @@ the SHIPPED `parsePersons` (`bench/extent-reach.mjs`), 18 windows,
 | **faces that CLAIM an admitted person's box** | **836 (72.5%)** |
 | faces falling through to `personFromFace` | 317 (27.5%) |
 
-Per window it runs **45.0% to 100.0%**, five windows at 100%, only one
-under 70%. So on this corpus the shipped app would take a MEASURED body
-for roughly three faces in four, and the instrument takes a guess for
-four in four.
+Per window, the ADMIT-FRAME rate above -- the share of FRAMES where
+`parsePersons` admits anybody, not the share of FACES that claim a
+box -- runs **45.0% to 100.0% of frames**, five windows at 100%, only
+one under 70%. (H8, phase-h critic: this sentence sat directly under
+the two claim-rate rows and read as a per-window bound on THEM; it is a
+different quantity with a different denominator, and `extent-reach.mjs`
+never computes a per-window claim rate at all -- only the two corpus
+totals above.) So on this corpus the shipped app would take a MEASURED
+body for roughly three faces in four, and the instrument takes a guess
+for four in four.
 
 **THOSE TWO ROWS WERE 959/194 (83.2%/16.8%) WHEN THIS SECTION WAS
 WRITTEN, AND THAT WAS MY OWN RE-IMPLEMENTATION OF A SHIPPED RULE**
@@ -3253,7 +3268,19 @@ written about it.
 **Raw: `spikes/gauntlet/extent-reach.txt`.**
 
 
-## 21 -- THE MEASURED BODY IS WORTH A THIRD OF THE PHANTOM, AND THE FULL VERSION COSTS MORE EXPOSURE THAN THIS REPO HAS EVER SPENT
+## 21 -- SUPERSEDED BY PHASE-H's H1: the measured body's cost was a bench defect, not the box
+
+**Every table and bullet in this section below was measured through
+`bodyFromSsd` (bench/arch-arms.mjs) while it emitted a box with no
+`headX`/`headY`/`headW`/`headH` -- the four fields `personFromFace` and
+`boundBodyToSlot` both carry. `sameHuman` (person-track.mjs) treats a
+box with no head anchor as having nothing else to separate on and
+merges it on containment alone, so EVERY `mnBody`/`ssd` observation ran
+with that guard switched off, deleting real observations rather than
+"associating better". H1 (phase-h critic) found it; the head fields are
+now restored at source and every number below is corrected. The title
+is also wrong at the corrected numbers: the measured body recovers
+**2.7% (man) / 3.2% (woman) of the phantom**, not a third.**
 
 Findings 20 established that the corpus arm paints a synthetic body for
 100% of observations while the app takes the admitted MoveNet person on
@@ -3263,73 +3290,60 @@ arms byte-identical downstream of the box; only the source changes.
 the body below N face widths, EDGE ONLY keeps the guess and lets the
 measurement pull back only the side facing a cleared face.
 
-**MAN (his setting), against the 1091 control 22.5 / 136.5 / 547.5:**
+**MAN (his setting), against the 1091 control 22.5 / 136.5 / 547.5 -- CORRECTED:**
 
 | arm | exposure | false cover | phantom |
 |---|---|---|---|
 | CONTROL synthetic guess | 22.5 | 136.5 | 547.5 |
-| mnBody s>=0.00 | 53.0 (**+30.5**) | 129.5 (-7.0) | 371.5 (**-176.0**) |
-| mnBody s>=0.00 faceW 2.0 | 48.5 (+26.0) | 136.5 (0.0) | 368.0 (-179.5) |
-| mnBody s>=0.00 faceW 3.0 | 49.0 (+26.5) | 132.5 (-4.0) | 350.5 (-197.0) |
-| **mnBody s>=0.40** | **28.5 (+6.0)** | 137.5 (+1.0) | **501.5 (-46.0)** |
+| mnBody s>=0.00 | 24.0 (+1.5) | 159.0 (+22.5) | 532.5 (-15.0) |
+| mnBody s>=0.00 faceW 2.0 | 23.5 (+1.0) | 159.5 (+23.0) | 523.5 (-24.0) |
+| mnBody s>=0.00 faceW 3.0 | 25.0 (+2.5) | 160.5 (+24.0) | 534.0 (-13.5) |
+| mnBody s>=0.40 | 26.0 (+3.5) | 145.0 (+8.5) | 566.0 (**+18.5**) |
 | **mnBody EDGE ONLY** | **22.0 (-0.5)** | **135.5 (-1.0)** | **536.0 (-11.5)** |
+| mnBody s>=0.00 unionH | 22.5 (+0.0) | 161.0 (+24.5) | 530.0 (-17.5) |
+| mnBody s>=0.00 faceW 6.0 | 20.0 (-2.5) | 156.0 (+19.5) | 552.0 (+4.5) |
 
-**WOMAN, against 25.5 / 201.5 / 628.0:**
+**WOMAN, against 25.5 / 201.5 / 628.0 -- CORRECTED:**
 
 | arm | exposure | false cover | phantom |
 |---|---|---|---|
-| mnBody s>=0.00 | 44.0 (**+18.5**) | 186.5 (-15.0) | 466.5 (**-161.5**) |
-| mnBody s>=0.00 faceW 2.0 | 43.0 (+17.5) | 182.5 (-19.0) | 466.5 (-161.5) |
-| mnBody s>=0.00 faceW 3.0 | 46.0 (+20.5) | 186.0 (-15.5) | 435.0 (-193.0) |
-| **mnBody s>=0.40** | **30.5 (+5.0)** | 192.0 (-9.5) | **603.0 (-25.0)** |
+| mnBody s>=0.00 | 27.5 (+2.0) | 213.0 (+11.5) | 608.0 (-20.0) |
+| mnBody s>=0.00 faceW 2.0 | 26.5 (+1.0) | 214.5 (+13.0) | 606.0 (-22.0) |
+| mnBody s>=0.00 faceW 3.0 | 24.0 (-1.5) | 222.0 (+20.5) | 631.5 (+3.5) |
+| mnBody s>=0.40 | 26.5 (+1.0) | 214.5 (+13.0) | 626.5 (-1.5) |
 | **mnBody EDGE ONLY** | **27.0 (+1.5)** | 201.0 (-0.5) | 627.0 (-1.0) |
+| mnBody s>=0.00 unionH | 27.5 (+2.0) | 213.0 (+11.5) | 607.5 (-20.5) |
+| mnBody s>=0.00 faceW 6.0 | 12.0 (-13.5) | 232.0 (+30.5) | 735.0 (**+107.0**) |
 
-- **THE FULL SWAP IS REFUSED, and it is not close.** +30.5s of exposure
-  on the man arm **more than doubles it** (22.5 -> 53.0). The largest
-  exposure this repo has ever deliberately spent is the coast dial's
-  +5.0s, and that one buys 141.0s of phantom -- a ratio of 28:1 against
-  this arm's 5.8:1. The mechanism is the one the `ssd` arms already
-  measured: a detector box is the VISIBLE extent, so it stops at
-  occlusions, crops and frame edges where the synthetic body
-  deliberately over-runs downward, and the score counts that over-run
-  as protection because it often is.
-- **THE FACE-WIDTH FLOOR DOES NOT RESCUE IT.** faceW 2.0 and 3.0 move
-  exposure 53.0 -> 48.5 -> 49.0, so most of the cost is NOT a
-  too-narrow body. **"IT IS HEIGHT AND IT IS OCCLUSION" IS WITHDRAWN
-  (phase-g G2) -- IT IS NEITHER.** The height half was testable and was
-  not tested: `ssdUnionH` floors the measured box's vertical extent with
-  `personFromFace`'s, so if the measured body were losing people by
-  being too SHORT it would recover them. It recovers **0.5s of 30.5s
-  (1.6%)** on the man arm and 0.5s of 18.5s on the woman arm. And the
-  width half runs the other way past a point: **faceW 6.0 costs 142.0s
-  of exposure (+119.5)**, six times the control -- a box wide enough to
-  swallow the neighbour's observation takes the neighbour's TRACK with
-  it. So neither axis of the EXTENT explains the residual; what is left
-  is where the box sits, not how big it is, and that is unmeasured.
-- **`s >= 0.40` IS THE FIRST DEFENSIBLE ROW: 46.0s / 25.0s of phantom
-  for +6.0s / +5.0s of exposure**, both arms agreeing on all three
-  signs. That is the same exposure price as the coast dial for a third
-  of the phantom, so it is strictly the worse buy of the two -- but it
-  is a real one and it is on a different mechanism, so they compose.
-- **EDGE ONLY LOOKED LIKE THE ROW THAT MATTERS AND IT IS REFUSED --
-  SEE 21a, WHICH IS THE PER-WINDOW TRACE THIS BULLET ASKED FOR.** What
-  follows is the total, and the total is the misleading half.**
-  Man: **-0.5s exposure, -1.0s false cover, -11.5s phantom** -- better
-  on all three, which is the first arm this session to manage that.
-  Woman: +1.5s exposure for -0.5s and -1.0s, so roughly a wash. The
-  design is "measured edge, guessed body": nothing loses coverage
-  anywhere except the side where somebody who should be sharp is
-  standing, which IS the owner's complaint ("her patch reaches the man
-  beside her").
-- **NOT SHIPPED, AND THEN REFUSED OUTRIGHT.** The reason to hold it was
-  that EDGE ONLY costs the woman arm 1.5s of exposure, that a mode
-  toggle changes which arm he is in, and above all that **nothing said
-  how OFTEN the edge moves** -- 11.5s of phantom across 2,160 frames
-  could be one window doing all the work. The trace and the counter were
-  built and run in the same pass: **it is one window doing most of the
-  work** (8.0 of the 11.5 seconds), the score changes in 6 of 18
-  windows, and the false cover column has two windows going the wrong
-  way. **21a is the refusal and its numbers.**
+- **THE FULL SWAP IS NOT THE CATASTROPHE IT WAS MEASURED AS, BUT IT IS
+  STILL A LOSING TRADE.** Corrected, `mnBody s>=0.00` costs **+1.5s
+  (man) / +2.0s (woman)** of exposure -- roughly 1.07x the control, not
+  2.36x -- for **+22.5s (man) / +11.5s (woman) of FALSE COVER**, not a
+  fall. It buys 15.0s / 20.0s of phantom (2.7% / 3.2%), not 176.0s /
+  161.5s. The direction the old text argued from (large exposure cost,
+  large phantom win, false cover falling) is wrong on every axis except
+  the sign of exposure.
+- **THE FACE-WIDTH FLOOR STILL DOES NOT RESCUE ANYTHING, because there
+  is almost nothing left to rescue.** faceW 2.0/3.0 move exposure
+  24.0 -> 23.5 -> 25.0 (man), 27.5 -> 26.5 -> 24.0 (woman) -- noise
+  around a ~1.5-2.0s excess, not a 30.5s one. **"IT IS HEIGHT AND IT IS
+  OCCLUSION" STAYS WITHDRAWN (phase-g G2), for a different reason now:**
+  `ssdUnionH` recovers the man arm's entire (much smaller) excess (+1.5
+  -> +0.0) and none of the woman arm's (+2.0 -> +2.0). Neither reading
+  supports a height mechanism at this scale. **`s >= 0.40` IS NO LONGER
+  DEFENSIBLE AT ALL: 26.0 / 145.0 / 566.0 is WORSE than control on all
+  three columns** in his mode (exposure +3.5, false cover +8.5, phantom
+  **+18.5** -- it no longer buys any phantom reduction). And
+  **`faceW 6.0` REDUCES exposure now (-2.5 man / -13.5 woman)** rather
+  than costing 119.5s of it -- the "swallows the neighbour's track"
+  mechanism was the missing head anchor, not the width, which G2's
+  ledger row corrects in place.
+- **EDGE ONLY IS UNCHANGED, because it already carried head fields.**
+  EDGE ONLY builds its box as `{...guess, x1, x2, faceBox}`, inheriting
+  `personFromFace`'s head anchor directly, so H1 does not touch it: man
+  -0.5s exposure / -1.0s false cover / -11.5s phantom, woman +1.5s /
+  -0.5s / -1.0s, byte-identical to the published rows. **21a's
+  per-window refusal of EDGE ONLY stands as written.**
 
 - **AND THE WHOLE SECTION IS SCOPED TO A REGIME HIS PHONE IS NOT IN
   (phase-g G3).** Every `mnBody` arm needs `parsePersons` to admit
@@ -3527,61 +3541,67 @@ sides, and delete the copy.
 `mnedge-where.txt`. Critique: `docs/critic/phase-g.md`.**
 
 
-## 23 -- THE MEASURED BODY TRACKS BETTER ON EVERY COUNT AND IS 2.4x WORSE ON EXPOSURE, SO THE COST IS THE FAT AND NOT THE ASSOCIATION
+## 23 -- CORRECTED (phase-h H1): the deleted observations were the mechanism, and the measured body does not track better
 
-G2 left 83% of the body source's +30.5s of exposure with no geometric
-explanation (height 1.6%, width ~15%). The obvious remaining suspect was
-the decision layer, and it is the one the standing brief points at
-first: IoU is computed between observation boxes and track boxes, so
-changing the body source changes every IoU in the system, and a subject
-whose box changes shape mid-shot fails to re-associate.
+**This section originally read "the measured body tracks better on
+every count and is 2.4x worse on exposure". That headline is
+WITHDRAWN. `bodyFromSsd` (bench/arch-arms.mjs) emitted a box with no
+head anchor, so `sameHuman` merged distinct people 60%-contained on
+each other's boxes -- the observations reaching `updatePersonTracks`
+fell 1,218 -> 1,101 (-9.6%) on the man arm. Fewer observations is not
+better association; it is fewer people being tracked at all. H1
+(phase-h critic) found it, the head fields are restored at source
+(`bench/arch-arms.mjs`'s `bodyFromSsd`), and the table below is the
+re-run.**
+
+G2 left 83% of the (since-corrected) body source's exposure cost with
+no geometric explanation. The obvious remaining suspect was the
+decision layer, and it is the one the standing brief points at first:
+IoU is computed between observation boxes and track boxes, so changing
+the body source changes every IoU in the system, and a subject whose
+box changes shape mid-shot fails to re-associate.
 
 **THE PREDICTION WAS WRITTEN INTO THE BENCH BEFORE THE RUN** -- if this
 is an association problem `birthNearMiss` rises sharply and `birthFresh`
-does not -- **and it is FALSIFIED in both genders on every axis.**
+does not -- **and, corrected, it is CONFIRMED, not falsified.**
 
 | | man CONTROL | man `s>=0.00` | woman CONTROL | woman `s>=0.00` |
 |---|---|---|---|---|
-| exposure | 22.5 | **53.0** | 25.5 | **44.0** |
-| births | 141 | **113** | 136 | **111** |
-| `birthFresh` | 38 | 42 (+4) | 38 | 41 (+3) |
-| `birthNearMiss` | 43 | **33 (-10)** | 34 | 34 (0) |
-| `birthContended` | 60 | **38 (-22)** | 62 | **36 (-26)** |
-| `coastExpired` | 96 | **74 (-22)** | 92 | **74 (-18)** |
+| exposure | 22.5 | 24.0 (+1.5) | 25.5 | 27.5 (+2.0) |
+| births | 141 | 139 (-2) | 136 | 133 (-3) |
+| `birthFresh` | 38 | 43 (+5) | 38 | 40 (+2) |
+| `birthNearMiss` | 43 | **30 (-13)** | 34 | **27 (-7)** |
+| `birthContended` | 60 | **66 (+6)** | 62 | **66 (+4)** |
+| `coastExpired` | 96 | 96 (+0) | 92 | 88 (-4) |
 
-**The measured body associates BETTER on every count** -- fewer births,
-fewer near misses, far fewer contended births, fewer expired tracks --
-**and costs 2.4x the exposure.** So the decision layer is exonerated and
-the cost is the box.
+**The measured body does NOT associate better on every count.**
+`birthNearMiss` falls, as the association hypothesis predicted -- but
+`birthContended` RISES (+6 man, +4 woman) and `coastExpired` is flat
+(man) or falls slightly (woman), not "far fewer". The cost is
+**+1.5s (man) / +2.0s (woman) of exposure**, roughly 1.07x the control,
+not 2.4x.
 
-- **SPECIFICALLY IT IS THE AREA THE GUESS HAS AND THE MEASUREMENT DOES
-  NOT, and the false cover column is the signature.** Exposure rises
-  30.5s while false cover FALLS 7.0s (man) and 15.0s (woman). Strip the
-  fat and some of what it was covering was people who should be covered
-  and some was people who should not be. **That is findings 20's "the
-  fat guess covers people by accident" measured from the inside**,
-  rather than argued -- and it is why no floor recovers it: a floor
-  enlarges a box that is too small, and this box is not too small, it is
-  *correct*, which is the problem.
-- **AND IT MAKES 1091's ASSIGNMENT LOOK CHEAPER THAN IT IS.**
-  `birthContended` is the class the Hungarian shipped for -- 44-51% of
-  births, the largest -- and **37% of it (man) / 42% (woman) is
-  manufactured by the guess overlapping itself.** On a measured body
-  source there is far less to contend over. The assignment is still the
-  right change on the shipped body (it is better on all three columns in
-  his mode, findings 17) but its headroom is partly an artifact of the
-  extent layer beneath it, and a future round that ever adopts a
-  measured body must re-price it rather than carrying 17's numbers
-  forward.
-- **WHAT THIS DOES NOT SAY.** It does not say the fat guess is right.
-  Over-covering to protect a neighbour is exactly what the adjacency
-  clamp (`body-clamp.mjs`) and the owner's "her patch reaches the man
-  beside her" complaint are about, and the score counts that over-run as
-  protection because on this corpus it usually is. What it says is that
-  the +30.5s is not a bug in the measurement, an association failure or
-  a height problem -- it is the honest price of covering only what is
-  there, and it is therefore an EXPOSURE trade and HIS call, like every
-  other one in this file.
+- **THE FALSE COVER COLUMN MOVES THE OTHER WAY FROM WHAT WAS
+  PUBLISHED, and this reverses the mechanism sentence rather than just
+  its numbers.** False cover RISES **+22.5s (man) / +11.5s (woman)**
+  (`bench/mnbody-ab.mjs`), not falls. So "strip the fat and some of what
+  it was covering was people who should not be" is backwards: with the
+  deleted observations restored, a measured body covers MORE, not less
+  -- findings 20's "the fat guess covers people by accident" is not
+  what this arm shows once it is measuring itself correctly.
+- **"1091's ASSIGNMENT LOOK CHEAPER THAN IT IS" IS WITHDRAWN.**
+  `birthContended` is **47.5% (man, 66/139) / 49.6% (woman, 66/133)**
+  of births on the measured body -- HIGHER than the synthetic guess's
+  42.6% / 45.6% (findings 17), not lower, and no longer supports "37%
+  (man) / 42% (woman) of it is manufactured by the guess overlapping
+  itself". A measured body source gives the Hungarian assignment MORE
+  to contend over, not less; 17's numbers stand uncorrected.
+- **WHAT SURVIVES.** The direction of the exposure/false-cover trade is
+  unchanged -- a measured body still costs exposure and still is not
+  free -- and it is still an EXPOSURE trade and HIS call, like every
+  other one in this file. What does not survive is the scale (a
+  rounding error, not "more exposure than this repo has ever spent")
+  and the claimed mechanism (deleted observations, not a cleaner box).
 - **SCOPE, inherited from G3 and restated because it is easy to lose:**
   every row above is byte-identical to CONTROL where MoveNet admits
   nobody, which is **100% of his phone today**.

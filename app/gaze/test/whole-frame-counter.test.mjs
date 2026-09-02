@@ -74,33 +74,95 @@ test('and they reach the report, zeros included', () => {
 //
 // Comments are stripped first, and only a bump SITE counts: the literal
 // passed to `bumpLife`/`bump`/`bumpArm`, or a `life[...]` write.
+function escapeRe(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// H5 (phase-h critic): the sweep above still could not see three shapes
+// of a real write, and could not tell one shape of an unrelated mention
+// from a real one. Fixtures A-G, docs/critic/phase-h.md:
+//   B: a LOCAL HELPER not named `bump*`/`*Life` -- `init-entry`'s own
+//      `wholeFrameLife` was already an exception to that naming pattern,
+//      and there was never a reason to believe it was the last one.
+//   C: an ALIAS of the `life` bag (`var L = ids.life; L.NAME = ...`) --
+//      the property-write rule only ever looked for the literal word
+//      `life`.
+//   D: a KEY held in a local constant (`var K = 'NAME'; d.life[K] = ..`)
+//      -- the bracket rule only ever looked for the literal name.
+//   E: a comment starting right after a colon (`a: // NAME: 0 ...`) was
+//      never stripped, because the old guard refused any `//` preceded
+//      by `:` -- a rule with no purpose in this tree (there is no URL
+//      scheme here for it to protect) that made an ordinary commented-out
+//      object literal read as live code.
+//   F: the SEEDED-TO-0 fallback matched the name inside a plain string
+//      (`log('reset NAME: 0 ...')`) because it never required NAME to
+//      sit in a property-key position -- immediately after `{`, `,` or
+//      `(`, nothing but whitespace in between.
+// KNOWN LIMIT, NOT FIXED (case G): `{ NAME: 0 }` inside an UNRELATED
+// object literal (`export const EMPTY_REPORT = { wholeFrameSamples: 0 }`)
+// is indistinguishable from a real seed by property-key position alone
+// -- both are a bare identifier key at 0 right after a brace. Closing
+// this needs more than syntax (tracing which object actually flows into
+// the `life` bag), which is a heavier check than this file has ever
+// tried to be. Narrowing case F is still worth doing without claiming
+// case G solved; the ledger records it OPEN.
 export function ownersOf(name, entries) {
+  const q = '[\'"`]';
   const owners = [];
   for (const [file, src] of entries) {
     const code = src
       .replace(/\/\*[\s\S]*?\*\//g, ' ')
-      .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
-    // WHAT COUNTS AS A WRITE, and the shape of it took three tries.
-    //
-    // The literal need not follow the paren: `person-track` bumps out of
-    // a ternary -- `bumpLife(drawn === padded ? 'clampNoLegalEdge' :
-    // 'clampFired')` -- so anchoring on `bump(` + quote reported ZERO
-    // owners for the very name this check is named after. And the bump
-    // helper is not always called `bump*`: `init-entry` writes through a
-    // local `wholeFrameLife(...)`. Enumerating helper names is how a
-    // check like this goes quietly stale, so the rule is structural:
-    //   - the name reached as a property of a `life` bag, or
-    //   - the name QUOTED on a line that also calls a bump-shaped helper
-    //     (anything ending in `Life(`, or `bump`), or
-    //   - the name SEEDED to 0, quoted or bare -- seeding from a second
-    //     module is exactly how a counter silently changes meaning.
-    const q = '[\'"`]';
-    const bump = new RegExp(
-      '\\.life\\.' + name + '\\b'
-      + '|life\\s*\\[\\s*' + q + name + q
-      + '|(?:bump\\w*|\\w*Life)\\s*\\([^\\n]*' + q + name + q
-      + '|' + q + '?' + name + q + '?\\s*:\\s*0');
-    if (bump.test(code)) owners.push(file);
+      .replace(/\/\/[^\n]*/g, ' ');
+
+    // Case B: a local helper of any name, taking one parameter, that
+    // writes that parameter as a `life[...]` key is a write site,
+    // whatever it happens to be called.
+    const helperNames = [];
+    const fnRe = /function\s+(\w+)\s*\(\s*(\w+)\s*\)\s*{([^{}]*)}/g;
+    let fm;
+    while ((fm = fnRe.exec(code))) {
+      const [, fnName, param, body] = fm;
+      if (new RegExp('\\blife\\s*\\[\\s*' + param + '\\s*\\]').test(body)) {
+        helperNames.push(fnName);
+      }
+    }
+
+    // Case C: `var L = ids.life;` (or `= anything.life`) makes L an
+    // alias for the bag -- a write through L counts exactly as `.life`
+    // does.
+    const aliases = ['life'];
+    const aliasRe = /\b(?:var|let|const)\s+(\w+)\s*=\s*[^;\n]*\.life\b/g;
+    let am;
+    while ((am = aliasRe.exec(code))) aliases.push(am[1]);
+    const base = aliases.map(escapeRe).join('|');
+
+    // Case D: `var K = 'NAME';` makes K a stand-in for the literal name
+    // in a bracket write.
+    const keyAliases = [name];
+    const keyAliasRe = new RegExp(
+      '\\b(?:var|let|const)\\s+(\\w+)\\s*=\\s*' + q + escapeRe(name) + q, 'g');
+    let km;
+    while ((km = keyAliasRe.exec(code))) keyAliases.push(km[1]);
+    const keyAlt = keyAliases.map(escapeRe).join('|');
+    const helperAlt = helperNames.length ? '|' + helperNames.map(escapeRe).join('|') : '';
+
+    const patterns = [
+      // `<base>.NAME` -- direct, or through an alias of the bag.
+      new RegExp('\\b(?:' + base + ')\\s*\\.\\s*' + escapeRe(name) + '\\b'),
+      // `<base>[NAME]` / `<base>[K]` -- direct, or through a key alias.
+      new RegExp('\\b(?:' + base + ')\\s*\\[\\s*(?:' + keyAlt + ')\\s*\\]'),
+      // a bump-shaped helper, or a local helper proven to write the key
+      // (case B), called with the literal name or a key alias of it.
+      new RegExp('(?:bump\\w*|\\w*Life' + helperAlt + ')\\s*\\([^\\n]*'
+        + q + '?(?:' + keyAlt + ')' + q + '?'),
+      // seeded as a bare object-literal key, scoped to a property-key
+      // POSITION -- immediately after `{`, `,` or `(`, whitespace only
+      // in between -- so a sentence merely containing "NAME: 0" cannot
+      // trip it (case F). Case G, an unrelated object at this same
+      // position, is the documented, still-open limit above.
+      new RegExp('[{,(]\\s*' + q + '?' + escapeRe(name) + q + '?\\s*:\\s*0\\b'),
+    ];
+    if (patterns.some((re) => re.test(code))) owners.push(file);
   }
   return owners;
 }
@@ -170,4 +232,48 @@ test('that sweep can actually fail -- two WRITERS are caught, a comment is not',
   assert.deepEqual(ownersOf('clampFired', srcEntries()), ['person-track.mjs'],
     'clampFired has exactly one writer -- the collision it is famous for '
     + 'was resolved, and the comments about it are not owners');
+});
+
+test('H5 (phase-h critic): the six shapes the sweep used to get wrong', () => {
+  // Case A, the control: the real init-entry shape, restated small.
+  const a = [['a.mjs', "d.life.wholeFrameSamples = (d.life.wholeFrameSamples||0)+1;"]];
+  assert.deepEqual(ownersOf('wholeFrameSamples', a), ['a.mjs'], 'A: a plain write is still seen');
+
+  // Case B: a local helper, not named bump*/*Life, that writes the
+  // parameter it is given into the bag.
+  const b = [['b.mjs', "function inc(k){ ids.life[k] = (ids.life[k]||0)+1; }\ninc('wholeFrameSamples');"]];
+  assert.deepEqual(ownersOf('wholeFrameSamples', b), ['b.mjs'],
+    'B: a same-named local helper is a write site whatever it is called');
+
+  // Case C: an alias of the life bag.
+  const c = [['c.mjs', "var L = window.__TS_GAZE_IDS.life; L.wholeFrameSamples = (L.wholeFrameSamples||0)+1;"]];
+  assert.deepEqual(ownersOf('wholeFrameSamples', c), ['c.mjs'],
+    'C: a write through an alias of `life` counts exactly as `.life` does');
+
+  // Case D: the key held in a local constant instead of spelled out.
+  const d = [['d.mjs', "var K='wholeFrameSamples';\nvar d=ids; d.life[K]=(d.life[K]||0)+1;"]];
+  assert.deepEqual(ownersOf('wholeFrameSamples', d), ['d.mjs'],
+    'D: a bracket write through a key alias still counts');
+
+  // Case E: a comment sitting right after a colon must still be stripped
+  // -- there is no reason in this tree for a colon to protect a `//`.
+  const e = [['e.mjs', "var o={a:// wholeFrameSamples: 0 is what init-entry seeds\n1};"]];
+  assert.deepEqual(ownersOf('wholeFrameSamples', e), [],
+    'E: a comment is not a write, whatever precedes the //');
+
+  // Case F: the name merely appears inside a sentence next to ": 0" --
+  // not in a property-key position, so the seed fallback must not fire.
+  const f = [['f.mjs', "log('reset wholeFrameSamples: 0 on a new video');"]];
+  assert.deepEqual(ownersOf('wholeFrameSamples', f), [],
+    'F: prose containing the name and ": 0" is not a seed');
+
+  // Case G, the documented and still-open limit: an unrelated object
+  // that happens to carry the same-named key at 0 is genuinely
+  // indistinguishable from a real seed by property-key position alone.
+  // Pinned here so a future tightening notices it changed, not to
+  // claim the ambiguity is resolved.
+  const g = [['g.mjs', "export const EMPTY_REPORT = { wholeFrameSamples: 0 };"]];
+  assert.deepEqual(ownersOf('wholeFrameSamples', g), ['g.mjs'],
+    'G (KNOWN LIMIT): an unrelated same-named key at 0 still reads as a '
+    + 'seed -- recorded, not silently fixed');
 });

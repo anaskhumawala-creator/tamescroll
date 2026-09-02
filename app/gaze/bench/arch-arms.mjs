@@ -342,6 +342,17 @@ function bodyFromSsd(boxes, face, minScore, margin) {
   if (!best) return null;
   const b = best.b;
   const mw = (b.x2 - b.x1) * margin, mh = (b.y2 - b.y1) * margin;
+  // H1 (phase-h critic): personFromFace (person-gate.mjs) and
+  // boundBodyToSlot (which copies every own key of its input) both carry
+  // headX/headY/headW/headH, and sameHuman (person-track.mjs) treats a
+  // box with no headX as having nothing to separate on -- it merges on
+  // containment alone. This box had no head fields, so EVERY mnBody/ssd
+  // observation ran with that guard switched off, and dedupeObservations
+  // merged any two boxes 60% contained -- including two different people
+  // handed the same MoveNet person box. Computed exactly as
+  // personFromFace computes them (face centre; head height de-inflated
+  // by FACE_ENLARGE 1.4; headW = headH / ar); no box coordinate changes.
+  const headH = (face.y2 - face.y1) / 1.4;
   // The face is never given up, whatever the detector says.
   return {
     x1: Math.max(0, Math.min(b.x1 - mw, face.x1)),
@@ -349,6 +360,10 @@ function bodyFromSsd(boxes, face, minScore, margin) {
     x2: Math.min(1, Math.max(b.x2 + mw, face.x2)),
     y2: Math.min(1, Math.max(b.y2 + mh, face.y2)),
     fromFace: true, faceBox: face, fromSsd: true,
+    headX: fcx,
+    headY: fcy,
+    headW: headH / ASPECT,
+    headH,
   };
 }
 

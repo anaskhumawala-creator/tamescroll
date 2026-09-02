@@ -109,7 +109,24 @@ if (built >= newestInput()) {
   // `pretest` possible, and a pretest is the actual fix for the
   // stale-cache flakiness that `--test-concurrency=1` only reduced from
   // three failures to one (phase-g G4).
-  if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(d, "_build.mjs")) {
+  // H9 (phase-h critic): a plain `path.resolve` compare is a case-
+  // SENSITIVE string match between argv[1] (as typed) and this file's
+  // own path, and Windows paths are case-insensitive -- `_BUILD.mjs`
+  // took the IMPORT branch and threw against the very process that IS
+  // the entry point. realpathSync resolves both to the same casing (and
+  // through any symlink); the catch keeps the old compare as a fallback
+  // rather than letting a missing-file edge case crash the build step.
+  const isEntryPoint = (() => {
+    if (!process.argv[1]) return false;
+    try {
+      const a = fs.realpathSync(process.argv[1]);
+      const b = fs.realpathSync(path.resolve(d, "_build.mjs"));
+      return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
+    } catch (e) {
+      return path.resolve(process.argv[1]) === path.resolve(d, "_build.mjs");
+    }
+  })();
+  if (isEntryPoint) {
     process.stderr.write('bench/.cache/shipped.mjs rebuilt (src/ had changed).\n');
   } else {
   // SAY IT ON stderr AS WELL AS THROWING. Under `node --test` a module

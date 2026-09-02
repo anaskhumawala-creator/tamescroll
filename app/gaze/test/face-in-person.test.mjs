@@ -93,12 +93,37 @@ test('the app and the bench read ONE copy of this rule', () => {
   // The defect class G1 belongs to is a second copy drifting from the
   // first. `init-entry` imports both halves; a copy reintroduced there
   // fails this.
+  //
+  // H6 (phase-h critic): the two `doesNotMatch` checks below used to
+  // name an exact syntax shape -- `function faceInsideIndex (` and
+  // `order.sort(function` -- so a re-derivation written as an arrow
+  // function under a suffixed name (`faceInsideIndex2`, an unpadded
+  // copy, plus `order.sort((a, b) => ...)`) passed both, imports and
+  // all, exactly as the appendix `onecopy.mjs` demonstrated. Neither
+  // check may name a keyword or a function-vs-arrow shape again:
+  //   - any IDENTIFIER that starts with one of these three names but is
+  //     not the exact imported name (`faceInsideIndex2`,
+  //     `faceOrderBySizeV2`, ...) is refused outright, whatever it is
+  //     bound to;
+  //   - `order` is exactly and only the array `faceOrderBySize` already
+  //     returns (line ~3697) -- it is sorted once, by the import, so
+  //     `order.sort(` calling anything back onto it, arrow or
+  //     `function`, can only be a second, competing ordering rule.
+  // KNOWN LIMIT, not fixed: a re-derivation under a wholly unrelated
+  // name (matching neither pattern) still passes. Closing that needs
+  // behavioural comparison against the real functions, not source text,
+  // and is out of scope for this pass -- recorded in the ledger as OPEN.
   const page = new URL('../src/init-entry.js', import.meta.url);
   const src = readFileSync(page, 'utf8');
   assert.match(src, /faceOrderBySize,/, 'imported, not re-derived');
   assert.match(src, /faceInsideIndex,/);
-  assert.doesNotMatch(src, /function faceInsideIndex\s*\(/,
-    'a local re-definition is the defect this test exists for');
-  assert.doesNotMatch(src, /order\.sort\(function/,
-    'the size ordering is faceOrderBySize, not a second sort');
+  assert.doesNotMatch(src, /\bfaceInsideIndex\w+/,
+    'a suffixed variant (faceInsideIndex2, ...) is a re-definition');
+  assert.doesNotMatch(src, /\bfaceOrderBySize\w+/,
+    'a suffixed variant is a re-definition');
+  assert.doesNotMatch(src, /\bsynthFaceIndices\w+/,
+    'a suffixed variant is a re-definition');
+  assert.doesNotMatch(src, /\border\.sort\(/,
+    'the size ordering is faceOrderBySize -- `order` is already sorted '
+    + 'once, so sorting it again, arrow or `function`, is a second rule');
 });

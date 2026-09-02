@@ -100,6 +100,22 @@ COST       It sends the next round at the wrong dial. §21 names the height
            test it moves exposure the WRONG way by 89.5s at faceW 6.0.
 ```
 
+**CORRECTED (phase-h H1, percentages superseded).** `bodyFromSsd`
+carried no head anchor, so the +30.5s (man) / +18.5s (woman) excess
+above was itself the measured body's DELETED OBSERVATIONS, not its
+geometry -- H1 traces the mechanism. With the head fields restored the
+excess this bullet is dividing shrinks to **+1.5s (man) / +2.0s
+(woman)**, and the percentages recompute against that: `ssdUnionH`
+recovers **100% of the man excess (+1.5 -> +0.0)** and **0% of the
+woman excess (+2.0 -> +2.0)** -- not "0.5s of 30.5s (1.6%)" and "0.5s
+of 18.5s" against the old, much larger denominator. `faceW 6.0` now
+**reduces** exposure (-2.5s man / -13.5s woman) rather than costing
+142.0s (+119.5) -- the "swallows the neighbour's track" mechanism this
+row named was the missing head anchor, not the width. The conclusion
+this row exists for -- "it is not height, and a real mechanism is
+still unmeasured" -- is unaffected; only the numbers behind it moved.
+Re-run: `docs/engine-findings.md` §21, corrected table.
+
 ---
 
 ## G3

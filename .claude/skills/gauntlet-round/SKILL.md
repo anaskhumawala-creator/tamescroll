@@ -191,9 +191,13 @@ another.
 Then both suites, both green:
 
 ```
-cd app/gaze && node --test test/*.test.mjs
+cd app/gaze && npm test
 cd app/src-tauri && cargo test --lib
 ```
+
+(`npm test` runs the `pretest` rebuild first — `node --test` directly
+skips it and a stale `bench/.cache/shipped.mjs` reads as unattributed
+test failures, phase-h H3.)
 
 Green suites are necessary, not sufficient. The frames are the evidence.
 

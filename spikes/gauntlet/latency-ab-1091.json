@@ -1,0 +1,58 @@
+{
+ "label": "1091",
+ "video": "NWoT1ZVd1Lo",
+ "seek": 55.0,
+ "secs": 150.1,
+ "bundle": "764da03-dirty",
+ "verdicts": 74,
+ "positions": 66,
+ "verdictMsP50": 1193,
+ "verdictMsP95": 1608,
+ "positionMsP50": 492,
+ "verdictGapP50": 2075,
+ "verdictGapP95": 2997,
+ "secsPerVerdict": 2.03,
+ "rafHz": 26.2,
+ "coverage": 0.635,
+ "lifeDelta": {
+  "positionPassSkipped": 0,
+  "genderReadSkipped": 0,
+  "personPassSkipped": 0,
+  "coastExpired": 16,
+  "cutCoastExpired": 15,
+  "birthFresh": 15,
+  "birthBlurred": 14,
+  "delayVerdictLate": 0,
+  "faceNoShape": 75,
+  "passDropped": 23,
+  "wipeErasedBlurred": 4,
+  "cutDetected": 35
+ },
+ "tuning": {
+  "CUT_DELTA": 60,
+  "GENDER_CLEAR_SCORE": 0.45,
+  "GENDER_CLEAR_SCORE_FEMALE": 0.35,
+  "NULL_MINT_NM_FLOOR": 5,
+  "MEM_TRUST_MAN": 2,
+  "MEM_TRUST_WOMAN": 1,
+  "MEM_SIM": 0.6,
+  "PERSON_SKIP_EVERY": 1,
+  "VERDICT_MAX_INTERVAL_MS": 2000,
+  "PTRACK_MIN_COAST_PASSES": 2,
+  "PTRACK_IOU_MIN": 0.15
+ },
+ "coastMs": 4000,
+ "toldMs": 2000,
+ "slotsN": [
+  0,
+  0,
+  0
+ ],
+ "delay": null,
+ "video_state": {
+  "paused": false,
+  "t": 216.08424,
+  "w": 1280,
+  "h": 720
+ }
+}

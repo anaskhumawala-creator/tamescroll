@@ -125,7 +125,15 @@ function run(b, arm) {
     raw = [];
     const ox = FIT.dx / S, oy = FIT.dy / S, sx = FIT.dw / S, sy = FIT.dh / S;
     const cl = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
-    // THE INDEPENDENT INVERSE, and it is only half the check.
+    // A SECOND TYPING OF THE SAME INVERSE, and it is only half the
+    // check. H10 (phase-h critic): "independent" oversold this -- the
+    // four expressions below and the clamp are line-for-line what
+    // `unpadPersons` (person-gate.mjs) contains, from the same `FIT`
+    // and the same `S`. It catches an EDIT inside `unpadPersons` (and
+    // does, both directions), but it cannot catch a wrong `fit`, a
+    // wrong `size`, or a shared conceptual error in the inverse itself
+    // -- a genuinely independent check would derive the mapping some
+    // other way, not retype it.
     // Phase-g G5: the first version of this compared the bench's own
     // arithmetic against 0..1 and NEVER READ `unpadPersons`, so breaking
     // the shipped function by exactly the factor F4 red-proved (sx/3)

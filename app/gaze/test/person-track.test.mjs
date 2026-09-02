@@ -1035,6 +1035,49 @@ test('sameHuman: with no head width the body rule still applies', () => {
   assert.equal(pt.sameHuman(a, b), true);
 });
 
+// H2 (phase-h critic): containment alone is not enough when only ONE
+// side has a head anchor. bodyFromSsd and a back-turned MoveNet person
+// both emit no headX -- and the OLD rule returned true off containment
+// alone whenever either side lacked one, so a headless box could absorb
+// a genuinely different person whose head sits nowhere near it.
+test('sameHuman: a headless box does not absorb a different headed person', () => {
+  // Woman (headed), head at x=0.05 -- inside HER OWN box [0, 0.5] but
+  // outside the headless box [0.15, 1.0]. Containment is 0.35/0.5 = 0.7,
+  // well past MERGE_CONTAIN_MIN, so only the head-anchor guard stands
+  // between this and a merge.
+  const woman = { box: { x1: 0.0, y1: 0.0, x2: 0.5, y2: 1.0, headX: 0.05, headY: 0.15 } };
+  const headless = { box: { x1: 0.15, y1: 0.0, x2: 1.0, y2: 1.0 } };
+  assert.ok(pt.containment(woman.box, headless.box) >= pt.MERGE_CONTAIN_MIN, 'precondition: contained');
+  // The old rule, kept here as the regression this replaces:
+  const oldRule = (a, b) =>
+    pt.containment(a.box, b.box) >= pt.MERGE_CONTAIN_MIN
+      && (typeof a.box.headX !== 'number' || typeof b.box.headX !== 'number' ? true : false);
+  assert.equal(oldRule(woman, headless), true, 'precondition: the old rule merged them');
+  assert.equal(pt.sameHuman(woman, headless), false);
+  assert.equal(pt.sameHuman(headless, woman), false, 'argument order must not matter');
+});
+
+test('sameHuman: a headless box still absorbs its OWN head when the head lands inside it', () => {
+  // Same shapes, but the woman's head lands inside the headless box's
+  // span -- the case the fallback is meant to keep working (a body pass
+  // with no confident head keypoint alongside a face-derived read of the
+  // same person).
+  const woman = { box: { x1: 0.0, y1: 0.0, x2: 0.5, y2: 1.0, headX: 0.3, headY: 0.15 } };
+  const headless = { box: { x1: 0.15, y1: 0.0, x2: 1.0, y2: 1.0 } };
+  assert.equal(pt.sameHuman(woman, headless), true);
+});
+
+test('sameHuman: counted as dedupeHeadUnknown when NEITHER side has a head anchor', () => {
+  globalThis.__TS_GAZE_IDS = { life: {} };
+  const a = { box: { x1: 0.10, y1: 0.6, x2: 0.36, y2: 1 } };
+  const b = { box: { x1: 0.12, y1: 0.62, x2: 0.38, y2: 1 } };
+  const result = pt.sameHuman(a, b);
+  const life = globalThis.__TS_GAZE_IDS.life;
+  delete globalThis.__TS_GAZE_IDS;
+  assert.equal(result, true, 'nothing else to separate on -- old behaviour stands');
+  assert.equal(life.dedupeHeadUnknown, 1);
+});
+
 // --- track provenance (R20) -----------------------------------------
 
 test('updatePersonTracks: a track remembers whether its box was measured', () => {

@@ -141,6 +141,10 @@ test('an absurd frame falls back to greedy rather than to a cubic stall', () => 
   // (undefined here, not 0, because `optimalAssign` is being called
   // DIRECTLY. The seed lives in `updatePersonTracks`, which is the only
   // site that knows a pass is about to run -- see person-track's note.
-  // `test/assign-seed` below pins the seed itself.)
+  // H4 (phase-h critic): this file previously claimed a
+  // "`test/assign-seed`" that did not exist anywhere in the tree, and
+  // deleting the whole seed block left the suite green. The seed is
+  // pinned through `updatePersonTracks` in
+  // `test/assign-wired.test.mjs` ("the G8 seed reaches 0 ...").)
   delete globalThis.__TS_GAZE_IDS;
 });
