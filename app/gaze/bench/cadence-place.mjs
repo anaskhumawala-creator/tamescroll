@@ -32,7 +32,7 @@
 import fs from 'fs';
 import { ROOT, winFiles } from './corpus-lib.mjs';
 import { score } from './corpus-score.mjs';
-import { loadWin, makeArms, HIS_EFFZOOM } from './arch-arms.mjs';
+import { loadWin, makeArms, HIS_EFFZOOM, hisRegimeOpts } from './arch-arms.mjs';
 
 const g = process.env.GENDER || 'man';
 const GAPS = (process.argv[2] || '4,5,6,8').split(',').map(Number);
@@ -128,9 +128,17 @@ const thinTo = (w, set) => ({ ...w, frames: w.frames.map((fr, i) =>
 // comparison of PLACEMENT. `HIS_EFFZOOM` rather than the control's
 // stride: it is what his device hands the tracker (C4), and pinning to
 // anything else would answer a question about a device nobody owns.
+// THE OPTION SET IS SHARED NOW (phase-D D5). This file built its
+// baseline as {hold, clampPad, cut, fixedCadence} while coast-ab.mjs and
+// cadence-ab.mjs added `inertNoSignal`, `memSignal` and `mem` -- the
+// identity memory shipped in 1084 -- so 13b's "UNIFORM k=3 (today)" and
+// 15a's "SHIPPED" were 42.0s of false cover apart while both were
+// described as the current app, in one document, with their numbers
+// subtracted across. It matters more here than anywhere: re-birth
+// suppression is precisely the mechanism placement acts on, so the
+// placement arm was scored without the behaviour it competes with.
 const mod = await import('./.cache/shipped.mjs');
-const arm = makeArms(mod)({ hold: true, clampPad: 0.02, cut: true,
-  fixedCadence: HIS_EFFZOOM });
+const arm = makeArms(mod)(hisRegimeOpts(g, HIS_EFFZOOM));
 
 function run(setFor) {
   const agg = { exposureS: 0, falseCoverS: 0, phantomS: 0 };

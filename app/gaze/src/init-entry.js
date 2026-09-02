@@ -71,6 +71,7 @@ import {
   updatePersonTracks,
   wipeIfEmpty,
   setVerdictCadence,
+  blurredCoastBudgetMs,
   blurredTracks,
   clearedFaceBox,
   demoteTracks,
@@ -4034,6 +4035,21 @@ if (
               // on a slow device the cadence is what decides whether a
               // covered person's patch survives to the next pass.
               setVerdictCadence(effZoom);
+              // AND RECORD WHAT THAT ACTUALLY DERIVED (phase-D D9). The
+              // report carried the PUSHED value of
+              // PTRACK_MIN_COAST_PASSES and nothing else, and the same
+              // pushed value means two different coasts at two different
+              // cadences -- 1.33 is 2660ms at told 2000 and 2000ms at
+              // told 1500, which is the whole of D1. A dial nobody can
+              // read back is a dial nobody can verify pushed. Two
+              // numbers, both numeric, so the report's shape check
+              // passes them.
+              try {
+                var dbgC = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+                dbgC.tuning = dbgC.tuning || {};
+                dbgC.tuning.coastMs = blurredCoastBudgetMs();
+                dbgC.tuning.toldMs = effZoom;
+              } catch (e) {}
               // THE ADJACENCY CLAMP. A synthetic body is 7.4 face-heights
               // wide, and in his regime EVERY body is synthetic --
               // MoveNet admits nobody (loops 35/36/37, all twelve slots

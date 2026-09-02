@@ -109,16 +109,46 @@ var SPEC = {
   // exposure and buys 149.5-185.0s of phantom (-26%) plus 7.5-18.5s of
   // false cover. See person-track.setCoastPasses and engine-findings 15.
   //
-  // THE FLOOR IS A PROTECTION DECISION AND IT BINDS. An earlier version
-  // of this comment justified 1.33 as "nothing lower can reach anyway",
-  // which was computed at a cadence of 1500 -- a regime his device is
-  // not in. At his 2000 the cap is 1.33 * 2000 = 2660ms and 1.0 really
-  // does reach 2000ms, costing +16.0s (man) and +10.0s (woman) of
-  // exposure against the shipped value. THAT is what the floor refuses,
-  // measured rather than assumed.
+  // THE FLOOR PROTECTS ONLY ABOVE told 1504, AND SAYING OTHERWISE WAS
+  // THE PHASE-D EXPOSURE ROW (D1). The protected quantity is the coast
+  // in MILLISECONDS and this clamp is expressed in PASSES, so the
+  // guarantee is a function of the cadence in force:
   //
-  // The ceiling is 3.0 because past ~2.5 the 2.5x term wins and the dial
-  // stops doing anything.
+  //   coast = min(max(PTRACK_MAX_COAST_MS 2000, passes * told),
+  //               max(900, 2.5 * told))
+  //
+  // The `passes` term only reaches the answer while `passes * told` is
+  // above 2000, which at 1.33 needs told > 1504. Read off the live
+  // module, not the formula:
+  //
+  //   told   shipped 2   floor 1.33   raw 1.0
+  //   1200        2400         2000       2000   <- floor buys NOTHING
+  //   1500        3000         2000       2000   <- floor buys NOTHING
+  //   1600        3200         2128       2000
+  //   2000        4000         2660       2000   <- his device
+  //
+  // At his 2000 the floor is real: 1.0 reaches 2000ms and costs +16.0s
+  // (man) / +10.0s (woman) of exposure against the shipped value, and
+  // 1.33 holds the coast at 2660ms. Below 1504 the CAP binds instead,
+  // and the floor is decoration.
+  //
+  // A UNIFORM ms GUARANTEE CANNOT EXIST HERE, which is why this is
+  // documented rather than clamped harder: holding the coast at 2660ms
+  // at told 1200 would need passes 2.22, ABOVE the shipped 2 -- so the
+  // clamp would have to refuse the value the app already runs.
+  //
+  // *** THE DANGEROUS PUSH IS THE JOINT ONE. *** VERDICT_MAX_INTERVAL_MS
+  // is on THIS channel, clamped [1200, 4000], and engine-findings 13a
+  // recommends moving it down. One tuning.json carrying
+  // {"VERDICT_MAX_INTERVAL_MS": 1200, "PTRACK_MIN_COAST_PASSES": 1.33}
+  // has both values inside both clamps and lands the coast at 2000ms.
+  // Priced on the corpus at told 1500, k=3: man 38.0s exposure against
+  // the shipped 25.5s, woman 36.5s against 30.0s. Push ONE of these two
+  // at a time, and re-read his rings between.
+  //
+  // The ceiling is 3.0, and the top of that range is a no-op: past
+  // passes 2.5 at his told the `2.5 * told` term wins, so 2.5 and 3.0
+  // produce the identical coast (5000ms) and the identical corpus row.
   //
   // IT IS AN EXPOSURE TRADE, so it ships at the measured value and moves
   // only when he says so.

@@ -1592,9 +1592,22 @@ var lastCadenceMs = 0;
  * immediately from the cadence already in force.
  *
  * THE COAST IS THE BIGGEST LEVER IN THE SYSTEM AND IT COSTS NO GPU
- * (engine-findings 15). `cap = max(PTRACK_MAX_COAST_MS, passes * ms)`
- * binds at every value his device reaches -- the 2.5x term is 5000 at
- * his cadence and never wins -- so this one number IS the coast.
+ * (engine-findings 15).
+ *
+ * WHICH TERM BINDS DEPENDS ON THE CADENCE, and an earlier version of
+ * this docstring asserted the cap "never" loses (phase-D D6):
+ *
+ *   coast = min(max(PTRACK_MAX_COAST_MS 2000, passes * ms),
+ *               max(PTRACK_MAX_MISS_BLURRED_MS 900, 2.5 * ms))
+ *
+ * At his ms = 2000 the 2.5x term is 5000 and loses for every passes
+ * below 2.5 -- so over the shipped range this constant IS the coast,
+ * and at 2.5 and above it is not: 2.5 and 3.0 both give 5000ms and the
+ * identical corpus row. Below ms = 1504 the OTHER end binds: `passes *
+ * ms` falls under 2000 and PTRACK_MAX_COAST_MS is the answer, so at
+ * ms = 1200 or 1500 every pushed value at or below 1.33 gives the same
+ * 2000ms coast. See tuning.mjs for what that means for the OTA clamp,
+ * and for the joint push that reaches it.
  *
  * QUOTED IN HIS REGIME, which takes THREE numbers and not one: k=3
  * verdict ARRIVAL, 2000ms TOLD (his effZoom is cap-pinned; see bench

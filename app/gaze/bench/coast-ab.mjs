@@ -9,28 +9,36 @@
 // coast while a real OTA push would leave it at 1500. The rows do not
 // transfer and must not be quoted as if they do.
 //
-// So sweep the CONSTANT. At his measured 1500ms cadence:
+// So sweep the CONSTANT. At the cadence his device TELLS the tracker --
+// `HIS_EFFZOOM` 2000, which is what this file now defaults to. An
+// earlier version of this header worked the arithmetic at 1500, his
+// ACHIEVED gap, which is a different number and the regime 15a
+// retracted (phase-D D8):
 //
-//     cap   = max(PTRACK_MAX_COAST_MS 2000, PASSES * 1500)
-//     blur  = min(cap, max(900,  3750))   -> the cap binds
-//     clear = min(cap, max(1000, 3750))   -> the cap binds
-//     cut   = min(cap, max(400,  1500))   -> 1500 throughout
+//     cap   = max(PTRACK_MAX_COAST_MS 2000, PASSES * 2000)
+//     blur  = min(cap, max(900,  5000))   -> the cap binds below 2.5
+//     clear = min(cap, max(1000, 5000))   -> the cap binds below 2.5
+//     cut   = min(cap, max(400,  2000))   -> 2000 throughout
 //
-// which makes `PTRACK_MIN_COAST_PASSES` the whole dial, and floors it at
-// 2000ms whatever is pushed -- the OTA channel cannot drive the coast
-// below what the code already treats as the minimum cap, and therefore
-// cannot reach the 50.0s-exposure end of the §15 table. That floor is a
-// protection property, not a convenience.
+// which makes `PTRACK_MIN_COAST_PASSES` the whole dial over the shipped
+// range, and floors the coast at PTRACK_MAX_COAST_MS whatever is pushed.
+//
+// THAT ms FLOOR IS THE PROTECTION PROPERTY -- not the OTA clamp's
+// `passes >= 1.33`, which only adds anything above told 1504 and is
+// decoration at 1200 or 1500 (phase-D D1). Do not read the paragraph
+// above as support for the clamp floor: it supports
+// PTRACK_MAX_COAST_MS, which is a different guarantee and the one that
+// actually holds at every cadence. See src/tuning.mjs.
 //
 // Usage: node bench/coast-ab.mjs [passes,...]
 import fs from 'fs';
 import { ROOT, winFiles } from './corpus-lib.mjs';
 import { score } from './corpus-score.mjs';
-import { loadWin, makeArms, HIS_EFFZOOM } from './arch-arms.mjs';
+import { loadWin, makeArms, HIS_EFFZOOM, K_HIS, thinFrames, hisRegimeOpts } from './arch-arms.mjs';
 import { patchConsts, readConst } from './_patch.mjs';
 
 const g = process.env.GENDER || 'man';
-const K = Number(process.env.K || 3);
+const K = Number(process.env.K || K_HIS);
 const PASSES = (process.argv[2] || '1.0,1.33,1.5,2,3').split(',').map(Number);
 
 const labels = JSON.parse(fs.readFileSync(`${ROOT}/bank/label/labels.json`, 'utf8'));
@@ -38,8 +46,6 @@ const cropLabel = new Map();
 for (const c of JSON.parse(fs.readFileSync(`${ROOT}/bank/label/clusters.json`, 'utf8')))
   if (labels[c.id]) for (const m of c.members) cropLabel.set(m.crop, labels[c.id]);
 const wins = winFiles().map(loadWin);
-const thin = (win, e) => ({ ...win, frames: win.frames.map((fr, i) =>
-  i % e === 0 ? fr : { ...fr, faces: [], _labelFaces: fr.faces }) });
 
 const src = fs.readFileSync(new URL('./.cache/shipped.mjs', import.meta.url), 'utf8');
 const SHIPPED = readConst(src, 'PTRACK_MIN_COAST_PASSES');
@@ -49,8 +55,8 @@ const MAXCOAST = readConst(src, 'PTRACK_MAX_COAST_MS');
 // prices the wrong window. k=3 is when verdicts ARRIVE for him; 2000 is
 // what his effZoom HANDS the tracker. See HIS_EFFZOOM.
 const TOLD = Number(process.env.TOLD || HIS_EFFZOOM);
-const OPTS = { hold: true, clampPad: 0.02, cut: true, inertNoSignal: true,
-  memSignal: true, mem: g === 'man' ? 'loose2' : 'loose', fixedCadence: TOLD };
+// SHARED, not restated -- see arch-arms.hisRegimeOpts and phase-D D5.
+const OPTS = hisRegimeOpts(g, TOLD);
 
 console.log(`gender=${g}  ${wins.length} windows  k=${K} (${(K * 0.5).toFixed(1)}s/verdict)`);
 console.log(`shipped PTRACK_MIN_COAST_PASSES ${SHIPPED}   PTRACK_MAX_COAST_MS ${MAXCOAST}`);
@@ -67,7 +73,7 @@ for (const passes of PASSES) {
   const agg = { exposureS: 0, falseCoverS: 0, phantomS: 0 };
   globalThis.__TS_GAZE_IDS = { life: {} };
   for (const win of wins) {
-    const s = score(arm(thin(win, K), g), g, (c) => cropLabel.get(c));
+    const s = score(arm(thinFrames(win, K), g), g, (c) => cropLabel.get(c));
     for (const k of Object.keys(agg)) agg[k] += s[k];
   }
   const L = globalThis.__TS_GAZE_IDS.life;

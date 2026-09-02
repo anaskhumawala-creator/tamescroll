@@ -52,7 +52,24 @@ export function readConst(src, name) {
 
 // Returns the patched source. Every name must exist. A value EQUAL to
 // the shipped one is allowed and deliberate: that is the control point
-// of a sweep, and it must produce a byte-identical bundle.
+// of a sweep.
+//
+// THE CONTROL POINT IS SEMANTICALLY IDENTICAL, NOT BYTE-IDENTICAL, and
+// this comment claimed the stronger thing while the constant it cites
+// six lines above violates it (phase-D D7). esbuild writes 2000 as
+// `2e3`, so patching PTRACK_MAX_COAST_MS to its own shipped value
+// rewrites `2e3` -> `2000`: a different string, the same number. Same
+// for any exponent-form or leading-dot literal.
+//
+//   clear bar control       byte-identical: true
+//   coast passes control    byte-identical: true
+//   PTRACK_MAX_COAST_MS     byte-identical: FALSE (2e3 -> 2000)
+//
+// Nothing is wrong -- `Number('2e3') === 2000` -- but a sweep that
+// checks its control point with `===` on the source will fail for those
+// constants and pass for the others, which is a trap worth naming.
+// `controlIsByteIdentical` below answers it for a given name, and
+// test/patch-control.test.mjs pins both halves.
 export function patchConsts(src, values) {
   let out = src;
   for (const name of Object.keys(values)) {
@@ -67,3 +84,13 @@ export function patchConsts(src, values) {
 export const CLEAR_BAR = ['GENDER_CLEAR_SCORE', 'GENDER_CLEAR_SCORE_FEMALE'];
 export const shippedBar = (src) =>
   CLEAR_BAR.map((n) => readConst(src, n));
+
+/**
+ * Does re-writing `name` at its own shipped value leave the source
+ * unchanged? True for a plain decimal literal, false for `2e3` and
+ * friends. Exists so a sweep can assert its control point honestly
+ * instead of assuming the contract above.
+ */
+export function controlIsByteIdentical(src, name) {
+  return patchConsts(src, { [name]: readConst(src, name) }) === src;
+}

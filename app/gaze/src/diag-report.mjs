@@ -513,8 +513,19 @@ export function lifeCounters(life, dropKey) {
 // output and could only hold known numeric keys -- it is filtered anyway,
 // because the report's guarantee is its shape check and never an
 // assumption about who wrote the object it read.
+// `coastMs` and `toldMs` are DERIVED, not pushed, and that is why they
+// are here: the same pushed PTRACK_MIN_COAST_PASSES means two different
+// coast windows at two different cadences (phase-D D1), so `applied`
+// alone cannot say what a device is running. Stamped on every verdict
+// pass by init-entry; null on a page whose player never ran a pass.
 function tuningBlock(t) {
-  var out = { refused: num(t && t.refused), clamped: num(t && t.clamped), applied: {} };
+  var out = {
+    refused: num(t && t.refused),
+    clamped: num(t && t.clamped),
+    coastMs: num(t && t.coastMs),
+    toldMs: num(t && t.toldMs),
+    applied: {},
+  };
   var a = t && t.applied;
   if (a && typeof a === 'object') {
     for (var k in a) {

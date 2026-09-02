@@ -47,7 +47,7 @@ function thinned(arm, every) {
 
 const ARMS = [
   ['A0 shipped', ARM_A0],
-  ['A5 per-subject', armSubject({ nmWeight: true, poolBar: 0.40 })],
+  ['A5 per-subject', armSubject({ poolBar: 0.40 })],
 ];
 
 console.log(`gender=${g}   read-rate thinning (reads = 1 frame in N)\n`);

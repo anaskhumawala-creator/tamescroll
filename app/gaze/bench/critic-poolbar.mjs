@@ -15,7 +15,7 @@ console.log('');
 console.log('poolBar   EXPOSURE  FALSECOVER  PHANTOM   covered   sharp');
 for(const pb of [0.60,0.50,0.45,0.40,0.3464,0.30,0.20,0.10,0.05,0.01,1e-9]){
   const a={exposureS:0,falseCoverS:0,phantomS:0,coveredS:0,sharpOkS:0};
-  const arm=armSubject({nmWeight:true,poolBar:pb});
+  const arm=armSubject({poolBar:pb});
   for(const w of wins){const s=score(arm(w,g),g,c=>cl.get(c)); for(const k in a)a[k]+=s[k];}
   console.log(String(pb).padEnd(9)+a.exposureS.toFixed(1).padStart(8)+a.falseCoverS.toFixed(1).padStart(12)+a.phantomS.toFixed(1).padStart(9)+a.coveredS.toFixed(1).padStart(10)+a.sharpOkS.toFixed(1).padStart(9));
 }

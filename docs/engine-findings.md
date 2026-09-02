@@ -1382,6 +1382,16 @@ size, and the old figure was measured with tracks that could not coast.
 
 ### 13b. Event-driven placement, priced honestly at last
 
+> **CORRECTED 2026-09-02 (phase-D D5).** The baseline row printed here as
+> "UNIFORM k=3 (today)" was built WITHOUT the identity memory the app has
+> shipped since 1084, while §15a's "SHIPPED" row was built with it — two
+> rows described as the current app, in one document, **42.0s of false
+> cover apart**, with their numbers subtracted across in the closing
+> sentence. That mattered most here of anywhere: re-birth suppression is
+> exactly the mechanism placement acts on. Re-derived in **15b**. The
+> conclusion — placement costs more than it buys — survives.
+
+
 `bench/cadence-place.mjs` holds the verdict budget EXACTLY and chooses
 the frames, with a causal rule the app could run (`verdict if starved
 past MAXGAP, or if the gate's own delta clears a solved threshold T`).
@@ -1535,6 +1545,15 @@ source/json mismatch it exists to catch.
 
 ## 14. THE A-SERIES LADDER WAS FIVE LABELS ON ONE ARM
 
+> **CORRECTED 2026-09-02 by the phase-D critic — read 14c below before
+> quoting any number in 14 or 14a.** Both sections ran **unthinned**
+> (stride 1, told 500ms, coast 1250ms) while being published as "same
+> k=3", and 14a swept two constants together, one of them provably inert
+> in the arm it ran. The conclusions survive and two published sentences
+> do not. The corrected tables are in **14c**; the tables below are left
+> as written so the retraction is legible.
+
+
 `arch-ab.mjs` printed six rows. Five of them were the same arm.
 
 ```
@@ -1638,6 +1657,93 @@ first draft of `_patch.mjs` itself matched nothing, because a heredoc
 eats one backslash and `\s` inside a template literal is just `s`. The
 pattern uses character classes only, and says why.
 
+### 14c. Re-derived in his regime — the conclusions hold, two sentences do not
+
+Phase-D D2 and D3. `arch-ab.mjs` and `critic-lowbar.mjs` had no `thin()`
+at all: every window went in whole, `inferCadence` returned stride 1 on
+all eighteen, the tracker was told **500ms** and coasted **1250ms** —
+which is the exact row §13's own table names as the broken one, printed
+in the tables beside it. §15 has since established that the coast is what
+moves two of the three columns, so those tables were priced in the one
+regime this document exists to retract.
+
+Both files thin at `K_HIS` and take their option set from
+`arch-arms.hisRegimeOpts` now, which is also the fix for §13b (see 15b).
+
+**THE POOL, re-derived at k=3 / told 2000, both arms:**
+
+| arm | man exp/fc/phantom | woman exp/fc/phantom |
+|---|---|---|
+| **A0 shipped** | **22.0 / 155.0 / 573.5** | **25.5 / 201.0 / 679.5** |
+| pool, bar 0.25 | 23.5 / 212.0 / 628.0 | 31.5 / 211.0 / 675.5 |
+| pool, bar 0.40 | 20.5 / 212.5 / 632.0 | 31.0 / 213.0 / 681.5 |
+| pool, bar 0.60 | 19.5 / 214.0 / 636.0 | 26.5 / 218.0 / 686.0 |
+| pool, bar 0.80 | 19.5 / 218.5 / 644.5 | 23.5 / 218.5 / 687.5 |
+
+**A0 dominates false cover and phantom at every bar, in both arms.** The
+refusal of the per-subject pool survives its own regime error and gets
+stronger — the woman arm, never published before, has A0 winning on
+exposure too at three of four bars.
+
+**WITHDRAWN:** *"Raising the bar to 0.80 nearly closes exposure and more
+than doubles false cover — it is covering everyone."* That was
+1.5 / 430.0 at k=1. At k=3 the same arm reads **19.5 / 218.5**. Phantom
+was understated throughout by roughly 2x.
+
+**ALSO WITHDRAWN:** the row printed as "A0 shipped" was `ARM({})`, which
+`arch-arms` labels **1078** — no hold, no cut, no adjacency clamp, no
+identity memory, none of which the app has been without since loop 39.
+The baseline is `ARM(hisRegimeOpts(g))` now.
+
+#### Each clear-bar constant is live in exactly ONE gender mode
+
+The bar is chosen by the READ's own label (`t === "female" ? vfe : yfe`,
+loop 39), so §14a's man-mode sweep of the *pair* never tested
+`GENDER_CLEAR_SCORE_FEMALE` at all — and that is a separate OTA key with
+its own clamp `[0.30, 0.90]`. Swept alone, at k=3 / told 2000:
+
+```
+MAN MODE                                  EXPOSURE  FALSECOVER  PHANTOM
+  GENDER_CLEAR_SCORE 0.45 (SHIPPED)           22.0       155.0    573.5
+  GENDER_CLEAR_SCORE 0.40                     29.0       152.0    565.5
+  GENDER_CLEAR_SCORE 0.30                     29.0       150.5    565.5
+  GENDER_CLEAR_SCORE 0.60                     19.5       197.0    639.5
+  GENDER_CLEAR_SCORE 0.90                     15.0       475.5    725.0
+  _FEMALE 0.30 / 0.45 / 0.60 / 0.90     ALL IDENTICAL TO SHIPPED  <- inert
+
+WOMAN MODE
+  GENDER_CLEAR_SCORE 0.25 .. 0.90       ALL IDENTICAL TO SHIPPED  <- inert
+  _FEMALE 0.35 (SHIPPED)                      25.5       201.0    679.5
+  _FEMALE 0.30                                25.5       199.0    666.0
+  _FEMALE 0.45                                25.5       235.0    692.5
+  _FEMALE 0.60                                22.5       268.0    728.0
+  _FEMALE 0.90                                14.5       421.0    769.5
+```
+
+Seven identical rows in one column and seven in the other: **each mode
+reads exactly one of the two constants.** Any future sweep of these must
+name the mode or it is measuring a constant that cannot fire.
+
+**THE RECOMMENDATION, RESTATED WITH THE MODE NAMED.** §14a said
+*"`GENDER_CLEAR_SCORE` should not be pushed lower over the OTA channel"*
+without qualification, and that is **false of the other key**:
+
+- **`GENDER_CLEAR_SCORE` — do not push lower.** It lives in man mode,
+  which is his setting, and 0.45 -> 0.40 costs **+7.0s of exposure** for
+  3.0s of false cover and 8.0s of phantom. Upward is worse still.
+- **`GENDER_CLEAR_SCORE_FEMALE` 0.35 -> 0.30 is free on this corpus.**
+  Woman mode: exposure **identical** (25.5), false cover −2.0s, phantom
+  −13.5s. Man mode: completely inert. Strictly better or equal on all
+  three columns in both arms, and 0.30 is exactly the clamp floor.
+
+**NOT PUSHED, and the reason is not caution about the number.** He runs
+**man** mode, where the key is inert — so pushing it changes nothing on
+his device and would only help a woman-mode user. It is also still a
+protection-adjacent direction (a lower bar clears more easily), and
+"exposure identical on 18 windows" is evidence, not proof. Recorded as a
+free improvement whenever the woman arm matters; the key is already on
+the channel and 1086 would accept it without an install.
+
 ## 15. THE COAST WINDOW IS THE BIGGEST LEVER IN THE SYSTEM, AND IT COSTS NO GPU
 
 Found by decomposing the confound in §13a rather than by looking for it.
@@ -1699,6 +1805,14 @@ handler, so the coast is already being cut short at every scene change.
 
 ### 15a. The same dial, swept as the constant, in the regime his phone is in
 
+> **AMENDED 2026-09-02 (phase-D D1, D10, D12).** The table below is
+> correct and reproduces exactly. Three things around it were not: the
+> clamp floor it justifies is **non-protective at every cadence at or
+> below told ~1504** (15c), the test written beside it quoted the
+> superseded 23.5/40.5 pair, and the "cross-check" it claims was a
+> replication whose instrument no longer exists (15d).
+
+
 Two corrections at once, and each moved the answer:
 
 1. §15's decomposition varied the coast by lying to the tracker about
@@ -1750,6 +1864,126 @@ reason instead of an arithmetic one that did not hold.
 to cover was left sharp. The constant ships at 2, a test pins that
 `rules/tuning.json` agrees with the code, and 1.33 is one push away with
 no install.
+
+### 15b. Placement, re-derived against the arm that actually ships
+
+Same corpus, same held budget, `hisRegimeOpts` on both sides now:
+
+```
+arm                    verdicts  T     EXPOSURE  FALSECOVER   PHANTOM  births
+UNIFORM k=4 (2.0s)         540  --       30.0s      169.5s    533.0s     160
+UNIFORM k=3 (today)        720  --       22.0s      155.0s    573.5s     160
+UNIFORM k=2 (1.0s)        1080  --       12.0s      131.5s    698.5s     189
+UNIFORM k=1 (0.5s)        2160  --        8.5s      151.0s    977.0s     226
+PLACED, max gap 4          720   13.2     15.0s      175.5s    640.5s     173
+PLACED, max gap 5          720    8.8     17.5s      167.0s    636.5s     186
+PLACED, max gap 6          720    7.1     32.0s      191.0s    627.5s     178
+PLACED, max gap 8          718    6.1     28.5s      199.5s    639.0s     180
+```
+
+**The verdict is unchanged and the numbers moved.** Placement's best row
+(max gap 4) buys **7.0s of exposure** for **20.5s of false cover and
+67.0s of phantom** — §13b published that cost as 32.5s and 80.5s off a
+baseline that was missing the identity memory. Against the coast dial,
+which buys 149.5s of phantom for 4.5s of exposure at zero GPU, placement
+is still the worse trade.
+
+Worth noting from the uniform family, which is the shipped dial's own
+price list: **k=2 is better than k=3 on exposure AND false cover** (12.0
+/ 131.5 against 22.0 / 155.0) and pays 125.0s of phantom for it. That is
+the §13a shape, and §12a's cap-limited device is why it is not free.
+
+### 15c. The coast clamp floor is non-protective below told 1504 — the phase-D exposure row
+
+`tuning.mjs` and `setCoastPasses` both justified `PTRACK_MIN_COAST_PASSES
+>= 1.33` as a measured protection decision: *"1.0 really does reach
+2000ms, costing +16.0s (man) and +10.0s (woman) of exposure … THAT is
+what the floor refuses."*
+
+**It refuses it at told 2000 and nowhere below ~1504**, because the
+protected quantity is the coast in MILLISECONDS and the clamp is written
+in PASSES:
+
+```
+coast = min(max(PTRACK_MAX_COAST_MS 2000, passes * told),
+            max(PTRACK_MAX_MISS_BLURRED_MS 900, 2.5 * told))
+```
+
+The `passes` term only reaches the answer while `passes * told > 2000`.
+Read off the live module, not the formula:
+
+| told | shipped 2 | OTA floor 1.33 | raw 1.0 |
+|---|---|---|---|
+| 1200 | 2400 | **2000** | **2000** |
+| 1500 | 3000 | **2000** | **2000** |
+| 1600 | 3200 | 2128 | 2000 |
+| 2000 | 4000 | 2660 | 2000 |
+| 3000 | 6000 | 3990 | 3000 |
+
+And the corpus prices it. At told 1500, k=3, the value the clamp calls
+safe produces the identical row to the value it exists to refuse, in both
+arms — man **38.0 / 132.5 / 346.0** against the shipped **25.5 / 139.0 /
+465.0**; woman **36.5 / 185.0 / 399.0** against **30.0 / 194.5 / 545.5**.
+**+12.5s (man) and +6.5s (woman) of exposure from a value `tuning.mjs`
+called safe.**
+
+**THE REGIME IS REACHED BY THE MOVE THIS DOCUMENT RECOMMENDS.**
+`VERDICT_MAX_INTERVAL_MS` is on the **same OTA channel**, clamped
+`[1200, 4000]`, and §13a says the 2000 -> 1200-1500 move is "still worth
+doing". One `tuning.json` carrying
+`{"VERDICT_MAX_INTERVAL_MS": 1200, "PTRACK_MIN_COAST_PASSES": 1.33}` has
+both values inside both clamps and lands the coast at 2000ms. A device
+whose verdict costs 250-375ms gets there with nothing pushed at all.
+
+**WHY IT IS DOCUMENTED RATHER THAN CLAMPED HARDER.** A uniform
+millisecond guarantee cannot exist through this dial: holding the coast
+at 2660ms at told 1200 needs `passes` 2.22, which is **above the shipped
+2** — the clamp would have to refuse the value the app already runs. What
+*does* hold at every cadence is `PTRACK_MAX_COAST_MS`: no push can take
+the coast below 2000ms. That is the real guarantee, it is now what the
+test asserts, and the cadence-dependence of the extra protection is
+written into `tuning.mjs` beside the joint-push warning.
+
+**PUSH ONE OF THESE TWO AT A TIME, and re-read his rings between.**
+
+Two smaller corrections in the same neighbourhood. The clamp's ceiling of
+3.0 has an inert top: past `passes` 2.5 the `2.5 * told` term wins, so
+2.5 and 3.0 give the identical 5000ms coast and the identical corpus row
+— `person-track`'s docstring said the cap "never" loses, which is false
+at its own ceiling. And the report now carries the **derived** coast
+(`tuning.coastMs`, `tuning.toldMs`) alongside the pushed value, because
+the same pushed number means two different coasts at two different
+cadences — which is this whole section.
+
+### 15d. The "cross-check" was a replication, and its instrument is gone
+
+§15a called the shipped row landing on 22.0 / 155.0 / 573.5, exactly as
+the phase-C critic predicted, *"the closest thing to a cross-check this
+instrument has had"*. It was not one. The phase-C number came from
+`bench/_critic-cadsep-full.mjs`, which is **not in git and not on disk**,
+so it cannot be re-run; and both computations used the same corpus, the
+same `corpus-score.mjs`, the same `ARM`, the same 500ms bank grid and the
+same option set, differing only in the two corrections. That is a
+replication — it confirms the implementation matches the patch and shares
+every assumption underneath it.
+
+**The real cross-checks this repo has** are §10n (two instruments, no
+shared code, no shared input) and §15a's own **woman arm**, which is a
+genuinely second population and agrees on direction and winner.
+
+**AND TWO QUALIFICATIONS ON THE COAST FINDING ITSELF**, from the critic's
+own leave-one-out, worth more than the retraction:
+
+- **Direction is robust, magnitude is not.** Leave-one-window-out on the
+  2 -> 1.33 step (man, k=3, told 2000): **0 of 18 sign flips**, phantom
+  improves in **16 of 18** windows. But `KAWvDsghyc8_w152` alone carries
+  **47.0s of the 149.5s (31%)**, and false cover improves in only **5 of
+  18** — the −18.5s is four windows.
+- **The +4.5s of exposure is not one long uncovered stretch.** Per window
+  it is 0.5 / 0.5 / 1.0 / 1.0 / 1.5s across five windows — one to three
+  frames each at the corpus's 0.5s grid. §15 lists the equal weighting of
+  a phantom second and an exposure second as an honest limit; this is the
+  argument that limit invites, and it favours the push.
 
 ## 16. THE ENTIRE PER-PERSON PIPELINE IS YOUTUBE-ONLY, GATED ON A LITERAL `#movie_player`
 

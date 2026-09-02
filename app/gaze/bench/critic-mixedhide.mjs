@@ -14,7 +14,7 @@ const COVER=0.15;
 function ov(f,b){const x1=Math.max(f.x1,b.x1),y1=Math.max(f.y1,b.y1),x2=Math.min(f.x2,b.x2),y2=Math.min(f.y2,b.y2);
  if(x2<=x1||y2<=y1)return 0;const a=(f.x2-f.x1)*(f.y2-f.y1);return a>0?((x2-x1)*(y2-y1))/a:0;}
 const wins=fs.readdirSync(`${ROOT}/bank/reads`).filter(f=>f.endsWith('.json')).map(loadWin);
-for(const [n,arm] of [['A0',ARM_A0],['A5',armSubject({nmWeight:true,poolBar:0.40})]]){
+for(const [n,arm] of [['A0',ARM_A0],['A5',armSubject({poolBar:0.40})]]){
  const byCluster={}; let lowNm=0, hiNm=0;
  for(const w of wins){const frames=arm(w,'man'); const dtS=0.5;
   for(const fr of frames){

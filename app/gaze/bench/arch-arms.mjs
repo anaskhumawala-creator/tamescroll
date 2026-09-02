@@ -70,6 +70,52 @@ export const POOL_BAR = 0.40;
 // 23%.
 export const HIS_EFFZOOM = 2000;
 
+// HIS VERDICT ARRIVAL STRIDE, in banked frames. The corpus grid is
+// 500ms, so k=3 is 1.5s -- the gap his phone actually achieves once cuts
+// drag verdicts forward.
+export const K_HIS = 3;
+
+/**
+ * Drop every frame but every e-th one, keeping the labels so scoring
+ * still knows who was in shot. A window handed WHOLE is stride 1, which
+ * `inferCadence` then reports as a 500ms cadence and the tracker turns
+ * into a 1250ms coast -- the row 13 exists to retract.
+ */
+export const thinFrames = (win, e) => ({ ...win, frames: win.frames.map((fr, i) =>
+  i % e === 0 ? fr : { ...fr, faces: [], _labelFaces: fr.faces }) });
+
+/**
+ * THE ONE DEFINITION OF "WHAT THE APP DOES TODAY", because there were
+ * two and they were 42.0s of false cover apart (phase-D D5).
+ *
+ * `cadence-place.mjs` built its baseline as {hold, clampPad, cut,
+ * fixedCadence} while `coast-ab.mjs` and `cadence-ab.mjs` added
+ * `inertNoSignal`, `memSignal` and `mem` -- the identity-memory
+ * behaviour shipped in 1084. Both rows were published as the current
+ * app, in one document, and the reader was invited to subtract one
+ * section's numbers from the other's:
+ *
+ *   cadence-place opts   20.5 / 197.0 / 592.0
+ *   coast-ab opts        22.0 / 155.0 / 573.5
+ *
+ * Every bench that wants a shipped baseline calls THIS. A new shipped
+ * behaviour is added here once, not in each caller.
+ *
+ * `mem` differs per gender arm because that is what ships: the loose2
+ * variant is the man-mode identity memory.
+ */
+export function hisRegimeOpts(g, told) {
+  return {
+    hold: true,
+    clampPad: 0.02,
+    cut: true,
+    inertNoSignal: true,
+    memSignal: true,
+    mem: g === 'man' ? 'loose2' : 'loose',
+    fixedCadence: typeof told === 'number' ? told : HIS_EFFZOOM,
+  };
+}
+
 /**
  * How often a verdict lands in a thinned window, and how many there are.
  *
@@ -546,9 +592,36 @@ export function makeArms(mod) {
             // those arms ran at the module constant. Proved by running
             // arch-ab.mjs: A1 through A5 printed IDENTICAL rows
             // (5.5 / 210.0 / 314.0 / 557.5 / 495.0), five labels on one
-            // arm. Same for `ghost` and `nmWeight`, which are read
-            // nowhere at all and have been deleted from the call sites
-            // rather than given invented behaviour.
+            // arm.
+            //
+            // `nmWeight` AND `ghost` ARE RETIRED, NOT ABSENT, and an
+            // earlier version of this comment said they had "no
+            // specification anywhere in the repo" (phase-D D4). Both
+            // were specified AND implemented in 6f0b7ff --
+            //
+            //   opts.nmWeight  drop reads below the nm floor from the pool
+            //   opts.ghost     a subject whose reads are ALL signal-free
+            //                  stops being covered
+            //
+            // -- and that commit's own table shows the ghost arm
+            // producing DIFFERENT rows (A3 4.0/119.5/107.5 against A5
+            // 1.5/97.0/104.5). 5974e9d ("the architecture rewrite loses
+            // to one constant plus a clamp") deleted the behaviour and
+            // left the labels behind. So:
+            //
+            //   nmWeight is now UNCONDITIONAL -- the `f.nm >= NM_FLOOR`
+            //   guard eleven lines below has no option gate, so the pool
+            //   ALWAYS drops signal-free reads and the published rung
+            //   "A1 per-subject window + hold" (a pool WITHOUT the nm
+            //   floor) has no implementation in this file at all.
+            //
+            //   ghost is GONE. Nothing here can stop covering a subject
+            //   whose reads all lack signal, which is the covering
+            //   direction and is why its removal was never noticed.
+            //
+            // The names are deleted from every call site. Do not
+            // re-introduce either as a bare option without restoring the
+            // behaviour from 6f0b7ff first.
             const bar = typeof o.poolBar === 'number' ? o.poolBar : POOL_BAR;
             if (2 * Math.abs(p - 0.5) >= bar) best.decided = p > 0.5 ? 'cover' : 'clear';
           }
@@ -771,7 +844,7 @@ export function makeArms(mod) {
 // Importing is now side-effect-free; the first USE still asserts, which
 // is where the assertion was always meant to bite.
 let _arm;
-const ARM = (o) => (_arm || (_arm = makeArms(SHIPPED)))(o);
+export const ARM = (o) => (_arm || (_arm = makeArms(SHIPPED)))(o);
 export const lazyArm = (make) => {
   let v;
   return new Proxy(function () {}, {

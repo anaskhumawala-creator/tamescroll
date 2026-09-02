@@ -289,18 +289,72 @@ test('a pushed coast value re-derives the window immediately', () => {
   assert.equal(personTrack.blurredCoastBudgetMs(), 4000);
 });
 
-test('the coast dial cannot be pushed below the shipped cap floor', () => {
-  // THE CLAMP IS A PROTECTION DECISION. Exposure rises as the coast
-  // shortens -- in his regime 23.5s at the shipped value against 40.5s
-  // at passes 1.0 -- so the OTA channel must not reach past what the
-  // corpus measured and the owner accepted.
+test('the coast dial is clamped, and the floor only bites above told 1504', () => {
+  // THE CLAMP IS A PROTECTION DECISION at his cadence, and ONLY at
+  // cadences above ~1504 (phase-D D1). The earlier version of this test
+  // asserted the floor "refuses the 2000ms window" and checked exactly
+  // one told -- 2000, the single value where that is true -- so it could
+  // not fail for the property its own name claimed. It also quoted
+  // 23.5s/40.5s, which the same diff that wrote it had already
+  // superseded with 22.0s/38.0s.
+  //
+  // The property that IS true at every cadence is the one asserted here:
+  // the pushed value is clamped into [1.33, 3.0], and the derived coast
+  // never falls below PTRACK_MAX_COAST_MS. The floor's EXTRA protection
+  // -- keeping the coast above that cap -- is cadence-dependent, and
+  // this table is what tuning.mjs's comment is built from.
+  const expect = {
+    1200: [2400, 2000, 2000],   // told: [shipped 2, floor 1.33, raw 1.0]
+    1500: [3000, 2000, 2000],
+    1600: [3200, 2128, 2000],
+    2000: [4000, 2660, 2000],
+    3000: [6000, 3990, 3000],
+  };
+  for (const told of Object.keys(expect).map(Number)) {
+    const [shipped, floor, raw] = expect[told];
+
+    personTrack.setVerdictCadence(told);
+    assert.equal(personTrack.blurredCoastBudgetMs(), shipped,
+      `precondition: the shipped value derives ${shipped}ms at told ${told}`);
+
+    applyTuning({ PTRACK_MIN_COAST_PASSES: 0.1 });
+    assert.equal(personTrack.PTRACK_MIN_COAST_PASSES, 1.33, 'clamped to the floor');
+    assert.equal(personTrack.blurredCoastBudgetMs(), floor,
+      `the clamped push derives ${floor}ms at told ${told}`);
+
+    // THE FLOOR ON THE COAST ITSELF, which holds at every cadence and is
+    // the guarantee the OTA channel actually gives.
+    assert.ok(personTrack.blurredCoastBudgetMs() >= personTrack.PTRACK_MAX_COAST_MS,
+      'no push may take the coast below PTRACK_MAX_COAST_MS');
+
+    // AND THE HONEST HALF: below told 1504 the floor buys nothing over
+    // the value it exists to refuse. Asserted, not hidden -- if someone
+    // makes the clamp cadence-aware this line goes red and should.
+    if (told <= 1504) {
+      assert.equal(floor, raw,
+        `at told ${told} the cap binds and the 1.33 floor is decoration`);
+    } else {
+      assert.ok(floor > raw,
+        `at told ${told} the floor keeps ${floor - raw}ms of coast that 1.0 loses`);
+    }
+
+    applyTuning({ PTRACK_MIN_COAST_PASSES: 99 });
+    assert.equal(personTrack.PTRACK_MIN_COAST_PASSES, 3.0, 'clamped to the ceiling');
+    restore();
+  }
+});
+
+test('the top of the coast clamp range is a no-op at his cadence', () => {
+  // tuning.mjs said the ceiling is 3.0 "because past ~2.5 the 2.5x term
+  // wins", while person-track's docstring said the cap "never" loses.
+  // The second was wrong (phase-D D6) and this pins which.
   personTrack.setVerdictCadence(2000);
-  applyTuning({ PTRACK_MIN_COAST_PASSES: 0.1 });
-  assert.equal(personTrack.PTRACK_MIN_COAST_PASSES, 1.33, 'clamped to the floor');
-  assert.equal(personTrack.blurredCoastBudgetMs(), 2660,
-    'the floor still leaves a real coast; it refuses the 2000ms window '
-    + 'that costs +17.0s of exposure, which is the point of the clamp');
-  applyTuning({ PTRACK_MIN_COAST_PASSES: 99 });
-  assert.equal(personTrack.PTRACK_MIN_COAST_PASSES, 3.0, 'clamped to the ceiling');
+  applyTuning({ PTRACK_MIN_COAST_PASSES: 2.5 });
+  const at25 = personTrack.blurredCoastBudgetMs();
   restore();
+  applyTuning({ PTRACK_MIN_COAST_PASSES: 3.0 });
+  const at30 = personTrack.blurredCoastBudgetMs();
+  restore();
+  assert.equal(at25, 5000, 'the 2.5x term has taken over by 2.5');
+  assert.equal(at30, at25, 'so 3.0 buys nothing over 2.5 -- the range top is inert');
 });
