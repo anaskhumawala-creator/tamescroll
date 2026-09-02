@@ -1,0 +1,6 @@
+bundle marker: f3bf849
+built Z:\Apps\Disconnect\app\src-tauri\gaze-page.js: 1.030 MB (1079687 bytes)
+-rw-r--r-- 2 zvcla 197609 181582368 Sep  2 22:43 src-tauri/target/aarch64-linux-android/debug/libapp_lib.so
+-rw-r--r-- 1 zvcla 197609 48648056 Sep  2 22:43 src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/libapp_lib.so
+-rw-r--r-- 1 zvcla 197609 94808588 Sep  2 22:43 app/build/outputs/apk/arm64/debug/app-arm64-debug.apk
+BARM_EXIT=0
