@@ -70,6 +70,117 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-02 06:10 (**1089 PUBLISHED, sha 3b66ce11** --
+local APK, raw manifest and the DOWNLOADED asset all agree, isDraft
+false. HEAD f080762, pushed.)
+
+**CORRECTING THREE STALE FACTS this file carried all night:** 1087 was
+released and **1088 was BUILT AND NEVER RELEASED** (tauri.properties
+said 1088, the manifest said 1087, `gh release list` topped out at
+v0.1.87) -- a build nobody could install. And **the old Redmi
+`1ec2c48e0621` (M2010J19SI) DOES have the app now**, at 1088 then 1089;
+this file said it was not installed there. It is the arm64 smoke-test
+device. The emulator is on 1079.
+
+**Session 2026-09-02 (loop 43) -- THE PATH THE OTHER FOUR PLATFORMS USE
+WAS FEEDING FACES TO THE MODEL 1.78x TALLER THAN WIDE, AND IT HAD DONE
+SO SINCE THE BEGINNING.**
+
+- **THE ENTIRE PER-PERSON PIPELINE IS YOUTUBE-ONLY** (findings 16),
+  established from source with both gates cited: `isPlayer` is
+  `closest('#movie_player')`. Tracking, the coast, the clear bar, the
+  identity memory, `body-clamp`, the null-mint guard -- every number
+  loops 37-42 measured -- is gated on it. On Reddit, X, Instagram and
+  Facebook a video gets `wholeFrameFlagged`: ONE BOOLEAN per frame,
+  whole-video CSS blur, 500ms sampling, four clean samples to unblur.
+  **His "this technique is going to be used for all the platforms too"
+  is not true today**, and this is the gap.
+- **AND THAT PATH SQUASHED THE FRAME.** `drawImage(video, 0, 0, 256,
+  256)` -- four arguments, no source rectangle. A 640x360 stream became
+  a square, so every face arrived **1.78x taller than wide**, and
+  `classifyFaceGenders({square: true})` then cut a square out of the
+  STRETCHED buffer -- a 16:9 rectangle in reality. `squareBox` cannot
+  undo a distortion upstream of it. **This is the identical defect fixed
+  on the IMAGE path on 2026-08-28**, where it made a clear front-facing
+  man read male at 0.06 and cost four days.
+- **MEASURED BEFORE IT WAS CHANGED** (findings 16a; 15 native 640x360
+  frames, both arms through the SHIPPING detectFaceBoxes /
+  classifyFaceGenders / faceMeta): faceres' descriptor magnitude is
+  higher undistorted on **17 of 18 faces, p50 +1.08, sign test p =
+  1.45e-4** -- and it wins while giving every face FEWER pixels. **Four
+  faces cross NULL_MINT_NM_FLOOR**, and **2 of 13 solid-signal faces
+  flip gender label**, one moving raw 0.601 -> 0.377.
+- **I NEARLY PUBLISHED A FALSE EXPOSURE OFF THAT SAME RUN.** The first
+  read showed six faces the letterbox found and the squash did not.
+  Opening the banked JSON, all nine unmatched detections are NULL READS
+  (nm 1.71-5.47) -- BlazeFace noise, not people. Retracted before it was
+  written down. **The detection COUNT is not deterministic on this
+  harness** (21/24 then 21/25 on the identical bench); the matched-pair
+  reads are, and the nm result rests on the deterministic half.
+- **`fitBox` (crop-geometry) IS THE FIX**, black bars, caller clears the
+  canvas. VERIFIED R15-STYLE IN THE EMITTED BUNDLE: `hO(R.videoWidth,
+  R.videoHeight, un)` then `fillRect(0,0,un,un)` then a SIX-argument
+  drawImage. A test fails if the four-argument form comes back.
+- **16b: THE SAME SQUASH BLINDS MoveNet, AND THAT ONE IS NOT SHIPPED.**
+  `detector.js:591` resizes to 256x256 unconditionally. 241 frames, five
+  videos, both arms on the same decoded bytes through the shipping
+  graph: **persons admitted 219 -> 269 (+22.8%)**, 53 frames admitting
+  more under the letterbox against 11, and **35 frames where the squash
+  admits NOBODY and the letterbox admits someone against 4 the reverse**
+  (p < 1e-5), direction the same in ALL FIVE videos. A video-blocked
+  bootstrap puts the gain at **p05 +8.7%**, so it survives the
+  clustering the frame-level test ignores. maxKp barely moves (p50
+  +0.010) and both arms clear PFF_FRAME_KP_FLOOR on all 241 frames --
+  what the squash costs is the SLOT SCORE, which is the admission.
+- **WHY IT IS NOT FIXED: MoveNet's outputs are normalized to its own
+  input, and that is safe today ONLY BECAUSE the squash is a uniform
+  per-axis scale of the whole frame.** `parsePersons` takes `aspect`
+  for margin isotropy (`headH = headW * ar`) and never to un-distort a
+  coordinate. Letterbox it and every keypoint and box needs mapping back
+  through the pad before anything reads it -- on the extent source the
+  placement layer and the entire corpus sit on. **A round, not an edit.**
+- **AT N=72 THAT READ AS A NULL RESULT** ("maxKp flat, admissions
+  suggestive") and would have been filed as one. Loop 40's rule, twice
+  in one file: **a flat sweep is a claim about the instrument until the
+  instrument has the frames.**
+- **AND IT DOES NOT EXPLAIN HIS PHONE.** Both arms read maxKp p50
+  0.81/0.83 where his device reads **0.049, max 0.098** in the failing
+  regime. Do not read 16b as the fix for loop 36.
+- **PHASE D CRITIC: 12 ROWS, 12 CONFIRMED, ALL FIXED AT SOURCE.**
+  critic-gate 35/35. The EXPOSURE row (D1) was reframed rather than
+  clamped harder: a uniform millisecond coast guarantee is INCOMPATIBLE
+  with the shipped value at low cadences, and the told table
+  (1200/1500 floor buys NOTHING; the clamp protects only above told
+  1504) is now in tuning.mjs beside the key. *** THE DANGEROUS PUSH IS
+  THE JOINT ONE *** -- `VERDICT_MAX_INTERVAL_MS: 1200` together with
+  `PTRACK_MIN_COAST_PASSES: 1.33` -- and it says so.
+- **EACH CLEAR-BAR CONSTANT IS LIVE IN EXACTLY ONE GENDER MODE.** The
+  bar is chosen by the READ's own label, so a man-mode sweep of the pair
+  never tested `_FEMALE` at all (seven identical rows each way).
+  `GENDER_CLEAR_SCORE_FEMALE` 0.35 -> 0.30 is free on the corpus and
+  INERT in his mode. Recorded, deliberately not pushed.
+- **`coastMs 4000 / toldMs 2000`, READ OFF A REAL DEVICE** on a watch
+  page through the shipped report. That is section 15's derivation
+  confirmed from the outside, and it was a claim until tonight.
+- **1089 REGRESSION-CHECKED ON A REAL ARM64 WEBVIEW BEFORE PUBLISHING**
+  (the old Redmi, over CDP, app force-stopped and the screen off after):
+  launcher renders; smart mode, bundle `03fef80-dirty`; search feed
+  judges **7 images, 0 on-screen pending, 5 patches, 0 outside their own
+  image**; watch page mints video patches; request blocking alive (seen
+  37 -> 73, blocked 3 -> 6); report carries versionCode 1089 and the
+  full tuning block with `PTRACK_MIN_COAST_PASSES` in `applied`.
+- gaze **541/541**, cargo **60/60**, critic-gate **35/35**.
+- **NEXT, in this order:** a LIVE player-host census per platform before
+  widening `isPlayer` -- a wider selector on a distorted path spreads the
+  distortion, and the emulator dies on Reddit (loop 8), so it needs the
+  arm64 device. Then the assignment layer (32 contended births), whose
+  10e numbers need re-deriving on the corrected instrument.
+- **THE QUESTION FOR HIM, unchanged and still the only one:** the coast
+  dial is a protection trade. **1.33 buys 26% of the phantom he
+  complains about most for ~4.5s more exposure across 18 windows.** It
+  ships at 2 and CAN now travel over OTA -- 1089 carries the whitelist.
+
+
 **Last updated:** 2026-09-02 07:40 (HEAD 712b477, PUSHED. **1086 is
 still what his phone runs.** Nothing user-visible changed tonight; the
 new dial ships INERT and cannot travel until a release, because the
