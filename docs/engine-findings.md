@@ -2340,3 +2340,91 @@ blind tonight would move the tuned path on an unverified geometry.
 **Reported, specified, deliberately NOT shipped.** `crop`
 and `zoomL` were refused at N=72 on their own numbers (55 and 46
 admissions against the squash's 67) and are not candidates.
+
+## 16c. WIDENING `isPlayer` IS THREE GATES, NOT ONE -- AND ON REDDIT ALL THREE ARE UNREACHABLE BY CONSTRUCTION
+
+Section 16 named one gate. There are three, they are the SAME literal,
+and **widening any one alone is silently inert** -- the failure class
+this repo has shipped twice (the dead `#tamescroll-gaze-regions` id;
+`var IY;` alive for six rounds):
+
+| | site | what it decides |
+|---|---|---|
+| 1 | `init-entry.js:4610` `video.closest('#movie_player')` | person-primary path vs `wholeFrameFlagged` |
+| 2 | `video-region.mjs:214` `resolveHost` | whether a patch can be **placed** at all -- `setTracks` returns false and calls `clear(video)` without a host |
+| 3 | `region-blur.mjs:635` `PLAYER_SUBTREE_SELECTOR` | refuses an IMAGE host inside the player (a guard -- widening it does the opposite thing and must be reasoned about separately) |
+
+`dom.js:54` `hasPlayerAncestor` is a fourth use of the literal, and it
+is the VISION red line ("never add a class inside the player"), not a
+capability gate. It must widen with them or gaze starts writing classes
+inside another platform's player.
+
+### And on Reddit none of them can ever match
+
+Live census on the arm64 device through the app's own launcher path
+(`spikes/gauntlet/probe_player_hosts.py`), reddit.com `/r/aww/`:
+
+```
+video 0   inShadowRoot 1   closest('#movie_player') False
+  <video.ts-gaze-pending        static   ov:clip     z:auto  iso:auto
+  ---- SHADOW BOUNDARY (host <shreddit-player>) -- closest() STOPS HERE ----
+  <shreddit-player.block        relative ov:visible  z:auto  iso:isolate  [shadow host]
+  <shreddit-async-loader        static                               [shadow host]
+  <div#t3_..-aspect-ratio       relative ov:hidden
+  <shreddit-post#t3_..          relative ov:visible                  [shadow host]
+  <shreddit-feed                static                               [shadow host]
+  <main#main-content
+```
+
+Two facts, both structural and neither dependent on layout:
+
+- **`closest()` stops at a shadow boundary.** So `video.closest(<any
+  light-DOM Reddit selector>)` is null no matter what selector is
+  written. Gates 1 and 2 cannot be widened by adding a name to them.
+- **`video.parentElement` is `null`**, because the video is a DIRECT
+  child of the ShadowRoot and `ShadowRoot` is not an `Element`. The
+  shadow root's children are exactly `video`, `shreddit-media-ui`, two
+  `slot`s and our own `#tamescroll-gaze-style`. `region-blur.resolveHost`
+  bails on its **second line** (`var host = el.parentElement; if (!host)
+  return null;`), independently of every selector in the file.
+
+So on Reddit the whole-frame path is not a policy choice that a selector
+can revisit -- it is what the DOM permits today.
+
+### What a real fix looks like, and the model is already in that root
+
+The root is **OPEN** (`element.shadowRoot` is non-null), which is why
+the 2026-08-19 per-root stylesheet work already put
+`#tamescroll-gaze-style` inside it. So the host must be found by
+`video.getRootNode().host` rather than by `closest`, and the patch
+placed either inside that root or into one of its slots.
+
+`shreddit-media-ui` is the existing pattern to copy: same shadow root,
+`position: absolute`, `z-index: 2`, `pointer-events-none`, sized exactly
+to the video box -- which is `video-region`'s overlay contract already,
+one boundary in. And `shreddit-player` itself reads `position: relative`
+**and already `isolation: isolate`**, so the two page mutations
+`resolveHost` performs would both be no-ops there.
+
+### HONEST LIMITS -- what this census does NOT establish
+
+- **No geometry.** The device locked its own screen mid-run and
+  `innerWidth` read **0**, so every width and rect in that pass is
+  worthless (`shreddit-player` "0x220", the player centre at y = -1171).
+  Computed `position` / `overflow` / `z-index` / `isolation` and DOM
+  structure do not depend on layout and are the only numbers quoted
+  above. **Re-measure the rects with the screen unlocked before building
+  anything on them.**
+- **The video never loaded.** Signed out it is
+  `shreddit-preview-video-lazy`: `readyState 0`, `videoWidth 0`,
+  `currentSrc ""` even after a direct `play()`. So it was never
+  established that a Reddit video reaching our pipeline has a decodable
+  frame at all -- and our tag is on it (`ts-gaze-pending`), so
+  blur-first is holding over a stub.
+- **Reddit's POST DETAIL page did not render** on this device signed
+  out -- 148 elements, `body.scrollHeight` 56, no `<main>`, no
+  `shreddit-post`. The LISTING renders (3 posts, 5,492px). Not our rules:
+  there is nothing there to hide.
+- **X and Facebook are login walls** and are still unaudited (loop
+  25-26), so this covers one of the four platforms.
+- **Instagram was not reached this round.**
