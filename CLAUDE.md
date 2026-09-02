@@ -70,6 +70,91 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-02 14:30 (**1092 PUBLISHED, sha 5ab3f53d** --
+served APK re-downloaded and matches the raw manifest, isDraft false.
+HEAD pushed, tree clean. The Redmi runs 1092; his phone gets it in-app.)
+
+**Session 2026-09-02 (loop 46) -- THE LATENCY ROUND SHIPPED: STAGE A
+(STOP WASTED INFERENCE) + STAGE B (A 1s DELAY LINE IN THE PLAYER), ONE
+APK, AND A CRITIC FIX THAT GAVE HALF THE SPEED BACK UNTIL IT WAS
+RE-PRICED ON THE PHONE.** Plan:
+`docs/superpowers/plans/2026-09-02-latency-restructure-and-delay-line.md`.
+Every row below is `spikes/gauntlet/probe_latency_ab.py` on the Redmi
+(1ec2c48e0621, CDP 9227), 150s, same video/seek, banked as
+`spikes/gauntlet/latency-ab-<label>.json`:
+
+  | build | verdict p50 | gap p50 / p95 | MoveNet skipped | positions | rAF | coverage |
+  |---|---|---|---|---|---|---|
+  | 1091 | 1193 | 2075 / 2997 | -- | 66 | 26.2 | 0.635 |
+  | stage A | 705 | 1201 / 2315 | 89 of 117 | 0 | 35.8 | 0.665 |
+  | stage B (pre phase-I) | 799 | 1596 / 2992 | 78 of 104 | 0 | 33.1 | 0.634 |
+  | phase-I reset on cut (B2/B3) | 1104 / 1039 | 2068 / 2130 | 29 / 33 | 25 / 27 | 29 | 0.62 |
+  | one forced look per cut (B4) | 991 | 1998 / 3388 | 50 of 86 | 0 | 33.8 | 0.615 |
+  | **1092 SHIPPED (B5)** | **922** | **2000 / 3277** | **67 of 89** | **0** | **34.3** | **0.628** |
+
+- **STAGE A** (Tasks 1-4): `personsLive()` gate refuses a position pass
+  where MoveNet admitted nobody; `PERSON_SKIP_EVERY` 4; `VERDICT_DUTY`
+  2 (cadence.mjs, OTA [1.5,4]); `trackNeedsRead`/`GENDER_REFRESH_MS`.
+- **STAGE B** (Tasks 5-10): `delay-core.mjs` (DELAY_MS 1000, OTA
+  [0,2500], 0 = off), `delay-presenter.mjs` (hidden video, bitmap ring,
+  canvas `.ts-gaze-delay` inside `#movie_player`, DelayNode audio),
+  `track-timeline.mjs` (verdicts keyed by media time; the renderer
+  interpolates between two KNOWN verdicts for the presented frame).
+  Wired in `init-entry.js` through two doors, `coverVideo()` /
+  `uncoverVideo()`; `test/delay-wired.test.mjs` pins the wiring.
+  **Delay arm, B5:** entry lag p50 **34ms** media (p95 401, 5 of 15
+  non-positive -- the blur is ON the person the frame they appear);
+  exit hang after a track death p50 30 frames (B4 read 0; noisy, n~15);
+  canvas rect == video rect `[0,48,393,221]`; 0 patches outside the
+  player; pause freezes the presented frame; refill after a seek
+  ~3.3s; presenter `late` 14 ticks per run. **Not probed:** fullscreen
+  and the miniplayer with a presenter attached (need real input
+  events; separate probe, not written).
+- **THE FIRST DEVICE RUN FOUND TWO PRESENTER DEFECTS** (b9fb621): the
+  canvas sat at its intrinsic 640x360 in a 393x221 player, and the
+  presented frame was evicted from the ring so 42% of ticks re-drew
+  late. Both red-proved; `late` 1389/3292 -> 14.
+- **PHASE-I CRITIC: 15 rows, all CONFIRMED and fixed at source
+  (7423f82, 343b8ac), critic-gate 95/95.** I1: `HIS_EFFZOOM`/`K_HIS`
+  were hand-picked literals (the re-derived-shipped-rule failure again)
+  -- now DERIVED from `bench/his-regime.json` through `cadence.mjs`;
+  the CONTROL triple moved to man 13.5/117.5/477.5, woman
+  15.0/181.0/569.5. I2: the gender-read skip re-priced at K=2 costs
+  woman +4.0s exposure / +34s false cover, so **`GENDER_REFRESH_MS`
+  SHIPS 0 (inert), OTA [0,4000]** -- his call. I10: a held "nobody"
+  MoveNet answer could outlive its shot -- see next bullet. I11: the
+  position floor no longer reads a frozen `lastPassMs`.
+- **I10's FIX COST 25-40% OF THE CADENCE, MEASURED TWICE BEFORE IT WAS
+  BELIEVED.** `resetPersonSkip()` on every cut, on footage that cuts
+  every ~5s, ran MoveNet 3x as often (B2/B3 above); even ONE forced look
+  per cut (B4) paid it on 36 of 86 passes, and **every look admitted
+  nobody** (slots n:0). Shipped as **`CUT_PERSON_LOOK`, OTA [0,1],
+  DEFAULT 0**; the exposure it guards (a MoveNet-only subject entering
+  with a cut while backed off) is his trade to make. Ledger I10 carries
+  the numbers.
+- **WHY 1092's GAP IS 2000 AND NOT STAGE A's 1201:** verdict cost 705
+  -> 922 = the delay clone (+~90, measured pre-phase-I) plus every
+  track's gender read every pass (`GENDER_REFRESH_MS` 0). Both are on
+  the OTA channel: `GENDER_REFRESH_MS: 2000` restores stage A's read
+  skip at the exposure price in I2.
+- **INSTRUMENT, OPEN:** `delayVerdictLate` read 208 and 339 in B2/B4
+  and **0 in B3/B5** with the presenter attached and the gap (2.0s)
+  longer than the delay (1.0s), where `boxesAt` must return null. A
+  diagnostic counter, not user-visible; unexplained, do not quote its
+  fraction until it is.
+- **PROBE FIX:** `exitHangFrames` charged every later overlapping frame
+  to a death (p50 822 on the first run); it is the CONSECUTIVE run now.
+- gaze **659/659**, cargo **60/60**, critic-gate **95/95**.
+- **NEXT, YouTube only:** (1) fullscreen + miniplayer probe with the
+  presenter attached; (2) the `delayVerdictLate` 0 anomaly; (3) his
+  three OTA rulings below; (4) the coast dial (unchanged, unruled).
+- **THREE OTA DIALS ARE HIS, none needs an install:**
+  `GENDER_REFRESH_MS` 0 -> 2000 (faster verdicts, +4.0s woman exposure);
+  `CUT_PERSON_LOOK` 0 -> 1 (covers a backside entrant on a cut, -25%
+  cadence on his footage); `PTRACK_MIN_COAST_PASSES` 2 -> 1.33 (-26%
+  phantom, +5.0s man exposure; the critic notes 1.33 coasts 2114ms,
+  under the gap p95 -- re-price before asking).
+
 **Last updated:** 2026-09-02 10:20 (**1091 IS STILL THE RELEASE, sha
 3fef6384, and nothing user-visible changed.** HEAD 4c63d59, pushed,
 tree clean. No constant moved: this round is instruments, checks and
