@@ -1,0 +1,26 @@
+THE COAST DIAL RE-READ UNDER THE OPTIMAL ASSIGNMENT (1091)
+his regime, told 2000ms. The shipped row must reproduce assign-ab's optimal row.
+
+### man
+gender=man  18 windows  k=3 (1.5s/verdict)
+shipped PTRACK_MIN_COAST_PASSES 2   PTRACK_MAX_COAST_MS 2000
+cadence TOLD to the tracker 2000ms (his effZoom; override with TOLD=)
+
+passes   coast   EXPOSURE  FALSECOVER   PHANTOM  births
+1       2000ms      39.5s      127.0s    352.0s    187
+1.33    2660ms      27.5s      126.0s    406.5s    152
+1.5     3000ms      26.5s      130.0s    463.0s    152
+2       4000ms      22.5s      136.5s    547.5s    141   <- SHIPPED
+3       5000ms      21.5s      145.0s    595.0s    141
+
+### woman
+gender=woman  18 windows  k=3 (1.5s/verdict)
+shipped PTRACK_MIN_COAST_PASSES 2   PTRACK_MAX_COAST_MS 2000
+cadence TOLD to the tracker 2000ms (his effZoom; override with TOLD=)
+
+passes   coast   EXPOSURE  FALSECOVER   PHANTOM  births
+1       2000ms      36.5s      189.0s    398.5s    185
+1.33    2660ms      29.5s      193.5s    471.5s    150
+1.5     3000ms      29.0s      195.5s    537.5s    150
+2       4000ms      25.5s      201.5s    628.0s    136   <- SHIPPED
+3       5000ms      25.5s      204.5s    679.0s    136
