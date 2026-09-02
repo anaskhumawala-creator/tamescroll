@@ -92,6 +92,12 @@ def main():
     pre = read(t)
     print("pre", json.dumps(pre))
     before = sample(t, SECS, "BEFORE (native carrying)")
+    # Read the counters IMMEDIATELY before the kill (phase-k K5): the last
+    # before-sample is up to 2s old, and at an 800ms gap that is two or
+    # three passes started native and unobserved -- the first run's "+1
+    # in-flight" reading was really "+1 to +5 unobserved". Against this
+    # read the after-window may exceed by AT MOST ONE (the pass in flight).
+    atKill = read(t)
     killed = t.eval("(function(){ try { var e = window.__TS_GAZE_ENGINES; var n = e && e.native && e.native(); if (!n) return 'no native client'; n.terminate(); return 'terminated'; } catch (x) { return 'ERR ' + x; } })()")
     print("kill:", killed)
     time.sleep(3)
@@ -102,14 +108,15 @@ def main():
     # claim is that nothing starts native after the kill: compare inside
     # the after-window, not across it.
     a0, a1 = after["rows"][0], after["rows"][-1]
+    k0 = atKill.get("nativePasses") or 0
     out = {
         "port": PORT, "video": VIDEO, "seek": SEEK, "secs": SECS, "pre": pre, "kill": killed,
-        "before": before, "after": after,
+        "before": before, "atKill": atKill, "after": after,
     }
     verdict = (
         "NO NATIVE TO KILL" if killed != "terminated" else
         "nativeDead did not go 0 -> 1 (%s -> %s)" % (before["rows"][-1].get("nativeDead"), a1.get("nativeDead")) if (a1.get("nativeDead") or 0) != 1 or (before["rows"][-1].get("nativeDead") or 0) != 0 else
-        "nativePasses kept rising after the kill (%s -> %s)" % (a0.get("nativePasses"), a1.get("nativePasses")) if (a1.get("nativePasses") or 0) != (a0.get("nativePasses") or 0) else
+        "nativePasses kept rising after the kill (at kill %s, after %s -> %s)" % (k0, a0.get("nativePasses"), a1.get("nativePasses")) if (a1.get("nativePasses") or 0) != (a0.get("nativePasses") or 0) or (a0.get("nativePasses") or 0) > k0 + 1 else
         "WORKER NOT CARRYING: backend %s dead %s" % (a1.get("workerBackend"), a1.get("workerDead")) if a1.get("workerBackend") != "webgl" or a1.get("workerDead") else
         "NO VERDICTS AFTER THE KILL" if after["passes"] == 0 else
         "NOTHING COVERED AFTER THE KILL (before %d/%d, after %d/%d)" % (before["samplesWithPatch"], before["samples"], after["samplesWithPatch"], after["samples"]) if after["samplesWithPatch"] == 0 and before["samplesWithPatch"] > 0 else

@@ -3786,27 +3786,36 @@ The measured body covers MORE, not less, and never leaves a face sharp.
 
 **Track snapshots, on device, both arms of the same build**
 (`probe_latency_ab.py` now banks the per-verdict snapshots -- the
-`snaps` field -- `latency-ab-native-fp16{,-off}.json`):
+`snaps` field -- `latency-ab-native-fp16{,-off}.json`). The per-verdict
+table first written here (native: no-blurred-track 0.363, 0.77 tracks
+per snapshot, area p50 0.328; worker: 0.421 / 0.72 / 0.282) is a
+SAMPLING ARTIFACT (phase-k K2): the two arms snapshot at gap p50 0.80s
+against 2.03s, so an unweighted count over-represents the arm that
+snapshots more. Weighted by the media time each snapshot stands for:
 
-  | arm | snapshots with NO blurred track | blurred tracks / snapshot | blurred box area p50 |
-  |---|---|---|---|
-  | native | **0.363** | **0.77** | **0.328** |
-  | worker (NATIVE_INFER 0) | 0.421 | 0.72 | 0.282 |
+  | arm | share of media time with a blurred track |
+  |---|---|
+  | native | **0.643** |
+  | worker (NATIVE_INFER 0) | 0.673 |
 
-At verdict time native covers more often, with more patches, each
-larger. So the frame-level drop lives BETWEEN verdicts, and the exit
-hang measurement says where: after a track dies, the worker arm's patch
-hangs **30-60 frames** (p50, 1092 and both kill-switch arms) where the
-native arm's hangs **0-3**. The worker arm is told a 2000ms cadence and
-coasts 4000; native is told ~860-1010 and coasts 2000. A patch that
-outlives its subject by two extra seconds, twenty-odd times in 150s, is
-0.05-0.06 of `coverage` -- the size of the drop. `coverage` counts
-phantom as cover; the drop is his "random blur marks" leaving.
+Native covers LESS, by 0.030 -- the same direction and about the same
+size as the frame-level `coverage` difference in the same two files
+(0.583 against 0.604). So the snapshot instrument does NOT show the drop
+living between verdicts; it shows the drop. What still separates
+"phantom leaving" from "people uncovered" is the geometry bench above
+(0 of 24 faces sharp, native area 1.098x) and the exit hang: after a
+track dies, the worker arm's patch hangs **30-60 frames** (p50, 1092 and
+both kill-switch arms) where the native arm's hangs **0-3**. The worker
+arm is told a 2000ms cadence and coasts 4000; native is told ~860-1010
+and coasts 2000. A patch that outlives its subject by two extra
+seconds, twenty-odd times in 150s, is 0.05-0.06 of `coverage` -- the
+size of the drop. That is ONE instrument's account, not two; `coverage`
+counts phantom as cover, and nothing measured so far shows a face
+uncovered on native that the worker covered.
 
 HONEST RESIDUAL: `toldMs` is a single end-of-run read (the 1093 kill-
 switch arm banked 793 with a 2000ms gap), so the coast attribution rests
-on the exit-hang p50s and the snapshot table, not on that field. And the
-snapshot table is one run per arm.
+on the exit-hang p50s, one run per arm.
 
 **And the verdict gap had a floor nobody had priced.** `VERDICT_DUTY`
 2 -> 1.5 moved the gap 1213 -> 1180 (3%) because a verdict could only
@@ -3815,7 +3824,13 @@ lastSample < effInterval` gate, so a due verdict waited for the next
 slot (~540ms apart, `lastPassMs * POSITION_DUTY`). Hoisted; a due
 verdict starts on the first 120ms sampler tick it is not busy. The
 first attempt (a position pass yielding when the verdict would fall due
-before it finished) did not move the gap (1189) -- the position pass
-finishes before the verdict is due; the slot was the loss, not the
-collision. Both gates ship; numbers in the plan log.
+before it finished) moved the gap 24ms (1213 -> 1189, 1.9%) and cost
+26-32% of the position passes (78 -> 53 / 58); it was REMOVED (phase-k
+K3/K8). The hoist alone is the fix. What the hoist does not buy: verdict
+COST fell 474 -> 355-381ms between the same arms, so ~190ms of the 413ms
+is `effZoom = cost * VERDICT_DUTY` shrinking on its own (K7) -- on the
+hoisted clock the duty dial is BINDING (slack above effZoom 40ms), and
+the share of verdicts dropped by a cut landing mid-pass doubled, 4.7% ->
+9.5-10.1% (K6), because a verdict may now start on any 120ms tick.
+Numbers in the plan log.
 

@@ -232,8 +232,8 @@ test('the back-off actually decays once reset', () => {
 // forced look buys coverage (re-priced on the Redmi: gap 1213 -> 1399ms,
 // coverage 0.55 -> 0.616, personPassSkipped 48 -> 23). It shipped OFF on
 // 1092 because every look admitted nobody (the WebGL runtime's
-// blindness). rules/tuning.json must agree (tuning-json.test.mjs pins
-// that), or the OTA would silently flip it back on every device.
+// blindness). rules/tuning.json must agree (tuning.test.mjs pins
+// that, by value), or the OTA would silently flip it back on every device.
 test('CUT_PERSON_LOOK ships ON (1093, native MoveNet); set to 0 a cut does not touch the back-off', () => {
   assert.equal(CUT_PERSON_LOOK, 1);
   resetPersonSkip();

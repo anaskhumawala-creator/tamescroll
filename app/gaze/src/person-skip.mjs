@@ -118,9 +118,11 @@ export function forcePersonLook() {
  * p50 705 -> 991ms, gap 1201 -> 1998ms, and every look admitted nobody
  * (all slots n:0 -- the WebGL runtime's blindness, engine-findings 25).
  * Re-priced on 1093 with the native fp32 MoveNet, same vlog (30 cuts /
- * 150s): verdict p50 474 -> 584ms, gap 1213 -> 1399ms (+15%),
- * personPassSkipped 48 -> 23, positions 78 -> 84, coverage 0.55 ->
- * 0.616, and the looks now ADMIT people. What the look guards is a
+ * 150s), on the OLD verdict clock: verdict p50 474 -> 584ms, gap 1213
+ * -> 1399ms (+15%), personPassSkipped 48 -> 23, positions 78 -> 84, and
+ * the looks now ADMIT people (coverage moved 0.55 -> 0.616, inside the
+ * run-to-run spread of ~0.06, so not a claim). The 1094 clock price is
+ * in the plan log (phase-k K4). What the look guards is a
  * person only MoveNet can see (backside, faceless) entering with a cut
  * while the model is backed off: up to PERSON_EMPTY_STREAK +
  * PERSON_SKIP_EVERY - 1 passes (~5s at his cadence) uncovered, longer

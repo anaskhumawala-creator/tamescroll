@@ -50,11 +50,14 @@ class NativeInfer(private val ctx: Context) {
     private val MODEL_REPORT_NAME = mapOf(1 to "blazeface", 2 to "faceres", 3 to "movenet")
     // Per-model delegate precision. fp16 is BLIND to MoveNet on Adreno 610
     // (engine-findings 25: maxKp 0.03-0.19, admits nobody -- the same
-    // defect the WebGL runtime has), so MoveNet computes in fp32. BlazeFace
-    // and faceres keep their reads at fp16 (parity: face IoU / gender raw /
-    // descriptor cosine against the fp32 arm in the plan log) and run
-    // 20-25% cheaper there.
-    private val MODEL_FP16 = setOf(1, 2)
+    // defect the WebGL runtime has), so MoveNet computes in fp32. faceres
+    // runs at fp16: gender raw |diff| p50 0.0025 max 0.018, descriptor
+    // cosine p50 0.9990 min 0.995 against fp32, 220 -> 182ms per read.
+    // BlazeFace does NOT (phase-k K1): on the one parity frame where
+    // MoveNet admits nobody and a face exists (t=90, conf 0.455), fp16
+    // found NO face -- a close-up with no patch. The detector that
+    // decides whether anyone is there stays fp32; it is the cheap model.
+    private val MODEL_FP16 = setOf(2)
   }
 
   private class LoadedModel(
