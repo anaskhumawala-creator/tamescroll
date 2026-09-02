@@ -19,6 +19,7 @@ import * as personTrack from '../src/person-track.mjs';
 import * as delayCore from '../src/delay-core.mjs';
 import * as nativeClient from '../src/native-client.mjs';
 import * as perf from '../src/perf.mjs';
+import * as glPresenter from '../src/gl-presenter.mjs';
 
 // Every test restores the shipped values, because these modules hold
 // module-global state and a leaked dial would silently rebase every
@@ -51,6 +52,7 @@ const SHIPPED = {
   INFER_PRIO: perf.INFER_PRIO,
   PLAYBACK_SLOW: perf.PLAYBACK_SLOW,
   BLUR_IN_FRAME: 0,
+  PRESENTER_GL: glPresenter.PRESENTER_GL,
 };
 const restore = () => applyTuning(SHIPPED);
 

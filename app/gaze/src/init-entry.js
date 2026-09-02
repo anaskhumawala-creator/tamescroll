@@ -114,6 +114,7 @@ import { makeVerdictCache, verdictKey } from './verdict-cache.mjs';
 import { applyTuningFromWindow, TUNED, TUNE_REFUSED, TUNE_CLAMPED } from './tuning.mjs';
 import * as delayCore from './delay-core.mjs';
 import { attachDelay } from './delay-presenter.mjs';
+import { attachDelayGl, PRESENTER_GL } from './gl-presenter.mjs';
 import * as perf from './perf.mjs';
 import * as codecProbe from './codec-probe.mjs';
 import { makeTimeline, resetTimeline, pushSnapshot, pushCut, boxesAt, latestSnapshot } from './track-timeline.mjs';
@@ -1875,6 +1876,9 @@ if (
     // two doors.
     var presenter = null;
     var slowDetach = null;
+    // PRESENTER_GL: once the GL presenter refuses or loses its context on
+    // this video, the 2D presenter owns it for good (no retry loop).
+    var glRefused = false;
     var timeline = makeTimeline(0);
     // Media time of the frame the pass in flight was judged on
     // (verdictBusy serialises passes, so one slot is enough).
@@ -1920,7 +1924,28 @@ if (
       if (presenter || !delayWanted()) return;
       var host = video.closest ? video.closest('#movie_player') : null;
       if (!host) return;
-      var p = attachDelay(video, host, { delayMs: delayCore.DELAY_MS, onFrame: null });
+      var p = null;
+      if (PRESENTER_GL === 1 && !glRefused) {
+        p = attachDelayGl(video, host, {
+          delayMs: delayCore.DELAY_MS,
+          onLost: function (why) {
+            // Called AFTER the GL presenter detached itself. Hand the
+            // video to the 2D presenter: same cover-first refill, so the
+            // swap can only cover, never expose.
+            glRefused = true;
+            bumpLife('presenterGlLost');
+            if (presenter === p) {
+              delayDetach();
+              delayAttach();
+            }
+          },
+        });
+        if (!p) {
+          glRefused = true;
+          bumpLife('presenterGlRefused');
+        }
+      }
+      if (!p) p = attachDelay(video, host, { delayMs: delayCore.DELAY_MS, onFrame: null });
       if (!p) return;
       presenter = p;
       // Blur-in-frame (idea #5): the presenter paints the renderer's

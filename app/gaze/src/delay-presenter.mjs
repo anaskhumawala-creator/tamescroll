@@ -29,12 +29,58 @@
 import { ringBudget, pickPresent, presentTarget, refillStep, DELAY_MS } from './delay-core.mjs';
 import { GATE_SIZE, CUT_DELTA, lumaGrid, meanAbsDelta } from './scene-gate.mjs';
 
-var CANVAS_CLASS = 'ts-gaze-delay';
-var Z_INDEX = 15;
+// Shared with gl-presenter.mjs so both presenters look identical to the
+// page (and to every probe that selects `.ts-gaze-delay`).
+export var CANVAS_CLASS = 'ts-gaze-delay';
+export var Z_INDEX = 15;
 // Same fallback string dom.js uses for PENDING_CLASS/FLAGGED_CLASS, so the
 // launcher's blur-strength preset (--ts-blur-strong, set on <html>) reaches
 // the refill cover too instead of a second, disagreeing constant.
-var COVER_FILTER = 'blur(var(--ts-blur-strong, 24px))';
+export var COVER_FILTER = 'blur(var(--ts-blur-strong, 24px))';
+
+// WebAudio: one AudioContext + createMediaElementSource per element,
+// forever — the source node cannot be reattached elsewhere and a second
+// one on the same element throws. The graph rides the element
+// (`video.__tsDelayGraph`) so BOTH presenters and every re-attach share
+// it, and its pause/play listeners are never torn down. Returns the
+// graph (with delayTime set to delayMs) or null when WebAudio is absent.
+export function setupDelayAudio(video, delayMs, noteError) {
+  try {
+    var AC =
+      (typeof AudioContext !== 'undefined' && AudioContext) ||
+      (typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext));
+    if (!AC) return null;
+    var graph = video.__tsDelayGraph;
+    if (!graph) {
+      var ctx2 = new AC();
+      var src = ctx2.createMediaElementSource(video);
+      var delayNode = ctx2.createDelay(5.0);
+      src.connect(delayNode);
+      delayNode.connect(ctx2.destination);
+      graph = { ctx: ctx2, src: src, delay: delayNode };
+      video.__tsDelayGraph = graph;
+      video.addEventListener('pause', function () {
+        try {
+          graph.ctx.suspend();
+        } catch (e) {
+          noteError('audio-suspend', e);
+        }
+      });
+      video.addEventListener('play', function () {
+        try {
+          graph.ctx.resume();
+        } catch (e) {
+          noteError('audio-resume', e);
+        }
+      });
+    }
+    graph.delay.delayTime.value = delayMs / 1000;
+    return graph;
+  } catch (e) {
+    noteError('audio', e);
+    return null;
+  }
+}
 // HTMLVideoElement exposes no synchronous fps. His phone decodes 640x360
 // at 30fps (findings loop 38); that is the FALLBACK this ring is sized
 // for until enough real samples exist to measure it (I9). A hard-coded
@@ -398,59 +444,7 @@ export function attachDelay(video, host, opts) {
     });
   }
 
-  // WebAudio: one AudioContext + createMediaElementSource per element,
-  // forever — the source node cannot be reattached elsewhere and a
-  // second one on the same element throws. The pause/play listeners that
-  // keep it in step with playback are NOT torn down on detach; the graph
-  // outlives the visual presenter so a later re-attach does not have to
-  // recreate it and does not risk a second createMediaElementSource call.
-  function setupAudio() {
-    try {
-      var AC =
-        (typeof AudioContext !== 'undefined' && AudioContext) ||
-        (typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext));
-      if (!AC) return;
-      var graph = video.__tsDelayGraph;
-      if (!graph) {
-        var ctx2 = new AC();
-        var src = ctx2.createMediaElementSource(video);
-        var delayNode = ctx2.createDelay(5.0);
-        src.connect(delayNode);
-        delayNode.connect(ctx2.destination);
-        graph = { ctx: ctx2, src: src, delay: delayNode };
-        video.__tsDelayGraph = graph;
-        addListener(
-          video,
-          'pause',
-          function () {
-            try {
-              graph.ctx.suspend();
-            } catch (e) {
-              noteError('audio-suspend', e);
-            }
-          },
-          false
-        );
-        addListener(
-          video,
-          'play',
-          function () {
-            try {
-              graph.ctx.resume();
-            } catch (e) {
-              noteError('audio-resume', e);
-            }
-          },
-          false
-        );
-      }
-      graph.delay.delayTime.value = delayMs / 1000;
-      audioGraph = graph;
-    } catch (e) {
-      noteError('audio', e);
-    }
-  }
-  setupAudio();
+  audioGraph = setupDelayAudio(video, delayMs, noteError);
 
   try {
     video.requestVideoFrameCallback(onVideoFrame);

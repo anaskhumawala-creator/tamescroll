@@ -33,6 +33,7 @@ import * as delayCore from './delay-core.mjs';
 import * as nativeClient from './native-client.mjs';
 import * as videoRegion from './video-region.mjs';
 import * as perf from './perf.mjs';
+import * as glPresenter from './gl-presenter.mjs';
 
 export var TUNED = null;      // what actually took effect, for the report
 export var TUNE_REFUSED = 0;  // keys refused outright
@@ -340,6 +341,11 @@ var SPEC = {
   // Same solid rectangles, same radius, same corners; no backdrop
   // snapshot, no per-frame transform writes. 0 = overlays as 1097.
   BLUR_IN_FRAME: [0, 1, function (v) { videoRegion.setBlurInFrame(v); }],
+  // 1 = the NEXT watch player attaches the WebGL presenter (gl-presenter
+  // .mjs: texture ring, GPU blur into the frame) instead of the 2D one;
+  // a device that cannot, or loses the context, falls back to the 2D
+  // presenter for that video. 0 = the 2D presenter as 1097.
+  PRESENTER_GL: [0, 1, function (v) { glPresenter.setPresenterGl(v); }],
 };
 
 export function tunableNames() { return Object.keys(SPEC); }

@@ -26,5 +26,6 @@
   "PERF_HINT": 0,
   "INFER_PRIO": 0,
   "PLAYBACK_SLOW": 0,
-  "BLUR_IN_FRAME": 0
+  "BLUR_IN_FRAME": 0,
+  "PRESENTER_GL": 0
 }
