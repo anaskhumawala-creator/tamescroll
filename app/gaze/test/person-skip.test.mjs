@@ -228,14 +228,22 @@ test('the back-off actually decays once reset', () => {
 
 // A cut gets ONE forced look and keeps the back-off (stageB2 on the
 // Redmi measured what a full reset costs on footage that cuts every 5s).
-test('CUT_PERSON_LOOK ships OFF: a cut does not touch the back-off (stageB4 on the Redmi, +25% verdict gap for looks that admit nobody)', () => {
-  assert.equal(CUT_PERSON_LOOK, 0);
+// SHIPS ON since 1093: the native fp32 MoveNet admits people, so the
+// forced look buys coverage (re-priced on the Redmi: gap 1213 -> 1399ms,
+// coverage 0.55 -> 0.616, personPassSkipped 48 -> 23). It shipped OFF on
+// 1092 because every look admitted nobody (the WebGL runtime's
+// blindness). rules/tuning.json must agree (tuning-json.test.mjs pins
+// that), or the OTA would silently flip it back on every device.
+test('CUT_PERSON_LOOK ships ON (1093, native MoveNet); set to 0 a cut does not touch the back-off', () => {
+  assert.equal(CUT_PERSON_LOOK, 1);
   resetPersonSkip();
   setPersonSkipEvery(4);
+  setCutPersonLook(0);
   for (let i = 0; i < PERSON_EMPTY_STREAK; i++) notePersons([], false);
   assert.equal(wantPersons(), false);
   forcePersonLook();
   assert.equal(wantPersons(), false, 'off = inert');
+  setCutPersonLook(CUT_PERSON_LOOK);
 });
 
 test('forcePersonLook (ON) asks MoveNet on the next pass only, and a nobody answer resumes the back-off', () => {

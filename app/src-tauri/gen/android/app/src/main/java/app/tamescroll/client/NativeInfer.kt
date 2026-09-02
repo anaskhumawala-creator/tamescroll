@@ -48,6 +48,13 @@ class NativeInfer(private val ctx: Context) {
     private const val MAX_CONSECUTIVE_ERRORS = 3
     private val MODEL_ASSET = mapOf(1 to "blazeface", 2 to "faceres", 3 to "movenet-multipose")
     private val MODEL_REPORT_NAME = mapOf(1 to "blazeface", 2 to "faceres", 3 to "movenet")
+    // Per-model delegate precision. fp16 is BLIND to MoveNet on Adreno 610
+    // (engine-findings 25: maxKp 0.03-0.19, admits nobody -- the same
+    // defect the WebGL runtime has), so MoveNet computes in fp32. BlazeFace
+    // and faceres keep their reads at fp16 (parity: face IoU / gender raw /
+    // descriptor cosine against the fp32 arm in the plan log) and run
+    // 20-25% cheaper there.
+    private val MODEL_FP16 = setOf(1, 2)
   }
 
   private class LoadedModel(
@@ -141,10 +148,9 @@ class NativeInfer(private val ctx: Context) {
     if (cl.isDelegateSupportedOnThisDevice) {
       try {
         val dopts = cl.bestOptionsForThisDevice
-        // The Adreno 610 computes in f16 with this on and f32 parity is
-        // 1.000000 either way (GPU-REPORT); without it the delegate
-        // refuses some graphs outright.
-        dopts.setPrecisionLossAllowed(false)
+        // Allowing precision loss computes in f16 on the Adreno 610.
+        // MoveNet cannot (see MODEL_FP16); the face models can.
+        dopts.setPrecisionLossAllowed(id in MODEL_FP16)
         delegate = GpuDelegate(dopts)
         interp = Interpreter(bytes, Interpreter.Options().addDelegate(delegate))
         gpu = true

@@ -3759,3 +3759,63 @@ What this re-opens, without re-pricing any of it here:
 The cost of fp32 on the delegate: MoveNet+BlazeFace frame 288 -> 350ms
 p50, gender per face 176 -> 226ms (parity files above), against the
 worker's 743 / 501 on the same frames. Still 2.1x faster, and correct.
+
+## 26 -- THE NATIVE COVERAGE DROP IS PHANTOM LEAVING, NOT PEOPLE UNCOVERED
+
+`probe_latency_ab.py` reads `coverage` as the fraction of rAF frames on
+which ANY video patch is visible. On the Redmi the native engine read
+0.55-0.58 where the WebGL worker read 0.60-0.64 (1092, and the kill-
+switch arm of 1093), in the exposure direction, and the plan log carried
+it as a hypothesis: MoveNet's measured body is tighter than the face-
+derived synthetic one. Two instruments now answer it, and the hypothesis
+is REFUTED while the drop is EXPLAINED.
+
+**Geometry, offline, same frames through both engines**
+(`bench/native-body-vs-synth.mjs` over `native-parity-1788347487.json`,
+shipped `personFromFace` / `synthFaceIndices` out of the emitted
+bundle): worker set = synthetic bodies over every face; native set =
+MoveNet boxes plus synthetic bodies over the faces `synthFaceIndices`
+leaves unclaimed. 16 frames, 24 faces, MoveNet admits on 12:
+
+  mean covered area   worker 0.569   native 0.624   (native/worker 1.098)
+  worker set NOT covered by native   0.038 of frame, of which inside a
+                                     face box 0.0000
+  faces with any sharp pixel on native   0 of 24
+
+The measured body covers MORE, not less, and never leaves a face sharp.
+
+**Track snapshots, on device, both arms of the same build**
+(`probe_latency_ab.py` now banks the per-verdict snapshots -- the
+`snaps` field -- `latency-ab-native-fp16{,-off}.json`):
+
+  | arm | snapshots with NO blurred track | blurred tracks / snapshot | blurred box area p50 |
+  |---|---|---|---|
+  | native | **0.363** | **0.77** | **0.328** |
+  | worker (NATIVE_INFER 0) | 0.421 | 0.72 | 0.282 |
+
+At verdict time native covers more often, with more patches, each
+larger. So the frame-level drop lives BETWEEN verdicts, and the exit
+hang measurement says where: after a track dies, the worker arm's patch
+hangs **30-60 frames** (p50, 1092 and both kill-switch arms) where the
+native arm's hangs **0-3**. The worker arm is told a 2000ms cadence and
+coasts 4000; native is told ~860-1010 and coasts 2000. A patch that
+outlives its subject by two extra seconds, twenty-odd times in 150s, is
+0.05-0.06 of `coverage` -- the size of the drop. `coverage` counts
+phantom as cover; the drop is his "random blur marks" leaving.
+
+HONEST RESIDUAL: `toldMs` is a single end-of-run read (the 1093 kill-
+switch arm banked 793 with a 2000ms gap), so the coast attribution rests
+on the exit-hang p50s and the snapshot table, not on that field. And the
+snapshot table is one run per arm.
+
+**And the verdict gap had a floor nobody had priced.** `VERDICT_DUTY`
+2 -> 1.5 moved the gap 1213 -> 1180 (3%) because a verdict could only
+START at a position-pass slot: `effZoom` was computed BELOW the `now -
+lastSample < effInterval` gate, so a due verdict waited for the next
+slot (~540ms apart, `lastPassMs * POSITION_DUTY`). Hoisted; a due
+verdict starts on the first 120ms sampler tick it is not busy. The
+first attempt (a position pass yielding when the verdict would fall due
+before it finished) did not move the gap (1189) -- the position pass
+finishes before the verdict is due; the slot was the loss, not the
+collision. Both gates ship; numbers in the plan log.
+

@@ -3629,7 +3629,24 @@ if (
       // which is the safe direction, and it costs nothing visible
       // because the patches keep tracking throughout.
       if (isPlayer && scrolling(now)) effInterval = Math.max(effInterval, SCROLL_INTERVAL_MS);
-      if (now - lastSample < effInterval) return;
+      // THE VERDICT CLOCK (hoisted above the position gate, 2026-09-02).
+      // effZoom is the interval the verdict pass runs on:
+      // min(VERDICT_MAX_INTERVAL_MS, max(ZOOM_INTERVAL_MS, lastVerdictMs *
+      // VERDICT_DUTY)). It used to be computed BELOW `now - lastSample <
+      // effInterval`, so a verdict could only START at a position slot
+      // -- every effInterval (lastPassMs * POSITION_DUTY, ~540ms on the
+      // Redmi with the native engine) from the last pass. Measured, 1093:
+      // verdict cost p50 431-474ms asks for effZoom 862-948 and the gap
+      // read 1189-1213; VERDICT_DUTY 1.5 (effZoom 711) read 1180 -- the
+      // duty dial moved the gap 3% because the verdict waited for the
+      // slot after the one it missed. A DUE verdict now starts on the
+      // first sampler tick (120ms) it is not busy, regardless of the
+      // position interval; position passes keep their own interval.
+      var effZoom = Math.min(cadence.VERDICT_MAX_INTERVAL_MS,
+        Math.max(ZOOM_INTERVAL_MS, lastVerdictMs * cadence.VERDICT_DUTY));
+      if (isPlayer && scrolling(now)) effZoom = Math.max(effZoom, cadence.VERDICT_MAX_INTERVAL_MS);
+      var verdictDue = isPlayer && !verdictBusy && now - lastZoomAt >= effZoom;
+      if (now - lastSample < effInterval && !verdictDue) return;
       if (sampling) return;
       // The rolling main-thread budget (see SPEND_BUDGET_FRAC). Checked
       // AFTER the interval so a cheap device never pays for the lookup.
@@ -3688,13 +3705,10 @@ if (
         // parks this at the floor); a Helio G88 at 3-4x that cost is one
         // hiccup away from the runaway. verdictBusy already forbids
         // overlapping passes, so a cap cannot build a backlog.
-        var effZoom = Math.min(cadence.VERDICT_MAX_INTERVAL_MS,
-          Math.max(ZOOM_INTERVAL_MS, lastVerdictMs * cadence.VERDICT_DUTY));
-        // See the scroll gate above: while the page is moving, positions
-        // keep updating and verdicts wait.
-        if (scrolling(now)) effZoom = Math.max(effZoom, cadence.VERDICT_MAX_INTERVAL_MS);
-        // Never a second verdict pass while one is still running: one
-        // GPU queue, and a backlog is indistinguishable from a hang.
+        // effZoom is computed above the position gate now (a due verdict
+        // starts on any tick); the scroll clamp rides with it. Never a
+        // second verdict pass while one is still running: one GPU queue,
+        // and a backlog is indistinguishable from a hang.
         var wasVerdict = !verdictBusy && now - lastZoomAt >= effZoom;
         // A POSITION PASS WHERE MoveNet IS NOT LIVE IS 511ms OF NOTHING.
         // Measured on the arm64 Redmi 2026-09-02: 31 of 66 passes were
@@ -3707,6 +3721,29 @@ if (
           bumpLife('positionPassSkipped');
           sampling = false;
           return;
+        }
+        // A POSITION PASS YIELDS TO AN IMMINENT VERDICT. Passes are
+        // quantized to the position cadence (this function only reaches
+        // here every effInterval), and a verdict only STARTS at one of
+        // those slots. Measured on the Redmi with the native engine
+        // (2026-09-02, 1093): verdict cost p50 474ms asks for effZoom
+        // 948, and the gap read 1213; at VERDICT_DUTY 1.5 (effZoom 711)
+        // it read 1180 -- the duty dial moved the gap by 3%, because a
+        // ~264ms position pass launched just before the verdict fell
+        // due held the GPU queue and the verdict took the NEXT slot.
+        // So: if the verdict is due before this position pass would
+        // finish, do not launch it; rewind the sample clock so the next
+        // slot lands exactly when the verdict is due. One position pass
+        // of tracking traded for ~250ms off every verdict gap, and the
+        // verdict re-positions every track anyway.
+        if (isPlayer && !wasVerdict && !verdictBusy && lastPassMs > 0) {
+          var verdictDueIn = lastZoomAt + effZoom - now;
+          if (verdictDueIn > 0 && verdictDueIn < lastPassMs) {
+            bumpLife('positionYieldVerdict');
+            lastSample = now + verdictDueIn - effInterval;
+            sampling = false;
+            return;
+          }
         }
         if (wasVerdict) {
           verdictBusy = true;

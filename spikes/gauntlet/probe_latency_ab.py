@@ -231,6 +231,12 @@ def build_delay_arm(snaps, frames, stats_start, stats_end, life_delta):
         "patchesOutsidePlayer": outside,
         "patchSamples": len(frames),
         "snapshotSamples": len(snaps),
+        # The per-verdict track snapshots themselves (id, box, state), so a
+        # coverage question can be decomposed OFFLINE into "fewer blurred
+        # tracks" against "smaller blurred boxes" -- the 2026-09-02 native
+        # coverage drop had to wait for a rerun because only the count was
+        # banked. Capped so the file stays readable.
+        "snaps": snaps[:2500],
     }
 
 
@@ -461,7 +467,7 @@ def main():
     life0 = st.get("life0", {})
     life = st.get("life", {})
     dl = {k: life.get(k, 0) - life0.get(k, 0) for k in
-          ("positionPassSkipped", "genderReadSkipped", "personPassSkipped", "coastExpired", "cutCoastExpired",
+          ("positionPassSkipped", "positionYieldVerdict", "genderReadSkipped", "personPassSkipped", "coastExpired", "cutCoastExpired",
            "birthFresh", "birthBlurred", "delayVerdictLate", "faceNoShape", "passDropped", "wipeErasedBlurred", "cutDetected",
            "nativePasses", "nativeReplies", "nativeErrors", "nativeDead", "nativeFailed", "nativeReady")}
     out = {
