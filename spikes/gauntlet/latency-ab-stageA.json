@@ -1,0 +1,60 @@
+{
+ "label": "stageA",
+ "video": "NWoT1ZVd1Lo",
+ "seek": 55.0,
+ "secs": 150.1,
+ "bundle": "514e09a",
+ "verdicts": 117,
+ "positions": 0,
+ "verdictMsP50": 705,
+ "verdictMsP95": 1427,
+ "positionMsP50": null,
+ "verdictGapP50": 1201,
+ "verdictGapP95": 2315,
+ "secsPerVerdict": 1.28,
+ "rafHz": 35.8,
+ "coverage": 0.665,
+ "lifeDelta": {
+  "positionPassSkipped": 414,
+  "genderReadSkipped": 18,
+  "personPassSkipped": 89,
+  "coastExpired": 21,
+  "cutCoastExpired": 16,
+  "birthFresh": 21,
+  "birthBlurred": 16,
+  "delayVerdictLate": 0,
+  "faceNoShape": 25,
+  "passDropped": 19,
+  "wipeErasedBlurred": 5,
+  "cutDetected": 34
+ },
+ "tuning": {
+  "CUT_DELTA": 60,
+  "GENDER_CLEAR_SCORE": 0.45,
+  "GENDER_CLEAR_SCORE_FEMALE": 0.35,
+  "NULL_MINT_NM_FLOOR": 5,
+  "MEM_TRUST_MAN": 2,
+  "MEM_TRUST_WOMAN": 1,
+  "MEM_SIM": 0.6,
+  "PERSON_SKIP_EVERY": 4,
+  "VERDICT_MAX_INTERVAL_MS": 2000,
+  "VERDICT_DUTY": 2,
+  "PTRACK_MIN_COAST_PASSES": 2,
+  "PTRACK_IOU_MIN": 0.15,
+  "GENDER_REFRESH_MS": 2000
+ },
+ "coastMs": 3179,
+ "toldMs": 1589.4000000953674,
+ "slotsN": [
+  0,
+  0,
+  0
+ ],
+ "delay": null,
+ "video_state": {
+  "paused": false,
+  "t": 216.009596,
+  "w": 1280,
+  "h": 720
+ }
+}
