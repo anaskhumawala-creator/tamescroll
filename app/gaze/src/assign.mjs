@@ -2,7 +2,8 @@
 //
 // E5, re-derived in his regime (spikes/gauntlet/births-hisregime.txt),
 // says `birthContended` is the LARGEST class of birth in both gender
-// arms -- 65 of 147 (man), 75 of 147 (woman) -- where the published
+// arms -- 65 of 147 (man), 75 of 147 (woman) on the GREEDY arm this
+// file replaced; 60 of 141 and 62 of 136 once it shipped -- where the published
 // number was 32 of 310 and the published conclusion was that geometry
 // dominated. A contended birth is an observation that overlapped a live
 // track well enough to match and LOST that track to another observation,
@@ -79,10 +80,27 @@ var FORBIDDEN = 1e9;
 // stall.
 var OPTIMAL_MAX_SIDE = 32;
 
+// THE FALLBACK IS COUNTED, because it was silent and the same session
+// that shipped it added three counters citing "a counter that does not
+// exist reads exactly like a counter at zero" (phase-f F6). Above the
+// ceiling every number this repo has measured on the optimal arm is
+// describing the greedy one, and from outside the two are
+// indistinguishable. Same guarded increment as person-track's `bump`,
+// duplicated rather than imported: person-track imports THIS file, so
+// taking `bumpLife` back the other way is a cycle.
+function bumpAssign(key) {
+  var g = typeof globalThis !== 'undefined' ? globalThis.__TS_GAZE_IDS : null;
+  if (!g) return;
+  if (!g.life) g.life = {};
+  g.life[key] = (g.life[key] || 0) + 1;
+}
+
 export function optimalAssign(pairs, nTracks, nObs) {
   if (!pairs.length) return [];
-  if (nTracks > OPTIMAL_MAX_SIDE || nObs > OPTIMAL_MAX_SIDE)
+  if (nTracks > OPTIMAL_MAX_SIDE || nObs > OPTIMAL_MAX_SIDE) {
+    bumpAssign('assignFellBackGreedy');
     return greedyAssign(pairs, nTracks, nObs);
+  }
   // Cost, because the classical formulation minimises. A better pair is
   // a lower cost, and an eligible pair always beats a forbidden one.
   var n = nTracks, m = nObs;

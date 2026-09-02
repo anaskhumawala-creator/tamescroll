@@ -29,6 +29,14 @@
 // how differently the two reads score. The votes are NOT independent, so
 // no standard-error argument applies to the pool.
 import fs from 'fs';
+// THE SUITE RUNS SERIALLY (`--test-concurrency=1` in package.json) FOR
+// THIS FILE'S SAKE. Three test files import `.cache/shipped.mjs`, and
+// when a source constant moves they all race to rebuild it -- one
+// writer truncating the file another is importing. Measured: the three
+// fail together under the default concurrency and every one of them
+// passes alone. A suite that fails on a correct change teaches people to
+// re-run it until it goes green, which is worse than a slow suite.
+//
 // FIRST, and the order is load-bearing: this rebuilds .cache/shipped.mjs
 // and must be evaluated before anything imports it. See _build.mjs.
 import './_build.mjs';

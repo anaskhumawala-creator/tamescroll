@@ -32,8 +32,10 @@
 // is the one that bit: **a large effect at a small N is a claim about
 // the sample.** What survives is 8 frames where only the letterbox
 // admits ANYBODY against 1 (p = 0.039), and the inverse map itself:
-// 315 matched people, median edge deltas exactly 0.000, 0 boxes out of
-// range.
+// 315 matched people, median edge deltas exactly 0.000, and the map's
+// worst UNCLAMPED overshoot 0.024 against a 0.05 tolerance -- see the
+// note beside the sanity loop for why that reads as a magnitude and not
+// a count, and why the first version of it could not fail at all.
 //
 // STILL UNMEASURED, and it is the one thing that could revive this: both
 // arms run with `held: null`, so admission HYSTERESIS is off on both
@@ -58,7 +60,7 @@ import * as tf from '@tensorflow/tfjs-core';
 import '@tensorflow/tfjs-backend-cpu';
 import * as tfconv from '@tensorflow/tfjs-converter';
 import { fsHandler, grabRaw, W, H, ROOT } from './corpus-lib.mjs';
-import { parsePersons, unpadPersons } from '../src/person-gate.mjs';
+import { parsePersons, unpadPersons, PERSON_MIN_SCORE } from '../src/person-gate.mjs';
 import { fitBox } from '../src/crop-geometry.mjs';
 
 const N = Number(process.env.N || 120);
@@ -110,10 +112,36 @@ function run(b, arm) {
   let data = out.dataSync();
   tf.dispose(out);
   tf.dispose(input);
-  if (arm === 'letterbox') data = unpadPersons(data, FIT, S);
+  // THE SANITY CHECK HAS TO READ THE MAP, NOT ITS OUTPUT.
+  // The first version asked whether the boxes `parsePersons` EMITS sit
+  // inside 0..1 -- and `parsePersons` clamps every box it emits, and so
+  // does `unpadPersons`, so a map off by a factor of three would have
+  // read zero out-of-range and printed "the inverse map holds"
+  // (phase-f F4). A check that cannot fail is not a check. So the
+  // unclamped inverse is computed here, from the raw model floats,
+  // exactly as `unpadPersons` computes it minus the clamp.
+  let raw = null;
+  if (arm === 'letterbox') {
+    raw = [];
+    const ox = FIT.dx / S, oy = FIT.dy / S, sx = FIT.dw / S, sy = FIT.dh / S;
+    for (let pi = 0; pi < 6; pi++) {
+      const o = pi * 56;
+      if (!(data[o + 55] > 0)) continue;
+      raw.push({
+        scored: data[o + 55] >= PERSON_MIN_SCORE,
+        y1: (data[o + 51] - oy) / sy,
+        x1: (data[o + 52] - ox) / sx,
+        y2: (data[o + 53] - oy) / sy,
+        x2: (data[o + 54] - ox) / sx,
+      });
+    }
+    data = unpadPersons(data, FIT, S);
+  }
   // `held` null: this is a per-frame comparison and hysteresis would
   // carry one arm's history into the other's frame.
-  return parsePersons(data, undefined, AR, null);
+  const out2 = parsePersons(data, undefined, AR, null);
+  if (raw) out2.rawBoxes = raw;
+  return out2;
 }
 
 function iou(a, b) {
@@ -126,7 +154,7 @@ function iou(a, b) {
 }
 
 const tot = { squash: 0, letterbox: 0 };
-let frames = 0, onlyLB = 0, onlySQ = 0, moreLB = 0, moreSQ = 0, outOfRange = 0;
+let frames = 0, onlyLB = 0, onlySQ = 0, moreLB = 0, moreSQ = 0, rawBoxes = 0, rawScored = 0, worstAll = 0, worstScored = 0;
 const pairIou = [], dTop = [], dBot = [], dH = [];
 
 console.log(`frames requested ${picks.length}   ${W}x${H}  ar ${AR.toFixed(3)}`);
@@ -153,9 +181,26 @@ for (const p of picks) {
   if (sq.length > lb.length) moreSQ++;
 
   // SANITY: a broken inverse map shows up here first, and it is the
-  // failure that is worse than the defect.
-  for (const q of lb) {
-    if (!(q.x1 >= -1e-6 && q.y1 >= -1e-6 && q.x2 <= 1 + 1e-6 && q.y2 <= 1 + 1e-6)) outOfRange++;
+  // failure that is worse than the defect. Read on the UNCLAMPED
+  // inverse -- see the note in run().
+  // A MAGNITUDE, NOT A COUNT, and the reason is measured. MoveNet's box
+  // regression overshoots its own content box by a couple of model
+  // pixels, and the inverse divides the padded axis by sy = 0.5625,
+  // which amplifies that to ~0.024 in frame units. Both examples found
+  // at N=10 are y-only, at the pad edge, on real people:
+  //   NWoT1ZVd1Lo t=2  raw y[0.2051, 0.7914] -> y[-0.024, 1.018]
+  //   z86LGEFyQpo t=2  raw y[0.4042, 0.7949] -> y[ 0.330, 1.024]
+  // (the pad's own bottom edge is (56+144)/256 = 0.78125, so the model
+  // is reaching ~3.5px into the black bar). x never overshoots because
+  // sx is 1.0 and there is nothing to amplify. So a hard 0.02 count
+  // cries wolf on a CORRECT map. The worst overshoot is the honest
+  // statistic: model noise is hundredths, a wrong map is tenths --
+  // deliberately breaking sx to sx/3 reads 0.699 here.
+  for (const q of (lb.rawBoxes || [])) {
+    const over = Math.max(-q.x1, -q.y1, q.x2 - 1, q.y2 - 1, 0);
+    rawBoxes++;
+    if (over > worstAll) worstAll = over;
+    if (q.scored) { rawScored++; if (over > worstScored) worstScored = over; }
   }
 
   // GEOMETRY, on people BOTH arms admit: greedy nearest by IoU.
@@ -198,5 +243,13 @@ if (pairIou.length) {
   console.log(`  height                            p50 ${sg(q(dH, 0.5))}`);
 }
 console.log(`\n-- SANITY --`);
-console.log(`  letterbox boxes outside 0..1: ${outOfRange}`
-  + (outOfRange ? '   *** THE INVERSE MAP IS WRONG ***' : '   (the inverse map holds)'));
+const MAP_TOL = 0.05;
+console.log(`  unclamped inverse boxes checked: ${rawBoxes}`
+  + `  (${rawScored} at or above PERSON_MIN_SCORE ${PERSON_MIN_SCORE})`);
+console.log(`  worst overshoot outside 0..1   all slots ${worstAll.toFixed(3)}`
+  + `   scored slots ${worstScored.toFixed(3)}   (tol ${MAP_TOL})`
+  + (worstScored > MAP_TOL ? '  *** THE INVERSE MAP IS WRONG ***' : '  (the inverse map holds)'));
+if (!rawScored) {
+  console.log('  *** ZERO SCORED BOXES CHECKED -- this row is VACUOUS, not clean ***');
+  process.exitCode = 2;
+}

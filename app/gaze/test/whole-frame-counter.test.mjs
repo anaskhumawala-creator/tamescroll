@@ -13,7 +13,7 @@
 // counter that does not exist reads exactly like a counter at zero.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { buildReport } from '../src/diag-report.mjs';
 
 const page = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
@@ -67,10 +67,38 @@ test('the name is new -- it does not rebase an existing counter', () => {
   // one number and silently rebases every reading any earlier round has
   // quoted. `clampFired` was already taken once (loop 39) and this is the
   // check that caught it.
+  //
+  // AND THAT COLLISION WAS BETWEEN TWO FILES -- region-blur's patch
+  // clamp against body-clamp's -- while the first version of this test
+  // grepped `init-entry.js` alone (phase-f F7). A check scoped to one
+  // file cannot see the defect it names. So the sweep is the whole
+  // module tree, and the assertion is that exactly ONE file owns each
+  // name.
+  const dir = new URL('../src/', import.meta.url);
+  const files = readdirSync(dir).filter((f) => /\.(mjs|js)$/.test(f));
+  assert.ok(files.length > 10, `precondition: the sweep found only ${files.length} modules`);
   for (const name of ['wholeFrameSamples', 'wholeFrameNoFaces', 'wholeFrameCleared']) {
+    const owners = files.filter((f) =>
+      readFileSync(new URL(f, dir), 'utf8').includes(name));
+    assert.deepEqual(owners, ['init-entry.js'],
+      `${name} is written by ${owners.join(', ') || 'nothing'} -- a counter `
+      + 'bumped from two modules merges two unrelated events into one number');
     const uses = (page.match(new RegExp(name, 'g')) || []).length;
     // Seed + bump sites only. If this rises sharply somebody has started
-    // bumping it from a second, unrelated place.
+    // bumping it from a second, unrelated place inside the owner too.
     assert.ok(uses >= 2 && uses <= 6, `${name} appears ${uses} times`);
   }
+});
+
+test('that sweep can actually fail -- a two-file name is caught', () => {
+  // Red-before-green, kept as a test rather than a one-off, because this
+  // repo has twice shipped a check that could not fail. `clampFired` is
+  // the real historical collision and it is still written by two
+  // modules, so it is the fixture: the sweep must reject it.
+  const dir = new URL('../src/', import.meta.url);
+  const files = readdirSync(dir).filter((f) => /\.(mjs|js)$/.test(f));
+  const owners = files.filter((f) =>
+    readFileSync(new URL(f, dir), 'utf8').includes('clampFired'));
+  assert.ok(owners.length >= 2,
+    'precondition: clampFired is still the two-file name this sweep must reject');
 });

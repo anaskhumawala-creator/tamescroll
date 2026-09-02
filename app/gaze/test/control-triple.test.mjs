@@ -10,8 +10,30 @@
 // corroboration.
 //
 // So run the arm. This is the only assertion in the suite that scores the
-// whole corpus, and it is worth its seconds: it is the one check that
-// fails when ANY shipped constant in the decision layer moves.
+// whole corpus, and it is worth its seconds.
+//
+// WHAT IT COVERS, STATED NARROWLY, because the first version of this
+// comment claimed "ANY shipped constant in the decision layer" and the
+// phase-F critic falsified that in three moves (F3): `PATCH_MARGIN`
+// 0.045 -> 0.500, `PERSON_MIN_SCORE` -> 0.99 and `HEAD_ANCHOR_UP` -> 0.0
+// all leave it green with the cache verifiably rebuilt.
+//
+// The reason is the instrument, not the test. **The corpus banks PARSED
+// PERSONS -- boxes -- so it sits DOWNSTREAM of `parsePersons`.** Every
+// constant whose only effect is inside that function (the anchor gate,
+// the score floor, the head anchor, the keypoint union) is invisible
+// here because the function never runs; the arm replays boxes it already
+// has. `PATCH_MARGIN` is the same story one step further on: the arm
+// only reaches `personFromFace` where a banked observation has NO box,
+// which on this corpus is nowhere in the control arm.
+//
+// So: this fails when a constant in the ASSOCIATION AND DECISION layer
+// moves -- `PTRACK_*`, the clear bars, the coast, `CUT_DELTA`, the
+// assignment, the clamp -- and it is blind to the EXTENT layer above it.
+// Proven: it goes red on `PTRACK_ASSIGN`. Anything that changes what
+// MoveNet is handed or how its output is parsed needs the frame-level
+// benches (`bench/movenet-gated.mjs`, `bench/movenet-held.mjs`), which
+// decode video rather than replaying a bank.
 //
 // The corpus and the built bundle are both artifacts, so an absent one
 // SKIPS -- a stale checkout is not a regression.

@@ -357,18 +357,35 @@ export function unpadPersons(data, fit, size) {
 
   var out = new Float32Array(data.length);
   out.set(data);
-  // CLAMPED TO THE FRAME. A coordinate that maps outside 0..1 landed in
-  // the black bar, which is not a place anything in the video is, and
-  // every consumer downstream treats a box as normalized 0..1. Clamping
-  // can only move a point ONTO the frame edge, which for a box is the
-  // covering direction; and a keypoint out there cannot be confident,
-  // because the bar is flat black.
+  // KEYPOINTS ARE NOT CLAMPED, AND THE FIRST VERSION OF THIS FUNCTION
+  // CLAMPED THEM. That was an EXPOSURE, found by the phase-F critic.
+  //
+  // The reasoning it replaced was "a coordinate outside 0..1 landed in
+  // the black bar, and clamping can only move a point ONTO the frame
+  // edge, which for a box is the covering direction". True of a box, and
+  // false of a keypoint -- because `parsePersons` consumes keypoints as
+  // DIFFERENCES, not as positions: `headW` is |lEar.x - rEar.x|, else
+  // |lEye.x - rEye.x| * 2.5, else |lSh.x - rSh.x| * 0.6, and
+  // `headH = headW * ar` sets the patch's TOP edge through
+  // HEAD_ANCHOR_UP. A difference of clamped values is monotonically
+  // SMALLER, so clamping shrinks the head anchor and RAISES the top edge
+  // -- the UNCOVERING direction. Measured on one synthetic slot with
+  // only the clamp differing: headW 0.5133 -> 0.1600, top edge
+  // 0.0000 -> 0.3209. That is hair and crown left sharp, which is the
+  // exact class HEAD_ANCHOR_UP 1.1 -> 1.6 was raised for. `headW` is
+  // also `sameHuman`'s merge tolerance, whose shrink direction R19
+  // already scored as exposure.
+  //
+  // So the map is a FAITHFUL INVERSE for everything a difference is taken
+  // of, and the clamp survives only on the four box floats -- where the
+  // original argument does hold and where every consumer downstream
+  // genuinely requires 0..1.
   var cl = function (v) { return v < 0 ? 0 : v > 1 ? 1 : v; };
   for (var p = 0; p < 6; p++) {
     var o = p * 56;
     for (var i = 0; i < 17; i++) {
-      out[o + i * 3] = cl((data[o + i * 3] - oy) / sy);
-      out[o + i * 3 + 1] = cl((data[o + i * 3 + 1] - ox) / sx);
+      out[o + i * 3] = (data[o + i * 3] - oy) / sy;
+      out[o + i * 3 + 1] = (data[o + i * 3 + 1] - ox) / sx;
     }
     // The bounding box, in the model's own order: ymin, xmin, ymax, xmax.
     out[o + 51] = cl((data[o + 51] - oy) / sy);

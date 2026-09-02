@@ -122,10 +122,21 @@ test('an absurd frame falls back to greedy rather than to a cubic stall', () => 
     }
   }
   assert.ok(pairs.length > 20, 'precondition: the frame has pairs to assign');
+  // AND THE FALLBACK ANNOUNCES ITSELF. It was silent, so above the
+  // ceiling every optimal-arm number was describing the greedy arm and
+  // nothing outside could tell (phase-f F6).
+  globalThis.__TS_GAZE_IDS = { life: {} };
   assert.equal(ids(optimalAssign(pairs, n, n)), ids(greedyAssign(pairs, n, n)));
+  assert.equal(globalThis.__TS_GAZE_IDS.life.assignFellBackGreedy, 1,
+    'a fall back to greedy must be counted, or it is invisible from outside');
   // And just under the ceiling it is still doing the real thing, or the
   // ceiling would have quietly disabled the whole change.
   const small = pairs.filter((p) => p.t < 32 && p.o < 32);
+  globalThis.__TS_GAZE_IDS = { life: {} };
   const o = optimalAssign(small, 32, 32);
   assert.ok(o.length >= greedyAssign(small, 32, 32).length);
+  assert.equal(globalThis.__TS_GAZE_IDS.life.assignFellBackGreedy, undefined,
+    'at the ceiling exactly it must NOT fall back -- otherwise the counter '
+    + 'would read as noise on every ordinary frame and mean nothing');
+  delete globalThis.__TS_GAZE_IDS;
 });

@@ -39,7 +39,16 @@ const S = await import('./.cache/shipped.mjs');
 // every pair of verdicts, and an expired track is a BIRTH on the next
 // observation -- so this file's own subject was the thing most distorted
 // by it. Every number under E5 was measured that way.
-const mode = process.argv[2] || 'man';
+// GENDER= is read as well as argv, because every other bench in this
+// directory takes it that way and a bench that silently ignores the
+// variable you set prints ONE ARM UNDER TWO LABELS -- which is what the
+// A-series ladder turned out to be, and what put an unreproducible
+// "woman" row into findings 17 (phase-f F5).
+const mode = process.argv[2] || process.env.GENDER || 'man';
+if (mode !== 'man' && mode !== 'woman') {
+  console.error(`mode ${mode} is neither man nor woman -- refusing rather than defaulting.`);
+  process.exit(2);
+}
 const K = Number(process.env.K || K_HIS);
 const TOLD = Number(process.env.TOLD || HIS_EFFZOOM);
 const OPTS = hisRegimeOpts(mode, TOLD);

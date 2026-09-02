@@ -165,19 +165,107 @@ test('a degenerate fit is refused rather than dividing by zero', () => {
   assert.equal(unpadPersons(d, fitBox(640, 360, SIZE), 0)[0], kept, 'size 0');
 });
 
-test('a keypoint that lands in the black bar is clamped into frame', () => {
-  // Nothing in the video is out there, and every consumer downstream
-  // treats a box as normalized 0..1. Clamping can only move a point ONTO
-  // the frame edge, which for a box is the covering direction.
+test('the BOX is clamped into frame, because every consumer needs 0..1', () => {
   const fit = fitBox(640, 360, SIZE);
   const d = buf();
-  d[0] = 0.01; // top black bar
-  d[1] = 0.5;
-  d[3] = 0.99; // bottom black bar
-  d[4] = 0.5;
+  d[51] = 0.01; // ymin, up in the top black bar
+  d[53] = 0.99; // ymax, down in the bottom one
   const out = unpadPersons(d, fit, SIZE);
-  assert.equal(out[0], 0);
-  assert.equal(out[3], 1);
+  assert.equal(out[51], 0);
+  assert.equal(out[53], 1);
+});
+
+test('a KEYPOINT is not clamped, because clamping one UNCOVERS a head', () => {
+  // THE FIRST VERSION OF THIS FUNCTION CLAMPED KEYPOINTS and it was an
+  // exposure. `parsePersons` consumes them as DIFFERENCES -- headW is
+  // |lEar.x - rEar.x|, and headH = headW * ar sets the patch's TOP edge
+  // through HEAD_ANCHOR_UP -- and a difference of clamped values is
+  // monotonically SMALLER. So clamping shrinks the head anchor and
+  // RAISES the top edge: hair and crown left sharp, the exact class
+  // HEAD_ANCHOR_UP 1.1 -> 1.6 was raised for.
+  //
+  // Pillars, not bars, so the axis a width is taken along is the padded
+  // one -- which is the case the shipped 16:9 regime does NOT exercise
+  // and the flag exists to allow.
+  const fit = fitBox(360, 640, SIZE);
+  assert.ok(fit.dx > 0, 'precondition: the padded axis is x');
+  const d = buf();
+  const inBar = -0.05; // left of the picture, in the pillar
+  d[3 * 3 + 1] = inBar; // an ear regressed into the bar
+  d[4 * 3 + 1] = 0.9;
+  const out = unpadPersons(d, fit, SIZE);
+  const wantX = (inBar - fit.dx / SIZE) / (fit.dw / SIZE);
+  assert.ok(wantX < 0, 'precondition: it maps outside the frame');
+  assert.ok(Math.abs(out[3 * 3 + 1] - wantX) < 1e-6,
+    'the ear keeps its true offset, so the width it feeds stays true');
+  // And the property that actually matters, stated as a width:
+  const clampedW = Math.abs(1 * 0 - (out[4 * 3 + 1]));
+  const trueW = Math.abs(out[3 * 3 + 1] - out[4 * 3 + 1]);
+  assert.ok(trueW > clampedW,
+    'clamping would have shrunk this width, which raises the patch top');
+});
+
+test('the head anchor survives the map, measured through parsePersons', () => {
+  // The class-level version of the test above: the pure function is
+  // faithful AND the thing downstream of it produces the same head. Run
+  // against a clamping variant this goes red on `top`.
+  const fit = fitBox(360, 640, SIZE);
+  const AR = 360 / 640;
+  const d = buf();
+  const put = (i, fx, fy, s) => {
+    const m = toModel(fit, fx, fy);
+    d[i * 3] = m.y;
+    d[i * 3 + 1] = m.x;
+    d[i * 3 + 2] = s;
+  };
+  // A subject at the left edge, one ear regressed past it.
+  put(0, 0.06, 0.50, 0.9);
+  put(1, 0.03, 0.49, 0.85);
+  put(2, 0.10, 0.49, 0.85);
+  put(3, -0.02, 0.49, 0.80);
+  put(4, 0.16, 0.49, 0.80);
+  put(5, -0.02, 0.62, 0.80);
+  put(6, 0.24, 0.62, 0.80);
+  // One ear regressed WELL into the pillar -- a raw model x of 0.02
+  // where the pillar runs to 0.219. That is the case the critic
+  // measured; a keypoint a hair outside the frame moves nothing, which
+  // is why the first version of this test passed against the defect.
+  d[3 * 3 + 1] = 0.02;
+  const a = toModel(fit, 0, 0.45);
+  const b = toModel(fit, 0.30, 0.95);
+  d[51] = a.y; d[52] = a.x; d[53] = b.y; d[54] = b.x; d[55] = 0.9;
+
+  // BOTH ARMS, IN THE TEST. Asserting an absolute threshold on the
+  // shipped arm alone pins whatever this fixture happens to produce; the
+  // property is a COMPARISON, so both arms are built here and the
+  // clamping one is the defect written out.
+  const clampVariant = (src) => {
+    const o = new Float32Array(src.length);
+    o.set(src);
+    const ox = fit.dx / SIZE, oy = fit.dy / SIZE;
+    const sx = fit.dw / SIZE, sy = fit.dh / SIZE;
+    const cl = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+    for (let p = 0; p < 6; p++) {
+      const bo = p * SLOT;
+      for (let i = 0; i < 17; i++) {
+        o[bo + i * 3] = cl((src[bo + i * 3] - oy) / sy);
+        o[bo + i * 3 + 1] = cl((src[bo + i * 3 + 1] - ox) / sx);
+      }
+      o[bo + 51] = cl((src[bo + 51] - oy) / sy);
+      o[bo + 52] = cl((src[bo + 52] - ox) / sx);
+      o[bo + 53] = cl((src[bo + 53] - oy) / sy);
+      o[bo + 54] = cl((src[bo + 54] - ox) / sx);
+    }
+    return o;
+  };
+
+  const ship = parsePersons(unpadPersons(Float32Array.from(d), fit, SIZE), undefined, AR, null)[0];
+  const clamped = parsePersons(clampVariant(d), undefined, AR, null)[0];
+  assert.ok(ship && clamped, 'precondition: both arms admit the slot');
+  assert.ok(ship.headW > clamped.headW + 0.05,
+    `headW ${ship.headW} vs clamped ${clamped.headW} -- the shrink is the defect`);
+  assert.ok(ship.y1 < clamped.y1 - 0.05,
+    `top ${ship.y1} vs clamped ${clamped.y1} -- clamping drops the patch off the crown`);
 });
 
 test('parsePersons reads the mapped buffer and puts the box in frame space', () => {

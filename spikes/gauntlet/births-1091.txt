@@ -1,0 +1,25 @@
+births.mjs at HEAD (1091, PTRACK_ASSIGN optimal, CUT_DELTA 60, PTRACK_IOU_MIN 0.15)
+his regime k=3 told 2000 coast 4000. Closes phase-f F5.
+
+--- GENDER=man ---
+18 windows, mode man, 2160 frames
+k=3 (1.5s/verdict)  told 2000ms  coast 4000ms  PTRACK_IOU_MIN 0.15
+BIRTHS 141
+  birthFresh            38  27.0%
+  birthNearMiss         43  30.5%
+  birthContended        60  42.6%
+  birthSizeRejected      0  0.0%
+deaths  coastExpired 96
+null    dropped 86  mintedHeld 2
+
+--- GENDER=woman ---
+18 windows, mode woman, 2160 frames
+k=3 (1.5s/verdict)  told 2000ms  coast 4000ms  PTRACK_IOU_MIN 0.15
+BIRTHS 136
+  birthFresh            38  27.9%
+  birthNearMiss         34  25.0%
+  birthContended        62  45.6%
+  birthSizeRejected      2  1.5%
+deaths  coastExpired 92
+null    dropped 93  mintedHeld 2
+

@@ -2707,30 +2707,46 @@ distorted most.
 
 ### The corrected table
 
-Shipped bundle (CUT_DELTA 60, PTRACK_IOU_MIN 0.15), his regime, 18
-windows / 2160 frames:
+CUT_DELTA 60, PTRACK_IOU_MIN 0.15, his regime, 18 windows / 2160 frames.
+**Both assignments, because the first version of this table printed the
+GREEDY arm under the heading "shipped bundle"** and the assignment
+shipped in the same session (phase-f F5):
 
-| | births | fresh | nearMiss | contended | sizeRejected |
-|---|---|---|---|---|---|
-| **man** | **147** | 39 (26.5%) | 42 (28.6%) | **65 (44.2%)** | 1 |
-| **woman** | **147** | 37 (25.2%) | 33 (22.4%) | **75 (51.0%)** | 2 |
+| | | births | fresh | nearMiss | contended | sizeRejected |
+|---|---|---|---|---|---|---|
+| **man** | greedy (1090) | 147 | 39 (26.5%) | 42 (28.6%) | **65 (44.2%)** | 1 |
+| | **optimal, SHIPPED 1091** | **141** | 38 (27.0%) | 43 (30.5%) | **60 (42.6%)** | 0 |
+| **woman** | greedy (1090) | 147 | 37 (25.2%) | 33 (22.4%) | **75 (51.0%)** | 2 |
+| | **optimal, SHIPPED 1091** | **136** | 38 (27.9%) | 34 (25.0%) | **62 (45.6%)** | 2 |
 
 E5 published **310 births, fresh 230 (74.2%), contended 32 (10.3%)** and
 concluded that geometry dominated and the association layer was the
 second lever. Corrected, **`birthFresh` is the SMALLEST class in both
 arms and `birthContended` is the largest** -- which is an ASSIGNMENT
 problem, and that is a different fix from the threshold one E5 pointed
-at.
+at. **That conclusion is unchanged by the mislabelling**: it holds on
+both assignments and in both genders.
 
 **Decomposed, so the reversal is attributed rather than asserted:** told
 500 -> 2000 alone moves births **214 -> 147** and coastExpired **184 ->
-102**. The remaining gap to E5's 310 is `CUT_DELTA` 50 -> 60 (115 cut
-frames -> 59). **Neither half is geometry.**
+102** (greedy, the arm that measurement was taken on). The remaining gap
+to E5's 310 is `CUT_DELTA` 50 -> 60 (115 cut frames -> 59). **Neither
+half is geometry.**
 
-**Cross-check:** 147 births at IOU 0.15 is exactly what 10g's independent
-sweep reports for that row, in both genders, from a different file.
+**Cross-check, and the first version of it was wrong too.** It read "147
+births in both genders", which `iou-ladder-ceiling.txt` in the same
+session contradicts -- that file reports 141 man and 136 woman. The
+error was in the instrument, not the sweep: **`births.mjs` ignored
+`GENDER` entirely** and printed `mode man` whatever it was handed, so
+its "woman" row was the man arm relabelled. That is the A-series ladder
+failure -- one arm printed under two labels -- in a bench that had it
+for as long as it has existed. `GENDER` is read now and an unrecognised
+mode exits 2 rather than defaulting. With it honoured, **births.mjs and
+the IOU ladder agree exactly: 141 man, 136 woman.**
 
-**Raw: `spikes/gauntlet/births-hisregime.txt`.**
+**Raw: `spikes/gauntlet/births-1091.txt` (`births-hisregime.txt` is the
+greedy arm and the mislabelled woman row -- kept, not corrected, because
+it is what the retraction is about).
 
 ## 17a. GREEDY'S FAILURE MODE *IS* A CONTENDED BIRTH, AND FIXING IT BUYS PHANTOM ON BOTH ARMS
 
@@ -2997,3 +3013,81 @@ discordant frames under no hysteresis could be considerably more under
 it. **Run the bench with `held` threaded before writing this off.**
 
 **Raw: `spikes/gauntlet/movenet-gated-n225.txt`.**
+
+
+## 19 -- PHASE F: FOUR OF THE EIGHT FINDINGS ARE CHECKS THAT COULD NOT FAIL, AND ONE IS AN EXPOSURE IN THE FIX I HAD JUST WRITTEN
+
+8 rows, 8 CONFIRMED, none refuted. The shape of the round is the
+finding: **half of it is DEAD-CHECK.** A session that added three
+counters while quoting "a counter that does not exist reads exactly like
+a counter at zero" shipped, in the same range, a silent fallback, a
+sanity check reading clamped output, a collision sweep scoped to one
+file, and a test header claiming coverage it does not have.
+
+- **F2 IS AN EXPOSURE AND IT WAS IN `unpadPersons`, THE FUNCTION I WROTE
+  TO FIX AN EXPOSURE.** The inverse map clamped keypoints to [0,1].
+  `parsePersons` consumes keypoints as DIFFERENCES -- `headW =
+  |lEar.x - rEar.x|`, `headH = headW * ar`, and `HEAD_ANCHOR_UP` sets
+  the patch top from that -- so a difference of clamped values is
+  monotonically SMALLER, the head anchor SHRINKS and the top edge RISES.
+  Measured on the critic's fixture: **headW 0.5133 -> 0.1600, patch top
+  0.0000 -> 0.3209.** A third of the frame height of scalp left sharp,
+  by a clamp added for safety. Keypoints are unclamped now; the four BOX
+  floats still clamp, because those are absolute positions and an
+  out-of-frame box is meaningless. **The clamp was defensible on the
+  quantity it was written for and wrong on the quantity it was applied
+  to** -- and no amount of testing the map in isolation would have found
+  it, because the map is correct. The consumer is what makes it an
+  exposure.
+- **F4: THE CHECK GUARDING AGAINST "THE FAILURE WORSE THAN THE DEFECT"
+  READ CLAMPED OUTPUT.** `movenet-gated`'s out-of-range row asked
+  whether the boxes `parsePersons` EMITS sit inside 0..1, and both
+  `parsePersons` and `unpadPersons` clamp every box they emit. A map
+  wrong by 3x printed **"the inverse map holds"**. It reads the
+  UNCLAMPED inverse now, and as a **magnitude rather than a count**,
+  because a hard count cries wolf on a CORRECT map: MoveNet's box
+  regression reaches ~3.5px into its own black bar and the inverse
+  divides the padded axis by sy = 0.5625, amplifying it to **0.024**.
+  Both examples found are y-only; x never overshoots because sx is 1.0
+  and there is nothing to amplify. **Model noise is hundredths, a wrong
+  map is 1.938** -- red-proven at `sx/3`.
+- **F6: THE HUNGARIAN ASSIGNMENT FALLS BACK TO GREEDY ABOVE 32x32 AND
+  SAID NOTHING.** Above the ceiling every number this repo has quoted on
+  "the optimal arm" is describing the greedy one, indistinguishably from
+  outside. `assignFellBackGreedy` counts it; the test asserts it fires
+  above the ceiling AND stays silent at the ceiling exactly, because a
+  counter that ticks on ordinary frames means nothing.
+- **F7: THE COLLISION SWEEP WAS SCOPED TO ONE FILE AND THE COLLISION IT
+  NAMES WAS BETWEEN TWO.** `clampFired` (loop 39) was region-blur's
+  patch clamp against body-clamp's. The sweep is the whole `src/` tree
+  now, asserting exactly one owner per name, and a second test uses
+  `clampFired` -- still two-owner -- as a live fixture so the sweep
+  cannot silently go vacuous again.
+- **F3: A TEST HEADER CLAIMED MORE THAN THE INSTRUMENT CAN DELIVER, AND
+  THE HONEST FIX WAS TO NARROW THE CLAIM.** `control-triple` says it
+  "fails when ANY shipped constant in the decision layer moves";
+  `PATCH_MARGIN` 0.045 -> 0.500, `PERSON_MIN_SCORE` -> 0.99 and
+  `HEAD_ANCHOR_UP` -> 0.0 all leave it green. **The corpus banks PARSED
+  PERSONS -- boxes -- so it sits DOWNSTREAM of `parsePersons`**, and a
+  constant whose only effect is inside that function cannot move an arm
+  that never calls it. It covers the ASSOCIATION AND DECISION layer (red
+  on `PTRACK_ASSIGN`) and is blind to the EXTENT layer above it. **A
+  claim narrowed beats an assertion widened until it is vacuous** --
+  which is the move that produced F4 and F7.
+- **F5: `births.mjs` IGNORED `GENDER` AND PRINTED ONE ARM UNDER TWO
+  LABELS.** It read `process.argv[2] || 'man'` and every other bench in
+  the directory takes `GENDER=`. So findings 17's "woman" row was the
+  man arm relabelled, and its cross-check ("147 in both genders") was a
+  tautology contradicted by an independent sweep in the same session
+  (141 / 136). **This is the A-series ladder failure**, in a bench that
+  had it for as long as it has existed. Fixed; an unrecognised mode
+  exits 2 rather than defaulting, and the two instruments now agree
+  exactly.
+- **AND THE SUITE WAS FLAKY FOR A REASON WORTH WRITING DOWN.** Three
+  test files import `bench/.cache/shipped.mjs`, and when a source
+  constant moves they race to rebuild it -- one writer truncating the
+  file another is importing. All three fail together under the default
+  concurrency and every one passes alone. `--test-concurrency=1`. **A
+  suite that fails on a CORRECT change teaches people to re-run it until
+  it goes green**, which is worse than a slow suite.
+- gaze **576/576**, cargo **60/60**, critic-gate **58/58 CONFIRMED**.
