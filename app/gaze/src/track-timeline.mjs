@@ -67,6 +67,10 @@ export function pushSnapshot(tl, mediaTime, tracks) {
       core: t.core || null,
       head: t.head || null,
       face: t.face || null,
+      headX: t.headX,
+      headW: t.headW,
+      headY: t.headY,
+      headH: t.headH,
       // Carried for the hindsight rules: a track whose last read was a
       // certain opposite-gender read, and a track that was coasting
       // (no observation) at this snapshot.
@@ -122,8 +126,9 @@ function boxesTouch(a, b) {
 // are marked `dead` and boxesAt presents them as absent. The observed
 // snapshot before the run is untouched, so rule 4 still covers the one
 // interval after the last sighting. Run 3 on the Redmi: 83 of 255
-// blurred track-passes were coasting, p50 946ms -- the phantom he
-// reports.
+// blurred track-passes were coasting, p50 946ms (the phantom he reports);
+// of those this rule retires 8 passes in 4 runs, 4.97s of presented time
+// (critic L7) -- the population is not the yield.
 function markDeadCoasts(tl, snap) {
   var idx = tl.snapshots.indexOf(snap);
   if (idx < 1) return;
@@ -140,8 +145,11 @@ function markDeadCoasts(tl, snap) {
       if (n.state === 'blurred' && boxesTouch(n.box, t.box)) taken = true;
     }
     if (taken) continue;
-    // Walk back through the consecutive coasting run of this id.
+    // Walk back through the consecutive coasting run of this id, and
+    // never across a cut: a coasted patch in the PREVIOUS shot is not
+    // retired by an expiry in the next one (critic L5).
     for (var s = idx - 1; s >= 0; s--) {
+      if (s < idx - 1 && cutBetween(tl, tl.snapshots[s].mediaTime, tl.snapshots[s + 1].mediaTime)) break;
       var hit = null;
       for (var q = 0; q < tl.snapshots[s].tracks.length; q++) {
         if (tl.snapshots[s].tracks[q].id === t.id) { hit = tl.snapshots[s].tracks[q]; break; }
@@ -213,7 +221,8 @@ export var BIRTH_BACKDATE_PAD = 0.15;
 // presentation merge needs (person-track.mergePresented), read off the
 // snapshot entry the box came from.
 function present(src, box, state) {
-  return { id: src.id, box: box, state: state, core: src.core || null, head: src.head || null, face: src.face || null };
+  return { id: src.id, box: box, state: state, core: src.core || null, head: src.head || null, face: src.face || null,
+    headX: src.headX, headW: src.headW, headY: src.headY, headH: src.headH };
 }
 
 function padBoxTowardBirth(box, frac) {

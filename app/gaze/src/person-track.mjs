@@ -176,6 +176,9 @@ export var CLEAR_STREAK_N = 2;
 // hard reset meant they never cleared at all; decay still demands that
 // confident clears dominate before the patch lifts).
 export var CLEAR_DECAY = 0.5;
+// A head narrower than this is the person-gate's 0.04 fallback, not a
+// measurement, and may not serve as the clamp's X floor (critic L3).
+export var HEAD_FLOOR_MIN_W = 0.045;
 export var PTRACK_PAD = 0.04; // person box side/bottom padding at render (was 0.05; see PATCH_MARGIN)
 // Extra headroom: MoveNet's box can crop at the hairline (v10-her-120:
 // the covered person's hair crown poked out above the patch).
@@ -1188,6 +1191,7 @@ function matchedStep(t, obs, dt) {
       // between gender reads, but its AGE still advances: a position
       // observation is not evidence that the face is still there.
       lastVerdict: t.lastVerdict || 'uncertain',
+      flagEvidence: !!t.flagEvidence,
       // `fromFace` is deliberately NOT carried here -- see the refuted
       // experiment at the top of matchedStep. `headH` is, because it is a
       // MEASUREMENT of the subject rather than a provenance flag: dropped
@@ -1631,6 +1635,13 @@ function matchedStep(t, obs, dt) {
     weakStreak: weakStreak,
     desc: obs.desc || t.desc || null,
     lastVerdict: obs.flagged && obs.certain ? 'flag-certain' : !obs.flagged && obs.certain ? 'clear-certain' : 'uncertain',
+    // Was there CERTAIN evidence for covering since the last certain
+    // clear? Set by a certain flag, reset only by a certain clear, carried
+    // through uncertain and abstained reads, coasts and cuts. This is the
+    // key the timeline's hindsight clear (rule 3') asks, and lastVerdict is
+    // not it: one uncertain read rewrote lastVerdict and a 567ms interval
+    // after three certain female reads was presented cleared (critic L4).
+    flagEvidence: obs.certain ? !!obs.flagged : !!t.flagEvidence,
   };
 }
 
@@ -1916,6 +1927,7 @@ function coastStep(t, dt) {
     // Coasting moves the box by velocity, so the head moves with it —
     // and ages, which is what eventually retires the hole.
     lastVerdict: t.lastVerdict || 'uncertain',
+    flagEvidence: !!t.flagEvidence,
     // Carried, or a demoted track would silently regain the full coast
     // budget on its second missed pass — the exact behaviour this is here
     // to remove.
@@ -1924,14 +1936,14 @@ function coastStep(t, dt) {
     // origin every time a detector missed it once.
     fromFace: !!t.fromFace,
     headH: t.headH,
-    // The head and the evidence hull coast WITH the box (2026-09-02).
-    // Until then the box moved by velocity and the hull stayed put, so
-    // R27 had to stand the clamp down on every coasting track ("a floor
-    // for a position the subject has left"). Displaced by the same
-    // dx/dy they are exactly as current as the box they bound, and
-    // drawnTracks may clamp a coasting neighbour off a cleared face:
-    // on the Redmi 4 of the 10 certain-male reads still covered after
-    // the head floor sat under a neighbour coasting 306-427ms.
+    // The head and the evidence hull coast WITH the box (2026-09-02), so
+    // the hull stays in register with the box it bounds and drawnTracks
+    // may clamp a coasting neighbour off a cleared face
+    // (coastedCoreUsable). What buys the 4 of 10 covered reads that sat
+    // under a coasting neighbour on the Redmi is PERMITTING the coasted
+    // hull; the shift itself moved 0 of those 4 (displacements 0.004 and
+    // 0.000 on the passes in question, critic L8) -- it is here so a
+    // long coast cannot leave the hull behind, not for that number.
     headX: typeof t.headX === 'number' ? t.headX + dx : t.headX,
     headY: typeof t.headY === 'number' ? t.headY + dy : t.headY,
     headW: t.headW,
@@ -2079,6 +2091,7 @@ export function demoteTracks(tracks) {
       // shortcut again without a new descriptor.
       desc: null,
       lastVerdict: 'uncertain',
+      flagEvidence: !!t.flagEvidence,
       // ...and this box is now on borrowed time: see PTRACK_CUT_COAST_MS.
       demoted: true,
       // PROVENANCE SURVIVES A CUT, for the same reason coastStep carries
@@ -2176,6 +2189,7 @@ function newTrack(obs) {
     // restart from zero on the churn a wide shot produces.
     weakStreak: obs.weak ? 1 : 0,
     desc: obs.desc || null,
+    flagEvidence: !!(obs.flagged && obs.certain),
     lastVerdict:
       obs.flagged && obs.certain
         ? 'flag-certain'
@@ -2215,6 +2229,22 @@ function newTrack(obs) {
 // so it cannot uncover a face. R18 measured headX null on 59% of admitted
 // persons in the weak tier -- those keep the old behaviour exactly.
 export var PTRACK_TOP_PAD_HEADS = 0.6;
+
+// The patch geometry the render layer draws for a track: side and bottom
+// pad, head-capped top pad. One helper for the blurred path and the
+// cleared entries the timeline may later present blurred (critic L6: a
+// cleared entry carried the RAW box, and a cleared->blurred lerp presented
+// 4 points of frame height of hair sharp).
+export function padTrackBox(t) {
+  var w = t.box.x2 - t.box.x1;
+  var h = t.box.y2 - t.box.y1;
+  return {
+    x1: Math.max(0, t.box.x1 - w * PTRACK_PAD),
+    y1: Math.max(0, t.box.y1 - topPad(t, h)),
+    x2: Math.min(1, t.box.x2 + w * PTRACK_PAD),
+    y2: Math.min(1, t.box.y2 + h * PTRACK_PAD),
+  };
+}
 
 function topPad(t, h) {
   var full = h * PTRACK_PAD_TOP;
@@ -2437,21 +2467,17 @@ function drawnTracks(tracks, clearedFaces, countLife) {
   for (var i = 0; i < tracks.length; i++) {
     var t = tracks[i];
     if (t.state !== 'blurred') continue;
-    var w = t.box.x2 - t.box.x1;
-    var h = t.box.y2 - t.box.y1;
-    var padded = {
-      x1: Math.max(0, t.box.x1 - w * PTRACK_PAD),
-      y1: Math.max(0, t.box.y1 - topPad(t, h)),
-      x2: Math.min(1, t.box.x2 + w * PTRACK_PAD),
-      y2: Math.min(1, t.box.y2 + h * PTRACK_PAD),
-    };
+    var padded = padTrackBox(t);
     // A core from THIS pass, or one that coasted with the box, may pull
     // an edge in; a cut-demoted hull describes a position the subject
     // has left (coastedCoreUsable).
     var drawn = padded;
     var coreOk = coastedCoreUsable(t);
     // The subject's own head box, the X floor the clamp may never pass.
-    var head = clearedFaceBox(t);
+    // A head at the person-gate width floor (0.04, no ear/eye/shoulder
+    // span computable) is not a measured head and may not be a floor
+    // (critic L3): the banked narrowest head box was 0.016 of the frame.
+    var head = (t.headW || 0) > HEAD_FLOOR_MIN_W ? clearedFaceBox(t) : null;
     if (clearedFaces.length) {
       if (!coreOk) {
         if (countLife) bumpLife('clampNoCore');
@@ -2483,6 +2509,8 @@ function drawnTracks(tracks, clearedFaces, countLife) {
       // the PADDED patch and is rewritten on every union.
       headX: t.headX,
       headW: t.headW,
+      headY: t.headY,
+      headH: t.headH,
     });
   }
   return out;
@@ -2538,6 +2566,10 @@ export function presentTracks(tracks) {
       state: 'blurred',
       core: d.core,
       head: d.head,
+      headX: d.headX,
+      headW: d.headW,
+      headY: d.headY,
+      headH: d.headH,
       face: null,
       flagCertain: flagCertainOf(tracks, d.id),
       coasting: coastingOf(tracks, d.id),
@@ -2548,7 +2580,7 @@ export function presentTracks(tracks) {
     if (t.state !== 'cleared') continue;
     out.push({
       id: t.id,
-      box: t.box,
+      box: padTrackBox(t),
       state: 'cleared',
       core: null,
       face: clearedFaceBox(t),
@@ -2566,7 +2598,7 @@ function trackById(tracks, id) {
 
 function flagCertainOf(tracks, id) {
   var t = trackById(tracks, id);
-  return !!(t && t.lastVerdict === 'flag-certain');
+  return !!(t && (t.lastVerdict === 'flag-certain' || t.flagEvidence));
 }
 
 function coastingOf(tracks, id) {
@@ -2591,7 +2623,10 @@ export function mergePresented(list) {
       if (e.face) faces.push(e.face);
       continue;
     }
-    entries.push({ key: String(e.id), box: e.box, core: e.core || null, head: e.head || null, vx: 0, vy: 0, vw: 0, vh: 0 });
+    // headX/headW ride too, or mergedHead sees no anchor on either side
+    // and returns the FIRST entry -- order-dependent geometry (critic L2).
+    entries.push({ key: String(e.id), box: e.box, core: e.core || null, head: e.head || null,
+      headX: e.headX, headW: e.headW, headY: e.headY, headH: e.headH, vx: 0, vy: 0, vw: 0, vh: 0 });
   }
   var merged = reclampMerged(mergeTracks(entries), sortFaces(faces));
   var out = [];
@@ -2599,6 +2634,15 @@ export function mergePresented(list) {
     out.push({ id: merged[k].key, box: merged[k].box, state: 'blurred' });
   }
   return out;
+}
+
+function unionBox(a, b) {
+  return {
+    x1: Math.min(a.x1, b.x1),
+    y1: Math.min(a.y1, b.y1),
+    x2: Math.max(a.x2, b.x2),
+    y2: Math.max(a.y2, b.y2),
+  };
 }
 
 function unionCore(a, b) {
@@ -2818,8 +2862,12 @@ export function mergeTracks(list) {
           // Both subjects' evidence, so the post-merge clamp has a floor
           // that belongs to the union rather than to one of its halves.
           core: unionCore(a.core, b.core),
-          // The better-measured head's box, for the same re-clamp.
-          head: head.head || null,
+          // The head FLOOR of a union is the union of both heads, or no
+          // head at all when either half has none: one subject's head as
+          // the floor for a rectangle covering two subjects let the edge
+          // cross the other subject's hull and land inside her own head
+          // box (critic L1, fixtures A and B).
+          head: a.head && b.head ? unionBox(a.head, b.head) : null,
         };
         merged.splice(j, 1);
         changed = true;
