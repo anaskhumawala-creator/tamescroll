@@ -1,0 +1,39 @@
+09-02 15:04:26.241 23336 23413 I tflite  : Created TensorFlow Lite delegate for GPU.
+09-02 15:04:26.257 23336 23413 I tflite  : Initialized TensorFlow Lite runtime.
+09-02 15:04:26.272 23336 23413 I tflite  : Replacing 218 out of 218 node(s) with delegate (TfLiteGpuDelegateV2) node, yielding 1 partitions for the whole graph.
+09-02 15:04:28.429 23336 23413 I tflite  : Initialized OpenCL-based API.
+09-02 15:04:28.654 23336 23413 I tflite  : Created 1 GPU delegate kernels.
+09-02 15:04:30.701 23336 23413 I TSBENCH : ROW {"model":"blazeface-f16.tflite","gpu":true,"initMs":2414.056561,"input":{"shape":[1,256,256,3],"type":"FLOAT32"},"outputs":[{"name":"PartitionedCall:1","shape":[1,384,1],"type":"FLOAT32"},{"name":"PartitionedCall:3","shape":[1,384,16],"type":"FLOAT32"},
+09-02 15:04:30.715 23336 23413 I tflite  : Created TensorFlow Lite XNNPACK delegate for CPU.
+09-02 15:04:30.716 23336 23413 I tflite  : Replacing 218 out of 218 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 1 partitions for the whole graph.
+09-02 15:04:36.447 23336 23413 I TSBENCH : ROW {"model":"blazeface-f16.tflite","gpu":false,"initMs":16.219427,"input":{"shape":[1,256,256,3],"type":"FLOAT32"},"outputs":[{"name":"PartitionedCall:1","shape":[1,384,1],"type":"FLOAT32"},{"name":"PartitionedCall:3","shape":[1,384,16],"type":"FLOAT32"},{
+09-02 15:04:36.453 23336 23413 I tflite  : Replacing 109 out of 109 node(s) with delegate (TfLiteGpuDelegateV2) node, yielding 1 partitions for the whole graph.
+09-02 15:04:38.337 23336 23413 I tflite  : Created 1 GPU delegate kernels.
+09-02 15:04:40.335 23336 23413 I TSBENCH : ROW {"model":"blazeface.tflite","gpu":true,"initMs":1889.987083,"input":{"shape":[1,256,256,3],"type":"FLOAT32"},"outputs":[{"name":"PartitionedCall:1","shape":[1,384,1],"type":"FLOAT32"},{"name":"PartitionedCall:3","shape":[1,384,16],"type":"FLOAT32"},{"na
+09-02 15:04:40.339 23336 23413 I tflite  : Replacing 109 out of 109 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 1 partitions for the whole graph.
+09-02 15:04:46.074 23336 23413 I TSBENCH : ROW {"model":"blazeface.tflite","gpu":false,"initMs":6.100052,"input":{"shape":[1,256,256,3],"type":"FLOAT32"},"outputs":[{"name":"PartitionedCall:1","shape":[1,384,1],"type":"FLOAT32"},{"name":"PartitionedCall:3","shape":[1,384,16],"type":"FLOAT32"},{"name
+09-02 15:04:46.080 23336 23413 I tflite  : Replacing 120 out of 120 node(s) with delegate (TfLiteGpuDelegateV2) node, yielding 1 partitions for the whole graph.
+09-02 15:04:47.518 23336 23413 I tflite  : Created 1 GPU delegate kernels.
+09-02 15:04:51.387 23336 23413 I TSBENCH : ROW {"model":"faceres-f16.tflite","gpu":true,"initMs":1444.369478,"input":{"shape":[1,224,224,3],"type":"FLOAT32"},"outputs":[{"name":"PartitionedCall:1","shape":[1,100],"type":"FLOAT32"},{"name":"PartitionedCall:0","shape":[1,1],"type":"FLOAT32"},{"name":"
+09-02 15:04:51.415 23336 23413 I tflite  : Replacing 120 out of 120 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 1 partitions for the whole graph.
+09-02 15:04:51.543 23575 23598 D nativeloader:   com_android_extservices: libtflite_support_classifiers_native.so
+09-02 15:04:52.432 23670 23670 D nativeloader:   com_android_extservices: libtflite_support_classifiers_native.so
+09-02 15:05:02.781 23336 23413 I TSBENCH : ROW {"model":"faceres-f16.tflite","gpu":false,"initMs":39.016354,"input":{"shape":[1,224,224,3],"type":"FLOAT32"},"outputs":[{"name":"PartitionedCall:1","shape":[1,100],"type":"FLOAT32"},{"name":"PartitionedCall:0","shape":[1,1],"type":"FLOAT32"},{"name":"P
+09-02 15:05:02.788 23336 23413 I tflite  : Replacing 60 out of 60 node(s) with delegate (TfLiteGpuDelegateV2) node, yielding 1 partitions for the whole graph.
+09-02 15:05:04.206 23336 23413 I tflite  : Created 1 GPU delegate kernels.
+09-02 15:05:08.021 23336 23413 I TSBENCH : ROW {"model":"faceres.tflite","gpu":true,"initMs":1424.948229,"input":{"shape":[1,224,224,3],"type":"FLOAT32"},"outputs":[{"name":"PartitionedCall:1","shape":[1,100],"type":"FLOAT32"},{"name":"PartitionedCall:0","shape":[1,1],"type":"FLOAT32"},{"name":"Part
+09-02 15:05:08.024 23336 23413 I tflite  : Replacing 60 out of 60 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 1 partitions for the whole graph.
+09-02 15:05:19.227 23336 23413 I TSBENCH : ROW {"model":"faceres.tflite","gpu":false,"initMs":33.844271,"input":{"shape":[1,224,224,3],"type":"FLOAT32"},"outputs":[{"name":"PartitionedCall:1","shape":[1,100],"type":"FLOAT32"},{"name":"PartitionedCall:0","shape":[1,1],"type":"FLOAT32"},{"name":"Parti
+09-02 15:05:19.236 23336 23413 I tflite  : Replacing 112 out of 407 node(s) with delegate (TfLiteGpuDelegateV2) node, yielding 3 partitions for the whole graph.
+09-02 15:05:23.150 23336 23413 I tflite  : Created 1 GPU delegate kernels.
+09-02 15:05:23.152 23336 23413 I tflite  : Replacing 231 out of 296 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 19 partitions for the whole graph.
+09-02 15:05:39.136 23336 23413 I TSBENCH : ROW {"model":"movenet-multipose-f16.tflite","gpu":true,"initMs":3928.889478,"input":{"shape":[1,256,256,3],"type":"INT32"},"outputs":[{"name":"PartitionedCall:0","shape":[1,6,56],"type":"FLOAT32"}],"warmMs":112.349062,"p50":159.700886,"p95":179.671823,"min"
+09-02 15:05:39.186 23336 23413 I tflite  : Replacing 339 out of 407 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 23 partitions for the whole graph.
+09-02 15:06:02.569 23336 23413 I TSBENCH : ROW {"model":"movenet-multipose-f16.tflite","gpu":false,"initMs":61.617135,"input":{"shape":[1,256,256,3],"type":"INT32"},"outputs":[{"name":"PartitionedCall:0","shape":[1,6,56],"type":"FLOAT32"}],"warmMs":240.980521,"p50":230.940052,"p95":232.157343,"min":
+09-02 15:06:02.578 23336 23413 I tflite  : Replacing 112 out of 237 node(s) with delegate (TfLiteGpuDelegateV2) node, yielding 2 partitions for the whole graph.
+09-02 15:06:06.464 23336 23413 I tflite  : Created 1 GPU delegate kernels.
+09-02 15:06:06.465 23336 23413 I tflite  : Replacing 65 out of 126 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 18 partitions for the whole graph.
+09-02 15:06:22.437 23336 23413 I TSBENCH : ROW {"model":"movenet-multipose.tflite","gpu":true,"initMs":3897.479634,"input":{"shape":[1,256,256,3],"type":"INT32"},"outputs":[{"name":"PartitionedCall:0","shape":[1,6,56],"type":"FLOAT32"}],"warmMs":108.846667,"p50":159.77448,"p95":179.127604,"min":123.
+09-02 15:06:22.441 23336 23413 I tflite  : Replacing 174 out of 237 node(s) with delegate (TfLiteXNNPackDelegate) node, yielding 22 partitions for the whole graph.
+09-02 15:06:45.842 23336 23413 I TSBENCH : ROW {"model":"movenet-multipose.tflite","gpu":false,"initMs":26.989115,"input":{"shape":[1,256,256,3],"type":"INT32"},"outputs":[{"name":"PartitionedCall:0","shape":[1,6,56],"type":"FLOAT32"}],"warmMs":244.141511,"p50":231.146146,"p95":231.879271,"min":229.
+09-02 15:06:45.843 23336 23413 I TSBENCH : RESULT [{"device":"M2010J19SI","gpuDelegateSupported":true,"runs":100,"models":["blazeface-f16.tflite","blazeface.tflite","faceres-f16.tflite","faceres.tflite","movenet-multipose-f16.tflite","movenet-multipose.tflite"]},{"model":"blazeface-f16.tflite","gpu"

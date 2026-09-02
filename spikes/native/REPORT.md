@@ -60,14 +60,14 @@ deployable one: a SELECT_TF_OPS fallback writes `<name>-flex.tflite`, and
 
 ## Model contracts (for Task 2)
 
-- blazeface: input `input` [1,256,256,3] float32; outputs 4 tensors
+- blazeface: input `input` [1,256,256,3] float32 **(x / 127.5) - 1** (detector.js `detectFaceBoxes`); outputs 4 tensors
   (scores [1,512,1] / [1,384,1], boxes [1,512,16] / [1,384,16]) -- the
   post-processing (anchors, NMS) stays in the page exactly as today.
-- faceres: input `input_1` [1,224,224,3] float32 0..1; outputs
+- faceres: input `input_1` [1,224,224,3] float32 **0..255 raw** (detector.js: "cropAndResize interpolates from the 0..255 float source -- faceres wants exactly that range"); outputs
   `gender_pred/Sigmoid` [1,1], `age_pred/Softmax` [1,100],
   `global_pooling/Mean` [1,1024]. TFLite output ORDER is by signature key
   (`PartitionedCall:0/1/2` = gender / age / descriptor); read by name, never by index.
-- movenet-multipose: input `input` [1,256,256,3] **int32**; output [1,6,56].
+- movenet-multipose: input `input` [1,256,256,3] **int32 raw 0..255** (no normalisation); output [1,6,56].
 
 nsfwjs is not converted: it runs on the thumbnail path, which is not in this
 round's scope (the video path is the Redmi's problem).

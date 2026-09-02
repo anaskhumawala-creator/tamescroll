@@ -47,7 +47,7 @@ The seam is chosen so iOS is a second implementation of ONE small interface, not
 
 ---
 
-### Task 0a: Model conversion + parity (RUNNING, agent, timebox 45m)
+### Task 0a: Model conversion + parity (DONE 15:05 -- see spikes/native/REPORT.md)
 
 **Files:** `spikes/native/convert.py`, `spikes/native/parity.{mjs,py}`, `spikes/native/out/*.tflite`, `spikes/native/REPORT.md`.
 
@@ -56,7 +56,7 @@ The seam is chosen so iOS is a second implementation of ONE small interface, not
 - [ ] Agent reports. Read `REPORT.md`. **Gate:** each model converts with TFLITE_BUILTINS only (no SELECT_TF_OPS — the GPU delegate cannot run those) and parity cosine ≥ 0.999 on every output. A model that fails gets ONE more attempt with a different converter route (tfjs→Keras via `tensorflowjs` for faceres; the pre-requant MoveNet original if the hybrid uint8 manifest confuses the converter — check `git log -- app/gaze/models/movenet-multipose.bin` for where it came from; Kaggle/tfhub fetch is DEAD, needs auth). If it still fails, that model stays on the Worker path and the plan continues with the others — say so in Loop state.
 - [ ] Commit `spikes/native/` (scripts + REPORT, NOT the venv, NOT the .tflite outputs if > 20MB total — bank those under `Z:\Apps\Disconnect\spikes\native\out\` and add `out/` to `.gitignore` with a note in REPORT.md on how to regenerate).
 
-### Task 0b: Frame transport bench (RUNNING, agent, timebox 60m)
+### Task 0b: Frame transport bench (DONE 15:05 -- see spikes/native/BRIDGE-REPORT.md)
 
 **Files:** `MainActivity.kt` (debug-only `TsFrameBench`), `spikes/gauntlet/probe_frame_bridge.py`, `spikes/native/BRIDGE-REPORT.md`, `spikes/native/bridge-*.json`.
 
@@ -65,7 +65,7 @@ The seam is chosen so iOS is a second implementation of ONE small interface, not
 - [ ] Agent reports. Read `BRIDGE-REPORT.md`. **Decision:** transport = ArrayBuffer port if supported and its transfer p50 < 10ms at 256x256 RGBA; else base64 JSI. Record the choice and the number in Loop state.
 - [ ] Review the Kotlin diff. Keep the port plumbing (Task 2 builds on it); delete the base64 bench path unless it won. Commit.
 
-### Task 1: GPU delegate bench on the Redmi (Sonnet, timebox 60m)
+### Task 1: GPU delegate bench on the Redmi (DONE 15:20, GATE PASSED -- see spikes/native/GPU-REPORT.md)
 
 **Files:** `spikes/native/bench-android/` (new standalone Gradle project: one Activity, no UI, `assets/` holds the three `.tflite`s from Task 0a), `spikes/native/GPU-REPORT.md`, `spikes/native/gpu-bench.json`.
 
@@ -167,12 +167,14 @@ class BenchActivity : Activity() {
 Updated by whoever finishes a task. The loop reads this section first.
 
 - **Lock:** `docs/native/LOCK` (contents: ISO time + who). Take it before editing, delete it after push. A lock older than 90 minutes is stale — delete it and say so here.
-- **Current task:** 0a + 0b running as agents (started 2026-09-02 ~14:40 local, timeboxes 45/60 min).
-- **Decisions so far:** transport = **WebMessagePort + ArrayBuffer** (0b, Redmi: WEB_MESSAGE_ARRAY_BUFFER supported; Kotlin copy 0.30ms p50 vs base64 decode 2.19ms; page+Kotlin 21.4ms vs 32.2ms at 256x256 RGBA). delegate = TBD (1). models converted: blazeface OK (f32 586KB / f16 330KB), movenet OK (19.0MB / 9.6MB), faceres FAILED on `_FusedMatMul` (grappler-fused op) -- rewrite to MatMul+BiasAdd+Relu in the GraphDef is the second attempt (in flight).
+- **Current task:** 2 (NativeInfer.kt + native-client.mjs), two Sonnet agents started 2026-09-02 15:25 local, timebox 90m each, this session integrates.
+- **Decisions so far:** transport = **WebMessagePort + ArrayBuffer** (0b, Redmi: WEB_MESSAGE_ARRAY_BUFFER supported; Kotlin copy 0.30ms p50 vs base64 decode 2.19ms; page+Kotlin 21.4ms vs 32.2ms at 256x256 RGBA). delegate = **TFLite GPU delegate, XNNPACK auto-fallback** (1: one verdict pass MoveNet 160 + BlazeFace 19 + 2x faceres 76 = ~255ms on the Redmi against 922ms on WebGL today; CPU fallback ~510ms; two runs within 1ms). models = **all three builtin-only** (0a): the first blazeface/movenet 'conversions' were Flex models, cause was tfjs-graph-converter's own grappler 'remap' pass; f32 parity 1.000000 on all outputs, f16 parity descriptor 0.9973 on one face -- **f16 ships only if Task 3's corpus parity holds**. MoveNet is 112/237 nodes on the GPU (decode tail on CPU) -- fine for the gate, a later win. GPU init 1.4-3.9s per model, once per process, must be off the critical path.
 - **THE REAL FRAME COST IS THE READBACK, NOT THE BRIDGE (0b):** `drawImage`+`getImageData` is 17-24ms p50 and **150-200ms p95** on the Redmi, size-independent (128px no cheaper than 256px). Task 2 must move that off the page's main thread: `createImageBitmap(video)` (0.9ms) -> transfer the ImageBitmap to a Worker (the existing gaze Worker already receives bitmaps) -> `OffscreenCanvas` + `getImageData` THERE -> post the ArrayBuffer to Kotlin from the Worker over a `MessagePort` handed in at start (WebMessagePort ports are transferable to a Worker). Measure p95 there before wiring. The Kotlin bench bridge (base64 + port, `TsFrameBench`) is left UNCOMMITTED on purpose: our releases are DEBUG builds, so `BuildConfig.DEBUG` is not a guard; Task 2 replaces it with `NativeInfer` and no page-exposed `@JavascriptInterface` is added.
-- **Device rows:** 1092 = verdict 922 / gap 2000 / rAF 34.3 / coverage 0.628 (`latency-ab-stageB5.json`).
+- **Device rows:** 1092 = verdict 922 / gap 2000 / rAF 34.3 / coverage 0.628 (`latency-ab-stageB5.json`). TFLite GPU per model p50: blazeface 19 / faceres 38 / movenet 160 (`gpu-bench-1.json`, `gpu-bench-2.json`).
+- **Preprocessing the Kotlin side must reproduce (read off detector.js):** BlazeFace float32 `(x/127.5)-1` at 256; faceres float32 RAW 0..255 at 224 (the page does the square crop); MoveNet int32 raw 0..255 at 256. TFLite outputs are read BY NAME (`PartitionedCall:N` order is signature-key order, not tfjs order); `native-ready` carries each model's output names.
 - **Blocked / needs owner:** nothing yet.
 - **Bench scaffold:** `spikes/native/bench-android/` written (Task 1 Step 1 done); `run.sh` builds+installs+runs and writes `gpu-bench.json`. Waiting on `.tflite`s from 0a.
 - **Log:**
   - 2026-09-02 14:45 plan written; spikes 0a/0b in flight; gauntlet cron deleted.
   - 2026-09-02 15:05 0b done (report committed); 0a two of three models; bench app compiles; GPU bench running on the Redmi for blazeface+movenet.
+  - 2026-09-02 15:20 0a REDONE (the two 'converted' models were Flex; faceres fixed by the same cause) -- all three builtin-only, parity green. Task 1 gate passed on the Redmi, twice. Task 2 started.
