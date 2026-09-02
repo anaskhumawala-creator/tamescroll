@@ -85,3 +85,21 @@ blur shader for the patch list from T3. Context loss → detach and let the
 the recipe; Redmi smoke (`probe_drops_ab.py` control + one arm per new dial
 that the Redmi can exercise: RENDER_EVERY 2, BLUR_IN_FRAME 1, NATIVE_CPU_MASK 1,
 NO_AV1 1, PRESENTER_GL 1); Opus critic on the diff; release 1098; manifest.
+
+## Loop state 2026-09-03 03:10 — T5 in flight
+
+- First 1098 build (601a93f): control 26.5% drops, native dead — the NNAPI
+  arbiter ran inside loadAll (19s) against the client's 15s ready timeout.
+  Moved after ready onto `ts-npu-trial`; control 13.71% (1097: 13.2%).
+- Six arms on that build (`drops-v1098b-*`): control 13.71 / noav1 14.75 /
+  render2 14.51 / blurframe **10.96** / cpumask1 12.24 / glpres **11.75**.
+  NO_AV1 inert (codec still av01); cpumask1's mask leaked into the glpres
+  page (native read cpu).
+- `probe_av1_caps.py`: YouTube asks `mediaCapabilities.decodingInfo` at
+  ~380ms and `isTypeSupported` at ~530ms; the bundle boots at ~1100ms. The
+  wrappers moved to `lib.rs no_av1_script` (document start) and cover
+  decodingInfo; decided at call time from `__TS_NO_AV1` / the tuning payload.
+- Phase-n critic: 13 rows, all landed (ledger N1-N13), critic-gate clear.
+  NATIVE_NPU ships 0 (N1); TsPerf token (N8); CONFIG on every ready.
+- Next: rebuild (85d1152 + bundle commit), re-smoke control / cpumask1 /
+  control-after / noav1 / glpres / blurframe, release 1098 + manifest.
