@@ -243,20 +243,37 @@ var SPEC = {
   // settled track's last read may stand before it is treated as stale
   // again. See person-track.trackNeedsRead.
   //
+  // SHIPPED AT 0 -- INERT (phase-i critic I2). The acceptance the
+  // 2026-09-02 commit rested on (exposure within +1.0s of CONTROL) was
+  // measured only at told 2000 / K=3, the regime HIS_EFFZOOM had been
+  // hard-coded to (phase-i I1) and the regime the constant was tuned
+  // in. Re-run at K=2 -- nearer the device's actually-measured told
+  // (stage A: verdictGapP50 1201ms, toldMs 1589.4) -- the woman-mode
+  // exposure delta is +4.0s to +4.5s against the +1.0s budget, and
+  // false cover is +21 to +34s / phantom +7 to +42s in EVERY regime,
+  // neither of which was gated at all (man: skip@2000 14.5/140.5/
+  // 484.5 vs CONTROL 13.5/117.5/477.5; woman: 19.0/206.5/603.5 vs
+  // 15.0/181.0/569.5). +34.0s of false cover on a 136.5s CONTROL is
+  // bigger than any single lever this repo has priced this month. It
+  // is an EXPOSURE/false-cover trade and this repo's rule is that
+  // those are his -- not raised to him yet, so it ships at 0 (every
+  // track re-read every pass, byte-identical to the pre-Task-4 arm,
+  // i.e. 1091 behaviour) and stays reachable over the air the moment
+  // he rules on it.
+  //
   // Red-proved at 0: `nowMs - readAt >= 0` is true for every track that
   // has ever been read, so a push of 0 makes EVERY verdict pass read
-  // EVERY picked person, byte-identical to the pre-Task-4 arm --
-  // bench/gender-skip-arm.mjs pins this against the control triple.
+  // EVERY picked person -- bench/gender-skip-arm.mjs pins this against
+  // the control triple.
   //
-  // The floor is 1000, not 0: below one verdict interval the window
-  // closes before a second verdict can even land at his cadence
-  // (VERDICT_MAX_INTERVAL_MS floors at 1200), so the skip could never
-  // fire and the dial would be decoration. The ceiling is 4000, twice
-  // the shipped VERDICT_MAX_INTERVAL_MS default -- past that a settled
-  // track goes two verdict intervals without a single re-confirming
-  // read, which is longer than CLEARED_TTL_MS already allows a clear to
-  // stand unrefreshed.
-  GENDER_REFRESH_MS: [1000, 4000, function (v) { personTrack.setGenderRefreshMs(v); }],
+  // The floor is 0 (not 1000): the shipped default IS the floor, and
+  // a device with no rules cache must run the same 0 the module
+  // defaults to. The ceiling is 4000, twice the shipped
+  // VERDICT_MAX_INTERVAL_MS default -- past that a settled track goes
+  // two verdict intervals without a single re-confirming read, which
+  // is longer than CLEARED_TTL_MS already allows a clear to stand
+  // unrefreshed.
+  GENDER_REFRESH_MS: [0, 4000, function (v) { personTrack.setGenderRefreshMs(v); }],
   // DELAY LINE (Stage B, plan 2026-09-02). How far behind the judged
   // frame the presented picture runs. 0 = presenter OFF, the reactive
   // pipeline exactly as 1091 ran it; 1000 is what the Redmi spike sized

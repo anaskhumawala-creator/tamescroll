@@ -25,7 +25,7 @@ import { readFileSync } from 'node:fs';
 import { applyTuning } from '../src/tuning.mjs';
 import * as cadence from '../src/cadence.mjs';
 
-const restore = () => applyTuning({ VERDICT_DUTY: cadence.VERDICT_DUTY === 2 ? 2 : 2 });
+const restore = () => applyTuning({ VERDICT_DUTY: 2 });
 
 test('init-entry.js declares no local VERDICT_DUTY and reads the module at the claim site', () => {
   const src = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
@@ -36,8 +36,14 @@ test('init-entry.js declares no local VERDICT_DUTY and reads the module at the c
   assert.doesNotMatch(src, /\bvar VERDICT_DUTY\s*=/,
     'VERDICT_DUTY must live in cadence.mjs, not as a per-video closure copy');
   // The use site: effZoom's own max() term, reading the module the same
-  // way VERDICT_MAX_INTERVAL_MS is read a few lines above it.
-  assert.match(src, /lastVerdictMs \* cadence\.VERDICT_DUTY/,
+  // way VERDICT_MAX_INTERVAL_MS is read a few lines above it. COMMENTS
+  // STRIPPED FIRST (phase-i critic I13) -- a raw match on source is
+  // satisfied by a commented-out read, the same G9 shape every other
+  // claim-site check in this repo now guards against.
+  const stripped = src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^[ \t]*\/\/.*$/gm, '');
+  assert.match(stripped, /lastVerdictMs \* cadence\.VERDICT_DUTY/,
     'the claim site must read cadence.VERDICT_DUTY, not a bare identifier');
 });
 

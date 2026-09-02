@@ -45,6 +45,19 @@ export function setPersonSkipEvery(v) {
   PERSON_SKIP_EVERY = v;
 }
 
+// MODULE-GLOBAL, NOT PER-VIDEO (phase-i critic I15). init-entry.js's
+// position-skip gate is `isPlayer && !wasVerdict && !personsLive()`,
+// with no `feedPreview()` check of its own -- so this state authors
+// every isPlayer video on the page, not only the one the owner is
+// watching. Today that is not a live defect: `isPlayer` is
+// dom.hasPlayerAncestor, which tests for the single `#movie_player` id,
+// and a valid DOM can hold at most one element with that id -- so
+// exactly one <video> can ever read isPlayer true at a time on
+// m.youtube, whose feed previews reuse THAT SAME element rather than
+// minting a second one (see the "A FEED PREVIEW DURING A SCROLL" note
+// in init-entry.js). If a build ever attaches two independently
+// player-tagged videos concurrently, key this by video element the way
+// delay-presenter.mjs keys its graph on the element.
 var emptyRun = 0;
 var skipsSince = 0;
 

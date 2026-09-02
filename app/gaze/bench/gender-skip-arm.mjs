@@ -71,6 +71,17 @@ for (const c of JSON.parse(fs.readFileSync(`${ROOT}/bank/label/clusters.json`, '
 const wins = winFiles().map(loadWin);
 
 let skipFired = 0;
+// THE DENOMINATOR `fired=` NEVER PRINTED (phase-i critic I6). An
+// observation is only ELIGIBLE to be skipped once it has matched an
+// existing track by IoU -- an unmatched one (a new subject, or one
+// nothing in `videoTracks` is near) always falls through to a real
+// read regardless of GENDER_REFRESH_MS, so it does not belong in the
+// rate. `fired / eligible` is the corpus rate this constant actually
+// buys; printing `fired` alone let a bench-only artifact (the rate is
+// a step function of the WRAPPER's own read spacing, `dt * K_HIS`, not
+// a smooth property of the millisecond constant) read as a property of
+// GENDER_REFRESH_MS itself.
+let skipEligible = 0;
 
 /**
  * A module object identical to the shipped one except that
@@ -97,9 +108,12 @@ function skipModule() {
         const v = S.iou(stamped.box, t.box);
         if (v >= S.PTRACK_IOU_MIN && v > bestIou) { bestIou = v; matched = t; }
       }
-      if (matched && !S.trackNeedsRead(matched, nowMs)) {
-        skipFired++;
-        return { box: stamped.box, positionOnly: true, at: nowMs };
+      if (matched) {
+        skipEligible++;
+        if (!S.trackNeedsRead(matched, nowMs)) {
+          skipFired++;
+          return { box: stamped.box, positionOnly: true, at: nowMs };
+        }
       }
       return stamped;
     });
@@ -124,12 +138,13 @@ function runSkip(g, refreshMs) {
   const arm = makeArms(mod)(hisRegimeOpts(g));
   const agg = { exposureS: 0, falseCoverS: 0, phantomS: 0 };
   skipFired = 0;
+  skipEligible = 0;
   for (const w of wins) {
     clock.ms = 0;
     const s = score(arm(thinFrames(w, K), g), g, (crop) => cropLabel.get(crop));
     for (const k of Object.keys(agg)) agg[k] += s[k];
   }
-  return { agg, skipFired };
+  return { agg, skipFired, skipEligible };
 }
 
 function checkControl(g, r) {
@@ -169,7 +184,7 @@ for (const g of ['man', 'woman']) {
   const zero = runSkip(g, 0);
   const zeroMatches = Object.keys(control).every((k) => zero.agg[k] === control[k]);
   console.log(row('skip @ GENDER_REFRESH_MS=0', zero.agg, control)
-    + `  fired=${zero.skipFired}`);
+    + `  fired=${zero.skipFired}/${zero.skipEligible}`);
   if (!zeroMatches || zero.skipFired !== 0) {
     console.error(`\nRED-PROOF FAILED for ${g}: GENDER_REFRESH_MS=0 must reproduce `
       + `CONTROL exactly and fire the skip zero times. Got skip=${JSON.stringify(zero.agg)} `
@@ -179,8 +194,20 @@ for (const g of ['man', 'woman']) {
   }
 
   const shipped = runSkip(g, 2000);
+  const rate = shipped.skipEligible > 0 ? (100 * shipped.skipFired / shipped.skipEligible).toFixed(1) : '--';
   console.log(row('skip @ GENDER_REFRESH_MS=2000 (shipped)', shipped.agg, control)
-    + `  fired=${shipped.skipFired}`);
+    + `  fired=${shipped.skipFired}/${shipped.skipEligible} (${rate}%)`);
+  // GENDER_REFRESH_MS's CONTRACT IS RELATIVE, NOT ABSOLUTE (phase-i I6,
+  // second half). This arm's own matched-observation spacing is `dt * K`
+  // (the corpus's raw per-frame interval times the verdict stride this
+  // run was given), not a device number -- so "2000ms" here means
+  // "skip while the last read is younger than
+  // `2000 / (dt * K)` verdict intervals", and that ratio, not the
+  // millisecond value, is what a device with a different VERDICT_DUTY or
+  // pass cost actually inherits.
+  const readSpacingMs = (1000 / wins[0].fps) * K;
+  console.log(`  read spacing this arm applies (dt*K): ${readSpacingMs.toFixed(0)}ms `
+    + `-> GENDER_REFRESH_MS=2000 is ${(2000 / readSpacingMs).toFixed(2)} verdict intervals`);
 
   // THE OTHER HALF OF THE RED-PROOF: the shipped setting must actually
   // exercise the branch, and exercising it must actually move the

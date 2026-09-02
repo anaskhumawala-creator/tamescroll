@@ -98,7 +98,7 @@ export function setIouMin(v) { PTRACK_IOU_MIN = v; }
 // consults before zooming a picked person: unsettled tracks (still on the
 // clear ladder, or simply overdue) always read; a settled flag-certain
 // blurred track, or a recently-refreshed cleared one, does not.
-export var GENDER_REFRESH_MS = 2000;
+export var GENDER_REFRESH_MS = 0;
 export function setGenderRefreshMs(v) { GENDER_REFRESH_MS = v; }
 /**
  * Does this track need a gender read on this pass? A read costs ~536ms

@@ -2261,6 +2261,18 @@ if (
         // Holding a pre-cut box open would re-admit a slot sitting where
         // somebody USED to stand — a GHOST, which the owner counts.
         heldPersons = [];
+        // A HELD "MoveNet ADMITS NOBODY" ANSWER MUST NOT OUTLIVE ITS
+        // SHOT (phase-i critic I10). PERSON_SKIP_EVERY backs the model
+        // off for up to PERSON_EMPTY_STREAK + (PERSON_SKIP_EVERY - 1)
+        // passes on evidence from the OLD shot; nothing above this line
+        // touches that independent cycle, so a cut into a shot with a
+        // faceless subject would otherwise wait out the same backoff a
+        // static shot would -- up to ~5.4s measured on the arm64 Redmi.
+        // Resetting it stands the position-skip gate down AND forces
+        // the very next pass's askPersons true -- the per-shot MoveNet
+        // look loop 29 already believed a cut forced, before Task 2's
+        // backoff cycle existed to be reset.
+        resetPersonSkip();
         passEpoch++;
         // NO whole-frame blackout here. Measured 2026-08-25: cuts fire
         // every ~2.8s on ordinary edited video, so blacking out the
@@ -3438,8 +3450,22 @@ if (
       // patch lag doesn't scale with playback speed. The adaptive
       // pass-cost throttle still wins on slow devices.
       var rate = isPlayer && video.playbackRate > 1 ? Math.min(3, video.playbackRate) : 1;
+      // WHEN POSITIONS ARE BEING SKIPPED, lastPassMs IS FROZEN AND MUST
+      // NOT DRIVE THE FLOOR (phase-i critic I11). Once personsLive() is
+      // false the gate below refuses every position pass on this video
+      // for good, so lastPassMs's one write site (the .finally below)
+      // goes silent -- it freezes at whatever a position pass happened
+      // to cost before the back-off, a race between 0 (never ran one)
+      // and a real MoveNet cost. The old expression fed that frozen
+      // value straight into `Math.max(floor / rate, lastPassMs *
+      // POSITION_DUTY)`, which is `0 * POSITION_DUTY` on a fresh video
+      // that backed off before its first position pass completed.
+      // Explicit now: no live position-pass cost to throttle from means
+      // the floor IS the design ceiling, not an unrecorded race.
       var effInterval = isPlayer
-        ? Math.min(POSITION_MAX_INTERVAL_MS, Math.max(floor / rate, lastPassMs * POSITION_DUTY))
+        ? (personsLive()
+            ? Math.min(POSITION_MAX_INTERVAL_MS, Math.max(floor / rate, lastPassMs * POSITION_DUTY))
+            : POSITION_MAX_INTERVAL_MS)
         : sampleInterval;
       // WHILE THE PAGE IS MOVING, GET OUT OF THE WAY.
       //
@@ -4515,6 +4541,14 @@ if (
               var bucket = wasVerdict ? dbgC.cost.verdict : dbgC.cost.pass;
               bucket.push(Math.round(cost));
               if (bucket.length > 120) bucket.shift();
+              // RECORD WHAT THE THROTTLE ACTUALLY SAW (phase-i critic
+              // I11): the cadence row has never banked either of
+              // these, so a stale lastPassMs was unreadable from
+              // outside. Both numeric, same shape as
+              // dbgC.tuning.coastMs/toldMs above.
+              dbgC.tuning = dbgC.tuning || {};
+              dbgC.tuning.lastPassMs = lastPassMs;
+              dbgC.tuning.effInterval = effInterval;
               sampling = false;
             });
         } catch (e) {
