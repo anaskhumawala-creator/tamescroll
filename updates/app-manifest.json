@@ -1,7 +1,7 @@
 {
-  "versionCode": 1089,
-  "versionName": "0.1.89",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.89/tamescroll-v0.1.89.apk",
-  "sha256": "3b66ce113d3f5d984e4f583350c20587c321a16d3e15dc6c01e80df491d8990d",
-  "notes": "Faces in video are no longer read stretched."
+  "versionCode": 1090,
+  "versionName": "0.1.90",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.90/tamescroll-v0.1.90.apk",
+  "sha256": "9d1483a291026fb0a98156456543bb407e3bea02a898045fb035ea558fae5aa4",
+  "notes": "Fewer wrong blurs on YouTube video, in both directions."
 }
