@@ -67,7 +67,13 @@ COLLECT_JS = r"""(function(){
       var lf=d.life||{};
       if(!st.life0){ st.life0={}; for(var q=0;q<LIFE.length;q++){ st.life0[LIFE[q]]=lf[LIFE[q]]||0; lastLife[LIFE[q]]=lf[LIFE[q]]||0; } }
       if((lf.cutDetected||0)>(lastLife.cutDetected||0)){ st.cuts.push({ms:now,vt:vt,n:(lf.cutDetected||0)-(lastLife.cutDetected||0)}); lastLife.cutDetected=lf.cutDetected||0; }
-      st.frames.push({ms:now,vt:vt,pm:pm,lm:lm,late:late,p:vis()});
+      // The timeline's own answer for this frame (1096+): merged target
+      // boxes and the per-entry inputs the presentation clamp saw.
+      var lt=ds&&ds.lastTarget?ds.lastTarget:null;
+      var R=function(b){return b?[b.x1,b.y1,b.x2,b.y2].map(function(x){return Math.round(x*1000)/1000;}):null;};
+      var tgt=lt?lt.merged.map(function(e){return R(e.box);}):null;
+      var te=lt?lt.entries.map(function(e){return {id:e.id,st:e.state,b:R(e.box),co:R(e.core),hd:R(e.head),fa:R(e.face),hw:e.headW,fc:e.flagCertain?1:0};}):null;
+      st.frames.push({ms:now,vt:vt,pm:pm,lm:lm,late:late,p:vis(),tm:lt?Math.round(lt.m*1000)/1000:null,tgt:tgt,te:te});
       // BOTH RINGS ARE CAPPED (reads shift() at 300, tracks slice(-200)),
       // so a length watermark stops seeing new entries once the ring is
       // full -- the first run of this probe recorded exactly 200 track

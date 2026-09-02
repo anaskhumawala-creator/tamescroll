@@ -1873,6 +1873,10 @@ if (
     // Media time of the frame the pass in flight was judged on
     // (verdictBusy serialises passes, so one slot is enough).
     var passMediaTime = 0;
+    // Probe-only: the last answer boxesFn gave the renderer (the timeline
+    // entries and the merged target), so a drawn rect can be told apart
+    // from the target it was drawn toward. References, no copies.
+    var lastTarget = null;
     function delayWanted() {
       return isPlayer && useRegionVideo && !feedPreview() && delayCore.DELAY_MS > 0;
     }
@@ -1891,9 +1895,12 @@ if (
         var b = boxesAt(timeline, m);
         if (!b) {
           bumpLife('delayVerdictLate');
+          lastTarget = null;
           return null;
         }
-        return mergePresented(b);
+        var merged = mergePresented(b);
+        lastTarget = { m: m, entries: b, merged: merged };
+        return merged;
       });
       // Blur-first: the hidden video is pending/flagged until the first
       // verdict says otherwise, and the canvas must say the same.
@@ -1907,6 +1914,7 @@ if (
             presentedMediaTime: presenter.presentedMediaTime(),
             snapshots: latestSnapshot(timeline),
             delayMs: delayCore.DELAY_MS,
+            lastTarget: lastTarget,
           };
         };
       } catch (e) {
