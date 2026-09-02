@@ -1,0 +1,88 @@
+E5 RE-DERIVED IN HIS REGIME -- births.mjs after the D2 fix
+corpus 18 windows / 2160 frames, shipped bundle (CUT_DELTA 60, PTRACK_IOU_MIN 0.15)
+
+### man, his regime (told 2000, coast 4000)
+18 windows, mode man, 2160 frames
+k=3 (1.5s/verdict)  told 2000ms  coast 4000ms  PTRACK_IOU_MIN 0.15
+BIRTHS 147
+  birthFresh            39  26.5%
+  birthNearMiss         42  28.6%
+  birthContended        65  44.2%
+  birthSizeRejected      1  0.7%
+deaths  coastExpired 102
+null    dropped 96  mintedHeld 3
+
+CUTS 59 across the corpus. The cut arm wipes every track, so
+the SAME arm with the gate off bounds how much of birthFresh is geometry:
+  cut ON   births 147  fresh 39  nearMiss 42  contend 65
+  cut OFF  births 139  fresh 37  nearMiss 40  contend 62
+
+win                       fresh nearMiss contend  size  coastExp
+KAWvDsghyc8_w152              5        9      10     0        20
+KAWvDsghyc8_w552              1       10      14     0        18
+4u3jS_cTHH0_w252              3        3       8     0        12
+eIho2S0ZahI_w242              2        4       6     0         5
+z86LGEFyQpo_w2                4        2       1     0         6
+4u3jS_cTHH0_w1602             3        2       5     1         8
+8R1hy3uHds0_w1052             4        0       0     0         4
+H14bBuluwB8_w22               1        3       1     0         3
+RcGyVTAoXEU_w42               1        3       2     0         4
+z86LGEFyQpo_w182              3        1       0     0         3
+1L_R0MB2W5A_w2                2        1       1     0         2
+8R1hy3uHds0_w1642             1        2       5     0         5
+Ary1gIbaOTc_w162              2        1       1     0         2
+H14bBuluwB8_w222              1        1       2     0         3
+NWoT1ZVd1Lo_w292              2        0       4     0         4
+NWoT1ZVd1Lo_w702              2        0       2     0         1
+Ary1gIbaOTc_w342              1        0       2     0         1
+RcGyVTAoXEU_w522              1        0       1     0         1
+
+### woman, his regime
+18 windows, mode woman, 2160 frames
+k=3 (1.5s/verdict)  told 2000ms  coast 4000ms  PTRACK_IOU_MIN 0.15
+BIRTHS 147
+  birthFresh            37  25.2%
+  birthNearMiss         33  22.4%
+  birthContended        75  51.0%
+  birthSizeRejected      2  1.4%
+deaths  coastExpired 102
+null    dropped 94  mintedHeld 3
+
+CUTS 59 across the corpus. The cut arm wipes every track, so
+the SAME arm with the gate off bounds how much of birthFresh is geometry:
+  cut ON   births 147  fresh 37  nearMiss 33  contend 75
+  cut OFF  births 141  fresh 36  nearMiss 33  contend 72
+
+win                       fresh nearMiss contend  size  coastExp
+KAWvDsghyc8_w152              5        8      11     0        20
+z86LGEFyQpo_w2                4        2       1     0         6
+4u3jS_cTHH0_w1602             2        3       7     0         9
+4u3jS_cTHH0_w252              2        3       9     0        12
+KAWvDsghyc8_w552              1        4      18     2        18
+8R1hy3uHds0_w1052             4        0       0     0         4
+eIho2S0ZahI_w242              2        2       8     0         5
+H14bBuluwB8_w22               1        3       1     0         3
+z86LGEFyQpo_w182              3        1       0     0         3
+8R1hy3uHds0_w1642             1        2       5     0         5
+Ary1gIbaOTc_w162              2        1       1     0         2
+RcGyVTAoXEU_w42               1        2       2     0         3
+1L_R0MB2W5A_w2                2        0       2     0         2
+H14bBuluwB8_w222              1        1       2     0         3
+NWoT1ZVd1Lo_w292              2        0       4     0         4
+NWoT1ZVd1Lo_w702              2        0       2     0         1
+RcGyVTAoXEU_w522              1        1       0     0         1
+Ary1gIbaOTc_w342              1        0       2     0         1
+
+### man, told 500 -- THE OLD REGIME, to isolate the cadence half
+18 windows, mode man, 2160 frames
+k=3 (1.5s/verdict)  told 500ms  coast 1000ms  PTRACK_IOU_MIN 0.15
+BIRTHS 214
+  birthFresh            72  33.6%
+  birthNearMiss         61  28.5%
+  birthContended        81  37.9%
+  birthSizeRejected      0  0.0%
+deaths  coastExpired 184
+null    dropped 118  mintedHeld 5
+
+CUTS 59 across the corpus. The cut arm wipes every track, so
+the SAME arm with the gate off bounds how much of birthFresh is geometry:

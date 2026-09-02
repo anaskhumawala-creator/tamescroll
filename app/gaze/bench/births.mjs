@@ -21,28 +21,41 @@
 // question it answers is an instrument that can be written to agree.
 import fs from 'fs';
 import { ROOT, winFiles } from './corpus-lib.mjs';
-import { loadWin, makeArms } from './arch-arms.mjs';
+import {
+  loadWin, makeArms, thinFrames, hisRegimeOpts, HIS_EFFZOOM, K_HIS,
+} from './arch-arms.mjs';
 const S = await import('./.cache/shipped.mjs');
 
 // A CUT WIPES EVERY TRACK, so every observation after one is birthFresh
 // BY CONSTRUCTION. Reporting the cut arm alone would attribute the
 // tracker's churn to geometry when the scene gate caused it. Both arms
 // run; the difference is the honest number.
-const armCut = makeArms(S)({ hold: true, clampPad: 0.02, cut: true });
-const armNoCut = makeArms(S)({ hold: true, clampPad: 0.02, cut: false });
-const thin = (w, e) => ({ ...w, frames: w.frames.map((fr, i) =>
-  i % e === 0 ? fr : { ...fr, faces: [], _labelFaces: fr.faces }) });
+// THE REGIME. This file built its options by hand -- `{ hold, clampPad,
+// cut }` where `hisRegimeOpts` carries seven -- and hand-rolled its own
+// `thin`, so it told the tracker the 500ms BANK interval and derived a
+// 1250ms coast where his phone is told 2000 and coasts 4000. That is the
+// D2 defect class, and it reversed three of the four tables it touched
+// (13a, critic-lowbar, 10g, 10h). A short coast expires a track between
+// every pair of verdicts, and an expired track is a BIRTH on the next
+// observation -- so this file's own subject was the thing most distorted
+// by it. Every number under E5 was measured that way.
+const mode = process.argv[2] || 'man';
+const K = Number(process.env.K || K_HIS);
+const TOLD = Number(process.env.TOLD || HIS_EFFZOOM);
+const OPTS = hisRegimeOpts(mode, TOLD);
+const armCut = makeArms(S)({ ...OPTS, cut: true });
+const armNoCut = makeArms(S)({ ...OPTS, cut: false });
+const thin = (w) => thinFrames(w, K);
 
 const KEYS = ['birthFresh', 'birthNearMiss', 'birthContended', 'birthSizeRejected',
   'coastExpired', 'nullDropped', 'nullMintedHeld', 'birthClaimed'];
 const total = Object.fromEntries(KEYS.map((k) => [k, 0]));
 const totalNC = Object.fromEntries(KEYS.map((k) => [k, 0]));
 const rows = [];
-const mode = process.argv[2] || 'man';
 let cuts = 0;
 
 for (const f of winFiles()) {
-  const w = thin(loadWin(f), 3);
+  const w = thin(loadWin(f));
   cuts += w.cuts ? w.cuts.filter(Boolean).length : 0;
   globalThis.__TS_GAZE_IDS = { life: {} };
   const out = armCut(w, mode);
@@ -50,7 +63,7 @@ for (const f of winFiles()) {
   const row = { win: f.replace(/\.json$/, ''), frames: out.length };
   for (const k of KEYS) { row[k] = life[k] || 0; total[k] += row[k]; }
   globalThis.__TS_GAZE_IDS = { life: {} };
-  armNoCut(thin(loadWin(f), 3), mode);
+  armNoCut(thin(loadWin(f)), mode);
   const nc = globalThis.__TS_GAZE_IDS.life;
   for (const k of KEYS) { row['nc_' + k] = nc[k] || 0; totalNC[k] += nc[k] || 0; }
   rows.push(row);
@@ -60,6 +73,7 @@ delete globalThis.__TS_GAZE_IDS;
 const births = total.birthFresh + total.birthNearMiss + total.birthContended
   + total.birthSizeRejected;
 console.log(`${rows.length} windows, mode ${mode}, ${rows.reduce((a, r) => a + r.frames, 0)} frames`);
+console.log(`k=${K} (${(K * 0.5).toFixed(1)}s/verdict)  told ${TOLD}ms  coast ${TOLD * 2}ms  PTRACK_IOU_MIN ${S.PTRACK_IOU_MIN}`);
 console.log(`BIRTHS ${births}`);
 for (const k of ['birthFresh', 'birthNearMiss', 'birthContended', 'birthSizeRejected'])
   console.log(`  ${k.padEnd(18)} ${String(total[k]).padStart(5)}` +
