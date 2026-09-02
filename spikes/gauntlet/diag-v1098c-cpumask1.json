@@ -1,0 +1,58 @@
+{
+ "bundle": "85d1152",
+ "versionCode": 1098,
+ "codec": {
+  "codec": "av01",
+  "changes": 1,
+  "hooked": 1
+ },
+ "native": {
+  "nativeBackend": "cpu",
+  "npu": "disabled",
+  "models": {
+   "face": {
+    "nativeBackend": "cpu"
+   },
+   "gender": {
+    "nativeBackend": "gpu"
+   },
+   "person": {
+    "nativeBackend": "gpu"
+   }
+  },
+  "dead": false
+ },
+ "perf": {
+  "slowed": 0,
+  "restored": 0,
+  "av1Refused": 0
+ },
+ "tuningApplied": null,
+ "life": {
+  "presenterGlLost": null,
+  "presenterGlRefused": null,
+  "cutLocated": 28,
+  "cutUnlocated": 2,
+  "delayVerdictLate": 43,
+  "nativePasses": 286,
+  "nativeErrors": null
+ },
+ "render": {
+  "raf": null,
+  "rafSkipped": null,
+  "repositionErrors": null
+ },
+ "presenter": {
+  "captured": 4054,
+  "presented": 3320,
+  "repaints": 0,
+  "patchesDrawn": 0,
+  "refills": 2,
+  "flushes": 3,
+  "capFailed": 0,
+  "ring": 37,
+  "late": 18,
+  "delayCollapsed": 0,
+  "errors": []
+ }
+}
