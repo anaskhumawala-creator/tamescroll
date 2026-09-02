@@ -99,6 +99,19 @@ if (built >= newestInput()) {
     const until = Date.now() + 60000;
     while (fs.existsSync(lock) && Date.now() < until) Atomics.wait(nap, 0, 0, 50);
   }
+  // RUN AS A COMMAND, THIS IS A BUILD. IMPORTED, IT IS A REFUSAL.
+  //
+  // The throw exists because node links before it evaluates, so a
+  // process that IMPORTED a stale bundle cannot be saved by rebuilding
+  // it -- the only honest thing left is to refuse. But when this file is
+  // the ENTRY POINT nobody has imported anything yet: the rebuild above
+  // has already happened and the right exit is 0. That is what makes a
+  // `pretest` possible, and a pretest is the actual fix for the
+  // stale-cache flakiness that `--test-concurrency=1` only reduced from
+  // three failures to one (phase-g G4).
+  if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(d, "_build.mjs")) {
+    process.stderr.write('bench/.cache/shipped.mjs rebuilt (src/ had changed).\n');
+  } else {
   // SAY IT ON stderr AS WELL AS THROWING. Under `node --test` a module
   // that throws at import time is reported as the FILE failing with
   // 'test failed' and no message, which reads exactly like a regression
@@ -116,5 +129,6 @@ if (built >= newestInput()) {
     '.cache/shipped.mjs was stale -- src/ has changed since it was built. '
     + 'It has been rebuilt now; re-run this arm. (Node links before it '
     + 'evaluates, so this process already imported the old bundle.)');
+  }
 }
 export const BUILT = true;

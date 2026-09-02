@@ -380,6 +380,19 @@ export function unpadPersons(data, fit, size) {
   // of, and the clamp survives only on the four box floats -- where the
   // original argument does hold and where every consumer downstream
   // genuinely requires 0..1.
+  //
+  // "CONSUMED AS DIFFERENCES, NOT AS POSITIONS" IS TOO STRONG (phase-g
+  // G12), and the correction does not change the decision. Keypoints
+  // are ALSO read as absolute positions -- they are unioned into the
+  // person's extent, and `headX`/`headY` are emitted from them -- so
+  // leaving them unclamped can emit a coordinate slightly outside 0..1
+  // (measured: -0.00067). Both consumers are monotone in the COVERING
+  // direction there: a union with an out-of-frame point can only grow
+  // the box, and a head anchor placed marginally high can only raise the
+  // top edge of a patch. Clamping is the exposure in ONE direction and
+  // inert in the other, so unclamped is right for both reasons -- but
+  // the justification is "every consumer is monotone toward covering",
+  // not "no consumer reads a position".
   var cl = function (v) { return v < 0 ? 0 : v > 1 ? 1 : v; };
   for (var p = 0; p < 6; p++) {
     var o = p * 56;
@@ -1856,4 +1869,70 @@ function padded(p, pad) {
     x2: Math.min(1, p.x2 + w * pad),
     y2: Math.min(1, p.y2 + h * pad),
   };
+}
+
+// FACE-IN-PERSON: THE ONE RULE THAT DECIDES WHICH EXTENT SOURCE A FACE
+// GETS, and until phase-g G1 it lived inside a closure in init-entry
+// where no bench could reach it.
+//
+// `extent-reach.mjs` re-implemented it -- unpadded, and with no
+// one-face-per-person rule -- and reported that 16.8% of corpus faces
+// fall through to `personFromFace`. Through the shipped rule the figure
+// is materially larger, because a second face inside one person's box
+// does NOT get that box: it gets its own synthetic body. That is the
+// same class of defect G5 caught one finding earlier (a bench modelling
+// a shipped mapping instead of calling it), so the function moved here
+// rather than being copied a third time.
+//
+// The 10% pad on each axis is load-bearing: MoveNet's box is drawn
+// round the KEYPOINTS, so a head that leans past the shoulder line sits
+// slightly outside the person it plainly belongs to.
+export function faceInsideIndex(face, persons) {
+  var cx = (face.x1 + face.x2) / 2;
+  var cy = (face.y1 + face.y2) / 2;
+  for (var i = 0; i < persons.length; i++) {
+    var p = persons[i];
+    var pw = (p.x2 - p.x1) * 0.1;
+    var ph = (p.y2 - p.y1) * 0.1;
+    if (cx >= p.x1 - pw && cx <= p.x2 + pw && cy >= p.y1 - ph && cy <= p.y2 + ph) return i;
+  }
+  return -1;
+}
+
+// LARGEST FACE FIRST. The face most likely to BE a person is the one
+// that gets to claim that person's measured box; every other face
+// inside it falls through to a synthetic body, and mergeTracks unions
+// the genuine overlaps so an over-claim costs one merged patch rather
+// than a stack. `init-entry` calls this -- it is not a second copy.
+export function faceOrderBySize(faces) {
+  var order = [];
+  for (var oi = 0; oi < faces.length; oi++) order.push(oi);
+  order.sort(function (a, b) {
+    return (
+      (faces[b].x2 - faces[b].x1) * (faces[b].y2 - faces[b].y1) -
+      (faces[a].x2 - faces[a].x1) * (faces[a].y2 - faces[a].y1)
+    );
+  });
+  return order;
+}
+
+// WHICH FACES FALL THROUGH TO personFromFace, by the shipped rule.
+//
+// Built for `bench/extent-reach.mjs`, which had its own private version
+// -- unpadded, and with no one-face-per-person rule -- and reported the
+// synthetic share as 16.8% where the shipped rule says 27.5%. It is
+// assembled from the same two pieces the app runs (`faceOrderBySize`
+// then `faceInsideIndex` with a `claimed` set), so it cannot drift from
+// the app without one of those two moving.
+export function synthFaceIndices(faces, persons) {
+  var order = faceOrderBySize(faces);
+  var claimed = {};
+  var synth = [];
+  for (var oj = 0; oj < order.length; oj++) {
+    var fi = order[oj];
+    var owner = faceInsideIndex(faces[fi], persons);
+    if (owner !== -1 && !claimed[owner]) { claimed[owner] = 1; continue; }
+    synth.push(fi);
+  }
+  return synth;
 }

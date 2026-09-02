@@ -3,6 +3,8 @@ arm: mnBody EDGE ONLY   control: PTRACK_IOU_MIN 0.15, CUT_DELTA 60, PTRACK_ASSIG
 
 -- MAN --
 edge moved in 13 of 18 windows   moved 285 times, inert 729  (28.1% of the branch)
+  branch ran 1014 times: 348 with an eligible neighbour, 666 with NONE (65.7%)
+  per OPPORTUNITY the edge moves 81.9%
 windows whose SCORE changed at all: 6
   better on every column: 4    costing exposure: 0
 total  exposure -0.5  falseCover -1.0  phantom -11.5
@@ -24,6 +26,8 @@ z86LGEFyQpo_w2            +   0.0  +    0.0  +     0.0       32      36
 
 -- WOMAN --
 edge moved in 11 of 18 windows   moved 67 times, inert 947  (6.6% of the branch)
+  branch ran 1014 times: 84 with an eligible neighbour, 930 with NONE (91.7%)
+  per OPPORTUNITY the edge moves 79.8%
 windows whose SCORE changed at all: 4
   better on every column: 1    costing exposure: 2
 total  exposure +1.5  falseCover -0.5  phantom -1.0

@@ -138,5 +138,9 @@ test('an absurd frame falls back to greedy rather than to a cubic stall', () => 
   assert.equal(globalThis.__TS_GAZE_IDS.life.assignFellBackGreedy, undefined,
     'at the ceiling exactly it must NOT fall back -- otherwise the counter '
     + 'would read as noise on every ordinary frame and mean nothing');
+  // (undefined here, not 0, because `optimalAssign` is being called
+  // DIRECTLY. The seed lives in `updatePersonTracks`, which is the only
+  // site that knows a pass is about to run -- see person-track's note.
+  // `test/assign-seed` below pins the seed itself.)
   delete globalThis.__TS_GAZE_IDS;
 });

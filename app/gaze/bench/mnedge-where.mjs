@@ -34,7 +34,8 @@ function runWin(w, g, extra) {
   const out = arm(thinFrames(w, K), g);
   const life = globalThis.__TS_GAZE_IDS.life;
   const s = score(out, g, (crop) => cropLabel.get(crop));
-  return { s, moved: life.mnEdgeMoved || 0, inert: life.mnEdgeInert || 0 };
+  return { s, moved: life.mnEdgeMoved || 0, inert: life.mnEdgeInert || 0,
+    opp: life.mnEdgeOpportunity || 0, none: life.mnEdgeNoNeighbour || 0 };
 }
 
 console.log(`18 windows, k=${K} (${(K * 0.5).toFixed(1)}s/verdict), his regime`);
@@ -42,7 +43,7 @@ console.log(`arm: mnBody EDGE ONLY   control: ${CONTROL.config}`);
 
 for (const g of ['man', 'woman']) {
   const rows = [];
-  const tot = { e: 0, f: 0, p: 0, moved: 0, inert: 0 };
+  const tot = { e: 0, f: 0, p: 0, moved: 0, inert: 0, opp: 0, none: 0 };
   let ctlSum = { exposureS: 0, falseCoverS: 0, phantomS: 0 };
   for (const file of files) {
     const w = loadWin(file);
@@ -54,9 +55,10 @@ for (const g of ['man', 'woman']) {
       e: e.s.exposureS - c.s.exposureS,
       f: e.s.falseCoverS - c.s.falseCoverS,
       p: e.s.phantomS - c.s.phantomS,
-      moved: e.moved, inert: e.inert,
+      moved: e.moved, inert: e.inert, opp: e.opp, none: e.none,
     };
     tot.e += d.e; tot.f += d.f; tot.p += d.p; tot.moved += d.moved; tot.inert += d.inert;
+    tot.opp += d.opp; tot.none += d.none;
     rows.push(d);
   }
   delete globalThis.__TS_GAZE_IDS;
@@ -78,6 +80,13 @@ for (const g of ['man', 'woman']) {
   console.log(`edge moved in ${moved.length} of ${rows.length} windows`
     + `   moved ${tot.moved} times, inert ${tot.inert}`
     + `  (${tot.moved + tot.inert ? (100 * tot.moved / (tot.moved + tot.inert)).toFixed(1) : '0.0'}% of the branch)`);
+  // THE HONEST RATE (phase-g G7). "% of the branch" counts every
+  // frame-face the arm looked at, including the ones with no cleared
+  // neighbour to give an edge to -- so it measures how often men clear,
+  // not how active the arm is. Per OPPORTUNITY it is the arm's own rate.
+  console.log(`  branch ran ${tot.opp + tot.none} times: ${tot.opp} with an eligible `
+    + `neighbour, ${tot.none} with NONE (${tot.opp + tot.none ? (100 * tot.none / (tot.opp + tot.none)).toFixed(1) : '0.0'}%)`);
+  console.log(`  per OPPORTUNITY the edge moves ${tot.opp ? (100 * tot.moved / tot.opp).toFixed(1) : '0.0'}%`);
   console.log(`windows whose SCORE changed at all: ${changed.length}`);
   console.log(`  better on every column: ${helped.length}    costing exposure: ${hurt.length}`);
   console.log(`total  exposure ${tot.e >= 0 ? '+' : ''}${tot.e.toFixed(1)}`

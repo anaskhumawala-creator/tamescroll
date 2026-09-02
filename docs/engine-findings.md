@@ -3186,12 +3186,28 @@ the SHIPPED `parsePersons` (`bench/extent-reach.mjs`), 18 windows,
 | persons admitted, total | **3,940** |
 | best slot score in frame | p05 0.125 / p50 0.382 / p95 0.522 / max 0.618 |
 | banked faces | 1,153 |
-| **faces whose centre falls inside an ADMITTED person** | **959 (83.2%)** |
-| faces with no admitted person -- genuinely synthetic | 194 (16.8%) |
+| **faces that CLAIM an admitted person's box** | **836 (72.5%)** |
+| faces falling through to `personFromFace` | 317 (27.5%) |
 
 Per window it runs **45.0% to 100.0%**, five windows at 100%, only one
 under 70%. So on this corpus the shipped app would take a MEASURED body
-for five faces in six, and the instrument takes a guess for six in six.
+for roughly three faces in four, and the instrument takes a guess for
+four in four.
+
+**THOSE TWO ROWS WERE 959/194 (83.2%/16.8%) WHEN THIS SECTION WAS
+WRITTEN, AND THAT WAS MY OWN RE-IMPLEMENTATION OF A SHIPPED RULE**
+(phase-g G1). `extent-reach.mjs` used a private containment test:
+unpadded, and with no one-face-per-person rule. Both halves are wrong
+and they pull opposite ways -- the shipped `faceInsideIndex` pads the
+person box by **10% on each axis** (MoveNet draws it round the
+KEYPOINTS, so a leaning head sits just outside the person it plainly
+belongs to), and the shipped `claimed` loop gives one box to ONE face,
+largest first, so **every second face inside a box gets a synthetic body
+anyway**. Netted, the synthetic share is **317 of 1,153 (27.5%)**, half
+again as large as the number this section first reported. The rule now
+lives in `person-gate.mjs` and both the app and the bench call it --
+same remedy as `crop-geometry.fitBox`, and the same defect class as G5
+one finding earlier.
 
 **WHAT THIS DOES AND DOES NOT INVALIDATE.** It does NOT invalidate the
 DECISION-layer work -- cadence, the coast, the clear bars, the
@@ -3201,13 +3217,26 @@ DIFFERENCES stand. What it bounds is every ABSOLUTE number, and every
 claim about EXTENT: `PATCH_MARGIN`, the head anchor, the body ladder,
 the adjacency clamp and the whole "the fat guess covers people by
 accident" argument are all statements about a path the app would be on
-for 16.8% of these faces, not 100%.
+for 27.5% of these faces, not 100%.
 
 **AND IT IS HIS REGIME BY ACCIDENT, NOT BY CONSTRUCTION.** Findings 36
 measured his phone at all twelve slots `n:0` with `faceNoShape` 121 of
 184 passes -- MoveNet admits nobody there, so the fallback IS what he
-runs, and the corpus happens to model it. **Nothing in the tree says
-so**, and the moment his device starts admitting persons (better
+runs, and the corpus happens to model it. **AND THE PARITY IS REAL, NOT
+AN ACCIDENT OF ARITHMETIC:** `bench/corpus-persons.mjs:27` banks at
+`S = 256`, which is `PERSON_INPUT_SIZE`, so the tensors `parsePersons`
+reads here are the shape his phone's worker produces -- what differs is
+the FOOTAGE, not the graph.
+
+**AND HIS 0.049 IS NOT COMPARABLE TO THE 0.382 ABOVE.** His figure is
+the **keypoint** maximum, gated by `PFF_FRAME_KP_FLOOR` (0.1); the
+corpus p50 0.382 is the **slot score**, gated by `PERSON_MIN_SCORE`
+(0.35). Two different heads of one tensor with two different gates, so
+"his phone reads 0.049 where the corpus reads 0.382" is not a
+contradiction and is not evidence that this footage is an easier
+population. It is two rows of a table read as one.
+
+**Nothing in the tree says so**, and the moment his device starts admitting persons (better
 hardware, whatever fixes the `n:0` regime, the letterbox if it is ever
 revived) every absolute corpus number stops describing his screen. A
 regime an instrument occupies by accident is one it can leave without
@@ -3217,7 +3246,7 @@ anyone noticing -- which is the D2 cadence defect restated one layer up.
 admitted MoveNet persons as the body where one is available. The
 tensors are banked and `parsePersons` is already called from this
 directory, so it is an arm, not a round -- but it is a change of body
-source on 83.2% of observations, so it will move all three columns and
+source on 72.5% of observations, so it will move all three columns and
 must be run as a matched A/B in both genders before a single sentence is
 written about it.
 
@@ -3228,7 +3257,7 @@ written about it.
 
 Findings 20 established that the corpus arm paints a synthetic body for
 100% of observations while the app takes the admitted MoveNet person on
-83.2% of these faces. `bench/mnbody-ab.mjs` prices the difference. Both
+72.5% of these faces (83.2% before phase-g G1 corrected the rule). `bench/mnbody-ab.mjs` prices the difference. Both
 arms byte-identical downstream of the box; only the source changes.
 `ssdMin` is a floor on the slot confidence, `faceW` refuses to shrink
 the body below N face widths, EDGE ONLY keeps the guess and lets the
@@ -3266,7 +3295,17 @@ measurement pull back only the side facing a cleared face.
   as protection because it often is.
 - **THE FACE-WIDTH FLOOR DOES NOT RESCUE IT.** faceW 2.0 and 3.0 move
   exposure 53.0 -> 48.5 -> 49.0, so most of the cost is NOT a
-  too-narrow body. It is height and it is occlusion.
+  too-narrow body. **"IT IS HEIGHT AND IT IS OCCLUSION" IS WITHDRAWN
+  (phase-g G2) -- IT IS NEITHER.** The height half was testable and was
+  not tested: `ssdUnionH` floors the measured box's vertical extent with
+  `personFromFace`'s, so if the measured body were losing people by
+  being too SHORT it would recover them. It recovers **0.5s of 30.5s
+  (1.6%)** on the man arm and 0.5s of 18.5s on the woman arm. And the
+  width half runs the other way past a point: **faceW 6.0 costs 142.0s
+  of exposure (+119.5)**, six times the control -- a box wide enough to
+  swallow the neighbour's observation takes the neighbour's TRACK with
+  it. So neither axis of the EXTENT explains the residual; what is left
+  is where the box sits, not how big it is, and that is unmeasured.
 - **`s >= 0.40` IS THE FIRST DEFENSIBLE ROW: 46.0s / 25.0s of phantom
   for +6.0s / +5.0s of exposure**, both arms agreeing on all three
   signs. That is the same exposure price as the coast dial for a third
@@ -3291,6 +3330,20 @@ measurement pull back only the side facing a cleared face.
   work** (8.0 of the 11.5 seconds), the score changes in 6 of 18
   windows, and the false cover column has two windows going the wrong
   way. **21a is the refusal and its numbers.**
+
+- **AND THE WHOLE SECTION IS SCOPED TO A REGIME HIS PHONE IS NOT IN
+  (phase-g G3).** Every `mnBody` arm needs `parsePersons` to admit
+  somebody; where it admits nobody `ssdBoxes` is null and each arm is
+  **byte-identical to CONTROL**. On this corpus that is 260 of 2,160
+  frames (12.0%). **On his phone it is every frame** -- findings 36
+  measured all twelve slots `n:0` with `faceNoShape` 121 of 184 passes.
+  So none of the rows above describe what he runs today: the body-source
+  question only becomes his question if the `n:0` regime is ever fixed.
+  Worse, the CONTROL guard both raws print (the 1091 triple) is
+  **structurally blind to this** -- CONTROL never builds `ssdBoxes` at
+  all, so the triple reproduces identically whether the body source
+  works, is inert, or is broken. It proves the DOWNSTREAM constants, and
+  nothing about the arm it is printed beside.
 
 **Raw: `spikes/gauntlet/mnbody-ab.txt`. New: `bench/mnbody-ab.mjs`,
 `bench/extent-reach.mjs`, the `mnBody` arm in `arch-arms.mjs`.**
@@ -3320,12 +3373,15 @@ only **6 windows' scores changed at all**:
 
 **8.0 of the 11.5 seconds is `KAWvDsghyc8_w552` alone**, and the false
 cover column has TWO windows going the WRONG way (+0.5, +1.5) offset by
-two going the right way. Seven further windows move an edge 1 to 43
-times and change nothing at all.
+**three** going the right way (-1.5, -0.5, -1.0). Seven further windows
+move an edge 1 to 43 times and change nothing at all. *(That "three"
+read "two" when this section was written -- phase-g G10, a miscount of
+its own raw, which is why the raw is banked beside it.)*
 
 **WOMAN:** the arm is nearly inert -- **67 moves against 947 (6.6%)**,
 4 windows changed, net **+1.5s exposure** for -0.5s and -1.0s, with two
-windows paying exposure and one window's phantom going UP (+1.0).
+windows paying exposure and **two** windows' phantom going UP (+0.5 and
++1.0). *(Also a miscount when written -- G10.)*
 
 - **SO 21'S "FREE IN HIS MODE" WAS THE TOTAL HIDING THE
   DISTRIBUTION**, which is the exact failure `iou-where.mjs` was built
@@ -3336,14 +3392,32 @@ windows paying exposure and one window's phantom going UP (+1.0).
   is 70% one window, carries mixed signs in both arms, and costs the
   woman arm exposure, is a coincidence with a mechanism attached -- not
   a mechanism. It ships nothing.
-- **THE GENDER ASYMMETRY IS REAL AND IT IS THE MECHANISM.** 28.1%
-  against 6.6% is not noise: the edge only pulls back where a
+- **THE GENDER ASYMMETRY IS REAL AND THE SENTENCE I HUNG ON IT WAS
+  WRONG (phase-g G7).** 28.1% against 6.6% is not noise, and the
+  mechanism named above is right: the edge only pulls back where a
   **CLEARED** face with descriptor signal stands beside the subject, and
-  in MAN mode men clear, so nearly every crowd frame has a cleared
-  neighbour. In WOMAN mode the neighbour is usually flagged too and
-  there is no edge to give up. **Any future adjacency work inherits
-  this: the arm is structurally four times more active in his mode than
-  the other, so a woman-mode measurement of it is nearly a control.**
+  in MAN mode men clear. But `mnEdgeInert` fired whether the branch
+  found such a neighbour and declined to move, or **found none at all**
+  -- and the second dominates, so that ratio was measuring how often men
+  clear on this footage, which was already known. Counted apart
+  (`mnEdgeOpportunity` / `mnEdgeNoNeighbour`), the branch ran 1,014
+  times in both arms:
+
+  | | man | woman |
+  |---|---|---|
+  | with an eligible cleared neighbour | 348 | 84 |
+  | with NONE | 666 (65.7%) | 930 (91.7%) |
+  | **edge moves, per OPPORTUNITY** | **81.9%** | **79.8%** |
+
+  **So the arm is NOT "structurally four times more active in his
+  mode".** Given a neighbour it behaves identically in both -- 81.9%
+  against 79.8%, two points apart. What differs by four times is the
+  FOOTAGE-and-mode rate at which a cleared neighbour exists at all.
+  **The consequence for future adjacency work reverses**: a woman-mode
+  measurement is not "nearly a control", it is the same arm on a
+  four-times-smaller sample, so it is under-powered rather than
+  structurally inert, and the fix is more woman-mode frames with
+  neighbours -- not discounting the arm.
 - **WHAT SURVIVES FROM 21, UNCHANGED:** the full swap is refused at
   +30.5s exposure, the face-width floor does not rescue it, and
   `s >= 0.40` remains the only defensible body-source row at -46.0s /
@@ -3353,4 +3427,101 @@ windows paying exposure and one window's phantom going UP (+1.0).
   this section's warning until it is.
 
 **Raw: `spikes/gauntlet/mnedge-where.txt`. New: `bench/mnedge-where.mjs`,
-`mnEdgeMoved`/`mnEdgeInert` in `arch-arms.mjs`.**
+`mnEdgeMoved`/`mnEdgeInert`/`mnEdgeOpportunity`/`mnEdgeNoNeighbour` in
+`arch-arms.mjs`.**
+
+
+## 22 -- PHASE G: SIX OF TWELVE FINDINGS ARE CHECKS OR INSTRUMENTS THAT COULD NOT SEE WHAT THEY CLAIMED, AND THREE REVERSE A CONCLUSION
+
+Twelve rows, twelve CONFIRMED, none refuted, **no EXPOSURE**. Every one
+fixed at source rather than annotated. The shape of the round is the
+same as phase F's and worse in one respect: **five of the twelve are
+defects in instruments or checks I built IN PHASE F**, one finding
+after the critic had already caught the same class.
+
+**THE THREE THAT CHANGE A CONCLUSION, not a number:**
+
+- **G1 -- the synthetic share is 27.5%, not 16.8%.** `extent-reach.mjs`
+  re-implemented the face-in-person test: unpadded, and with no
+  one-face-per-person rule. The shipped `faceInsideIndex` pads the box
+  **10% per axis** and the shipped `claimed` loop gives one box to ONE
+  face, largest first -- so a SECOND face inside a box falls through to
+  `personFromFace` anyway. Netted, **317 of 1,153 faces (27.5%)**, half
+  again the figure section 20 was written on. This is the same defect
+  class as G5 one finding earlier: a bench modelling a shipped rule
+  instead of calling it. `faceInsideIndex` and `synthFaceIndices` now
+  live in `person-gate.mjs`; the app imports them and the bench imports
+  them out of the emitted bundle.
+- **G2 -- "it is height and it is occlusion" is withdrawn.**
+  `ssdUnionH` floors the measured body's vertical extent with the
+  guess's and recovers **0.5s of the 30.5s (1.6%)**. And width past a
+  point runs the OTHER way: `faceW 6.0` costs **142.0s of exposure
+  (+119.5)**, six times the control. So neither axis of the extent is
+  the residual, and the sentence that named a mechanism was a guess
+  written in the voice of a measurement.
+- **G7 -- the edge arm is NOT four times more active in his mode.**
+  `mnEdgeInert` fired whether the branch found a cleared neighbour and
+  declined, or **found none at all**, and the second dominates. Split
+  (`mnEdgeOpportunity` / `mnEdgeNoNeighbour`): the branch runs 1,014
+  times in both arms, with a neighbour **348 man / 84 woman**, and per
+  OPPORTUNITY the edge moves **81.9% against 79.8%** -- two points
+  apart. The 28.1%/6.6% was measuring how often men clear on this
+  footage. The consequence reverses: a woman-mode measurement is
+  under-powered, not structurally inert.
+
+**THE SCOPE FINDING (G3), which bounds all of 21 and 21a:** every
+`mnBody` arm needs an admitted person, so where MoveNet admits nobody
+each arm is **byte-identical to CONTROL** -- 12.0% of corpus frames and
+**100% of his phone** (findings 36: twelve slots `n:0`). And the CONTROL
+triple both raws print is structurally blind to it, because CONTROL
+never builds `ssdBoxes`: the guard proves the downstream constants and
+nothing about the arm beside it.
+
+**THE CHECKS THAT COULD NOT FAIL, or could fail wrongly:**
+
+- **G4 -- `--test-concurrency=1` was the wrong fix and I wrote down that
+  it worked.** Serialising turns THREE stale-cache failures into ONE
+  (565 tests, 1 fail), not zero, because the first process to notice
+  still throws by design -- and it costs ~30% of every run (16.584s
+  against 12.782s). The real fix is a `pretest` that rebuilds ahead of
+  every test process; `_build.mjs` now exits 0 when it IS the entry
+  point and throws only when imported. **576/576 first run, 13.593s.**
+- **G5 -- F4's fix was itself a dead check.** It re-implemented the
+  inverse map and never called `unpadPersons`, and it was one-sided. Now
+  it compares the shipped output against an independent inverse in both
+  directions; red-proved by growing (6.48e-1) and shrinking (6.53e-1)
+  the map, green at 2.65e-8.
+- **G6 -- the same bench exited 0 while printing "THE INVERSE MAP IS
+  WRONG".** Both failure modes exit 2 now, vacuity included.
+- **G9 -- the counter-collision sweep matched TEXT, not writes.** Three
+  comment lines in `init-entry.js` explaining that `clampFired` was
+  taken counted as ownership, and the red-proof fixture demonstrated
+  only that a twice-MENTIONED name trips it. Comments are stripped and
+  only a bump SITE counts; the rule is structural (a `life` property, a
+  quoted literal on a bump-shaped call, or a seed to 0) because
+  enumerating helper names is how a check like this goes stale -- the
+  first two attempts reported ZERO owners for `clampFired` itself, which
+  bumps out of a ternary.
+- **G8 -- `assignFellBackGreedy` could not be told from never-hooked.**
+  Seeded to 0 at the one call site that knows the optimal assignment is
+  about to run, and only in that mode, so a constant 0 in greedy mode
+  cannot read as a measurement.
+
+**G10 and G11 are miscounts of my own banked raws** (21a's false-cover
+column reads three windows improving, not two; the woman arm has two
+windows' phantom rising, not one; the G5 red-proof reads 1.938, not
+0.699). **G12** narrows F2's justification: keypoints ARE also read as
+absolute positions, and unclamped is still right -- but because every
+consumer is monotone toward COVERING, not because no consumer reads a
+position.
+
+**THE PATTERN WORTH CARRYING:** phase F's lesson was "a check that
+cannot fail is worse than no check". Phase G's is one layer up -- **an
+instrument that re-derives a shipped rule is a check that cannot fail,
+and I built three of them in one session** (G1, G5, G9), each after
+writing down the rule that forbids it. The remedy that worked all three
+times is the same: move the rule into a module, call it from both
+sides, and delete the copy.
+
+**Raw: `spikes/gauntlet/extent-reach.txt`, `mnbody-ab.txt`,
+`mnedge-where.txt`. Critique: `docs/critic/phase-g.md`.**

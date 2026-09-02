@@ -60,6 +60,13 @@ const ARMS = [
   ['mnBody   s>=0.00  faceW 3.0', { mnBody: true, ssdMin: 0, ssdMinFaceW: 3.0 }],
   ['mnBody   s>=0.40', { mnBody: true, ssdMin: 0.4 }],
   ['mnBody   EDGE ONLY', { mnBody: true, ssdMin: 0, ssdEdge: true }],
+  // PHASE-G G2: is the 30.5s of exposure HEIGHT? `ssdUnionH` floors the
+  // measured box's vertical extent with personFromFace's, so if the
+  // MoveNet body is losing people by being too SHORT this arm recovers
+  // it. If it does not, the residual is horizontal and Â§21's mechanism
+  // sentence is wrong.
+  ['mnBody   s>=0.00  unionH', { mnBody: true, ssdMin: 0, ssdUnionH: true }],
+  ['mnBody   s>=0.00  faceW 6.0', { mnBody: true, ssdMin: 0, ssdMinFaceW: 6.0 }],
 ];
 
 console.log(`18 windows, k=${K} (${(K * 0.5).toFixed(1)}s/verdict), his regime`);

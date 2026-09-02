@@ -30,7 +30,7 @@
 import fs from 'fs';
 import { ROOT, winFiles, W, H } from './corpus-lib.mjs';
 import { loadWin, thinFrames, K_HIS } from './arch-arms.mjs';
-import { parsePersons, PERSON_MIN_SCORE } from './.cache/shipped.mjs';
+import { parsePersons, PERSON_MIN_SCORE, synthFaceIndices } from './.cache/shipped.mjs';
 
 const K = Number(process.env.K || K_HIS);
 const STRIDE = 336; // 6 slots * 56 floats
@@ -40,10 +40,6 @@ let facesTotal = 0, facesInsideAPerson = 0;
 const perSlotMax = [];
 const rows = [];
 
-const inside = (f, p) => {
-  const cx = (f.x1 + f.x2) / 2, cy = (f.y1 + f.y2) / 2;
-  return cx >= p.x1 && cx <= p.x2 && cy >= p.y1 && cy <= p.y2;
-};
 
 for (const file of winFiles()) {
   const w = thinFrames(loadWin(file), K);
@@ -64,12 +60,17 @@ for (const file of winFiles()) {
     if (persons.length) { admittedFrames++; wAdmit++; }
     admittedPersons += persons.length;
     wPersons += persons.length;
-    const faces = (fr[fi] && fr[fi].faces) || [];
-    for (const f of faces) {
-      if (!(f && typeof f.x1 === 'number')) continue;
-      facesTotal++;
-      if (persons.some((p) => inside(f, p))) facesInsideAPerson++;
-    }
+    // THE SHIPPED RULE, CALLED, NOT RE-DERIVED. The first version of
+    // this bench used a private unpadded containment test with no
+    // one-face-per-person rule and under-counted the synthetic share
+    // (phase-g G1). Both halves matter and they pull opposite ways: the
+    // 10% pad admits faces a bare box misses, and `claimed` sends every
+    // SECOND face inside one box to personFromFace anyway.
+    const faces = ((fr[fi] && fr[fi].faces) || [])
+      .filter((f) => f && typeof f.x1 === 'number');
+    facesTotal += faces.length;
+    const synth = synthFaceIndices(faces, persons);
+    facesInsideAPerson += faces.length - synth.length;
   }
   rows.push([w.tag, wFrames, wAdmit, wPersons, wFrames ? wAdmit / wFrames : 0]);
 }
@@ -90,10 +91,12 @@ console.log(`slot score, best in frame   p05 ${q(perSlotMax, 0.05).toFixed(3)}`
   + `  max ${q(perSlotMax, 0.999).toFixed(3)}`);
 console.log('');
 console.log(`banked faces                               ${facesTotal}`);
-console.log(`  whose centre falls in an ADMITTED person ${facesInsideAPerson}`
+console.log(`  that CLAIM an admitted person's box        ${facesInsideAPerson}`
   + `  (${pc(facesInsideAPerson, facesTotal)})`);
-console.log(`  with no admitted person -- SYNTHETIC     ${facesTotal - facesInsideAPerson}`
+console.log(`  falling through to personFromFace         ${facesTotal - facesInsideAPerson}`
   + `  (${pc(facesTotal - facesInsideAPerson, facesTotal)})`);
+console.log('  -- "claim", not "fall inside": a SECOND face in one box');
+console.log('     gets a synthetic body too (shipped `claimed` rule).');
 console.log('');
 console.log('THE READING: the right-hand number is the share of the corpus');
 console.log('whose extent comes from personFromFace rather than from a');

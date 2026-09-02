@@ -62,24 +62,69 @@ test('and they reach the report, zeros included', () => {
   assert.equal(r.player.life.wholeFrameCleared, 0, 'a zero is evidence and must survive');
 });
 
+// WHO WRITES A COUNTER, as opposed to who MENTIONS it.
+//
+// Phase-g G9: the first version of this matched the bare NAME anywhere
+// in a file, so three comment lines in `init-entry.js` explaining that
+// `clampFired` was taken counted as ownership. That is wrong in both
+// directions -- it turns red when somebody documents a counter in a
+// second module, and its red-proof fixture demonstrated only that a
+// twice-MENTIONED name trips the sweep, never a twice-WRITTEN one. A
+// collision is two modules INCREMENTING one key; nothing else is.
+//
+// Comments are stripped first, and only a bump SITE counts: the literal
+// passed to `bumpLife`/`bump`/`bumpArm`, or a `life[...]` write.
+export function ownersOf(name, entries) {
+  const owners = [];
+  for (const [file, src] of entries) {
+    const code = src
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+    // WHAT COUNTS AS A WRITE, and the shape of it took three tries.
+    //
+    // The literal need not follow the paren: `person-track` bumps out of
+    // a ternary -- `bumpLife(drawn === padded ? 'clampNoLegalEdge' :
+    // 'clampFired')` -- so anchoring on `bump(` + quote reported ZERO
+    // owners for the very name this check is named after. And the bump
+    // helper is not always called `bump*`: `init-entry` writes through a
+    // local `wholeFrameLife(...)`. Enumerating helper names is how a
+    // check like this goes quietly stale, so the rule is structural:
+    //   - the name reached as a property of a `life` bag, or
+    //   - the name QUOTED on a line that also calls a bump-shaped helper
+    //     (anything ending in `Life(`, or `bump`), or
+    //   - the name SEEDED to 0, quoted or bare -- seeding from a second
+    //     module is exactly how a counter silently changes meaning.
+    const q = '[\'"`]';
+    const bump = new RegExp(
+      '\\.life\\.' + name + '\\b'
+      + '|life\\s*\\[\\s*' + q + name + q
+      + '|(?:bump\\w*|\\w*Life)\\s*\\([^\\n]*' + q + name + q
+      + '|' + q + '?' + name + q + '?\\s*:\\s*0');
+    if (bump.test(code)) owners.push(file);
+  }
+  return owners;
+}
+
+function srcEntries() {
+  const dir = new URL('../src/', import.meta.url);
+  return readdirSync(dir)
+    .filter((f) => /\.(mjs|js)$/.test(f))
+    .map((f) => [f, readFileSync(new URL(f, dir), 'utf8')]);
+}
+
 test('the name is new -- it does not rebase an existing counter', () => {
   // A new counter reusing an old name merges two unrelated events into
   // one number and silently rebases every reading any earlier round has
-  // quoted. `clampFired` was already taken once (loop 39) and this is the
-  // check that caught it.
+  // quoted. `clampFired` was taken once (loop 39) and this is the class
+  // of check that caught it.
   //
-  // AND THAT COLLISION WAS BETWEEN TWO FILES -- region-blur's patch
-  // clamp against body-clamp's -- while the first version of this test
-  // grepped `init-entry.js` alone (phase-f F7). A check scoped to one
-  // file cannot see the defect it names. So the sweep is the whole
-  // module tree, and the assertion is that exactly ONE file owns each
-  // name.
-  const dir = new URL('../src/', import.meta.url);
-  const files = readdirSync(dir).filter((f) => /\.(mjs|js)$/.test(f));
-  assert.ok(files.length > 10, `precondition: the sweep found only ${files.length} modules`);
+  // THE SWEEP IS THE WHOLE MODULE TREE. The first version grepped
+  // `init-entry.js` alone (phase-f F7), and a check scoped to one file
+  // cannot see a collision BETWEEN files, which is what that one was.
+  const entries = srcEntries();
+  assert.ok(entries.length > 10, `precondition: the sweep found only ${entries.length} modules`);
   for (const name of ['wholeFrameSamples', 'wholeFrameNoFaces', 'wholeFrameCleared']) {
-    const owners = files.filter((f) =>
-      readFileSync(new URL(f, dir), 'utf8').includes(name));
+    const owners = ownersOf(name, entries);
     assert.deepEqual(owners, ['init-entry.js'],
       `${name} is written by ${owners.join(', ') || 'nothing'} -- a counter `
       + 'bumped from two modules merges two unrelated events into one number');
@@ -90,15 +135,39 @@ test('the name is new -- it does not rebase an existing counter', () => {
   }
 });
 
-test('that sweep can actually fail -- a two-file name is caught', () => {
+test('that sweep can actually fail -- two WRITERS are caught, a comment is not', () => {
   // Red-before-green, kept as a test rather than a one-off, because this
-  // repo has twice shipped a check that could not fail. `clampFired` is
-  // the real historical collision and it is still written by two
-  // modules, so it is the fixture: the sweep must reject it.
-  const dir = new URL('../src/', import.meta.url);
-  const files = readdirSync(dir).filter((f) => /\.(mjs|js)$/.test(f));
-  const owners = files.filter((f) =>
-    readFileSync(new URL(f, dir), 'utf8').includes('clampFired'));
-  assert.ok(owners.length >= 2,
-    'precondition: clampFired is still the two-file name this sweep must reject');
+  // repo has three times shipped a check that could not fail.
+  //
+  // The fixture is SYNTHETIC on purpose. The previous one used
+  // `clampFired` and asserted it was "still written by two modules" --
+  // it is written by exactly one (`person-track.mjs`) and merely
+  // discussed in another, so the proof proved the bug rather than the
+  // check (phase-g G9). There is no real two-writer collision in the
+  // tree today, and manufacturing one in `src/` to test a test is not
+  // an option, so the sweep is exercised as the pure function it now is.
+  const two = [
+    ['a.mjs', 'function f(){ bumpLife("ghostFired"); }'],
+    ['b.mjs', 'function g(){ bumpArm(\'ghostFired\'); }'],
+  ];
+  assert.deepEqual(ownersOf('ghostFired', two), ['a.mjs', 'b.mjs'],
+    'two modules bumping one key must both be reported');
+
+  // And the false positive the old version had: a mention is not a write.
+  const mention = [
+    ['a.mjs', 'function f(){ bumpLife("ghostFired"); }'],
+    ['b.mjs', '// NOT `ghostFired` -- that name is TAKEN by a.mjs\nvar x = 1;'],
+    ['c.mjs', '/* ghostFired is documented here, never written */'],
+  ];
+  assert.deepEqual(ownersOf('ghostFired', mention), ['a.mjs'],
+    'a comment naming a counter must not read as a second owner');
+
+  // A seed counts as a write: seeding from a second module is exactly
+  // how a counter silently changes meaning.
+  assert.deepEqual(ownersOf('seedName', [['s.mjs', 'life = { seedName: 0 };']]), ['s.mjs']);
+
+  // The live tree agrees with the point of the fixture.
+  assert.deepEqual(ownersOf('clampFired', srcEntries()), ['person-track.mjs'],
+    'clampFired has exactly one writer -- the collision it is famous for '
+    + 'was resolved, and the comments about it are not owners');
 });

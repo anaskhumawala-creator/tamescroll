@@ -6,8 +6,10 @@ persons admitted, total                    3940
 slot score, best in frame   p05 0.125  p50 0.382  p95 0.522  max 0.618
 
 banked faces                               1153
-  whose centre falls in an ADMITTED person 959  (83.2%)
-  with no admitted person -- SYNTHETIC     194  (16.8%)
+  that CLAIM an admitted person's box        836  (72.5%)
+  falling through to personFromFace         317  (27.5%)
+  -- "claim", not "fall inside": a SECOND face in one box
+     gets a synthetic body too (shipped `claimed` rule).
 
 THE READING: the right-hand number is the share of the corpus
 whose extent comes from personFromFace rather than from a

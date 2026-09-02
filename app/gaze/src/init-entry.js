@@ -38,6 +38,8 @@ import {
   personFromFace,
   boundBodyToSlot,
   lastSlotDiag,
+  faceInsideIndex,
+  faceOrderBySize,
 } from './person-gate.mjs';
 
 // CROP-BUDGET PRIORITY. `confidence` is NOT one scale: a MoveNet person
@@ -1762,17 +1764,9 @@ if (
     // Returns the INDEX rather than a boolean because one person box can
     // contain several people's faces and only one of them is that person
     // — see faceOwnerIndex's caller for what the rest are worth.
-    function faceInsideIndex(face, persons) {
-      var cx = (face.x1 + face.x2) / 2;
-      var cy = (face.y1 + face.y2) / 2;
-      for (var i = 0; i < persons.length; i++) {
-        var p = persons[i];
-        var pw = (p.x2 - p.x1) * 0.1;
-        var ph = (p.y2 - p.y1) * 0.1;
-        if (cx >= p.x1 - pw && cx <= p.x2 + pw && cy >= p.y1 - ph && cy <= p.y2 + ph) return i;
-      }
-      return -1;
-    }
+    // MOVED TO person-gate.mjs (phase-g G1) so a bench can call the
+    // rule instead of re-deriving it. It is imported at the top of this
+    // file; the padding and the -1 contract are unchanged.
     function faceInsideAny(face, persons) {
       return faceInsideIndex(face, persons) !== -1;
     }
@@ -3691,14 +3685,16 @@ if (
                   // in that box gets its own body. mergeTracks unions the
                   // genuine overlaps, so an over-claim costs one merged
                   // patch rather than a stack.
-                  var order = [];
-                  for (var oi = 0; oi < faces.length; oi++) order.push(oi);
-                  order.sort(function (a, b) {
-                    return (
-                      (faces[b].x2 - faces[b].x1) * (faces[b].y2 - faces[b].y1) -
-                      (faces[a].x2 - faces[a].x1) * (faces[a].y2 - faces[a].y1)
-                    );
-                  });
+                  //
+                  // BOTH HALVES LIVE IN person-gate.mjs NOW (phase-g G1).
+                  // The bench that measures how much of the corpus lands
+                  // on this fallback had its own copy of the rule -- a
+                  // private, unpadded, non-claiming version -- and it
+                  // under-counted the synthetic share by half again
+                  // (194 of 1153 against the real 317). Two copies of a
+                  // decision rule is the same defect as one bench
+                  // modelling a shipped mapping, so there is one copy.
+                  var order = faceOrderBySize(faces);
                   // NOTHING HUMAN-SHAPED IN FRAME => a face here is a
                   // graphic, not a person MoveNet missed (R21). Only
                   // consulted when the person pass admitted NOBODY: with

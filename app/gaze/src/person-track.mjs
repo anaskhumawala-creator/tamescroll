@@ -743,6 +743,19 @@ export function updatePersonTracks(tracks, observations, dtMs, hold) {
   // here is gone. `optimalAssign` is the arm E5 asks for now that
   // `birthContended` is the largest class of birth in both gender arms.
   // Ships greedy: a mode nobody has measured does not get to be default.
+  // SEEDED HERE, not in assign.mjs, so that "0" means "the optimal
+  // assignment ran and never hit its ceiling" and not "no pass has
+  // happened yet" (phase-g G8). The seed lives at the ONE site that
+  // knows the assignment is about to run, and only in the optimal mode,
+  // because in greedy mode the key would be a constant 0 that reads as
+  // a measurement.
+  if (PTRACK_ASSIGN === 'optimal') {
+    var gl = typeof globalThis !== 'undefined' ? globalThis.__TS_GAZE_IDS : null;
+    if (gl) {
+      if (!gl.life) gl.life = {};
+      if (gl.life.assignFellBackGreedy === undefined) gl.life.assignFellBackGreedy = 0;
+    }
+  }
   var claims = (PTRACK_ASSIGN === 'optimal' ? optimalAssign : greedyAssign)(
     pairs, tracks.length, observations.length);
   for (var p = 0; p < claims.length; p++) {

@@ -29,13 +29,22 @@
 // how differently the two reads score. The votes are NOT independent, so
 // no standard-error argument applies to the pool.
 import fs from 'fs';
-// THE SUITE RUNS SERIALLY (`--test-concurrency=1` in package.json) FOR
-// THIS FILE'S SAKE. Three test files import `.cache/shipped.mjs`, and
-// when a source constant moves they all race to rebuild it -- one
-// writer truncating the file another is importing. Measured: the three
-// fail together under the default concurrency and every one of them
-// passes alone. A suite that fails on a correct change teaches people to
-// re-run it until it goes green, which is worse than a slow suite.
+// THE SUITE HAS A `pretest` THAT REBUILDS THIS CACHE, AND THE FIRST
+// ATTEMPT AT THAT FIX WAS WRONG IN BOTH DIRECTIONS.
+//
+// Three test files import `.cache/shipped.mjs`. When a source constant
+// moves, each of their processes finds the bundle stale -- and
+// `_build.mjs` THROWS BY DESIGN rather than rebuilding for itself,
+// because node links every module before evaluating any of them, so
+// rewriting the file cannot change what this process already imported.
+//
+// I first shipped `--test-concurrency=1` and wrote that it made the
+// suite pass on a correct change. Phase-g G4 falsified both halves:
+// serialising turns THREE failures into ONE (565 tests, 1 fail), not
+// zero, because the first process to notice still throws -- and it
+// costs ~30% of every run (16.584s against 12.782s). The real fix is to
+// get the rebuild in AHEAD of every test process, which is what
+// `pretest` does; concurrency is back at the default.
 //
 // FIRST, and the order is load-bearing: this rebuilds .cache/shipped.mjs
 // and must be evaluated before anything imports it. See _build.mjs.
@@ -832,14 +841,26 @@ export function makeArms(mod) {
             if (meas && guess) {
               const fcx = (f.x1 + f.x2) / 2;
               let x1 = guess.x1, x2 = guess.x2;
+              // THE DENOMINATOR, or the moved/inert ratio is a fact
+              // about the FOOTAGE and not about the arm (phase-g G7).
+              // `mnEdgeInert` fires whether the branch found a cleared
+              // neighbour and declined to move, or found none at all --
+              // and the second dominates, so 28.1% man against 6.6%
+              // woman was measuring how often men clear, which is
+              // already known. Counted apart: an OPPORTUNITY is a
+              // frame-face with at least one eligible neighbour.
+              let elig = 0;
               for (let hi = 0; hi < fr.faces.length; hi++) {
                 if (hi === i) continue;
                 const hb = base[hi] || {}, h = fr.faces[hi];
                 if (!(hb.flagged === false && h.nm >= NM_FLOOR)) continue;
+                elig++;
                 const hcx = (h.x1 + h.x2) / 2;
                 if (hcx > fcx) x2 = Math.min(x2, Math.max(meas.x2, f.x2));
                 else x1 = Math.max(x1, Math.min(meas.x1, f.x1));
               }
+              if (elig) bumpArm('mnEdgeOpportunity');
+              else bumpArm('mnEdgeNoNeighbour');
               // COUNTED, because "-11.5s of phantom across 2,160 frames"
               // could be one window doing all the work and nothing
               // outside could tell (findings 21). `mnEdgeMoved` fires

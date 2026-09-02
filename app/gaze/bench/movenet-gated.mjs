@@ -124,18 +124,48 @@ function run(b, arm) {
   if (arm === 'letterbox') {
     raw = [];
     const ox = FIT.dx / S, oy = FIT.dy / S, sx = FIT.dw / S, sy = FIT.dh / S;
+    const cl = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+    // THE INDEPENDENT INVERSE, and it is only half the check.
+    // Phase-g G5: the first version of this compared the bench's own
+    // arithmetic against 0..1 and NEVER READ `unpadPersons`, so breaking
+    // the shipped function by exactly the factor F4 red-proved (sx/3)
+    // still printed "the inverse map holds" while the arms' IoU
+    // collapsed 0.915 -> 0.423. F4 moved the check off clamped output
+    // and onto a re-implementation, which is the same class of defect
+    // one step sideways. It was also ONE-SIDED: it looked for overshoot
+    // only, so a map wrong in the SHRINKING direction read clean -- and
+    // shrinking is the direction F2 showed uncovers a crown.
+    const want = [];
     for (let pi = 0; pi < 6; pi++) {
       const o = pi * 56;
       if (!(data[o + 55] > 0)) continue;
-      raw.push({
+      const b = {
         scored: data[o + 55] >= PERSON_MIN_SCORE,
         y1: (data[o + 51] - oy) / sy,
         x1: (data[o + 52] - ox) / sx,
         y2: (data[o + 53] - oy) / sy,
         x2: (data[o + 54] - ox) / sx,
-      });
+      };
+      raw.push(b);
+      // `unpadPersons` clamps the four box floats, so the fair
+      // comparison is against the CLAMPED independent answer.
+      want.push({ scored: b.scored, i: pi,
+        y1: cl(b.y1), x1: cl(b.x1), y2: cl(b.y2), x2: cl(b.x2) });
     }
     data = unpadPersons(data, FIT, S);
+    // NOW READ WHAT THE SHIPPED FUNCTION ACTUALLY PRODUCED. Two-sided by
+    // construction: this is an absolute deviation, so a map that shrinks
+    // and a map that grows both show up.
+    raw.deviation = [];
+    for (const wbox of want) {
+      const o = wbox.i * 56;
+      raw.deviation.push({
+        scored: wbox.scored,
+        d: Math.max(
+          Math.abs(data[o + 51] - wbox.y1), Math.abs(data[o + 52] - wbox.x1),
+          Math.abs(data[o + 53] - wbox.y2), Math.abs(data[o + 54] - wbox.x2)),
+      });
+    }
   }
   // `held` null: this is a per-frame comparison and hysteresis would
   // carry one arm's history into the other's frame.
@@ -154,7 +184,8 @@ function iou(a, b) {
 }
 
 const tot = { squash: 0, letterbox: 0 };
-let frames = 0, onlyLB = 0, onlySQ = 0, moreLB = 0, moreSQ = 0, rawBoxes = 0, rawScored = 0, worstAll = 0, worstScored = 0;
+let frames = 0, onlyLB = 0, onlySQ = 0, moreLB = 0, moreSQ = 0, rawBoxes = 0, rawScored = 0, worstAll = 0, worstScored = 0,
+  devBoxes = 0, devScored = 0, worstDev = 0, worstDevScored = 0;
 const pairIou = [], dTop = [], dBot = [], dH = [];
 
 console.log(`frames requested ${picks.length}   ${W}x${H}  ar ${AR.toFixed(3)}`);
@@ -195,12 +226,22 @@ for (const p of picks) {
   // sx is 1.0 and there is nothing to amplify. So a hard 0.02 count
   // cries wolf on a CORRECT map. The worst overshoot is the honest
   // statistic: model noise is hundredths, a wrong map is tenths --
-  // deliberately breaking sx to sx/3 reads 0.699 here.
+  // deliberately breaking sx to sx/3 reads **1.938** here (measured at
+  // N=4 and N=10; an earlier version of this comment said 0.699,
+  // which was a partial run -- phase-g G11).
   for (const q of (lb.rawBoxes || [])) {
     const over = Math.max(-q.x1, -q.y1, q.x2 - 1, q.y2 - 1, 0);
     rawBoxes++;
     if (over > worstAll) worstAll = over;
     if (q.scored) { rawScored++; if (over > worstScored) worstScored = over; }
+  }
+  // THE HALF THAT READS THE SHIPPED FUNCTION (G5). Zero is the only
+  // right answer here -- unlike the overshoot row, this has no model
+  // noise in it, because both sides are arithmetic on the same floats.
+  for (const q of ((lb.rawBoxes && lb.rawBoxes.deviation) || [])) {
+    devBoxes++;
+    if (q.d > worstDev) worstDev = q.d;
+    if (q.scored) { devScored++; if (q.d > worstDevScored) worstDevScored = q.d; }
   }
 
   // GEOMETRY, on people BOTH arms admit: greedy nearest by IoU.
@@ -249,7 +290,19 @@ console.log(`  unclamped inverse boxes checked: ${rawBoxes}`
 console.log(`  worst overshoot outside 0..1   all slots ${worstAll.toFixed(3)}`
   + `   scored slots ${worstScored.toFixed(3)}   (tol ${MAP_TOL})`
   + (worstScored > MAP_TOL ? '  *** THE INVERSE MAP IS WRONG ***' : '  (the inverse map holds)'));
-if (!rawScored) {
+// DEVIATION TOLERANCE IS FLOAT NOISE, NOT MODEL NOISE. Both sides are
+// the same divisions on the same Float32 values, so anything above a
+// few ULP is a real disagreement with the shipped map.
+const DEV_TOL = 1e-6;
+console.log(`  shipped unpadPersons vs an independent inverse: ${devScored} scored boxes`
+  + `   worst deviation ${worstDevScored.toExponential(2)}`
+  + `  (all ${devBoxes}: ${worstDev.toExponential(2)}, tol ${DEV_TOL})`
+  + (worstDevScored > DEV_TOL ? '  *** THE SHIPPED MAP DISAGREES ***' : '  (it agrees)'));
+if (!rawScored || !devScored) {
   console.log('  *** ZERO SCORED BOXES CHECKED -- this row is VACUOUS, not clean ***');
   process.exitCode = 2;
 }
+// G6: the block used to exit 0 while PRINTING that the map was wrong,
+// and exit 2 only when vacuous -- the more severe outcome was the one a
+// caller could not detect. Both are exit 2 now.
+if (worstScored > MAP_TOL || worstDevScored > DEV_TOL) process.exitCode = 2;
