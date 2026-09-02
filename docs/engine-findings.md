@@ -2241,7 +2241,9 @@ old code against new code rather than against a bench idea of it.
   one.
 - **It is still unverified on Reddit, X or Instagram**, which is where it
   matters most and where the emulator dies (loop 8). Widening `isPlayer`
-  is a separate decision and comes after a live DOM census, not before.
+  is a separate decision and comes after a live DOM census, not before
+  -- **that census is section 16c, and its answer is that widening the
+  selector cannot work at all on Reddit.**
 
 **Next: the MoveNet half (16b), then a live player-host census per
 platform -- in that order, because a wider selector on a distorted path
@@ -2428,3 +2430,39 @@ one boundary in. And `shreddit-player` itself reads `position: relative`
 - **X and Facebook are login walls** and are still unaudited (loop
   25-26), so this covers one of the four platforms.
 - **Instagram was not reached this round.**
+
+### And the other three platforms cannot be audited at all without a login
+
+Same probe, same night, emulator (which survives Instagram; only Reddit
+kills it -- loop 8):
+
+| platform | signed-out state | player census |
+|---|---|---|
+| **YouTube** | full | `#movie_player`, the tuned path |
+| **Reddit** | listing renders, post detail does not | **done -- 16c above** |
+| **Instagram** | `/explore/` renders, **0 videos**; `/reels/` 302s to `/accounts/login/` | **BLOCKED** |
+| **X** | `/explore` 302s to `/i/jf/onboarding/web` (loop 25-26) | **BLOCKED** |
+| **Facebook** | login wall, 0 links, 0 articles (2026-08-28) | **BLOCKED** |
+
+**RETRACTION, and it is this repo's own note being overtaken:** loop
+25-26 recorded "Instagram /explore/ renders signed out" and audited an
+Explore GRID and a Reels shelf there. It still renders -- 12 images, 31
+links, `body.scrollHeight` 884 -- but it is a **topic-links page** now
+(`Ber Months - 227K posts`, `First Of The Month - 917K posts`), with 24
+of its 31 links pointing at `/popular` and **not one `<video>`**. The
+media grid that census described is gone from the signed-out page. The
+two rules that matched then still match now (`a[href^="/reels"]` 1,
+`a[href^="/explore"]` 1) because they are NAV links; the two that need
+media (`article:has(> div a[href^="/reel/"])`, the appsflyer banner)
+match **0**, exactly as loop 25-26 also found.
+
+So the honest scope of "this technique is going to be used for all the
+platforms too" is:
+
+1. **Reddit needs an architecture change** -- a shadow-aware host
+   resolver -- not a wider selector. That work is fully specified above
+   and needs no login.
+2. **Instagram, X and Facebook need a one-time sign-in** before anyone
+   can even say what their player tree looks like. That is already the
+   open item in CLAUDE.md's Next list, and it is now the thing three of
+   four platforms are blocked on.
