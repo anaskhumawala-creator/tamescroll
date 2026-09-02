@@ -6,7 +6,7 @@ test('ringBudget keeps native size when it fits and downscales to 640 wide when 
   const a = ringBudget(640, 360, 30, 1000); // 45 frames x 0.92MB = 41MB
   assert.equal(a.scale, 1); assert.equal(a.frames, 45); assert.ok(a.bytes <= RING_BYTES_MAX);
   const b = ringBudget(1280, 720, 60, 1000); // 90 x 3.7MB does not fit
-  assert.equal(b.w, 640); assert.equal(b.h, 360); assert.equal(b.frames, 90); assert.ok(b.bytes <= RING_BYTES_MAX);
+  assert.equal(b.w, 640); assert.equal(b.h, 360); assert.equal(b.frames, 90); assert.equal(b.bytes, 90 * 640 * 360 * 4); assert.equal(b.over, false);
 });
 test('pickPresent returns the newest entry at or before target, -1 when none', () => {
   const ring = [{ mediaTime: 1.0 }, { mediaTime: 1.033 }, { mediaTime: 1.066 }];

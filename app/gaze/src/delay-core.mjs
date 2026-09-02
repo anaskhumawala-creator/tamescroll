@@ -24,7 +24,11 @@ export function setDelayMs(v) {
   DELAY_MS = v;
 }
 
-export var RING_BYTES_MAX = 64 * 1024 * 1024;
+// 96MB: the arm64 Redmi held a 66-frame 1280x720 ring (~244MB of bitmaps)
+// with zero capture failures (spikes/delay-line/FINDINGS.md), so this is a
+// comfortable ceiling, not a measured limit. `bytes` is always the REAL
+// allocation -- a budget that reports its own ceiling is a number that lies.
+export var RING_BYTES_MAX = 96 * 1024 * 1024;
 
 var BYTES_PER_PIXEL = 4; // RGBA bitmap copy
 var MIN_SCALE_WIDTH = 640;
@@ -41,10 +45,9 @@ var MIN_SCALE_WIDTH = 640;
  * frames is fixed by delayMs + slack and never reduced: shortening the
  * ring is an exposure/latency question, not a memory one, and belongs to
  * a human ruling on DELAY_MS, not this function silently forgetting
- * frames it was asked to keep. When even the downscaled ring would
- * exceed RING_BYTES_MAX, bytes is capped at RING_BYTES_MAX (a fits-the-
- * budget ceiling for the caller to allocate against) rather than
- * dropping frames underneath the delay window.
+ * frames it was asked to keep. bytes is the real allocation; when even
+ * the downscaled ring exceeds RING_BYTES_MAX, `over` is true and the
+ * caller decides (shorter DELAY_MS), never this function.
  */
 export function ringBudget(w, h, fps, delayMs) {
   var frames = Math.ceil((fps * (delayMs + 500)) / 1000);
@@ -58,10 +61,7 @@ export function ringBudget(w, h, fps, delayMs) {
     bh = Math.round(bh * scale);
     bytes = frames * bw * bh * BYTES_PER_PIXEL;
   }
-  if (bytes > RING_BYTES_MAX) {
-    bytes = RING_BYTES_MAX;
-  }
-  return { frames: frames, scale: scale, w: bw, h: bh, bytes: bytes };
+  return { frames: frames, scale: scale, w: bw, h: bh, bytes: bytes, over: bytes > RING_BYTES_MAX };
 }
 
 /**
