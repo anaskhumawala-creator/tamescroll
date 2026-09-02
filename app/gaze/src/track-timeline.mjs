@@ -57,12 +57,32 @@ export function makeTimeline(keepMs) {
  */
 export function pushSnapshot(tl, mediaTime, tracks) {
   var copy = (tracks || []).map(function (t) {
-    return { id: t.id, box: t.box, state: t.state };
+    return {
+      id: t.id,
+      box: t.box,
+      state: t.state,
+      // Carried for the presentation-time merge and its re-clamp
+      // (person-track.mergePresented): the evidence hull of a blurred
+      // entry, the face box of a cleared one.
+      core: t.core || null,
+      head: t.head || null,
+      face: t.face || null,
+      // Carried for the hindsight rules: a track whose last read was a
+      // certain opposite-gender read, and a track that was coasting
+      // (no observation) at this snapshot.
+      flagCertain: !!t.flagCertain,
+      coasting: !!t.coasting,
+      // Set in hindsight by markDeadCoasts: a coasted snapshot of a
+      // track that then expired with no cut and nobody taking its box.
+      dead: false,
+    };
   });
-  tl.snapshots.push({ mediaTime: mediaTime, tracks: copy });
+  var snap = { mediaTime: mediaTime, tracks: copy };
+  tl.snapshots.push(snap);
   tl.snapshots.sort(function (a, b) {
     return a.mediaTime - b.mediaTime;
   });
+  markDeadCoasts(tl, snap);
   var newest = tl.snapshots[tl.snapshots.length - 1].mediaTime;
   var floor = newest - tl.keepMs / 1000;
   while (tl.snapshots.length > 1 && tl.snapshots[0].mediaTime < floor) {
@@ -87,6 +107,55 @@ export function pushCut(tl, mediaTime) {
   tl.cuts.sort(function (a, b) {
     return a - b;
   });
+}
+
+function boxesTouch(a, b) {
+  return a.x1 < b.x2 && b.x1 < a.x2 && a.y1 < b.y2 && b.y1 < a.y2;
+}
+
+// RULE 6, THE DEAD COAST (2026-09-02). A track that only ever COASTED
+// after its last observation and then expired -- with no cut in between
+// and no blurred track in the new snapshot touching the box it left --
+// was following someone the detector never saw again. Live, the coast
+// was the right call (a miss must not uncover anyone); in hindsight,
+// with the expiry known, its coasting snapshots describe nobody. They
+// are marked `dead` and boxesAt presents them as absent. The observed
+// snapshot before the run is untouched, so rule 4 still covers the one
+// interval after the last sighting. Run 3 on the Redmi: 83 of 255
+// blurred track-passes were coasting, p50 946ms -- the phantom he
+// reports.
+function markDeadCoasts(tl, snap) {
+  var idx = tl.snapshots.indexOf(snap);
+  if (idx < 1) return;
+  var prev = tl.snapshots[idx - 1];
+  if (cutBetween(tl, prev.mediaTime, snap.mediaTime)) return;
+  var present = {};
+  for (var i = 0; i < snap.tracks.length; i++) present[snap.tracks[i].id] = true;
+  for (var j = 0; j < prev.tracks.length; j++) {
+    var t = prev.tracks[j];
+    if (!t.coasting || present[t.id] || t.state !== 'blurred') continue;
+    var taken = false;
+    for (var k = 0; k < snap.tracks.length && !taken; k++) {
+      var n = snap.tracks[k];
+      if (n.state === 'blurred' && boxesTouch(n.box, t.box)) taken = true;
+    }
+    if (taken) continue;
+    // Walk back through the consecutive coasting run of this id.
+    for (var s = idx - 1; s >= 0; s--) {
+      var hit = null;
+      for (var q = 0; q < tl.snapshots[s].tracks.length; q++) {
+        if (tl.snapshots[s].tracks[q].id === t.id) { hit = tl.snapshots[s].tracks[q]; break; }
+      }
+      if (!hit || !hit.coasting) break;
+      hit.dead = true;
+    }
+  }
+}
+
+function liveTracks(snap) {
+  var out = [];
+  for (var i = 0; i < snap.tracks.length; i++) if (!snap.tracks[i].dead) out.push(snap.tracks[i]);
+  return out;
 }
 
 function findA(tl, mediaTime) {
@@ -140,6 +209,13 @@ function lerpBox(boxA, boxB, frac) {
 // endpoint. One rectangle, still solid -- a pad, never a split.
 export var BIRTH_BACKDATE_PAD = 0.15;
 
+// One presented entry: the resolved box/state plus the fields the
+// presentation merge needs (person-track.mergePresented), read off the
+// snapshot entry the box came from.
+function present(src, box, state) {
+  return { id: src.id, box: box, state: state, core: src.core || null, head: src.head || null, face: src.face || null };
+}
+
 function padBoxTowardBirth(box, frac) {
   var amt = BIRTH_BACKDATE_PAD * (1 - frac);
   var px = (box.x2 - box.x1) * amt;
@@ -186,46 +262,60 @@ export function boxesAt(tl, mediaTime) {
   var B = findB(tl, mediaTime);
 
   if (!B) return null;
+  var bTracks = liveTracks(B);
   if (!A) {
-    return B.tracks.map(function (t) {
-      return { id: t.id, box: t.box, state: t.state };
+    return bTracks.map(function (t) {
+      return present(t, t.box, t.state);
     });
   }
+  var aTracks = liveTracks(A);
 
   if (A.mediaTime === B.mediaTime) {
     // Same snapshot brackets both sides (mediaTime landed exactly on
     // a verdict); nothing to lerp.
-    return A.tracks.map(function (t) {
-      return { id: t.id, box: t.box, state: t.state };
+    return aTracks.map(function (t) {
+      return present(t, t.box, t.state);
     });
   }
 
   var byIdB = {};
-  for (var i = 0; i < B.tracks.length; i++) byIdB[B.tracks[i].id] = B.tracks[i];
+  for (var i = 0; i < bTracks.length; i++) byIdB[bTracks[i].id] = bTracks[i];
   var seenB = {};
   var out = [];
   var frac = (mediaTime - A.mediaTime) / (B.mediaTime - A.mediaTime);
+  // 3c: a cut on either side of the presented frame means only the
+  // verdict on the frame's own side describes its shot.
+  var cutAfter = cutBetween(tl, mediaTime, B.mediaTime);
+  var cutBefore = cutBetween(tl, A.mediaTime, mediaTime);
 
-  for (var j = 0; j < A.tracks.length; j++) {
-    var ta = A.tracks[j];
+  for (var j = 0; j < aTracks.length; j++) {
+    var ta = aTracks[j];
     var tb = byIdB[ta.id];
     if (tb) {
       seenB[ta.id] = true;
-      out.push({
-        id: ta.id,
-        box: lerpBox(ta.box, tb.box, frac),
-        state: ta.state === 'blurred' || tb.state === 'blurred' ? 'blurred' : 'cleared',
-      });
+      if (cutAfter) {
+        out.push(present(ta, ta.box, ta.state));
+      } else if (cutBefore) {
+        out.push(present(tb, tb.box, tb.state));
+      } else {
+        // 3': B cleared him and A's blur was not a certain
+        // opposite-gender read (the ladder had simply not cleared him
+        // yet, or he was coasting): the frame between is CLEARED in
+        // hindsight. A certain flag at either side keeps it blurred.
+        var state = tb.state === 'blurred' || (ta.state === 'blurred' && ta.flagCertain)
+          ? 'blurred' : 'cleared';
+        out.push(present(tb, lerpBox(ta.box, tb.box, frac), state));
+      }
     } else {
       // Only in A: gone by B. A cut at or before mediaTime (and after
       // A) ends it there; otherwise it survives at A's own box/state.
       if (cutBetween(tl, A.mediaTime, mediaTime)) continue;
-      out.push({ id: ta.id, box: ta.box, state: ta.state });
+      out.push(present(ta, ta.box, ta.state));
     }
   }
 
-  for (var k = 0; k < B.tracks.length; k++) {
-    var tb2 = B.tracks[k];
+  for (var k = 0; k < bTracks.length; k++) {
+    var tb2 = bTracks[k];
     if (seenB[tb2.id]) continue;
     // Only in B: born by B. A cut strictly after mediaTime (and at or
     // before B) means the presented frame is in a shot before the one
@@ -233,7 +323,7 @@ export function boxesAt(tl, mediaTime) {
     // padded toward the swept region (I8) rather than held at B's own
     // box unpadded.
     if (cutBetween(tl, mediaTime, B.mediaTime)) continue;
-    out.push({ id: tb2.id, box: padBoxTowardBirth(tb2.box, frac), state: tb2.state });
+    out.push(present(tb2, padBoxTowardBirth(tb2.box, frac), tb2.state));
   }
 
   return out;

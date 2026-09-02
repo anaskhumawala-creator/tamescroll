@@ -77,7 +77,12 @@ test('a verdict pass reads the newest ring frame and the tracker result is snaps
   assert.match(pass, /presenter\.requestVerdictFrame\(\)/);
   assert.match(pass, /passMediaTime = r\.mediaTime/);
   assert.match(pass, /passMediaTime = video\.currentTime/);
-  assert.match(SRC, /nullHeld = videoTracks\.nullHeld \|\| \[\];\s*if \(presenter\) pushSnapshot\(timeline, passMediaTime, videoTracks\);/);
+  // The DRAWN geometry is snapshotted, never the raw tracker box: the
+  // render padding, the R27 directional clamp and the merge would
+  // otherwise never reach a presented frame (2026-09-02, the Linus
+  // false-cover root cause).
+  assert.match(SRC, /nullHeld = videoTracks\.nullHeld \|\| \[\];\s*if \(presenter\) pushSnapshot\(timeline, passMediaTime, presentTracks\(videoTracks\)\);/);
+  assert.match(SRC, /var b = boxesAt\(timeline, m\);\s*if \(!b\) \{\s*bumpLife\('delayVerdictLate'\);\s*return null;\s*\}\s*return mergePresented\(b\);/);
 });
 
 test('a scene cut reaches the timeline', () => {

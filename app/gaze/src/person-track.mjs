@@ -1924,17 +1924,41 @@ function coastStep(t, dt) {
     // origin every time a detector missed it once.
     fromFace: !!t.fromFace,
     headH: t.headH,
-    headX: t.headX,
-    headY: t.headY,
+    // The head and the evidence hull coast WITH the box (2026-09-02).
+    // Until then the box moved by velocity and the hull stayed put, so
+    // R27 had to stand the clamp down on every coasting track ("a floor
+    // for a position the subject has left"). Displaced by the same
+    // dx/dy they are exactly as current as the box they bound, and
+    // drawnTracks may clamp a coasting neighbour off a cleared face:
+    // on the Redmi 4 of the 10 certain-male reads still covered after
+    // the head floor sat under a neighbour coasting 306-427ms.
+    headX: typeof t.headX === 'number' ? t.headX + dx : t.headX,
+    headY: typeof t.headY === 'number' ? t.headY + dy : t.headY,
     headW: t.headW,
-    // The box has moved by velocity and the evidence hull has not, so a
-    // coasted core is a floor for a position the subject has left. Kept
-    // for continuity, marked STALE so the clamp stands down.
-    core: t.core,
+    core: t.core ? shiftBox(t.core, dx, dy) : t.core,
+    // Still not a READ: coreFresh stays false so the probe field and the
+    // observation-side consumers keep their meaning. drawnTracks tests
+    // `coastedCoreUsable` for the clamp.
     coreFresh: false,
     lastObsW: t.lastObsW,
     lastObsH: t.lastObsH,
   };
+}
+
+function shiftBox(b, dx, dy) {
+  return {
+    x1: Math.max(0, Math.min(1, b.x1 + dx)),
+    y1: Math.max(0, Math.min(1, b.y1 + dy)),
+    x2: Math.max(0, Math.min(1, b.x2 + dx)),
+    y2: Math.max(0, Math.min(1, b.y2 + dy)),
+  };
+}
+
+// The clamp may use a hull that is fresh, or one that has coasted with
+// its box (never one frozen by a cut-demotion: a cut is the moment the
+// geometry stops describing the shot, and demoteTracks does not move it).
+function coastedCoreUsable(t) {
+  return !!t.core && (t.coreFresh || ((t.missMs || 0) > 0 && !t.demoted));
 }
 
 /**
@@ -2310,10 +2334,27 @@ function overlapArea(a, b) {
  * on the side facing the cleared man, and on 3 of the 5 frames where his
  * face was inside the child's patch, his face did not touch her core at
  * all — the whole failure was cushion.
+ *
+ * THE HEAD FLOOR (2026-09-02). On his phone the failure is NOT cushion:
+ * replaying this clamp over 31 covered certain-male reads banked off the
+ * Redmi (events-linus55c) freed 10. In the other 21 his face CENTRE sat
+ * inside the neighbour's hull -- a MoveNet box whose keypoint union
+ * spanned both people (74.3s: one 77%-wide "person" over him and the
+ * child beside him), or a synthetic core (face +-0.5 face-widths) that
+ * reached his cheek -- and the rule above refuses. Looked at on the
+ * captured frames, her HEAD is always well clear of his face; it is her
+ * hull that is not. So on the X axis only, the floor is the subject's
+ * own HEAD box whenever the track carries one (the hull otherwise), and
+ * the edge may travel to it. What that can uncover is the subject's
+ * shoulder or arm on the side facing a man the pipeline has already
+ * decided to leave sharp -- the "slight shape visible" the owner
+ * accepted, against the cleared man being covered, which he reports.
+ * Never inside the head, never on Y, still one edge of one rectangle.
  */
-export function clampPatchOffFaces(box, core, faces) {
+export function clampPatchOffFaces(box, core, faces, head) {
   if (!core || !faces || !faces.length) return box;
   if (!(core.x2 > core.x1) || !(core.y2 > core.y1)) return box;
+  var hasHead = !!(head && head.x2 > head.x1);
   var b = { x1: box.x1, y1: box.y1, x2: box.x2, y2: box.y2 };
   for (var i = 0; i < faces.length; i++) {
     var f = faces[i];
@@ -2321,10 +2362,21 @@ export function clampPatchOffFaces(box, core, faces) {
     var fcx = (f.x1 + f.x2) / 2;
     var fcy = (f.y1 + f.y2) / 2;
     var best = null;
-    // Four one-edge moves, each capped at the matching edge of `core`.
+    // Four one-edge moves, each capped at the matching edge of `core`
+    // -- on the X axis at the subject's own HEAD box when there is one
+    // (the head floor, 2026-09-02, see the note above), which lies
+    // inside the hull. The head is the floor whenever it exists, not
+    // only when the face centre is inside the hull: at 183.8s his face
+    // centre sat 0.005 outside her hull, the hull floor moved the edge
+    // 0.03 and left his cheek covered, the head floor frees the whole
+    // face. Never inside the head, never on Y.
+    var floorL = hasHead ? Math.max(core.x1, head.x1) : core.x1;
+    var floorR = hasHead ? Math.min(core.x2, head.x2) : core.x2;
+    var xL = fcx < floorL ? floorL : null;
+    var xR = fcx > floorR ? floorR : null;
     var cand = [
-      fcx < core.x1 ? { x1: Math.min(f.x2, core.x1), y1: b.y1, x2: b.x2, y2: b.y2 } : null,
-      fcx > core.x2 ? { x1: b.x1, y1: b.y1, x2: Math.max(f.x1, core.x2), y2: b.y2 } : null,
+      xL !== null ? { x1: Math.min(f.x2, xL), y1: b.y1, x2: b.x2, y2: b.y2 } : null,
+      xR !== null ? { x1: b.x1, y1: b.y1, x2: Math.max(f.x1, xR), y2: b.y2 } : null,
       fcy < core.y1 ? { x1: b.x1, y1: Math.min(f.y2, core.y1), x2: b.x2, y2: b.y2 } : null,
       fcy > core.y2 ? { x1: b.x1, y1: b.y1, x2: b.x2, y2: Math.max(f.y1, core.y2) } : null,
     ];
@@ -2348,26 +2400,40 @@ export function clampPatchOffFaces(box, core, faces) {
   return b;
 }
 
-export function blurredTracks(tracks) {
-  var out = [];
-  // Faces of tracks that have EARNED a clear. Collected before the loop
-  // so a blurred patch can be told what is standing beside it — the
-  // seam blurredTracks did not have until R27.
+// Faces of tracks that have EARNED a clear, so a blurred patch can be
+// told what is standing beside it — the seam blurredTracks did not have
+// until R27.
+//
+// ORDER-INDEPENDENT (R27 critic F4). The clamp folds faces one at a
+// time into a shrinking box, so two cleared people flanking a covered
+// one give two different rectangles depending on the order `tracks`
+// happens to be in — and that array reorders as tracks are born and
+// dropped. An edge alternating between two values at 4-8Hz is the
+// square wave this file has already fixed three times.
+function sortFaces(faces) {
+  faces.sort(function (p, q) {
+    return p.x1 - q.x1 || p.y1 - q.y1;
+  });
+  return faces;
+}
+
+function clearedFacesOf(tracks) {
   var clearedFaces = [];
   for (var c = 0; c < tracks.length; c++) {
     if (tracks[c].state !== 'cleared') continue;
     var cf = clearedFaceBox(tracks[c]);
     if (cf) clearedFaces.push(cf);
   }
-  // ORDER-INDEPENDENT (R27 critic F4). The clamp folds faces one at a
-  // time into a shrinking box, so two cleared people flanking a covered
-  // one give two different rectangles depending on the order `tracks`
-  // happens to be in — and that array reorders as tracks are born and
-  // dropped. An edge alternating between two values at 4-8Hz is the
-  // square wave this file has already fixed three times.
-  clearedFaces.sort(function (p, q) {
-    return p.x1 - q.x1 || p.y1 - q.y1;
-  });
+  return sortFaces(clearedFaces);
+}
+
+// The DRAWN geometry of every blurred track, one entry per track, BEFORE
+// the merge: side/bottom pad, head-capped top pad, and the R27 clamp off
+// the cleared faces. `countLife` is true for the render-path call only,
+// so the timeline's second call per pass (presentTracks) does not double
+// every clamp counter a round has ever quoted.
+function drawnTracks(tracks, clearedFaces, countLife) {
+  var out = [];
   for (var i = 0; i < tracks.length; i++) {
     var t = tracks[i];
     if (t.state !== 'blurred') continue;
@@ -2379,27 +2445,35 @@ export function blurredTracks(tracks) {
       x2: Math.min(1, t.box.x2 + w * PTRACK_PAD),
       y2: Math.min(1, t.box.y2 + h * PTRACK_PAD),
     };
-    // Only a core from THIS pass may pull an edge in: a coasted or
-    // cut-demoted hull describes a position the subject has left.
+    // A core from THIS pass, or one that coasted with the box, may pull
+    // an edge in; a cut-demoted hull describes a position the subject
+    // has left (coastedCoreUsable).
     var drawn = padded;
+    var coreOk = coastedCoreUsable(t);
+    // The subject's own head box, the X floor the clamp may never pass.
+    var head = clearedFaceBox(t);
     if (clearedFaces.length) {
-      if (!t.coreFresh) {
-        bumpLife('clampNoCore');
+      if (!coreOk) {
+        if (countLife) bumpLife('clampNoCore');
       } else {
-        drawn = clampPatchOffFaces(padded, t.core, clearedFaces);
+        drawn = clampPatchOffFaces(padded, t.core, clearedFaces, head);
         // COUNTED, so the next round can tell "it fired and did not
         // help" from "it never fired" — the ambiguity R27's first
         // after-capture spent a whole rebuild on (critic F1).
-        bumpLife(drawn === padded ? 'clampNoLegalEdge' : 'clampFired');
+        if (countLife) bumpLife(drawn === padded ? 'clampNoLegalEdge' : 'clampFired');
       }
     }
     out.push({
+      id: t.id,
       key: String(t.id || 0),
       box: drawn,
       // The evidence hull rides the render entry so mergeTracks can
       // re-apply the clamp to a union (critic F3): a per-track clamp is
       // handed straight back by any merge that follows it.
-      core: t.coreFresh ? t.core : null,
+      core: coreOk ? t.core : null,
+      // The head box rides beside the hull so the post-merge re-clamp
+      // has the same floor the per-track pass had.
+      head: head,
       vx: t.vx,
       vy: t.vy,
       vw: t.vw || 0,
@@ -2411,19 +2485,120 @@ export function blurredTracks(tracks) {
       headW: t.headW,
     });
   }
-  var merged = mergeTracks(out);
-  // RE-CLAMP AFTER THE MERGE (critic F3). mergeTracks unions two boxes
-  // and the union re-covers whatever either clamp had just uncovered.
-  // The unioned core is the honest floor for a unioned patch: it is the
-  // evidence for both subjects, so this can no more shave one of them
-  // than the per-track pass could.
-  if (clearedFaces.length) {
-    for (var k = 0; k < merged.length; k++) {
-      if (!merged[k].core) continue;
-      merged[k].box = clampPatchOffFaces(merged[k].box, merged[k].core, clearedFaces);
-    }
+  return out;
+}
+
+// RE-CLAMP AFTER THE MERGE (critic F3). mergeTracks unions two boxes
+// and the union re-covers whatever either clamp had just uncovered.
+// The unioned core is the honest floor for a unioned patch: it is the
+// evidence for both subjects, so this can no more shave one of them
+// than the per-track pass could.
+function reclampMerged(merged, clearedFaces) {
+  if (!clearedFaces.length) return merged;
+  for (var k = 0; k < merged.length; k++) {
+    if (!merged[k].core) continue;
+    merged[k].box = clampPatchOffFaces(merged[k].box, merged[k].core, clearedFaces, merged[k].head);
   }
   return merged;
+}
+
+export function blurredTracks(tracks) {
+  var clearedFaces = clearedFacesOf(tracks);
+  return reclampMerged(mergeTracks(drawnTracks(tracks, clearedFaces, true)), clearedFaces);
+}
+
+/**
+ * What the delay timeline snapshots: the DRAWN geometry of every track,
+ * one entry per track with its id intact (the timeline lerps by id, so
+ * the merge cannot happen here -- see mergePresented), plus the cleared
+ * tracks with the face box the presentation re-clamp needs.
+ *
+ * WHY THIS EXISTS. From 1092 the presenter drew from `pushSnapshot`,
+ * which was handed the RAW tracker box -- so the side pad, the head-
+ * capped top pad, the R27 directional clamp above and mergeTracks all
+ * stopped short of the screen on every build with the presenter
+ * attached. Measured on the Redmi (1094, events-linus55b/c): 22-30 of
+ * 48 covered certain-male reads were a NEIGHBOUR's box over a man whose
+ * own track was cleared, which is exactly the case the clamp exists for.
+ * The render path (blurredTracks) had it right; the timeline did not
+ * consult it.
+ *
+ * `flagCertain` and `coasting` ride for the timeline's hindsight rules
+ * (track-timeline.mjs).
+ */
+export function presentTracks(tracks) {
+  var clearedFaces = clearedFacesOf(tracks);
+  var drawn = drawnTracks(tracks, clearedFaces, false);
+  var out = [];
+  for (var i = 0; i < drawn.length; i++) {
+    var d = drawn[i];
+    out.push({
+      id: d.id,
+      box: d.box,
+      state: 'blurred',
+      core: d.core,
+      head: d.head,
+      face: null,
+      flagCertain: flagCertainOf(tracks, d.id),
+      coasting: coastingOf(tracks, d.id),
+    });
+  }
+  for (var j = 0; j < tracks.length; j++) {
+    var t = tracks[j];
+    if (t.state !== 'cleared') continue;
+    out.push({
+      id: t.id,
+      box: t.box,
+      state: 'cleared',
+      core: null,
+      face: clearedFaceBox(t),
+      flagCertain: false,
+      coasting: (t.missMs || 0) > 0,
+    });
+  }
+  return out;
+}
+
+function trackById(tracks, id) {
+  for (var i = 0; i < tracks.length; i++) if (tracks[i].id === id) return tracks[i];
+  return null;
+}
+
+function flagCertainOf(tracks, id) {
+  var t = trackById(tracks, id);
+  return !!(t && t.lastVerdict === 'flag-certain');
+}
+
+function coastingOf(tracks, id) {
+  var t = trackById(tracks, id);
+  return !!(t && (t.missMs || 0) > 0);
+}
+
+/**
+ * The presentation-time merge: the timeline hands back per-id entries
+ * for the presented frame; overlapping blurred ones union into ONE patch
+ * (owner 2026-08-24) and the union is re-clamped off the cleared faces
+ * (critic F3), exactly as blurredTracks does on the render path. A
+ * 'cleared' entry is never a patch. Returns [{id, box, state:'blurred'}].
+ */
+export function mergePresented(list) {
+  var faces = [];
+  var entries = [];
+  for (var i = 0; i < list.length; i++) {
+    var e = list[i];
+    if (!e || !e.box) continue;
+    if (e.state === 'cleared') {
+      if (e.face) faces.push(e.face);
+      continue;
+    }
+    entries.push({ key: String(e.id), box: e.box, core: e.core || null, head: e.head || null, vx: 0, vy: 0, vw: 0, vh: 0 });
+  }
+  var merged = reclampMerged(mergeTracks(entries), sortFaces(faces));
+  var out = [];
+  for (var k = 0; k < merged.length; k++) {
+    out.push({ id: merged[k].key, box: merged[k].box, state: 'blurred' });
+  }
+  return out;
 }
 
 function unionCore(a, b) {
@@ -2643,6 +2818,8 @@ export function mergeTracks(list) {
           // Both subjects' evidence, so the post-merge clamp has a floor
           // that belongs to the union rather than to one of its halves.
           core: unionCore(a.core, b.core),
+          // The better-measured head's box, for the same re-clamp.
+          head: head.head || null,
         };
         merged.splice(j, 1);
         changed = true;

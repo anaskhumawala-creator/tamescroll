@@ -81,6 +81,8 @@ import {
   setVerdictCadence,
   blurredCoastBudgetMs,
   blurredTracks,
+  presentTracks,
+  mergePresented,
   clearedFaceBox,
   demoteTracks,
   cosineSim,
@@ -1891,7 +1893,7 @@ if (
           bumpLife('delayVerdictLate');
           return null;
         }
-        return b;
+        return mergePresented(b);
       });
       // Blur-first: the hidden video is pending/flagged until the first
       // verdict says otherwise, and the canvas must say the same.
@@ -4523,7 +4525,13 @@ if (
               // them would refuse the same subject a second time.
               videoTracks = updatePersonTracks(videoTracks, observations, dt, nullHeld);
               nullHeld = videoTracks.nullHeld || [];
-              if (presenter) pushSnapshot(timeline, passMediaTime, videoTracks);
+              // THE DRAWN GEOMETRY, never the raw tracker box. The
+              // presenter draws from this snapshot, and handing it
+              // `videoTracks` meant the side pad, the top pad, the R27
+              // clamp and the merge in blurredTracks never reached a
+              // presented frame (Redmi, 1094: 22-30 of 48 covered
+              // certain-male reads were a neighbour's unclamped box).
+              if (presenter) pushSnapshot(timeline, passMediaTime, presentTracks(videoTracks));
               mark('tracks');
               // Calibration probe: per-track state after every pass, so
               // a "why is he not clearing" question is answered by

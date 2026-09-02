@@ -50,9 +50,12 @@ test('a track in both verdicts is lerped by media-time fraction', () => {
   assert.equal(out[0].state, 'cleared');
 });
 
+// Rule 3' (test/timeline-hindsight.test.mjs) narrows the A-blurred half
+// to a CERTAIN flag at A: a blur the ladder had merely not cleared yet
+// is presented cleared once B clears him.
 test('state is blurred if either bracketing verdict says blurred, in both directions', () => {
   const tlBlurredThenCleared = makeTimeline(3000);
-  pushSnapshot(tlBlurredThenCleared, 10.0, [{ id: 1, box: { x1: 0, y1: 0, x2: 1, y2: 1 }, state: 'blurred' }]);
+  pushSnapshot(tlBlurredThenCleared, 10.0, [{ id: 1, box: { x1: 0, y1: 0, x2: 1, y2: 1 }, state: 'blurred', flagCertain: true }]);
   pushSnapshot(tlBlurredThenCleared, 11.0, [{ id: 1, box: { x1: 0, y1: 0, x2: 1, y2: 1 }, state: 'cleared' }]);
   assert.equal(boxesAt(tlBlurredThenCleared, 10.5)[0].state, 'blurred');
 
