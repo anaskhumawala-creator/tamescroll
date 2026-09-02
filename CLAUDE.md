@@ -70,6 +70,102 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-03 02:40 (**1097 IS STILL THE RELEASE.** The
+performance batch is HALF LANDED: JS half committed as 84b9c68, Kotlin
+half in flight on disk, nothing built, nothing measured, nothing
+released. He asked for this handoff so he can /clear.)
+
+## HANDOFF 2026-09-03 02:40 -- THE PERFORMANCE BATCH, MID-FLIGHT
+
+**HIS RULING (2026-09-03 ~02:00): "do all of these in one go".** Every
+idea from `docs/research/wild-performance-2026-09-03.md` lands in ONE
+release, 1098, each behind an OTA dial that ships at today's behaviour.
+Plan: `docs/superpowers/plans/2026-09-03-performance-batch-1098.md` (T1-T5).
+Held back, said so: #20 (144p side stream, ToS), #19 (storyboard, own
+spec), #16/#17/#18 (exposure dials, need corpus pricing first). NPU: he
+ruled AUTO-DETECT -- try the Qualcomm delegate at load, use it if it
+initialises, report which engine each model landed on in About. The OLD
+Redmi (`1ec2c48e0621`, Helio G85, Mali) is ON ADB and is the smoke
+device; it CANNOT answer the NPU question (MediaTek) -- it proves the
+delegate fails safe. His Redmi 13 answers it when he flips the dial.
+
+**DONE, COMMITTED (84b9c68), gaze 775/775:**
+- `perf.mjs` (new): SUSTAINED_PERF, REFRESH_CAP_HZ, THERMAL_DUTY (hysteresis
+  on PowerManager headroom, doubles VERDICT_DUTY cap 4), PERF_HINT,
+  INFER_PRIO -- all through `window.TsPerf` (Kotlin bridge, see below);
+  NO_AV1 (overrides `MediaSource.isTypeSupported` + `canPlayType` for
+  av01; takes effect at the player's NEXT init); PLAYBACK_SLOW (0.95x
+  while the decoder drops >8% per 5s window, back at <3%, never touches
+  a user rate; `watchPlayback` attached in `delayAttach`).
+- `codec-probe.mjs` (new): wraps `addSourceBuffer`/`changeType`, records
+  the served codec family. Installed at bundle boot in init-entry.
+- `video-region.mjs`: RENDER_EVERY (`setRenderEvery`, `rafSkipped`);
+  BLUR_IN_FRAME + `setPainter/clearPainter` -- with a painter and the dial
+  at 1, `reposition` hands the presenter the SAME rects it would have
+  placed (video-normalized, `br`/`rr` normalized) and hides the divs.
+- `delay-presenter.mjs`: `paintPatches(list)` / `canPaint()`: frame THEN
+  patches on every present; roundRect clip + `ctx.filter blur` +
+  drawImage of the region padded 2x the radius (solid edge). Repaints
+  the held frame only when a rounded canvas-px rect changed.
+- `native-client.mjs`: NATIVE_CPU_MASK + NATIVE_NPU; CONFIG request =
+  16-byte header `[reqId, 0, mask, flags]` (flags bit0 = NPU allowed),
+  sent after ready only when something differs from the engine defaults;
+  `snapshot()` for the report. `native-frame.parseReady` passes
+  `backends` + `npu` through.
+- `diag-report.mjs`: `codec {codec, changes}`, `native {nativeBackend,
+  npu, models.{face,gender,person}.nativeBackend, dead}`, `perf {slowed,
+  restored}`. Field names ARE enum keys (the walker looks strings up by
+  key) -- that cost one red run.
+- `tuning.mjs` SPEC + `rules/tuning.json` + SHIPPED map: 11 new dials,
+  all at today's value: RENDER_EVERY 1, SUSTAINED_PERF 0, REFRESH_CAP_HZ 0,
+  THERMAL_DUTY 0, NATIVE_CPU_MASK 0, NO_AV1 0, NATIVE_NPU 1, PERF_HINT 0,
+  INFER_PRIO 0, PLAYBACK_SLOW 0, BLUR_IN_FRAME 0. Manifest regenerated.
+  A 1097 phone REFUSES the unknown keys (whitelist), so the push is safe.
+- Tests: perf-batch, codec-probe, native-config, blur-in-frame,
+  presenter-paint (all new, all green).
+
+**T2 KOTLIN HALF, DONE (Sonnet agent, compile BUILD SUCCESSFUL on
+`:app:compileArm64DebugKotlin -x :app:rustBuildArm64Debug`; diff read,
+committed with this handoff):** `PerfBridge` = "TsPerf" (sustained,
+refreshCap + currentRefreshHz, thermalHeadroom, hint = ADPF session over
+the ts-infer tid API 31+, inferPriority), registered in onWebViewCreate.
+NativeInfer.kt: modelId-0 CONFIG (`handleConfig` rebuilds the masked
+models on XNNPACK, swaps only on success, replies status 0 empty);
+`LoadedModel.backend` string; ready message carries `backends {1,2,3}` +
+top-level `npu`; `inferTid` + `onInferenceDuration` feed the hint session.
+**THE NPU IS DEAD BY LICENCE, NOT BY HARDWARE.** The QNN artifacts on
+Maven Central (`qnn-litert-delegate` / `qnn-runtime` 2.34.0) are under
+the "Qualcomm AI Hub Model License"; its section 2.c forbids "biometric
+and biometrics-based systems, including categorization of persons based
+on sensitive characteristics" -- which is exactly BlazeFace + faceres
+gender. Dependency NOT added; `NPU_STUB` in `loadModel` always falls
+through GPU -> CPU and reports `npu: absent` (or `disabled` at flag 0).
+Clause quoted in NOTICE; POMs + PDF banked in
+`spikes/native/qnn-licence-check/`. Do not re-open without Qualcomm
+in the conversation. TELL HIM -- he ruled auto-detect and it cannot ship.
+
+**NEXT, in order (T1, T2, T3 done):**
+1. T4 (optional tonight): `gl-presenter.mjs` behind PRESENTER_GL -- WebGL
+   texture ring via `texImage2D(video)` + separable blur shader for the
+   T3 patch list. Only if time; it is the #4 lever (2-4 points, guess).
+3. T5: `node app/gaze/build/build.js`; cargo tests; gaze tests; Android
+   build (recipe in this file: strip .so, `:app:clean :app:assembleArm64Debug
+   -x :app:rustBuildArm64Debug`; `assets/models/*.tflite` are gitignored,
+   regenerate with `spikes/native/convert.py` if missing); Redmi smoke
+   with `probe_drops_ab.py` (control + ONE planted arm per invocation:
+   RENDER_EVERY 2, BLUR_IN_FRAME 1, NATIVE_CPU_MASK 1, NO_AV1 1) and read
+   `player.codec` + `native` off `__TS_DIAG_NOW()`; Opus critic on the
+   whole diff (`docs/critic/`, ledger rows; an open EXPOSURE row blocks);
+   release 1098 + manifest; verify every new constant in the EMITTED
+   bundle (`gaze-page.js`) not the source.
+4. Then push dials over OTA one at a time against a fresh drops read.
+
+**GOTCHAS THIS LOOP:** the Bash tool's heredocs break on long bodies --
+write a .py to the scratchpad with the Write tool and run it; CRLF files
+need newline-normalised replacements. `ctx.filter` on a `desynchronized`
+2D context is unmeasured on the Redmi. NO_AV1's effect on a page whose
+player already initialised is NOTHING until the next navigation.
+
 **Last updated:** 2026-09-03 01:20 (**1097 IS STILL THE RELEASE.** Nothing
 shipped this loop; he said "stop working and do a research run". Tag
 `checkpoint-1097` on 06d9ea2 is the revert point he asked for.)

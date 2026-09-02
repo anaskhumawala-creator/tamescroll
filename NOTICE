@@ -39,6 +39,49 @@ TensorFlow Lite (org.tensorflow:tensorflow-lite, -gpu, -gpu-api 2.16.1)
   through the GPU delegate at fp32, bridged to the page over a
   WebMessagePort. The WebGL runtime above stays as the fallback.
 
+Qualcomm QNN LiteRT delegate (com.qualcomm.qti:qnn-litert-delegate,
+qnn-runtime) — EVALUATED 2026-09-03, NOT USED, NOT VENDORED
+  https://repo1.maven.org/maven2/com/qualcomm/qti/qnn-litert-delegate/
+  https://docs.qualcomm.com/bundle/publicresource/topics/80-63442-50/tflite_delegate.html
+
+  Considered for the performance batch's NPU auto-try (NativeInfer.kt's
+  CONFIG path). The Maven artifact's POM licenses it under the
+  "Qualcomm AI Hub Model License" (Qualcomm Innovation Center, Inc.),
+  fetched from
+  https://softwarecenter.qualcomm.com/api/download/software/licenses/ai_model_hub/v1/LICENSE.pdf.
+
+  Section 2 (LICENSE RESTRICTIONS), 2.c lists applications the licensee
+  agrees NOT to use the Software for or in connection with, including
+  verbatim:
+
+    "biometric and biometrics-based systems, including categorization
+    of persons based on sensitive characteristics"
+
+  and:
+
+    "scraping of facial images (from the internet or otherwise)"
+
+  This engine's entire job is exactly the first of those: BlazeFace
+  detects faces in video frames and faceres classifies each one by
+  gender (and age), which is categorization of persons by a sensitive
+  characteristic. That is not an edge case the app happens to touch —
+  it is what person-gate.mjs / detector.js / this whole native tensor
+  runner exist to do. Accelerating that pipeline on a QNN NPU delegate
+  would be using the Software "for or in connection with" a forbidden
+  application, independent of the separate question (Section 1, which
+  otherwise appears to permit distributing the Software in object code
+  "as incorporated in Your software application") of whether the
+  compiled .aar could be shipped inside the APK at all.
+
+  So: NOT added to build.gradle.kts, NOT linked, NOT distributed.
+  NativeInfer.kt's loadModel() has a stub (search "NPU_STUB") that
+  always falls through past the NPU step straight to the GPU delegate
+  — the same behavior as before this evaluation — and reports
+  `"npu": "absent"` (or `"disabled"` when NATIVE_NPU=0) rather than
+  ever attempting the delegate. If a future round revisits on-device
+  NPU acceleration, it needs either a differently-licensed delegate or
+  a licensing conversation with Qualcomm that this project has not had.
+
 BlazeFace model — Apache License 2.0
   https://github.com/tensorflow/tfjs-models (Google / MediaPipe)
   Face-presence detection model, embedded (base64) in the gaze

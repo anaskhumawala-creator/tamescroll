@@ -12,6 +12,8 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Process
+import android.view.Display
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
@@ -52,6 +54,10 @@ class MainActivity : TauriActivity() {
     // no page-supplied URL is ever fetched by the installer.
     private const val UPDATE_MANIFEST_URL =
       "https://raw.githubusercontent.com/anaskhumawala-creator/tamescroll/main/updates/app-manifest.json"
+    private const val TAG_PERF = "TsPerf"
+    // One frame at ~30fps -- the target the ADPF session in PerfBridge.hint
+    // asks the scheduler to keep ts-infer's inferences under.
+    private const val PERF_HINT_TARGET_NS = 33_000_000L
   }
 
   // Platform requested by a home-screen shortcut before the webview
@@ -851,6 +857,17 @@ class MainActivity : TauriActivity() {
   }
 
   override fun onDestroy() {
+    // SDK-guarded before touching the class at all: an instanceof/cast
+    // against android.os.PerformanceHintManager.Session must never be
+    // the thing this method does unconditionally on every API level.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && hintSession != null) {
+      try {
+        (hintSession as? android.os.PerformanceHintManager.Session)?.close()
+      } catch (e: Throwable) {
+        // already closed / invalidated -- fine
+      }
+    }
+    hintSession = null
     nativeInfer?.close()
     nativeInfer = null
     super.onDestroy()
@@ -888,6 +905,184 @@ class MainActivity : TauriActivity() {
     }
   }
 
+  // ---- performance dials (performance batch 1098, plan Task 2). Every
+  // one of these is a THROTTLE OR HINT to the OS, never a correctness
+  // path, and every dial that reaches here from tuning.mjs ships at
+  // today's behaviour (off/0) so nothing changes on a phone until the
+  // owner pushes a number. Every OS call is guarded by SDK level and
+  // wrapped in try/catch -- a perf bridge that crashes the app is a far
+  // worse outcome than one that silently does nothing.
+
+  private fun currentDisplayCompat(): Display? {
+    return try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        display
+      } else {
+        @Suppress("DEPRECATION")
+        windowManager.defaultDisplay
+      }
+    } catch (e: Throwable) {
+      null
+    }
+  }
+
+  private fun clearRefreshCap() {
+    val attrs = window.attributes
+    attrs.preferredDisplayModeId = 0
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      attrs.preferredRefreshRate = 0f
+    }
+    window.attributes = attrs
+  }
+
+  /** Picks the mode with the SAME physical resolution as the display's
+   * CURRENT mode and the highest refresh rate at or below `hz`. Leaves
+   * the display alone (does nothing) if no such mode exists -- this
+   * never widens the resolution to chase a refresh rate, and it never
+   * lowers refresh below what the caller asked simply because a closer
+   * mode wasn't found. */
+  private fun applyRefreshCap(hz: Int) {
+    val disp = currentDisplayCompat() ?: return
+    val cur = disp.mode ?: return
+    var best: Display.Mode? = null
+    for (m in disp.supportedModes) {
+      if (m.physicalWidth == cur.physicalWidth &&
+        m.physicalHeight == cur.physicalHeight &&
+        m.refreshRate <= hz.toFloat() + 0.01f // float compare slop
+      ) {
+        val b = best
+        if (b == null || m.refreshRate > b.refreshRate) best = m
+      }
+    }
+    val chosen = best ?: return
+    val attrs = window.attributes
+    attrs.preferredDisplayModeId = chosen.modeId
+    window.attributes = attrs
+  }
+
+  // android.os.PerformanceHintManager.Session, API 31+. Typed as Any?
+  // rather than the real type so the field's own descriptor never forces
+  // that class to resolve on a pre-31 device -- every real reference to
+  // it lives inside an SDK_INT-guarded try/catch in PerfBridge.hint.
+  @Volatile private var hintSession: Any? = null
+
+  inner class PerfBridge {
+    @JavascriptInterface
+    fun sustained(on: Boolean) {
+      try {
+        runOnUiThread {
+          try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+              window.setSustainedPerformanceMode(on)
+            }
+          } catch (e: Throwable) {
+            Log.w(TAG_PERF, "sustained failed: " + e.message)
+          }
+        }
+      } catch (e: Throwable) {
+        Log.w(TAG_PERF, "sustained dispatch failed: " + e.message)
+      }
+    }
+
+    @JavascriptInterface
+    fun refreshCap(hz: Int) {
+      try {
+        runOnUiThread {
+          try {
+            if (hz <= 0) clearRefreshCap() else applyRefreshCap(hz)
+          } catch (e: Throwable) {
+            Log.w(TAG_PERF, "refreshCap apply failed: " + e.message)
+          }
+        }
+      } catch (e: Throwable) {
+        Log.w(TAG_PERF, "refreshCap dispatch failed: " + e.message)
+      }
+    }
+
+    /** The refresh rate actually in effect right now (display.refreshRate),
+     * so the page can learn what refreshCap() landed on without a second
+     * round trip through the UI thread. Synchronous, like every
+     * @JavascriptInterface method with a return value. */
+    @JavascriptInterface
+    fun currentRefreshHz(): Float {
+      return try {
+        currentDisplayCompat()?.refreshRate ?: Float.NaN
+      } catch (e: Throwable) {
+        Float.NaN
+      }
+    }
+
+    @JavascriptInterface
+    fun thermalHeadroom(): Float {
+      return try {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return Float.NaN
+        val pm = getSystemService(POWER_SERVICE) as? android.os.PowerManager ?: return Float.NaN
+        pm.getThermalHeadroom(10)
+      } catch (e: Throwable) {
+        Float.NaN
+      }
+    }
+
+    /** ADPF: a PerformanceHintManager session over the ts-infer thread,
+     * fed by NativeInfer.onInferenceDuration -- every model inference
+     * (never a CONFIG rebuild) reports its actual duration so the
+     * scheduler can favor that thread toward the 33ms target instead of
+     * guessing from CPU load alone. off() closes the session; a session
+     * the OS has already invalidated fails its report/close silently. */
+    @JavascriptInterface
+    fun hint(on: Boolean) {
+      try {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        if (on) {
+          if (hintSession != null) return
+          val engine = nativeInfer ?: return
+          val tid = engine.inferTid
+          if (tid <= 0) return
+          val mgr = getSystemService(android.os.PerformanceHintManager::class.java) ?: return
+          val session = mgr.createHintSession(intArrayOf(tid), PERF_HINT_TARGET_NS)
+          hintSession = session
+          engine.onInferenceDuration = { durationNanos ->
+            try {
+              (hintSession as? android.os.PerformanceHintManager.Session)
+                ?.reportActualWorkDuration(durationNanos)
+            } catch (e: Throwable) {
+              // The OS can invalidate a session at any time (thread
+              // death, app backgrounded); a failed report is dropped,
+              // never fatal to the inference it describes.
+            }
+          }
+        } else {
+          nativeInfer?.onInferenceDuration = null
+          try {
+            (hintSession as? android.os.PerformanceHintManager.Session)?.close()
+          } catch (e: Throwable) {
+            // already closed / invalidated -- fine
+          }
+          hintSession = null
+        }
+      } catch (e: Throwable) {
+        Log.w(TAG_PERF, "hint failed: " + e.message)
+      }
+    }
+
+    @JavascriptInterface
+    fun inferPriority(level: Int) {
+      try {
+        val engine = nativeInfer ?: return
+        val tid = engine.inferTid
+        if (tid <= 0) return
+        val prio = when (level) {
+          1 -> Process.THREAD_PRIORITY_LESS_FAVORABLE
+          2 -> Process.THREAD_PRIORITY_BACKGROUND
+          else -> Process.THREAD_PRIORITY_DEFAULT
+        }
+        Process.setThreadPriority(tid, prio)
+      } catch (e: Throwable) {
+        Log.w(TAG_PERF, "inferPriority failed: " + e.message)
+      }
+    }
+  }
+
   override fun onWebViewCreate(webView: WebView) {
     this.webView = webView
     webView.addJavascriptInterface(ShortcutBridge(), "TsShortcuts")
@@ -901,6 +1096,11 @@ class MainActivity : TauriActivity() {
     // hostile page cannot turn it into anything but a wasted disk write.
     webView.addJavascriptInterface(DiagBridge(), "TsDiag")
     webView.addJavascriptInterface(NativePortBridge(), "TsNativePort")
+    // Perf dials (PerfBridge): every dial ships inert on the OTA
+    // channel, so this interface being reachable from a remote platform
+    // page can at most toggle a throttle/hint back to Android's own
+    // default -- never anything destructive.
+    webView.addJavascriptInterface(PerfBridge(), "TsPerf")
     // AUTOFILL. Owner ask: "can't we have the sign in page automatically
     // show the existing accounts on the device". There is no device
     // account chooser available to a WebView -- Android 8+ account

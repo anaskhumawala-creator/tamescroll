@@ -3,6 +3,7 @@ package app.tamescroll.client
 import android.content.Context
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import androidx.webkit.WebMessageCompat
@@ -64,7 +65,7 @@ class NativeInfer(private val ctx: Context) {
     val id: Int,
     val interpreter: Interpreter,
     val delegate: GpuDelegate?,
-    val gpu: Boolean,
+    val backend: String, // "npu" | "gpu" | "cpu" -- see loadModel's NPU_STUB note
     val inputW: Int,
     val inputH: Int,
     val inputBuffer: ByteBuffer,
@@ -81,6 +82,24 @@ class NativeInfer(private val ctx: Context) {
   private var loadWhy = ""
   private var initMs = 0
   private var port: WebMessagePortCompat? = null
+  // NATIVE_CPU_MASK / NATIVE_NPU (native-client.mjs `configure`): bit i
+  // of cpuMask forces model (i+1) onto XNNPACK CPU regardless of GPU
+  // availability; flags bit 0 says whether the page allows an NPU
+  // delegate. Defaults match the page's own defaults (mask 0 = every
+  // model tries its normal delegate order; flags 1 = NPU allowed) so a
+  // page that never sends a CONFIG behaves exactly as before.
+  private var cpuMask = 0
+  private var flags = 1
+  // The `ts-infer` thread's Linux tid, captured from inside the thread
+  // itself (Process.myTid() is only meaningful called from the thread
+  // it is asking about) -- MainActivity's PerfBridge needs it for
+  // Process.setThreadPriority and a PerformanceHintManager session.
+  @Volatile var inferTid: Int = -1
+    private set
+  // Set by PerfBridge.hint(true); called with the elapsed nanos of every
+  // successful model inference (never CONFIG) so an ADPF hint session
+  // can report actual work duration. Cleared by hint(false)/close().
+  @Volatile var onInferenceDuration: ((Long) -> Unit)? = null
   // A page that produced three consecutive inference errors on one model
   // is told `native-failed` once and served status 1 from then on; the
   // NEXT page gets a fresh chance, because the failure may have been its
@@ -89,7 +108,10 @@ class NativeInfer(private val ctx: Context) {
   @Volatile private var closed = false
 
   init {
-    handler.post { loadAll() }
+    handler.post {
+      inferTid = Process.myTid()
+      loadAll()
+    }
   }
 
   /** Hand this page's end of the channel to the engine. Called on the
@@ -142,32 +164,56 @@ class NativeInfer(private val ctx: Context) {
     }
   }
 
+  /** Per-model bit in NATIVE_CPU_MASK (native-client.mjs `configure`):
+   * bit0 BlazeFace (id1), bit1 faceres (id2), bit2 MoveNet (id3). */
+  private fun forceCpuFor(id: Int): Boolean = (cpuMask shr (id - 1)) and 1 == 1
+
+  /** flags bit0 = NATIVE_NPU. Read only for postReady's `npu` field --
+   * see the NPU_STUB note below for why nothing here ever acts on it. */
+  private fun npuAllowedByFlags(): Boolean = flags and 1 == 1
+
   private fun loadModel(id: Int, assetBase: String): LoadedModel {
     val bytes = loadAssetModel("$assetBase.tflite")
     var delegate: GpuDelegate? = null
     var interp: Interpreter? = null
-    var gpu = false
-    val cl = CompatibilityList()
-    if (cl.isDelegateSupportedOnThisDevice) {
-      try {
-        val dopts = cl.bestOptionsForThisDevice
-        // Allowing precision loss computes in f16 on the Adreno 610.
-        // MoveNet cannot (see MODEL_FP16); the face models can.
-        dopts.setPrecisionLossAllowed(id in MODEL_FP16)
-        delegate = GpuDelegate(dopts)
-        interp = Interpreter(bytes, Interpreter.Options().addDelegate(delegate))
-        gpu = true
-      } catch (e: Throwable) {
-        try { delegate?.close() } catch (_: Throwable) {}
-        delegate = null
-        interp = null
-        Log.w(TAG, "GPU delegate failed for $assetBase, falling back to CPU: " + e.message)
+    var backend = "cpu"
+    if (!forceCpuFor(id)) {
+      // NPU_STUB (performance batch 2026-09-03, plan Task 2): the
+      // Qualcomm QNN LiteRT delegate is deliberately NOT wired in. Its
+      // Maven artifact (com.qualcomm.qti:qnn-litert-delegate) ships
+      // under the "Qualcomm AI Hub Model License", whose Section 2.c
+      // forbids using the Software for "biometric and biometrics-based
+      // systems, including categorization of persons based on sensitive
+      // characteristics" -- and gender/age classification on detected
+      // faces is this whole engine's job, not an edge case of it. See
+      // NOTICE. So `npuAllowedByFlags()` has nothing to try here; it
+      // only decides what postReady's `npu` field reports (absent vs
+      // disabled). GPU is attempted next exactly as it was before this
+      // task -- a device with no NPU story at all sees no behavior
+      // change.
+      val cl = CompatibilityList()
+      if (cl.isDelegateSupportedOnThisDevice) {
+        try {
+          val dopts = cl.bestOptionsForThisDevice
+          // Allowing precision loss computes in f16 on the Adreno 610.
+          // MoveNet cannot (see MODEL_FP16); the face models can.
+          dopts.setPrecisionLossAllowed(id in MODEL_FP16)
+          delegate = GpuDelegate(dopts)
+          interp = Interpreter(bytes, Interpreter.Options().addDelegate(delegate))
+          backend = "gpu"
+        } catch (e: Throwable) {
+          try { delegate?.close() } catch (_: Throwable) {}
+          delegate = null
+          interp = null
+          Log.w(TAG, "GPU delegate failed for $assetBase, falling back to CPU: " + e.message)
+        }
       }
     }
     if (interp == null) {
       // XNNPACK on 4 threads is still 1.8x the WebGL path on the Redmi.
+      // Also where a forced CPU mask bit for this model lands.
       interp = Interpreter(bytes, Interpreter.Options().setNumThreads(4).setUseXNNPACK(true))
-      gpu = false
+      backend = "cpu"
     }
     interp.allocateTensors()
     val inT = interp.getInputTensor(0)
@@ -177,7 +223,7 @@ class NativeInfer(private val ctx: Context) {
       ByteBuffer.allocateDirect(interp.getOutputTensor(i).numBytes()).order(ByteOrder.nativeOrder())
     }
     val outputNames = (0 until interp.outputTensorCount).map { interp.getOutputTensor(it).name() }
-    val model = LoadedModel(id, interp, delegate, gpu, shape[2], shape[1], inputBuffer, outputBuffers, outputNames)
+    val model = LoadedModel(id, interp, delegate, backend, shape[2], shape[1], inputBuffer, outputBuffers, outputNames)
     // One warm run: the delegate's first invocation carries allocation
     // and clock ramp that must not land on the first real frame.
     run(model)
@@ -221,6 +267,11 @@ class NativeInfer(private val ctx: Context) {
     val w = hdr.getInt(8)
     val h = hdr.getInt(12)
     if (deadForThisPage || loadState != 1) { replyError(reqId); return }
+    // CONFIG (native-client.mjs `configure`): a bare 16-byte header, no
+    // pixel payload, modelId 0, `w` = NATIVE_CPU_MASK, `h` = NATIVE_NPU
+    // flags. Runs on this same ts-infer thread, so a rebuild can never
+    // race a model frame -- the port has exactly one reader.
+    if (modelId == 0) { handleConfig(reqId, w, h); return }
     val model = models[modelId] ?: run { replyError(reqId); return }
     // The page sends exactly the model's input size; a mismatch is the
     // page's bug and is answered, never resized here.
@@ -233,7 +284,11 @@ class NativeInfer(private val ctx: Context) {
       fillInput(model, buf, 16, w * h)
       run(model)
       model.consecutiveErrors = 0
-      reply(reqId, 0, model.outputBuffers, ((SystemClock.elapsedRealtimeNanos() - t0) / 1000L).toInt())
+      val elapsedNanos = SystemClock.elapsedRealtimeNanos() - t0
+      reply(reqId, 0, model.outputBuffers, (elapsedNanos / 1000L).toInt())
+      // ADPF hint feed (PerfBridge.hint): only real inferences count as
+      // "work" here, never a CONFIG rebuild.
+      try { onInferenceDuration?.invoke(elapsedNanos) } catch (_: Throwable) {}
     } catch (e: Throwable) {
       Log.w(TAG, "native inference failed model=$modelId: " + e.message)
       model.consecutiveErrors++
@@ -243,6 +298,35 @@ class NativeInfer(private val ctx: Context) {
         postFailed("model $modelId failed $MAX_CONSECUTIVE_ERRORS times in a row: " + (e.message ?: e.toString()))
       }
     }
+  }
+
+  /** Rebuilds every named interpreter under the new mask/flags and acks
+   * with the ordinary empty-outputs reply (`reply(reqId, 0, emptyArray(),
+   * ...)`), never a model's own outputs. A per-model failure leaves that
+   * model's PREVIOUS interpreter in place -- models[id] is only
+   * overwritten once the replacement has loaded clean -- so one bad
+   * rebuild cannot take the whole engine down. */
+  private fun handleConfig(reqId: Int, newCpuMask: Int, newFlags: Int) {
+    val t0 = SystemClock.elapsedRealtimeNanos()
+    cpuMask = newCpuMask
+    flags = newFlags
+    var failed = false
+    for ((id, asset) in MODEL_ASSET) {
+      try {
+        val old = models[id]
+        val fresh = loadModel(id, asset)
+        models[id] = fresh
+        if (old != null) {
+          try { old.interpreter.close() } catch (_: Throwable) {}
+          try { old.delegate?.close() } catch (_: Throwable) {}
+        }
+      } catch (e: Throwable) {
+        Log.w(TAG, "CONFIG rebuild failed for model=$id: " + e.message)
+        failed = true
+      }
+    }
+    if (failed) { replyError(reqId); return }
+    reply(reqId, 0, emptyArray(), ((SystemClock.elapsedRealtimeNanos() - t0) / 1000L).toInt())
   }
 
   /** RGBA -> the model's input tensor, alpha dropped. The ranges are the
@@ -309,14 +393,23 @@ class NativeInfer(private val ctx: Context) {
   private fun postReady() {
     val p = port ?: return
     val modelsJson = JSONArray()
+    val backendsJson = JSONObject()
     for ((id, name) in MODEL_REPORT_NAME) {
       val outs = JSONArray()
       models[id]?.outputNames?.forEach { outs.put(it) }
       modelsJson.put(JSONObject().put("id", id).put("name", name).put("outputs", outs))
+      backendsJson.put(id.toString(), models[id]?.backend ?: "cpu")
     }
+    // Worst of the three, per the plan: 'cpu' if any model landed on
+    // CPU, else 'gpu' (an 'npu' backend -- never reached today, see the
+    // NPU_STUB note on loadModel -- would count as gpu-or-better here).
+    val anyCpu = models.values.any { it.backend == "cpu" }
+    val npuState = if (!npuAllowedByFlags()) "disabled" else "absent"
     val msg = JSONObject()
       .put("type", "native-ready")
-      .put("backend", if (models.values.all { it.gpu }) "gpu" else "cpu")
+      .put("backend", if (anyCpu) "cpu" else "gpu")
+      .put("backends", backendsJson)
+      .put("npu", npuState)
       .put("models", modelsJson)
       .put("initMs", initMs)
     try { p.postMessage(WebMessageCompat(msg.toString())) } catch (e: Throwable) { Log.w(TAG, "ready post failed: " + e.message) }
