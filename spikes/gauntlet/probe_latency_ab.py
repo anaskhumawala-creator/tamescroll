@@ -367,6 +367,10 @@ LAT_JS = """(function(){
     st.life=(window.__TS_GAZE_IDS&&window.__TS_GAZE_IDS.life)||{};
     st.tuning=(window.__TS_GAZE_IDS&&window.__TS_GAZE_IDS.tuning)||null;
     st.slots=(window.__TS_GAZE_IDS&&window.__TS_GAZE_IDS.slots||[]).slice(-3);
+    // Engine health (native-inference round, phase-j J10): which engine
+    // carried the player, and whether the WebGL fallback still EXISTS.
+    st.native=window.__TS_GAZE_NATIVE||null;
+    st.worker={backend:(window.__TS_GAZE_WORKER||{}).backend||null, dead:!!(window.__TS_GAZE_WORKER||{}).dead};
     st.delay=window.__TS_DELAY_STATS?window.__TS_DELAY_STATS():null;
     if (DELAY && window.__TS_DELAY_STATS) {
       try { st.delayStatsEnd = window.__TS_DELAY_STATS().stats; } catch(e) { st.delayStatsEnd = null; }
@@ -441,7 +445,8 @@ def main():
     life = st.get("life", {})
     dl = {k: life.get(k, 0) - life0.get(k, 0) for k in
           ("positionPassSkipped", "genderReadSkipped", "personPassSkipped", "coastExpired", "cutCoastExpired",
-           "birthFresh", "birthBlurred", "delayVerdictLate", "faceNoShape", "passDropped", "wipeErasedBlurred", "cutDetected")}
+           "birthFresh", "birthBlurred", "delayVerdictLate", "faceNoShape", "passDropped", "wipeErasedBlurred", "cutDetected",
+           "nativePasses", "nativeReplies", "nativeErrors", "nativeDead", "nativeFailed", "nativeReady")}
     out = {
         "label": LABEL, "video": VIDEO, "seek": SEEK, "secs": round(st.get("secs", 0), 1),
         "bundle": json.loads(pre).get("bundle") if isinstance(pre, str) else None,
@@ -471,6 +476,7 @@ def main():
         "lifeDelta": dl, "tuning": (st.get("tuning") or {}).get("applied"),
         "coastMs": (st.get("tuning") or {}).get("coastMs"), "toldMs": (st.get("tuning") or {}).get("toldMs"),
         "slotsN": [s.get("n") for s in st.get("slots", [])], "delay": st.get("delay"), "video_state": st.get("video"),
+        "native": st.get("native"), "worker": st.get("worker"),
     }
     if DELAY:
         arm = build_delay_arm(st.get("delaySnaps", []), st.get("delayFrames", []),

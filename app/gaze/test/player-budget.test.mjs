@@ -34,7 +34,9 @@ test('the wrapped resolve calls the ORIGINAL, not itself', function () {
 });
 
 test('the player pass takes a baseline before its first request', function () {
-  assert.match(init, /var waitBase = workerVideo\(\) \? vid\(\)\.waitMs\(\) : null;/);
+  // One engine at both ends (phase-j J8): the baseline and the delta
+  // read the SAME client's counter, whatever vid() answers later.
+  assert.match(init, /var waitEng = workerVideo\(\) \? vid\(\) : null;\s*var waitBase = waitEng \? waitEng\.waitMs\(\) : null;/);
   var base = init.indexOf('var waitBase =');
   var call = init.indexOf('runPass(wasVerdict, mark');
   assert.ok(base > 0 && call > base, 'the baseline must precede the pass');
@@ -44,7 +46,8 @@ test('the player pass charges only what it spent here, floored at zero', functio
   var i = init.indexOf('var mine = cost;');
   assert.ok(i > 0);
   var seg = init.slice(i, i + 400);
-  assert.match(seg, /vid\(\)\.waitMs\(\) - waitBase/);
+  assert.match(seg, /waitEng\.waitMs\(\) - waitBase/);
+  assert.doesNotMatch(seg, /vid\(\)\.waitMs\(\)/);
   assert.match(seg, /Math\.max\(0, cost - waited\)/);
   assert.match(seg, /noteSpend\(performance\.now\(\), mine\)/);
 });

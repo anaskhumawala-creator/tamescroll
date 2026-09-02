@@ -1,0 +1,103 @@
+{
+ "port": 9227,
+ "video": "NWoT1ZVd1Lo",
+ "seek": 217.0,
+ "secs": 60.0,
+ "early": {
+  "seen": 1,
+  "stashed": true,
+  "taker": "function",
+  "native": {
+   "adopted": 3843,
+   "ready": 3870,
+   "backend": "gpu"
+  },
+  "life": {
+   "nativeReady": 1,
+   "nativeFailed": 0,
+   "nativeDead": 0,
+   "nativePasses": 21,
+   "passDropped": 3
+  },
+  "workerBackend": "webgl",
+  "workerDead": false,
+  "stagesRing": 20,
+  "verdictsInRing": 17,
+  "bundle": "da197d2-dirty",
+  "mode": "smart",
+  "video": {
+   "t": 17.08747,
+   "paused": false,
+   "w": 1280,
+   "h": 720
+  }
+ },
+ "t0": {
+  "seen": 1,
+  "stashed": true,
+  "taker": "function",
+  "native": {
+   "adopted": 3843,
+   "ready": 3870,
+   "backend": "gpu"
+  },
+  "life": {
+   "nativeReady": 1,
+   "nativeFailed": 0,
+   "nativeDead": 0,
+   "nativePasses": 33,
+   "passDropped": 5,
+   "personPassSkipped": 3
+  },
+  "workerBackend": "webgl",
+  "workerDead": false,
+  "stagesRing": 32,
+  "verdictsInRing": 27,
+  "bundle": "da197d2-dirty",
+  "mode": "smart",
+  "video": {
+   "t": 226.05061,
+   "paused": false,
+   "w": 1280,
+   "h": 720
+  }
+ },
+ "t1": {
+  "seen": 1,
+  "stashed": true,
+  "taker": "function",
+  "native": {
+   "adopted": 3843,
+   "ready": 3870,
+   "backend": "gpu"
+  },
+  "life": {
+   "nativeReady": 1,
+   "nativeFailed": 0,
+   "nativeDead": 0,
+   "nativePasses": 105,
+   "passDropped": 14,
+   "personPassSkipped": 17
+  },
+  "workerBackend": "webgl",
+  "workerDead": false,
+  "stagesRing": 105,
+  "verdictsInRing": 91,
+  "bundle": "da197d2-dirty",
+  "mode": "smart",
+  "video": {
+   "t": 286.16489,
+   "paused": false,
+   "w": 1280,
+   "h": 720
+  }
+ },
+ "delta": {
+  "nativePasses": 72,
+  "nativeDead": 0,
+  "nativeFailed": 0,
+  "passDropped": 9,
+  "personPassSkipped": 14
+ },
+ "verdict": "NATIVE LIVE backend=gpu initMs=None nativePasses +72 over 60s"
+}

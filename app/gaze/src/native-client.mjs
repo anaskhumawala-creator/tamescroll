@@ -116,6 +116,17 @@ export function createNativeClient(port, opts) {
       p.reject(new Error('native ' + why));
     });
     pending.clear();
+    // A dead client never sees another cropFaces, so nothing would sweep
+    // the full-resolution bitmaps it still holds (phase-j J7): close
+    // them here, or ~3.7MB each leaks for the life of the page.
+    crops.forEach(function (cr) {
+      try {
+        cr.bitmap.close();
+      } catch (e) {
+        /* already closed */
+      }
+    });
+    crops.clear();
     try {
       readyReject(new Error('native ' + why));
     } catch (e) {
@@ -123,12 +134,18 @@ export function createNativeClient(port, opts) {
     }
   }
 
+  // `onReply(ok)` is the transport's own tally (phase-j J9): a counter
+  // that bumps where the reply LANDS cannot read non-zero on a run where
+  // nothing ever answered, which the caller-side count did.
+  var onReply = opts && typeof opts.onReply === 'function' ? opts.onReply : null;
   function noteFailure() {
     state.consecutiveFailures++;
+    if (onReply) onReply(false);
     if (state.consecutiveFailures >= 3) die('3 consecutive request failures');
   }
   function noteSuccess() {
     state.consecutiveFailures = 0;
+    if (onReply) onReply(true);
   }
 
   // One request, one reply, matched by reqId. `rgba` is transferred
@@ -170,6 +187,11 @@ export function createNativeClient(port, opts) {
   }
 
   port.onmessage = function (e) {
+    // A MessageEvent the page DISPATCHED on this port (rather than one
+    // the port delivered) arrives with isTrusted false (phase-j J6): a
+    // script holding the port object could otherwise forge a reply that
+    // reads "no faces" on every frame.
+    if (e && e.isTrusted === false) return;
     var data = e && e.data;
     if (typeof data === 'string') {
       var msg = parseReady(data);
@@ -229,12 +251,29 @@ export function createNativeClient(port, opts) {
   }
 
   // Whole-frame squash to `size`x`size` -- same geometry as
-  // detector.js's tensor path (resizeBilinear with no letterbox pad).
+  // detector.js's tensor path (resizeBilinear with no letterbox pad),
+  // and the SAME SAMPLES: tf.image.resizeBilinear (alignCorners false,
+  // halfPixelCenters false) reads src = dst * scale, while canvas
+  // drawImage centres each destination pixel on the source
+  // (src = (dst + 0.5) * scale - 0.5). Shifting the source rect by
+  // (scale - 1) / 2 with 'low' (bilinear) smoothing cancels that:
+  // measured on the Redmi against a JS resizeBilinear, mean abs diff
+  // 0.04 levels, against 4.8-5.7 for the plain squash and 3.7-4.7 for
+  // 'high' (spikes/gauntlet/native-pixels-1788345747.json). The gates
+  // downstream (PFF_FRAME_KP_FLOOR, the person score floor) were
+  // calibrated on the tensor path, so the native engine must see the
+  // pixels that path would have seen.
   function drawTo(size, bitmap) {
     var canvas = canvasFor(size);
     var ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, size, size);
-    ctx.drawImage(bitmap, 0, 0, size, size);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'low';
+    var sw = bitmap.width;
+    var sh = bitmap.height;
+    var kx = sw / size;
+    var ky = sh / size;
+    ctx.drawImage(bitmap, -(kx - 1) / 2, -(ky - 1) / 2, sw, sh, 0, 0, size, size);
     return ctx.getImageData(0, 0, size, size).data;
   }
 

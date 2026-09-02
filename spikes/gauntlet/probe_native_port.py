@@ -38,8 +38,9 @@ READ_JS = """(function(){
   var verdicts = 0;
   for (var i = 0; i < st.length; i++) if (st[i] && typeof st[i].tracks === 'number') verdicts++;
   return JSON.stringify({
+    asked: !!window.__TS_NATIVE_PORT_ASKED,
     seen: window.__TS_NATIVE_PORT_SEEN || 0,
-    stashed: !!window.__TS_NATIVE_PORT,
+    stashed: !!window.__TS_NATIVE_PORT_HELD, taker: typeof window.__TS_TAKE_NATIVE_PORT,
     native: window.__TS_GAZE_NATIVE || null,
     life: {
       nativeReady: life.nativeReady, nativeFailed: life.nativeFailed,
@@ -93,7 +94,8 @@ def main():
         "early": early, "t0": a, "t1": b, "delta": delta,
     }
     verdict = (
-        "NO MESSAGE (stash never saw ts-native-port)" if not b.get("seen") else
+        "NEVER ASKED (TsNativePort bridge absent at document start)" if not b.get("asked") else
+        "NO MESSAGE (asked, stash never saw ts-native-port)" if not b.get("seen") else
         "REFUSED BY GUARD (seen %d, nothing stashed)" % b["seen"] if not b.get("stashed") else
         "NOT ADOPTED (stashed, no __TS_GAZE_NATIVE.adopted)" if not (b.get("native") or {}).get("adopted") else
         "NOT READY: %s" % (b.get("native") or {}).get("why") if not (b.get("native") or {}).get("ready") else

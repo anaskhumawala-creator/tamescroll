@@ -573,17 +573,22 @@ if (
       return false;
     }
   }
-  // The engine the player path talks to. Callers hold no reference across
-  // a pass boundary; a cid minted by one engine is released on whichever
-  // is current, and a release the other engine does not know is swept by
-  // its own TTL.
+  // The engine the player path talks to. Read ONCE per crop chain and
+  // once per budget window (phase-j J7/J8): a cid belongs to the client
+  // that minted it, and waitMs() is per client.
   function vid() {
     return nativeVideo() ? nativeClient : gazeWorker;
   }
   function adoptNativePort() {
+    // The document-start stash (lib.rs native_port_stash_script) keeps
+    // Kotlin's port in its own closure and hands it out ONCE through a
+    // non-configurable taker (phase-j J6): a page script can neither
+    // pre-define nor replace that property, and a port it hands us
+    // through any other route is not read at all.
     var port = null;
     try {
-      port = window.__TS_NATIVE_PORT || null;
+      var take = window.__TS_TAKE_NATIVE_PORT;
+      port = typeof take === 'function' ? take() || null : null;
     } catch (e) {
       port = null;
     }
@@ -599,7 +604,11 @@ if (
       nativeDeadCounted = false;
     }
     try {
-      nativeClient = createNativeClient(port);
+      nativeClient = createNativeClient(port, {
+        onReply: function (ok) {
+          nativeLife(ok ? 'nativeReplies' : 'nativeErrors');
+        },
+      });
       nativeClient.port = port;
     } catch (e) {
       nativeClient = null;
@@ -2151,14 +2160,18 @@ if (
         return false;
       }
       if (workerVideo()) {
-        return vid().cropFaces(pixels).then(function (r) {
+        // One engine per cid (phase-j J7): the client that minted it is
+        // the only one that can read or release it, whatever vid()
+        // answers by the time the reply lands.
+        var eng = vid();
+        return eng.cropFaces(pixels).then(function (r) {
           var faces = r.faces || [];
           if (!faces.length) {
             wholeFrameLife('wholeFrameNoFaces');
-            vid().releaseCrop(r.cid);
+            eng.releaseCrop(r.cid);
             return false;
           }
-          return vid()
+          return eng
             .cropGender(r.cid, faces)
             .then(function (g) {
               return anyFlagged(g.reads || []);
@@ -2168,7 +2181,7 @@ if (
               return true;
             })
             .then(function (v) {
-              vid().releaseCrop(r.cid);
+              eng.releaseCrop(r.cid);
               return v;
             });
         });
@@ -2176,7 +2189,7 @@ if (
       return detector.detectFaceBoxes(model, pixels).then(function (faces) {
         if (!faces.length) wholeFrameLife('wholeFrameNoFaces');
         if (!faces.length || !genderModel) return faces.length > 0;
-        return detector.classifyFaceGenders(genderModel, pixels, faces).then(anyFlagged);
+        return detector.classifyFaceGenders(genderModel, pixels, faces, { square: true }).then(anyFlagged);
       });
     }
     // THE PERSON PASS RUNS ON EVERY PASS. (2026-08-31, reverted the
@@ -2235,8 +2248,15 @@ if (
         return Promise.resolve(frameP)
           .then(function (bmp) {
             mark('upload');
-            if (nativeVideo()) nativeLife('nativePasses');
-            return vid().videoFrame(bmp, aspect, heldPersons, withFaces, askPersons);
+            var onNative = nativeVideo();
+            return vid()
+              .videoFrame(bmp, aspect, heldPersons, withFaces, askPersons)
+              .then(function (r) {
+                // Counted on the RESOLVED frame (phase-j J9), never on
+                // the intent to send one.
+                if (onNative) nativeLife('nativePasses');
+                return r;
+              });
           })
           .then(function (r) {
             // Structured clone copies an array's elements, not the
@@ -2523,7 +2543,7 @@ if (
           return r.reads || [];
         });
       }
-      return detector.classifyFaceGenders(genderModel, pix, boxes);
+      return detector.classifyFaceGenders(genderModel, pix, boxes, { square: true });
     }
 
     // WHAT THE GHOST GATE IS THROWING AWAY, in the only terms that
@@ -2669,11 +2689,12 @@ if (
       // the same pixels, uploaded once -- and released here, on the one
       // path every outcome goes through.
       var zcid = 0;
+      var zeng = null; // the client that minted zcid (phase-j J7)
       function done(result) {
         if (zpix && typeof zpix.close === 'function') zpix.close();
         if (zcid) {
           try {
-            vid().releaseCrop(zcid);
+            zeng.releaseCrop(zcid);
           } catch (e) {
             /* a worker that cannot be told sweeps it on its own TTL */
           }
@@ -2686,9 +2707,9 @@ if (
       // face box came from the person instead, no upload was made and
       // the crop is still ours to send.
       function cropGenderReads(faces) {
-        if (!workerVideo()) return detector.classifyFaceGenders(genderModel, zpixRef, faces);
+        if (!workerVideo()) return detector.classifyFaceGenders(genderModel, zpixRef, faces, { square: true });
         if (zcid) {
-          return vid().cropGender(zcid, faces).then(function (r) {
+          return zeng.cropGender(zcid, faces).then(function (r) {
             return r.reads || [];
           });
         }
@@ -2993,7 +3014,7 @@ if (
         var facesP = known
           ? Promise.resolve(known)
           : workerVideo()
-            ? vid().cropFaces(zpix).then(function (r) {
+            ? (zeng = vid()).cropFaces(zpix).then(function (r) {
                 // The crop is now the worker's; `zcid` is how the gender
                 // read reaches the same upload.
                 zcid = r.cid;
@@ -3717,7 +3738,11 @@ if (
           // See noteSpend below: everything this pass spends waiting on
           // the worker belongs to the worker, not to the main-thread
           // budget. Baseline taken before the first request goes out.
-          var waitBase = workerVideo() ? vid().waitMs() : null;
+          // Bound to ONE engine (phase-j J8): each client keeps its own
+          // cumulative wait, so a baseline from one and a delta from the
+          // other would charge or forgive a pass by their difference.
+          var waitEng = workerVideo() ? vid() : null;
+          var waitBase = waitEng ? waitEng.waitMs() : null;
           var sharedFrame = null;
           var frameDone = false;
           var releaseFrame = function () {
@@ -4648,7 +4673,7 @@ if (
               // spend all of it here.
               var mine = cost;
               if (waitBase !== null) {
-                var waited = vid().waitMs() - waitBase;
+                var waited = waitEng.waitMs() - waitBase;
                 if (waited > 0) mine = Math.max(0, cost - waited);
               }
               noteSpend(performance.now(), mine);

@@ -1540,31 +1540,51 @@ fn universal_injection_script() -> String {
 }
 
 /// Android hands the page a MessagePort to the native TFLite engine
-/// (NativeInfer.kt): MainActivity posts a WebMessage tagged
-/// `ts-native-port` from onPageStarted, with the port attached. The gaze
+/// (NativeInfer.kt): this script ASKS for it at document start through
+/// the `TsNativePort.requestPort` bridge, once its listener is installed
+/// (a port pushed from onPageStarted could land before the listener
+/// existed -- 1 of 7 navigations on the Redmi), and MainActivity answers
+/// with a WebMessage tagged `ts-native-port`, the port attached. The gaze
 /// bundle evaluates well after that message can land, so this
-/// document-start script parks the port on `window.__TS_NATIVE_PORT` and
-/// announces it with a `ts-native-port` CustomEvent; init-entry adopts it
-/// from either (native-client.mjs). A page script cannot forge the
-/// message: one posted by Kotlin arrives with no source window and an
-/// empty origin, and both are checked. Every message that reaches the
-/// listener is counted first (`__TS_NATIVE_PORT_SEEN`) so a device probe
-/// can tell "never delivered" from "delivered and refused".
+/// document-start script keeps the port in its own closure, announces it
+/// with a `ts-native-port` CustomEvent, and hands it out ONCE through
+/// `window.__TS_TAKE_NATIVE_PORT` -- defined non-configurable and
+/// non-writable at document start, before any page script runs, so the
+/// page can neither pre-define nor replace it, and the bundle reads the
+/// port from nowhere else (phase-j J6: a global the page could assign
+/// would let two lines of page script hand the player path a fake
+/// engine that answers "no faces" forever). A page script cannot forge
+/// the message either: one posted by Kotlin arrives with no source
+/// window and an empty origin, and both are checked. Every message that
+/// reaches the listener is counted first (`__TS_NATIVE_PORT_SEEN`) so a
+/// device probe can tell "never delivered" from "delivered and refused".
 fn native_port_stash_script() -> &'static str {
     r#"
 (function () {
   try {
     if (window.top !== window) return;
+    var pending = null;
+    Object.defineProperty(window, "__TS_TAKE_NATIVE_PORT", {
+      value: function () { var p = pending; pending = null; return p; },
+      writable: false, configurable: false, enumerable: false
+    });
     window.addEventListener("message", function (e) {
       try {
         if (!e || e.data !== "ts-native-port") return;
         window.__TS_NATIVE_PORT_SEEN = (window.__TS_NATIVE_PORT_SEEN || 0) + 1;
         if (e.source !== null || e.origin !== "") return;
         if (!e.ports || !e.ports[0]) return;
-        window.__TS_NATIVE_PORT = e.ports[0];
+        pending = e.ports[0];
+        window.__TS_NATIVE_PORT_HELD = true;
         window.dispatchEvent(new CustomEvent("ts-native-port"));
       } catch (x) {}
     });
+    try {
+      if (window.TsNativePort && typeof window.TsNativePort.requestPort === "function") {
+        window.__TS_NATIVE_PORT_ASKED = true;
+        window.TsNativePort.requestPort();
+      }
+    } catch (e) {}
   } catch (e) {}
 })();
 "#
@@ -1840,7 +1860,15 @@ mod tests {
         let s = android_init_script("smart");
         let stash = native_port_stash_script();
         assert!(stash.contains("\"ts-native-port\""));
-        assert!(stash.contains("window.__TS_NATIVE_PORT = e.ports[0]"));
+        // Phase-j J6: the port is never parked on an assignable global.
+        assert!(!stash.contains("window.__TS_NATIVE_PORT ="));
+        assert!(stash.contains("Object.defineProperty(window, \"__TS_TAKE_NATIVE_PORT\""));
+        assert!(stash.contains("writable: false, configurable: false"));
+        assert!(stash.contains("var p = pending; pending = null; return p;"));
+        // The port is pulled after the listener exists, never pushed first.
+        let listen = stash.find("addEventListener(\"message\"").expect("listener");
+        let ask = stash.find("window.TsNativePort.requestPort()").expect("request");
+        assert!(listen < ask, "the stash must listen before it asks");
         assert!(stash.contains("new CustomEvent(\"ts-native-port\")"));
         // The forgery check: a page script's postMessage always carries a
         // source window; Kotlin's WebMessage never does.

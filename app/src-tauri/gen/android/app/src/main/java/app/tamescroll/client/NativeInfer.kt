@@ -144,7 +144,7 @@ class NativeInfer(private val ctx: Context) {
         // The Adreno 610 computes in f16 with this on and f32 parity is
         // 1.000000 either way (GPU-REPORT); without it the delegate
         // refuses some graphs outright.
-        dopts.setPrecisionLossAllowed(true)
+        dopts.setPrecisionLossAllowed(false)
         delegate = GpuDelegate(dopts)
         interp = Interpreter(bytes, Interpreter.Options().addDelegate(delegate))
         gpu = true

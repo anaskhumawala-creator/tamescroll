@@ -667,7 +667,13 @@ class MainActivity : TauriActivity() {
 
       override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
         pageUrlForBlocking = url
-        bindNativeInfer(view, url)
+        // The port is PULLED by the document-start stash (TsNativePort.
+        // requestPort), never pushed from here: a WebMessage posted at
+        // onPageStarted can be delivered before the document's start
+        // scripts have installed their listener (measured 1 of 7
+        // navigations on the Redmi, 2026-09-02), and a message nobody
+        // hears is a page with no native engine and no counter saying so.
+        nativePortServed = false
         wry.onPageStarted(view, url, favicon)
       }
 
@@ -826,6 +832,23 @@ class MainActivity : TauriActivity() {
   // nobody is listening for is simply gone. No @JavascriptInterface is
   // involved anywhere in this path.
   @Volatile private var nativeInfer: NativeInfer? = null
+  // One port per document: the stash asks once at document start, and a
+  // page script that finds the bridge and asks again gets nothing (a
+  // second bind would close the engine's side of the port the bundle is
+  // already using). Reset on every onPageStarted.
+  @Volatile private var nativePortServed = false
+
+  inner class NativePortBridge {
+    @JavascriptInterface
+    fun requestPort() {
+      runOnUiThread {
+        val view = webView ?: return@runOnUiThread
+        if (nativePortServed) return@runOnUiThread
+        nativePortServed = true
+        bindNativeInfer(view, view.url ?: "")
+      }
+    }
+  }
 
   override fun onDestroy() {
     nativeInfer?.close()
@@ -877,6 +900,7 @@ class MainActivity : TauriActivity() {
     // Diagnostics: write-mostly, local-only. See DiagBridge for why a
     // hostile page cannot turn it into anything but a wasted disk write.
     webView.addJavascriptInterface(DiagBridge(), "TsDiag")
+    webView.addJavascriptInterface(NativePortBridge(), "TsNativePort")
     // AUTOFILL. Owner ask: "can't we have the sign in page automatically
     // show the existing accounts on the device". There is no device
     // account chooser available to a WebView -- Android 8+ account

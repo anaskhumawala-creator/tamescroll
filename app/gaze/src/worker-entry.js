@@ -333,7 +333,7 @@ export function startWorker() {
       return;
     }
     try {
-      var reads = await detector.classifyFaceGenders(models.gender, null, msg.boxes, c.t);
+      var reads = await detector.classifyFaceGenders(models.gender, null, msg.boxes, c.t, { square: true });
       post({ type: 'vgender', id: msg.id, reads: reads });
     } catch (e) {
       post({ type: 'error', id: msg.id, message: String((e && e.message) || e) });
@@ -348,7 +348,7 @@ export function startWorker() {
     try {
       if (!models.gender) throw new Error('no gender model');
       frame = detector.uploadFrame(bmp);
-      var reads = await detector.classifyFaceGenders(models.gender, bmp, msg.boxes, frame);
+      var reads = await detector.classifyFaceGenders(models.gender, bmp, msg.boxes, frame, { square: true });
       post({ type: 'vgender', id: msg.id, reads: reads });
     } catch (e) {
       post({ type: 'error', id: msg.id, message: String((e && e.message) || e) });

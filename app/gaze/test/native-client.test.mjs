@@ -18,7 +18,10 @@ class FakeCtx {
   }
   clearRect() {}
   fillRect() {}
-  drawImage() {}
+  drawImage() {
+    this.draws = this.draws || [];
+    this.draws.push({ args: Array.from(arguments), smoothing: this.imageSmoothingEnabled, quality: this.imageSmoothingQuality });
+  }
   getImageData() {
     return { data: new Uint8ClampedArray(this.w * this.h * 4) };
   }
@@ -28,6 +31,7 @@ class FakeOffscreenCanvas {
     this.width = w;
     this.height = h;
     this._ctx = new FakeCtx(w, h);
+    (FakeOffscreenCanvas.instances = FakeOffscreenCanvas.instances || []).push(this);
   }
   getContext() {
     return this._ctx;
@@ -101,6 +105,61 @@ test('ready resolves once native-ready arrives on the port', async () => {
   assert.equal(client.genderReady(), true);
 });
 
+test('a MessageEvent the page dispatched on the port is ignored (phase-j J6)', async () => {
+  const port = makeFakePort();
+  const client = createNativeClient(port);
+  port.onmessage({ data: JSON.stringify({ type: 'native-failed', why: 'forged' }), isTrusted: false });
+  assert.equal(client.dead(), false, 'an untrusted native-failed must not kill the client');
+  port.onmessage({ data: JSON.stringify({ type: 'native-ready', backend: 'gpu', models: [] }), isTrusted: true });
+  await client.ready;
+  const bmp = makeFakeBitmap(640, 360);
+  const p = client.videoFrame(bmp, 16 / 9, null, false, true);
+  const hdr = readRequestHeader(lastSent(port));
+  port.onmessage({ data: buildReply(hdr.reqId, 0, 5000, [new Float32Array(6 * 56)]), isTrusted: false });
+  let settled = false;
+  p.then(() => { settled = true; }, () => { settled = true; });
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(settled, false, 'a forged reply must not resolve the request');
+  port.emit(buildReply(hdr.reqId, 0, 5000, [new Float32Array(6 * 56)]));
+  await p;
+});
+
+test('die() closes every crop the client still holds (phase-j J7)', async () => {
+  const port = makeFakePort();
+  const client = createNativeClient(port);
+  port.emit(JSON.stringify({ type: 'native-ready', backend: 'gpu', models: [] }));
+  await client.ready;
+  const bmp = makeFakeBitmap(1280, 720);
+  const p = client.cropFaces(bmp);
+  const hdr = readRequestHeader(lastSent(port));
+  // BlazeFace's four outputs, every logit -10: no face, but the cid is
+  // minted before decode and the bitmap is held under it.
+  port.emit(buildReply(hdr.reqId, 0, 5000, [new Float32Array(512).fill(-10), new Float32Array(384).fill(-10), new Float32Array(512 * 16), new Float32Array(384 * 16)]));
+  const r = await p;
+  assert.ok(r.cid, 'a cid was minted');
+  assert.equal(bmp.closed, false, 'the bitmap is held under the cid');
+  client.terminate();
+  assert.equal(bmp.closed, true, 'die() closed the held bitmap');
+});
+
+test('onReply tallies resolved and failed replies on the transport (phase-j J9)', async () => {
+  const port = makeFakePort();
+  const tally = { ok: 0, bad: 0 };
+  const client = createNativeClient(port, { onReply: (ok) => { if (ok) tally.ok++; else tally.bad++; } });
+  port.emit(JSON.stringify({ type: 'native-ready', backend: 'gpu', models: [] }));
+  await client.ready;
+  const p = client.videoFrame(makeFakeBitmap(640, 360), 16 / 9, null, false, true);
+  const hdr = readRequestHeader(lastSent(port));
+  port.emit(buildReply(hdr.reqId, 0, 5000, [new Float32Array(6 * 56)]));
+  await p;
+  assert.deepEqual(tally, { ok: 1, bad: 0 });
+  const p2 = client.videoFrame(makeFakeBitmap(640, 360), 16 / 9, null, false, true);
+  const hdr2 = readRequestHeader(lastSent(port));
+  port.emit(buildReply(hdr2.reqId, 1, 5000, []));
+  await assert.rejects(p2);
+  assert.deepEqual(tally, { ok: 1, bad: 1 });
+});
+
 test('a native-failed message kills the client and rejects ready', async () => {
   const port = makeFakePort();
   const client = createNativeClient(port);
@@ -138,6 +197,43 @@ test('videoFrame sends one MoveNet request and returns persons from parsePersons
   assert.equal(result.personsSkipped, false);
   assert.equal(result.faces, null, 'withFaces=false leaves faces null');
   assert.equal(bmp.closed, true, 'the bitmap is always closed');
+});
+
+test('the whole-frame squash samples where tf.image.resizeBilinear samples', async () => {
+  // Measured on the Redmi (spikes/gauntlet/native-pixels-1788345747.json):
+  // a plain drawImage(bmp, 0, 0, 256, 256) differs from the tensor
+  // path's resizeBilinear by 4.8-5.7 levels because canvas centres each
+  // destination pixel on the source while tf reads src = dst * scale.
+  // Shifting the source rect by (scale - 1) / 2 with bilinear ('low')
+  // smoothing lands within 0.04 levels. This pins the shift and the
+  // smoothing mode; the pixel numbers are the probe's to keep.
+  const port = makeFakePort();
+  const client = createNativeClient(port);
+  port.emit(JSON.stringify({ type: 'native-ready', backend: 'gpu', models: [] }));
+  await client.ready;
+  const bmp = makeFakeBitmap(640, 360);
+  const p = client.videoFrame(bmp, 16 / 9, null, false, true);
+  const hdr = readRequestHeader(lastSent(port));
+  port.emit(buildReply(hdr.reqId, 0, 5000, [new Float32Array(6 * 56)]));
+  await p;
+  const canvas = new FakeOffscreenCanvas(256, 256);
+  // canvasFor() caches one canvas per size on the module; reach it
+  // through the ctx the client actually drew on.
+  const draws = [];
+  for (const c of FakeOffscreenCanvas.instances || []) if (c._ctx.draws) draws.push(...c._ctx.draws);
+  // The canvas is cached per size across tests, so take the LAST squash.
+  const d = draws.filter((x) => x.args.length === 9 && x.args[7] === 256 && x.args[8] === 256).pop();
+  assert.ok(d, 'the squash uses the 9-argument source-rect form');
+  const kx = 640 / 256;
+  const ky = 360 / 256;
+  assert.equal(d.args[1], -(kx - 1) / 2);
+  assert.equal(d.args[2], -(ky - 1) / 2);
+  assert.equal(d.args[3], 640);
+  assert.equal(d.args[4], 360);
+  assert.deepEqual(d.args.slice(5), [0, 0, 256, 256]);
+  assert.equal(d.smoothing, true);
+  assert.equal(d.quality, 'low');
+  void canvas;
 });
 
 test('videoFrame with withPersons=false never sends a MoveNet request and reports personsSkipped', async () => {

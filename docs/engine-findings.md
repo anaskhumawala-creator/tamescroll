@@ -3686,3 +3686,76 @@ nobody -- **100% of his phone today**, findings 36 -- is outside this
 instrument entirely, and that population is unmeasured.
 
 **Raw: `spikes/gauntlet/face-recall.txt`. New: `bench/face-recall.mjs`.**
+
+## 25 -- THE PHONE'S MoveNet WAS NEVER BLIND TO PEOPLE. ITS WebGL RUNTIME WAS.
+
+Every "MoveNet admits nobody on his phone" row this file carries (36, and
+everything priced on top of it: 21, 21a, 23, the `CUT_PERSON_LOOK`
+ruling, the `PERSON_LETTERBOX` refusal, `frameHasNoHumanShape` firing on
+"a blinded model") described the tfjs WebGL runtime on the Adreno 610,
+not the model and not the footage.
+
+The measurement, 2026-09-02 (native-inference round, phase-j J16). The
+256x256 MoveNet input was dumped OFF THE DEVICE at three timestamps of
+NWoT1ZVd1Lo (`spikes/gauntlet/probe_native_framedump.py`, banked
+`native-frames-1788346009.json`, 1280x720 source, both the plain canvas
+squash and the resizeBilinear-aligned one), and the SAME model was run on
+three runtimes none of the device paths use:
+
+| t | tflite CPU f32 | tflite CPU f16 | tfjs CPU | native GPU fp32 (device) | tfjs WebGL (device worker) | native GPU fp16 (device) |
+|---|---|---|---|---|---|---|
+| 60 | 0.768 / 2 | 0.769 / 2 | 0.768 / 2 | 0.768 / 2 | **0.187 / 0** | lower than the worker |
+| 217 | 0.822 / 1 | 0.822 / 1 | 0.822 / 1 | 0.822 / 2 | **0.033 / 0** | lower than the worker |
+| 300 | 0.170 / 0 | 0.170 / 0 | 0.170 / 0 | 0.170 / 0 | 0.073 / 0 | -- |
+
+(maxKp / persons admitted at `PERSON_MIN_SCORE` 0.35; `arbiter.py`,
+`arbiter.mjs`; the native GPU fp32 column is `native-parity-1788345674.json`;
+the worker column is the same file's worker arm; the fp16 column is
+`native-parity-1788345089.json`, maxKp p50 0.056 UNDER the worker.)
+
+Four runtimes agree to three decimals. The phone's WebGL worker disagrees
+with all of them by an order of magnitude, on frames with two visible
+people whose faces BlazeFace finds at IoU 0.93-0.97 in both arms. The
+resize convention (phase-j J15) moves maxKp by 0.01 and is NOT the cause.
+The uint8 requant is NOT the cause -- every arbiter ran the requant
+weights. Adreno 610's reported fp32 shader precision (loop 38's
+`probe_glprec.py`) does not save it: whatever tfjs-webgl does with
+MoveNet's depthwise convolutions on this GPU loses the keypoint scores,
+and the TFLite GPU delegate at fp16 (`setPrecisionLossAllowed(true)`) has
+the same disease. fp32 on the delegate does not.
+
+Loop 36's "the model is fine on his phone" (fixed-input worker bench,
+20 thumbnails, maxKp p50 0.779 identical to the emulator) is not
+contradicted -- that bench read THUMBNAILS through the worker, and it is
+possible the failure is specific to the video-frame path (a 1280x720
+ImageBitmap through `fromPixels` and resize on the GPU) rather than to
+the model graph. It is not resolved either; what is resolved is that the
+NATIVE engine at fp32 reads what the reference runtimes read, and it is
+the engine the phone will run.
+
+What this re-opens, without re-pricing any of it here:
+
+- **Findings 36 / the R21 regime.** "100% of his phone" was 100% of a
+  broken runtime. With native fp32 the phone is in the MoveNet-admitting
+  regime the corpus benches model with `mode: 'position'` rather than
+  `coast`, and every `hisRegimeOpts` flag chosen to model a MoveNet-blind
+  phone (`slots n:0`, face-only bodies) describes 1092, not 1093.
+- **21 / 21a / 23 / G3.** Scoped by "byte-identical to CONTROL where
+  MoveNet admits nobody -- 100% of his phone". That scope is gone.
+- **`CUT_PERSON_LOOK` 0 (I10).** Priced on footage where "every look
+  admitted nobody" -- through the blind runtime. Re-price on native.
+- **`PERSON_LETTERBOX` OFF (18a, phase-G item 4).** The `movenet-held`
+  arm was measuring headroom on a blind arm.
+- **`frameHasNoHumanShape` / `PFF_FRAME_KP_FLOOR` 0.1 / `faceNoShape`
+  127 per 250s.** The gate refused three faces in four on his phone (loop
+  36) because the number it compared against was noise from a runtime
+  that could not see the people the faces belonged to. Expect
+  `faceNoShape` to collapse on 1093; that is a prediction to read off
+  the device, not a claim.
+- **The thumbnail path is untouched**: it runs in the worker, and the
+  worker's MoveNet is not used there. Nothing in this section changes an
+  image verdict.
+
+The cost of fp32 on the delegate: MoveNet+BlazeFace frame 288 -> 350ms
+p50, gender per face 176 -> 226ms (parity files above), against the
+worker's 743 / 501 on the same frames. Still 2.1x faster, and correct.
