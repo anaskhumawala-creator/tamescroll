@@ -49,6 +49,16 @@ export function wantPersons() {
   return skipsSince >= PERSON_SKIP_EVERY - 1;
 }
 
+/**
+ * True while the person model has admitted somebody within the last
+ * PERSON_EMPTY_STREAK passes. A position-only pass (MoveNet, no faces)
+ * can only produce observations from MoveNet, so where this is false
+ * that pass costs a full inference and yields nothing.
+ */
+export function personsLive() {
+  return emptyRun < PERSON_EMPTY_STREAK;
+}
+
 export function notePersons(persons, skipped) {
   if (skipped) {
     skipsSince++;

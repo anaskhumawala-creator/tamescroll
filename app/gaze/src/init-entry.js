@@ -15,7 +15,7 @@
 // sampling — never its AGPL-3.0 source; see NOTICE / VISION.md).
 import * as dom from './dom.js';
 import { shouldRetry } from './image-retry.mjs';
-import { wantPersons, notePersons, resetPersonSkip } from './person-skip.mjs';
+import { wantPersons, notePersons, resetPersonSkip, personsLive } from './person-skip.mjs';
 import * as cadence from './cadence.mjs';
 import * as detector from './detector.js';
 import {
@@ -3422,6 +3422,18 @@ if (
         // Never a second verdict pass while one is still running: one
         // GPU queue, and a backlog is indistinguishable from a hang.
         var wasVerdict = !verdictBusy && now - lastZoomAt >= effZoom;
+        // A POSITION PASS WHERE MoveNet IS NOT LIVE IS 511ms OF NOTHING.
+        // Measured on the arm64 Redmi 2026-09-02: 31 of 66 passes were
+        // position passes, every one 511ms of MoveNet admitting nobody
+        // (all twelve slots n:0, his regime), yielding zero observations
+        // while a verdict waited on the same GPU queue. Patches keep
+        // riding the renderer's velocity between verdicts exactly as
+        // they did, because those passes never moved a track here.
+        if (isPlayer && !wasVerdict && !personsLive()) {
+          bumpLife('positionPassSkipped');
+          sampling = false;
+          return;
+        }
         if (wasVerdict) {
           verdictBusy = true;
           setTimeout(function () {
