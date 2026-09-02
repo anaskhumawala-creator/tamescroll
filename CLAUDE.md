@@ -70,6 +70,116 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-02 06:40 (**1090 PUBLISHED, sha 9d1483a2**
+-- local APK and raw manifest agree, isDraft false. 1089 went out 30
+minutes earlier. HEAD pushed, tree clean.)
+
+## HANDOFF -- READ THIS FIRST (written 2026-09-02 06:40, at his request)
+
+**HIS LAST INSTRUCTION, and it overrides the queue: "i need you to
+atleast fix youtube first."** The platform-widening thread (16/16b/16c)
+is PARKED. Everything below is YouTube unless it says otherwise.
+
+**WHAT HE RUNS.** 1090 is the release. He installed 1086 and said "I'm
+tired of installing new versions", so **batch anything else into ONE
+build** -- 1087/1088/1089/1090 all exist and he may have installed none
+of them. The old Redmi `1ec2c48e0621` (M2010J19SI) is the arm64
+smoke-test device and HAS the app; **its screen is LOCKED and I cannot
+unlock it** (I turned it off with keyevent 26 -- do not do that again;
+a locked screen makes `innerWidth` read **0** and every rect worthless,
+which invented a whole page of false geometry tonight). Emulator on 1079.
+
+**THE ONE OPEN QUESTION FOR HIM, unchanged for two sessions:**
+`PTRACK_MIN_COAST_PASSES` 2 -> 1.33 buys **26% of the phantom** he
+complains about most ("random blur marks here and there") for **~4.5s
+more exposure** across 18 windows. It is an EXPOSURE trade, so it is his
+call. **It can now travel over OTA without an install** (1086+ carries
+the whitelist) -- push `rules/tuning.json` and re-read his rings.
+
+**THE INSTRUMENT DEFECT THAT DOMINATED TONIGHT, and it will bite the
+next session too.** ~30 benches in `app/gaze/bench/` build their options
+by hand and pass no `fixedCadence`, so they tell the tracker the **500ms
+BANK interval** and derive a **1250ms coast** -- where his phone is told
+**2000** and coasts **4000**. Four published tables were measured that
+way and **three of them REVERSED** when re-run. Any arm that does not
+pin a cadence now writes a loud stderr block (`arch-arms.warnDerivedCadence`,
+`test/cadence-pinned.test.mjs`). **Pass `hisRegimeOpts(g)` and
+`thinFrames(w, K_HIS)`, always.** The self-check that a bench is in his
+regime: its control row must read **man 23.0 / 139.0 / 561.0** and
+**woman 24.5 / 200.5 / 663.0** (post-1090; pre-1090 it was 22.0 / 155.0
+/ 573.5 and 25.5 / 201.0 / 679.5). Five independent benches now land on
+those triples.
+
+**Session 2026-09-02 (loop 43) -- THE PATH THE OTHER FOUR PLATFORMS USE
+WAS READING FACES 1.78x TALLER THAN WIDE, AND THREE MEASURED REFUSALS
+REVERSED ONCE THE BENCH RAN IN HIS REGIME.**
+
+- **1089: THE WHOLE-FRAME VIDEO PATH STOPPED SQUASHING 16:9 INTO A
+  SQUARE.** `drawImage(video, 0, 0, 256, 256)` -- four arguments, no
+  source rect -- so `classifyFaceGenders({square:true})` then cut a
+  square out of a STRETCHED buffer. Identical to the IMAGE-path defect
+  of 2026-08-28 that made a front-facing man read male at 0.06.
+  MEASURED (findings 16a, 15 native 640x360 frames through the SHIPPING
+  functions): descriptor magnitude higher undistorted on **17 of 18
+  faces, sign test p = 1.45e-4**, four faces cross NULL_MINT_NM_FLOOR,
+  **2 of 13 solid-signal faces flip gender label** (one raw 0.601 ->
+  0.377). Fixed with `crop-geometry.fitBox`; a test fails if the
+  four-argument form returns.
+- **I NEARLY PUBLISHED A FALSE EXPOSURE OFF THAT RUN** -- "six faces the
+  letterbox finds and the squash misses". All nine unmatched detections
+  were NULL READS (nm 1.71-5.47). Retracted before it was written down.
+  **The detection COUNT is not deterministic on that harness** (21/24
+  then 21/25); the matched-pair reads are.
+- **1090: `PTRACK_IOU_MIN` 0.20 -> 0.15**, and this is the YouTube fix
+  he asked for. His regime, both arms: man **-16.0s false cover /
+  -12.5s phantom / +1.0s exposure**, woman **-16.5s phantom / -1.0s
+  exposure**. Exposure NETS TO ZERO. `bench/iou-where.mjs` traces it per
+  window rather than quoting a total: **one banked frame in each of two
+  windows of eighteen**, against -9.5s of false cover in a single
+  window. Stops at 0.15 because false cover is FLAT below it while man
+  exposure is monotone (22.0/23.0/24.0/26.0/27.5). Now OTA-tunable,
+  clamped **[0.10, 0.35]** -- the CEILING is the point, so it can be
+  tightened back without an install.
+- **10e AND 10f ARE RETRACTED IN PLACE** (see 10g and 10h). 10e's
+  mechanism sentence is wrong too: half the near-misses DO re-associate.
+- **10h: `CUT_DELTA` IS THE BIGGEST PHANTOM DIAL THERE IS** -- bigger
+  than the coast, the clear bar or the association threshold. 35 -> 90
+  moves man phantom **976.5 -> 470.0**. It prices loop 40's 50 -> 60 at
+  +5.5s man exposure for 86.5s of phantom. **75 is reachable over OTA
+  and is REFUSED**: at 75 the gate fires on 12 of 2,160 frames, and his
+  phone's ordinary motion reaches p95 **54.9**, so it would start
+  missing REAL cuts. Push it only against a fresh read of HIS luma
+  deltas.
+- **`coastMs 4000 / toldMs 2000` READ OFF A REAL DEVICE** through the
+  shipped report -- section 15's derivation confirmed from outside, and
+  a claim until tonight.
+- **16/16b/16c, PARKED BUT DONE:** the entire per-person pipeline is
+  YouTube-only, gated on **THREE** copies of `closest('#movie_player')`
+  (`init-entry:4610`, `video-region:214`, `region-blur:635`) plus the
+  red-line helper `dom.js:54` -- widening any one alone is silently
+  inert. **On Reddit none of them can ever match**: the video is a
+  DIRECT child of `shreddit-player`'s OPEN shadow root, so `closest()`
+  cannot cross the boundary and `video.parentElement` is **null**, which
+  makes `region-blur.resolveHost` bail on its second line. The fix is a
+  shadow-aware host resolver (`getRootNode().host`), and the model is
+  already in that root: `shreddit-media-ui`, absolute, z-index 2,
+  pointer-events-none, sized to the video box. **Instagram, X and
+  Facebook are login walls** -- Instagram's signed-out `/explore/` is a
+  topic-links page now with **zero videos** (that RETRACTS loop 25-26).
+  So: Reddit needs an architecture change and no login; the other three
+  are blocked on his sign-in. **16b (MoveNet also squashes: admissions
+  219 -> 269 over 241 frames, 35 frames where it admits NOBODY and the
+  letterbox admits someone against 4) is NOT fixed** -- MoveNet's
+  outputs are normalized to its own input, so letterboxing needs the
+  inverse mapping through the pad before `parsePersons` reads a box, on
+  the extent source the whole corpus sits on. A round, not an edit.
+- gaze **544/544**, cargo **60/60**, critic-gate **35/35**.
+- **NEXT, YouTube only, in order:** (1) push the coast dial if he rules
+  on it -- no install needed; (2) the assignment layer's 32 contended
+  births, whose 10e numbers are now retracted and need re-deriving on
+  the corrected instrument; (3) 16b's MoveNet letterbox, which is the
+  largest unclaimed accuracy win left and is a full round.
+
 **Last updated:** 2026-09-02 06:10 (**1089 PUBLISHED, sha 3b66ce11** --
 local APK, raw manifest and the DOWNLOADED asset all agree, isDraft
 false. HEAD f080762, pushed.)
