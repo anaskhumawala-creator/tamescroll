@@ -70,6 +70,34 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-03 01:20 (**1097 IS STILL THE RELEASE.** Nothing
+shipped this loop; he said "stop working and do a research run". Tag
+`checkpoint-1097` on 06d9ea2 is the revert point he asked for.)
+
+**Session 2026-09-03 (loop 52) -- THE WILD-PERFORMANCE RESEARCH RUN.**
+Deliverable `docs/research/wild-performance-2026-09-03.md` (22 ranked
+ideas, gain tagged measured/source/guess, dead list, build order) with
+the four raw tracks in `docs/research/wild-2026-09-03/` and an artifact
+page ("Thirteen Points"). No device runs. Two facts that reframe the
+list: inline WebView video is NEVER on a hardware overlay (our canvas
+costs no fast path; only fullscreen might), and YouTube serves AV1 to
+Android 12+ phones with NO AV1 hardware, software-decoded on the cores
+the page composites with -- and nobody has checked which codec his
+phone gets. Top levers: (1) read the served codec, (2) refuse AV1 via
+`MediaSource.isTypeSupported` (0 or 5-10 points; MIT precedent
+enhanced-h264ify), (3) 60Hz cap on his 90Hz Redmi 13 (3-8, his phone
+only), (4) GPU-texture ring via `texImage2D(video)` (2-4 of the ring's
+4), (5) blur drawn INTO the presented frame, no overlay divs (1-3), (10)
+LiteRT Qualcomm NPU delegate spike on SM4450 (unknown; runtime licence
+to read first). Solid-patch arm banked (`drops-v1097-solid.json`,
+12.40% vs 13.24% control): the blur FILTER is under a point, so
+pixelate/solid patches are a look change, not a lever. Honest ceiling:
+Redmi 13% -> 4-6%; his phone 3-5%, 1-2% with the NPU; zero unreachable
+with a blur on. **PARKED, not started:** the dial batch (RENDER_EVERY,
+TsPerf bridge, NATIVE_CPU_MASK, NO_AV1, thermal duty) -- `perf.mjs`
+sits UNTRACKED and `scratchpad/impl_batch.py` was never run. Resume
+only on his word, as ONE 1098 in the doc's §4 order.
+
 **Last updated:** 2026-09-03 00:50 (**1097 PUBLISHED, sha 99c03c8c** --
 bundle 48b7c0d, asset replaced with --clobber, manifest pushed. The
 Redmi runs it; his phone gets it in-app. SMOKE on the Redmi:
