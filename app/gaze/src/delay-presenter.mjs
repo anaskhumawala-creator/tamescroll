@@ -98,6 +98,7 @@ export function attachDelay(video, host, opts) {
   }
 
   var ring = []; // [{ bitmap, mediaTime, at }], ascending by mediaTime (capture order)
+  var lastPresented = null; // the ring entry on the canvas right now
   // I9: rolling fps measurement. `fpsSamples` holds instantaneous fps
   // values (1 / mediaTime delta) from consecutive rVFC callbacks;
   // `sizedForFps` is the rate the ring's CURRENT eviction budget was
@@ -131,6 +132,14 @@ export function attachDelay(video, host, opts) {
     canvas.className = CANVAS_CLASS;
     canvas.style.position = 'absolute';
     canvas.style.inset = '0';
+    // A canvas is a REPLACED element: inset:0 alone leaves it at its
+    // intrinsic (frame) size, so a 640x360 ring drew a 640x360 picture
+    // into a 393x221 player and the viewer saw its top-left crop
+    // (measured on the Redmi, latency-ab-stageB: canvas [0,48,640,360]
+    // against video [0,48,393,221]). Stretch it to the host like the
+    // video it replaces.
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
     canvas.style.zIndex = String(Z_INDEX);
     canvas.style.pointerEvents = 'none';
     host.appendChild(canvas);
@@ -209,6 +218,7 @@ export function attachDelay(video, host, opts) {
       noteError('flush', e);
     }
     ring = [];
+    lastPresented = null;
     stats.ring = 0;
     stats.flushes++;
     presentedMediaTimeVal = null;
@@ -256,6 +266,21 @@ export function attachDelay(video, host, opts) {
       }
     }
     var entry = ring[pick];
+    // The picked entry STAYS in the ring until something newer is
+    // picked. rVFC skips frames under load (the Redmi captured 22 of 30
+    // a second), so consecutive ring entries can be two frame periods
+    // apart while the target advances one tick at a time: dropping the
+    // picked frame made the very next tick find nothing old enough and
+    // count itself `late` -- 42% of ticks in latency-ab-stageB, and a
+    // picture that held for a tick then jumped. Re-picking the same
+    // entry is a no-op: nothing drawn, nothing counted.
+    if (entry === lastPresented && !collapsed) {
+      for (var k = 0; k < pick; k++) closeBitmap(ring[k]);
+      if (pick > 0) ring = ring.slice(pick);
+      stats.ring = ring.length;
+      return;
+    }
+    lastPresented = entry;
     try {
       if (canvas.width !== entry.bitmap.width || canvas.height !== entry.bitmap.height) {
         canvas.width = entry.bitmap.width;
@@ -272,8 +297,8 @@ export function attachDelay(video, host, opts) {
     refillState = refillStep(refillState, 'picked');
     if (wasRefilling && refillState === 'live') stats.refills++;
     applyCover();
-    for (var i = 0; i <= pick; i++) closeBitmap(ring[i]);
-    ring = ring.slice(pick + 1);
+    for (var i = 0; i < pick; i++) closeBitmap(ring[i]);
+    ring = ring.slice(pick);
     stats.ring = ring.length;
   }
 
@@ -440,6 +465,7 @@ export function attachDelay(video, host, opts) {
       noteError('detach-flush', e);
     }
     ring = [];
+    lastPresented = null;
     stats.ring = 0;
     presentedMediaTimeVal = null;
     try {

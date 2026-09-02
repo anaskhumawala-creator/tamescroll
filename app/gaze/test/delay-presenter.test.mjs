@@ -256,8 +256,8 @@ test('captures via createImageBitmap into a ring and presents the newest entry a
   assert.equal(presenter.presentedMediaTime(), 0);
   assert.equal(presenter.stats().presented, 1);
   assert.equal(presenter.stats().refills, 1, 'first successful pick ends the initial refill');
-  assert.equal(presenter.stats().ring, 2, 'the presented entry and everything before it is evicted');
-  assert.equal(bitmaps.log.closed, 1);
+  assert.equal(presenter.stats().ring, 3, 'everything BEFORE the presented entry is evicted; the presented one stays until something newer is picked');
+  assert.equal(bitmaps.log.closed, 0, 'nothing older than the presented entry existed yet');
 
   video.currentTime = 1.5;
   driveFrame(video, 1.5, 2500); // target = 0.5 -> presents mediaTime 0.5
@@ -458,4 +458,43 @@ test('document becoming hidden flushes the ring', async () => {
   document.fire('visibilitychange');
   assert.equal(presenter.stats().ring, 0);
   assert.equal(presenter.stats().flushes, 1);
+});
+
+test('the canvas is stretched to the host, not left at the frame size', () => {
+  var { host, presenter } = setup({ delayMs: 1000 });
+  var canvas = host.children[host.children.length - 1];
+  assert.equal(canvas.style.width, '100%');
+  assert.equal(canvas.style.height, '100%');
+  presenter.detach();
+});
+
+test('re-picking the frame already on the canvas draws nothing and is not late', async () => {
+  var { video, presenter, bitmaps } = setup({ delayMs: 1000 });
+  video.currentTime = 0;
+  driveFrame(video, 0, 1000);
+  video.currentTime = 0.5;
+  driveFrame(video, 0.5, 1500);
+  await flushAsync();
+  video.currentTime = 1.0;
+  driveFrame(video, 1.0, 2000); // target 0.0 -> presents mediaTime 0
+  await flushAsync();
+  assert.equal(presenter.stats().presented, 1);
+  var lateBefore = presenter.stats().late;
+  // rVFC skipped a frame: the next tick's target (0.02) still maps to the
+  // mediaTime-0 entry. Before the fix that entry was already evicted and
+  // the tick counted itself late with nothing new on the canvas.
+  video.currentTime = 1.02;
+  driveFrame(video, 1.02, 2020);
+  await flushAsync();
+  assert.equal(presenter.stats().presented, 1, 'same entry: no second draw');
+  assert.equal(presenter.stats().late, lateBefore, 'same entry: not late');
+  assert.equal(presenter.presentedMediaTime(), 0);
+  assert.equal(bitmaps.log.closed, 0, 'the entry on the canvas is not closed');
+  video.currentTime = 1.5;
+  driveFrame(video, 1.5, 2500); // target 0.5 -> a newer entry, drawn
+  await flushAsync();
+  assert.equal(presenter.stats().presented, 2);
+  assert.equal(presenter.presentedMediaTime(), 0.5);
+  assert.equal(bitmaps.log.closed, 1, 'now the mediaTime-0 entry is behind the presented one and goes');
+  presenter.detach();
 });
