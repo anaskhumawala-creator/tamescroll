@@ -1,7 +1,7 @@
 {
-  "versionCode": 1094,
-  "versionName": "0.1.94",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.94/tamescroll-v0.1.94.apk",
-  "sha256": "1d98f2708f64208f007afecebcaee94f0a52b7139c14a68920f1c95c6736df2e",
-  "notes": "Faster in-video blur (verdict gap 1.2s -> 0.8s), landscape/fullscreen blur alignment fix, mini player tap-to-restore fix."
+  "versionCode": 1095,
+  "versionName": "0.1.95",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.95/tamescroll-v0.1.95.apk",
+  "sha256": "97df2bdb85f9188490fe0b307c39e0927976c33a41dff3c1f82352aa5040ba62",
+  "notes": "In-video blur: the delay line now draws the clamped patch geometry, so a cleared man beside a covered person stays sharp; phantom coasts retired in hindsight; delay 1.0s -> 1.5s."
 }
