@@ -40,6 +40,19 @@ var BASE_PX = 100;
 // video -> { host, video, tracks, at, overlays, raf, timer, ro, hr, vr }
 var entries = new Map();
 
+// A TIMELINE MAY BE ATTACHED BEFORE THE ENTRY EXISTS.
+//
+// setTimeline is called from init-entry when the delay presenter is
+// wired (Task 10), which can happen before the first setTracks call for
+// that video ever runs -- the player may not have covered anyone yet.
+// entries is keyed by video and only setTracks creates a row in it, so a
+// boxesFn handed over first has nowhere to live. Queued here instead,
+// keyed by the same video, and adopted onto entry.boxesFn the moment
+// setTracks builds the entry. Cleared the same way clearTimeline clears
+// an attached one, so a stale pending fn cannot outlive the caller that
+// meant to replace or remove it.
+var pendingTimelines = new Map();
+
 // WHAT THE RENDERER WAS ASKED FOR, NEXT TO WHAT IT DREW.
 //
 // Every probe this project has for the player reads the DOM, so a
@@ -107,7 +120,16 @@ try {
 //                 host, where re-parenting recovered nothing.
 // Attribute with a rate only against `raf`, and never treat a delta as
 // milliseconds.
-var renderStats = { raf: 0, overlayFrames: 0, maskCalls: 0, maskWrites: 0, tfWrites: 0, sizeWrites: 0, dispWrites: 0, hideNoVr: 0, hideZeroVr: 0, hideClipped: 0, rectsNoBoxes: 0, drawnZero: 0, clipRebuilt: 0 };
+// timelineFrames / timelineFallback (Task 9, Stage B): once a video has
+// an attached timeline (setTimeline), every reposition asks it for the
+// presented media time's boxes. timelineFrames counts a frame actually
+// DRAWN from that answer; timelineFallback counts a frame where the
+// timeline came back null (no verdict at/after the presented frame yet)
+// and the renderer fell back to the existing velocity path instead --
+// the same event Task 10's `delayVerdictLate` life counter prices from
+// the player side. Both are per-REPOSITION-CALL like hideNoVr/hideZeroVr
+// above, not per-second.
+var renderStats = { raf: 0, overlayFrames: 0, maskCalls: 0, maskWrites: 0, tfWrites: 0, sizeWrites: 0, dispWrites: 0, hideNoVr: 0, hideZeroVr: 0, hideClipped: 0, rectsNoBoxes: 0, drawnZero: 0, clipRebuilt: 0, timelineFrames: 0, timelineFallback: 0 };
 try {
   if (typeof window !== 'undefined') {
     window.__TS_GAZE_RENDER = function () {
@@ -125,6 +147,8 @@ try {
         rectsNoBoxes: renderStats.rectsNoBoxes,
         drawnZero: renderStats.drawnZero,
         clipRebuilt: renderStats.clipRebuilt,
+        timelineFrames: renderStats.timelineFrames,
+        timelineFallback: renderStats.timelineFallback,
       };
     };
   }
@@ -946,6 +970,92 @@ function clipLayer(entry) {
   return c;
 }
 
+// ONE OVERLAY, ONE FRAME -- the render body factored out of the
+// `entry.tracks` loop (Task 9) so the timeline path below can draw
+// through the EXACT SAME pipeline (no second render path): `track` only
+// needs `.box` and optionally `.vx/.vy/.vw/.vh` (interpolateBox no-ops
+// on missing velocities), and `elapsedMs` is 0 for a timeline item
+// (already interpolated by boxesAt) or the real gap since the last
+// setTracks call for the velocity path.
+function renderTrackOverlay(entry, vr, index, track, elapsedMs) {
+  renderStats.overlayFrames++;
+  // `display` was assigned unconditionally 60x/s per overlay, one line
+  // below the transform-string compare that exists precisely because an
+  // identical assignment still crosses CSSOM. Measured at 140-160
+  // writes/s on this build, all but a handful of them redundant.
+  if (entry.overlays[index].__tsDisp !== 1) {
+    renderStats.dispWrites++;
+    entry.overlays[index].style.display = '';
+    entry.overlays[index].__tsDisp = 1;
+  }
+  var target = boxToHostRect(entry.hr, vr, interpolateBox(track, elapsedMs));
+  entry.rendered[index] = lerpRect(entry.rendered[index], target);
+  var lerped = entry.rendered[index];
+  // The feather is added OUTSIDE what the pipeline asked for, so the
+  // opaque core of the mask still covers the full requested box. Growing
+  // the element is what makes the soft edge free of under-cover.
+  // INTEGER MASK GEOMETRY, AND IT IS A PERFORMANCE FIX WITH A NUMBER.
+  //
+  // maskFor rebuilds ~20 strings from `drawn` every rAF frame for every
+  // overlay, and applyMask writes TEN CSSOM properties when the string
+  // differs -- on a backdrop-filter element, the most expensive class in
+  // the tree to invalidate. Measured on this build, man t=890, 60s
+  // continuous: 140-160 maskFor calls/s with mask_write_frac 0.56-0.58,
+  // i.e. ~85 full mask rewrites a second, ~850 style writes.
+  //
+  // Almost none of that is real. lerpRect is asymptotic and SHRINK_DEADBAND
+  // parks an edge without ever equalling the target, so `drawn.width`
+  // changes by a sub-pixel amount essentially every frame for ever, and
+  // the string changes with it. Hole offsets were already rounded and are
+  // invariant under pure translation, so with the SIZE rounded too a
+  // patch that is merely sliding or settling produces a byte-identical
+  // string and applyMask early-outs.
+  //
+  // Rounding `f` first keeps the ramp, the grow and the element in exact
+  // register: the previous code grew the element by f/2 unrounded while
+  // place() wrote a size only on a >=2px change, so mask and element were
+  // out of register by up to 2px and `mask-repeat: no-repeat` left the
+  // outermost strip of the ramp truncated.
+  //
+  // Cannot change coverage by more than half a pixel in either direction.
+  var f = Math.round(featherFor(lerped));
+  // Half the ramp sits outside the requested box, half inside. See the
+  // note above featherFor: outward-only tripled the blurred area once f
+  // scaled with the patch.
+  var drawn = clipToBounds(drawnRect(lerped, f), {
+    left: vr.left - entry.hr.left,
+    top: vr.top - entry.hr.top,
+    right: vr.left - entry.hr.left + vr.width,
+    bottom: vr.top - entry.hr.top + vr.height,
+  });
+  if (!drawn) {
+    // Entirely outside the picture: nothing to cover.
+    renderStats.hideClipped++;
+    if (entry.overlays[index].__tsDisp !== 0) {
+      renderStats.dispWrites++;
+      entry.overlays[index].style.display = 'none';
+      entry.overlays[index].__tsDisp = 0;
+    }
+    return;
+  }
+  // Everything above is in VIEWPORT units (both rects came from
+  // getBoundingClientRect). The element writes below are in the host's
+  // LOCAL units, which an ancestor transform scales again -- so convert
+  // once, here, and give the mask the same converted geometry so the
+  // two stay in register.
+  // THE FIFTH WAY A PATCH BECOMES INVISIBLE, and the four counters
+  // above cannot name it. clipToBounds accepts any sliver with
+  // `r - l > 0` and then ROUNDS the size, so a 0.4px overlap survives
+  // the null test and is written as `width: 0px` -- an overlay that
+  // exists, is display:'', and paints nothing. A probe counting
+  // rendered patches sees the same thing a hidden one produces.
+  if (drawn.width === 0 || drawn.height === 0) renderStats.drawnZero++;
+  var hs = entry.scale || 1;
+  var local = toLocalRect(drawn, hs);
+  place(entry.overlays[index], local);
+  applyMask(entry.overlays[index], maskFor(local, hs === 1 ? f : Math.round(f / hs)));
+}
+
 function reposition(entry, now) {
   // RE-PARENTING ONCE PER PASS IS TOO SLOW, MEASURED ON A BUILT APK.
   // The first version of this guard lived only at the end of setTracks,
@@ -980,85 +1090,58 @@ function reposition(entry, now) {
     }
     return;
   }
+
+  // TIMELINE FIRST (Task 9, Stage B): a video with an attached timeline
+  // asks it for the boxes at the presented media time on every frame,
+  // rather than extrapolating the last verdict's velocity. `entry.tracks`
+  // is left completely untouched here -- it still holds whatever
+  // setTracks last set -- so a frame where `boxesFn` returns null (no
+  // verdict at/after the presented time yet) falls back to the ordinary
+  // `entry.tracks` + elapsed path exactly as if no timeline were attached
+  // at all, with no state to unwind.
+  if (entry.boxesFn) {
+    var live = entry.boxesFn();
+    if (live) {
+      renderStats.timelineFrames++;
+      // 'cleared' is a real answer from the timeline (a person who is on
+      // screen and resolved un-blurred), not a track this renderer draws
+      // a patch for -- filtered BEFORE reconciling, so a cleared id never
+      // even claims an overlay node.
+      var timelineTracks = [];
+      for (var q = 0; q < live.length; q++) {
+        if (live[q].state === 'cleared') continue;
+        timelineTracks.push({ key: String(live[q].id), box: live[q].box, vx: 0, vy: 0, vw: 0, vh: 0 });
+      }
+      reconcileOverlays(entry, timelineTracks);
+      for (var t = 0; t < timelineTracks.length; t++) {
+        // No velocity: boxesAt already interpolated this box to the
+        // presented media time, so extrapolating it further here would
+        // double-apply motion the timeline has already accounted for.
+        renderTrackOverlay(entry, vr, t, timelineTracks[t], 0);
+      }
+      return;
+    }
+    renderStats.timelineFallback++;
+    // fall through to the ordinary entry.tracks + elapsed path below.
+  }
+
   var elapsed = now - entry.at;
   for (var j = 0; j < entry.tracks.length; j++) {
-    renderStats.overlayFrames++;
-    // `display` was assigned unconditionally 60x/s per overlay, one line
-    // below the transform-string compare that exists precisely because an
-    // identical assignment still crosses CSSOM. Measured at 140-160
-    // writes/s on this build, all but a handful of them redundant.
-    if (entry.overlays[j].__tsDisp !== 1) {
-      renderStats.dispWrites++;
-      entry.overlays[j].style.display = '';
-      entry.overlays[j].__tsDisp = 1;
-    }
-    var target = boxToHostRect(entry.hr, vr, interpolateBox(entry.tracks[j], elapsed));
-    entry.rendered[j] = lerpRect(entry.rendered[j], target);
-    var lerped = entry.rendered[j];
-    // The feather is added OUTSIDE what the pipeline asked for, so the
-    // opaque core of the mask still covers the full requested box. Growing
-    // the element is what makes the soft edge free of under-cover.
-    // INTEGER MASK GEOMETRY, AND IT IS A PERFORMANCE FIX WITH A NUMBER.
-    //
-    // maskFor rebuilds ~20 strings from `drawn` every rAF frame for every
-    // overlay, and applyMask writes TEN CSSOM properties when the string
-    // differs -- on a backdrop-filter element, the most expensive class in
-    // the tree to invalidate. Measured on this build, man t=890, 60s
-    // continuous: 140-160 maskFor calls/s with mask_write_frac 0.56-0.58,
-    // i.e. ~85 full mask rewrites a second, ~850 style writes.
-    //
-    // Almost none of that is real. lerpRect is asymptotic and SHRINK_DEADBAND
-    // parks an edge without ever equalling the target, so `drawn.width`
-    // changes by a sub-pixel amount essentially every frame for ever, and
-    // the string changes with it. Hole offsets were already rounded and are
-    // invariant under pure translation, so with the SIZE rounded too a
-    // patch that is merely sliding or settling produces a byte-identical
-    // string and applyMask early-outs.
-    //
-    // Rounding `f` first keeps the ramp, the grow and the element in exact
-    // register: the previous code grew the element by f/2 unrounded while
-    // place() wrote a size only on a >=2px change, so mask and element were
-    // out of register by up to 2px and `mask-repeat: no-repeat` left the
-    // outermost strip of the ramp truncated.
-    //
-    // Cannot change coverage by more than half a pixel in either direction.
-    var f = Math.round(featherFor(lerped));
-    // Half the ramp sits outside the requested box, half inside. See the
-    // note above featherFor: outward-only tripled the blurred area once f
-    // scaled with the patch.
-    var drawn = clipToBounds(drawnRect(lerped, f), {
-      left: vr.left - entry.hr.left,
-      top: vr.top - entry.hr.top,
-      right: vr.left - entry.hr.left + vr.width,
-      bottom: vr.top - entry.hr.top + vr.height,
-    });
-    if (!drawn) {
-      // Entirely outside the picture: nothing to cover.
-      renderStats.hideClipped++;
-      if (entry.overlays[j].__tsDisp !== 0) {
-        renderStats.dispWrites++;
-        entry.overlays[j].style.display = 'none';
-        entry.overlays[j].__tsDisp = 0;
-      }
-      continue;
-    }
-    // Everything above is in VIEWPORT units (both rects came from
-    // getBoundingClientRect). The element writes below are in the host's
-    // LOCAL units, which an ancestor transform scales again -- so convert
-    // once, here, and give the mask the same converted geometry so the
-    // two stay in register.
-    // THE FIFTH WAY A PATCH BECOMES INVISIBLE, and the four counters
-    // above cannot name it. clipToBounds accepts any sliver with
-    // `r - l > 0` and then ROUNDS the size, so a 0.4px overlap survives
-    // the null test and is written as `width: 0px` -- an overlay that
-    // exists, is display:'', and paints nothing. A probe counting
-    // rendered patches sees the same thing a hidden one produces.
-    if (drawn.width === 0 || drawn.height === 0) renderStats.drawnZero++;
-    var hs = entry.scale || 1;
-    var local = toLocalRect(drawn, hs);
-    place(entry.overlays[j], local);
-    applyMask(entry.overlays[j], maskFor(local, hs === 1 ? f : Math.round(f / hs)));
+    renderTrackOverlay(entry, vr, j, entry.tracks[j], elapsed);
   }
+}
+
+/**
+ * Test-only hook (Task 9): looks up the live entry for `video` and runs
+ * one `reposition` pass against it, so a test can drive the render loop
+ * deterministically instead of waiting on `requestAnimationFrame`. `now`
+ * only matters for the non-timeline path (`elapsed = now - entry.at`);
+ * the timeline path always renders with elapsedMs 0.
+ */
+export function _reposition(video, now) {
+  var entry = entries.get(video);
+  if (!entry) return;
+  reposition(entry, now);
 }
 
 // A SCROLL MOVES THE PLAYER, AND THE 250ms TIMER IS TOO SLOW FOR IT.
@@ -1101,71 +1184,24 @@ export function canRegionVideo(video) {
   return !!resolveHost(video);
 }
 
-/**
- * Set (or update) the blurred tracks on a playing video. tracks:
- * [{ box: {x1,y1,x2,y2}, vx, vy }] — box normalized 0..1 of the video
- * frame, velocities in normalized units per SECOND (person-track.mjs
- * blurredTracks output). The rAF loop interpolates between calls.
- */
-export function setTracks(video, tracks) {
-  var host = resolveHost(video);
-  if (!host || !tracks || !tracks.length) {
-    clear(video);
-    return false;
-  }
-  var entry = entries.get(video);
-  if (!entry) {
-    // Absolute children need a positioned ancestor; YouTube's player is
-    // position:relative already — belt-and-braces for other hosts.
-    try {
-      if (window.getComputedStyle(host).position === 'static') {
-        host.style.position = 'relative';
-      }
-    } catch (e) {
-      /* non-fatal: worst case overlays anchor to a further ancestor */
-    }
-    entry = {
-      host: host,
-      video: video,
-      tracks: tracks,
-      at: performance.now(),
-      overlays: [],
-      rendered: [],
-      raf: 0,
-      timer: 0,
-      ro: null,
-      hr: null,
-      vr: null,
-      clip: null,
-    };
-    entries.set(video, entry);
-    refreshRects(entry);
-    // Rect refresh lives OUTSIDE the rAF loop: a slow timer catches
-    // scroll/theater drift, a ResizeObserver catches player resizes the
-    // frame they happen.
-    entry.timer = setInterval(function () {
-      refreshRects(entry);
-    }, RECT_REFRESH_MS);
-    if (typeof ResizeObserver === 'function') {
-      entry.ro = new ResizeObserver(function () {
-        refreshRects(entry);
-      });
-      try {
-        entry.ro.observe(host);
-        entry.ro.observe(video);
-      } catch (e) {
-        /* observer refusal: the timer still refreshes */
-      }
-    }
-  } else {
-    entry.tracks = tracks;
-    entry.at = performance.now();
-  }
-  // Overlays are keyed to TRACK IDENTITY (review A9): same-count churn
-  // (one track dies, another is born in the same pass) must not lerp a
-  // dead person's rect toward a new person's — each key keeps its own
-  // overlay + render state; unknown keys get fresh nodes, missing keys
-  // are removed. Tracks without keys fall back to positional pairing.
+// ENSURE N OVERLAYS FOR N ITEMS, KEYED BY IDENTITY -- factored out of
+// setTracks (Task 9) so the timeline render path in `reposition` can
+// reconcile its own item count through the exact same logic instead of
+// a second, drifting copy of it.
+//
+// Overlays are keyed to TRACK IDENTITY (review A9): same-count churn
+// (one track dies, another is born in the same pass) must not lerp a
+// dead person's rect toward a new person's — each key keeps its own
+// overlay + render state; unknown keys get fresh nodes, missing keys
+// are removed. Tracks without keys fall back to positional pairing.
+//
+// `tracks` here only needs a `.key` per item -- setTracks passes real
+// person-tracker tracks (whose `key` may be a `+`-joined merge id), and
+// the timeline path in `reposition` passes `{ key: String(item.id) }`
+// wrappers built from the timeline's `{id, box, state}` shape. Neither
+// caller's `box`/`vx`/`vy` fields are read here; those are read at
+// render time, per item, by the caller.
+function reconcileOverlays(entry, tracks) {
   var nextOverlays = [];
   var nextRendered = [];
   var byKey = {};
@@ -1244,6 +1280,115 @@ export function setTracks(video, tracks) {
   }
   entry.overlays = nextOverlays;
   entry.rendered = nextRendered;
+}
+
+/**
+ * Attach a live boxes source to a playing video (Task 9, Stage B): once
+ * set, `reposition` prefers `boxesFn()` over `entry.tracks` + velocity
+ * extrapolation. `boxesFn` takes no arguments and returns either
+ * `[{id, box:{x1,y1,x2,y2}, state:'blurred'|'cleared'}]` for the
+ * currently PRESENTED media time (see track-timeline.mjs `boxesAt`), or
+ * `null` when no verdict at/after that time exists yet -- the caller
+ * (init-entry, Task 10) hands over
+ * `function () { return boxesAt(timeline, presenter.presentedMediaTime()); }`
+ * or equivalent. A 'cleared' item is never drawn as a patch.
+ *
+ * Callable before the video has any tracks at all (the presenter can be
+ * wired ahead of the first cover): with no entry yet, the fn is queued
+ * in `pendingTimelines` and adopted onto `entry.boxesFn` the moment
+ * `setTracks` creates the entry.
+ */
+export function setTimeline(video, boxesFn) {
+  var entry = entries.get(video);
+  if (entry) {
+    entry.boxesFn = boxesFn;
+  } else {
+    pendingTimelines.set(video, boxesFn);
+  }
+}
+
+/**
+ * Detach a video's timeline (pill off, `loadstart`, presenter torn
+ * down): `reposition` returns to the plain `entry.tracks` + elapsed
+ * velocity path. Clears a queued-but-not-yet-adopted fn too.
+ */
+export function clearTimeline(video) {
+  pendingTimelines.delete(video);
+  var entry = entries.get(video);
+  if (entry) entry.boxesFn = null;
+}
+
+/**
+ * Set (or update) the blurred tracks on a playing video. tracks:
+ * [{ box: {x1,y1,x2,y2}, vx, vy }] — box normalized 0..1 of the video
+ * frame, velocities in normalized units per SECOND (person-track.mjs
+ * blurredTracks output). The rAF loop interpolates between calls.
+ */
+export function setTracks(video, tracks) {
+  var host = resolveHost(video);
+  if (!host || !tracks || !tracks.length) {
+    clear(video);
+    return false;
+  }
+  var entry = entries.get(video);
+  if (!entry) {
+    // Absolute children need a positioned ancestor; YouTube's player is
+    // position:relative already — belt-and-braces for other hosts.
+    try {
+      if (window.getComputedStyle(host).position === 'static') {
+        host.style.position = 'relative';
+      }
+    } catch (e) {
+      /* non-fatal: worst case overlays anchor to a further ancestor */
+    }
+    entry = {
+      host: host,
+      video: video,
+      tracks: tracks,
+      at: performance.now(),
+      overlays: [],
+      rendered: [],
+      raf: 0,
+      timer: 0,
+      ro: null,
+      hr: null,
+      vr: null,
+      clip: null,
+      // Set by setTimeline (Task 9, Stage B); reposition prefers it over
+      // entry.tracks + elapsed velocity extrapolation when present. See
+      // the note above setTimeline.
+      boxesFn: null,
+    };
+    entries.set(video, entry);
+    // A TIMELINE ATTACHED BEFORE THIS ENTRY EXISTED IS ADOPTED HERE, ONCE.
+    // See the note above `pendingTimelines`.
+    if (pendingTimelines.has(video)) {
+      entry.boxesFn = pendingTimelines.get(video);
+      pendingTimelines.delete(video);
+    }
+    refreshRects(entry);
+    // Rect refresh lives OUTSIDE the rAF loop: a slow timer catches
+    // scroll/theater drift, a ResizeObserver catches player resizes the
+    // frame they happen.
+    entry.timer = setInterval(function () {
+      refreshRects(entry);
+    }, RECT_REFRESH_MS);
+    if (typeof ResizeObserver === 'function') {
+      entry.ro = new ResizeObserver(function () {
+        refreshRects(entry);
+      });
+      try {
+        entry.ro.observe(host);
+        entry.ro.observe(video);
+      } catch (e) {
+        /* observer refusal: the timer still refreshes */
+      }
+    }
+  } else {
+    entry.tracks = tracks;
+    entry.at = performance.now();
+  }
+  reconcileOverlays(entry, tracks);
   // A CLIP LAYER THE PAGE REMOVED STRANDS EVERY REUSED OVERLAY.
   // `clipLayer` rebuilds the layer only when it is ASKED for one, and it
   // is asked only when a NEW overlay is created -- so a pass carrying the
