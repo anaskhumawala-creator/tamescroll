@@ -25,6 +25,23 @@
 // PERSONS and their geometry in FRAME space -- the two things that reach
 // the screen.
 //
+// THE ANSWER, N=225, and it is a NULL on the headline metric: persons
+// admitted 373 against 373 (findings 18). The raw-score win does not
+// survive the gate. At N=30 this same bench read +28.9% and that number
+// reached a commit message -- loop 40's rule the other way round, and it
+// is the one that bit: **a large effect at a small N is a claim about
+// the sample.** What survives is 8 frames where only the letterbox
+// admits ANYBODY against 1 (p = 0.039), and the inverse map itself:
+// 315 matched people, median edge deltas exactly 0.000, 0 boxes out of
+// range.
+//
+// STILL UNMEASURED, and it is the one thing that could revive this: both
+// arms run with `held: null`, so admission HYSTERESIS is off on both
+// sides. Symmetric and therefore fair, but not the shipped regime -- and
+// hysteresis is precisely the mechanism that turns one admission into a
+// run of them, so it would amplify the residual and nothing else. Thread
+// `held` before writing the letterbox off.
+//
 // WHAT WOULD MAKE THE CHANGE REAL, stated before running:
 //
 //   ADMISSION  the letterbox admits a person on frames the squash

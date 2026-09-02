@@ -365,18 +365,27 @@ export var PERSON_INPUT_SIZE = 256;
 //
 // The resize below has always been an unconditional square, so on his
 // 640x360 decode every person reaches a COCO-trained detector at 56% of
-// natural width. Measured over 241 corpus frames through the shipping
-// graph: letterboxing admits **219 -> 269 persons (+22.8%)**, with 35
-// frames where the squash admits NOBODY and the letterbox admits
-// somebody against 4 the reverse (p < 1e-5), the same direction in all
-// five videos.
+// natural width.
 //
-// SHIPS OFF. The geometry fix (`unpadPersons`) is correct and tested,
-// but the ENTIRE labelled corpus -- every exposure, false-cover and
-// phantom number this repo owns -- was banked against squashed person
-// extents, so flipping this changes the placement layer under all of
-// them at once. It is a round, not an edit: the flag exists so both arms
-// run on one build and the corpus can be re-scored before it moves.
+// SHIPS OFF, AND THE REASON IS A RESULT RATHER THAN A SEQUENCING
+// ARGUMENT (findings 18). 16b measured +22.8% admissions at a flat 0.35
+// slot-score threshold on the RAW model output. Through the SHIPPED gate
+// -- which is an anchor gate, an evidence gate, a size gate, a keypoint
+// union and hysteresis, not a threshold -- 225 corpus frames give
+// **373 admissions against 373, exactly flat**, with the more/less split
+// at 47-44 (sign test p = 0.83).
+//
+// WHAT SURVIVES is narrower and better: **8 frames where only the
+// letterbox admits ANYBODY against 1** (p = 0.039). A frame that admits
+// nobody does not get a smaller patch, it gets no measured body at all
+// and falls back to a synthetic one projected from the face. Eight
+// frames in 225 does not yet pay for re-scoring the whole labelled
+// corpus, which is what flipping this costs.
+//
+// The flag exists so both arms run on one build. `unpadPersons` is
+// correct and measured -- 315 matched people, median edge deltas exactly
+// 0.000, 0 boxes out of range -- so the geometry is not what is holding
+// it back.
 export var PERSON_LETTERBOX = false;
 export function setPersonLetterbox(v) { PERSON_LETTERBOX = !!v; }
 

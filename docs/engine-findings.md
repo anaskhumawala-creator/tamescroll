@@ -2905,3 +2905,95 @@ elects a builder, the others wait rather than reading a file being
 written); and **it says why on stderr before it throws**, so the reason
 lands in any captured output. Verified both directions -- up to date is
 silent, stale fails BOTH files with the reason printed, second pass green.
+
+## 18. THE MoveNet LETTERBOX BUYS NOTHING THROUGH THE SHIPPED GATE, AND MY OWN N=30 HEADLINE WAS THE THING THAT SAID OTHERWISE
+
+**RETRACTED, MINE, WITHIN AN HOUR OF WRITING IT.** `bench/movenet-gated.mjs`
+at **N=30** read persons admitted **45 -> 58, +28.9%**, and that number
+went into a commit message as the headline for the round. At **N=225**,
+same bench, same arms, same five videos:
+
+| | squash | letterbox |
+|---|---|---|
+| **persons admitted (SHIPPED gate)** | **373** | **373** |
+| frames where one arm admits MORE | 47 | 44 |
+| frames where only ONE arm admits ANYBODY | 1 | **8** |
+
+**Exactly zero.** Not "small", not "within noise" -- 373 against 373, and
+the more/less split is **47 to 44, a two-sided sign test p = 0.83**, which
+is a coin flip.
+
+**This is loop 40's rule running the other way.** That rule says a FLAT
+sweep is a claim about the instrument until the instrument has the
+frames. The mirror is just as true and it is the one that bit here: **a
+LARGE effect at a small N is a claim about the sample.** N=30 was eight
+frames per video on a corpus whose per-frame person count is 0, 1 or 2.
+
+### What 16b measured, and why it is not refuted
+
+16b's **+22.8% (219 -> 269)** was measured at a **flat 0.35 slot-score
+threshold on the raw model output**. That claim stands. What does not
+survive is the CONSEQUENCE drawn from it -- that the letterbox is "the
+largest unclaimed accuracy win left".
+
+**The shipped gate absorbs the entire raw gain.** `parsePersons` is not a
+threshold: it runs an anchor gate, a keypoint-evidence gate, a size gate,
+a keypoint union and admission hysteresis. `movenet-aspect.mjs`'s own
+header warned that "a gate calibrated on a dead signal would only restate
+itself"; the same caution run forwards says a raw-score win is not a
+shipped win until it is measured through the gate. **It took a bench to
+find that out and it should have been the first bench, not the second.**
+
+### What DOES survive, and it is the half that matters for exposure
+
+**8 frames where only the letterbox admits anybody, against 1 the other
+way** -- 9 discordant frames, **two-sided sign test p = 0.039**.
+
+That is a different and better quantity than the total. On this path a
+frame where NOBODY is admitted does not get a smaller patch, it gets **no
+measured body at all**: the extent falls back to a synthetic body
+projected from the face (`personFromFace`, `cy + 6.0h`, uncapped), which
+is the one dimension of the geometry this repo has never been able to
+price. So the letterbox is not "more people, more often" -- it is
+**fewer frames with no measurement at all**, on eight frames in 225.
+
+### The inverse map is correct, and that is the strongest result here
+
+For the 315 people BOTH arms admit:
+
+- box IoU between the arms **p05 0.553, p50 0.918, p95 0.978**
+- top edge, bottom edge and height deltas all **p50 exactly +0.000**
+- **0 boxes outside 0..1**
+
+**A wrong inverse map would show here first and it would show as a
+SYSTEMATIC SHIFT.** There is none, and the reason is worth writing down
+because it is not obvious: **the squash does not misplace anything.** It
+is a uniform per-axis scale of the whole frame, so model-normalized 0..1
+and frame-normalized 0..1 coincide on both axes. The squash distorts
+what the model SEES, not where it says things are. The letterbox changes
+the coordinate frame -- which is why it needs `unpadPersons` at all --
+and after the map the two frames coincide again, which is exactly what a
+median edge delta of 0.000 across 315 people says.
+
+**So the whole change is admission, and none of it is displacement.**
+
+### It stays OFF, on much better evidence than before
+
+The flag was written to ship OFF because the labelled corpus was banked
+against squashed extents. That was a *sequencing* argument. The reason
+now is a *result*: **through the gate the benefit is a null on totals**,
+and the residual is eight frames. Re-scoring the entire corpus -- and
+moving the placement layer under every exposure, false-cover and phantom
+number the repo owns -- to buy eight frames in 225 is not a trade worth
+making yet.
+
+**WHAT WOULD MAKE IT REAL, and it is one bench away.** Both arms ran with
+`held: null`, so admission HYSTERESIS was off on both sides. That is
+symmetric and therefore fair, but it is not the shipped regime, and it is
+the mechanism that would AMPLIFY the residual specifically: a frame the
+letterbox admits somebody on hands the next frame a held person, and
+hysteresis is what turns one admission into a run of them. Eight
+discordant frames under no hysteresis could be considerably more under
+it. **Run the bench with `held` threaded before writing this off.**
+
+**Raw: `spikes/gauntlet/movenet-gated-n225.txt`.**

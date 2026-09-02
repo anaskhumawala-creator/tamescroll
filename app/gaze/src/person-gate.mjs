@@ -314,11 +314,12 @@ function kp(data, o, i) {
 // `detectPersons` resizes the frame to a SQUARE, so a 640x360 stream
 // reaches MoveNet 1.78x taller than wide -- the identical defect fixed
 // on the whole-frame face path in 1089 (findings 16a) and on the image
-// crop path on 2026-08-28. Measured over 241 frames of five videos
-// through the shipping graph, letterboxing instead admits **219 -> 269
-// persons (+22.8%)**, with **35 frames where the squash admits NOBODY
-// and the letterbox admits somebody** against 4 the other way (findings
-// 16b).
+// crop path on 2026-08-28. At a flat threshold on the RAW model output,
+// letterboxing instead admits 219 -> 269 persons over 241 frames
+// (findings 16b) -- though **through the shipped gate that gain is a
+// null** and only 8 frames in 225 change from "nobody admitted" to
+// "somebody admitted" (findings 18). The map below is correct either
+// way, and `detector.PERSON_LETTERBOX` ships off.
 //
 // WHY IT WAS NOT SIMPLY FIXED THERE AND THEN: MoveNet's outputs are
 // normalized to ITS OWN INPUT, and that is safe today only because a
