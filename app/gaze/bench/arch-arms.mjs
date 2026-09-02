@@ -305,6 +305,30 @@ const readOf = (f) => ({ gender: f.gender, score: f.score, raw: f.raw, age: f.ag
  * @param mod  the shipped module namespace (possibly with one constant
  *             patched, which is the whole point of the factory)
  */
+// See the `told` derivation inside the replay. Printed ONCE per process
+// so a long sweep does not bury it, and to stderr so a table piped to a
+// file still carries the warning where the reader is looking.
+let warnedCadence = false;
+export function warnDerivedCadence(told) {
+  if (warnedCadence) return false;
+  warnedCadence = true;
+  process.stderr.write(
+    `
+*** CADENCE NOT PINNED: this arm told the tracker ${told}ms, DERIVED from the bank
+`
+    + `*** interval x stride. His phone is told ${HIS_EFFZOOM}ms (cap-pinned effZoom) and
+`
+    + `*** coasts ${HIS_EFFZOOM * 2}ms. Four published tables were wrong this way and three of
+`
+    + `*** them REVERSED when re-run. Pass hisRegimeOpts(g) unless you mean another regime.
+
+`);
+  return true;
+}
+// Test hook: lets a test observe the once-per-process behaviour without
+// spawning a second node.
+export function _resetCadenceWarning() { warnedCadence = false; }
+
 export function makeArms(mod) {
   assertCutsFresh(SHIPPED);
   // FROM `mod`, not from the top-level import. The first version of the
@@ -422,7 +446,24 @@ export function makeArms(mod) {
       // `fixedCadence` pins the cadence told to the tracker while the
       // verdict frames are thinned as before, which is the only way to
       // ask what the CLOCK alone is worth.
+      //
+      // AND THE ABSENCE OF `fixedCadence` IS A DEFECT CLASS, NOT A
+      // DEFAULT. Four benches have now published a table that was
+      // measured at `dt * stride` -- the 500ms BANK interval, coast
+      // 1250ms -- while claiming to describe his phone, which is told
+      // 2000 and coasts 4000: the cadence table (13a), the clear bar
+      // (critic-lowbar), the association threshold (10g) and CUT_DELTA
+      // (10h). Three of those four REVERSED when re-run in his regime.
+      // About thirty more benches in this directory build their options
+      // by hand and pass no cadence at all.
+      //
+      // So the derivation stays -- silently changing thirty files would
+      // make every number they ever printed unreproducible with no
+      // warning -- but it can no longer happen QUIETLY. Any run that
+      // does not pin a cadence says so, once, on stderr, naming the
+      // number it used and the one his phone uses.
       const told = typeof o.fixedCadence === 'number' ? o.fixedCadence : dt * stride;
+      if (typeof o.fixedCadence !== 'number') warnDerivedCadence(told);
       setVerdictCadence(told);
       // `verdictDt` IS A THIRD NUMBER, and the arm was passing a fourth
       // (critic C6). person-track credits a clear by the gap between
