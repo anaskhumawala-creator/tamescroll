@@ -87,14 +87,20 @@ var SPEC = {
   MEM_SIM: [0.5, 0.9, function (v) { identityMemory.setSim(v); }],
 
   // One pass in this many runs the person model once it has admitted
-  // nobody PERSON_EMPTY_STREAK times running. ONE IS OFF -- the shipped
-  // value, and the reason a build carrying this changes nothing.
+  // nobody PERSON_EMPTY_STREAK times running. ONE IS OFF. Shipped at 4
+  // (latency-restructure Task 2, 2026-09-02) now that the ghost gate
+  // that made a skip dangerous is a counter and not a refusal (owner
+  // ruling 2026-09-01, "she needs to be blurred") -- a refused face
+  // still mints a patch through the composite-frame fallback, so a
+  // skipped pass can no longer erase anyone.
   //
-  // It is on the channel rather than in the binary because its cost is
-  // PHANTOM. Skipping buys pass time, pass time buys cadence, and the
-  // corpus prices that same clock change at up to +116s of phantom
-  // against -72.5s of exposure. Phantom is what he calls "random blur
-  // marks here and there", so this must be reversible in seconds.
+  // It is on the channel rather than only in the binary because its
+  // cost is PHANTOM. Skipping buys pass time, pass time buys cadence,
+  // and the corpus prices that same clock change at up to +116s of
+  // phantom against -72.5s of exposure. Phantom is what he calls
+  // "random blur marks here and there", so this must be reversible in
+  // seconds, and 1 is one push away if his rings show it costing more
+  // than it should.
   //
   // The ceiling is 4, not higher: at 4 the model still runs every ~6s of
   // wall clock in his regime, which is the slowest it can go and still
@@ -205,6 +211,28 @@ var SPEC = {
   // BELOW ~1500 IS ONLY SAFE WITH PERSON_SKIP_EVERY ABOVE 1, and those
   // two must be pushed together.
   VERDICT_MAX_INTERVAL_MS: [1200, 4000, function (v) { cadence.setVerdictMaxInterval(v); }],
+
+  // THE MULTIPLIER ON THE LAST PASS'S OWN COST, not the cap above it:
+  // effZoom = min(VERDICT_MAX_INTERVAL_MS, max(ZOOM_INTERVAL_MS,
+  // lastVerdictMs * VERDICT_DUTY)). Shipped at 2, down from a 4 that
+  // was never on this channel. 4x was calibrated for a device that was
+  // CAP-limited (the duty table in cadence.mjs pins both arms at 2000
+  // regardless of pass cost), so nothing downstream of cost could move
+  // the clock while that held. After the person-skip and position-pass
+  // restructure the Redmi's verdict is cheap enough that 2x lands
+  // inside the cap instead of being clamped away by it, and the coast
+  // window (derived from the cadence in setVerdictCadence) shrinks with
+  // it, which is where the phantom reduction comes from.
+  //
+  // The floor is 1.5, not 1.0: below it the GPU spends more of every
+  // second running verdicts than it has free, which is the same duty
+  // problem VERDICT_MAX_INTERVAL_MS's own floor exists to avoid --
+  // engine-findings 10i measured the GPU that skipping the person pass
+  // freed going to the render loop, not to more verdicts than the page
+  // can afford. The ceiling of 4 is the value this constant shipped at
+  // before it was ever tunable, so the range brackets rather than
+  // exceeds what has already run in production.
+  VERDICT_DUTY: [1.5, 4, function (v) { cadence.setVerdictDuty(v); }],
 };
 
 export function tunableNames() { return Object.keys(SPEC); }

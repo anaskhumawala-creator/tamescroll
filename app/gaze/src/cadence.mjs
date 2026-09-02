@@ -89,3 +89,33 @@ export var VERDICT_MAX_INTERVAL_MS = 2000;
 export function setVerdictMaxInterval(ms) {
   VERDICT_MAX_INTERVAL_MS = ms;
 }
+
+// effZoom is min(VERDICT_MAX_INTERVAL_MS, max(ZOOM_INTERVAL_MS,
+// lastVerdictMs * VERDICT_DUTY)) -- this is the multiplier on the last
+// pass's own cost, not the cap. It used to be a local `var` in
+// init-entry.js, off this channel, at 4.
+//
+// SHIPPED AT 2, latency-restructure Task 3 (2026-09-02), on the same
+// reasoning as the duty table above: 4x was calibrated for a device
+// that was CAP-limited (both arms in the table pin at 2000 regardless
+// of pass cost), so nothing downstream of cost could move the clock
+// while it held. After Tasks 1-2 the Redmi's verdict is ~830ms
+// (BlazeFace ~290 + gender ~536, MoveNet no longer paid on every pass),
+// so 4x asks for 3320ms -- still clamped to VERDICT_MAX_INTERVAL_MS
+// 2000 -- while 2x asks for 1660ms, inside the cap and a real interval.
+// Coast windows derive from the cadence in setVerdictCadence, so
+// phantom shrinks with the faster clock exactly as 13a measured; a
+// track still survives >=2 passes because PTRACK_MIN_COAST_PASSES is
+// unchanged.
+//
+// The floor is 1.5, not 1.0: below it the GPU is busier running
+// verdicts than it is free, which is the duty problem this file's
+// VERDICT_MAX_INTERVAL_MS floor already exists to avoid -- §10i
+// measured the freed GPU going to the render loop, not to more
+// verdicts than the page can afford.
+export var VERDICT_DUTY = 2;
+
+/** OTA tuning entry point; the whitelist clamps before this is called. */
+export function setVerdictDuty(v) {
+  VERDICT_DUTY = v;
+}

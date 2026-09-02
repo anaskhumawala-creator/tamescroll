@@ -3270,13 +3270,13 @@ if (
     // desktop behaviour is unchanged by construction.
     var POSITION_DUTY = 2;
     var POSITION_MAX_INTERVAL_MS = 1000;
-    var VERDICT_DUTY = 4;
-    // VERDICT_MAX_INTERVAL_MS lives in cadence.mjs and is READ FROM THERE
-    // at every use, not copied here. It is on the OTA tuning channel, and
-    // a closure copy taken at attachVideo time would freeze whatever the
-    // value was when this video was attached -- so a pushed number would
-    // apply to the next video and not this one, which is exactly the
-    // silent half-applied state the channel must never produce.
+    // VERDICT_MAX_INTERVAL_MS and VERDICT_DUTY both live in cadence.mjs
+    // and are READ FROM THERE at every use, not copied here. They are on
+    // the OTA tuning channel, and a closure copy taken at attachVideo
+    // time would freeze whatever the value was when this video was
+    // attached -- so a pushed number would apply to the next video and
+    // not this one, which is exactly the silent half-applied state the
+    // channel must never produce.
 
     // See the yield block inside sampleOnce.
     var INPUT_YIELD_MAX = 3;
@@ -3415,7 +3415,7 @@ if (
         // hiccup away from the runaway. verdictBusy already forbids
         // overlapping passes, so a cap cannot build a backlog.
         var effZoom = Math.min(cadence.VERDICT_MAX_INTERVAL_MS,
-          Math.max(ZOOM_INTERVAL_MS, lastVerdictMs * VERDICT_DUTY));
+          Math.max(ZOOM_INTERVAL_MS, lastVerdictMs * cadence.VERDICT_DUTY));
         // See the scroll gate above: while the page is moving, positions
         // keep updating and verdicts wait.
         if (scrolling(now)) effZoom = Math.max(effZoom, cadence.VERDICT_MAX_INTERVAL_MS);
