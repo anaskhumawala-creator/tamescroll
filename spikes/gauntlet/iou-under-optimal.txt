@@ -1,0 +1,29 @@
+IOU LADDER RE-READ UNDER THE OPTIMAL ASSIGNMENT (1091)
+his regime, told 2000ms, k=3. The control row is the shipped value and must
+reproduce the assign-ab optimal row: man 22.5/136.5/547.5, woman 25.5/201.5/628.0
+
+### man
+gender=man  windows 18  k=3 (1.5s/verdict)  told 2000ms
+shipped PTRACK_IOU_MIN 0.15 -- the first row is the control
+
+IOU_MIN   EXPOSURE  FALSECOVER   PHANTOM   births  cleared  nearMiss
+0.15          22.5s      136.5s    547.5s      141       23        43
+0.3           17.0s      160.0s    581.0s      173       29       108
+0.25          19.5s      147.0s    563.0s      163       26        87
+0.2           21.5s      139.5s    566.5s      157       24        71
+0.1           24.5s      137.5s    543.0s      139       24        28
+0.05          28.0s      135.0s    528.0s      133       23        14
+0.02          32.5s      134.5s    518.5s      130       23         7
+
+### woman
+gender=woman  windows 18  k=3 (1.5s/verdict)  told 2000ms
+shipped PTRACK_IOU_MIN 0.15 -- the first row is the control
+
+IOU_MIN   EXPOSURE  FALSECOVER   PHANTOM   births  cleared  nearMiss
+0.15          25.5s      201.5s    628.0s      136        7        34
+0.3           20.0s      204.5s    702.5s      173       11       102
+0.25          21.5s      197.0s    681.0s      165       11        83
+0.2           23.0s      199.0s    659.0s      156        8        62
+0.1           27.0s      200.5s    613.0s      128        6        19
+0.05          28.5s      202.0s    607.5s      126        7        12
+0.02          28.0s      199.5s    601.0s      124        7         8

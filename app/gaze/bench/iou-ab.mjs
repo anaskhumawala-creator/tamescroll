@@ -53,7 +53,15 @@ console.log(`gender=${g}  windows ${wins.length}  k=${K} (${(K * 0.5).toFixed(1)
 console.log(`shipped PTRACK_IOU_MIN ${SHIPPED} -- the first row is the control
 `);
 console.log('IOU_MIN   EXPOSURE  FALSECOVER   PHANTOM   births  cleared  nearMiss');
-for (const v of [SHIPPED, 0.15, 0.10, 0.05, 0.02]) {
+// The ladder runs BOTH WAYS around the shipped value. It used to stop at
+// the shipped one and walk down, which was fine while 0.20 shipped and is
+// not now: tightening is a direction with its own answer, and under the
+// optimal assignment (1091) the whole curve had to be re-read anyway.
+// A duplicate of the shipped value would print the control row twice and
+// read like a repeated measurement, so it is filtered out.
+const LADDER = [SHIPPED, 0.30, 0.25, 0.20, 0.15, 0.10, 0.05, 0.02]
+  .filter((v, i, a) => i === 0 || v !== SHIPPED);
+for (const v of LADDER) {
   // Written by ABSOLUTE path: `./.cache/...` resolves against the CWD for
   // writeFileSync and against the MODULE for import(), so the two halves
   // disagreed unless the bench happened to be run from bench/.
