@@ -1,7 +1,7 @@
 {
-  "versionCode": 1093,
-  "versionName": "0.1.93",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.93/tamescroll-v0.1.93.apk",
-  "sha256": "f87fc608c301fd6f5e9c7bd9934b120f1462eacd9514c4ee6451e9e5a315c81c",
-  "notes": "1093: in-player blur decisions run natively on the phone (TFLite) -- verdicts twice as fast, the blur tracks people between decisions again, and a kill switch over OTA"
+  "versionCode": 1094,
+  "versionName": "0.1.94",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.94/tamescroll-v0.1.94.apk",
+  "sha256": "1d98f2708f64208f007afecebcaee94f0a52b7139c14a68920f1c95c6736df2e",
+  "notes": "Faster in-video blur (verdict gap 1.2s -> 0.8s), landscape/fullscreen blur alignment fix, mini player tap-to-restore fix."
 }

@@ -70,6 +70,87 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-02 19:30 (**1094 PUBLISHED, sha 1d98f270** --
+served APK re-downloaded and hashed against the raw manifest. HEAD
+pushed, tree clean. The Redmi runs 1094; his phone gets it in-app.)
+
+**Session 2026-09-02 (loop 48) -- THE VERDICT GAP FLOOR WAS THE SAMPLER
+SLOT (1213 -> 805ms), AND THE ROUND'S OWN PROBES FOUND TWO PLAYER
+DEFECTS THAT PREDATE IT: A STRETCHED DELAY CANVAS IN LANDSCAPE AND A
+DEAD TAP-TO-RESTORE IN PORTRAIT.** Plan log 19:15 in
+`docs/superpowers/plans/2026-09-02-native-inference.md`; critic phase-k
+K1-K13 all landed (`docs/critic/ledger.md`, critic-gate 0 blocking; K10
+and K12 stay open as NITs). Every row is the Redmi, `probe_latency_ab.py
+--delay`, 150s, same video/seek:
+
+  | build | verdict p50 | gap p50 / p95 | verdicts | positions | rAF | coverage |
+  |---|---|---|---|---|---|---|
+  | 1093 | 474 | 1213 / 2411 | 102 | 78 | 41.7 | 0.55 |
+  | **1094 SHIPPED** | **355** | **805 / 2353** | **135** | **90** | 36-40 | 0.58-0.60 |
+
+- **THE GAP:** `effZoom` was computed BELOW the position-slot gate, so a
+  due verdict waited for the next ~540ms slot. Hoisted (`verdictDue`);
+  a verdict starts on the first 120ms tick it is not busy. The yield
+  gate that shipped beside it was REMOVED (K3/K8: 24ms of gap for a
+  third of the position passes). ~190ms of the 413 is verdict cost
+  falling 474 -> 355 through `cost * VERDICT_DUTY` (K7) -- the duty dial
+  is BINDING now; 1.5 is one OTA push and is deliberately NOT pushed
+  unmeasured on the new clock. Dropped-verdict share doubled 4.7% ->
+  ~10% (K6, a cut landing mid-pass) -- net still 1.47 -> 1.06s per
+  useful verdict.
+- **PRECISION:** faceres fp16 (gender 220 -> 174ms, raw diff p50
+  0.0025, cosine min 0.995); **BlazeFace back to fp32** -- K1: fp16 lost
+  the only face on the one parity frame where MoveNet admits nobody
+  (a close-up with no patch). Parity on 1094:
+  `faceCountMismatchFrames 0`, faces 24/24 IoU 0.998. K11: the gate is
+  now quoted at the bars a patch is DECIDED at (`clearBarFor`, child
+  gate), published on the `cfg` hook by the other session.
+- **`CUT_PERSON_LOOK` 1 (OTA) COSTS NOTHING ON THE NEW CLOCK:** gap 805
+  vs 803 against a planted 0, cost 355 vs 384, 10 extra MoveNet looks
+  in 150s (K4). The +15% was priced on the old clock.
+- **DEFECT 1 (EXPOSURE in landscape and fullscreen, since 1092):** the
+  delay canvas stretched to `#movie_player` while the video letterboxes
+  inside it when the player is wider -- landscape read video
+  [85,48,652,367] in a canvas [0,48,823,367], a 16:9 frame at 2.24:1,
+  every patch (positioned off the VIDEO rect) beside its face. Fixed:
+  `object-fit: contain` on the canvas. `probe_delay_letterbox.py`
+  rotates the device: painted rect == video rect in portrait, landscape
+  and back, worst edge 0px, twice. Found because the A/B ran with the
+  phone lying on its side.
+- **DEFECT 2 (mini player, since 1046):** tap-to-restore was dead in
+  PORTRAIT. An unclaimed touch still ran `endDrag -> place -> parked`,
+  clearing and rewriting the transform with the .22s transition live,
+  so the click the browser synthesizes 35ms after touchend hit `<html>`
+  while the container animated in from the full position. It only ever
+  worked in landscape (the mini's centre sits inside the full rect
+  there), which is where every earlier tap check happened to run. `onUp`
+  returns on an unclaimed touch; portrait tap restores 3/3
+  (`mini-tap-portrait-*.json`), Task 6 green
+  (`native-task6-1788356591.json`), fail-safe holds twice.
+- **FINDINGS 26 CORRECTED (K2):** the snapshot table was unweighted
+  across arms sampling 2.5x apart; time-weighted, native has a blurred
+  track 0.643 of the time vs the worker's 0.673 -- the instrument shows
+  the drop, not its cause. The phantom attribution now rests on the
+  geometry bench (0 faces sharp, native area 1.098x) and the exit hang
+  (0-3 vs 30-60 frames) alone.
+- **A SECOND SESSION (disconnect-21) SHARED THE CHECKOUT AND THE REDMI
+  for ~20 minutes** -- it landed K11-K13 and one overlapping probe
+  contaminated a Task 6 run (superseded). Coordinated by message; it
+  stood down. One device, one writer: check `ListAgents` before driving
+  the Redmi.
+- **ORIENTATION GOTCHA, cost three runs:** the Redmi lies on its side;
+  with auto-rotate on every probe measures LANDSCAPE (innerWidth 822).
+  Lock it (`settings put system accelerometer_rotation 0` +
+  `user_rotation 0`) and read `innerWidth` before believing a rect;
+  the app restarts on the rotation change, so re-forward CDP after.
+- gaze **698/698**, cargo **61/61**, critic-gate **0 blocking**.
+- **NEXT, YouTube only:** (1) `VERDICT_DUTY` 1.5 on the new clock
+  (expect gap ~600, +25% GPU) -- measure, then push over OTA; (2)
+  `delayVerdictLate` 214-vs-0 (K10) and the fullscreen delay canvas
+  measured with the presenter attached (letterbox proven in landscape
+  only); (3) iOS (CoreML) and desktop (ORT/DirectML) on the same port
+  protocol -- his ask, not started.
+
 **Last updated:** 2026-09-02 17:30 (**1093 PUBLISHED, sha f87fc608** --
 native TFLite inference on Android; served APK re-downloaded and hashed
 against the raw manifest. HEAD pushed, tree clean. The Redmi runs 1093;
