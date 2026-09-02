@@ -16,7 +16,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { squareBox, pixelAspect } from '../src/crop-geometry.mjs';
+import { squareBox, pixelAspect, fitBox } from '../src/crop-geometry.mjs';
 
 // A 16:9 frame, the shape everything here actually runs on.
 const W = 1280;
@@ -109,4 +109,75 @@ test('both model paths square through this one function', () => {
     0,
     'no inline re-implementation of the square crop'
   );
+});
+
+// -- fitBox: the same defect one stage EARLIER --------------------------
+//
+// squareBox fixes the CROP. fitBox fixes the FRAME the crop is taken out
+// of, which no amount of squaring can repair: the whole-frame video path
+// drew a 640x360 stream into a 256x256 canvas with a four-argument
+// drawImage, so every face reached both models 1.78x taller than wide.
+// That path is transient on YouTube and is the ONLY path on Reddit, X,
+// Instagram and Facebook (engine-findings 16).
+
+test('a 16:9 frame fits without being squashed', () => {
+  const f = fitBox(640, 360, 256);
+  assert.equal(f.dw, 256, 'the long axis fills the square');
+  assert.equal(Math.round(f.dh), 144, '360/640 * 256');
+  // THE PROPERTY THAT MATTERS: the aspect survives. The old code gave
+  // 256x256 for this input, which is 1.78x wrong.
+  assert.ok(Math.abs((f.dw / f.dh) - (640 / 360)) < 1e-9,
+    'destination aspect equals source aspect');
+});
+
+test('the fitted picture is centred, so the bars are equal', () => {
+  const f = fitBox(640, 360, 256);
+  assert.equal(f.dx, 0, 'no bars on the axis that fills');
+  assert.ok(Math.abs(f.dy - (256 - f.dh) / 2) < 1e-9, 'centred vertically');
+  // and it stays inside the square, which is what makes the fillRect
+  // enough to guarantee no stale pixels survive
+  assert.ok(f.dx >= 0 && f.dy >= 0);
+  assert.ok(f.dx + f.dw <= 256 + 1e-9 && f.dy + f.dh <= 256 + 1e-9);
+});
+
+test('a portrait frame fits the mirror way', () => {
+  const f = fitBox(360, 640, 256);
+  assert.equal(f.dh, 256, 'the long axis fills the square');
+  assert.equal(Math.round(f.dw), 144);
+  assert.equal(f.dy, 0);
+});
+
+test('an already-square frame gets no bars at all', () => {
+  const f = fitBox(512, 512, 256);
+  assert.deepEqual(
+    { dx: f.dx, dy: f.dy, dw: f.dw, dh: f.dh },
+    { dx: 0, dy: 0, dw: 256, dh: 256 }
+  );
+});
+
+test('a degenerate source falls back to filling, never divides by zero', () => {
+  for (const [w, h] of [[0, 360], [640, 0], [0, 0], [NaN, 360]]) {
+    const f = fitBox(w, h, 256);
+    assert.ok(Number.isFinite(f.dx) && Number.isFinite(f.dw), `${w}x${h}`);
+    assert.equal(f.dw, 256);
+    assert.equal(f.dh, 256);
+  }
+});
+
+test('the whole-frame video path fits through this function, and clears first', () => {
+  // The class-level guarantee, same shape as the squareBox one above.
+  // The old line was `drawImage(video, 0, 0, INPUT_SIZE, INPUT_SIZE)`;
+  // if it comes back this goes red.
+  const src = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
+  assert.match(src, /fitBox\(/, 'the whole-frame path delegates to the shared function');
+  assert.equal(
+    (src.match(/drawImage\(video, 0, 0, detector\.INPUT_SIZE/g) || []).length,
+    0,
+    'no four-argument squash back in the face path'
+  );
+  // AND THE BARS ARE PAINTED. Without this the reused canvas shows the
+  // PREVIOUS frame in the margins and the detector is handed two frames
+  // at once -- which is worse than the squash it replaces.
+  assert.match(src, /fillRect\(0, 0, detector\.INPUT_SIZE, detector\.INPUT_SIZE\)/,
+    'the canvas is cleared before the fitted draw');
 });
