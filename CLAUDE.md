@@ -70,10 +70,11 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-09-02 21:20 (**1095 BUILT AND ON THE REDMI, release
-pending the phase-L critic** -- see the line below; HEAD pushed, rules
-OTA carries `DELAY_MS` 1500 already, so 1094 phones get the longer delay
-line without an install.)
+**Last updated:** 2026-09-02 21:35 (**1095 PUBLISHED, sha 97df2bdb** --
+served APK re-downloaded and hashed against the raw manifest, isDraft
+false. HEAD pushed, tree clean. The Redmi runs 1095 (bundle d513529);
+his phone gets it in-app. Rules OTA already carries `DELAY_MS` 1500, so
+a 1094 phone gets the longer delay line before it installs.)
 
 **Session 2026-09-02 (loop 49) -- HIS THREE REPORTS ON 1094 ("linus
 still gets covered sometimes", "random patches", "for a second or so the
