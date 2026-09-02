@@ -1,0 +1,31 @@
+
+============================
+Hi, looks like you are running TensorFlow.js in Node.js. To speed things up dramatically, install our node backend, visit https://github.com/tensorflow/tfjs-node for more details. 
+============================
+runs 15  x 24 frames @ 2fps  640x360
+pad 256x144 at (0,56)   HYSTERESIS ON, per arm
+
+video           t    frames   squash-covered  letterbox-covered
+NWoT1ZVd1Lo        2       24               23                 24
+NWoT1ZVd1Lo      402       24               21                 21
+NWoT1ZVd1Lo      752       24               24                 24
+H14bBuluwB8        2       24                4                  5
+H14bBuluwB8      122       24               24                 24
+H14bBuluwB8      252       24               24                 24
+z86LGEFyQpo        2       24               24                 24
+z86LGEFyQpo      452       24               24                 24
+z86LGEFyQpo      902       24               24                 24
+Ary1gIbaOTc        2       24               24                 24
+Ary1gIbaOTc     1572       24               24                 24
+Ary1gIbaOTc     3122       24               24                 24
+RcGyVTAoXEU        2       24                4                  7
+RcGyVTAoXEU      332       24               13                 15
+RcGyVTAoXEU      602       24               11                 24
+
+-- WITH HYSTERESIS, both arms, per arm history --
+  squash     frames  360   covered  292 (81.1%)   persons  563   covered runs  18   mean run 16.22
+  letterbox  frames  360   covered  312 (86.7%)   persons  571   covered runs  21   mean run 14.86
+
+  COVERED-FRAME DELTA  +20  of 360 frames
+  (persons-admitted totals are already known FLAT at N=225 -- findings 18 --
+   so a total difference here is the sampling, not the arms.)

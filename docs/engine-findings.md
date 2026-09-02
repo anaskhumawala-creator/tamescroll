@@ -3015,6 +3015,66 @@ it. **Run the bench with `held` threaded before writing this off.**
 **Raw: `spikes/gauntlet/movenet-gated-n225.txt`.**
 
 
+
+## 18a -- THE LETTERBOX WITH HYSTERESIS ON: 5 OF 5 RUNS WITH HEADROOM MOVE THE SAME WAY, AND 65% OF THE MAGNITUDE IS ONE RUN
+
+18 retracted the letterbox on the headline metric (persons admitted 373
+against 373 at N=225) and named the one thing that could revive it:
+both arms had run with `held: null`, so admission HYSTERESIS was off on
+both sides -- symmetric and therefore fair, but not the shipped regime,
+and hysteresis is exactly the mechanism that turns one admission into a
+RUN of them. `bench/movenet-held.mjs` is that arm: 15 contiguous runs of
+24 frames at 2fps, each arm carrying its OWN `held`, scored on COVERED
+FRAMES rather than on totals.
+
+| | frames | covered | persons | covered runs | mean run |
+|---|---|---|---|---|---|
+| squash | 360 | **292 (81.1%)** | 563 | 18 | 16.22 |
+| letterbox | 360 | **312 (86.7%)** | 571 | 21 | 14.86 |
+
+**+20 covered frames of 360.** And the distribution is the whole
+finding:
+
+| run | squash | letterbox | delta |
+|---|---|---|---|
+| NWoT1ZVd1Lo t=2 | 23 | 24 | +1 |
+| H14bBuluwB8 t=2 | 4 | 5 | +1 |
+| RcGyVTAoXEU t=2 | 4 | 7 | +3 |
+| RcGyVTAoXEU t=332 | 13 | 15 | +2 |
+| **RcGyVTAoXEU t=602** | **11** | **24** | **+13** |
+| the other TEN runs | 24 | 24 | 0 |
+
+- **TWELVE OF FIFTEEN RUNS ARE AT THE CEILING**, 24 of 24 in both arms.
+  A run where the control already covers every frame cannot show a gain,
+  so **this instrument has headroom in five runs and measures nothing in
+  ten.** Reporting "12 of 15 tied" as a null would be the loop-40 error:
+  a flat sweep is a claim about the instrument until the instrument has
+  the frames.
+- **WITHIN THE FIVE THAT CAN MOVE, THE LETTERBOX WINS 5 FOR 5**, with
+  no reversals in either direction (sign test p = 0.031, one-tailed).
+  That is a cleaner signal than the N=225 admission test produced.
+- **AND 13 OF THE 20 FRAMES ARE ONE RUN.** `RcGyVTAoXEU t=602` goes
+  11 -> 24, and without it the result is +7 across four runs. This is
+  21a's failure mode exactly, one section apart -- **with the one
+  difference that matters: in 21a the columns had signs going BOTH
+  ways, and here every moving run moves the same way.** A concentrated
+  gain with no counter-examples is weaker than a spread one and much
+  stronger than a mixed one.
+- **STILL NOT SHIPPED, AND THE FLAG STAYS `pde=!1`.** Five runs with
+  headroom is not a corpus, `persons` totals are known FLAT at N=225 so
+  the 563/571 difference here is the sampling and not the arms, and the
+  covered-run count moving 18 -> 21 while MEAN RUN LENGTH FALLS
+  16.22 -> 14.86 says the letterbox is starting more, shorter covered
+  runs -- which is what more admissions look like, and also what
+  FLICKER looks like. Nothing here distinguishes them.
+- **THE INSTRUMENT FIX IS THE NEXT STEP AND IT IS OBVIOUS:** select
+  runs for LOW CONTROL COVERAGE rather than sampling the corpus
+  uniformly. Ten runs measuring nothing is ten runs of budget spent
+  proving the easy case is easy. Until that runs, 18's retraction
+  stands as written and this section is a lead, not a result.
+
+**Raw: `spikes/gauntlet/movenet-held-15runs.txt`.**
+
 ## 19 -- PHASE F: FOUR OF THE EIGHT FINDINGS ARE CHECKS THAT COULD NOT FAIL, AND ONE IS AN EXPOSURE IN THE FIX I HAD JUST WRITTEN
 
 8 rows, 8 CONFIRMED, none refuted. The shape of the round is the
