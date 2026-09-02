@@ -42,3 +42,4 @@ spikes/native/bench-android/app/src/main/assets/
 spikes/native/savedmodel/
 spikes/native/stage/
 spikes/gauntlet/__pycache__/
+spikes/release/
