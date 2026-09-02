@@ -1,0 +1,16 @@
+1091 release sweep, x86_64 emulator, HEAD 0c84079 + version bump
+the only screen-reaching change is the assignment layer (src/assign.mjs)
+
+BUNDLE 0c84079-dirty
+SEARCH {"imgTotal":27,"errors":0,"why":{"clear":14,"face":13},"onScreenPending":0,"patches":13,"inside":13,"stray":0}
+PLAYER_HOSTS 1
+REPORT {"version":1091,"life":{"birthFresh":4,"birthContended":1,"cutDetected":9,"passDropped":2,"wipeErased":1,"wholeFrameSamples":1,"wholeFrameNoFaces":0,"wholeFrameCleared":0},"blocked":4,"seen":75}
+
+EMITTED BUNDLE, R15-style -- the constant is READ, not merely emitted:
+  Vde="optimal"
+  (Vde==="optimal"?hj:$E)(i,t.length,e.length)
+
+NOTE: wholeFrameSamples 1 -- the whole-frame path fired once (a feed
+preview, non-player) with 0 blind frames and 0 reveals. The counter is
+ALIVE on a device, not merely emitted. On YouTube watch isPlayer is
+true, so a near-zero reading here is the CORRECT answer.
