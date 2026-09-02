@@ -76,6 +76,49 @@ def rotate(user_rotation):
     time.sleep(3)
 
 
+def reattach(port, video, seek):
+    """A ROTATION RESTARTS THE APP, so the CDP socket dies with it.
+
+    Measured 2026-09-02 from a portrait-LOCKED phone: the first rotate to
+    landscape killed the run with ConnectionAbortedError 10053 mid-arm.
+    The two earlier runs survived only because the phone was ALREADY
+    rotated, so the probe's rotate was a no-op -- i.e. the arms that
+    passed had not actually exercised a rotation. Re-forward the devtools
+    socket (it carries the NEW pid), reopen the tab, drive the page back
+    to the same seek, and only then measure.
+    """
+    time.sleep(6)
+    pid = None
+    for _ in range(20):
+        out = adb("cat", "/proc/net/unix") or ""
+        for tok in out.split():
+            if "webview_devtools_remote_" in tok:
+                pid = tok.rsplit("_", 1)[-1].strip()
+                break
+        if pid:
+            break
+        time.sleep(2)
+    if not pid:
+        raise RuntimeError("no webview devtools socket after rotation")
+    subprocess.call([ADB, "-s", SERIAL, "forward", "--remove-all"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.check_call([ADB, "-s", SERIAL, "forward", "tcp:%d" % port,
+                           "localabstract:webview_devtools_remote_%s" % pid],
+                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(2)
+    t = Tab(page(port=port))
+    t.cmd("Page.enable")
+    t.cmd("Runtime.enable")
+    if "m.youtube.com/watch" not in (t.eval("location.href") or ""):
+        t.cmd("Page.navigate", url="https://m.youtube.com/watch?v=%s" % video)
+        time.sleep(22)
+        t = Tab(page(port=port))
+        t.cmd("Runtime.enable")
+    t.eval("(function(){var v=document.querySelector('#movie_player video'); if(v){v.muted=true; v.currentTime=%f; v.play();} return 1;})()" % seek)
+    time.sleep(10)
+    return t
+
+
 def read(t):
     r = t.eval(GEOM_JS)
     return json.loads(r) if isinstance(r, str) else (r or {})
@@ -137,13 +180,13 @@ def main():
     # FORCE portrait for the first arm: on a phone left rotated, the arm
     # labelled PORTRAIT re-measured landscape twice on 2026-09-02.
     rotate(0)
-    time.sleep(3)
+    t = reattach(PORT, VIDEO, SEEK)
     arms["portrait"] = arm(t, "PORTRAIT")
     rotate(1)
-    time.sleep(3)
+    t = reattach(PORT, VIDEO, SEEK)
     arms["landscape"] = arm(t, "LANDSCAPE")
     rotate(0)
-    time.sleep(3)
+    t = reattach(PORT, VIDEO, SEEK)
     arms["portrait2"] = arm(t, "PORTRAIT2")
     ok = all(a["samplesWithCanvas"] > 0 and a["paintedEqualsVideoAll"] and a["patchesOutsidePlayerMax"] == 0 for a in arms.values())
     wider = (arms["landscape"]["last"].get("canvas") or [0, 0, 0])[2] > (arms["landscape"]["last"].get("video") or [0, 0, 0])[2] + 2
