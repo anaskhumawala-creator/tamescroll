@@ -158,6 +158,7 @@ class NativeInfer(private val ctx: Context) {
       initMs = ((SystemClock.elapsedRealtimeNanos() - t0) / 1e6).toInt()
       loadState = 1
       if (port != null) postReady()
+      scheduleNpuTrials()
     } catch (e: Throwable) {
       Log.w(TAG, "model load failed: " + e.message)
       loadState = 2
@@ -174,9 +175,23 @@ class NativeInfer(private val ctx: Context) {
   /** flags bit0 = NATIVE_NPU: whether loadModel may try the NNAPI arm. */
   private fun npuAllowedByFlags(): Boolean = flags and 1 == 1
 
-  // postReady's `npu` field: did any loadModel in this configuration
-  // attempt the NNAPI arm, and did any model end up on it.
-  private var npuTried = false
+  // NNAPI TRIALS RUN OFF THE INFER THREAD, AFTER READY. The 1098 smoke on
+  // the Redmi: arbitrating all three models INSIDE loadAll took 19s (NNAPI
+  // compiles MoveNet in ~10s on the Helio G85) against the page's 15s
+  // ready timeout, so the client died and that page ran on the WebGL
+  // worker for good -- drops 26.5% against 13.2% on 1097. Now loadAll
+  // ships GPU/CPU exactly as 1097 and posts ready; each trial builds and
+  // times its NNAPI interpreter on `ts-npu-trial`; only the DECISION
+  // (time the shipping candidate on zeros, compare outputs, swap on a
+  // win) runs on ts-infer, one best-of-3 of the candidate (~0.8s for
+  // MoveNet on the Redmi), under the page's 4s request timeout. The page
+  // hears the outcome as a `native-backends` update. A model that lost
+  // stays lost for the process (npuLost): its answer does not change.
+  private var trialThread: HandlerThread? = null
+  private var trialHandler: Handler? = null
+  private var configGen = 0
+  private var trialsPending = 0
+  private val npuLost = HashSet<Int>()
 
   /** A model's interpreter plus the buffers `run` needs, tensors allocated. */
   private fun buildModel(id: Int, interp: Interpreter, delegate: Delegate?, backend: String): LoadedModel {
@@ -235,45 +250,6 @@ class NativeInfer(private val ctx: Context) {
     var delegate: GpuDelegate? = null
     var interp: Interpreter? = null
     var backend = "cpu"
-    // NNAPI arm (performance batch 2026-09-03). Android's own Neural
-    // Networks API hands the graph to whatever accelerator driver the
-    // phone ships -- Qualcomm's Hexagon on the SM4450, MediaTek's APU
-    // where there is one -- through code that is Apache-2.0 and already
-    // in the TFLite we vendor. Qualcomm's OWN LiteRT delegate is NOT
-    // used: its "AI Model Hub License" 2.c forbids biometric systems and
-    // categorization of persons by sensitive characteristics, which is
-    // this engine (see NOTICE). NNAPI never puts us under that licence:
-    // the driver is the phone's, not something we distribute.
-    //
-    // NNAPI cannot be trusted on its say-so. With useNnapiCpu(false) a
-    // device with no accelerator gets a delegate that takes NO nodes and
-    // the graph silently runs on CPU kernels -- initialising is not
-    // proof of an NPU. So the arm is an ARBITER: NNAPI has to beat the
-    // GPU/CPU candidate on the clock by 10% AND agree with it on the
-    // outputs, or it is closed and the candidate ships. `npu: ok` in the
-    // ready message therefore means "measured faster", never "present".
-    // NNAPI is deprecated since Android 15 (still there, no new
-    // features); on a phone whose vendor dropped the driver the arm
-    // loses the race and costs one extra load.
-    var nn: LoadedModel? = null
-    var nnMs = Double.MAX_VALUE
-    if (!forceCpuFor(id) && npuAllowedByFlags() && Build.VERSION.SDK_INT >= 27) {
-      npuTried = true
-      var nd: NnApiDelegate? = null
-      try {
-        val nopts = NnApiDelegate.Options()
-          .setUseNnapiCpu(false)
-          .setAllowFp16(id in MODEL_FP16)
-          .setExecutionPreference(NnApiDelegate.Options.EXECUTION_PREFERENCE_SUSTAINED_SPEED)
-        nd = NnApiDelegate(nopts)
-        nn = buildModel(id, Interpreter(bytes, Interpreter.Options().addDelegate(nd)), nd, "npu")
-        nnMs = bestRunMs(nn, 3)
-      } catch (e: Throwable) {
-        Log.w(TAG, "NNAPI failed for $assetBase: " + e.message)
-        if (nn != null) closeModel(nn) else try { nd?.close() } catch (_: Throwable) {}
-        nn = null
-      }
-    }
     if (!forceCpuFor(id)) {
       val cl = CompatibilityList()
       if (cl.isDelegateSupportedOnThisDevice) {
@@ -300,17 +276,102 @@ class NativeInfer(private val ctx: Context) {
       backend = "cpu"
     }
     val candidate = buildModel(id, interp, delegate, backend)
-    if (nn == null) {
-      // One warm run: the delegate's first invocation carries allocation
-      // and clock ramp that must not land on the first real frame.
-      run(candidate)
-      return candidate
+    // One warm run: the delegate's first invocation carries allocation
+    // and clock ramp that must not land on the first real frame.
+    run(candidate)
+    return candidate
+  }
+
+  /** Which models an NNAPI trial may still be worth running for. */
+  private fun npuTrialIds(): List<Int> =
+    if (!npuAllowedByFlags() || Build.VERSION.SDK_INT < 27) emptyList()
+    else MODEL_ASSET.keys.filter { !forceCpuFor(it) && it !in npuLost && models[it]?.backend != "npu" }
+
+  private fun scheduleNpuTrials() {
+    val ids = npuTrialIds()
+    if (ids.isEmpty()) return
+    if (trialHandler == null) {
+      val t = HandlerThread("ts-npu-trial", Process.THREAD_PRIORITY_BACKGROUND).also { it.start() }
+      trialThread = t
+      trialHandler = Handler(t.looper)
     }
-    val candMs = bestRunMs(candidate, 3)
-    val agree = outputsAgree(nn, candidate)
-    val win = agree && nnMs < candMs * 0.9
-    Log.i(TAG, "NNAPI arbiter $assetBase: nnapi=${"%.1f".format(nnMs)}ms $backend=${"%.1f".format(candMs)}ms agree=$agree -> " + (if (win) "npu" else backend))
-    return if (win) { closeModel(candidate); nn } else { closeModel(nn); candidate }
+    val gen = configGen
+    trialsPending += ids.size
+    for (id in ids) trialHandler!!.post { npuTrial(id, MODEL_ASSET[id]!!, gen) }
+  }
+
+  // NNAPI arm (performance batch 2026-09-03). Android's own Neural
+  // Networks API hands the graph to whatever accelerator driver the
+  // phone ships -- Qualcomm's Hexagon on the SM4450, MediaTek's APU
+  // where there is one -- through code that is Apache-2.0 and already
+  // in the TFLite we vendor. Qualcomm's OWN LiteRT delegate is NOT
+  // used: its "AI Model Hub License" 2.c forbids biometric systems and
+  // categorization of persons by sensitive characteristics, which is
+  // this engine (see NOTICE). NNAPI never puts us under that licence:
+  // the driver is the phone's, not something we distribute.
+  //
+  // NNAPI cannot be trusted on its say-so. With useNnapiCpu(false) a
+  // device with no accelerator gets a delegate that takes NO nodes and
+  // the graph silently runs on CPU kernels -- initialising is not
+  // proof of an NPU. So the arm is an ARBITER: NNAPI has to beat the
+  // GPU/CPU candidate on the clock by 10% AND agree with it on the
+  // outputs, or it is closed and the candidate stays. `npu: ok` in the
+  // report therefore means "measured faster", never "present". NNAPI is
+  // deprecated since Android 15 (still there, no new features); on a
+  // phone whose vendor dropped the driver the arm loses the race.
+  private fun npuTrial(id: Int, assetBase: String, gen: Int) {
+    var nn: LoadedModel? = null
+    var nnMs = Double.MAX_VALUE
+    var nd: NnApiDelegate? = null
+    try {
+      val bytes = loadAssetModel("$assetBase.tflite")
+      val nopts = NnApiDelegate.Options()
+        .setUseNnapiCpu(false)
+        .setAllowFp16(id in MODEL_FP16)
+        .setExecutionPreference(NnApiDelegate.Options.EXECUTION_PREFERENCE_SUSTAINED_SPEED)
+      nd = NnApiDelegate(nopts)
+      nn = buildModel(id, Interpreter(bytes, Interpreter.Options().addDelegate(nd)), nd, "npu")
+      nnMs = bestRunMs(nn, 3)
+    } catch (e: Throwable) {
+      Log.w(TAG, "NNAPI failed for $assetBase: " + e.message)
+      if (nn != null) closeModel(nn) else try { nd?.close() } catch (_: Throwable) {}
+      nn = null
+    }
+    val trial = nn
+    handler.post { decideNpu(id, assetBase, trial, nnMs, gen) }
+  }
+
+  /** On ts-infer: the arbiter's decision for one model. */
+  private fun decideNpu(id: Int, assetBase: String, nn: LoadedModel?, nnMs: Double, gen: Int) {
+    if (gen == configGen) trialsPending--
+    val candidate = models[id]
+    if (closed || gen != configGen || candidate == null || forceCpuFor(id) || !npuAllowedByFlags()) {
+      if (nn != null) closeModel(nn)
+    } else if (nn == null) {
+      npuLost.add(id)
+    } else {
+      // The candidate's input buffer holds the last real frame; the trial
+      // ran on zeros. Compare on the same input -- the next frame refills
+      // the buffer before it is read again.
+      val ib = candidate.inputBuffer
+      ib.clear()
+      while (ib.hasRemaining()) ib.put(0)
+      val candMs = bestRunMs(candidate, 3)
+      val agree = outputsAgree(nn, candidate)
+      val win = agree && nnMs < candMs * 0.9
+      Log.i(TAG, "NNAPI arbiter $assetBase: nnapi=${"%.1f".format(nnMs)}ms ${candidate.backend}=${"%.1f".format(candMs)}ms agree=$agree -> " + (if (win) "npu" else candidate.backend))
+      if (win) {
+        models[id] = nn
+        closeModel(candidate)
+      } else {
+        closeModel(nn)
+        npuLost.add(id)
+      }
+    }
+    if (gen == configGen && trialsPending <= 0) {
+      trialsPending = 0
+      postBackends()
+    }
   }
 
   private fun loadAssetModel(name: String): ByteBuffer {
@@ -391,19 +452,22 @@ class NativeInfer(private val ctx: Context) {
    * rebuild cannot take the whole engine down. */
   private fun handleConfig(reqId: Int, newCpuMask: Int, newFlags: Int) {
     val t0 = SystemClock.elapsedRealtimeNanos()
+    val oldMask = cpuMask
     cpuMask = newCpuMask
     flags = newFlags
-    npuTried = false
+    // Trials in flight were priced against the old configuration.
+    configGen++
+    trialsPending = 0
     var failed = false
     for ((id, asset) in MODEL_ASSET) {
+      val old = models[id] ?: continue
+      val maskChanged = ((oldMask xor newCpuMask) shr (id - 1)) and 1 == 1
+      val leaveNpu = old.backend == "npu" && (!npuAllowedByFlags() || forceCpuFor(id))
+      if (!maskChanged && !leaveNpu) continue
       try {
-        val old = models[id]
         val fresh = loadModel(id, asset)
         models[id] = fresh
-        if (old != null) {
-          try { old.interpreter.close() } catch (_: Throwable) {}
-          try { old.delegate?.close() } catch (_: Throwable) {}
-        }
+        closeModel(old)
       } catch (e: Throwable) {
         Log.w(TAG, "CONFIG rebuild failed for model=$id: " + e.message)
         failed = true
@@ -411,6 +475,7 @@ class NativeInfer(private val ctx: Context) {
     }
     if (failed) { replyError(reqId); return }
     reply(reqId, 0, emptyArray(), ((SystemClock.elapsedRealtimeNanos() - t0) / 1000L).toInt())
+    scheduleNpuTrials()
   }
 
   /** RGBA -> the model's input tensor, alpha dropped. The ranges are the
@@ -474,37 +539,55 @@ class NativeInfer(private val ctx: Context) {
     }
   }
 
+  private fun backendsJson(): JSONObject {
+    val j = JSONObject()
+    for (id in MODEL_REPORT_NAME.keys) j.put(id.toString(), models[id]?.backend ?: "cpu")
+    return j
+  }
+
+  // ok = at least one model measured faster on NNAPI (decideNpu's
+  // arbiter); pending = trials still running; failed = every eligible
+  // model tried and lost; absent = nothing to try (API < 27 or every
+  // model forced to CPU); disabled = the page said no.
+  private fun npuState(): String = when {
+    !npuAllowedByFlags() -> "disabled"
+    models.values.any { it.backend == "npu" } -> "ok"
+    trialsPending > 0 -> "pending"
+    npuLost.isNotEmpty() && npuTrialIds().isEmpty() -> "failed"
+    else -> "absent"
+  }
+
+  // Worst of the three, per the plan: 'cpu' if any model landed on
+  // CPU, else 'gpu' (an 'npu' backend counts as gpu-or-better here).
+  private fun worstBackend(): String = if (models.values.any { it.backend == "cpu" }) "cpu" else "gpu"
+
   private fun postReady() {
     val p = port ?: return
     val modelsJson = JSONArray()
-    val backendsJson = JSONObject()
     for ((id, name) in MODEL_REPORT_NAME) {
       val outs = JSONArray()
       models[id]?.outputNames?.forEach { outs.put(it) }
       modelsJson.put(JSONObject().put("id", id).put("name", name).put("outputs", outs))
-      backendsJson.put(id.toString(), models[id]?.backend ?: "cpu")
-    }
-    // Worst of the three, per the plan: 'cpu' if any model landed on
-    // CPU, else 'gpu' (an 'npu' backend counts as gpu-or-better here).
-    val anyCpu = models.values.any { it.backend == "cpu" }
-    val anyNpu = models.values.any { it.backend == "npu" }
-    // ok = at least one model measured faster on NNAPI (loadModel's
-    // arbiter); failed = the arm ran and won nothing; absent = never
-    // attempted (API < 27 or every model forced to CPU).
-    val npuState = when {
-      !npuAllowedByFlags() -> "disabled"
-      anyNpu -> "ok"
-      npuTried -> "failed"
-      else -> "absent"
     }
     val msg = JSONObject()
       .put("type", "native-ready")
-      .put("backend", if (anyCpu) "cpu" else "gpu")
-      .put("backends", backendsJson)
-      .put("npu", npuState)
+      .put("backend", worstBackend())
+      .put("backends", backendsJson())
+      .put("npu", npuState())
       .put("models", modelsJson)
       .put("initMs", initMs)
     try { p.postMessage(WebMessageCompat(msg.toString())) } catch (e: Throwable) { Log.w(TAG, "ready post failed: " + e.message) }
+  }
+
+  /** After the NPU trials settle: the report fields only. */
+  private fun postBackends() {
+    val p = port ?: return
+    val msg = JSONObject()
+      .put("type", "native-backends")
+      .put("backend", worstBackend())
+      .put("backends", backendsJson())
+      .put("npu", npuState())
+    try { p.postMessage(WebMessageCompat(msg.toString())) } catch (e: Throwable) { Log.w(TAG, "backends post failed: " + e.message) }
   }
 
   private fun postFailed(why: String) {
@@ -526,6 +609,7 @@ class NativeInfer(private val ctx: Context) {
       try { port?.close() } catch (_: Throwable) {}
       port = null
       thread.quitSafely()
+      trialThread?.quitSafely()
     }
   }
 }

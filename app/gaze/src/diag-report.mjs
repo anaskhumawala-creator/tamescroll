@@ -98,7 +98,7 @@ var ENUMS = {
   otaLast: ['ok', 'fail', 'never'],
   codec: ['av01', 'vp09', 'avc1', 'other', 'none'],
   nativeBackend: ['npu', 'gpu', 'cpu', 'none'],
-  npu: ['ok', 'failed', 'absent', 'disabled', 'none'],
+  npu: ['ok', 'failed', 'pending', 'absent', 'disabled', 'none'],
 };
 
 /** The version string of a WebView or an OS is free-form vendor text,

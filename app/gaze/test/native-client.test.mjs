@@ -334,3 +334,27 @@ test('cropFaces keeps the bitmap alive under a cid; cropGender reads it back and
   client.releaseCrop(cid);
   assert.equal(bmp.closed, true, 'releaseCrop closes the kept bitmap');
 });
+
+// 1098 smoke: the NPU trials run AFTER ready (arbitrating inside the load
+// took 19s on the Redmi against the 15s ready timeout and killed the
+// client). Their outcome is a `native-backends` update that rewrites the
+// snapshot's report fields and touches nothing else -- not the ready
+// promise, not the timer, not the failure counter.
+test('a native-backends update rewrites the snapshot fields only', async () => {
+  const port = makeFakePort();
+  const client = createNativeClient(port);
+  port.emit(JSON.stringify({ type: 'native-ready', backend: 'gpu', models: [], backends: { 1: 'gpu', 2: 'gpu', 3: 'gpu' }, npu: 'pending' }));
+  await client.ready;
+  assert.equal(client.snapshot().npu, 'pending');
+  port.emit(JSON.stringify({ type: 'native-backends', backend: 'gpu', backends: { 1: 'gpu', 2: 'gpu', 3: 'npu' }, npu: 'ok' }));
+  const snap = client.snapshot();
+  assert.equal(snap.npu, 'ok');
+  assert.equal(snap.backends[3], 'npu');
+  assert.equal(snap.dead, false);
+  assert.equal(client.dead(), false);
+  // Before ready it must not resolve ready either.
+  const port2 = makeFakePort();
+  const client2 = createNativeClient(port2, { readyTimeoutMs: 50 });
+  port2.emit(JSON.stringify({ type: 'native-backends', backend: 'gpu', backends: {}, npu: 'failed' }));
+  await assert.rejects(client2.ready, /no native-ready/);
+});

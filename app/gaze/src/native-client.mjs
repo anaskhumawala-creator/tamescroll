@@ -248,6 +248,14 @@ export function createNativeClient(port, opts) {
     if (typeof data === 'string') {
       var msg = parseReady(data);
       if (!msg) return; // not our protocol -- ignore rather than throw
+      if (msg.update) {
+        // Post-ready NPU trial outcome: report fields only, never the
+        // ready promise or the timer.
+        if (msg.backend) state.backend = msg.backend;
+        if (msg.backends) state.backends = msg.backends;
+        if (typeof msg.npu === 'string') state.npu = msg.npu;
+        return;
+      }
       clearTimeout(readyTimer);
       if (msg.ok) {
         state.backend = msg.backend;

@@ -105,5 +105,17 @@ export function parseReady(str) {
   if (msg.type === 'native-failed') {
     return { ok: false, why: msg.why || 'unknown' };
   }
+  // The NPU trials run AFTER ready (1098: arbitrating inside the load
+  // took 19s on the Redmi against a 15s ready timeout); their outcome
+  // arrives as this update and only ever rewrites the report fields.
+  if (msg.type === 'native-backends') {
+    return {
+      ok: true,
+      update: true,
+      backend: msg.backend || null,
+      backends: msg.backends && typeof msg.backends === 'object' ? msg.backends : null,
+      npu: typeof msg.npu === 'string' ? msg.npu : null,
+    };
+  }
   return null;
 }
