@@ -9,6 +9,8 @@ import {
   makeTimeline,
   LATE_HOLD_MS,
   LOOKAHEAD_MS,
+  BACK_JUMP_S,
+  resetTimeline,
   pushSnapshot,
   pushCut,
   boxesAt,
@@ -291,4 +293,58 @@ test('a pending clear confirmed after intervening position passes is presented c
   assert.equal(boxesAt(far, 10.1)[0].state, 'blurred', 'the walk from B outran LOOKAHEAD_MS');
   // ...while a frame bracketed by the LAST pending snapshot is one step from the clear.
   assert.equal(boxesAt(far, t - stepS / 2)[0].state, 'cleared');
+});
+
+// A SEEK BACK IS A DISCONTINUITY, NOT AN EARLIER SNAPSHOT (1097).
+//
+// Owner, 2026-09-02 night: after seeking back on the timeline one patch
+// froze at one position and never moved again. The timeline was keyed
+// by media time and pruned against the NEWEST media time it held, so
+// after a seek back of more than keepMs every snapshot pushed at the
+// new position was shifted out the moment it arrived, and boxesAt kept
+// answering rule 2 ("no A, B as-is") with the one old snapshot from the
+// future -- one solid patch, frozen, until playback caught up with it.
+// A seek back shorter than keepMs interleaved two watches with
+// different track ids instead. Either way the old snapshots describe a
+// tracker that was wiped at the seek.
+test('a snapshot pushed at an earlier media time than the newest resets the timeline (seek back)', () => {
+  const box = { x1: 0.3, y1: 0.3, x2: 0.5, y2: 0.7 };
+  const tl = makeTimeline(3500);
+  pushSnapshot(tl, 80.0, [{ id: 1, box: box, state: 'blurred' }]);
+  pushSnapshot(tl, 80.6, [{ id: 1, box: box, state: 'blurred' }]);
+  pushCut(tl, 80.3);
+  const newBox = { x1: 0.6, y1: 0.2, x2: 0.8, y2: 0.6 };
+  pushSnapshot(tl, 55.4, [{ id: 9, box: newBox, state: 'blurred' }]);
+  assert.equal(tl.snapshots.length, 1, 'the old watch is gone');
+  assert.equal(tl.cuts.length, 0, 'and its cuts');
+  const at = boxesAt(tl, 55.6);
+  assert.equal(at.length, 1);
+  assert.equal(at[0].id, 9, 'the presented patch is the NEW track, not the frozen old one');
+  assert.equal(boxesAt(tl, 80.3), null, 'the old future is unreachable');
+  // A seek back shorter than keepMs is the same discontinuity.
+  const tl2 = makeTimeline(3500);
+  pushSnapshot(tl2, 60.0, [{ id: 1, box: box, state: 'blurred' }]);
+  pushSnapshot(tl2, 61.0, [{ id: 1, box: box, state: 'blurred' }]);
+  pushSnapshot(tl2, 59.0, [{ id: 7, box: newBox, state: 'blurred' }]);
+  assert.equal(tl2.snapshots.length, 1);
+  assert.equal(boxesAt(tl2, 59.5)[0].id, 7);
+  // Ordinary jitter is not a seek: a snapshot a few ms behind the newest
+  // (a position pass keyed at a ring frame the verdict already passed)
+  // is inserted in order and prunes nothing.
+  const tl3 = makeTimeline(3500);
+  pushSnapshot(tl3, 60.0, [{ id: 1, box: box, state: 'blurred' }]);
+  pushSnapshot(tl3, 60.0 - BACK_JUMP_S / 2, [{ id: 1, box: box, state: 'blurred' }]);
+  assert.equal(tl3.snapshots.length, 2);
+  assert.equal(tl3.snapshots[0].mediaTime, 60.0 - BACK_JUMP_S / 2);
+});
+
+test('resetTimeline empties snapshots and cuts and keeps the window', () => {
+  const tl = makeTimeline(3500);
+  pushSnapshot(tl, 10.0, [{ id: 1, box: { x1: 0.1, y1: 0.1, x2: 0.2, y2: 0.2 }, state: 'blurred' }]);
+  pushCut(tl, 10.5);
+  resetTimeline(tl);
+  assert.deepEqual(tl.snapshots, []);
+  assert.deepEqual(tl.cuts, []);
+  assert.equal(tl.keepMs, 3500);
+  assert.equal(boxesAt(tl, 10.2), null);
 });

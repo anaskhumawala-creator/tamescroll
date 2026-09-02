@@ -114,7 +114,7 @@ import { makeVerdictCache, verdictKey } from './verdict-cache.mjs';
 import { applyTuningFromWindow, TUNED, TUNE_REFUSED, TUNE_CLAMPED } from './tuning.mjs';
 import * as delayCore from './delay-core.mjs';
 import { attachDelay } from './delay-presenter.mjs';
-import { makeTimeline, pushSnapshot, pushCut, boxesAt, latestSnapshot } from './track-timeline.mjs';
+import { makeTimeline, resetTimeline, pushSnapshot, pushCut, boxesAt, latestSnapshot } from './track-timeline.mjs';
 
 // ONE ARTIFACT, TWO ROLES.
 //
@@ -4915,6 +4915,12 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
     video.addEventListener('seeked', function () {
       if (failed || dead) return;
       videoTracks = [];
+      // The delay line's verdict history goes with the tracker: its
+      // snapshots describe tracks that no longer exist, at media times
+      // playback is no longer next to (a seek back left one old
+      // snapshot presenting a frozen patch for the whole way back --
+      // owner report 2026-09-02, track-timeline.BACK_JUMP_S).
+      resetTimeline(timeline);
       heldPersons = [];
       prevLuma = null;
       sceneState = 'motion';

@@ -46,6 +46,38 @@ export function makeTimeline(keepMs) {
 }
 
 /**
+ * Forget every snapshot and cut, keep the window. Called at a seek: the
+ * tracker is wiped there (init-entry `seeked`), so every snapshot held
+ * describes tracks that no longer exist, at media times playback is no
+ * longer adjacent to.
+ * @param {ReturnType<typeof makeTimeline>} tl
+ */
+export function resetTimeline(tl) {
+  tl.snapshots = [];
+  tl.cuts = [];
+}
+
+// A snapshot keyed this far BEHIND the newest one is a discontinuity
+// (a seek back), not an earlier verdict. Snapshots are keyed at the
+// ring's newest frame when the pass starts, so during playback they
+// are monotone to within one frame; a position pass a few ms behind a
+// verdict it overlapped is ordinary and is inserted in order.
+//
+// Why this is here and not only on the `seeked` listener: the owner
+// found it (2026-09-02, "one blur patch at the same position, not
+// changing at all" after seeking back). The prune below measured keepMs
+// against the NEWEST media time held, so after a seek back of more
+// than keepMs every snapshot pushed at the new position was shifted
+// out as it arrived, and boxesAt answered rule 2 with the one old
+// snapshot from the future -- one solid patch, frozen, until playback
+// reached it. A seek back inside keepMs interleaved two watches with
+// different track ids instead. The listener is the primary reset; this
+// is the guarantee that a media clock jumping back without one (a
+// stream re-init, a discontinuity the element does not announce) can
+// never leave the timeline holding a future.
+export var BACK_JUMP_S = 0.5;
+
+/**
  * Record a verdict (or position-only) snapshot at mediaTime. Snapshots
  * older than keepMs behind the newest snapshot are dropped -- keepMs
  * is measured against media time, in the same seconds/ms domain as
@@ -87,6 +119,9 @@ export function pushSnapshot(tl, mediaTime, tracks) {
     };
   });
   var snap = { mediaTime: mediaTime, tracks: copy };
+  if (tl.snapshots.length && mediaTime < tl.snapshots[tl.snapshots.length - 1].mediaTime - BACK_JUMP_S) {
+    resetTimeline(tl);
+  }
   tl.snapshots.push(snap);
   tl.snapshots.sort(function (a, b) {
     return a.mediaTime - b.mediaTime;

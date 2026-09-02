@@ -24,7 +24,7 @@ function between(startMarker, endMarker) {
 test('init-entry imports the three Stage B modules', () => {
   assert.match(SRC, /import \* as delayCore from '\.\/delay-core\.mjs';/);
   assert.match(SRC, /import \{ attachDelay \} from '\.\/delay-presenter\.mjs';/);
-  assert.match(SRC, /import \{ makeTimeline, pushSnapshot, pushCut, boxesAt, latestSnapshot \} from '\.\/track-timeline\.mjs';/);
+  assert.match(SRC, /import \{ makeTimeline, resetTimeline, pushSnapshot, pushCut, boxesAt, latestSnapshot \} from '\.\/track-timeline\.mjs';/);
 });
 
 test('the presenter attaches only for a region-mode WATCH player with DELAY_MS > 0', () => {
@@ -88,6 +88,14 @@ test('a verdict pass reads the newest ring frame and the tracker result is snaps
 test('a scene cut reaches the timeline', () => {
   assert.match(SRC, /bumpLife\('cutDetected'\);\s*if \(presenter\) pushCut\(timeline, cutMediaTime\(\)\);/);
   assert.match(SRC, /function cutMediaTime\(\) \{[\s\S]{0,400}?presenter\.newestMediaTime\(\)[\s\S]{0,200}?Math\.min\(video\.currentTime, /);
+});
+
+// 1097: a seek wipes the tracker (videoTracks = []) and must wipe the
+// timeline with it -- the old snapshots describe a tracker that no
+// longer exists, at media times playback is no longer next to.
+test('the seeked handler resets the timeline beside the tracker wipe', () => {
+  assert.match(SRC, /addEventListener\('seeked', function \(\) \{[\s\S]{0,300}?videoTracks = \[\];[\s\S]{0,400}?resetTimeline\(timeline\);/);
+  assert.match(SRC, /import \{ makeTimeline, resetTimeline, pushSnapshot, pushCut, boxesAt, latestSnapshot \} from '\.\/track-timeline\.mjs';/);
 });
 
 test('start attaches (pill on), pill off and giveUp detach, loadstart restarts the timeline covered', () => {
