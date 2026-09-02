@@ -28,7 +28,18 @@ function buildStamp() {
       .trim();
     // A dirty tree is the normal state mid-round, and it is exactly when
     // the marker matters most — say so rather than implying the commit.
-    const dirty = execSync('git status --porcelain -- . ../src-tauri/gaze-page.js', {
+    //
+    // THE BUNDLE ITSELF IS EXCLUDED, and without that the marker could
+    // never read clean AT ALL. `gaze-page.js` is this script's own
+    // output, so it is dirty at the moment the marker is computed on
+    // every build from every tree — which made `-dirty` unconditional
+    // and the suffix meaningless. Phase-f F8 asked for a marker that
+    // names a real commit and the first attempt at it could not
+    // succeed: commit, rebuild, and the rebuild dirties the one file it
+    // was watching. Excluding the output is what makes the remaining
+    // suffix mean "a SOURCE file has moved since this commit", which is
+    // the thing a reader of the marker actually needs to know.
+    const dirty = execSync('git status --porcelain -- . ":(exclude)../src-tauri/gaze-page.js"', {
       cwd: path.join(__dirname, '..'),
       stdio: ['ignore', 'pipe', 'ignore'],
     })
