@@ -69,3 +69,18 @@ test('NATIVE_INFER is on the OTA channel, ships 1, clamps to [0, 1]', () => {
   setNativeInfer(1);
   assert.equal(NATIVE_INFER, 1);
 });
+
+test('the parity hook is flag-gated and nothing in the app sets the flag', () => {
+  assert.match(SRC, /if \(!window\.__TS_NATIVE_PARITY\) return;\s*window\.__TS_GAZE_ENGINES = \{/);
+  assert.doesNotMatch(SRC, /__TS_NATIVE_PARITY\s*=[^=]/);
+  const files = ['init-entry.js', 'native-client.mjs', 'worker-client.mjs', 'worker-entry.js'];
+  for (const f of files) {
+    let src = '';
+    try {
+      src = readFileSync(new URL('../src/' + f, import.meta.url), 'utf8');
+    } catch (e) {
+      continue;
+    }
+    assert.doesNotMatch(src, /__TS_NATIVE_PARITY\s*=[^=]/, f + ' sets the parity flag');
+  }
+});

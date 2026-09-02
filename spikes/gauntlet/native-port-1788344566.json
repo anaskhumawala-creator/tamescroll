@@ -1,0 +1,77 @@
+{
+ "port": 9227,
+ "video": "NWoT1ZVd1Lo",
+ "seek": 217.0,
+ "secs": 60.0,
+ "early": {
+  "seen": 0,
+  "stashed": false,
+  "native": null,
+  "life": {
+   "passDropped": 2,
+   "personPassSkipped": 1
+  },
+  "workerBackend": "webgl",
+  "workerDead": false,
+  "stagesRing": 4,
+  "verdictsInRing": 2,
+  "bundle": "06edff8-dirty",
+  "mode": "smart",
+  "video": {
+   "t": 13.882317,
+   "paused": false,
+   "w": 1280,
+   "h": 720
+  }
+ },
+ "t0": {
+  "seen": 0,
+  "stashed": false,
+  "native": null,
+  "life": {
+   "passDropped": 4,
+   "personPassSkipped": 6
+  },
+  "workerBackend": "webgl",
+  "workerDead": false,
+  "stagesRing": 9,
+  "verdictsInRing": 5,
+  "bundle": "06edff8-dirty",
+  "mode": "smart",
+  "video": {
+   "t": 226.104319,
+   "paused": false,
+   "w": 1280,
+   "h": 720
+  }
+ },
+ "t1": {
+  "seen": 0,
+  "stashed": false,
+  "native": null,
+  "life": {
+   "passDropped": 7,
+   "personPassSkipped": 31
+  },
+  "workerBackend": "webgl",
+  "workerDead": false,
+  "stagesRing": 43,
+  "verdictsInRing": 36,
+  "bundle": "06edff8-dirty",
+  "mode": "smart",
+  "video": {
+   "t": 286.170714,
+   "paused": false,
+   "w": 1280,
+   "h": 720
+  }
+ },
+ "delta": {
+  "nativePasses": 0,
+  "nativeDead": 0,
+  "nativeFailed": 0,
+  "passDropped": 3,
+  "personPassSkipped": 25
+ },
+ "verdict": "NO MESSAGE (stash never saw ts-native-port)"
+}

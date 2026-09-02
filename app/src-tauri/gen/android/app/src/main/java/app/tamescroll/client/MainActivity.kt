@@ -839,12 +839,17 @@ class MainActivity : TauriActivity() {
   private fun bindNativeInfer(view: WebView, url: String) {
     try {
       val host = try { Uri.parse(url).host } catch (e: Exception) { null }
+      // One line per hard navigation: which host started, and whether
+      // the engine was offered. A watch page that shows no `bound` line
+      // after this one is a feature-check refusal, not a missing start.
+      Log.i("TsNative", "page start host=" + host + " youtube=" + isYoutubeHost(host))
       if (!isYoutubeHost(host)) return
       if (!WebViewFeature.isFeatureSupported(WebViewFeature.CREATE_WEB_MESSAGE_CHANNEL) ||
         !WebViewFeature.isFeatureSupported(WebViewFeature.POST_WEB_MESSAGE) ||
         !WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_CALLBACK_ON_MESSAGE) ||
         !WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_ARRAY_BUFFER)
       ) {
+        Log.w("TsNative", "WebView lacks a WebMessage feature; native inference off")
         return
       }
       val engine = nativeInfer ?: NativeInfer(this).also { nativeInfer = it }

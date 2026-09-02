@@ -626,6 +626,24 @@ if (
     try {
       window.addEventListener('ts-native-port', adoptNativePort);
     } catch (e) {}
+    exposeEnginesForParity();
+  }
+  // Task 3 (device parity): a probe needs BOTH engines on the same frame.
+  // Flag-gated like __TS_GATE_AUDIT -- nothing in the app sets
+  // __TS_NATIVE_PARITY, a test pins that, and without it no engine handle
+  // is reachable from the page world.
+  function exposeEnginesForParity() {
+    try {
+      if (!window.__TS_NATIVE_PARITY) return;
+      window.__TS_GAZE_ENGINES = {
+        native: function () {
+          return nativeClient;
+        },
+        worker: function () {
+          return gazeWorker;
+        },
+      };
+    } catch (e) {}
   }
   function workerVideo() {
     if (nativeVideo()) return true;

@@ -84,6 +84,9 @@ class NativeInfer(private val ctx: Context) {
 
   /** Hand this page's end of the channel to the engine. Called on the
    * UI thread from onPageStarted; the previous page's port is closed. */
+  private var bindGen = 0
+  private var warnedType = false
+
   fun bind(newPort: WebMessagePortCompat) {
     handler.post {
       if (closed) { try { newPort.close() } catch (_: Throwable) {}; return@post }
@@ -91,11 +94,20 @@ class NativeInfer(private val ctx: Context) {
       port = newPort
       deadForThisPage = false
       for (m in models.values) m.consecutiveErrors = 0
+      // A message from a port this bind has since replaced must not be
+      // answered on the new one. The port handed to onMessage is NOT the
+      // object bind() was given -- androidx wraps the framework port in a
+      // fresh WebMessagePortCompat per message -- so identity on it is
+      // always false (measured 2026-09-02: every frame dropped, no log,
+      // the page timed out into `native dead`). A generation counter is
+      // the comparison that works.
+      val gen = ++bindGen
       newPort.setWebMessageCallback(handler, object : WebMessagePortCompat.WebMessageCallbackCompat() {
         override fun onMessage(p: WebMessagePortCompat, message: WebMessageCompat?) {
-          if (p === port) handleMessage(message)
+          if (gen == bindGen) handleMessage(message)
         }
       })
+      Log.i(TAG, "bound gen=$gen loadState=$loadState")
       when (loadState) {
         1 -> postReady()
         2 -> postFailed(loadWhy)
@@ -181,7 +193,13 @@ class NativeInfer(private val ctx: Context) {
   }
 
   private fun handleMessage(message: WebMessageCompat?) {
-    if (closed || message == null || message.type != WebMessageCompat.TYPE_ARRAY_BUFFER) return
+    if (closed || message == null) return
+    if (message.type != WebMessageCompat.TYPE_ARRAY_BUFFER) {
+      // The page only ever posts ArrayBuffers on this port; anything else
+      // is a protocol drift worth one line, not a silent drop.
+      if (!warnedType) { warnedType = true; Log.w(TAG, "unexpected message type " + message.type) }
+      return
+    }
     val buf = message.arrayBuffer ?: return
     handleFrame(buf)
   }
