@@ -70,9 +70,115 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-09-02 06:40 (**1090 PUBLISHED, sha 9d1483a2**
--- local APK and raw manifest agree, isDraft false. 1089 went out 30
-minutes earlier. HEAD pushed, tree clean.)
+**Last updated:** 2026-09-02 07:55 (**1091 PUBLISHED, sha 3fef6384**
+-- local APK, raw manifest AND the downloaded asset all agree, isDraft
+false. HEAD bfa1508, pushed, tree clean. 1090 went out 75 minutes
+earlier; **the manifest points at 1091, so he installs ONE build and
+gets everything.**)
+
+**Session 2026-09-02 (loop 44) -- THE ASSIGNMENT WAS THE LARGEST CLASS
+OF BIRTH ALL ALONG, AND THE FINDING THAT SAID OTHERWISE WAS THE CADENCE
+DEFECT IN A FOURTH FILE.**
+
+- **1091: `updatePersonTracks` MATCHES OPTIMALLY, NOT GREEDILY**
+  (`app/gaze/src/assign.mjs`, Hungarian). Greedy took the single largest
+  IoU on the list, which strands a track that only overlapped the pair
+  it lost -- and a stranded track's subject is **re-minted BLURRED**, so
+  the phantom he complains about most. His regime, both arms:
+
+  | arm | man exp / fc / phantom | woman exp / fc / phantom |
+  |---|---|---|
+  | greedy | 23.0 / 139.0 / 561.0 | 24.5 / 200.5 / 663.0 |
+  | **optimal SHIPPED** | **22.5 / 136.5 / 547.5** | **25.5 / 201.5 / 628.0** |
+
+  Man -- **his setting** -- is better on all three. Woman pays 1.0s of
+  exposure across 18 windows for 35.0s of phantom. Contended births
+  65 -> 60 and 75 -> 62. **8 microseconds per pass** against a verdict
+  that costs 730-1250ms on his phone.
+- **THE OBJECTIVE IS CARDINALITY FIRST, THEN OVERLAP**, and getting that
+  wrong makes the number WORSE: a pure max-weight matching takes one
+  0.90 edge over two 0.20 edges and RAISES the birth count. Bought by
+  weighting each eligible edge `1e3 + iou`. A test pins that case.
+  **NOT on the OTA channel** -- an algorithm is not a number.
+- **E5 REVERSED, AND `births.mjs` WAS THE FOURTH FILE IN THE D2 CLASS.**
+  It built options by hand and told the tracker the 500ms BANK interval,
+  deriving a 1000ms coast. **That defect lands hardest exactly here**: a
+  short coast expires a track between verdicts, and an expired track is
+  a BIRTH -- so the one file whose subject is *why tracks are born* was
+  the file it distorted most. Published: 310 births, fresh 74.2%,
+  contended 10.3%. Corrected: **147 births, fresh 26.5% (the SMALLEST
+  class), contended 44.2% man / 51.0% woman (the LARGEST)**. Decomposed
+  (told 500 -> 2000 alone moves births 214 -> 147) and cross-checked
+  against 10o's independent sweep, which reports the same 147 at IOU
+  0.15 in both genders.
+- **THE OTA CEILING HAD NEVER BEEN PRICED.** `iou-ab` stopped at 0.30
+  while the clamp allows **0.35**, so the endpoint of a range that
+  reaches his phone WITHOUT AN INSTALL was a bound nobody had measured.
+  At the ceiling against the shipped 0.15: **man -6.5s exposure for
+  +32.0s false cover and +59.0s phantom; woman -4.5s for +8.5s and
+  +97.0s.** The mechanism is in the birth counts -- tightening raises
+  births 141 -> 184 because a subject that fails to re-associate is
+  re-minted blurred. **The whole clamp range is ONE monotone protection
+  trade and 0.35 is a shippable state**, not a guard rail.
+- **THE ASSIGNMENT AND THE ASSOCIATION THRESHOLD WERE BUYING THE SAME
+  THING**, which weakens a sentence 1090 shipped on. Under greedy,
+  0.20 -> 0.15 bought 16.0s of man false cover; under optimal it buys
+  3.0s, because `optimal@0.20` already reads what `greedy@0.15` reached.
+  10o justified 0.15 with "the exposure change nets to zero" -- true
+  under greedy, and **+1.0s man / +2.5s woman under optimal**, bought
+  with 50.0s of phantom. Still worth having; 0.20 is one OTA push back.
+- **PHASE E CRITIC: 14 ROWS, ALL CLOSED. critic-gate 50/50 CONFIRMED.**
+  Three changed a conclusion rather than a number (E5 above, E9's
+  retraction, E12's).
+- **AND THE GATE COULD NOT READ ITS OWN ROW.** `critic-gate.mjs` matched
+  `[A-Z]\d+`, so **`E5b` did not parse as a row at all and was
+  SKIPPED** -- it reported a clean bill with an open WRONG-NUMBER row in
+  the file, which is the exact failure it exists to prevent. Widened,
+  and a line carrying a severity but no readable id now exits 2 rather
+  than being dropped. Red-proven: 49 rows / 1 blocking before, 50 / 2
+  after.
+- **E3, AN EXPOSURE: THE 1089 LETTERBOX BLINDS 3 FRAMES IN 241** that
+  the squash saw, 79% of the lost detections under 64px -- his own band.
+  On the four non-YouTube platforms `wholeFrameFlagged` IS the pipeline,
+  so a blind frame is `cleanStreak++` and four reach `clearEl`. 16a's
+  "moved once, in the harmless direction" is withdrawn. **Three counters
+  added** (`wholeFrameSamples` / `wholeFrameNoFaces` /
+  `wholeFrameCleared`) on BOTH detector paths and at the reveal, seeded
+  to 0 so absent cannot be mistaken for never-hooked. **It fired on
+  hardware in the release sweep** (samples 1, blind 0, cleared 0) --
+  alive, not merely emitted.
+- **E6: THREE "SHIPPED BASELINE" TRIPLES WERE IN CIRCULATION** and the
+  published self-check did not reproduce. `arch-arms.CONTROL` is the
+  single source now, and **`test/control-triple.test.mjs` RUNS the
+  shipped arm over the corpus** (370ms) to assert it -- so a constant
+  that moves without the triple moving goes red. **The control triple is
+  now man 22.5 / 136.5 / 547.5, woman 25.5 / 201.5 / 628.0.**
+- **TWO GUARDS AGAINST THE D2 CLASS WERE THEMSELVES COIN FLIPS**, both
+  found by the evidence packet's own oracle before the critic read it.
+  `capture()` swapped process-wide `process.stderr.write` and asserted
+  byte-emptiness; and **`_build.mjs` raced with itself**, failing ONE
+  arbitrary test file with no message -- the worst shape a failure can
+  take, and it cost the oracle a false alarm.
+- **THE REDMI COULD NOT BE USED.** Its screen is locked with a
+  credential (`mDreamingLockscreen=true`; `wm dismiss-keyguard`, MENU
+  and a swipe all refused) and a locked screen reads `innerWidth` 0,
+  which makes every rect worthless. **It is on 1089.** The release sweep
+  ran on the x86_64 emulator instead: 27 images judged, 0 on-screen
+  pending, 13 patches all inside their own image, 0 stray, player mints
+  a host, blocking alive (seen 75, blocked 4).
+- **VERIFIED R15-STYLE IN THE EMITTED BUNDLE**, and the constant is READ
+  rather than merely emitted: `Vde="optimal"` plus, at the claim site,
+  `(Vde==="optimal"?hj:$E)(i,t.length,e.length)`.
+- gaze **562/562**, cargo **60/60**, critic-gate **50/50**.
+- **NEXT, YouTube only:** (1) push the coast dial if he rules -- no
+  install needed, and its digits moved (2 -> 1.33 is now +5.0s man /
+  +4.0s woman of exposure for 141.0s and 156.5s of phantom; same shape,
+  same winner); (2) **16b's MoveNet letterbox, the largest unclaimed
+  accuracy win left** -- MoveNet's outputs are normalized to its own
+  input, so letterboxing needs the inverse mapping through the pad
+  before `parsePersons` reads a box. A round, not an edit.
+- **THE ONE OPEN QUESTION FOR HIM IS UNCHANGED** and only its digits
+  moved: the coast dial is an EXPOSURE trade and it is his call.
 
 ## HANDOFF -- READ THIS FIRST (written 2026-09-02 06:40, at his request)
 
@@ -80,7 +186,7 @@ minutes earlier. HEAD pushed, tree clean.)
 atleast fix youtube first."** The platform-widening thread (16/16b/16c)
 is PARKED. Everything below is YouTube unless it says otherwise.
 
-**WHAT HE RUNS.** 1090 is the release. He installed 1086 and said "I'm
+**WHAT HE RUNS.** 1091 is the release (1090 before it). He installed 1086 and said "I'm
 tired of installing new versions", so **batch anything else into ONE
 build** -- 1087/1088/1089/1090 all exist and he may have installed none
 of them. The old Redmi `1ec2c48e0621` (M2010J19SI) is the arm64
@@ -105,10 +211,13 @@ way and **three of them REVERSED** when re-run. Any arm that does not
 pin a cadence now writes a loud stderr block (`arch-arms.warnDerivedCadence`,
 `test/cadence-pinned.test.mjs`). **Pass `hisRegimeOpts(g)` and
 `thinFrames(w, K_HIS)`, always.** The self-check that a bench is in his
-regime: its control row must read **man 23.0 / 139.0 / 561.0** and
-**woman 24.5 / 200.5 / 663.0** (post-1090; pre-1090 it was 22.0 / 155.0
-/ 573.5 and 25.5 / 201.0 / 679.5). Five independent benches now land on
-those triples.
+regime: its control row must read **man 22.5 / 136.5 / 547.5** and
+**woman 25.5 / 201.5 / 628.0** (post-1091; 1090 was 23.0 / 139.0 /
+561.0 and 24.5 / 200.5 / 663.0; pre-1090 22.0 / 155.0 / 573.5 and
+25.5 / 201.0 / 679.5). **Do not maintain that list by hand any more:**
+`arch-arms.CONTROL` is the single source and
+`test/control-triple.test.mjs` runs the shipped arm over the corpus to
+assert it, so a constant that moves without the triple moving is red.
 
 **Session 2026-09-02 (loop 43) -- THE PATH THE OTHER FOUR PLATFORMS USE
 WAS READING FACES 1.78x TALLER THAN WIDE, AND THREE MEASURED REFUSALS
