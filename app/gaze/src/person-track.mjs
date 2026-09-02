@@ -56,7 +56,15 @@
 // right about the mechanism -- a looser threshold can associate a
 // woman's observation onto a man's CLEARED track -- and only wrong that
 // the first step costs anything worth having.
+import { greedyAssign, optimalAssign } from './assign.mjs';
+
 export var PTRACK_IOU_MIN = 0.15;
+
+// WHICH ASSIGNMENT RUNS. 'greedy' is what has always shipped. 'optimal'
+// is the E5 arm and is deliberately NOT on the OTA channel -- an
+// algorithm is not a number, and code may never travel here.
+export var PTRACK_ASSIGN = 'greedy';
+export function setAssign(v) { PTRACK_ASSIGN = v === 'optimal' ? 'optimal' : 'greedy'; }
 export function setIouMin(v) { PTRACK_IOU_MIN = v; }
 // How fast a box may SHRINK across an observation-source flip. See the
 // note in matchedStep: slower shrink only ever over-covers.
@@ -703,15 +711,19 @@ export function updatePersonTracks(tracks, observations, dtMs, hold) {
       pairs.push({ t: i, o: j, iou: v });
     }
   }
-  pairs.sort(function (a, b) {
-    return b.iou - a.iou;
-  });
   var trackClaimed = new Array(tracks.length).fill(false);
   var obsClaimed = new Array(observations.length).fill(false);
   var next = [];
-  for (var p = 0; p < pairs.length; p++) {
-    var pair = pairs[p];
-    if (trackClaimed[pair.t] || obsClaimed[pair.o]) continue;
+  // THE ASSIGNMENT ITSELF LIVES IN `assign.mjs` SO IT CAN BE SWAPPED FOR
+  // A MEASUREMENT. `greedyAssign` is this loop moved without a change of
+  // behaviour -- it does its own sort, which is why the one that stood
+  // here is gone. `optimalAssign` is the arm E5 asks for now that
+  // `birthContended` is the largest class of birth in both gender arms.
+  // Ships greedy: a mode nobody has measured does not get to be default.
+  var claims = (PTRACK_ASSIGN === 'optimal' ? optimalAssign : greedyAssign)(
+    pairs, tracks.length, observations.length);
+  for (var p = 0; p < claims.length; p++) {
+    var pair = claims[p];
     trackClaimed[pair.t] = true;
     obsClaimed[pair.o] = true;
     // `nullDropped` ALONE CANNOT ANSWER THE QUESTION IT EXISTS FOR.
