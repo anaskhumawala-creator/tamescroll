@@ -36,6 +36,29 @@
 //   0.20       22.0 / 155.0 / 573.5        25.5 / 201.0 / 679.5
 //   0.15       23.0 / 139.0 / 561.0        24.5 / 200.5 / 663.0
 //
+// THOSE TWO ROWS ARE THE GREEDY ASSIGNMENT, which is what shipped when
+// 1090 chose 0.15. Under 1091's optimal assignment the same two rows read
+// 0.20 -> 21.5 / 139.5 / 566.5 and 25.5 -> ... see below; the important
+// change is that the two levers were buying THE SAME THING:
+//
+//   greedy  0.20 -> 0.15   man false cover -16.0s
+//   optimal 0.20 -> 0.15   man false cover  -3.0s
+//
+// because optimal@0.20 already reads fc 139.5, which is what greedy@0.15
+// reached. So 10g's justification -- "across the two arms the exposure
+// change nets to zero" -- was true under greedy and is NOT true now:
+// it is +1.0s man and +2.5s woman, bought with 50.0s of phantom.
+//
+// AND THE LADDER WAS ONLY EVER WALKED DOWNWARD. Swept UP under optimal,
+// exposure falls monotonically: man 22.5 (0.15) -> 21.5 (0.20) -> 19.5
+// (0.25) -> 17.0 (0.30), woman 25.5 -> 23.0 -> 21.5 -> 20.0, while
+// phantom rises 547.5 -> 566.5 -> 563.0 -> 581.0 and 628.0 -> 659.0 ->
+// 681.0 -> 702.5. So 0.15 is the best PHANTOM point on the reachable
+// ladder and close to the worst EXPOSURE point -- which is a protection
+// trade and therefore HIS. It is OTA-tunable in both directions
+// (clamp [0.10, 0.35]), so tightening needs no install.
+// Raw: spikes/gauntlet/iou-under-optimal.txt
+//
 // -16.0s of FALSE COVER and -12.5s of PHANTOM in man mode, -16.5s of
 // phantom in woman mode, and the exposure NETS TO ZERO across the two
 // arms (+1.0 / -1.0).
@@ -1661,15 +1684,29 @@ var lastCadenceMs = 0;
  * of this table each got one of them wrong and each named a different
  * winner -- 1.67 was one of them and is a no-op here, identical to 1.5.
  *
- *   passes  coast     man exp/fc/phantom      woman exp/fc/phantom
- *   1.0     2000ms    38.0 / 134.0 / 365.0    35.5 / 186.0 / 419.0
- *   1.33    2660ms    26.5 / 136.5 / 424.0    29.5 / 193.5 / 494.5
- *   1.5     3000ms    25.5 / 140.5 / 488.5    29.0 / 196.0 / 568.0
- *   2 SHIP  4000ms    22.0 / 155.0 / 573.5    25.5 / 201.0 / 679.5
+ * RE-DERIVED FOR 1091 (the optimal assignment). The table below was
+ * measured under the greedy one and every cell moved; the phase-E critic
+ * found it still quoting the PRE-1090 baseline after a commit that had
+ * explicitly re-read this dial. A table that prices HIS one open decision
+ * may not be stale, so it is regenerated with the shipped arm and the
+ * control row must equal `arch-arms.CONTROL` (pinned by
+ * test/control-triple.test.mjs).
  *
- * 1.33 costs +4.5s of exposure (man) and +4.0s (woman) and buys
- * 149.5s and 185.0s of phantom -- 26% and 27%, his loudest complaint --
- * plus 18.5s and 7.5s of false cover, for no extra inference at all.
+ *   passes  coast     man exp/fc/phantom      woman exp/fc/phantom
+ *   1.0     2000ms    39.5 / 127.0 / 352.0    36.5 / 189.0 / 398.5
+ *   1.33    2660ms    27.5 / 126.0 / 406.5    29.5 / 193.5 / 471.5
+ *   1.5     3000ms    26.5 / 130.0 / 463.0    29.0 / 195.5 / 537.5
+ *   2 SHIP  4000ms    22.5 / 136.5 / 547.5    25.5 / 201.5 / 628.0
+ *   3       5000ms    21.5 / 145.0 / 595.0    25.5 / 204.5 / 679.0
+ *
+ * 1.33 costs +5.0s of exposure (man) and +4.0s (woman) and buys
+ * 141.0s and 156.5s of phantom -- 25.7% and 24.9%, his loudest
+ * complaint -- plus 10.5s and 8.0s of false cover, for no extra
+ * inference at all. Under greedy it read +4.5/+4.0 for -149.5/-185.0:
+ * same shape, same winner, same trade, so the QUESTION is unchanged and
+ * only its digits moved.
+ *
+ * Raw: spikes/gauntlet/coast-under-optimal.txt
  *
  * IT IS STILL AN EXPOSURE TRADE, and exposure is the number that means
  * somebody he asked to cover was left sharp. So the value that SHIPS is

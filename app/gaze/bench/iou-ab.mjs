@@ -59,7 +59,11 @@ console.log('IOU_MIN   EXPOSURE  FALSECOVER   PHANTOM   births  cleared  nearMis
 // optimal assignment (1091) the whole curve had to be re-read anyway.
 // A duplicate of the shipped value would print the control row twice and
 // read like a repeated measurement, so it is filtered out.
-const LADDER = [SHIPPED, 0.30, 0.25, 0.20, 0.15, 0.10, 0.05, 0.02]
+// 0.35 IS THE OTA CLAMP CEILING and it is on the ladder because a bound
+// nobody has priced is not a bound -- if a number can be pushed to his
+// phone without an install, its endpoint is a shippable state and has to
+// have been measured.
+const LADDER = [SHIPPED, 0.35, 0.30, 0.25, 0.20, 0.15, 0.10, 0.05, 0.02]
   .filter((v, i, a) => i === 0 || v !== SHIPPED);
 for (const v of LADDER) {
   // Written by ABSOLUTE path: `./.cache/...` resolves against the CWD for

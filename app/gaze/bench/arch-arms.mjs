@@ -104,6 +104,33 @@ export const thinFrames = (win, e) => ({ ...win, frames: win.frames.map((fr, i) 
  * `mem` differs per gender arm because that is what ships: the loose2
  * variant is the man-mode identity memory.
  */
+/**
+ * THE CONTROL TRIPLE -- the one place it is written down, because it was
+ * written down in five and three of them disagreed.
+ *
+ * Every sweep in this directory prints a control row: the shipped arm,
+ * unpatched, in his regime. It is the self-check that says the regime is
+ * pinned, and for a fortnight it was quoted from prose that a constant
+ * change silently invalidated. At phase E there were THREE triples in
+ * circulation (22.0/155.0/573.5 from before 1090, 23.0/139.0/561.0 from
+ * 1090, 22.5/136.5/547.5 from 1091) and the published one reproduced
+ * nowhere.
+ *
+ * `test/control-triple.test.mjs` RUNS the shipped arm over the corpus and
+ * asserts these numbers, so a constant change turns it red and there is
+ * exactly one place to correct. A staleness detector that cannot detect
+ * its own staleness is worse than none: it reads as corroboration.
+ *
+ * Values belong to a CONFIGURATION, and it is named beside them. Quoting
+ * a triple without its configuration is what produced the three.
+ */
+export const CONTROL = {
+  config: 'PTRACK_IOU_MIN 0.15, CUT_DELTA 60, PTRACK_ASSIGN optimal, PTRACK_MIN_COAST_PASSES 2',
+  since: 1091,
+  man: { exposureS: 22.5, falseCoverS: 136.5, phantomS: 547.5 },
+  woman: { exposureS: 25.5, falseCoverS: 201.5, phantomS: 628.0 },
+};
+
 export function hisRegimeOpts(g, told) {
   return {
     hold: true,
@@ -452,8 +479,8 @@ export function makeArms(mod) {
       // measured at `dt * stride` -- the 500ms BANK interval, coast
       // 1250ms -- while claiming to describe his phone, which is told
       // 2000 and coasts 4000: the cadence table (13a), the clear bar
-      // (critic-lowbar), the association threshold (10g) and CUT_DELTA
-      // (10h). Three of those four REVERSED when re-run in his regime.
+      // (critic-lowbar), the association threshold (10o) and CUT_DELTA
+      // (10p). Three of those four REVERSED when re-run in his regime.
       // About thirty more benches in this directory build their options
       // by hand and pass no cadence at all.
       //

@@ -1917,6 +1917,33 @@ if (
     // frame mean the video stays covered? Same two steps as the region
     // path -- faces, then a gender read only if there were any -- and
     // the same two homes for them.
+    // THE ONLY EVIDENCE THE OTHER FOUR PLATFORMS HAVE, COUNTED.
+    //
+    // On Reddit, X, Instagram and Facebook `isPlayer` is false (16), so
+    // `wholeFrameFlagged` is the whole pipeline: ONE boolean per frame,
+    // and a frame where the detector finds nothing is indistinguishable
+    // from a frame with nobody in it -- `cleanStreak++`, four of them
+    // reach `clearEl`. 16a asserted the 1089 letterbox could not make
+    // that happen and the phase-E critic measured 3 blind frames in 241
+    // where the squash had 0, concentrated in his 38-64px band.
+    //
+    // NO COUNTER EXISTED ON THIS BRANCH AT ALL, which is how a one-way
+    // change got called zero. These two say how often the only evidence
+    // there is comes back empty, and how often that reveals a video.
+    // Seeded on the first sample so an absent key cannot be mistaken for
+    // a hook that was never wired (the loop-34 defect).
+    function wholeFrameLife(key) {
+      try {
+        var d = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+        d.life = d.life || {};
+        if (d.life.wholeFrameSamples === undefined) {
+          d.life.wholeFrameSamples = 0;
+          d.life.wholeFrameNoFaces = 0;
+          d.life.wholeFrameCleared = 0;
+        }
+        d.life[key] = (d.life[key] || 0) + 1;
+      } catch (e) {}
+    }
     function wholeFrameFlagged(pixels) {
       function anyFlagged(genders) {
         var meta = faceMeta(userGender, genders);
@@ -1929,6 +1956,7 @@ if (
         return gazeWorker.cropFaces(pixels).then(function (r) {
           var faces = r.faces || [];
           if (!faces.length) {
+            wholeFrameLife('wholeFrameNoFaces');
             gazeWorker.releaseCrop(r.cid);
             return false;
           }
@@ -1948,6 +1976,7 @@ if (
         });
       }
       return detector.detectFaceBoxes(model, pixels).then(function (faces) {
+        if (!faces.length) wholeFrameLife('wholeFrameNoFaces');
         if (!faces.length || !genderModel) return faces.length > 0;
         return detector.classifyFaceGenders(genderModel, pixels, faces).then(anyFlagged);
       });
@@ -4378,6 +4407,7 @@ if (
         ctx2d.fillRect(0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
         ctx2d.drawImage(video, fit.dx, fit.dy, fit.dw, fit.dh);
         var pixels = ctx2d.getImageData(0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
+        wholeFrameLife('wholeFrameSamples');
         wholeFrameFlagged(pixels)
           .then(function (anyFlagged) {
             if (failed) return;
@@ -4386,7 +4416,10 @@ if (
               markFlagged(video);
             } else {
               cleanStreak++;
-              if (cleanStreak >= unblurStreak) clearEl(video);
+              if (cleanStreak >= unblurStreak) {
+                wholeFrameLife('wholeFrameCleared');
+                clearEl(video);
+              }
             }
           })
           .catch(function (e) {

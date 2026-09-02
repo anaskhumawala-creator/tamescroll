@@ -648,6 +648,15 @@ phantom -- his loudest complaint -- and 75 costs +13.0s man / +29.5s
 woman against 60's +9.5s / +16.5s. 75 is the next step if his rings say
 phantom did not move, and that is one OTA push, not a release.
 
+> **THAT LAST SENTENCE IS CONTRADICTED BY 10p AND 10p WINS** (phase-E
+> critic, E11). 10p refuses 75 on a measurement this section did not
+> have: at 75 the cut gate fires on **12 of 2,160** corpus frames while
+> **his phone's ordinary motion reaches p95 54.9**, so pushing it would
+> start missing REAL cuts on his own footage. Both sentences are about
+> the same dial, the OTA ceiling is exactly 75, and a missed cut is the
+> largest exposure this corpus has traced. **Do not push 75 without a
+> fresh read of HIS luma deltas.**
+
 The test was **rewritten from the measurement, not deleted**: the motion
 floor stands, the false upper bound becomes the measured knee, and both
 guards were proved to fire (20 and 28 fail the floor, 76 and 100 fail the
@@ -2172,15 +2181,19 @@ the network extracted" -- across the 18 faces both arms found:
 
 **This is not a cosmetic quality metric. `nm` is the exact axis
 `NULL_MINT_NM_FLOOR` gates on** (loop 38: floor 5, calibrated so 0 of 125
-real faces are refused). Four of the eighteen pairs cross that floor when
-the aspect is corrected:
+real faces are refused). **THREE** of the eighteen pairs cross that floor
+when the aspect is corrected:
 
 ```
 H14bBuluwB8_t252   nm 2.68 -> 5.13
 z86LGEFyQpo_t2     nm 4.79 -> 5.59
 z86LGEFyQpo_t2     nm 4.97 -> 6.05
-z86LGEFyQpo_t902   nm 5.02 -> 5.93
 ```
+
+**CORRECTED 2026-09-02 (phase-E critic, E14): this said FOUR.** The
+fourth pair was `z86LGEFyQpo_t902  nm 5.02 -> 5.93`, and 5.02 is already
+ABOVE a floor of 5 -- it does not cross anything. Counted off the banked
+raw rather than off the table, it is three.
 
 So the squash pushes real faces into the population this repo has
 classified as "the model said nothing".
@@ -2256,6 +2269,37 @@ old code against new code rather than against a bench idea of it.
 - The change is justified on **read quality**, not on a visible
   behaviour improvement -- no measurement here shows a person being
   covered who was not before.
+- **AND IT IS NOT COST-FREE ON DETECTION, WHICH THIS SECTION SAID IT
+  WAS.** Phase-E critic, E3, executed on the SAME 241-frame set 16b
+  uses rather than on these 15:
+
+  | | squash (pre-1089) | letterbox (1089) |
+  |---|---|---|
+  | detections | 372 | 396 |
+  | **frames with NO detection** | **0** | **3** |
+  | detections lost | -- | 33, of which **26 (79%) under 64px native** |
+  | detections gained | -- | 57 |
+
+  Net positive on detections, and it is NOT being reverted. But the
+  frame-blind direction is **one-way and no longer zero**, and the
+  arithmetic says why: the letterbox gives a 640x360 face `0.4x` on both
+  axes where the squash gave `0.4 x 0.711`, so a 40px native face is
+  **16px tall in the tensor instead of 28px** -- and the losses
+  concentrate in exactly his 38-64px band. On the four platforms where
+  the whole-frame path is the ONLY path, a blind frame means
+  `wholeFrameFlagged` returns false, `cleanStreak++`, and four of them
+  reach `clearEl`.
+  HONEST LIMIT OF THE CRITIC'S ARM IN TURN: it does not run the gender
+  read, so a lost DETECTION is not automatically an uncovered person --
+  16a's own three lost detections were all null reads. A blind FRAME is
+  a different quantity and it is gender-independent.
+- **THERE WAS NO COUNTER ON THAT BRANCH AT ALL**, which is why a
+  one-way change could be called zero. `wholeFrameNoFaces` and
+  `wholeFrameCleared` now count it, so the next artifact off any of the
+  four platforms says how often the only evidence there is comes back
+  empty. Fix the exposure only against that number -- the candidate is a
+  letterbox floor that falls back to the squash below a face size, and
+  choosing it blind would be the third guess in this file.
 - swiftshader ran both arms, so this is a parity result and not a timing
   one.
 - **It is still unverified on Reddit, X or Instagram**, which is where it
@@ -2421,11 +2465,32 @@ the 2026-08-19 per-root stylesheet work already put
 placed either inside that root or into one of its slots.
 
 `shreddit-media-ui` is the existing pattern to copy: same shadow root,
-`position: absolute`, `z-index: 2`, `pointer-events-none`, sized exactly
-to the video box -- which is `video-region`'s overlay contract already,
-one boundary in. And `shreddit-player` itself reads `position: relative`
-**and already `isolation: isolate`**, so the two page mutations
-`resolveHost` performs would both be no-ops there.
+`position: absolute`, `z-index: 2`, `pointer-events-none`.
+
+> **RETRACTED 2026-09-02, phase-e E12: "sized exactly to the video box"
+> was never measured and cannot be.** It is a GEOMETRY claim, and this
+> section's own HONEST LIMITS say the device locked its screen mid-run
+> and `innerWidth` read **0**, so every rect in that pass is worthless.
+> Quoting a rect three paragraphs above the sentence that voids it is
+> the failure, not the rect.
+>
+> **And the committed probe could not have produced it either.**
+> `probe_player_hosts.py` walks ANCESTORS (`el.parentElement` upward);
+> `shreddit-media-ui` is a SIBLING of the video inside the shadow root,
+> so it is not on any ancestor chain and appears in no committed raw. A
+> census of that root needs `[...v.getRootNode().children]`, which
+> nothing in `spikes/gauntlet` runs.
+>
+> What survives is the part that does not depend on layout, and it is
+> the part the fix rests on: **the root is open, `shreddit-media-ui`
+> lives in it, and it is absolutely positioned and pointer-transparent.**
+> Whether it is sized to the video box has to be read off an UNLOCKED
+> arm64 device before anyone builds against it.
+
+`shreddit-player` itself reads `position: relative` **and already
+`isolation: isolate`**, so the two page mutations `resolveHost` performs
+would both be no-ops there. (Computed style, not geometry -- so the
+locked screen does not touch it.)
 
 ### HONEST LIMITS -- what this census does NOT establish
 
@@ -2486,7 +2551,7 @@ platforms too" is:
    open item in CLAUDE.md's Next list, and it is now the thing three of
    four platforms are blocked on.
 
-## 10g. THE ASSOCIATION THRESHOLD IS A LEVER AFTER ALL -- 10e REFUSED IT IN A REGIME HIS PHONE IS NOT IN
+## 10o. THE ASSOCIATION THRESHOLD IS A LEVER AFTER ALL -- 10e REFUSED IT IN A REGIME HIS PHONE IS NOT IN
 
 Same defect as the cadence table (13a) and the clear bar (critic-lowbar),
 in the third bench: `iou-ab.mjs` built its options by hand --
@@ -2539,20 +2604,47 @@ the extra associations are not being handed to cleared tracks in bulk --
 the exposure that does appear is a handful of individual re-associations,
 not a class change.
 
-### NOT PUSHED, and it cannot be
+### PUSHED IN 1090, AND EVERY SENTENCE THAT USED TO BE HERE WAS FALSE
 
-`PTRACK_IOU_MIN` is **not on the OTA whitelist** (`src/tuning.mjs`), so
-unlike the coast dial this cannot be tried on his phone without a
-release. And it is an EXPOSURE trade in man mode, which is his setting
-and his call. Recorded at 0.15 as the candidate; shipped at 0.20.
+**RETRACTED 2026-09-02 (phase-E critic, E9).** This section ended:
+*"`PTRACK_IOU_MIN` is not on the OTA whitelist, so unlike the coast dial
+this cannot be tried on his phone without a release ... shipped at
+0.20."* All three claims are false, and they were false at the moment
+they were written: **1090 shipped 0.15, added the key to the whitelist
+clamped [0.10, 0.35], and published it.** Read out of the RELEASED APK
+whose sha matches the manifest -- `wv=.15`,
+`PTRACK_IOU_MIN:[.1,.35,...]`, and `"PTRACK_IOU_MIN": 0.15` in the
+embedded tuning.json.
+
+The cost of leaving it was specific: the constitution told the next
+session that **the only lever which can roll 1090 back without an
+install does not exist.**
+
+**IT IS AN EXPOSURE TRADE IN MAN MODE, WHICH IS HIS SETTING AND HIS
+CALL** -- that half was right, and it is why the range reaches 0.35 in
+BOTH directions. See 17b: under 1091's optimal assignment the ladder was
+re-read upward for the first time and 0.15 is close to the WORST
+exposure point reachable over the air.
 
 **Raw: `spikes/gauntlet/iou-ab-hisregime.txt`.**
 
-## 10h. CUT_DELTA RE-DERIVED IN HIS REGIME -- the cut gate is the biggest phantom dial there is, and it is bought with exposure
+## 10p. CUT_DELTA RE-DERIVED IN HIS REGIME -- the cut gate is the biggest phantom dial there is, and it is bought with exposure
+
+> **SUPERSEDED 2026-09-02 (phase-E critic, E7). The table below was
+> measured at `PTRACK_IOU_MIN` 0.20 and is quoted throughout as if it
+> described the shipped configuration.** At the shipped 0.15 the headline
+> is wrong in the direction that matters: *"60 -> 75 buys 14.0s of false
+> cover"* is **6.0s**. Re-read under 1091 in 17c; raw in
+> `spikes/gauntlet/cut-under-optimal.txt`. **The CONCLUSION survives** --
+> the dial is monotone, enormous, and paid for in exposure -- and 75 is
+> still refused for a reason that has nothing to do with the corpus.
 
 Same fix, same file class. Both control rows land on the shipped triple
-(man `22.0 / 155.0 / 573.5`, woman `25.5 / 201.0 / 679.5`), which is the
-third independent bench to arrive at them.
+of that configuration (man `22.0 / 155.0 / 573.5`, woman
+`25.5 / 201.0 / 679.5`), which was the third independent bench to arrive
+at them. **See `bench/arch-arms.mjs` `CONTROL` for the LIVE triple** --
+quoting one without its configuration is what put three of them in
+circulation at once (E6).
 
 | CUT_DELTA | cut frames | man exp / fc / phantom | woman exp / fc / phantom |
 |---|---|---|---|
@@ -2598,3 +2690,218 @@ never off this table alone. The number that would justify 75 is his p95,
 and the last one measured was 54.9.
 
 **Raw: `spikes/gauntlet/cut-sweep-hisregime.txt`.**
+
+## 17. THE ASSIGNMENT WAS THE LARGEST CLASS OF BIRTH ALL ALONG, AND E5 SAID THE OPPOSITE BECAUSE IT RAN AT THE WRONG COAST
+
+`births.mjs` was the fourth file in the D2 class. It built its options by
+hand -- `{ hold, clampPad, cut }` where `hisRegimeOpts` carries seven --
+and hand-rolled its own `thin`, so it told the tracker the 500ms BANK
+interval and derived a **1000ms coast** where his phone is told 2000 and
+coasts 4000.
+
+**That defect lands harder here than anywhere else it has been found.** A
+short coast expires a track between every pair of verdicts, and an
+expired track is a **BIRTH** on the next observation. So the one file
+whose entire subject is *why tracks are born* was the file the defect
+distorted most.
+
+### The corrected table
+
+Shipped bundle (CUT_DELTA 60, PTRACK_IOU_MIN 0.15), his regime, 18
+windows / 2160 frames:
+
+| | births | fresh | nearMiss | contended | sizeRejected |
+|---|---|---|---|---|---|
+| **man** | **147** | 39 (26.5%) | 42 (28.6%) | **65 (44.2%)** | 1 |
+| **woman** | **147** | 37 (25.2%) | 33 (22.4%) | **75 (51.0%)** | 2 |
+
+E5 published **310 births, fresh 230 (74.2%), contended 32 (10.3%)** and
+concluded that geometry dominated and the association layer was the
+second lever. Corrected, **`birthFresh` is the SMALLEST class in both
+arms and `birthContended` is the largest** -- which is an ASSIGNMENT
+problem, and that is a different fix from the threshold one E5 pointed
+at.
+
+**Decomposed, so the reversal is attributed rather than asserted:** told
+500 -> 2000 alone moves births **214 -> 147** and coastExpired **184 ->
+102**. The remaining gap to E5's 310 is `CUT_DELTA` 50 -> 60 (115 cut
+frames -> 59). **Neither half is geometry.**
+
+**Cross-check:** 147 births at IOU 0.15 is exactly what 10g's independent
+sweep reports for that row, in both genders, from a different file.
+
+**Raw: `spikes/gauntlet/births-hisregime.txt`.**
+
+## 17a. GREEDY'S FAILURE MODE *IS* A CONTENDED BIRTH, AND FIXING IT BUYS PHANTOM ON BOTH ARMS
+
+`updatePersonTracks` claimed greedily down an IoU-sorted pair list. Its
+failure mode is exactly the thing 17 counts:
+
+```
+track A overlaps obs2 at 0.52 and obs1 at 0.39
+track B overlaps obs2 at 0.33 and obs1 not at all
+```
+
+Greedy takes A-obs2 -- the single largest number on the list -- which
+leaves B with no partner and obs1 with none either. B coasts toward
+death and **obs1 is BORN, contended**, so a subject who already had a
+track is re-minted, born BLURRED, with no accumulated clear. The pairing
+A-obs1 + B-obs2 matches both and gives up 0.13 of overlap doing it.
+
+`src/assign.mjs` holds both: `greedyAssign` is that loop moved verbatim,
+`optimalAssign` is Hungarian.
+
+**THE OBJECTIVE IS CARDINALITY FIRST, THEN OVERLAP -- and getting that
+wrong would have made the number worse.** A pure max-WEIGHT matching
+takes a single 0.90 edge over two 0.20 edges, which *raises* the birth
+count. Lexicographic order is bought by weighting each eligible edge
+`1e3 + iou`: with the cardinality term three orders above any total a
+frame can carry, one extra match always beats any redistribution of
+overlap. A test pins that case.
+
+### The measurement
+
+His regime, both control rows reproducing the post-1090 shipped triples
+exactly:
+
+| arm | man exp / fc / phantom | woman exp / fc / phantom |
+|---|---|---|
+| greedy | 23.0 / 139.0 / 561.0 | 24.5 / 200.5 / 663.0 |
+| **optimal SHIPPED 1091** | **22.5 / 136.5 / 547.5** | **25.5 / 201.5 / 628.0** |
+
+- **man -- his setting -- is better on all three numbers.**
+- woman pays **1.0s of exposure across eighteen windows for 35.0s of
+  phantom**.
+- contended births **65 -> 60** and **75 -> 62**; coastExpired **102 ->
+  96** and **102 -> 92**.
+
+**Per window, because a total can hide one subject going sharp:** 8 of 18
+windows move at all. The woman-mode exposure is **two windows at +1.0s
+against one at -1.0s**, and those two buy 3.0s and 14.5s of phantom.
+
+**Cost: 8 microseconds per pass** at 12 tracks against 12 observations
+(25.98us optimal against 17.72us greedy, 20,000 synthetic frames), once
+per 1.5-2s, against a verdict that costs 730-1250ms on his phone.
+
+**NOT on the OTA channel.** An algorithm is not a number, and code may
+never travel here. Verified R15-style in the EMITTED bundle:
+`Lde="optimal"` and the Hungarian body is present rather than
+tree-shaken.
+
+## 17b. THE ASSIGNMENT AND THE ASSOCIATION THRESHOLD WERE BUYING THE SAME THING
+
+Re-reading the IOU ladder under the new assignment (`iou-ab` now walks
+BOTH ways around the shipped value; it stopped at it and walked down,
+which was right while 0.20 shipped and hides the tightening direction
+now that 0.15 does):
+
+| IOU_MIN | man exp / fc / phantom | woman exp / fc / phantom |
+|---|---|---|
+| **0.35 OTA CEILING** | 16.0 / 168.5 / 606.5 | 21.0 / 210.0 / 725.0 |
+| 0.30 | 17.0 / 160.0 / 581.0 | 20.0 / 204.5 / 702.5 |
+| 0.25 | 19.5 / 147.0 / 563.0 | 21.5 / 197.0 / 681.0 |
+| 0.20 | 21.5 / 139.5 / 566.5 | 23.0 / 199.0 / 659.0 |
+| **0.15 SHIPPED** | **22.5 / 136.5 / 547.5** | **25.5 / 201.5 / 628.0** |
+| 0.10 | 24.5 / 137.5 / 543.0 | 27.0 / 200.5 / 613.0 |
+| 0.05 | 28.0 / 135.0 / 528.0 | 28.5 / 202.0 / 607.5 |
+| 0.02 | 32.5 / 134.5 / 518.5 | 28.0 / 199.5 / 601.0 |
+
+**Under greedy, 0.20 -> 0.15 bought 16.0s of false cover (man). Under
+optimal it buys 3.0s** -- because `optimal@0.20` already reads fc 139.5,
+which is what `greedy@0.15` reached. Both levers were removing the same
+re-associations.
+
+**CONSEQUENCE, AND IT WEAKENS A SENTENCE 1090 SHIPPED ON.** 10g justified
+0.15 with *"across the two arms the exposure change nets to zero"*. That
+was true under greedy (man +1.0, woman -1.0). Under optimal it is **+1.0s
+man and +2.5s woman**, bought with 50.0s of phantom. Still a trade worth
+having on his loudest complaint, and **0.20 is reachable over OTA without
+an install** (clamp [0.10, 0.35]) if he would rather have the 3.5s back.
+
+**AND THE OTA CEILING IS PRICED NOW, WHICH IT NEVER WAS.** The ladder used
+to stop at 0.30 while the clamp allows 0.35, so the endpoint of a range
+that can reach his phone *without an install* had never been measured --
+a bound nobody has priced is not a bound. At the ceiling, against the
+shipped 0.15: **man -6.5s exposure for +32.0s false cover and +59.0s
+phantom; woman -4.5s for +8.5s and +97.0s.** Both arms agree on the sign
+of all three.
+
+So the whole clamp range is a single monotone protection trade, and the
+mechanism is visible in the birth counts: **tightening the association
+raises births (141 -> 184 man, 136 -> 184 woman)** because a subject who
+fails to re-associate is re-minted, and a re-minted track is born
+**blurred**. That is why the tight end buys exposure and pays phantom.
+**The ceiling is a shippable state**, not a guard rail -- if he ever says
+the misses matter more than the marks, 0.35 is one OTA push and the cost
+above is what he is buying.
+
+**Raw: `spikes/gauntlet/iou-under-optimal.txt`,
+`spikes/gauntlet/iou-ladder-ceiling.txt`.**
+
+## 17c. THE OTHER TWO DIALS DID NOT MOVE, AND FOUR BENCHES NOW AGREE ON THE CONTROL
+
+`assign-ab`, `iou-ab`, `coast-ab` and `cut-sweep` all reproduce the 1091
+control triples (man **22.5 / 136.5 / 547.5**, woman **25.5 / 201.5 /
+628.0**) from four independent files. That is the self-check that says
+the regime is pinned in all four, and it is the strongest this instrument
+has had.
+
+**The coast dial, re-priced so the question he is being asked carries the
+number his phone would get:**
+
+| passes | coast | man exp / fc / phantom | woman exp / fc / phantom |
+|---|---|---|---|
+| 1 | 2000ms | 39.5 / 127.0 / 352.0 | 36.5 / 189.0 / 398.5 |
+| **1.33** | 2660ms | **27.5 / 126.0 / 406.5** | **29.5 / 193.5 / 471.5** |
+| 1.5 | 3000ms | 26.5 / 130.0 / 463.0 | 29.0 / 195.5 / 537.5 |
+| **2 SHIPPED** | 4000ms | **22.5 / 136.5 / 547.5** | **25.5 / 201.5 / 628.0** |
+| 3 | 5000ms | 21.5 / 145.0 / 595.0 | 25.5 / 204.5 / 679.0 |
+
+2 -> 1.33 is **+5.0s man / +4.0s woman of exposure for 141.0s and 156.5s
+of phantom** (-25.7% and -24.9%). Under greedy it read +4.5/+4.0 for
+-149.5/-185.0. **Same shape, same winner, same trade -- the standing
+question stands as asked and only its digits move.** It still travels
+over OTA without an install.
+
+**`CUT_DELTA` is unchanged in shape and 75 stays refused.** 60 -> 75 is
+man +5.0 / -5.0 / -93.0 and woman +1.5 / -3.0 / -37.0, against greedy's
++3.5 / -14.0 / -97.0. The refusal is not about the corpus: his phone's
+ordinary motion reaches **p95 54.9**, and at 75 the gate fires on 12 of
+2160 frames, so it would start missing REAL cuts on HIS footage.
+
+**Raw: `spikes/gauntlet/coast-under-optimal.txt`,
+`spikes/gauntlet/cut-under-optimal.txt`.**
+
+## 17d. THE TWO GUARDS AGAINST THE D2 DEFECT CLASS WERE THEMSELVES COIN FLIPS
+
+Both found by the evidence packet's own oracle, which is the first time
+the critic loop has caught something before the critic read it.
+
+**1. `capture()` swapped the process-wide `process.stderr.write`.**
+`cadence-pinned.test.mjs` asserted `assert.equal(out, '')` for the
+second call, so any unrelated line on stderr inside that window -- a node
+warning, the runner's own diagnostics under load -- failed a test about
+our warning. The property is that OUR warning does not re-print, so that
+is what it asserts now. Proved red by making `warnDerivedCadence` always
+print.
+
+**2. `_build.mjs` raced with itself, and failed ONE arbitrary test file
+with no message.** Two test files import `arch-arms`, which imports
+`_build`, and `node --test` runs them in separate concurrent processes.
+Both read the bundle and both ran esbuild; whichever happened to read
+`before` *after* the other had already written got `before === after` and
+did **not** throw -- so exactly one of the two failed, nondeterministically,
+reported by the runner as `'test failed'` with no assertion named.
+
+**That is the worst possible shape for a failure to take**, and it cost
+the evidence packet's oracle a false alarm: a packet whose test output
+shows an unexplained failure reads exactly like a regression, which is
+the one thing the oracle exists to distinguish.
+
+Three changes: **no write when nothing changed** (the build runs only if
+an input is newer than the bundle, so every run after the first touches
+nothing and there is no window to race in); **one writer** (a `wx` lock
+elects a builder, the others wait rather than reading a file being
+written); and **it says why on stderr before it throws**, so the reason
+lands in any captured output. Verified both directions -- up to date is
+silent, stale fails BOTH files with the reason printed, second pass green.

@@ -83,12 +83,12 @@ Every ask gets a row, updated in the pass that does the work.
 | 3 | Verify every model is allowed | DONE | findings §5; traps recorded. Re-verify per model before adoption |
 | 4 | Findings/learnings document | DONE | `docs/engine-findings.md`, appended each loop |
 | 5 | Document the goal | DONE | this file |
-| 6 | Make the blur correct | IN PROGRESS | **birth verdict shipped in 1088** (the plan's B1): false cover **-38.0s / -18.5%** in his regime for +1.0s exposure, re-measured after a stale-instrument retraction (findings 10a). Person skip built, ships INERT on the OTA dial. E5 answered: 47% of births had an overlapping track, so the association layer is the next lever. 1088 installed on the Redmi |
-| 7 | Thumbnails | NOT STARTED | needs the null-read guard the video path has |
+| 6 | Make the blur correct | IN PROGRESS | **The assignment layer shipped in 1091** (`src/assign.mjs`, Hungarian, cardinality-first). Corrected in his regime, `birthContended` is the LARGEST birth class (44-51%) and `birthFresh` the smallest -- E5's 74% fresh was the D2 cadence defect, fourth file. Optimal matching: man 22.5/136.5/547.5 against greedy's 23.0/139.0/561.0 (better on all three); woman pays 1.0s exposure for 35.0s phantom. 8us per pass. Findings 17/17a/17b/17c |
+| 7 | Thumbnails | DONE (shipped 1085) | the null-read guard the video path has, ported and measured on banked ground truth first: 461 of 501 non-face flags removed (92.0%), 0 of 99 real faces uncovered, 0 of 141 opposite-gender reads uncovered |
 | 8 | All platforms | NOT STARTED | after the engine is right on YouTube |
 | 9 | Desktop parity | NOT STARTED | after mobile |
 | 10 | Open-source-quality model | HELD | see the EU AI Act flag in findings §5 — releasing a standalone gender model is a worse legal posture than shipping it in the app. Releasing the engine is unaffected. His call. |
-| 11 | Critic / feedback mechanism | DONE (design) | `docs/critic-loop.md`, 761 lines, 24 cited sources. Event-triggered, not interval -- the evidence says fixed intervals under-escalate. Wired into the loop brief above; `bench/critic-gate.mjs` still to build |
+| 11 | Critic / feedback mechanism | DONE (design) | `docs/critic-loop.md`, 761 lines, 24 cited sources. Event-triggered, not interval -- the evidence says fixed intervals under-escalate. Wired into the loop brief above. `bench/critic-gate.mjs` BUILT and binding: **50 rows, 50 CONFIRMED** across phases A-E. It stopped reading rows whose id carried a suffix (`E5b`) and reported a clean bill on an open WRONG-NUMBER row; the id pattern is widened and an unreadable row now exits 2 rather than being skipped |
 
 ## Loop protocol
 

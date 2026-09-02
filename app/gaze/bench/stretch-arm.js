@@ -29,6 +29,23 @@
 // calls `wholeFrameFlagged` makes (init-entry.js:1918). Nothing is
 // re-implemented, so this measures the pipeline.
 //
+// TWO WAYS THIS HARNESS IS NOT THE SHIPPED DRAW, and both bias the same
+// direction in both arms (phase-e E13):
+//
+//   1. it sets `imageSmoothingQuality = 'high'` and the shipped path
+//      does not, so the resampler is not the one his phone runs;
+//   2. it draws from an `<img>` decoded from a PNG, where the shipped
+//      path draws from a `<video>` -- a different colour pipeline and a
+//      different chroma history.
+//
+// CONSEQUENCE, and it bounds what may be quoted from here: the ABSOLUTE
+// `nm` magnitudes below are NOT the numbers his device produces, and no
+// threshold may be calibrated against them. What survives is the
+// MATCHED-PAIR direction -- both arms see the identical bytes through
+// the identical two differences, so a per-face A-vs-B comparison
+// cancels them. The 16a result (17 of 18 faces higher undistorted, sign
+// test p = 1.45e-4) is a paired test and rests only on that half.
+//
 // WHAT WOULD MAKE THE DEFECT REAL, stated before running so the result
 // cannot be read to taste:
 //

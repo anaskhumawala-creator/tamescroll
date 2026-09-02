@@ -45,8 +45,23 @@ for (const line of fs.readFileSync(LEDGER, 'utf8').split(/\r?\n/)) {
   // column into the middle of somebody's grep. Both fields this gate
   // decides on are CLOSED VOCABULARIES, so each is matched by value in
   // its own cell and cannot be shifted by anything a human types.
-  const id = /^\|\s*([A-Z]\d+)\s*\|/.exec(line);
-  if (!id) continue;
+  // THE SUFFIX IS NOT COSMETIC. `E5b` -- a residual split off a row that
+  // otherwise closed -- did not match `[A-Z]\d+`, so the gate SKIPPED it
+  // entirely and reported a clean bill on a WRONG-NUMBER row that was
+  // open. A row this parser cannot read must never read as no row.
+  const id = /^\|\s*([A-Z]\d+[a-z]?)\s*\|/.exec(line);
+  if (!id) {
+    // ... which is what this second half is for. A line that carries a
+    // severity from the closed vocabulary is a findings row whatever its
+    // id looks like, so an unparseable one is a hard failure rather than
+    // a silent skip.
+    if (line.startsWith('|') && SEVERITIES.some((s) => line.includes(`| ${s} |`))) {
+      console.error('critic-gate: a row carries a severity but no readable id:');
+      console.error(`  ${line.slice(0, 160)}`);
+      process.exit(2);
+    }
+    continue;
+  }
   const cell = (words) => words.find((w) => line.includes(`| ${w} |`)) || null;
   rows.push({
     id: id[1],

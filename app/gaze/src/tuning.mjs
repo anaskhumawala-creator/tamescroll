@@ -156,21 +156,35 @@ var SPEC = {
 
   // THE ASSOCIATION THRESHOLD. Below this overlap an observation is not
   // the same person and a new track is born. Moved 0.20 -> 0.15 on
-  // 2026-09-02 (findings 10g, and the reasoning is on the constant
+  // 2026-09-02 (findings 10o, and the reasoning is on the constant
   // itself in person-track.mjs).
   //
-  // THE FLOOR IS 0.10 AND IT IS AN EXPOSURE FLOOR. Man-mode exposure is
-  // monotone in this dial -- 22.0 / 23.0 / 24.0 / 26.0 / 27.5s at
-  // 0.20 / 0.15 / 0.10 / 0.05 / 0.02 -- because a looser threshold can
-  // associate a woman's observation onto a man's CLEARED track, which
-  // is the mechanism loop 39 traced this corpus's largest exposure to.
-  // 0.10 costs +2.0s against the shipped value; 0.05 costs +4.0s and
-  // buys no false cover at all (139.5 against 139.0). The range does not
-  // reach it.
+  // EXPOSURE IS MONOTONE IN THIS DIAL ACROSS THE WHOLE RANGE, and the
+  // note here used to describe only the half below the shipped value --
+  // which is how 0.15 came to be chosen without anyone reading what
+  // tightening would do (phase-E critic, E5). Under 1091's optimal
+  // assignment, man mode:
   //
-  // The ceiling of 0.35 exists so this can be TIGHTENED past where it
-  // has ever run, without a release, if his rings show re-association
-  // going wrong on his own footage -- which the corpus cannot see.
+  //   0.30  17.0 / 160.0 / 581.0        0.15  22.5 / 136.5 / 547.5  SHIP
+  //   0.25  19.5 / 147.0 / 563.0        0.10  24.5 / 137.5 / 543.0
+  //   0.20  21.5 / 139.5 / 566.5        0.05  28.0 / 135.0 / 528.0
+  //
+  // woman moves the same way (20.0 at 0.30 to 28.5 at 0.05). The
+  // mechanism for the loose end is the one loop 39 traced this corpus's
+  // largest exposure to: a looser threshold can associate a woman's
+  // observation onto a man's CLEARED track.
+  //
+  // SO THE SHIPPED VALUE IS THE BEST PHANTOM POINT ON THE REACHABLE
+  // LADDER AND CLOSE TO THE WORST EXPOSURE POINT. That is a protection
+  // trade and it is HIS. Both directions travel over OTA without an
+  // install: 0.20 buys back 1.0s (man) / 2.5s (woman) of exposure for
+  // 19.0s / 31.0s of phantom, and 0.30 buys back 5.5s / 5.5s for 33.5s /
+  // 74.5s. The floor of 0.10 bounds the loose end (0.05 costs +5.5s and
+  // buys no false cover); the ceiling of 0.35 lets it be tightened past
+  // where it has ever run if his rings show re-association going wrong
+  // on his own footage, which the corpus cannot see.
+  //
+  // Raw: spikes/gauntlet/iou-under-optimal.txt
   PTRACK_IOU_MIN: [0.10, 0.35, function (v) { personTrack.setIouMin(v); }],
 
   // THE VERDICT CLOCK. RESTATED 2026-09-02: the "81.0s of exposure at
