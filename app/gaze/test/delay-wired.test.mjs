@@ -102,7 +102,7 @@ test('the delayVerdictLate counter is seeded so absent cannot read as never-hook
   assert.match(SRC, /lf\.delayVerdictLate = lf\.delayVerdictLate \|\| 0;/);
 });
 
-test('DELAY_MS ships at 1000 on the OTA channel, 0 = off', () => {
-  assert.equal(DELAY_MS, 1000);
+test('DELAY_MS ships at 1500 on the OTA channel, 0 = off (measured 2026-09-02, delay-core.mjs)', () => {
+  assert.equal(DELAY_MS, 1500);
   assert.ok(tunableNames().includes('DELAY_MS'));
 });

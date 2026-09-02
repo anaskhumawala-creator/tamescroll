@@ -1,0 +1,61 @@
+ARM {"t":55,"bundle":"935a966-dirty"}
+SUMMARY {"frames": 6545, "framesWithPatch": 4374, "lateFrames": 1352, "snapshots": 308, "reads": 257, "cuts": 41, "phantom": {"blurredTrackPasses": 236, "coastingPasses": 79, "coastMsP50": 880, "coastMsP95": 1990, "coastMsMax": 2407, "abstainedReads": 53}, "lifeDelta": {"cutDetected": 41, "passDropped": 22, "nullDropped": 8, "nullMintedHeld": 0, "delayVerdictLate": 0, "birthFresh": 23, "birthContended": 7, "birthNearMiss": 6, "coastExpired": 24, "wipeErased": 7, "wipeErasedBlurred": 11, "personPassSkipped": 72, "positionPassSkipped": 3, "genderReadSkipped": 0, "readAbstain": 90, "readClearCertain": 78, "readUncertain": 32, "bodyClampFired": 16, "faceNoShape": 3, "memClear": 60, "memHit": 0, "memMiss": 0, "memStore": 0, "memInstant": 0, "birthCleared": 8, "birthBlurred": 28, "nullMatched": 15, "cutCoastExpired": 14}, "slots": [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2, 2, 2, 2, 3, 2, 2, 3, 2, 3, 3, 3, 2, 2, 1, 1, 1, 1, 1], "nativeDead": null, "delayMs": 1000}
+EXPOSURE {"births": 28, "birthsWithUncoveredFrames": 15, "uncoveredFramesTotal": 189, "late": 189, "cutOmitted": 99, "other": -99, "readAtPrevRefused": 15}
+  X {"id": 6, "m0": 55.422, "prev": 26.026, "gapMs": 29396, "f": 0, "lv": "uncertain", "framesInWindow": 15, "uncovered": 1, "late": 1, "cutOmitted": 1, "other": -1, "readAtPrev": {"g": "male", "s": 0.23, "ab": 1, "v": 0.613, "nm": 1.39}}
+  X {"id": 13, "m0": 98.232, "prev": 98.098, "gapMs": 134, "f": 0, "lv": "uncertain", "framesInWindow": 4, "uncovered": 4, "late": 4, "cutOmitted": 0, "other": 0, "readAtPrev": {"g": "male", "s": 0.64, "ab": 0, "v": 0.822, "nm": 11.59}}
+  X {"id": 14, "m0": 103.437, "prev": 102.102, "gapMs": 1335, "f": 0, "lv": "uncertain", "framesInWindow": 32, "uncovered": 9, "late": 9, "cutOmitted": 0, "other": 0, "readAtPrev": null}
+  X {"id": 17, "m0": 125.025, "prev": 124.258, "gapMs": 767, "f": 1, "lv": "uncertain", "framesInWindow": 28, "uncovered": 1, "late": 1, "cutOmitted": 1, "other": -1, "readAtPrev": {"g": "female", "s": 0.2, "ab": 0, "v": 0.401, "nm": 11.05}}
+  X {"id": 18, "m0": 125.025, "prev": 124.258, "gapMs": 767, "f": 1, "lv": "clear-certain", "framesInWindow": 28, "uncovered": 1, "late": 1, "cutOmitted": 1, "other": -1, "readAtPrev": {"g": "female", "s": 0.2, "ab": 0, "v": 0.401, "nm": 11.05}}
+  X {"id": 19, "m0": 135.302, "prev": 133.634, "gapMs": 1668, "f": 0, "lv": "uncertain", "framesInWindow": 51, "uncovered": 27, "late": 27, "cutOmitted": 0, "other": 0, "readAtPrev": null}
+  X {"id": 22, "m0": 149.45, "prev": 148.983, "gapMs": 467, "f": 0, "lv": "flag-certain", "framesInWindow": 18, "uncovered": 18, "late": 18, "cutOmitted": 0, "other": 0, "readAtPrev": {"g": "female", "s": 0.64, "ab": 0, "v": 0.182, "nm": 10.79}}
+  X {"id": 24, "m0": 159.46, "prev": 158.759, "gapMs": 701, "f": 1, "lv": "clear-certain", "framesInWindow": 23, "uncovered": 2, "late": 2, "cutOmitted": 2, "other": -2, "readAtPrev": {"g": "male", "s": 0.58, "ab": 0, "v": 0.792, "nm": 11.53}}
+  X {"id": 25, "m0": 159.46, "prev": 158.759, "gapMs": 701, "f": 1, "lv": "uncertain", "framesInWindow": 23, "uncovered": 2, "late": 2, "cutOmitted": 2, "other": -2, "readAtPrev": null}
+  X {"id": 27, "m0": 170.003, "prev": 169.803, "gapMs": 200, "f": 1, "lv": "flag-certain", "framesInWindow": 8, "uncovered": 8, "late": 8, "cutOmitted": 0, "other": 0, "readAtPrev": {"g": "male", "s": 0.81, "ab": 0, "v": 0.904, "nm": 11.76}}
+  X {"id": 29, "m0": 177.01, "prev": 176.643, "gapMs": 367, "f": 1, "lv": "uncertain", "framesInWindow": 12, "uncovered": 7, "late": 7, "cutOmitted": 0, "other": 0, "readAtPrev": {"g": "male", "s": 0.66, "ab": 0, "v": 0.831, "nm": 12.48}}
+  X {"id": 32, "m0": 187.854, "prev": 186.487, "gapMs": 1367, "f": 1, "lv": "uncertain", "framesInWindow": 53, "uncovered": 32, "late": 32, "cutOmitted": 32, "other": -32, "readAtPrev": {"g": "male", "s": 0.57, "ab": 0, "v": 0.785, "nm": 3.72}}
+  X {"id": 34, "m0": 190.49, "prev": 189.656, "gapMs": 834, "f": 0, "lv": "uncertain", "framesInWindow": 30, "uncovered": 30, "late": 30, "cutOmitted": 26, "other": -26, "readAtPrev": {"g": "male", "s": 0.74, "ab": 0, "v": 0.872, "nm": 11.98}}
+  X {"id": 39, "m0": 218.786, "prev": 217.151, "gapMs": 1635, "f": 1, "lv": "uncertain", "framesInWindow": 60, "uncovered": 34, "late": 34, "cutOmitted": 34, "other": -34, "readAtPrev": null}
+  X {"id": 40, "m0": 221.021, "prev": 220.654, "gapMs": 367, "f": 0, "lv": "flag-certain", "framesInWindow": 13, "uncovered": 13, "late": 13, "cutOmitted": 0, "other": 0, "readAtPrev": {"g": "female", "s": 0.38, "ab": 0, "v": 0.311, "nm": 10.39}}
+FALSECOVER {"sameGenderConfidentReads": 108, "coveredReads": 41, "why": {"pendingClear": 29, "noTrackContainsFace": 3, "revoked": 2, "timelineOnly": 7}}
+  F {"m": 59.026, "s": 0.61, "v": 0.803, "px": 191, "coveredFrames": 13, "nearFrames": 13, "why": "pendingClear", "track": {"id": 6, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 59.026, "s": 0.96, "v": 0.978, "px": 218, "coveredFrames": 13, "nearFrames": 13, "why": "pendingClear", "track": {"id": 6, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 64.698, "s": 0.51, "v": 0.755, "px": 144, "coveredFrames": 11, "nearFrames": 11, "why": "pendingClear", "track": {"id": 7, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 67.367, "s": 0.97, "v": 0.986, "px": 319, "coveredFrames": 13, "nearFrames": 13, "why": "pendingClear", "track": {"id": 7, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 67.367, "s": 0.62, "v": 0.808, "px": 376, "coveredFrames": 13, "nearFrames": 13, "why": "pendingClear", "track": {"id": 7, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 71.171, "s": 0.95, "v": 0.977, "px": 169, "coveredFrames": 14, "nearFrames": 14, "why": "pendingClear", "track": {"id": 7, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 77.644, "s": 0.92, "v": 0.962, "px": 267, "coveredFrames": 6, "nearFrames": 6, "why": "pendingClear", "track": {"id": 9, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 77.644, "s": 0.95, "v": 0.973, "px": 191, "coveredFrames": 6, "nearFrames": 6, "why": "pendingClear", "track": {"id": 9, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 78.646, "s": 0.9, "v": 0.949, "px": 184, "coveredFrames": 13, "nearFrames": 13, "why": "pendingClear", "track": {"id": 7, "cs": 1, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 80.447, "s": 0.87, "v": 0.936, "px": 199, "coveredFrames": 16, "nearFrames": 16, "why": "pendingClear", "track": {"id": 7, "cs": 1, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 80.814, "s": 0.64, "v": 0.82, "px": 162, "coveredFrames": 7, "nearFrames": 11, "why": "timelineOnly", "track": {"id": 7, "st": "cleared"}}
+  F {"m": 88.822, "s": 0.91, "v": 0.956, "px": 206, "coveredFrames": 7, "nearFrames": 19, "why": "timelineOnly", "track": {"id": 7, "st": "cleared"}}
+  F {"m": 91.424, "s": 0.45, "v": 0.724, "px": 133, "coveredFrames": 11, "nearFrames": 11, "why": "pendingClear", "track": {"id": 7, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 1, "as": 0}}
+  F {"m": 104.405, "s": 0.79, "v": 0.896, "px": 149, "coveredFrames": 9, "nearFrames": 9, "why": "pendingClear", "track": {"id": 14, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 106.106, "s": 0.86, "v": 0.931, "px": 160, "coveredFrames": 14, "nearFrames": 14, "why": "revoked", "track": {"id": 13, "cs": 0, "fs": 2, "cm": 0, "lv": "flag-certain", "f": 0, "as": 0}}
+  F {"m": 110.31, "s": 0.89, "v": 0.944, "px": 192, "coveredFrames": 13, "nearFrames": 13, "why": "revoked", "track": {"id": 13, "cs": 0, "fs": 1, "cm": 0, "lv": "flag-certain", "f": 1, "as": 0}}
+  F {"m": 125.025, "s": 0.68, "v": 0.841, "px": 109, "coveredFrames": 10, "nearFrames": 11, "why": "pendingClear", "track": {"id": 18, "cs": 1, "fs": 0, "cm": 0, "lv": "clear-certain", "f": 1, "as": 0}}
+  F {"m": 125.025, "s": 0.97, "v": 0.984, "px": 123, "coveredFrames": 10, "nearFrames": 11, "why": "pendingClear", "track": {"id": 18, "cs": 1, "fs": 0, "cm": 0, "lv": "clear-certain", "f": 1, "as": 0}}
+  F {"m": 126.694, "s": 0.96, "v": 0.981, "px": 169, "coveredFrames": 1, "nearFrames": 15, "why": "timelineOnly", "track": {"id": 18, "st": "cleared"}}
+  F {"m": 135.669, "s": 0.84, "v": 0.919, "px": 465, "coveredFrames": 19, "nearFrames": 19, "why": "pendingClear", "track": {"id": 17, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 136.971, "s": 0.82, "v": 0.912, "px": 405, "coveredFrames": 10, "nearFrames": 10, "why": "pendingClear", "track": {"id": 19, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 137.638, "s": 0.92, "v": 0.958, "px": 406, "coveredFrames": 13, "nearFrames": 13, "why": "pendingClear", "track": {"id": 17, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 151.051, "s": 0.45, "v": 0.727, "px": 124, "coveredFrames": 12, "nearFrames": 12, "why": "pendingClear", "track": {"id": 22, "cs": 0, "fs": 0, "cm": 0, "lv": "flag-certain", "f": 0, "as": 0}}
+  F {"m": 158.759, "s": 0.58, "v": 0.792, "px": 158, "coveredFrames": 12, "nearFrames": 27, "why": "noTrackContainsFace", "track": null}
+  F {"m": 159.46, "s": 0.78, "v": 0.888, "px": 157, "coveredFrames": 12, "nearFrames": 12, "why": "pendingClear", "track": {"id": 24, "cs": 1, "fs": 0, "cm": 0, "lv": "clear-certain", "f": 1, "as": 0}}
+  F {"m": 160.16, "s": 0.54, "v": 0.769, "px": 152, "coveredFrames": 8, "nearFrames": 27, "why": "timelineOnly", "track": {"id": 24, "st": "cleared"}}
+  F {"m": 161.929, "s": 0.75, "v": 0.873, "px": 303, "coveredFrames": 20, "nearFrames": 20, "why": "pendingClear", "track": {"id": 25, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 176.643, "s": 0.66, "v": 0.831, "px": 203, "coveredFrames": 1, "nearFrames": 22, "why": "noTrackContainsFace", "track": null}
+  F {"m": 176.643, "s": 0.49, "v": 0.743, "px": 134, "coveredFrames": 1, "nearFrames": 22, "why": "noTrackContainsFace", "track": null}
+  F {"m": 194.06, "s": 0.88, "v": 0.94, "px": 354, "coveredFrames": 15, "nearFrames": 15, "why": "pendingClear", "track": {"id": 34, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 196.029, "s": 0.49, "v": 0.746, "px": 381, "coveredFrames": 21, "nearFrames": 21, "why": "pendingClear", "track": {"id": 34, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 197.831, "s": 0.61, "v": 0.807, "px": 207, "coveredFrames": 3, "nearFrames": 16, "why": "timelineOnly", "track": {"id": 33, "st": "cleared"}}
+  F {"m": 202.403, "s": 0.85, "v": 0.923, "px": 132, "coveredFrames": 20, "nearFrames": 20, "why": "pendingClear", "track": {"id": 33, "cs": 1, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 205.339, "s": 0.56, "v": 0.781, "px": 133, "coveredFrames": 24, "nearFrames": 24, "why": "pendingClear", "track": {"id": 36, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 1, "as": 0}}
+  F {"m": 207.908, "s": 0.87, "v": 0.935, "px": 198, "coveredFrames": 18, "nearFrames": 18, "why": "pendingClear", "track": {"id": 36, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 208.275, "s": 0.84, "v": 0.918, "px": 154, "coveredFrames": 10, "nearFrames": 10, "why": "timelineOnly", "track": {"id": 33, "st": "cleared"}}
+  F {"m": 222.689, "s": 0.65, "v": 0.826, "px": 191, "coveredFrames": 16, "nearFrames": 16, "why": "pendingClear", "track": {"id": 40, "cs": 0, "fs": 0, "cm": 0, "lv": "flag-certain", "f": 0, "as": 0}}
+  F {"m": 224.658, "s": 0.88, "v": 0.941, "px": 195, "coveredFrames": 17, "nearFrames": 17, "why": "pendingClear", "track": {"id": 40, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 226.093, "s": 0.8, "v": 0.898, "px": 208, "coveredFrames": 18, "nearFrames": 18, "why": "pendingClear", "track": {"id": 41, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 226.093, "s": 0.91, "v": 0.953, "px": 199, "coveredFrames": 18, "nearFrames": 18, "why": "pendingClear", "track": {"id": 41, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+banked Z:\Apps\Disconnect\spikes\gauntlet\events-delay1000ctl.json
+delay1000ctl exit 0

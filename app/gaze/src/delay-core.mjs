@@ -19,7 +19,12 @@
 // pixel), and `delay-presenter.mjs` must build the ring with
 // `createImageBitmap(video, ...)`, never `new VideoFrame(video)`.
 
-export var DELAY_MS = 1000; // OTA; 0 = presenter off
+// 1500 since 2026-09-02, measured on the Redmi against 1000 on the same
+// build (spikes/gauntlet/delay1500.out vs delay1000ctl.out, 180s, same
+// video/seek): late frames 406 vs 1352, births with uncovered frames 6 vs
+// 15, uncovered frames 121 vs 189; PSS 384MB vs 363MB. Half a second more
+// audio/video latency for a third of the exposure.
+export var DELAY_MS = 1500; // OTA [0, 2500]; 0 = presenter off
 export function setDelayMs(v) {
   DELAY_MS = v;
 }

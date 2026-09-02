@@ -236,8 +236,24 @@ def classify(d, gender):
     }
 
 
+PLANT_FILE = os.environ.get("TS_PLANT_FILE")
+
+
+def plant(t):
+    """TS_PLANT_FILE names a JS file evaluated on every new document of
+    this CDP session before the app's own scripts (same arm mechanism as
+    probe_latency_ab.py): pin window.__TS_GAZE_TUNING__ to run an OTA
+    dial on one build without pushing rules."""
+    if not PLANT_FILE:
+        return
+    src = open(PLANT_FILE, encoding="utf-8").read()
+    t.cmd("Page.enable")
+    t.cmd("Page.addScriptToEvaluateOnNewDocument", source=src)
+
+
 def main():
     t = Tab(page(port=PORT)); t.cmd("Page.enable"); t.cmd("Runtime.enable")
+    plant(t)
     if "tauri.localhost" not in (t.eval("location.href") or ""):
         t.cmd("Page.navigate", url="http://tauri.localhost/"); time.sleep(6)
         t = Tab(page(port=PORT)); t.cmd("Runtime.enable")
@@ -246,6 +262,7 @@ def main():
       await inv('open_platform',{id:'youtube',mode:'smart',strength:24,gender:'%s',shown:['watch_recs']}); return 1;})()""" % GENDER)
     time.sleep(7)
     t = Tab(page(port=PORT)); t.cmd("Page.enable"); t.cmd("Runtime.enable")
+    plant(t)
     t.cmd("Page.navigate", url="https://m.youtube.com/watch?v=" + VIDEO)
     time.sleep(30)
     t = Tab(page(port=PORT)); t.cmd("Runtime.enable")
