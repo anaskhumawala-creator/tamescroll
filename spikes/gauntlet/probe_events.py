@@ -44,7 +44,7 @@ COLLECT_JS = r"""(function(){
   if(v){ try{ v.muted=true; v.currentTime=%f; v.play(); }catch(e){} }
   var st=window.__TS_EV={frames:[],reads:[],tracks:[],cuts:[],life0:null,stop:0,raf:0};
   var lastR=null, lastT=null, lastLife={};
-  var LIFE=['cutDetected','passDropped','nullDropped','nullMintedHeld','delayVerdictLate','birthFresh','birthContended','birthNearMiss','coastExpired','wipeErased','wipeErasedBlurred','personPassSkipped','positionPassSkipped','genderReadSkipped','readAbstain','readClearCertain','readUncertain','bodyClampFired','faceNoShape','memClear','memHit','memMiss','memStore','memInstant','birthCleared','birthBlurred','nullMatched','cutCoastExpired'];
+  var LIFE=['cutDetected','cutLocated','cutUnlocated','passDropped','nullDropped','nullMintedHeld','delayVerdictLate','birthFresh','birthContended','birthNearMiss','coastExpired','wipeErased','wipeErasedBlurred','personPassSkipped','positionPassSkipped','genderReadSkipped','readAbstain','readClearCertain','readUncertain','bodyClampFired','faceNoShape','memClear','memHit','memMiss','memStore','memInstant','birthCleared','birthBlurred','nullMatched','cutCoastExpired'];
   function vis(){
     var vr=v?v.getBoundingClientRect():null; var out=[];
     if(!vr||vr.width<1||vr.height<1) return out;

@@ -70,6 +70,83 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-03 00:50 (**1097 PUBLISHED, sha 99c03c8c** --
+bundle 48b7c0d, asset replaced with --clobber, manifest pushed. The
+Redmi runs it; his phone gets it in-app. SMOKE on the Redmi:
+`cutLocated 25 / cutUnlocated 3` of 28 cuts, `repositionErrors 0`
+over 5904 rAF, 186 snapshots tracking vt to the end; `probe_mini_close`
+afterX = results page, state full, paused, no mini classes. NOTE: the
+Redmi was in LANDSCAPE for both (innerWidth 823) -- re-lock rotation
+before the next rect-sensitive probe.)
+
+**Session 2026-09-02/03 (loop 50-51) -- HIS SEEK-BACK FREEZE, THE DROPS
+DECOMPOSED, THE MINI X, AND PHASE-M (7 rows, 2 EXPOSURE, ALL FIXED).**
+
+- **HIS BUG ("changed the resolution, went back in the timeline, one
+  patch stuck at one position"): ROOT CAUSE = the timeline kept pruning
+  against the NEWEST held media time and a seek back never reset it**,
+  so every snapshot pushed after the seek was older than the window and
+  dropped, `boxesAt` held the last pre-seek verdict forever (v1096rel:
+  lm stuck at 94.59 for 20s while vt ran on). Fixed in c240dd1:
+  `resetTimeline` on `seeked` and a `BACK_JUMP_S` 0.5 self-heal inside
+  `pushSnapshot`. Verified on the Redmi with `probe_quality_seek.py`
+  (quality change + two seeks back): lm tracks vt after both seeks.
+  Resolution itself was innocent -- it only made the seek happen.
+- **DROPPED FRAMES, DECOMPOSED ON THE REDMI** (`probe_drops_ab.py`,
+  426p, 120s arms, `drops-v1097-*.json`):
+
+  | arm | dropped |
+  |---|---|
+  | off | 0% |
+  | smart, control | 13.2% |
+  | smart, `DELAY_MS 0` | 9.3% |
+  | smart, `VERDICT_DUTY 4` (half the inference) | 11.5% |
+
+  The delay line's per-frame bitmap capture is ~4 points; halving
+  inference buys 1.8; the residual ~7-9 is per-frame render + capture
+  + gate work, NOT the models. Both dials are OTA. His question "is the
+  delay a bad idea" answered: no -- it is what puts the patch on a
+  person the frame they appear; 4 points of drops is its price.
+  **PROBE GOTCHA:** `Page.addScriptToEvaluateOnNewDocument` lives for
+  the CDP session and `Tab()` never closes the old socket, so a second
+  planted arm in one process gets BOTH plants (the first, non-
+  configurable, wins): `v1097-decomp`'s duty4 and both arms were delay0
+  arms. One plant per invocation; the header says so.
+- **MINI PLAYER X (his "reopens big when I click X"): by design
+  `dismiss` restored the full player.** Now the X and a sideways fling
+  LEAVE the watch page -- `closeBackSteps` walks the Navigation API
+  entries back to the last non-/watch same-origin entry and
+  `history.go(-steps)`; a 1200ms fallback restores the layout if the
+  href never changes. `restoreFull` drops `ts-mini-gone`. Navigation
+  API confirmed on the device (entries [home, watch, results, watch]).
+  Inside the parked box only our canvas and two buttons are visible;
+  the "title bar" he sees is either the watch page's title block under
+  the parked player or YouTube's fixed topbar -- batched question.
+- **PHASE-M CRITIC (`docs/critic/phase-m.md`, ledger M1-M7):** M4
+  (EXPOSURE) the cut was keyed at the gate SAMPLE, up to 100ms (3-4
+  presented frames) after the frame that carried it -- `locateCut` in
+  the presenter finds the ring frame with the largest single-frame luma
+  jump in (previous sample, this sample] and keys the cut there
+  (`cutLocated`/`cutUnlocated`). M3 (EXPOSURE) `setTracks`' first
+  reposition was unguarded, so a throw skipped the loop start and the
+  counter built to see it read 0. M1 the exposure classifier never read
+  the presented picture -- joined to `frames[].p` now; HONEST: a parked
+  patch still overlaps its subject at IoU 0.3, so a stale target is
+  `stale_target.py`'s job, this join catches a MISSING patch (healthy
+  runs 5-9% of blurred-entry frames uncovered, which includes rules
+  3'/3''/6 by design -- a bound, not decomposed). M2 v1096c re-scored
+  on the shipped classifier: **20/82**, one series 20 -> 13 -> 14 -> 16.
+  M5 the "pinned by a 0.28 flag" story read `cf` (coreFresh) as the
+  flag; withdrawn, `fe` = flagEvidence banked. M6/M7 NITs open.
+- **NOT A FLAW: three models on the video** (MoveNet bodies, BlazeFace
+  faces, faceres gender), each with one job; nsfwjs is thumbnails only.
+  He asked "too many models?" -- the drops table above is the answer.
+- gaze **754/754**, critic-gate **140 rows / 0 blocking**.
+- **HIS DIALS, batched (none pushed):** `DELAY_MS` 1500 -> 0 (-4 points
+  of drops, blur one verdict late on every entry); `VERDICT_DUTY` 2 ->
+  1.5 or 4; `GENDER_CHILD_MASS` (young men read pc 0.36-0.49); faces
+  under 40px behind the nm floor.
+
 **Last updated:** 2026-09-02 23:40 (**1096 PUBLISHED, sha 15659569** --
 GitHub asset `tamescroll-v0.1.96.apk` served, isDraft false, manifest
 pushed. The Redmi runs 1096; his phone gets it in-app. He asked to

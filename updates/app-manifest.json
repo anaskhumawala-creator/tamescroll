@@ -1,7 +1,7 @@
 {
-  "versionCode": 1096,
-  "versionName": "0.1.96",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.96/tamescroll-v0.1.96.apk",
-  "sha256": "15659569abd3c37c7cf255263f43e756d077ec3cf50803f89790418e95894f6b",
-  "notes": "In-video blur: the render loop no longer dies on a frame that throws (patches froze for the rest of the page); a pending clear is confirmed across position passes, so a man reads sharp one verdict earlier; scene cuts are keyed at the frame that showed them."
+  "versionCode": 1097,
+  "versionName": "0.1.97",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.97/tamescroll-v0.1.97.apk",
+  "sha256": "99c03c8cde9b0f9bfef8486b4dc05790c6e7a6ae000d91ee75dcdcaefa02d8f7",
+  "notes": "In-video blur: seeking back on the timeline no longer leaves one patch frozen; a scene cut is keyed on the exact frame; mini player X now closes it and goes back to where you were."
 }

@@ -15,6 +15,12 @@ VIDEO = sys.argv[4] if len(sys.argv) > 4 else "NWoT1ZVd1Lo"
 SEEK = float(sys.argv[5]) if len(sys.argv) > 5 else 55.0
 # TS_ARMS: comma list of mode[:plantFile]; a plant pins window.__TS_GAZE_TUNING__
 # on every new document (same mechanism as probe_events.py TS_PLANT_FILE).
+# ONE PLANTED ARM PER PROCESS. Page.addScriptToEvaluateOnNewDocument lives
+# for the CDP session that added it, and Tab() never closes the previous
+# socket, so a second planted arm in the same run gets BOTH plants -- the
+# first (non-configurable) wins and the second arm silently measures the
+# first (v1097-decomp: the duty4 and both arms were delay0 arms). Run
+# TS_ARMS with at most one plant per invocation.
 ARMS = [a.split(":", 1) for a in (os.environ.get("TS_ARMS") or "smart,off").split(",")]
 
 Q = r"""(function(){ var v=document.querySelector('#movie_player video')||document.querySelector('video'); if(!v) return null;
