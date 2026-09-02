@@ -1,0 +1,24 @@
+CUT_DELTA RE-READ UNDER THE OPTIMAL ASSIGNMENT (1091)
+his regime. The 60 row must reproduce assign-ab's optimal row.
+
+### man
+gender=man  k=3 (1.5s/verdict)  told 2000ms  cut handler=full  (shipped: demote + forced pass)
+
+CUT_DELTA  cutFrames  EXPOSURE  FALSECOVER   PHANTOM   births  cleared
+35               200     15.5s      177.5s    925.0s      150       21
+40               184     15.5s      175.5s    872.5s      151       21
+50               115     16.5s      155.5s    598.0s      140       23
+60                59     22.5s      136.5s    547.5s      141       23
+75                12     27.5s      131.5s    454.5s      136       22
+90                 2     29.5s      132.0s    448.0s      133       21
+
+### woman
+gender=woman  k=3 (1.5s/verdict)  told 2000ms  cut handler=full  (shipped: demote + forced pass)
+
+CUT_DELTA  cutFrames  EXPOSURE  FALSECOVER   PHANTOM   births  cleared
+35               200     12.0s      209.5s    939.0s      141        8
+40               184     12.0s      207.0s    933.5s      141        8
+50               115     19.5s      196.0s    666.5s      132       11
+60                59     25.5s      201.5s    628.0s      136        7
+75                12     27.0s      198.5s    591.0s      135        8
+90                 2     31.0s      198.5s    581.0s      131        7
