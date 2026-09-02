@@ -89,6 +89,31 @@ export var PTRACK_IOU_MIN = 0.15;
 export var PTRACK_ASSIGN = 'optimal';
 export function setAssign(v) { PTRACK_ASSIGN = v === 'optimal' ? 'optimal' : 'greedy'; }
 export function setIouMin(v) { PTRACK_IOU_MIN = v; }
+
+// GENDER READS COST ~536ms OF faceres ON THE ARM64 REDMI, AND A TRACK
+// WHOSE VERDICT IS SETTLED GAINS NOTHING FROM ONE MORE. `readAt` is the
+// wall-clock (obs.at) of the last observation that actually paid for a
+// crop + gender read (see newTrack / matchedStep below); a position-only
+// observation never advances it. `trackNeedsRead` is the gate init-entry
+// consults before zooming a picked person: unsettled tracks (still on the
+// clear ladder, or simply overdue) always read; a settled flag-certain
+// blurred track, or a recently-refreshed cleared one, does not.
+export var GENDER_REFRESH_MS = 2000;
+export function setGenderRefreshMs(v) { GENDER_REFRESH_MS = v; }
+/**
+ * Does this track need a gender read on this pass? A read costs ~536ms
+ * of faceres on the arm64 Redmi and a track whose verdict is settled
+ * gains nothing from one more. Unsettled = blurred without a certain
+ * flag (still on the clear ladder), or cleared (must re-confirm inside
+ * CLEARED_TTL_MS or it reverts), or simply old.
+ */
+export function trackNeedsRead(t, nowMs) {
+  if (!t) return true;
+  if (!(t.readAt > 0)) return true;
+  if (nowMs - t.readAt >= GENDER_REFRESH_MS) return true;
+  if (t.state === 'blurred' && t.lastVerdict !== 'flag-certain') return true;
+  return false;
+}
 // How fast a box may SHRINK across an observation-source flip. See the
 // note in matchedStep: slower shrink only ever over-covers.
 export var PTRACK_FLIP_SHRINK_ALPHA = 0.2;
@@ -1136,6 +1161,11 @@ function matchedStep(t, obs, dt) {
       clearStreak: t.clearStreak || 0,
       flagStreak: t.flagStreak || 0,
       abstainStreak: t.abstainStreak || 0,
+      // A position pass is not a gender read (see GENDER_REFRESH_MS
+      // above), so it carries `readAt` through unchanged rather than
+      // resetting it -- resetting it here would make every track look
+      // freshly read on the very passes that read nothing.
+      readAt: t.readAt || 0,
       // `weakStreak` WAS THE ONE FIELD THIS RETURN DROPPED, AND IT MADE
       // GENDER_WEAK_STREAK_N STRUCTURALLY UNREACHABLE (S10 open item 5,
       // confirmed by R23's critic and by the counters). Position passes
@@ -1418,6 +1448,12 @@ function matchedStep(t, obs, dt) {
   return {
     id: t.id,
     box: smoothed,
+    // THIS PASS PAID FOR A GENDER READ (obs is not positionOnly here),
+    // so it stamps `readAt` -- the input `trackNeedsRead` compares
+    // against on the NEXT verdict to decide whether this track needs
+    // another one. `obs.at || t.readAt` never regresses the stamp if a
+    // caller forgot to pass `at` (see the note on GENDER_REFRESH_MS).
+    readAt: obs.at || t.readAt || 0,
     // PROVENANCE, on the TRACK and not on the box (gauntlet R20).
     // R19 added a `fromFace` flag so a round could ask whether an
     // offending patch came from a MEASURED MoveNet person or from a body
@@ -1854,6 +1890,12 @@ function coastStep(t, dt) {
     vw: (t.vw || 0) * 0.7,
     vh: (t.vh || 0) * 0.7,
     state: state,
+    // A coast is not a read either -- carried, same reasoning as the
+    // position-only branch of matchedStep above. Dropping this here
+    // would make trackNeedsRead re-read a settled track on every pass
+    // that merely coasted it, which is the exact cost this predicate
+    // exists to avoid.
+    readAt: t.readAt || 0,
     // A coasting track's clear hold does not advance (no evidence).
     clearMs: state === 'blurred' ? 0 : t.clearMs,
     missMs: missMs,
@@ -1932,6 +1974,11 @@ export function demoteTracks(tracks) {
       vw: 0,
       vh: 0,
       state: 'blurred',
+      // Behaviourally inert here (lastVerdict resets to 'uncertain'
+      // three lines below, which alone forces trackNeedsRead true), but
+      // carried anyway so `readAt` stays a real stamp on every track
+      // rather than silently reverting to 0 across a cut.
+      readAt: t.readAt || 0,
       clearMs: 0,
       missMs: 0,
       clearAge: 0,
@@ -2043,6 +2090,12 @@ function newTrack(obs) {
       x2: obs.box.x2,
       y2: obs.box.y2,
     },
+    // A position-only observation never paid for a gender read, so a
+    // track born from one has no `readAt` at all (0 -- see
+    // trackNeedsRead's `!(t.readAt > 0)` branch, which always reads a
+    // track with no stamp). A verdict observation stamps it from
+    // `obs.at`.
+    readAt: obs.positionOnly ? 0 : (obs.at || 0),
     // See matchedStep: the box literal here is exactly why this cannot
     // live on the box.
     fromFace: !!(obs.box && obs.box.fromFace),

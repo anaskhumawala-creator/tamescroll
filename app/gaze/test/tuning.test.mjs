@@ -33,6 +33,7 @@ const SHIPPED = {
   VERDICT_DUTY: cadence.VERDICT_DUTY,
   PTRACK_MIN_COAST_PASSES: personTrack.PTRACK_MIN_COAST_PASSES,
   PTRACK_IOU_MIN: personTrack.PTRACK_IOU_MIN,
+  GENDER_REFRESH_MS: personTrack.GENDER_REFRESH_MS,
 };
 const restore = () => applyTuning(SHIPPED);
 

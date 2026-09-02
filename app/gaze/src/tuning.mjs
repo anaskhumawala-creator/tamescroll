@@ -233,6 +233,29 @@ var SPEC = {
   // before it was ever tunable, so the range brackets rather than
   // exceeds what has already run in production.
   VERDICT_DUTY: [1.5, 4, function (v) { cadence.setVerdictDuty(v); }],
+
+  // GENDER ONLY FOR TRACKS THAT NEED A READ (latency-restructure Task 4,
+  // 2026-09-02). A crop + gender read costs ~536ms of faceres on the
+  // arm64 Redmi; a track whose verdict is SETTLED -- a flag-certain
+  // blur, or a cleared track re-confirmed within this window -- gains
+  // nothing from paying for another one. This is the window: how long a
+  // settled track's last read may stand before it is treated as stale
+  // again. See person-track.trackNeedsRead.
+  //
+  // Red-proved at 0: `nowMs - readAt >= 0` is true for every track that
+  // has ever been read, so a push of 0 makes EVERY verdict pass read
+  // EVERY picked person, byte-identical to the pre-Task-4 arm --
+  // bench/gender-skip-arm.mjs pins this against the control triple.
+  //
+  // The floor is 1000, not 0: below one verdict interval the window
+  // closes before a second verdict can even land at his cadence
+  // (VERDICT_MAX_INTERVAL_MS floors at 1200), so the skip could never
+  // fire and the dial would be decoration. The ceiling is 4000, twice
+  // the shipped VERDICT_MAX_INTERVAL_MS default -- past that a settled
+  // track goes two verdict intervals without a single re-confirming
+  // read, which is longer than CLEARED_TTL_MS already allows a clear to
+  // stand unrefreshed.
+  GENDER_REFRESH_MS: [1000, 4000, function (v) { personTrack.setGenderRefreshMs(v); }],
 };
 
 export function tunableNames() { return Object.keys(SPEC); }

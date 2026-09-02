@@ -79,6 +79,9 @@ import {
   demoteTracks,
   cosineSim,
   bumpLife,
+  iou,
+  PTRACK_IOU_MIN,
+  trackNeedsRead,
 } from './person-track.mjs';
 import * as sceneGate from './scene-gate.mjs';
 import { fitBox } from './crop-geometry.mjs';
@@ -3926,10 +3929,40 @@ if (
                   var observations = [];
                   // Un-cropped extra persons still move their tracks.
                   rest.forEach(function (p) {
-                    observations.push({ box: p, positionOnly: true });
+                    observations.push({ box: p, positionOnly: true, at: now });
                   });
                   var chain = Promise.resolve();
                   all.forEach(function (p, pi) {
+                    // GENDER ONLY FOR TRACKS THAT NEED A READ (plan
+                    // 2026-09-02, Task 4). A crop + gender read costs
+                    // ~536ms of faceres on the arm64 Redmi; a track whose
+                    // verdict is already SETTLED -- a flag-certain blur,
+                    // or a cleared track refreshed inside
+                    // GENDER_REFRESH_MS -- gains nothing from paying for
+                    // another one this pass. Matched by best IoU against
+                    // the TRACKER'S OWN state as it stood before this
+                    // pass (`videoTracks`, not yet updated by this pass's
+                    // observations) -- the same association threshold
+                    // `updatePersonTracks` itself uses, so a person this
+                    // pass finds nowhere near an existing track (a new
+                    // subject, or one MoveNet never gave a certain read
+                    // to and so can never reach `flag-certain`) always
+                    // falls through the `matchedTrack &&` guard and gets
+                    // read, exactly as before.
+                    var matchedTrack = null;
+                    var bestTrackIou = 0;
+                    for (var vt = 0; vt < videoTracks.length; vt++) {
+                      var trackIou = iou(p, videoTracks[vt].box);
+                      if (trackIou >= PTRACK_IOU_MIN && trackIou > bestTrackIou) {
+                        bestTrackIou = trackIou;
+                        matchedTrack = videoTracks[vt];
+                      }
+                    }
+                    if (matchedTrack && !trackNeedsRead(matchedTrack, now)) {
+                      bumpLife('genderReadSkipped');
+                      observations.push({ box: p, positionOnly: true, at: now });
+                      return;
+                    }
                     // Serial, not parallel: one GPU queue, smaller bursts.
                     //
                     // AND SPLIT INTO SEPARATE TASKS. (2026-08-27) Serial
@@ -3949,6 +3982,7 @@ if (
                         throw e;
                       }).then(function (obs) {
                         obs.verdictDt = verdictDt;
+                        obs.at = now;
                         observations.push(obs);
                       });
                     });
@@ -4333,6 +4367,7 @@ if (
                 lf.wipeErasedBlurred = lf.wipeErasedBlurred || 0;
                 lf.faceNoShape = lf.faceNoShape || 0;
                 lf.bodyFromSlot = lf.bodyFromSlot || 0;
+                lf.genderReadSkipped = lf.genderReadSkipped || 0;
               } catch (e) {}
               var cost = performance.now() - now;
               if (wasVerdict) lastVerdictMs = cost;
