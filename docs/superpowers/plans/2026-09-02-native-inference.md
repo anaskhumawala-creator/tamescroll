@@ -206,6 +206,7 @@ Updated by whoever finishes a task. The loop reads this section first.
 - **Blocked / needs owner:** nothing yet.
 - **Bench scaffold:** `spikes/native/bench-android/` written (Task 1 Step 1 done); `run.sh` builds+installs+runs and writes `gpu-bench.json`. Waiting on `.tflite`s from 0a.
 - **Log:**
+  - 2026-09-02 18:45 TASK 8: 1093 PUBLISHED (tag app-v0.1.93, isDraft false, sha f87fc608, manifest regenerated). Final row on the installed build (`latency-ab-native1093.json`): verdict 474 / 1230, gap 1213 / 2411, verdicts 102, positions 78 (273ms), rAF 41.7, coverage 0.55, nativePasses 184, errors 0, dead 0, native backend gpu, worker webgl alive. The APK shipped BOTH f16 and f32 .tflite (111MB) on the first build -- the engine only loads the f32 names, so the three f16 files were moved to `spikes/native/out/` and the APK rebuilt at 94MB (3 tflite); port probe on the trimmed build: adopted 2184ms, ready 8574ms, backend gpu, +69 native passes over 60s. NOTICE carries TensorFlow Lite. Version bumped in `appupdate.rs` / `tauri.conf.json` / `tauri.properties`. `assets/models/` stays gitignored (33MB) -- a fresh clone must regenerate via `spikes/native/convert.py` before an Android build.
   - 2026-09-02 18:20 TASK 5 A/B DONE, TASK 6 DONE, J10/J11 CLOSED. `probe_latency_ab.py --delay`, 150s, same video/seek, Redmi:
 
     | build | verdict p50 / p95 | gap p50 / p95 | verdicts | positions (p50 ms) | rAF | coverage | entry lag p50 / p95 (non-pos) | exit hang p50 / max | slotsN | faceNoShape |

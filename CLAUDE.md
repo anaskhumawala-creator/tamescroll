@@ -70,6 +70,86 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-02 17:30 (**1093 PUBLISHED, sha f87fc608** --
+native TFLite inference on Android; served APK re-downloaded and hashed
+against the raw manifest. HEAD pushed, tree clean. The Redmi runs 1093;
+his phone gets it in-app. **APK is 94MB, up from 59MB: three f32
+.tflite models (33MB) ride in assets.** f16 copies were built and
+deliberately NOT shipped -- fp16 is BLIND to MoveNet on Adreno 610.)
+
+**Session 2026-09-02 (loop 47) -- THE PLAYER'S INFERENCE LEFT THE
+BROWSER: TFLITE THROUGH A WEBMESSAGEPORT, AND THE PHONE'S "MOVENET
+ADMITS NOBODY" REGIME OF SIX LOOPS WAS THE WEBGL RUNTIME, NOT THE
+DEVICE.** Plan `docs/superpowers/plans/2026-09-02-native-inference.md`
+(Tasks 0-8 done; Loop state carries every number). Critic phase-j, 16
+rows in `docs/critic/ledger.md`, critic-gate 111 rows / 0 blocking.
+`probe_latency_ab.py --delay`, 150s, same video/seek, the Redmi:
+
+  | build | verdict p50 / p95 | gap p50 / p95 | positions | rAF | coverage | entry lag p50 | exit hang p50 |
+  |---|---|---|---|---|---|---|---|
+  | 1092 (B5) | 922 / 1640 | 2000 / 3277 | 0 | 34.3 | 0.628 | 34ms | 30 fr |
+  | native run 1 / 2 | 463 / 1287, 428 / 1220 | 1226 / 2575, 1192 / 2393 | 68 / 69 | 40.9 / 42.0 | 0.565 / 0.578 | 0 / 0 | 0 / 0 |
+  | same build, `NATIVE_INFER 0` (OTA kill switch) | 899 / 1757 | 1997 / 3203 | 0 | 34.7 | 0.640 | 33 | 60 |
+  | **1093 SHIPPED** | **474 / 1230** | **1213 / 2411** | **78** | **41.7** | **0.55** | -- | -- |
+
+- **THE ARCHITECTURE.** `NativeInfer.kt` (TFLite 2.16.1, GPU delegate,
+  `setPrecisionLossAllowed(false)`) owns three f32 models; the page
+  gets a `MessagePort` PULLED at document start (`lib.rs`
+  `native_port_stash_script` asks `TsNativePort.requestPort()` AFTER
+  its listener exists -- a pushed port beat the listener on 1 of 7
+  navigations), held by a one-shot non-configurable
+  `__TS_TAKE_NATIVE_PORT`. `native-client.mjs` speaks a LE binary
+  protocol (request `[reqId, modelId, w, h]` + RGBA; reply status +
+  float32 outputs), ignores `isTrusted === false` replies, and `die()`s
+  after 3 consecutive failures -- the WebGL worker takes the player
+  back on the next pass. **Fail-safe MEASURED** (`probe_native_failsafe.py`):
+  client terminated under a playing video, `nativeDead` 0 -> 1 once,
+  worker webgl alive, covered samples 15/20 -> 12/20, no exposure.
+  `NATIVE_INFER` rides OTA `[0,1]`, ships 1; the 0 arm above proves the
+  switch is live and reproduces 1092 on the same build.
+- **FINDINGS 25, the round's real result: tfjs-WebGL on Adreno 610 is
+  BLIND to MoveNet** (maxKp 0.03-0.19, admits nobody) where TFLite CPU
+  f32/f16, tfjs CPU and native GPU fp32 all read 0.77-0.82 and admit
+  1-2 people on the same dumped frames (`spikes/native/arbiter.*`).
+  TFLite GPU at fp16 is blind the same way. So "twelve slots n:0" was
+  never the device or the footage. **RE-OPENED, NOT RE-PRICED:**
+  findings 36/21/21a/23 (every `mnBody` arm was measured against a
+  phone that could not admit anybody), `CUT_PERSON_LOOK`,
+  `PERSON_LETTERBOX`, `PFF_FRAME_KP_FLOOR`. `faceNoShape` fell 21 -> 2
+  because the ghost gate now compares against a real keypoint max.
+- **J1, AN EXPOSURE ALIVE SINCE 2026-08-24:** the worker's VIDEO gender
+  path fed faceres a normalized-square crop (a 1.78:1 pixel rectangle
+  on 16:9) -- findings 16a's squash, on the per-person path, at five
+  call sites. Fixed; native-vs-worker descriptor cosine 0.83 -> 0.999.
+- **THE PLAN'S TASK 5 GATE (verdict <= 350, gap <= 800) IS NOT MET AS
+  WRITTEN.** It was priced on fp16 costs (frame 288 / gender 176ms);
+  fp32 ships for correctness (frame 350 / gender 226). Two OTA-only
+  options for him: per-model precision (BlazeFace/faceres fp16, MoveNet
+  fp32 -- needs a build) or `VERDICT_DUTY` 2 -> 1.5 (no build).
+- **UNEXPLAINED, in the exposure direction:** coverage 0.628 -> 0.55-
+  0.58. Hypothesis: MoveNet's measured body is TIGHTER than the
+  face-derived synthetic one (findings 23), so the covered AREA shrinks
+  while more people are admitted. A hypothesis, not a measurement --
+  first thing for the next critic. `wipeErasedBlurred` 6 -> 9-12 too.
+- **MEMORY (J11):** native ON PSS 416MB vs kill-switch 453MB -- the
+  WebGL video path's textures cost MORE than the engine. TFLite
+  residency itself is not isolated (engine resident in both arms).
+- **TASK 6 on device** (`probe_native_task6.py`): native answered
+  through real-click fullscreen (850x392), drag-to-mini (280x124),
+  tap-restore and a +300s seek; nativeErrors 0, nativeDead 0.
+- **BUILD GOTCHAS:** `assets/models/*.tflite` are GITIGNORED (33MB) --
+  regenerate with `spikes/native/convert.py` (REPORT.md) before an
+  Android build on a fresh clone, or the engine reports `native-failed`
+  and everything silently runs on the worker. `rustBuildArm64Debug` is
+  still excluded; strip the .so first. NOTICE carries TFLite.
+- gaze **695/695**, cargo **61/61**, critic-gate **111 / 0 blocking**
+  (J14, an instrument-n NIT, stays open).
+- **NEXT, YouTube only:** (1) re-price everything findings 25 re-opens
+  on a phone that admits people -- `CUT_PERSON_LOOK` first, it was
+  refused on a regime that no longer exists; (2) the coverage drop;
+  (3) his precision/duty ruling; (4) iOS (CoreML) and desktop (ORT /
+  DirectML) get the same port protocol -- his ask, not started.
+
 **Last updated:** 2026-09-02 14:30 (**1092 PUBLISHED, sha 5ab3f53d** --
 served APK re-downloaded and matches the raw manifest, isDraft false.
 HEAD pushed, tree clean. The Redmi runs 1092; his phone gets it in-app.)
