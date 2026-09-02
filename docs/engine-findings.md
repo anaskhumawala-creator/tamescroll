@@ -2246,3 +2246,97 @@ old code against new code rather than against a bench idea of it.
 **Next: the MoveNet half (16b), then a live player-host census per
 platform -- in that order, because a wider selector on a distorted path
 spreads the distortion.**
+
+## 16b. THE SAME SQUASH BLINDS MoveNet ON ONE FRAME IN SEVEN, AND THIS ONE IS NOT A ONE-LINE FIX
+
+`detector.js:591` is the person half of the same defect:
+
+```js
+var resized = tf.image.resizeBilinear(tf.expandDims(img, 0), [PERSON_INPUT_SIZE, PERSON_INPUT_SIZE]);
+```
+
+Unconditional, and it does not matter whether the caller handed over a
+canvas or the video element -- `directPersonOk` only decides who pays
+for the upload, not what shape the model sees. So MoveNet reads every
+person on a 16:9 stream at **0.5625 of natural width**, and MoveNet
+MultiPose is COCO-trained on natural-aspect photographs.
+
+### The measurement
+
+`bench/movenet-aspect.mjs`, two arms on the SAME decoded bytes, so the
+only variable is the resize. Both arms are raw tensor work through the
+shipping graph -- no canvas, no browser, no gate -- and the metric is
+the model's own output, because a gate calibrated on a dead signal only
+restates itself. **241 frames, 5 videos, every frame containing at
+least one detected face.**
+
+| | squash (SHIPPED) | letterbox |
+|---|---|---|
+| maxKp p50 | 0.810 | 0.825 |
+| maxKp max | 0.922 | 0.934 |
+| **persons admitted** (score >= 0.35) | **219** | **269** |
+| frames admitting NOBODY | **67 of 241** | **36 of 241** |
+
+- **Admissions +22.8%**, and the per-frame direction is lopsided: 53
+  frames admit more under the letterbox against 11 the other way
+  (sign test p < 1e-5).
+- **35 frames where the squash admits NOBODY and the letterbox admits
+  someone, against 4 the reverse** (p < 1e-5). Every one of those 35 has
+  1-4 faces detected in it, so they are not empty frames.
+- **maxKp barely moves and that is the honest half**: p50 delta +0.010,
+  130 frames higher under the letterbox against 94 lower (p = 0.019),
+  and the effect is entirely absent on one video. What the squash costs
+  is not keypoint confidence -- it is the **slot score**, which is the
+  admission.
+
+### It survives clustering, which is the check the N=72 run failed
+
+Adjacent frames of one shot are not independent, so the frame-level p
+values above are anti-conservative on their own. Blocked on the VIDEO
+and bootstrapped 4,000 times, the relative gain in admissions is
+**p05 +8.7% / p50 +23.5% / p95 +42.0%**, with 0.3% of resamples putting
+the letterbox at or below the squash. And the blind-frame split runs one
+way in **all five** videos (9/0, 5/1, 12/3, 7/0, 2/0).
+
+**This is the loop-40 rule firing twice in one file.** At N=72 the same
+bench read "maxKp flat, admissions suggestive" and would have been
+recorded as a null result; raising N separated the two questions and
+turned the second one significant. A flat sweep is a claim about the
+instrument until the instrument has the frames to say otherwise.
+
+### What this does NOT explain
+
+**His phone.** In the failing regime his device reads all twelve slots
+`n:0` at **maxKp p50 0.049, max 0.098** -- an order of magnitude below
+either arm here (p50 0.81 / 0.83), and both arms clear
+`PFF_FRAME_KP_FLOOR` (0.10) on **all 241 frames**. Whatever is emptying
+MoveNet on the 23122PCD1I, it is not this. Do not let this section be
+read as the fix for loop 36.
+
+### And unlike 16a, the fix is not a one-liner
+
+The whole-frame face path could be corrected in place because
+`fitBox` + a black fill changes nothing downstream: BlazeFace's boxes
+come back normalized to the 256 square and `crop-geometry` was already
+mapping them.
+
+MoveNet's outputs are normalized to **its own input**, and today that is
+safe only *because* the squash is a uniform per-axis scale of the whole
+frame -- normalized-in maps 1:1 to normalized-of-frame, which is why
+`parsePersons` takes `aspect` only for margin isotropy (`headH = headW *
+ar`) and never to un-distort a coordinate. Letterbox the input and every
+keypoint and every box needs mapping back through the pad
+(`y_frame = (y * S - pad) / lh`) before anything reads it, or every
+person box lands compressed and offset -- which is an EXPOSURE, in the
+one place the corpus is tuned.
+
+So the change is: letterbox in `detectPersons`, un-letterbox in
+`parsePersons`, and **re-derive the corpus** -- because the person boxes
+are the extent source that `body-clamp`, `personFromFace` and the whole
+placement layer sit on top of, and every number in sections 10-15 was
+measured with them squashed. That is a round, not an edit, and doing it
+blind tonight would move the tuned path on an unverified geometry.
+
+**Reported, specified, deliberately NOT shipped.** `crop`
+and `zoomL` were refused at N=72 on their own numbers (55 and 46
+admissions against the squash's 67) and are not candidates.

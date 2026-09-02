@@ -89,6 +89,24 @@ export function pixelAspect(box, srcW, srcH) {
  * Bars are BLACK and the caller must clear the canvas, because a reused
  * canvas otherwise shows the previous frame in the margins -- which
  * would hand the detector two frames at once.
+ *
+ * TWO SQUASHES REMAIN IN THE TREE ON PURPOSE.
+ *
+ * `init-entry.js:2081` is the scene gate, a luma delta between two
+ * frames squashed IDENTICALLY -- the distortion cancels out of a
+ * difference, and correcting it would only move the constant.
+ *
+ * `detector.js:591` is MoveNet, and that one is a real defect measured
+ * at findings 16b: 241 frames, persons admitted 219 -> 269 (+22.8%),
+ * with 35 frames where the squash admits NOBODY and the letterbox admits
+ * someone against 4 the reverse (p < 1e-5, same direction in all five
+ * videos). It is NOT fixed here because MoveNet's outputs are normalized
+ * to its own input, and that is safe today only BECAUSE the squash is a
+ * uniform per-axis scale of the whole frame. Letterbox it and every
+ * keypoint and box needs mapping back through the pad before
+ * `parsePersons` reads it -- and that is the extent source the entire
+ * placement layer and the whole corpus sit on. It is a round, not an
+ * edit.
  */
 export function fitBox(srcW, srcH, size) {
   if (!(srcW > 0) || !(srcH > 0) || !(size > 0)) {

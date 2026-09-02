@@ -69,13 +69,19 @@ function readOut(t) {
   return { maxSlot, maxKp, admitted };
 }
 
-// AT N=72 THE TWO QUESTIONS SEPARATED, so the arm set is selectable:
-// maxKp is FLAT (42/70 higher under letterbox, sign test p = 0.12) while
-// persons ADMITTED moved 67 -> 84, with 8 frames where the squash admits
-// nobody and the letterbox admits someone against 2 the other way
-// (p ~ 0.11). Suggestive, not significant -- settling it needs frames,
-// and `crop`/`zoomL` are already refused (both admit FEWER: 55 and 46),
-// so ARMS=squash,letterbox doubles the sample for the same wall clock.
+// AT N=72 THE TWO QUESTIONS SEPARATED and the arm set became
+// selectable; AT N=241 THE SECOND ONE IS SIGNIFICANT (findings 16b).
+// maxKp barely moves -- p50 delta +0.010, 130 frames higher under the
+// letterbox against 94 lower -- while persons ADMITTED goes 219 -> 269
+// (+22.8%), with **35 frames where the squash admits NOBODY and the
+// letterbox admits someone against 4 the reverse**, p < 1e-5, direction
+// consistent in all five videos, and a video-blocked bootstrap putting
+// the gain at p05 +8.7%. At N=72 the same numbers read "suggestive, not
+// significant" and would have been filed as a null result: A FLAT SWEEP
+// IS A CLAIM ABOUT THE INSTRUMENT until the instrument has the frames.
+// `crop` and `zoomL` are refused on their own numbers (55 and 46
+// admissions against the squash's 67 at N=72), so ARMS=squash,letterbox
+// doubles the sample for the same wall clock.
 const NAMES = (process.env.ARMS || 'squash,letterbox,crop,zoomL').split(',');
 const agg = {}; for (const n of NAMES) agg[n] = { maxKp: [], admitted: 0, frames: 0 };
 console.log('frames', picks.length, '(all contain at least one detected face)\n');
