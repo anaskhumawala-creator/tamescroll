@@ -1,0 +1,19 @@
+gender=man  windows 18  k=3 (1.5s/verdict)  told 2000ms
+shipped PTRACK_IOU_MIN 0.2 -- the first row is the control
+
+IOU_MIN   EXPOSURE  FALSECOVER   PHANTOM   births  cleared  nearMiss
+0.2           22.0s      155.0s    573.5s      160       24        67
+0.15          23.0s      139.0s    561.0s      147       21        42
+0.1           24.0s      138.5s    553.0s      142       22        26
+0.05          26.0s      139.5s    541.5s      139       21        13
+0.02          27.5s      139.5s    532.5s      138       21         6
+
+gender=woman  windows 18  k=3 (1.5s/verdict)  told 2000ms
+shipped PTRACK_IOU_MIN 0.2 -- the first row is the control
+
+IOU_MIN   EXPOSURE  FALSECOVER   PHANTOM   births  cleared  nearMiss
+0.2           25.5s      201.0s    679.5s      163       11        61
+0.15          24.5s      200.5s    663.0s      147        9        33
+0.1           27.0s      200.5s    644.0s      140        9        21
+0.05          26.5s      202.0s    632.5s      137       11        11
+0.02          26.0s      200.5s    621.5s      133       11         7

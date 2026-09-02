@@ -511,6 +511,17 @@ itself**.
 
 ### 10e. Loosening the association threshold is REFUSED, on measurement
 
+> **RETRACTED 2026-09-02 -- BOTH THE TABLE AND THE MECHANISM. See 10g.**
+> `iou-ab.mjs` carried the phase-D D2 defect: its options object had
+> three entries where `hisRegimeOpts` has seven, and without
+> `fixedCadence` the tracker was told the 500ms BANK interval and
+> coasted 1250ms instead of his cap-pinned 2000/4000. Re-run in his
+> regime the dial is a REAL lever and the numbers below are wrong in
+> every column. The mechanism sentence -- "the near-miss overlaps are
+> not the same person slightly moved" -- is wrong too: more than half of
+> them re-associate. Kept in full because the refusal was quoted twice.
+
+
 E5 left a fork: 145 of 310 births had an overlapping track, split 48
 nearMiss (below `PTRACK_IOU_MIN`) and 32 contended. If the nearMiss half
 were the same person re-minted, lowering the threshold is the cheapest
@@ -540,6 +551,14 @@ That leaves the assignment (32 contended) and the geometry that produces
 a box with no overlap at all (§8, still the unmeasured class).
 
 ### 10f. CUT_DELTA swept at last -- and the sweep was OVERRULED by a test
+
+> **TABLE RETRACTED 2026-09-02 -- see 10h.** `cut-sweep.mjs` carried the
+> same D2 defect as `iou-ab.mjs`: three options where `hisRegimeOpts`
+> has seven, so it ran at a 1250ms coast instead of his 4000ms. The
+> METHOD below (swap the bank, never the constant; `setCutBank` asserts
+> each bank's stamp) is sound and unchanged -- only the numbers are on
+> the wrong regime. The shipped value has also moved to **60** since.
+
 
 Loop 40 recorded "CUT_DELTA cannot be swept on the corpus at all"
 because `bank/cuts.json` holds booleans. **That was true of the BANK and
@@ -2466,3 +2485,116 @@ platforms too" is:
    can even say what their player tree looks like. That is already the
    open item in CLAUDE.md's Next list, and it is now the thing three of
    four platforms are blocked on.
+
+## 10g. THE ASSOCIATION THRESHOLD IS A LEVER AFTER ALL -- 10e REFUSED IT IN A REGIME HIS PHONE IS NOT IN
+
+Same defect as the cadence table (13a) and the clear bar (critic-lowbar),
+in the third bench: `iou-ab.mjs` built its options by hand --
+`{ hold, clampPad, cut }` -- where `hisRegimeOpts` carries seven, and
+the missing one is `fixedCadence`. Without it the tracker is told the
+500ms **bank interval** and derives a 1250ms coast; his phone is told
+**2000** (cap-pinned effZoom) and coasts **4000**. Every row of 10e was
+measured somewhere he does not live.
+
+**Both control rows reproduce the shipped arm exactly** -- man
+`22.0 / 155.0 / 573.5`, woman `25.5 / 201.0 / 679.5` -- the same triples
+the coast sweep and critic-lowbar arrive at independently. That is the
+self-check, and it passed in both genders.
+
+| IOU_MIN | man exp / fc / phantom | woman exp / fc / phantom | births m/w | nearMiss m/w |
+|---|---|---|---|---|
+| **0.20 SHIPPED** | **22.0 / 155.0 / 573.5** | **25.5 / 201.0 / 679.5** | 160 / 163 | 67 / 61 |
+| **0.15** | **23.0 / 139.0 / 561.0** | **24.5 / 200.5 / 663.0** | 147 / 147 | 42 / 33 |
+| 0.10 | 24.0 / 138.5 / 553.0 | 27.0 / 200.5 / 644.0 | 142 / 140 | 26 / 21 |
+| 0.05 | 26.0 / 139.5 / 541.5 | 26.5 / 202.0 / 632.5 | 139 / 137 | 13 / 11 |
+| 0.02 | 27.5 / 139.5 / 532.5 | 26.0 / 200.5 / 621.5 | 138 / 133 | 6 / 7 |
+
+### 0.20 -> 0.15 is close to free, and the two arms disagree in the safe direction
+
+- **man: +1.0s exposure, -16.0s false cover, -12.5s phantom**
+- **woman: -1.0s EXPOSURE (better), -0.5s false cover, -16.5s phantom**
+
+So across the two arms the exposure change nets to **zero** while false
+cover falls 16.5s and phantom 29.0s. Almost all of the false-cover gain
+is bought in that first step (139.0 at 0.15 against 138.5 at 0.10 and
+139.5 at 0.05 -- flat thereafter), so the rest of the ladder buys
+phantom only, and buys it with man-mode exposure.
+
+**Exposure is monotone in man mode** (22.0 -> 23.0 -> 24.0 -> 26.0 ->
+27.5), which is 10e's own warning coming true: a looser threshold
+associates an observation onto a track that is not its person, and when
+that track is a man's CLEARED one the woman goes sharp. The mechanism
+was right; only the conclusion that it costs nothing to avoid was wrong.
+
+### And the mechanism sentence is refuted too
+
+10e said the near-misses "do not become matches; they re-classify as
+`birthFresh`", from births 310 -> 299 against nearMiss 48 -> 4. In his
+regime: **0.20 -> 0.15 removes 25 near-misses and 13 births** (man), 28
+and 16 (woman) -- so **roughly half of them ARE the same person slightly
+moved** and do re-associate. At 0.10 it is 41 near-misses for 18 births.
+
+`birthCleared` stays flat throughout (24 -> 21 man, 11 -> 9 woman), so
+the extra associations are not being handed to cleared tracks in bulk --
+the exposure that does appear is a handful of individual re-associations,
+not a class change.
+
+### NOT PUSHED, and it cannot be
+
+`PTRACK_IOU_MIN` is **not on the OTA whitelist** (`src/tuning.mjs`), so
+unlike the coast dial this cannot be tried on his phone without a
+release. And it is an EXPOSURE trade in man mode, which is his setting
+and his call. Recorded at 0.15 as the candidate; shipped at 0.20.
+
+**Raw: `spikes/gauntlet/iou-ab-hisregime.txt`.**
+
+## 10h. CUT_DELTA RE-DERIVED IN HIS REGIME -- the cut gate is the biggest phantom dial there is, and it is bought with exposure
+
+Same fix, same file class. Both control rows land on the shipped triple
+(man `22.0 / 155.0 / 573.5`, woman `25.5 / 201.0 / 679.5`), which is the
+third independent bench to arrive at them.
+
+| CUT_DELTA | cut frames | man exp / fc / phantom | woman exp / fc / phantom |
+|---|---|---|---|
+| 35 | 200 | 14.0 / 180.5 / 976.5 | 11.5 / 212.0 / 1050.0 |
+| 40 | 184 | 14.0 / 180.0 / 911.0 | 11.5 / 209.0 / 1011.0 |
+| 50 | 115 | 16.5 / 156.0 / 660.0 | 18.5 / 198.5 / 737.5 |
+| **60 SHIPPED** | 59 | **22.0 / 155.0 / 573.5** | **25.5 / 201.0 / 679.5** |
+| 75 | 12 | 25.5 / 141.0 / 476.5 | 29.5 / 198.0 / 629.0 |
+| 90 | 2 | 27.0 / 141.5 / 470.0 | 33.5 / 198.5 / 623.5 |
+
+**The dial is monotone and it is enormous.** 35 -> 90 moves phantom
+976.5 -> 470.0 (man) and 1050.0 -> 623.5 (woman) -- larger than the coast
+window, larger than the clear bar, larger than the association
+threshold. Every step is paid for in exposure: 14.0 -> 27.0 (man),
+11.5 -> 33.5 (woman).
+
+**Loop 40's 50 -> 60 is priced here for the first time**: it cost
+**+5.5s** of man exposure and **+7.0s** of woman exposure, and bought
+**86.5s** and **58.0s** of phantom. Loop 40 justified it on his phone's
+own motion distribution (600 live luma deltas: p50 8.7, p75 16.3, **p90
+28.2**, p95 54.9) rather than on the corpus, which could not price it
+then; the corpus now agrees the trade was in the right direction.
+
+### 75 is reachable over OTA and is NOT recommended without a device read
+
+The clamp is `[30, 75]`, so 75 is exactly the ceiling. On the corpus
+60 -> 75 buys **97.0s** of man phantom and **14.0s** of false cover for
+**+3.5s** of exposure -- the best ratio in the table.
+
+**It is refused anyway, and the reason is not on the corpus.** At 75 the
+gate fires on **12 of 2,160 frames**. His phone's ordinary camera motion
+reaches p95 **54.9** and its real cuts sit above that; a gate at 75
+starts missing REAL cuts, and a missed cut is a stale track surviving a
+shot change -- which is loop 39's traced mechanism for this corpus's
+single largest exposure (a woman's observation re-associating onto a man's
+cleared track from the previous shot). The corpus prices the +3.5s it can
+see; it cannot price the ones it never banked, because
+`bank/cuts-75.json` was derived from the SAME corpus footage and not
+from his.
+
+So: **push CUT_DELTA only against a fresh read of his own luma deltas**,
+never off this table alone. The number that would justify 75 is his p95,
+and the last one measured was 54.9.
+
+**Raw: `spikes/gauntlet/cut-sweep-hisregime.txt`.**

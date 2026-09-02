@@ -1,0 +1,19 @@
+gender=man  k=3 (1.5s/verdict)  told 2000ms  cut handler=full  (shipped: demote + forced pass)
+
+CUT_DELTA  cutFrames  EXPOSURE  FALSECOVER   PHANTOM   births  cleared
+35               200     14.0s      180.5s    976.5s      163       20
+40               184     14.0s      180.0s    911.0s      167       21
+50               115     16.5s      156.0s    660.0s      157       23
+60                59     22.0s      155.0s    573.5s      160       24
+75                12     25.5s      141.0s    476.5s      153       25
+90                 2     27.0s      141.5s    470.0s      151       24
+
+gender=woman  k=3 (1.5s/verdict)  told 2000ms  cut handler=full  (shipped: demote + forced pass)
+
+CUT_DELTA  cutFrames  EXPOSURE  FALSECOVER   PHANTOM   births  cleared
+35               200     11.5s      212.0s   1050.0s      164       11
+40               184     11.5s      209.0s   1011.0s      169       11
+50               115     18.5s      198.5s    737.5s      161       13
+60                59     25.5s      201.0s    679.5s      163       11
+75                12     29.5s      198.0s    629.0s      157       11
+90                 2     33.5s      198.5s    623.5s      156       11

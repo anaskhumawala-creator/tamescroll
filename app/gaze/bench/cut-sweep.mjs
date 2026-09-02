@@ -21,15 +21,13 @@
 import fs from 'fs';
 import { ROOT, winFiles } from './corpus-lib.mjs';
 import { score } from './corpus-score.mjs';
-import { loadWin, makeArms, setCutBank } from './arch-arms.mjs';
+import { loadWin, makeArms, setCutBank, K_HIS, thinFrames, hisRegimeOpts, HIS_EFFZOOM } from './arch-arms.mjs';
 
 const g = process.env.GENDER || 'man';
 const labels = JSON.parse(fs.readFileSync(`${ROOT}/bank/label/labels.json`, 'utf8'));
 const cropLabel = new Map();
 for (const c of JSON.parse(fs.readFileSync(`${ROOT}/bank/label/clusters.json`, 'utf8')))
   if (labels[c.id]) for (const m of c.members) cropLabel.set(m.crop, labels[c.id]);
-const thin = (w, e) => ({ ...w, frames: w.frames.map((fr, i) =>
-  i % e === 0 ? fr : { ...fr, faces: [], _labelFaces: fr.faces }) });
 // WHICH CUT HANDLER. `demote` is what the app ships and is the default;
 // `wipe` reproduces the pre-2026-09-02 arm, whose manufactured post-cut
 // exposure gap scaled with the very axis this file sweeps. A table from
@@ -45,11 +43,17 @@ const CUT_MODEL = process.env.CUT_MODEL || 'full';
 if (!MODELS[CUT_MODEL]) {
   throw new Error(`CUT_MODEL must be full|demote|wipe, got ${CUT_MODEL}`);
 }
-const O = { hold: true, clampPad: 0.02, cut: true,
+// D2: this carried three options where hisRegimeOpts carries seven, and
+// without `fixedCadence` the tracker was told the 500ms BANK interval and
+// coasted 1250ms instead of his cap-pinned 2000/4000. findings 10f is
+// re-derived on the corrected regime.
+const K = Number(process.env.K || K_HIS);
+const TOLD = Number(process.env.TOLD || HIS_EFFZOOM);
+const O = { ...hisRegimeOpts(g, TOLD),
   cutWipe: CUT_MODEL === 'wipe',
   cutNoPass: CUT_MODEL !== 'full' };
 
-console.log(`gender=${g}  k=3 (his 1.5s)  cut handler=${CUT_MODEL}`
+console.log(`gender=${g}  k=${K} (${(K * 0.5).toFixed(1)}s/verdict)  told ${TOLD}ms  cut handler=${CUT_MODEL}`
   + (CUT_MODEL === 'full' ? '  (shipped: demote + forced pass)'
     : CUT_MODEL === 'demote' ? '  (demote only -- overstates what a cut costs)'
     : '  <-- NOT WHAT THE APP DOES'));
@@ -78,7 +82,7 @@ for (const v of [35, 40, 50, 60, 75, 90]) {
   const agg = { exposureS: 0, falseCoverS: 0, phantomS: 0 };
   globalThis.__TS_GAZE_IDS = { life: {} };
   for (const w of wins) {
-    const s = score(arm(thin(w, 3), g), g, (c) => cropLabel.get(c));
+    const s = score(arm(thinFrames(w, K), g), g, (c) => cropLabel.get(c));
     for (const k of Object.keys(agg)) agg[k] += s[k];
   }
   const L = globalThis.__TS_GAZE_IDS.life;
