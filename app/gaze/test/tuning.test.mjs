@@ -35,6 +35,7 @@ const SHIPPED = {
   PTRACK_MIN_COAST_PASSES: personTrack.PTRACK_MIN_COAST_PASSES,
   PTRACK_IOU_MIN: personTrack.PTRACK_IOU_MIN,
   GENDER_REFRESH_MS: personTrack.GENDER_REFRESH_MS,
+  CUT_PERSON_LOOK: personSkip.CUT_PERSON_LOOK,
   DELAY_MS: delayCore.DELAY_MS,
 };
 const restore = () => applyTuning(SHIPPED);

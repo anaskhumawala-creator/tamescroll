@@ -274,6 +274,10 @@ var SPEC = {
   // is longer than CLEARED_TTL_MS already allows a clear to stand
   // unrefreshed.
   GENDER_REFRESH_MS: [0, 4000, function (v) { personTrack.setGenderRefreshMs(v); }],
+  // A scene cut forces one MoveNet look while backed off. Ships 0:
+  // +25% verdict gap on his footage for looks that admit nobody (see
+  // person-skip.mjs). 1 = on.
+  CUT_PERSON_LOOK: [0, 1, function (v) { personSkip.setCutPersonLook(v); }],
   // DELAY LINE (Stage B, plan 2026-09-02). How far behind the judged
   // frame the presented picture runs. 0 = presenter OFF, the reactive
   // pipeline exactly as 1091 ran it; 1000 is what the Redmi spike sized

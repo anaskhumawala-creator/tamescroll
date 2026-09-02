@@ -19,6 +19,8 @@ import {
   resetPersonSkip,
   forcePersonLook,
   personsLive,
+  setCutPersonLook,
+  CUT_PERSON_LOOK,
   setPersonSkipEvery,
   PERSON_EMPTY_STREAK,
 } from '../src/person-skip.mjs';
@@ -226,9 +228,20 @@ test('the back-off actually decays once reset', () => {
 
 // A cut gets ONE forced look and keeps the back-off (stageB2 on the
 // Redmi measured what a full reset costs on footage that cuts every 5s).
-test('forcePersonLook asks MoveNet on the next pass only, and a nobody answer resumes the back-off', () => {
+test('CUT_PERSON_LOOK ships OFF: a cut does not touch the back-off (stageB4 on the Redmi, +25% verdict gap for looks that admit nobody)', () => {
+  assert.equal(CUT_PERSON_LOOK, 0);
   resetPersonSkip();
   setPersonSkipEvery(4);
+  for (let i = 0; i < PERSON_EMPTY_STREAK; i++) notePersons([], false);
+  assert.equal(wantPersons(), false);
+  forcePersonLook();
+  assert.equal(wantPersons(), false, 'off = inert');
+});
+
+test('forcePersonLook (ON) asks MoveNet on the next pass only, and a nobody answer resumes the back-off', () => {
+  resetPersonSkip();
+  setPersonSkipEvery(4);
+  setCutPersonLook(1);
   for (let i = 0; i < PERSON_EMPTY_STREAK; i++) notePersons([], false);
   assert.equal(wantPersons(), false, 'backed off before the cut');
   assert.equal(personsLive(), false);
@@ -239,13 +252,16 @@ test('forcePersonLook asks MoveNet on the next pass only, and a nobody answer re
   assert.equal(wantPersons(), false, 'nobody admitted: the back-off resumes, not restarts');
   for (let k = 0; k < 3; k++) { assert.equal(wantPersons(), false); notePersons(null, true); }
   assert.equal(wantPersons(), true, 'the ordinary 1-in-4 cycle continues');
+  setCutPersonLook(0);
 });
 
-test('forcePersonLook is a no-op while the model is still live', () => {
+test('forcePersonLook (ON) is a no-op while the model is still live', () => {
   resetPersonSkip();
   setPersonSkipEvery(4);
+  setCutPersonLook(1);
   notePersons([{}], false);
   forcePersonLook();
   assert.equal(wantPersons(), true);
   assert.equal(personsLive(), true);
+  setCutPersonLook(0);
 });

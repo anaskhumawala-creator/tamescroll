@@ -107,7 +107,25 @@ export function notePersons(persons, skipped) {
  * emptyRun keeps counting and the back-off resumes.
  */
 export function forcePersonLook() {
+  if (!CUT_PERSON_LOOK) return;
   if (emptyRun >= PERSON_EMPTY_STREAK) skipsSince = PERSON_SKIP_EVERY - 1;
+}
+
+/**
+ * SHIPS OFF (0). Measured on the Redmi, his vlog (31 cuts / 150s):
+ * even ONE forced look per cut paid MoveNet on 36 of 86 passes
+ * (personPassSkipped 89 -> 50), verdict p50 705 -> 991ms, verdict gap
+ * 1201 -> 1998ms -- and every one of those looks admitted nobody
+ * (all slots n:0). What the look guards is a person only MoveNet can
+ * see (backside, faceless) entering with a cut while the model is
+ * backed off: up to PERSON_EMPTY_STREAK + PERSON_SKIP_EVERY - 1 passes
+ * uncovered. That is an EXPOSURE-for-cadence trade and it is his; on
+ * the OTA channel as [0,1] so it needs no install once he rules.
+ */
+export var CUT_PERSON_LOOK = 0;
+
+export function setCutPersonLook(v) {
+  CUT_PERSON_LOOK = v ? 1 : 0;
 }
 
 export function resetPersonSkip() {
