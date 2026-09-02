@@ -343,3 +343,66 @@ test('on the timeline path a sub-deadband wobble still does not move the patch (
     vr.clear(video);
   }
 });
+
+// THE RENDER LOOP DIED ON THE DEVICE AND NOBODY RESTARTED IT (1096d).
+//
+// Build 4 on the Redmi: __TS_GAZE_RENDER read raf 43 for the life of a
+// three-minute watch page while overlayFrames climbed 341 -> 349 in 4s,
+// and every timeline target (`tm`) was stale for 175,032 of 180,073ms.
+// logcat: "Uncaught TypeError: Cannot read properties of undefined
+// (reading '__tsDisp')". The timeline branch reconciles the overlay set
+// to the TIMELINE's tracks; a frame where boxesAt answers null then
+// renders `entry.tracks` (the setTracks set) against that shorter overlay
+// array, indexes past its end, and throws out of `loop()` before the
+// next frame is scheduled. Every patch froze where it stood and covered
+// whoever walked in: his "random patches" and "Linus covered".
+test('a null timeline frame after the timeline shrank the overlay set renders every live track without throwing', () => {
+  const { player, video } = playerWithVideo({ left: 0, top: 0, width: 640, height: 360 });
+  vr.setTracks(video, [
+    { key: 'a', box: { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.9 }, vx: 0, vy: 0 },
+    { key: 'b', box: { x1: 0.6, y1: 0.1, x2: 0.8, y2: 0.9 }, vx: 0, vy: 0 },
+  ]);
+  let answer = [{ id: 'a', box: { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.9 }, state: 'blurred' }];
+  vr.setTimeline(video, () => answer);
+  try {
+    vr._reposition(video, performance.now());
+    assert.equal(patchesIn(player).length, 1, 'fixture: the timeline branch drew one patch');
+    answer = null;
+    assert.doesNotThrow(() => vr._reposition(video, performance.now() + 16));
+    assert.equal(patchesIn(player).length, 2, 'the live fallback draws both tracks');
+  } finally {
+    vr.clearTimeline(video);
+    vr.clear(video);
+  }
+});
+
+test('a frame that throws inside the render loop is counted and the next frame is still scheduled', () => {
+  const { video } = playerWithVideo({ left: 0, top: 0, width: 640, height: 360 });
+  vr.setTracks(video, [{ key: 'a', box: { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.9 }, vx: 0, vy: 0 }]);
+  let boom = true;
+  vr.setTimeline(video, () => {
+    if (boom) throw new Error('boom');
+    return null;
+  });
+  try {
+    const before = globalThis.window.__TS_GAZE_RENDER().repositionErrors;
+    let pending = [...scheduled.entries()];
+    assert.ok(pending.length, 'fixture: the loop is scheduled');
+    for (const [id, cb] of pending) {
+      scheduled.delete(id);
+      assert.doesNotThrow(() => cb(performance.now()), 'a throwing frame must not escape the loop');
+    }
+    assert.equal(globalThis.window.__TS_GAZE_RENDER().repositionErrors, before + 1, 'the throw is counted');
+    assert.ok(scheduled.size, 'and the loop is still alive');
+    boom = false;
+    pending = [...scheduled.entries()];
+    for (const [id, cb] of pending) {
+      scheduled.delete(id);
+      cb(performance.now());
+    }
+    assert.ok(scheduled.size, 'a clean frame keeps it alive too');
+  } finally {
+    vr.clearTimeline(video);
+    vr.clear(video);
+  }
+});

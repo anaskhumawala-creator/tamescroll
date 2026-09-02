@@ -131,7 +131,7 @@ try {
 // the same event Task 10's `delayVerdictLate` life counter prices from
 // the player side. Both are per-REPOSITION-CALL like hideNoVr/hideZeroVr
 // above, not per-second.
-var renderStats = { raf: 0, overlayFrames: 0, maskCalls: 0, maskWrites: 0, tfWrites: 0, sizeWrites: 0, dispWrites: 0, hideNoVr: 0, hideZeroVr: 0, hideClipped: 0, rectsNoBoxes: 0, drawnZero: 0, clipRebuilt: 0, timelineFrames: 0, timelineFallback: 0 };
+var renderStats = { raf: 0, overlayFrames: 0, maskCalls: 0, maskWrites: 0, tfWrites: 0, sizeWrites: 0, dispWrites: 0, hideNoVr: 0, hideZeroVr: 0, hideClipped: 0, rectsNoBoxes: 0, drawnZero: 0, clipRebuilt: 0, timelineFrames: 0, timelineFallback: 0, repositionErrors: 0 };
 try {
   if (typeof window !== 'undefined') {
     window.__TS_GAZE_RENDER = function () {
@@ -151,6 +151,7 @@ try {
         clipRebuilt: renderStats.clipRebuilt,
         timelineFrames: renderStats.timelineFrames,
         timelineFallback: renderStats.timelineFallback,
+        repositionErrors: renderStats.repositionErrors,
       };
     };
   }
@@ -1156,7 +1157,14 @@ function reposition(entry, now) {
       return;
     }
     renderStats.timelineFallback++;
-    // fall through to the ordinary entry.tracks + elapsed path below.
+    // THE OVERLAY SET BELONGS TO WHOEVER RENDERED LAST. The timeline
+    // branch above reconciled it to the TIMELINE's tracks, so on this
+    // fallback frame `entry.overlays` can be shorter than `entry.tracks`
+    // -- and indexing past its end threw out of the render loop on the
+    // Redmi (build 4: raf froze at 43 for three minutes, every patch
+    // parked where it stood). Reconcile to the live set before drawing
+    // it; when the keys already match this is a few compares.
+    reconcileOverlays(entry, entry.tracks);
   }
 
   var elapsed = now - entry.at;
@@ -1200,14 +1208,26 @@ function loop(video) {
   var entry = entries.get(video);
   if (!entry) return;
   renderStats.raf++;
-  if (rectsDirty) {
-    rectsDirty = false;
-    refreshRects(entry);
+  // ONE THROWING FRAME MUST NOT END THE RENDERER. Measured on the
+  // Redmi: an exception inside reposition left `entry.raf` holding a
+  // stale id, so `if (!entry.raf) loop(video)` in setTracks never
+  // restarted it, and the page ran 175 of 180 seconds with every patch
+  // frozen at its last position -- covering whoever walked into it and
+  // following nobody. The frame's own work is lost (counted, not
+  // hidden); the next frame is scheduled regardless.
+  try {
+    if (rectsDirty) {
+      rectsDirty = false;
+      refreshRects(entry);
+    }
+    reposition(entry, performance.now());
+  } catch (e) {
+    renderStats.repositionErrors++;
+  } finally {
+    entry.raf = requestAnimationFrame(function () {
+      loop(video);
+    });
   }
-  reposition(entry, performance.now());
-  entry.raf = requestAnimationFrame(function () {
-    loop(video);
-  });
 }
 
 /**

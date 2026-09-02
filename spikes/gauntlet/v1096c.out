@@ -1,0 +1,55 @@
+ARM {"t":55,"bundle":"33426a2-dirty"}
+SUMMARY {"frames": 7491, "framesWithPatch": 6755, "lateFrames": 407, "snapshots": 307, "reads": 231, "cuts": 41, "phantom": {"blurredTrackPasses": 233, "coastingPasses": 76, "coastMsP50": 987, "coastMsP95": 2737, "coastMsMax": 3668, "abstainedReads": 43}, "lifeDelta": {"cutDetected": 41, "passDropped": 23, "nullDropped": 6, "nullMintedHeld": 0, "delayVerdictLate": 0, "birthFresh": 28, "birthContended": 7, "birthNearMiss": 5, "coastExpired": 20, "wipeErased": 9, "wipeErasedBlurred": 19, "personPassSkipped": 61, "positionPassSkipped": 1, "genderReadSkipped": 0, "readAbstain": 70, "readClearCertain": 84, "readUncertain": 37, "bodyClampFired": 10, "faceNoShape": 2, "memClear": 76, "memHit": 0, "memMiss": 0, "memStore": 0, "memInstant": 0, "birthCleared": 11, "birthBlurred": 29, "nullMatched": 5, "cutCoastExpired": 9}, "slots": [2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 0, 0, 0, 0, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 3, 3, 5, 1, 1, 1, 1, 1], "nativeDead": null, "delayMs": 1500}
+EXPOSURE {"births": 29, "birthsWithUncoveredFrames": 20, "uncoveredFramesTotal": 436, "late": 148, "cutOmitted": 208, "other": 80, "readAtPrevRefused": 16}
+  X {"id": 8, "m0": 55.388, "prev": 24.457, "gapMs": 30931, "f": 0, "lv": "uncertain", "framesInWindow": 132, "uncovered": 104, "late": 104, "cutOmitted": 104, "other": -104, "readAtPrev": null}
+  X {"id": 12, "m0": 89.789, "prev": 88.755, "gapMs": 1034, "f": 0, "lv": "uncertain", "framesInWindow": 46, "uncovered": 42, "late": 0, "cutOmitted": 38, "other": 4, "readAtPrev": null}
+  X {"id": 14, "m0": 94.561, "prev": 94.294, "gapMs": 267, "f": 0, "lv": "uncertain", "framesInWindow": 8, "uncovered": 2, "late": 0, "cutOmitted": 0, "other": 2, "readAtPrev": null}
+  X {"id": 15, "m0": 95.996, "prev": 95.729, "gapMs": 267, "f": 1, "lv": "uncertain", "framesInWindow": 16, "uncovered": 16, "late": 0, "cutOmitted": 0, "other": 16, "readAtPrev": null}
+  X {"id": 18, "m0": 98.265, "prev": 97.931, "gapMs": 334, "f": 0, "lv": "flag-certain", "framesInWindow": 19, "uncovered": 1, "late": 0, "cutOmitted": 0, "other": 1, "readAtPrev": {"g": "male", "s": 0.72, "ab": 0, "v": 0.862, "nm": 11.74}}
+  X {"id": 23, "m0": 135.302, "prev": 134.268, "gapMs": 1034, "f": 0, "lv": "uncertain", "framesInWindow": 30, "uncovered": 6, "late": 0, "cutOmitted": 0, "other": 6, "readAtPrev": {"g": "male", "s": 0.95, "ab": 0, "v": 0.977, "nm": 12.26}}
+  X {"id": 25, "m0": 149.55, "prev": 148.782, "gapMs": 768, "f": 1, "lv": "flag-certain", "framesInWindow": 30, "uncovered": 29, "late": 0, "cutOmitted": 0, "other": 29, "readAtPrev": null}
+  X {"id": 26, "m0": 149.55, "prev": 148.782, "gapMs": 768, "f": 1, "lv": "uncertain", "framesInWindow": 30, "uncovered": 29, "late": 0, "cutOmitted": 0, "other": 29, "readAtPrev": {"g": "male", "s": 0.93, "ab": 0, "v": 0.966, "nm": 12.61}}
+  X {"id": 27, "m0": 159.293, "prev": 159.026, "gapMs": 267, "f": 1, "lv": "uncertain", "framesInWindow": 9, "uncovered": 2, "late": 0, "cutOmitted": 0, "other": 2, "readAtPrev": {"g": "male", "s": 0.21, "ab": 0, "v": 0.606, "nm": 11.48}}
+  X {"id": 30, "m0": 170.003, "prev": 169.77, "gapMs": 233, "f": 1, "lv": "flag-certain", "framesInWindow": 12, "uncovered": 12, "late": 0, "cutOmitted": 0, "other": 12, "readAtPrev": {"g": "male", "s": 0.77, "ab": 0, "v": 0.885, "nm": 11.56}}
+  X {"id": 32, "m0": 176.976, "prev": 176.776, "gapMs": 200, "f": 0, "lv": "uncertain", "framesInWindow": 12, "uncovered": 12, "late": 0, "cutOmitted": 0, "other": 12, "readAtPrev": {"g": "male", "s": 0.7, "ab": 0, "v": 0.852, "nm": 12.79}}
+  X {"id": 35, "m0": 188.054, "prev": 186.82, "gapMs": 1234, "f": 1, "lv": "clear-certain", "framesInWindow": 45, "uncovered": 40, "late": 10, "cutOmitted": 27, "other": 3, "readAtPrev": null}
+  X {"id": 37, "m0": 190.457, "prev": 189.856, "gapMs": 601, "f": 0, "lv": "uncertain", "framesInWindow": 17, "uncovered": 9, "late": 0, "cutOmitted": 9, "other": 0, "readAtPrev": {"g": "male", "s": 0.8, "ab": 0, "v": 0.902, "nm": 12.17}}
+  X {"id": 38, "m0": 191.624, "prev": 190.457, "gapMs": 1167, "f": 0, "lv": "uncertain", "framesInWindow": 50, "uncovered": 21, "late": 0, "cutOmitted": 0, "other": 21, "readAtPrev": {"g": "female", "s": 0.04, "ab": 0, "v": 0.482, "nm": 9.8}}
+  X {"id": 39, "m0": 200.801, "prev": 200.2, "gapMs": 601, "f": 0, "lv": "uncertain", "framesInWindow": 13, "uncovered": 2, "late": 0, "cutOmitted": 0, "other": 2, "readAtPrev": null}
+  X {"id": 40, "m0": 201.668, "prev": 201.068, "gapMs": 600, "f": 0, "lv": "uncertain", "framesInWindow": 24, "uncovered": 24, "late": 0, "cutOmitted": 0, "other": 24, "readAtPrev": null}
+  X {"id": 41, "m0": 202.936, "prev": 202.336, "gapMs": 600, "f": 0, "lv": "uncertain", "framesInWindow": 24, "uncovered": 22, "late": 0, "cutOmitted": 3, "other": 19, "readAtPrev": null}
+  X {"id": 42, "m0": 202.936, "prev": 202.336, "gapMs": 600, "f": 0, "lv": "uncertain", "framesInWindow": 24, "uncovered": 22, "late": 0, "cutOmitted": 3, "other": 19, "readAtPrev": null}
+  X {"id": 43, "m0": 216.483, "prev": 215.115, "gapMs": 1368, "f": 0, "lv": "uncertain", "framesInWindow": 51, "uncovered": 34, "late": 34, "cutOmitted": 24, "other": -24, "readAtPrev": {"g": "male", "s": 0.94, "ab": 0, "v": 0.969, "nm": 11.12}}
+  X {"id": 45, "m0": 220.987, "prev": 220.821, "gapMs": 166, "f": 0, "lv": "uncertain", "framesInWindow": 7, "uncovered": 7, "late": 0, "cutOmitted": 0, "other": 7, "readAtPrev": {"g": "female", "s": 0.21, "ab": 0, "v": 0.395, "nm": 10.37}}
+FALSECOVER {"sameGenderConfidentReads": 103, "coveredReads": 30, "why": {"timelineOnly": 7, "pendingClear": 18, "noTrackContainsFace": 5}}
+  F {"m": 57.958, "s": 0.97, "v": 0.984, "px": 156, "coveredFrames": 21, "nearFrames": 21, "why": "pendingClear", "track": {"id": 7, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 1, "as": 0}}
+  F {"m": 58.559, "s": 0.92, "v": 0.958, "px": 125, "coveredFrames": 4, "nearFrames": 28, "why": "timelineOnly", "track": {"id": 7, "st": "cleared"}}
+  F {"m": 67.401, "s": 0.99, "v": 0.993, "px": 216, "coveredFrames": 15, "nearFrames": 15, "why": "pendingClear", "track": {"id": 7, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 67.401, "s": 0.63, "v": 0.817, "px": 256, "coveredFrames": 15, "nearFrames": 15, "why": "pendingClear", "track": {"id": 7, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 71.638, "s": 0.96, "v": 0.979, "px": 101, "coveredFrames": 29, "nearFrames": 29, "why": "pendingClear", "track": {"id": 7, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 1, "as": 0}}
+  F {"m": 72.472, "s": 0.73, "v": 0.863, "px": 105, "coveredFrames": 26, "nearFrames": 26, "why": "timelineOnly", "track": {"id": 7, "st": "cleared"}}
+  F {"m": 78.646, "s": 0.93, "v": 0.966, "px": 123, "coveredFrames": 26, "nearFrames": 26, "why": "timelineOnly", "track": {"id": 11, "st": "cleared"}}
+  F {"m": 106.94, "s": 0.77, "v": 0.883, "px": 77, "coveredFrames": 9, "nearFrames": 23, "why": "timelineOnly", "track": {"id": 17, "st": "cleared"}}
+  F {"m": 110.844, "s": 0.92, "v": 0.962, "px": 123, "coveredFrames": 16, "nearFrames": 16, "why": "pendingClear", "track": {"id": 18, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 1, "as": 0}}
+  F {"m": 111.178, "s": 0.55, "v": 0.773, "px": 121, "coveredFrames": 23, "nearFrames": 23, "why": "timelineOnly", "track": {"id": 18, "st": "cleared"}}
+  F {"m": 124.091, "s": 0.7, "v": 0.849, "px": 119, "coveredFrames": 21, "nearFrames": 21, "why": "noTrackContainsFace", "track": null}
+  F {"m": 124.091, "s": 0.67, "v": 0.833, "px": 119, "coveredFrames": 21, "nearFrames": 21, "why": "noTrackContainsFace", "track": null}
+  F {"m": 136.303, "s": 0.92, "v": 0.961, "px": 315, "coveredFrames": 6, "nearFrames": 6, "why": "pendingClear", "track": {"id": 21, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 137.504, "s": 0.72, "v": 0.861, "px": 307, "coveredFrames": 15, "nearFrames": 15, "why": "pendingClear", "track": {"id": 21, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 138.171, "s": 0.9, "v": 0.949, "px": 268, "coveredFrames": 13, "nearFrames": 13, "why": "timelineOnly", "track": {"id": 22, "st": "cleared"}}
+  F {"m": 140.207, "s": 0.83, "v": 0.914, "px": 321, "coveredFrames": 26, "nearFrames": 26, "why": "timelineOnly", "track": {"id": 22, "st": "cleared"}}
+  F {"m": 162.83, "s": 0.71, "v": 0.857, "px": 206, "coveredFrames": 22, "nearFrames": 22, "why": "pendingClear", "track": {"id": 27, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 188.054, "s": 0.56, "v": 0.782, "px": 69, "coveredFrames": 22, "nearFrames": 23, "why": "pendingClear", "track": {"id": 35, "cs": 1, "fs": 0, "cm": 0, "lv": "clear-certain", "f": 1, "as": 0}}
+  F {"m": 189.856, "s": 0.8, "v": 0.902, "px": 145, "coveredFrames": 19, "nearFrames": 19, "why": "noTrackContainsFace", "track": null}
+  F {"m": 192.225, "s": 0.62, "v": 0.808, "px": 136, "coveredFrames": 21, "nearFrames": 21, "why": "pendingClear", "track": {"id": 37, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 193.927, "s": 0.83, "v": 0.915, "px": 225, "coveredFrames": 8, "nearFrames": 23, "why": "pendingClear", "track": {"id": 38, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 199.099, "s": 0.54, "v": 0.769, "px": 151, "coveredFrames": 24, "nearFrames": 24, "why": "pendingClear", "track": {"id": 38, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 202.936, "s": 0.84, "v": 0.921, "px": 134, "coveredFrames": 12, "nearFrames": 18, "why": "pendingClear", "track": {"id": 41, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 202.936, "s": 0.58, "v": 0.792, "px": 116, "coveredFrames": 12, "nearFrames": 18, "why": "pendingClear", "track": {"id": 42, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 204.905, "s": 0.89, "v": 0.945, "px": 132, "coveredFrames": 11, "nearFrames": 21, "why": "pendingClear", "track": {"id": 41, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 204.905, "s": 0.52, "v": 0.759, "px": 118, "coveredFrames": 21, "nearFrames": 21, "why": "pendingClear", "track": {"id": 41, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 215.115, "s": 0.94, "v": 0.969, "px": 138, "coveredFrames": 20, "nearFrames": 20, "why": "noTrackContainsFace", "track": null}
+  F {"m": 215.115, "s": 0.91, "v": 0.957, "px": 146, "coveredFrames": 20, "nearFrames": 20, "why": "noTrackContainsFace", "track": null}
+  F {"m": 222.456, "s": 0.62, "v": 0.808, "px": 123, "coveredFrames": 14, "nearFrames": 21, "why": "pendingClear", "track": {"id": 45, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+  F {"m": 225.826, "s": 0.5, "v": 0.749, "px": 121, "coveredFrames": 21, "nearFrames": 21, "why": "pendingClear", "track": {"id": 45, "cs": 0, "fs": 0, "cm": 0, "lv": "uncertain", "f": 0, "as": 0}}
+banked Z:\Apps\Disconnect\spikes\gauntlet\events-v1096c.json
