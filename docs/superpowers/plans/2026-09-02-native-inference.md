@@ -168,9 +168,11 @@ Updated by whoever finishes a task. The loop reads this section first.
 
 - **Lock:** `docs/native/LOCK` (contents: ISO time + who). Take it before editing, delete it after push. A lock older than 90 minutes is stale — delete it and say so here.
 - **Current task:** 0a + 0b running as agents (started 2026-09-02 ~14:40 local, timeboxes 45/60 min).
-- **Decisions so far:** transport = TBD (0b); delegate = TBD (1); models converted = TBD (0a).
+- **Decisions so far:** transport = **WebMessagePort + ArrayBuffer** (0b, Redmi: WEB_MESSAGE_ARRAY_BUFFER supported; Kotlin copy 0.30ms p50 vs base64 decode 2.19ms; page+Kotlin 21.4ms vs 32.2ms at 256x256 RGBA). delegate = TBD (1). models converted: blazeface OK (f32 586KB / f16 330KB), movenet OK (19.0MB / 9.6MB), faceres FAILED on `_FusedMatMul` (grappler-fused op) -- rewrite to MatMul+BiasAdd+Relu in the GraphDef is the second attempt (in flight).
+- **THE REAL FRAME COST IS THE READBACK, NOT THE BRIDGE (0b):** `drawImage`+`getImageData` is 17-24ms p50 and **150-200ms p95** on the Redmi, size-independent (128px no cheaper than 256px). Task 2 must move that off the page's main thread: `createImageBitmap(video)` (0.9ms) -> transfer the ImageBitmap to a Worker (the existing gaze Worker already receives bitmaps) -> `OffscreenCanvas` + `getImageData` THERE -> post the ArrayBuffer to Kotlin from the Worker over a `MessagePort` handed in at start (WebMessagePort ports are transferable to a Worker). Measure p95 there before wiring. The Kotlin bench bridge (base64 + port, `TsFrameBench`) is left UNCOMMITTED on purpose: our releases are DEBUG builds, so `BuildConfig.DEBUG` is not a guard; Task 2 replaces it with `NativeInfer` and no page-exposed `@JavascriptInterface` is added.
 - **Device rows:** 1092 = verdict 922 / gap 2000 / rAF 34.3 / coverage 0.628 (`latency-ab-stageB5.json`).
 - **Blocked / needs owner:** nothing yet.
 - **Bench scaffold:** `spikes/native/bench-android/` written (Task 1 Step 1 done); `run.sh` builds+installs+runs and writes `gpu-bench.json`. Waiting on `.tflite`s from 0a.
 - **Log:**
   - 2026-09-02 14:45 plan written; spikes 0a/0b in flight; gauntlet cron deleted.
+  - 2026-09-02 15:05 0b done (report committed); 0a two of three models; bench app compiles; GPU bench running on the Redmi for blazeface+movenet.

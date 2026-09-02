@@ -1,0 +1,155 @@
+{
+  "label": "20260902-144212",
+  "device": "1ec2c48e0621",
+  "video": "NWoT1ZVd1Lo",
+  "seek": 40.0,
+  "secsPerVariant": 40.0,
+  "pre": {
+    "video": {
+      "paused": false,
+      "t": 42.054794,
+      "w": 1280,
+      "h": 720
+    },
+    "hasBridge": true,
+    "portSupported": true,
+    "portArrived": true
+  },
+  "rafHzIdleControl": 25.793650793650794,
+  "variants": [
+    {
+      "label": "256x256-rgba",
+      "w": 256,
+      "h": 256,
+      "mode": "rgba",
+      "secs": 40.0,
+      "rafHzActive": 31.24794421370633,
+      "pageSent": 107,
+      "pagePortSent": 107,
+      "pageErr": 0,
+      "createBitmapMsP50": 0.9000000953674316,
+      "createBitmapMsP95": 5.3999998569488525,
+      "drawGetImageDataMsP50": 20.200000047683716,
+      "drawGetImageDataMsP95": 169.40000009536743,
+      "base64EncodeMsP50": 8.900000095367432,
+      "base64EncodeMsP95": 17.59999990463257,
+      "kotlin": {
+        "base64": {
+          "n": 107,
+          "arriveMsP50": 7,
+          "arriveMsP95": 13,
+          "decodeMsP50": 2.191146,
+          "decodeMsP95": 4.879114,
+          "bytesP50": 262144
+        },
+        "port": {
+          "n": 107,
+          "arriveMsP50": 16,
+          "arriveMsP95": 48,
+          "decodeMsP50": 0.297448,
+          "decodeMsP95": 0.59901,
+          "bytesP50": 262144
+        },
+        "portSupported": true,
+        "portHost": "m.youtube.com"
+      },
+      "portArrivedBeforeVariant": true
+    },
+    {
+      "label": "128x128-rgba",
+      "w": 128,
+      "h": 128,
+      "mode": "rgba",
+      "secs": 40.0,
+      "rafHzActive": 12.076112145216065,
+      "pageSent": 202,
+      "pagePortSent": 202,
+      "pageErr": 0,
+      "createBitmapMsP50": 1.1000001430511475,
+      "createBitmapMsP95": 4.800000190734863,
+      "drawGetImageDataMsP50": 24.09999990463257,
+      "drawGetImageDataMsP95": 159.20000004768372,
+      "base64EncodeMsP50": 6.400000095367432,
+      "base64EncodeMsP95": 15.200000047683716,
+      "kotlin": {
+        "base64": {
+          "n": 200,
+          "arriveMsP50": 5,
+          "arriveMsP95": 12,
+          "decodeMsP50": 1.773594,
+          "decodeMsP95": 5.094167,
+          "bytesP50": 65536
+        },
+        "port": {
+          "n": 200,
+          "arriveMsP50": 14,
+          "arriveMsP95": 56,
+          "decodeMsP50": 0.235468,
+          "decodeMsP95": 0.440052,
+          "bytesP50": 65536
+        },
+        "portSupported": true,
+        "portHost": "m.youtube.com"
+      },
+      "portArrivedBeforeVariant": true
+    },
+    {
+      "label": "256x256-rgb",
+      "w": 256,
+      "h": 256,
+      "mode": "rgb",
+      "secs": 40.0,
+      "rafHzActive": 12.582674624939507,
+      "pageSent": 217,
+      "pagePortSent": 217,
+      "pageErr": 0,
+      "createBitmapMsP50": 0.9000000953674316,
+      "createBitmapMsP95": 3.299999952316284,
+      "drawGetImageDataMsP50": 17.5,
+      "drawGetImageDataMsP95": 159.69999980926514,
+      "base64EncodeMsP50": 7.700000047683716,
+      "base64EncodeMsP95": 14.700000047683716,
+      "kotlin": {
+        "base64": {
+          "n": 200,
+          "arriveMsP50": 8,
+          "arriveMsP95": 13,
+          "decodeMsP50": 1.979115,
+          "decodeMsP95": 5.057552,
+          "bytesP50": 196608
+        },
+        "port": {
+          "n": 200,
+          "arriveMsP50": 12,
+          "arriveMsP95": 53,
+          "decodeMsP50": 0.261979,
+          "decodeMsP95": 0.518437,
+          "bytesP50": 196608
+        },
+        "portSupported": true,
+        "portHost": "m.youtube.com"
+      },
+      "portArrivedBeforeVariant": true
+    }
+  ],
+  "finalKotlinStats": {
+    "base64": {
+      "n": 200,
+      "arriveMsP50": 8,
+      "arriveMsP95": 13,
+      "decodeMsP50": 1.979115,
+      "decodeMsP95": 5.057552,
+      "bytesP50": 196608
+    },
+    "port": {
+      "n": 200,
+      "arriveMsP50": 12,
+      "arriveMsP95": 53,
+      "decodeMsP50": 0.261979,
+      "decodeMsP95": 0.518437,
+      "bytesP50": 196608
+    },
+    "portSupported": true,
+    "portHost": "m.youtube.com"
+  }
+}

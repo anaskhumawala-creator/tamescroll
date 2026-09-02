@@ -1,0 +1,155 @@
+{
+  "label": "20260902-143929",
+  "device": "1ec2c48e0621",
+  "video": "NWoT1ZVd1Lo",
+  "seek": 40.0,
+  "secsPerVariant": 15.0,
+  "pre": {
+    "video": {
+      "paused": false,
+      "t": 42.147197,
+      "w": 1280,
+      "h": 720
+    },
+    "hasBridge": true,
+    "portSupported": true,
+    "portArrived": true
+  },
+  "rafHzIdleControl": 41.34672179433513,
+  "variants": [
+    {
+      "label": "256x256-rgba",
+      "w": 256,
+      "h": 256,
+      "mode": "rgba",
+      "secs": 15.0,
+      "rafHzActive": 44.2714056976147,
+      "pageSent": 41,
+      "pagePortSent": 41,
+      "pageErr": 0,
+      "createBitmapMsP50": 0.9000000953674316,
+      "createBitmapMsP95": 3.5999999046325684,
+      "drawGetImageDataMsP50": 22.90000009536743,
+      "drawGetImageDataMsP95": 181.39999985694885,
+      "base64EncodeMsP50": 10,
+      "base64EncodeMsP95": 26.90000009536743,
+      "kotlin": {
+        "base64": {
+          "n": 41,
+          "arriveMsP50": 7,
+          "arriveMsP95": 17,
+          "decodeMsP50": 2.18849,
+          "decodeMsP95": 4.458958,
+          "bytesP50": 262144
+        },
+        "port": {
+          "n": 41,
+          "arriveMsP50": 14,
+          "arriveMsP95": 41,
+          "decodeMsP50": 0.286823,
+          "decodeMsP95": 0.505573,
+          "bytesP50": 262144
+        },
+        "portSupported": true,
+        "portHost": "m.youtube.com"
+      },
+      "portArrivedBeforeVariant": true
+    },
+    {
+      "label": "128x128-rgba",
+      "w": 128,
+      "h": 128,
+      "mode": "rgba",
+      "secs": 15.0,
+      "rafHzActive": 32.598521767996104,
+      "pageSent": 41,
+      "pagePortSent": 41,
+      "pageErr": 0,
+      "createBitmapMsP50": 1.1000001430511475,
+      "createBitmapMsP95": 3.5,
+      "drawGetImageDataMsP50": 28.300000190734863,
+      "drawGetImageDataMsP95": 206.60000014305115,
+      "base64EncodeMsP50": 2.5,
+      "base64EncodeMsP95": 5.5,
+      "kotlin": {
+        "base64": {
+          "n": 82,
+          "arriveMsP50": 4,
+          "arriveMsP95": 11,
+          "decodeMsP50": 1.771459,
+          "decodeMsP95": 3.219219,
+          "bytesP50": 65536
+        },
+        "port": {
+          "n": 82,
+          "arriveMsP50": 16,
+          "arriveMsP95": 45,
+          "decodeMsP50": 0.237552,
+          "decodeMsP95": 0.421041,
+          "bytesP50": 65536
+        },
+        "portSupported": true,
+        "portHost": "m.youtube.com"
+      },
+      "portArrivedBeforeVariant": true
+    },
+    {
+      "label": "256x256-rgb",
+      "w": 256,
+      "h": 256,
+      "mode": "rgb",
+      "secs": 15.0,
+      "rafHzActive": 27.236190918624,
+      "pageSent": 41,
+      "pagePortSent": 41,
+      "pageErr": 0,
+      "createBitmapMsP50": 1,
+      "createBitmapMsP95": 5.1000001430511475,
+      "drawGetImageDataMsP50": 23.399999856948853,
+      "drawGetImageDataMsP95": 194.70000004768372,
+      "base64EncodeMsP50": 8,
+      "base64EncodeMsP95": 14.299999952316284,
+      "kotlin": {
+        "base64": {
+          "n": 123,
+          "arriveMsP50": 6,
+          "arriveMsP95": 11,
+          "decodeMsP50": 1.593802,
+          "decodeMsP95": 3.999218,
+          "bytesP50": 196608
+        },
+        "port": {
+          "n": 123,
+          "arriveMsP50": 16,
+          "arriveMsP95": 45,
+          "decodeMsP50": 0.236459,
+          "decodeMsP95": 0.427396,
+          "bytesP50": 196608
+        },
+        "portSupported": true,
+        "portHost": "m.youtube.com"
+      },
+      "portArrivedBeforeVariant": true
+    }
+  ],
+  "finalKotlinStats": {
+    "base64": {
+      "n": 123,
+      "arriveMsP50": 6,
+      "arriveMsP95": 11,
+      "decodeMsP50": 1.593802,
+      "decodeMsP95": 3.999218,
+      "bytesP50": 196608
+    },
+    "port": {
+      "n": 123,
+      "arriveMsP50": 16,
+      "arriveMsP95": 45,
+      "decodeMsP50": 0.236459,
+      "decodeMsP95": 0.427396,
+      "bytesP50": 196608
+    },
+    "portSupported": true,
+    "portHost": "m.youtube.com"
+  }
+}
