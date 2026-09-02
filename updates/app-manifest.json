@@ -1,7 +1,7 @@
 {
-  "versionCode": 1090,
-  "versionName": "0.1.90",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.90/tamescroll-v0.1.90.apk",
-  "sha256": "9d1483a291026fb0a98156456543bb407e3bea02a898045fb035ea558fae5aa4",
-  "notes": "Fewer wrong blurs on YouTube video, in both directions."
+  "versionCode": 1091,
+  "versionName": "0.1.91",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.91/tamescroll-v0.1.91.apk",
+  "sha256": "3fef638443017e4165dbf6584199a986830d184922de03d8c498115d7f9b0c22",
+  "notes": "The assignment layer: overlapping people are matched optimally, so a tracked subject is no longer re-minted as a new blur."
 }
