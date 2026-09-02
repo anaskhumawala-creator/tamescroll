@@ -58,6 +58,7 @@ import {
   loadModelUrl, detectFaceBoxes, classifyFaceGenders, INPUT_SIZE,
 } from '../src/detector.js';
 import { faceMeta, isNullRead } from '../src/gender-verdict.mjs';
+import { fitBox } from '../src/crop-geometry.mjs';
 
 function canvasOf(w, h) {
   var c = document.createElement('canvas');
@@ -87,6 +88,10 @@ function stretchCanvas(img) {
 // ARM B: the same square, aspect preserved. Black bars rather than a
 // crop, because cropping would remove content and change the RECALL
 // question into a framing question.
+//
+// IT CALLS THE SHIPPED `fitBox` AND PAINTS THE BARS THE SAME WAY, so
+// after 2026-09-02 this arm IS init-entry's whole-frame path and the A/B
+// is old-code against new-code rather than against a bench idea of it.
 function letterboxCanvas(img) {
   var W = img.naturalWidth, H = img.naturalHeight;
   var c = canvasOf(INPUT_SIZE, INPUT_SIZE);
@@ -94,10 +99,9 @@ function letterboxCanvas(img) {
   g.imageSmoothingQuality = 'high';
   g.fillStyle = '#000';
   g.fillRect(0, 0, INPUT_SIZE, INPUT_SIZE);
-  var k = Math.min(INPUT_SIZE / W, INPUT_SIZE / H);
-  var dw = W * k, dh = H * k;
-  g.drawImage(img, (INPUT_SIZE - dw) / 2, (INPUT_SIZE - dh) / 2, dw, dh);
-  return { canvas: c, k: k, ox: (INPUT_SIZE - dw) / 2, oy: (INPUT_SIZE - dh) / 2 };
+  var fit = fitBox(W, H, INPUT_SIZE);
+  g.drawImage(img, fit.dx, fit.dy, fit.dw, fit.dh);
+  return { canvas: c, k: fit.dw / W, ox: fit.dx, oy: fit.dy };
 }
 
 // Both arms report boxes normalized to their OWN 256 square, which are

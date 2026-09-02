@@ -79,6 +79,7 @@ import {
   bumpLife,
 } from './person-track.mjs';
 import * as sceneGate from './scene-gate.mjs';
+import { fitBox } from './crop-geometry.mjs';
 import {
   supportsRegionBlur,
   initRegionBlur,
@@ -4355,7 +4356,27 @@ if (
       try {
         var canvas = ensureVideoCanvas();
         var ctx2d = canvas.getContext('2d');
-        ctx2d.drawImage(video, 0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
+        // ASPECT-PRESERVING, and it was not until 2026-09-02. This was
+        // the four-argument drawImage, which squashed a 640x360 stream
+        // into the square and handed faceres every face 1.78x taller
+        // than wide -- the squareBox defect one stage earlier, where
+        // squareBox cannot reach it. See crop-geometry.fitBox for the
+        // measurement (17 of 18 faces carry more descriptor signal
+        // undistorted) and engine-findings 16a.
+        //
+        // NOTHING DOWNSTREAM READS A BOX FROM THIS BUFFER, which is what
+        // makes the change safe with no coordinate mapping anywhere:
+        // wholeFrameFlagged returns ONE BOOLEAN for the frame and the
+        // caller applies whole-video blur.
+        var fit = fitBox(
+          video.videoWidth, video.videoHeight, detector.INPUT_SIZE
+        );
+        // The bars must be painted, not left: this canvas is reused, so
+        // an unpainted margin still holds the PREVIOUS frame and would
+        // hand the detector two frames at once.
+        ctx2d.fillStyle = '#000';
+        ctx2d.fillRect(0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
+        ctx2d.drawImage(video, fit.dx, fit.dy, fit.dw, fit.dh);
         var pixels = ctx2d.getImageData(0, 0, detector.INPUT_SIZE, detector.INPUT_SIZE);
         wholeFrameFlagged(pixels)
           .then(function (anyFlagged) {

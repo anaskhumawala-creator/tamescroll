@@ -37655,6 +37655,15 @@ return a / b;`;
       y2: (cy + side) / srcH
     };
   }
+  function fitBox(srcW, srcH, size) {
+    if (!(srcW > 0) || !(srcH > 0) || !(size > 0)) {
+      return { dx: 0, dy: 0, dw: size || 0, dh: size || 0 };
+    }
+    var k = Math.min(size / srcW, size / srcH);
+    var dw = srcW * k;
+    var dh = srcH * k;
+    return { dx: (size - dw) / 2, dy: (size - dh) / 2, dw, dh };
+  }
   var init_crop_geometry = __esm({
     "src/crop-geometry.mjs"() {
       "use strict";
@@ -55693,6 +55702,7 @@ return a / b;`;
       init_dist2();
       init_detector();
       init_gender_verdict();
+      init_crop_geometry();
       function canvasOf(w, h) {
         var c = document.createElement("canvas");
         c.width = w;
@@ -55725,10 +55735,9 @@ return a / b;`;
         g.imageSmoothingQuality = "high";
         g.fillStyle = "#000";
         g.fillRect(0, 0, INPUT_SIZE, INPUT_SIZE);
-        var k = Math.min(INPUT_SIZE / W, INPUT_SIZE / H);
-        var dw = W * k, dh = H * k;
-        g.drawImage(img, (INPUT_SIZE - dw) / 2, (INPUT_SIZE - dh) / 2, dw, dh);
-        return { canvas: c, k, ox: (INPUT_SIZE - dw) / 2, oy: (INPUT_SIZE - dh) / 2 };
+        var fit = fitBox(W, H, INPUT_SIZE);
+        g.drawImage(img, fit.dx, fit.dy, fit.dw, fit.dh);
+        return { canvas: c, k: fit.dw / W, ox: fit.dx, oy: fit.dy };
       }
       function toFrameA(bx) {
         return { cx: (bx.x1 + bx.x2) / 2, cy: (bx.y1 + bx.y2) / 2 };

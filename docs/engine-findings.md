@@ -2204,22 +2204,45 @@ uncover anybody in this sample. The cost of the squash is carried in the
 READ quality -- signal, and therefore who is eligible to be cleared --
 not in the frame boolean.
 
-### What this does and does not license
+### FIXED, and the fix is now the bench's own winning arm
 
-- **It does license fixing the draw.** A source-rectangle drawImage that
-  preserves aspect is a two-line change in one call site, it is monotone
-  in the direction of *more* signal, and `crop-geometry.mjs` already
-  holds the arithmetic and the test that forbids an inline copy.
-- **It does not license shipping it tonight.** The call site is
-  `init-entry.js:4342`, inside `app/gaze/src`, and the Phase D critic is
-  running against arms that rebuild from src. It is also the path four
-  unverified platforms depend on, and this repo's rule is that a change
-  to who gets covered is verified visually on the surface it happens on.
-- **HONEST LIMITS.** 15 frames, five videos, all YouTube footage at one
-  resolution; the frame boolean moved once and in the harmless direction;
-  and the emulator's swiftshader ran both arms, so this is a parity
-  result and not a timing one.
+`crop-geometry.fitBox(srcW, srcH, size)` -- next to `squareBox`, which is
+the same defect one stage later and could not reach this one -- and
+`init-entry`'s whole-frame path paints black bars and calls it. **No
+coordinate mapping was needed anywhere**, because nothing downstream
+reads a box out of that buffer: `wholeFrameFlagged` returns ONE BOOLEAN
+and the caller applies whole-video blur. The bars are painted rather than
+left, because the canvas is reused and an unpainted margin still holds
+the previous frame.
 
-**Next: fix the draw at `:4342` with `crop-geometry`'s arithmetic, re-run
-this bench as the A/B, and only then widen `isPlayer` -- in that order,
-because a wider selector on a distorted path spreads the distortion.**
+Verified in the EMITTED bundle: `fillRect(0,0,un,un)` and
+`drawImage(R,wp.dx,wp.dy,wp.dw,wp.dh)`. Two four-argument draws remain
+and both are correct -- the scene gate at `:2081` (a luma delta between
+two frames squashed identically) and the MoveNet canvas fallback at
+`:1912`, which is 16b's question.
+
+The bench's letterbox arm calls the shipped `fitBox` now, so the A/B is
+old code against new code rather than against a bench idea of it.
+
+### HONEST LIMITS
+
+- 15 frames, five videos, all YouTube footage at one resolution.
+- **The detection count is not deterministic on this harness.** Two runs
+  of the identical bench gave 21/24 and 21/25 detections and 1 then 2
+  differing frame booleans, so the frame-level difference is inside the
+  wobble and must not be quoted as an effect. The matched-pair reads ARE
+  deterministic: 18 pairs, the same two label flips, raw |diff| p50
+  0.0286 and max 0.2236 both times. The `nm` result rests on the
+  deterministic half.
+- The change is justified on **read quality**, not on a visible
+  behaviour improvement -- no measurement here shows a person being
+  covered who was not before.
+- swiftshader ran both arms, so this is a parity result and not a timing
+  one.
+- **It is still unverified on Reddit, X or Instagram**, which is where it
+  matters most and where the emulator dies (loop 8). Widening `isPlayer`
+  is a separate decision and comes after a live DOM census, not before.
+
+**Next: the MoveNet half (16b), then a live player-host census per
+platform -- in that order, because a wider selector on a distorted path
+spreads the distortion.**

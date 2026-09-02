@@ -55,3 +55,47 @@ export function pixelAspect(box, srcW, srcH) {
   if (!(w > 0) || !(h > 0)) return 0;
   return w / h;
 }
+
+/**
+ * Fit a srcW x srcH picture into a `size` x `size` square WITHOUT
+ * squashing it: uniform scale, centred, black bars on the short axis.
+ * Returns {dx, dy, dw, dh} in destination pixels.
+ *
+ * THE SAME DEFECT AS squareBox, ONE STAGE EARLIER, and it lived in the
+ * whole-frame video path from the beginning:
+ *
+ *     ctx.drawImage(video, 0, 0, INPUT_SIZE, INPUT_SIZE)
+ *
+ * -- the four-argument form, no source rectangle, no aspect. A 640x360
+ * stream became a 256x256 square, so every face arrived 1.78x taller
+ * than wide, and `classifyFaceGenders({square:true})` then cut a square
+ * out of that buffer -- square in the STRETCHED space, a 16:9 rectangle
+ * in reality. squareBox cannot undo a distortion that is upstream of it.
+ *
+ * MEASURED before it was changed (engine-findings 16a, 15 native 640x360
+ * frames through the shipping functions, stretched against letterboxed):
+ * faceres' descriptor magnitude is HIGHER undistorted on **17 of 18**
+ * faces, p50 +1.08, sign test p = 1.45e-4 -- and it wins despite giving
+ * every face FEWER pixels. Four faces cross NULL_MINT_NM_FLOOR, and 2 of
+ * 13 solid-signal faces flip gender label, one moving raw 0.601 ->
+ * 0.377.
+ *
+ * WHY THAT MATTERS MORE THAN IT LOOKS: on YouTube the whole-frame path
+ * is transient (the person-primary path takes over once MoveNet lands),
+ * but `isPlayer` is `closest('#movie_player')`, so on Reddit, X,
+ * Instagram and Facebook this is the ONLY path there is
+ * (engine-findings 16).
+ *
+ * Bars are BLACK and the caller must clear the canvas, because a reused
+ * canvas otherwise shows the previous frame in the margins -- which
+ * would hand the detector two frames at once.
+ */
+export function fitBox(srcW, srcH, size) {
+  if (!(srcW > 0) || !(srcH > 0) || !(size > 0)) {
+    return { dx: 0, dy: 0, dw: size || 0, dh: size || 0 };
+  }
+  var k = Math.min(size / srcW, size / srcH);
+  var dw = srcW * k;
+  var dh = srcH * k;
+  return { dx: (size - dw) / 2, dy: (size - dh) / 2, dw: dw, dh: dh };
+}
