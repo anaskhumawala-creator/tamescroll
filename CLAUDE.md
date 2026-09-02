@@ -70,6 +70,92 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-02 21:20 (**1095 BUILT AND ON THE REDMI, release
+pending the phase-L critic** -- see the line below; HEAD pushed, rules
+OTA carries `DELAY_MS` 1500 already, so 1094 phones get the longer delay
+line without an install.)
+
+**Session 2026-09-02 (loop 49) -- HIS THREE REPORTS ON 1094 ("linus
+still gets covered sometimes", "random patches", "for a second or so the
+opposite [gender] is visible") ALL HAD A MECHANISM, AND THE BIGGEST ONE
+WAS THAT THE DELAY PRESENTER NEVER DREW THE CLAMP.** Plan
+`docs/superpowers/plans/2026-09-02-presented-geometry-and-hindsight.md`.
+Instrument: `spikes/gauntlet/probe_events.py <port> <label> [secs]
+[video] [seek]` + `events_reclass.py` (per-track `co/cf/hf`, reads joined
+to the NEXT snapshot, first collector tick dropped); `replay_clamp.mjs`
+replays the SHIPPED clamp over banked snapshots; `probe_frame_capture.py`
+reads the delay canvas (a CDP screenshot shows a black video). Every row
+is the Redmi, NWoT1ZVd1Lo seeked to 55s, 180s, man mode, delay 1000:
+
+  | build / run | certain-male reads covered | neighbour's box, own track cleared | coasting passes | coast max |
+  |---|---|---|---|---|
+  | 1094 run 1 / 2 / 3 | 26/81, 48/84, **48/75** | 11, 10, **20** | -- / -- / 83 of 255 | 3305 |
+  | **1095 run a / b** | **36/87, 30/91** | **9, 7** | 50 of 194, 62 of 212 | 2259 / 3034 |
+
+- **ROOT CAUSE 1 (his "Linus covered"): since 1092 `pushSnapshot` took
+  the RAW tracker box**, so the render-side pad, the R27 directional clamp
+  and the merge never reached a presented frame -- the clamp was verified
+  in `blurredTracks` and drawn by nobody. `presentTracks(tracks)` now hands
+  the timeline what `blurredTracks` would draw; `mergePresented(list)`
+  re-merges and re-clamps at presentation.
+- **ROOT CAUSE 2: R27 could not fire where it was needed.** Replaying the
+  shipped clamp over run 3's snapshots left 21 of 31 covered reads: his
+  face centre sits INSIDE her evidence hull (one MoveNet hull spanning both
+  people, e.g. 74.3s one 77%-wide "person"; or the synthetic core = face
+  +-0.5 faceW). Her HEAD is always clear of his face on every captured
+  frame. **THE HEAD FLOOR:** the X edge may travel to the subject's own
+  head box (`clearedFaceBox`, head +-0.6 headW), never on Y, never inside
+  the head; 183.8s goes from 0.03 of relief to his whole face free.
+  Replay: 21 -> 10 remaining, 4 of those under a neighbour COASTING
+  306-427ms, so **a coast now moves the hull and head by the box's
+  displacement** (`coastedCoreUsable`; cut-demoted hulls still stand down).
+  Accepted cost, his SOLID rule intact: a strip of her shoulder/arm on the
+  cleared man's side goes sharp; one edge of one rectangle.
+- **THE CORPUS BENCH IS BLIND TO ALL OF THIS** (`arch-arms.frameOut`
+  scores raw tracker boxes), so `control-triple.test.mjs` stays green by
+  construction and the device replay is the pricing instrument. Do not
+  quote a corpus number for a render- or presentation-side change.
+- **HINDSIGHT RULES in `track-timeline.mjs`** (the delay line knows the
+  NEXT verdict): 3' a blur at A that was not a certain flag, cleared at B,
+  no cut between -> presented CLEARED (his "pending clear ladder" rows);
+  3c no lerp across a cut (A's side before it, B's after); 6 a coasting
+  run that expired with no cut and nobody taking its box is DEAD and
+  presented absent after the one grace interval (his "random patches";
+  `markDeadCoasts`). All red-proved in `test/timeline-hindsight.test.mjs`.
+- **`DELAY_MS` 1000 -> 1500, MEASURED before it moved** (same 1094 build,
+  planted via `TS_PLANT_FILE=plant-delay1500.js`): late frames 406 vs
+  1352, births with uncovered frames 6 vs 15, uncovered frames 121 vs 189,
+  PSS 384MB vs 363MB. Half a second more latency for a third of the
+  exposure. Moved in delay-core.mjs AND rules/tuning.json (the tuning test
+  pins them equal); **the 1095 device runs above ran at 1000 because the
+  phone's CACHED OTA tuning.json still said 1000** -- a planted arm beats
+  the cache, a source constant does not, until the manifest lands.
+- **STILL OPEN, priced:** his own not-yet-cleared track (pendingClearLadder
+  / bornBlurredAtCut, 4-7 reads per run -- the ladder, not geometry);
+  neighbourSynthetic 6-7 (a face-derived body with no MoveNet hull, floor =
+  face +-0.5 faceW); 2-3 patches per run born from unread faces under 40px
+  (`nullMintedHeld`); exposure lower bound 1-2 events per run (82-255ms),
+  upper p90 ~200-260ms -- births at a cut where the first read lands late.
+- **PHASE-L CRITIC: 9 rows, 6 EXPOSURE, all CONFIRMED and fixed at source
+  before the release** (`docs/critic/phase-l.md`, ledger L1-L9,
+  `test/critic-l.test.mjs` 8/8 here and 0/8 on 9cc6cb8). L1: a MERGED
+  patch's head floor was one member's head, so the edge crossed the other
+  subject's hull and landed inside her own head box -- the union now
+  carries the union of both heads or none. L2: `mergePresented` dropped
+  the head anchors, so presented merges were order-dependent. L3: the head
+  floor is a third of the hull at p50 on his data (hf/co width p50 0.305),
+  not "a shoulder"; a head at the person-gate 0.04 fallback is refused as
+  a floor, the rest is the accepted trade and HIS to reverse. L4: rule 3'
+  keyed on `lastVerdict`, which ONE uncertain read rewrites (id 12: three
+  certain female reads, one uncertain, 567ms presented cleared) -- and
+  `flagStreak` resets the same way; `flagEvidence` rides the track, set by
+  a certain flag, reset only by a certain clear. L5: the dead-coast walk
+  crossed a cut. L6: cleared entries carried the RAW box into a
+  cleared->blurred lerp (4 points of hair). Rule 6's named exposure was
+  attacked on the banked run and NOT found (0 female reads in any dead
+  box); its yield is 8 of 83 coasting passes, not 83.
+- gaze **733/733**, cargo **61/61**, critic-gate **no blocking row**.
+
 **Last updated:** 2026-09-02 19:30 (**1094 PUBLISHED, sha 1d98f270** --
 served APK re-downloaded and hashed against the raw manifest. HEAD
 pushed, tree clean. The Redmi runs 1094; his phone gets it in-app.)
