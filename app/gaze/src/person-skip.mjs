@@ -8,15 +8,19 @@
 // 81.0s at 1.5s per verdict and 8.0s at 0.5s, while every threshold
 // swept this month moves 1-3s.
 //
-// THIS SHIPS INERT. `PERSON_SKIP_EVERY` is 1, which makes wantPersons()
-// return true on every pass -- byte-for-byte the behaviour of the build
-// before it. It is a number on the OTA tuning channel, so the skip can
-// be turned on, measured on his device and turned off again without him
-// installing anything. That is deliberate: the skip buys cadence, and
-// cadence buys exposure at the cost of PHANTOM (the corpus prices the
-// same clock change at up to +116s), and phantom is what he calls
-// "random blur marks here and there". A change whose cost lands on his
-// oldest complaint should be reversible in seconds, not in a release.
+// SHIPPED ON, 2026-09-02 (latency-restructure Task 2). `PERSON_SKIP_EVERY`
+// was 1 (never skip) from 2026-08-31 to 2026-09-02 while the ghost gate
+// that made a skip dangerous still existed. It is a COUNTER now, not a
+// refusal (owner ruling 2026-09-01, "she needs to be blurred" --
+// faceEvidence = faces.length in init-entry, and a refused face still
+// mints a patch through the composite-frame fallback exactly like a
+// kept one). With that precondition gone, the skip pays for itself: on
+// the arm64 Redmi MoveNet is ~511ms of every pass and admits nobody in
+// 100% of them (his regime). It is still a number on the OTA tuning
+// channel -- reversible to 1 in seconds, not a release -- because its
+// cost is PHANTOM, the corpus prices the same clock change at up to
+// +116s of it, and phantom is what he calls "random blur marks here and
+// there".
 //
 // 1068-1070 shipped a skip and was reverted because he reported "it's
 // not blurring the female". The defect was never the skip -- it was that
@@ -31,10 +35,11 @@
 // every pass.
 export var PERSON_EMPTY_STREAK = 3;
 
-// ...and then it is asked one pass in this many. ONE MEANS NEVER SKIP,
-// which is the shipped default and the reason this file changes nothing
-// until a number is deliberately pushed.
-export var PERSON_SKIP_EVERY = 1;
+// ...and then it is asked one pass in this many. ONE MEANS NEVER SKIP.
+// Shipped at 4 (the OTA ceiling, tuning.mjs): the model still runs
+// every ~6s of wall clock in his regime, which is the slowest it can go
+// and still notice a person walking into frame before a shot ends.
+export var PERSON_SKIP_EVERY = 4;
 
 export function setPersonSkipEvery(v) {
   PERSON_SKIP_EVERY = v;

@@ -77,34 +77,52 @@ test('a skipped pass can never report an empty frame', () => {
   assert.match(page, /if \(!askPersons\) \{ persons\.skipped = true;/);
 });
 
-test('IT SHIPS INERT: the default never skips a pass', () => {
-  // The whole reason the mechanism can sit in a build at all.
-  // PERSON_SKIP_EVERY rides the OTA tuning channel, so a build carrying
-  // it must behave exactly like the build before it until a number is
-  // deliberately pushed. Its cost is PHANTOM -- his "random blur marks
-  // here and there" -- so it has to be reversible in seconds, not in a
-  // release.
+test('THE SKIP IS ON BY DEFAULT: one pass in four once it has admitted nobody three times', () => {
+  // 2026-09-02: the ghost gate that made a skip dangerous (1070 -- a
+  // skipped pass's empty list counted as an empty FRAME, and
+  // wipeIfEmpty erased a covered woman) is a COUNTER now, not a
+  // refusal (owner ruling 2026-09-01, "she needs to be blurred";
+  // faceEvidence = faces.length in init-entry, and the fallback mints a
+  // patch for a refused face exactly as for a kept one). With the gate
+  // that made this reversion necessary gone, the skip pays for itself:
+  // 511ms of MoveNet admitting nobody, over and over, on his phone.
+  //
   // BOTH SOURCES OF THE VALUE, because they can disagree and only one of
   // them decides what a device with no rules cache runs. This checked
-  // only tuning.json, so `PERSON_SKIP_EVERY = 3` in the module left this
-  // file fully green -- the test named for the inert default did not
+  // only tuning.json once, so `PERSON_SKIP_EVERY = 3` in the module left
+  // this file fully green -- the test named for the default did not
   // test the default.
   // FROM THE DECLARATION, not from the live binding: setPersonSkipEvery
   // mutates the export and the tests above it do exactly that, so an
   // imported value says what the last test left behind, not what ships.
   const src = readFileSync(new URL('../src/person-skip.mjs', import.meta.url), 'utf8');
-  assert.match(src, /^export var PERSON_SKIP_EVERY = 1;/m,
-    'the MODULE default is what a device with no rules cache runs, and a '
-    + 'build must behave like the one before it until a number is pushed');
+  assert.match(src, /^export var PERSON_SKIP_EVERY = 4;/m,
+    'the MODULE default is what a device with no rules cache runs');
   const shipped = JSON.parse(
     readFileSync(new URL('../../../rules/tuning.json', import.meta.url), 'utf8'),
   );
-  assert.equal(shipped.PERSON_SKIP_EVERY, 1, 'the shipped value must be the off value');
+  assert.equal(shipped.PERSON_SKIP_EVERY, 4, 'the shipped value must be the on value');
   fresh(shipped.PERSON_SKIP_EVERY);
+  const ran = [];
   for (let i = 0; i < 20; i++) {
-    assert.equal(wantPersons(), true, 'pass ' + i + ' must run the model');
-    notePersons([], false);
+    const ask = wantPersons();
+    ran.push(ask);
+    // still asked for the first PERSON_EMPTY_STREAK empty passes...
+    if (i < PERSON_EMPTY_STREAK) assert.equal(ask, true, 'pass ' + i + ' must run the model');
+    notePersons(ask ? [] : null, !ask);
   }
+  // ...then backed off to one admitted-nobody pass in every four: three
+  // skipped, the fourth real, starting immediately after the streak.
+  // Absolute indices 3,4,5 are the first three skipped passes; index 6
+  // is the real one; the cycle then repeats every 4.
+  for (let i = PERSON_EMPTY_STREAK; i < ran.length; i++) {
+    const wantsIt = (i - PERSON_EMPTY_STREAK) % 4 === 3;
+    assert.equal(ran[i], wantsIt,
+      'pass ' + i + ' expected ' + (wantsIt ? 'real' : 'skipped'));
+  }
+  const n = ran.slice(PERSON_EMPTY_STREAK).filter(Boolean).length;
+  assert.equal(n, 4, 'ran ' + n + ' of ' + (ran.length - PERSON_EMPTY_STREAK)
+    + ' backed-off passes, expected one in four');
 });
 
 test('the model runs every pass until it has admitted nobody three times', () => {
