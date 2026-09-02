@@ -184,3 +184,91 @@ position pass through EARLIER, never delay a verdict.
   not merely that the key exists.
 - **Nothing was edited and the suite is green:** `npm test` in `app/gaze`
   reports `pass 697, fail 0`.
+
+---
+
+# Phase K, second pass — an independent re-run of the same six claims
+
+Run after the first phase-K report had landed and been acted on
+(`f222338`, then `75e8255`: BlazeFace back to fp32, yield gate removed,
+findings 26 time-weighted). This pass reached K1, K3, K4, K9 and K2's
+unweighted arithmetic independently, out of the banked JSON — so those
+five are corroborated by a second path and are not one reviewer's
+arithmetic.
+
+Three findings the first pass did not make. Rows continue the series.
+
+| id | date | trigger | severity | claim | falsifier | verdict | note | artifact |
+|---|---|---|---|---|---|---|---|---|
+| K11 | 2026-09-02 | phase-k pass 2 (3) | WRONG-NUMBER | **The fp16 parity gate was checked at the two bars that do not decide a player patch, and 2 of 24 reads flip at the two that do.** Task 3's written gate is "0 decision flips at `GENDER_MIN_SCORE` 0.25 and `GENDER_IMAGE_MIN_SCORE` 0.4", and that gate is genuinely MET (0 of 24 at each, verified read by read). But the player's clear decision runs through `clearBarFor` (`gender-verdict.mjs:199`) — `GENDER_CLEAR_SCORE_FEMALE` 0.35 / `GENDER_CLEAR_SCORE` 0.45 — and through the child gate `GENDER_CHILD_MASS` 0.25, and neither was counted. Over all 24 read pairs: **t=30 read 0** native score **0.3257** vs worker **0.3616** and **t=217 read 0** native **0.3340** vs worker **0.3532**, both crossing the female clear bar; t=217 also crosses the child gate, native childP **0.25156** vs worker **0.24973**. So 3 flips across 2 of 24 reads (8.3% of reads), against a published "labels 22/24" that names only the two raw-0.50 coin flips. **STILL LIVE:** `MODEL_FP16 = setOf(2)` at HEAD keeps faceres — the model that produces every one of these reads — at fp16. | For each of the 24 pairs compute `score >= (gender==='female'?0.35:0.45)` and `childP >= 0.25` on both arms and count disagreements. | OPEN | **Not an exposure: all three flips are in the COVERING direction on native** (native refuses a clear the worker grants, and calls one read a child). They are also inert in the owner's `man` mode, where a female read is opposite-gender and covered regardless; they are live in `woman` mode. Closest approaches on the native arm show how little headroom the check had: childP to its bar **0.0016**, score to `GENDER_MIN_SCORE` **0.00195** (t=120 reads exactly 0.2520 on both arms), nm to `NULL_MINT_NM_FLOOR` **0.478**. Fix: state the gate over the bars the player path actually reads, and re-quote it as "0 flag-bar flips, 2 of 24 clear-bar/child-gate flips, all covering". | `spikes/gauntlet/native-parity-1788351287.json` |
+| K12 | 2026-09-02 | phase-k pass 2 (3) | NIT | **At n=24 the parity check cannot tell this build from the uint8 requant it was written to be stricter than.** The 2026-08-31 faceres uint8 requant was refused at **8 of 100 decision flips at `GENDER_IMAGE_MIN_SCORE` 0.4**. The fp16 check reads 0 of 24 at that bar — but the exact binomial one-sided 95% upper bound on 0/24 is **11.7%**, which contains 8%. The other counts have no more power: 1/24 (the K1 lost face) is 4.2%, 95% CI [0.1%, 21.1%]; 2/24 labels is 8.3% [1.0%, 27.0%]; 3/24 shipped-bar flips is 12.5% [2.7%, 32.4%]. J14 already records n as a limit of the instrument; what is new is that the limit is wide enough to swallow the precedent's refusal rate, so "parity clean" and "parity as bad as the refused requant" are the same measurement at this n. | Clopper-Pearson on each count; or grow the corpus to the precedent's 100 reads and re-run. | OPEN | Non-blocking and no shipped figure changes. It bounds what "parity holds" can mean: ~37 reads with 0 flips would push the upper bound under 8%, ~100 would match the precedent. | `spikes/gauntlet/native-parity-1788351287.json` |
+| K13 | 2026-09-02 | phase-k pass 2 (5) | WRONG-NUMBER | **`native-body-vs-synth.mjs`'s published output is from the arm that does NOT ship, and its face denominator is structurally blind to K1.** Findings 26 and pass 1's "Attacked, holds" both quote `native/worker 1.098` and `faces with any sharp pixel on native: 0 of 24` as evidence about the shipped engine. Both come from the bench's DEFAULT file, `native-parity-1788347487.json` — the **fp32** dump. On the fp16 dump, which is what 2d3f3ff shipped: `node bench/native-body-vs-synth.mjs ../../spikes/gauntlet/native-parity-1788351287.json` reads `frames 16 ... faces 23`, `native/worker 1.106`, `faces with any sharp pixel on native: 0 of 23`. The denominator moved 24 -> 23 because the bench builds BOTH sets from `fr.native.faces` (`native-body-vs-synth.mjs:47-49`), so the face fp16 loses at t=90 is absent from the worker set, the native set AND the sharp-face count — the instrument written to close the coverage question cannot see the exposure the same round's K1 found in the same file. Separately the bench omits `import './_build.mjs'`, the freshness guard every other corpus bench takes (`arch-arms.mjs:51`, `cut-truth.mjs:43`, `detector-recall.mjs:42`, `face-recall.mjs:46`, `mnbody-births.mjs:36`, `release-1080-1091.mjs:30`), so it scores whatever `bench/.cache/shipped.mjs` was last built from. | Run the bench on both dumps and diff the header line (`faces 24` vs `faces 23`); read line 47 for the set construction and the imports for the missing `_build`. | OPEN | The tighter-body hypothesis is still refuted — native covers ~10% MORE area on both dumps, and 0.0000 of the uncovered residual is inside a face box on both. What does not carry is "0 of 24 faces sharp" as a statement about the shipped build: it is 0 of 23, with the 24th not detected at all. Fix: build the worker set from `fr.worker.faces`, print both engines' face counts in the header, add `import './_build.mjs'`. | `app/gaze/bench/native-body-vs-synth.mjs`, `native-parity-1788347487.json`, `native-parity-1788351287.json` |
+
+## Corroborated independently, nothing to add
+
+- **K1.** Reached the same way, and it is a clean experiment: the worker
+  arm of the two parity dumps is byte-identical at all 16 timestamps
+  (face boxes and confidences to 6 dp), so the frames are the same
+  pixels and delegate precision is the only variable. t=90 fp32 native
+  conf **0.4551**, worker **0.4593**, fp16 native **no face** —
+  `FACE_MIN_CONFIDENCE` is 0.35, so this is a drop of at least 0.105 on
+  a face every other engine finds comfortably, not a rounding at a
+  threshold. The only other materially moved confidence is t=270
+  (0.8170 fp16 vs 0.8473 / 0.8475); across the other 22 faces the
+  typical |diff| is 0.001-0.002.
+- **K2's arithmetic.** The unweighted table reproduces exactly:
+  snapshots with no blurred track 0.363 vs 0.421, blurred/snapshot
+  0.769 vs 0.724, blurred box area p50 0.329 vs 0.282.
+- **K3, K4, K9.** Same numbers, same files.
+- **The coast half of findings 26 is stronger than it claims.** Its
+  "HONEST RESIDUAL" says the coast attribution rests on the exit-hang
+  p50s because `toldMs` is a single end-of-run read. `coastMs` is banked
+  in every arm and is unambiguous: **4000** in all three worker arms
+  (`stageB5`, `native-off`, `native-fp16-off`) against **1710-2024** in
+  all seven native arms. Exit hang tracks it (worker p50 30 / 58 / 60;
+  native 0 / 0 / 0 / 0 / 3 / 9 / 15) — though "0-3" understates the
+  native range, which reaches 15 on `native-clock`, the shipping arm.
+- **The instrument did change mid-round, and it cost a row its
+  evidence.** `probe_latency_ab.py` gained `snaps` and the
+  `positionYieldVerdict` key in one commit but not at one time: both
+  yield arms bank `snaps` (167 / 171) and **omit**
+  `positionYieldVerdict`, while both clock arms bank it (31 / 28).
+  Neither addition can move `verdictGapP50`, `coverage`, `verdicts` or
+  `positions`, so no published row is invalidated — but the two runs
+  that priced the yield have no record of how often it fired.
+
+## What blocks 1094 (second pass)
+
+Nothing new. **K11 is the one that matters and it is not an exposure:**
+all three shipped-decision flips are in the covering direction on
+native and are inert in the owner's `man` mode, so the build is safe
+and the sentence is wrong — the fp16 parity claim should be restated
+over the bars the player path actually reads (`GENDER_CLEAR_SCORE*`,
+`GENDER_CHILD_MASS`) rather than the flag bars, with K12 attached so
+"parity clean" is never quoted at n=24 as though it excluded the 8%
+that got the uint8 requant refused. K13 is a WRONG-NUMBER in an
+instrument, not in the app: the coverage conclusion survives, but
+findings 26 must stop citing "0 of 24 faces sharp" from the fp32 dump
+as evidence about a build that ships fp16 — on the shipped dump it is
+0 of 23, and the missing 24th is K1. Both are documentation and
+instrument fixes, and neither is a reason to hold the release. K1
+itself is already closed at HEAD by `MODEL_FP16 = setOf(2)`, which
+removes the lost detection while leaving faceres — the model K11 and
+K12 are about — at fp16.
+
+## Postscript — the fresh dump taken while this pass was running
+
+A new parity dump landed mid-review, on the `MODEL_FP16 = setOf(2)` build
+(BlazeFace fp32, faceres fp16): `spikes/gauntlet/native-parity-1788354123.json`.
+It settles K1 and it leaves K11 exactly where it was.
+
+- **K1 closed on device.** `faceCountMismatchFrames` **1 -> 0**, and t=90
+  native reads **1 face at conf 0.4551** — the fp32 value to four decimals.
+  Putting BlazeFace back in fp32 recovers the lost close-up.
+- **K11 unchanged, on a third independent dump.** faceres is still fp16, so
+  the gender rows are identical to the fp16 file (`genderRawAbsDiff` p50
+  0.0024968385696411133, `descCosine` p50 0.998977723838087, labels 22/24)
+  and the same three shipped-decision flips reproduce: clear bar at t=30
+  (0.3257 vs 0.3616) and t=217 (0.3340 vs 0.3532), child gate at t=217
+  (0.25156 vs 0.24973). All covering, all inert in `man` mode.
+- **K12 unchanged.** Still 24 reads.
