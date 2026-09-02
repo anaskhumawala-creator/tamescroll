@@ -1,0 +1,50 @@
+ASSIGNMENT A/B -- greedy against optimal, his regime, shipped tracker
+corpus 18 windows / 2160 frames, PTRACK_IOU_MIN 0.15, told 2000ms
+
+### man
+gender=man  windows 18  k=3 (1.5s/verdict)  told 2000ms
+shipped PTRACK_ASSIGN 'optimal'  PTRACK_IOU_MIN 0.15
+
+arm        EXPOSURE  FALSECOVER   PHANTOM    covered     sharp
+greedy        23.0s      139.0s    561.0s     540.0s    566.0s
+optimal       22.5s      136.5s    547.5s     540.5s    568.5s
+delta         -0.5        -2.5     -13.5
+
+births                  Fresh NearMiss Contende SizeReje coastExp  Cleared  Blurred
+greedy                     39       42       65        1      102       21      126
+optimal                    38       43       60        0       96       23      118
+
+window                    dEXPOSURE  dFALSECOVER   dPHANTOM
+4u3jS_cTHH0_w252                0.0          0.0        1.5
+8R1hy3uHds0_w1642               0.0          0.0       -4.5
+H14bBuluwB8_w222                0.0          0.0        4.5
+KAWvDsghyc8_w152                0.0          0.0       -1.5
+KAWvDsghyc8_w552                0.0         -1.5       -8.0
+NWoT1ZVd1Lo_w702                0.0         -0.5       -1.0
+RcGyVTAoXEU_w42                 0.0          0.0       -2.5
+4u3jS_cTHH0_w1602              -0.5         -0.5       -2.0
+8 of 18 windows move at all
+
+### woman
+gender=woman  windows 18  k=3 (1.5s/verdict)  told 2000ms
+shipped PTRACK_ASSIGN 'optimal'  PTRACK_IOU_MIN 0.15
+
+arm        EXPOSURE  FALSECOVER   PHANTOM    covered     sharp
+greedy        24.5s      200.5s    663.0s     756.0s    287.0s
+optimal       25.5s      201.5s    628.0s     755.0s    286.0s
+delta      +    1.0        +1.0     -35.0
+
+births                  Fresh NearMiss Contende SizeReje coastExp  Cleared  Blurred
+greedy                     37       33       75        2      102        9      138
+optimal                    38       34       62        2       92        7      129
+
+window                    dEXPOSURE  dFALSECOVER   dPHANTOM
+4u3jS_cTHH0_w252                1.0          0.0       -3.0
+KAWvDsghyc8_w552                1.0          0.0      -14.5
+4u3jS_cTHH0_w1602               0.0          1.5      -10.5
+8R1hy3uHds0_w1642               0.0          0.0       -4.5
+H14bBuluwB8_w222                0.0          1.5        0.0
+KAWvDsghyc8_w152                0.0          0.0        1.5
+RcGyVTAoXEU_w42                 0.0         -2.0       -4.0
+NWoT1ZVd1Lo_w702               -1.0          0.0        0.0
+8 of 18 windows move at all

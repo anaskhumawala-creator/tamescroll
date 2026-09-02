@@ -63,7 +63,7 @@ export var PTRACK_IOU_MIN = 0.15;
 // WHICH ASSIGNMENT RUNS. 'greedy' is what has always shipped. 'optimal'
 // is the E5 arm and is deliberately NOT on the OTA channel -- an
 // algorithm is not a number, and code may never travel here.
-export var PTRACK_ASSIGN = 'greedy';
+export var PTRACK_ASSIGN = 'optimal';
 export function setAssign(v) { PTRACK_ASSIGN = v === 'optimal' ? 'optimal' : 'greedy'; }
 export function setIouMin(v) { PTRACK_IOU_MIN = v; }
 // How fast a box may SHRINK across an observation-source flip. See the
