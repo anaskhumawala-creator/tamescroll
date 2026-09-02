@@ -422,3 +422,26 @@ test('a lost touchend cannot strand the gesture forever', () => {
   assert.match(body, /if \(touchId === null \|\| findTouch\(e\.touches, touchId\)\) return;/);
   assert.match(body, /onCancel\(\);/);
 });
+
+test('an UNCLAIMED touch ends without re-parking the player, so the tap that follows it can land', () => {
+  // A tap on the mini player restores it through the cover's CLICK
+  // handler. The click is synthesized ~35ms after touchend, at the
+  // touch's coordinates, and hit-tested THEN. onUp ran on that touchend
+  // with nothing claimed and still called endDrag -> place() ->
+  // parked(), which clears the inline transform to measure and rewrites
+  // it with the .22s transition live -- so the container was animating
+  // from the FULL position when the click arrived. MEASURED 2026-09-02
+  // on the Redmi (native-task6-1788355877.json, then traced event by
+  // event): touchstart/touchend on ts-mini-cover, mousedown/mouseup/
+  // click on HTML, mini stays. In landscape the same tap restored, only
+  // because the mini's centre happens to sit inside the full player's
+  // rect there. An unclaimed gesture wrote no transform and added no
+  // class; there is nothing to end.
+  const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
+  const fn = src.slice(src.indexOf('function onUp('), src.indexOf('function restoreFull('));
+  const guard = fn.indexOf('if (!claimed)');
+  const end = fn.indexOf('endDrag(pc);');
+  assert.ok(guard > 0, 'onUp has no unclaimed guard');
+  assert.ok(end > guard, 'the unclaimed guard must come before endDrag');
+  assert.match(fn.slice(guard, guard + 120), /if \(!claimed\) \{\s*start = null;\s*return;/);
+});

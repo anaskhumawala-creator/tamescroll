@@ -89,12 +89,34 @@ def arm(t, label, secs=14.0):
         time.sleep(2.0)
     last = rows[-1]
     eq = [r.get("paintedEqualsVideo") for r in rows]
+    # BANK EVERY SAMPLE, and the worst edge error. Keeping only `last`
+    # made a failing arm unreadable: the 2026-09-02 landscape run
+    # printed painted == video exactly and `paintedEqualsVideoAll`
+    # false, with nothing in the file saying which of the 7 samples
+    # disagreed or by how much -- a verdict nobody can act on. A miss
+    # while the rotation is still settling and a miss in the steady
+    # state are different findings.
+    worst = None
+    for i, r in enumerate(rows):
+        v, pn = r.get("video"), r.get("painted")
+        if not v or not pn:
+            continue
+        d = max(abs(pn[k] - v[k]) for k in range(4))
+        if worst is None or d > worst[1]:
+            worst = (i, d, v, pn)
     summ = {
-        "label": label, "samples": len(rows), "last": last,
+        "label": label, "samples": len(rows), "last": last, "rows": rows,
         "paintedEqualsVideoAll": all(x is True for x in eq), "samplesWithCanvas": sum(1 for r in rows if r.get("canvas")),
+        "eqPerSample": eq,
+        "worstEdgePx": (worst[1] if worst else None),
+        "worstSampleIndex": (worst[0] if worst else None),
+        "worstSample": ({"video": worst[2], "painted": worst[3]} if worst else None),
         "patchesOutsidePlayerMax": max(r.get("patchesOutsidePlayer", 0) for r in rows),
         "patchesMax": max(r.get("patches", 0) for r in rows),
     }
+    print("%-10s eqPerSample %s worst edge %s px at sample %s" % (
+        label, "".join("T" if x is True else ("-" if x is None else "F") for x in eq),
+        summ["worstEdgePx"], summ["worstSampleIndex"]))
     print("%-10s vp %s %s video %s canvas %s fit %s painted %s eq %s patches<=%d outside %d" % (
         label, last.get("vp"), last.get("orientation"), last.get("video"), last.get("canvas"), last.get("objectFit"),
         last.get("painted"), summ["paintedEqualsVideoAll"], summ["patchesMax"], summ["patchesOutsidePlayerMax"]))
@@ -112,6 +134,10 @@ def main():
     t.eval("(function(){var v=document.querySelector('#movie_player video'); if(v){v.muted=true; v.currentTime=%f; v.play();} return 1;})()" % SEEK)
     time.sleep(8)
     arms = {}
+    # FORCE portrait for the first arm: on a phone left rotated, the arm
+    # labelled PORTRAIT re-measured landscape twice on 2026-09-02.
+    rotate(0)
+    time.sleep(3)
     arms["portrait"] = arm(t, "PORTRAIT")
     rotate(1)
     time.sleep(3)

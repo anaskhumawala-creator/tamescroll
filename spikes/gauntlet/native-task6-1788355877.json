@@ -1,0 +1,164 @@
+{
+ "port": 9227,
+ "video": "NWoT1ZVd1Lo",
+ "seek": 217.0,
+ "arms": {
+  "windowed": {
+   "label": "WINDOWED",
+   "samples": 12,
+   "passes": 54,
+   "samplesWithPatch": 12,
+   "nativePassesDelta": 25,
+   "nativeErrorsDelta": 0,
+   "nativeDead": 0,
+   "fs": false,
+   "mini": false,
+   "box": [
+    0,
+    48,
+    392,
+    220
+   ],
+   "vp": [
+    392,
+    822
+   ],
+   "t": [
+    224,
+    247
+   ],
+   "paused": false
+  },
+  "fullscreen": {
+   "label": "FULLSCREEN",
+   "samples": 12,
+   "passes": 28,
+   "samplesWithPatch": 8,
+   "nativePassesDelta": 23,
+   "nativeErrorsDelta": 0,
+   "nativeDead": 0,
+   "fs": true,
+   "mini": false,
+   "box": [
+    0,
+    0,
+    850,
+    392
+   ],
+   "vp": [
+    851,
+    392
+   ],
+   "t": [
+    254,
+    278
+   ],
+   "paused": false
+  },
+  "afterExit": {
+   "label": "AFTER EXIT",
+   "samples": 8,
+   "passes": 23,
+   "samplesWithPatch": 6,
+   "nativePassesDelta": 15,
+   "nativeErrorsDelta": 0,
+   "nativeDead": 0,
+   "fs": false,
+   "mini": false,
+   "box": [
+    0,
+    48,
+    392,
+    220
+   ],
+   "vp": [
+    392,
+    822
+   ],
+   "t": [
+    283,
+    298
+   ],
+   "paused": false
+  },
+  "mini": {
+   "label": "MINI",
+   "samples": 10,
+   "passes": 26,
+   "samplesWithPatch": 10,
+   "nativePassesDelta": 26,
+   "nativeErrorsDelta": 0,
+   "nativeDead": 0,
+   "fs": false,
+   "mini": true,
+   "box": [
+    160,
+    687,
+    219,
+    123
+   ],
+   "vp": [
+    392,
+    822
+   ],
+   "t": [
+    305,
+    324
+   ],
+   "paused": false
+  },
+  "restored": {
+   "label": "RESTORED",
+   "samples": 6,
+   "passes": 0,
+   "samplesWithPatch": 0,
+   "nativePassesDelta": 0,
+   "nativeErrorsDelta": 0,
+   "nativeDead": 0,
+   "fs": false,
+   "mini": true,
+   "box": [
+    160,
+    810,
+    219,
+    0
+   ],
+   "vp": [
+    392,
+    822
+   ],
+   "t": [
+    0,
+    0
+   ],
+   "paused": true
+  },
+  "seek": {
+   "label": "SEEK+300",
+   "samples": 10,
+   "passes": 0,
+   "samplesWithPatch": 0,
+   "nativePassesDelta": 0,
+   "nativeErrorsDelta": 0,
+   "nativeDead": 0,
+   "fs": false,
+   "mini": true,
+   "box": [
+    160,
+    810,
+    219,
+    0
+   ],
+   "vp": [
+    392,
+    822
+   ],
+   "t": [
+    300,
+    300
+   ],
+   "paused": false
+  }
+ },
+ "verdict": "FAILED: restored: passes 0 native +0 err +0 dead 0; seek: passes 0 native +0 err +0 dead 0"
+}

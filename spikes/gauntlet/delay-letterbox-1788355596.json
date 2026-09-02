@@ -1,0 +1,1097 @@
+{
+ "port": 9227,
+ "video": "NWoT1ZVd1Lo",
+ "seek": 217.0,
+ "arms": {
+  "portrait": {
+   "label": "PORTRAIT",
+   "samples": 7,
+   "last": {
+    "vp": [
+     822,
+     364
+    ],
+    "orientation": "landscape-secondary",
+    "video": [
+     85,
+     48,
+     652,
+     367
+    ],
+    "canvas": [
+     0,
+     48,
+     823,
+     367
+    ],
+    "intrinsic": [
+     640,
+     360
+    ],
+    "objectFit": "contain",
+    "painted": [
+     85,
+     48,
+     652,
+     367
+    ],
+    "paintedEqualsVideo": true,
+    "player": [
+     0,
+     48,
+     823,
+     367
+    ],
+    "patches": 1,
+    "patchesOutsidePlayer": 0,
+    "t": 236,
+    "paused": false
+   },
+   "rows": [
+    {
+     "vp": [
+      822,
+      364
+     ],
+     "orientation": "landscape-secondary",
+     "video": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "canvas": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "patches": 1,
+     "patchesOutsidePlayer": 0,
+     "t": 224,
+     "paused": false
+    },
+    {
+     "vp": [
+      822,
+      364
+     ],
+     "orientation": "landscape-secondary",
+     "video": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "canvas": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "patches": 1,
+     "patchesOutsidePlayer": 0,
+     "t": 226,
+     "paused": false
+    },
+    {
+     "vp": [
+      822,
+      364
+     ],
+     "orientation": "landscape-secondary",
+     "video": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "canvas": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "patches": 1,
+     "patchesOutsidePlayer": 0,
+     "t": 228,
+     "paused": false
+    },
+    {
+     "vp": [
+      822,
+      364
+     ],
+     "orientation": "landscape-secondary",
+     "video": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "canvas": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "patches": 1,
+     "patchesOutsidePlayer": 0,
+     "t": 230,
+     "paused": false
+    },
+    {
+     "vp": [
+      822,
+      364
+     ],
+     "orientation": "landscape-secondary",
+     "video": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "canvas": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "patches": 1,
+     "patchesOutsidePlayer": 0,
+     "t": 232,
+     "paused": false
+    },
+    {
+     "vp": [
+      822,
+      364
+     ],
+     "orientation": "landscape-secondary",
+     "video": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "canvas": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "patches": 1,
+     "patchesOutsidePlayer": 0,
+     "t": 234,
+     "paused": false
+    },
+    {
+     "vp": [
+      822,
+      364
+     ],
+     "orientation": "landscape-secondary",
+     "video": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "canvas": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "patches": 1,
+     "patchesOutsidePlayer": 0,
+     "t": 236,
+     "paused": false
+    }
+   ],
+   "paintedEqualsVideoAll": true,
+   "samplesWithCanvas": 7,
+   "eqPerSample": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "worstEdgePx": 0,
+   "worstSampleIndex": 0,
+   "worstSample": {
+    "video": [
+     85,
+     48,
+     652,
+     367
+    ],
+    "painted": [
+     85,
+     48,
+     652,
+     367
+    ]
+   },
+   "patchesOutsidePlayerMax": 0,
+   "patchesMax": 1
+  },
+  "landscape": {
+   "label": "LANDSCAPE",
+   "samples": 7,
+   "last": {
+    "vp": [
+     822,
+     364
+    ],
+    "orientation": "landscape-primary",
+    "video": [
+     85,
+     48,
+     652,
+     367
+    ],
+    "canvas": [
+     0,
+     48,
+     823,
+     367
+    ],
+    "intrinsic": [
+     640,
+     360
+    ],
+    "objectFit": "contain",
+    "painted": [
+     85,
+     48,
+     652,
+     367
+    ],
+    "paintedEqualsVideo": true,
+    "player": [
+     0,
+     48,
+     823,
+     367
+    ],
+    "patches": 1,
+    "patchesOutsidePlayer": 0,
+    "t": 257,
+    "paused": false
+   },
+   "rows": [
+    {
+     "vp": [
+      822,
+      364
+     ],
+     "orientation": "landscape-primary",
+     "video": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "canvas": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "intrinsic": [
+      1280,
+      720
+     ],
+     "objectFit": "contain",
+     "painted": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "patches": 1,
+     "patchesOutsidePlayer": 0,
+     "t": 245,
+     "paused": false
+    },
+    {
+     "vp": [
+      822,
+      364
+     ],
+     "orientation": "landscape-primary",
+     "video": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "canvas": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "patches": 1,
+     "patchesOutsidePlayer": 0,
+     "t": 247,
+     "paused": false
+    },
+    {
+     "vp": [
+      822,
+      364
+     ],
+     "orientation": "landscape-primary",
+     "video": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "canvas": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "patches": 0,
+     "patchesOutsidePlayer": 0,
+     "t": 249,
+     "paused": false
+    },
+    {
+     "vp": [
+      822,
+      364
+     ],
+     "orientation": "landscape-primary",
+     "video": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "canvas": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "patches": 0,
+     "patchesOutsidePlayer": 0,
+     "t": 251,
+     "paused": false
+    },
+    {
+     "vp": [
+      822,
+      364
+     ],
+     "orientation": "landscape-primary",
+     "video": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "canvas": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "patches": 1,
+     "patchesOutsidePlayer": 0,
+     "t": 253,
+     "paused": false
+    },
+    {
+     "vp": [
+      822,
+      364
+     ],
+     "orientation": "landscape-primary",
+     "video": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "canvas": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "patches": 1,
+     "patchesOutsidePlayer": 0,
+     "t": 255,
+     "paused": false
+    },
+    {
+     "vp": [
+      822,
+      364
+     ],
+     "orientation": "landscape-primary",
+     "video": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "canvas": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      85,
+      48,
+      652,
+      367
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      823,
+      367
+     ],
+     "patches": 1,
+     "patchesOutsidePlayer": 0,
+     "t": 257,
+     "paused": false
+    }
+   ],
+   "paintedEqualsVideoAll": true,
+   "samplesWithCanvas": 7,
+   "eqPerSample": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "worstEdgePx": 0,
+   "worstSampleIndex": 0,
+   "worstSample": {
+    "video": [
+     85,
+     48,
+     652,
+     367
+    ],
+    "painted": [
+     85,
+     48,
+     652,
+     367
+    ]
+   },
+   "patchesOutsidePlayerMax": 0,
+   "patchesMax": 1
+  },
+  "portrait2": {
+   "label": "PORTRAIT2",
+   "samples": 7,
+   "last": {
+    "vp": [
+     392,
+     822
+    ],
+    "orientation": "portrait-primary",
+    "video": [
+     0,
+     48,
+     393,
+     221
+    ],
+    "canvas": [
+     0,
+     48,
+     393,
+     221
+    ],
+    "intrinsic": [
+     1280,
+     720
+    ],
+    "objectFit": "contain",
+    "painted": [
+     0,
+     48,
+     393,
+     221
+    ],
+    "paintedEqualsVideo": true,
+    "player": [
+     0,
+     48,
+     393,
+     221
+    ],
+    "patches": 1,
+    "patchesOutsidePlayer": 0,
+    "t": 279,
+    "paused": false
+   },
+   "rows": [
+    {
+     "vp": [
+      392,
+      822
+     ],
+     "orientation": "portrait-primary",
+     "video": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "canvas": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "patches": 0,
+     "patchesOutsidePlayer": 0,
+     "t": 266,
+     "paused": false
+    },
+    {
+     "vp": [
+      392,
+      822
+     ],
+     "orientation": "portrait-primary",
+     "video": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "canvas": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "patches": 1,
+     "patchesOutsidePlayer": 0,
+     "t": 268,
+     "paused": false
+    },
+    {
+     "vp": [
+      392,
+      822
+     ],
+     "orientation": "portrait-primary",
+     "video": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "canvas": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "patches": 1,
+     "patchesOutsidePlayer": 0,
+     "t": 270,
+     "paused": false
+    },
+    {
+     "vp": [
+      392,
+      822
+     ],
+     "orientation": "portrait-primary",
+     "video": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "canvas": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "patches": 1,
+     "patchesOutsidePlayer": 0,
+     "t": 272,
+     "paused": false
+    },
+    {
+     "vp": [
+      392,
+      822
+     ],
+     "orientation": "portrait-primary",
+     "video": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "canvas": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "patches": 0,
+     "patchesOutsidePlayer": 0,
+     "t": 274,
+     "paused": false
+    },
+    {
+     "vp": [
+      392,
+      822
+     ],
+     "orientation": "portrait-primary",
+     "video": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "canvas": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "intrinsic": [
+      640,
+      360
+     ],
+     "objectFit": "contain",
+     "painted": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "patches": 1,
+     "patchesOutsidePlayer": 0,
+     "t": 276,
+     "paused": false
+    },
+    {
+     "vp": [
+      392,
+      822
+     ],
+     "orientation": "portrait-primary",
+     "video": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "canvas": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "intrinsic": [
+      1280,
+      720
+     ],
+     "objectFit": "contain",
+     "painted": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "paintedEqualsVideo": true,
+     "player": [
+      0,
+      48,
+      393,
+      221
+     ],
+     "patches": 1,
+     "patchesOutsidePlayer": 0,
+     "t": 279,
+     "paused": false
+    }
+   ],
+   "paintedEqualsVideoAll": true,
+   "samplesWithCanvas": 7,
+   "eqPerSample": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "worstEdgePx": 0,
+   "worstSampleIndex": 0,
+   "worstSample": {
+    "video": [
+     0,
+     48,
+     393,
+     221
+    ],
+    "painted": [
+     0,
+     48,
+     393,
+     221
+    ]
+   },
+   "patchesOutsidePlayerMax": 0,
+   "patchesMax": 1
+  }
+ },
+ "verdict": "PAINTED RECT == VIDEO RECT in every arm (landscape player wider than video: True)"
+}

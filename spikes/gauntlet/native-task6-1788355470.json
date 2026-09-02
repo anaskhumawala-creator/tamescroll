@@ -1,0 +1,164 @@
+{
+ "port": 9227,
+ "video": "NWoT1ZVd1Lo",
+ "seek": 217.0,
+ "arms": {
+  "windowed": {
+   "label": "WINDOWED",
+   "samples": 8,
+   "passes": 2,
+   "samplesWithPatch": 0,
+   "nativePassesDelta": 1,
+   "nativeErrorsDelta": 0,
+   "nativeDead": 0,
+   "fs": false,
+   "mini": false,
+   "box": [
+    0,
+    48,
+    392,
+    220
+   ],
+   "vp": [
+    392,
+    822
+   ],
+   "t": [
+    null,
+    17
+   ],
+   "paused": false
+  },
+  "fullscreen": {
+   "label": "FULLSCREEN",
+   "samples": 11,
+   "passes": 26,
+   "samplesWithPatch": 7,
+   "nativePassesDelta": 21,
+   "nativeErrorsDelta": 0,
+   "nativeDead": 0,
+   "fs": true,
+   "mini": false,
+   "box": [
+    0,
+    0,
+    850,
+    392
+   ],
+   "vp": [
+    851,
+    392
+   ],
+   "t": [
+    221,
+    241
+   ],
+   "paused": false
+  },
+  "afterExit": {
+   "label": "AFTER EXIT",
+   "samples": 8,
+   "passes": 30,
+   "samplesWithPatch": 5,
+   "nativePassesDelta": 25,
+   "nativeErrorsDelta": 0,
+   "nativeDead": 0,
+   "fs": false,
+   "mini": false,
+   "box": [
+    0,
+    48,
+    392,
+    220
+   ],
+   "vp": [
+    392,
+    822
+   ],
+   "t": [
+    246,
+    260
+   ],
+   "paused": false
+  },
+  "mini": {
+   "label": "MINI",
+   "samples": 10,
+   "passes": 25,
+   "samplesWithPatch": 5,
+   "nativePassesDelta": 25,
+   "nativeErrorsDelta": 0,
+   "nativeDead": 0,
+   "fs": false,
+   "mini": true,
+   "box": [
+    160,
+    687,
+    219,
+    123
+   ],
+   "vp": [
+    392,
+    822
+   ],
+   "t": [
+    265,
+    283
+   ],
+   "paused": false
+  },
+  "restored": {
+   "label": "RESTORED",
+   "samples": 6,
+   "passes": 13,
+   "samplesWithPatch": 4,
+   "nativePassesDelta": 13,
+   "nativeErrorsDelta": 0,
+   "nativeDead": 0,
+   "fs": false,
+   "mini": true,
+   "box": [
+    160,
+    687,
+    219,
+    123
+   ],
+   "vp": [
+    392,
+    822
+   ],
+   "t": [
+    287,
+    298
+   ],
+   "paused": false
+  },
+  "seek": {
+   "label": "SEEK+300",
+   "samples": 10,
+   "passes": 22,
+   "samplesWithPatch": 8,
+   "nativePassesDelta": 19,
+   "nativeErrorsDelta": 0,
+   "nativeDead": 0,
+   "fs": false,
+   "mini": true,
+   "box": [
+    160,
+    687,
+    219,
+    123
+   ],
+   "vp": [
+    392,
+    822
+   ],
+   "t": [
+    600,
+    619
+   ],
+   "paused": false
+  }
+ },
+ "verdict": "NATIVE ANSWERED IN EVERY ARM (windowed, fullscreen, afterExit, mini, restored, seek); fullscreen entered True; mini entered True"
+}

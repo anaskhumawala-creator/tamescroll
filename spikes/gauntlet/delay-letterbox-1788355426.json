@@ -1,0 +1,155 @@
+{
+ "port": 9227,
+ "video": "NWoT1ZVd1Lo",
+ "seek": 217.0,
+ "arms": {
+  "portrait": {
+   "label": "PORTRAIT",
+   "samples": 7,
+   "last": {
+    "vp": [
+     851,
+     392
+    ],
+    "orientation": "landscape-primary",
+    "video": [
+     76,
+     0,
+     699,
+     393
+    ],
+    "canvas": [
+     0,
+     0,
+     851,
+     393
+    ],
+    "intrinsic": [
+     854,
+     480
+    ],
+    "objectFit": "contain",
+    "painted": [
+     76,
+     0,
+     699,
+     393
+    ],
+    "paintedEqualsVideo": true,
+    "player": [
+     0,
+     0,
+     851,
+     393
+    ],
+    "patches": 1,
+    "patchesOutsidePlayer": 0,
+    "t": 235,
+    "paused": false
+   },
+   "paintedEqualsVideoAll": true,
+   "samplesWithCanvas": 7,
+   "patchesOutsidePlayerMax": 0,
+   "patchesMax": 2
+  },
+  "landscape": {
+   "label": "LANDSCAPE",
+   "samples": 7,
+   "last": {
+    "vp": [
+     822,
+     364
+    ],
+    "orientation": "landscape-primary",
+    "video": [
+     85,
+     48,
+     652,
+     367
+    ],
+    "canvas": [
+     0,
+     48,
+     823,
+     367
+    ],
+    "intrinsic": [
+     854,
+     480
+    ],
+    "objectFit": "contain",
+    "painted": [
+     85,
+     48,
+     652,
+     367
+    ],
+    "paintedEqualsVideo": true,
+    "player": [
+     0,
+     48,
+     823,
+     367
+    ],
+    "patches": 1,
+    "patchesOutsidePlayer": 0,
+    "t": 255,
+    "paused": false
+   },
+   "paintedEqualsVideoAll": false,
+   "samplesWithCanvas": 7,
+   "patchesOutsidePlayerMax": 0,
+   "patchesMax": 1
+  },
+  "portrait2": {
+   "label": "PORTRAIT2",
+   "samples": 7,
+   "last": {
+    "vp": [
+     392,
+     822
+    ],
+    "orientation": "portrait-primary",
+    "video": [
+     160,
+     687,
+     220,
+     124
+    ],
+    "canvas": [
+     160,
+     687,
+     220,
+     123
+    ],
+    "intrinsic": [
+     854,
+     480
+    ],
+    "objectFit": "contain",
+    "painted": [
+     160,
+     687,
+     220,
+     123
+    ],
+    "paintedEqualsVideo": true,
+    "player": [
+     160,
+     687,
+     220,
+     123
+    ],
+    "patches": 1,
+    "patchesOutsidePlayer": 0,
+    "t": 276,
+    "paused": false
+   },
+   "paintedEqualsVideoAll": true,
+   "samplesWithCanvas": 7,
+   "patchesOutsidePlayerMax": 0,
+   "patchesMax": 1
+  }
+ },
+ "verdict": "FAILED: portrait eq True canvas 7 outside 0; landscape eq False canvas 7 outside 0; portrait2 eq True canvas 7 outside 0"
+}

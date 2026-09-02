@@ -713,6 +713,25 @@ export function installMiniplayer(win) {
 
   function onUp(x, y) {
     if (!start) return;
+    // AN UNCLAIMED TOUCH HAS NOTHING TO END, AND ENDING IT ANYWAY ATE
+    // THE TAP THAT RESTORES THE PLAYER. A tap on the mini restores
+    // through the cover's click handler; the browser synthesizes that
+    // click ~35ms after touchend, at the touch's point, and hit-tests
+    // it THEN. Running endDrag here on a touch that never claimed sent
+    // it through place() -> parked(), which clears the inline transform
+    // to measure and rewrites it with the .22s transition live -- so
+    // the container was animating in from the FULL position when the
+    // click arrived and the click landed on <html>. MEASURED 2026-09-02
+    // on the Redmi, event by event: touchstart/touchend on
+    // ts-mini-cover, mousedown/mouseup/click on HTML, mini stays. It
+    // only ever looked right in landscape, where the mini's centre sits
+    // inside the full player's rect and the wandering container was
+    // still under the finger. No claim means no transform was written
+    // and no class was added: leave the player exactly where it is.
+    if (!claimed) {
+      start = null;
+      return;
+    }
     var dx = x - start.x;
     var dy = y - start.y;
     var pc = container();
