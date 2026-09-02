@@ -36,3 +36,5 @@ spikes/native/bench-android/build/
 spikes/native/bench-android/.gradle/
 spikes/native/bench-android/app/build/
 docs/native/LOCK
+# native spike: TFLite models for the in-app bench (50MB); Task 2 decides what ships
+app/src-tauri/gen/android/app/src/main/assets/models/
