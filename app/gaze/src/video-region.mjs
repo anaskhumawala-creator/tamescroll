@@ -821,6 +821,34 @@ function inward(fromEdge, toEdge, span, sign, rate) {
 // chase noise.
 var MOVE_DEADBAND = 0.02;
 
+// THE TIMELINE PATH TAKES THE TARGET (1096). boxesAt already interpolates
+// between two measured verdicts by media time, so its answer is continuous
+// frame to frame, and every abrupt change in it is a DECISION -- a clamp
+// opening a cleared man's face, a hindsight clear, a cut -- that must land
+// on the frame it was made. The shrink glide, the shrink deadband and the
+// breathing discriminator above were all built for the LIVE path, where the
+// target jumps once per pass; on a smooth target they only re-add lag, and
+// only ever on the shrink side, which is the false-cover side. Measured on
+// the Redmi (events-v1096b, 180s): the drawn rect differed from the
+// timeline's own target on 2,639 of 5,597 frames, and 6 of 23 covered
+// certain-male reads were the drawn edge parked 0.05-0.17 of the frame
+// wider than a target that had already freed his face, for up to 16 frames.
+// Only MOVE_DEADBAND survives here: a still subject still gets a still patch.
+export function holdRect(from, to) {
+  if (!from) return to;
+  var spanW = from.width || 1;
+  var spanH = from.height || 1;
+  if (
+    Math.abs(to.left - from.left) < spanW * MOVE_DEADBAND &&
+    Math.abs(to.top - from.top) < spanH * MOVE_DEADBAND &&
+    Math.abs(to.left + to.width - from.left - from.width) < spanW * MOVE_DEADBAND &&
+    Math.abs(to.top + to.height - from.top - from.height) < spanH * MOVE_DEADBAND
+  ) {
+    return from;
+  }
+  return to;
+}
+
 export function lerpRect(from, to) {
   if (!from) return to;
   var spanW = from.width || 1;
@@ -979,7 +1007,7 @@ function clipLayer(entry) {
 // on missing velocities), and `elapsedMs` is 0 for a timeline item
 // (already interpolated by boxesAt) or the real gap since the last
 // setTracks call for the velocity path.
-function renderTrackOverlay(entry, vr, index, track, elapsedMs) {
+function renderTrackOverlay(entry, vr, index, track, elapsedMs, direct) {
   renderStats.overlayFrames++;
   // `display` was assigned unconditionally 60x/s per overlay, one line
   // below the transform-string compare that exists precisely because an
@@ -991,7 +1019,10 @@ function renderTrackOverlay(entry, vr, index, track, elapsedMs) {
     entry.overlays[index].__tsDisp = 1;
   }
   var target = boxToHostRect(entry.hr, vr, interpolateBox(track, elapsedMs));
-  entry.rendered[index] = lerpRect(entry.rendered[index], target);
+  // `direct` is the timeline path: the target is already smooth in media
+  // time, so it is taken as-is (see holdRect). The live path keeps the
+  // damper it was measured with.
+  entry.rendered[index] = direct ? holdRect(entry.rendered[index], target) : lerpRect(entry.rendered[index], target);
   var lerped = entry.rendered[index];
   // The feather is added OUTSIDE what the pipeline asked for, so the
   // opaque core of the mask still covers the full requested box. Growing
@@ -1120,7 +1151,7 @@ function reposition(entry, now) {
         // No velocity: boxesAt already interpolated this box to the
         // presented media time, so extrapolating it further here would
         // double-apply motion the timeline has already accounted for.
-        renderTrackOverlay(entry, vr, t, timelineTracks[t], 0);
+        renderTrackOverlay(entry, vr, t, timelineTracks[t], 0, true);
       }
       return;
     }

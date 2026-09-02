@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   makeTimeline,
+  LATE_HOLD_MS,
   pushSnapshot,
   pushCut,
   boxesAt,
@@ -15,11 +16,66 @@ import {
 } from '../src/track-timeline.mjs';
 
 // Rule: no B (no snapshot with mediaTime >= m) -> null.
-test('boxesAt returns null when no verdict at or after the frame exists', () => {
+// Rule 1 (1096): a frame later than the newest verdict HOLDS that
+// verdict's boxes (padded outward with lateness, one solid rectangle)
+// rather than answering null. On the Redmi 6.9% of presented frames ran
+// past the newest snapshot (a dropped pass at a cut doubles the gap), and
+// null sent the renderer to the LIVE tracks -- 1.5s ahead of the picture
+// -- which is where 5 of 23 covered certain-male reads and the
+// exposure classifier's 69 'late' frames came from. The newest verdict is
+// at most one gap stale; the live one is a delay further away.
+test('a frame later than the newest verdict holds that verdict, padded; too old or across a cut it is null', () => {
   const tl = makeTimeline(3000);
-  pushSnapshot(tl, 10.0, [{ id: 7, box: { x1: 0.1, y1: 0.1, x2: 0.2, y2: 0.2 }, state: 'blurred' }]);
-  assert.equal(boxesAt(tl, 10.5), null);
+  const box = { x1: 0.3, y1: 0.3, x2: 0.5, y2: 0.7 };
+  pushSnapshot(tl, 10.0, [{ id: 7, box: box, state: 'blurred' }]);
+  const held = boxesAt(tl, 10.5);
+  assert.equal(held.length, 1);
+  assert.equal(held[0].id, 7);
+  assert.equal(held[0].state, 'blurred');
+  assert.ok(held[0].box.x1 < box.x1 && held[0].box.x2 > box.x2, 'padded outward');
+  assert.ok(held[0].box.x1 > box.x1 - 0.1, 'but not by more than the birth pad');
+  const later = boxesAt(tl, 11.0);
+  assert.ok(later[0].box.x1 <= held[0].box.x1, 'the pad grows with lateness');
+  assert.equal(boxesAt(tl, 10.0 + LATE_HOLD_MS / 1000 + 0.01), null, 'past the hold bound it is null again');
   assert.equal(boxesAt(tl, 50), null);
+  pushCut(tl, 10.2);
+  assert.equal(boxesAt(tl, 10.5), null, 'a cut after the newest verdict ends its shot: nothing to hold');
+});
+
+// Rule 3'' (1096): a verdict that CREDITED a certain clear but had not
+// finished the ladder (clearPending), confirmed cleared by the verdict
+// after it, is presented cleared for the interval before it too. The
+// live path clears at C either way; hindsight only moves that clear one
+// interval earlier for a person the ladder was about to clear. 7 of 23
+// covered certain-male reads on the Redmi were this ladder interval
+// (pendingClearLadder 3, demotedAtCut 3, bornBlurredAtCut 1).
+test('a pending clear confirmed by the next verdict is presented cleared one interval earlier', () => {
+  const box = { x1: 0.3, y1: 0.3, x2: 0.5, y2: 0.7 };
+  function tl3(aFlag, cState, cut) {
+    const tl = makeTimeline(10000);
+    pushSnapshot(tl, 10.0, [{ id: 1, box: box, state: 'blurred', flagCertain: aFlag }]);
+    pushSnapshot(tl, 11.0, [{ id: 1, box: box, state: 'blurred', clearPending: true }]);
+    if (cut) pushCut(tl, 11.5);
+    if (cState) pushSnapshot(tl, 12.0, [{ id: 1, box: box, state: cState }]);
+    return tl;
+  }
+  assert.equal(boxesAt(tl3(false, 'cleared', false), 10.5)[0].state, 'cleared', 'A uncertain, B pending, C cleared');
+  assert.equal(boxesAt(tl3(false, 'cleared', false), 11.5)[0].state, 'cleared', '(B,C) was already cleared by rule 3');
+  assert.equal(boxesAt(tl3(false, null, false), 10.5)[0].state, 'blurred', 'no C yet: the ladder stands');
+  assert.equal(boxesAt(tl3(false, 'blurred', false), 10.5)[0].state, 'blurred', 'C blurred: the ladder was right');
+  assert.equal(boxesAt(tl3(true, 'cleared', false), 10.5)[0].state, 'blurred', 'a certain flag at A keeps it covered');
+  assert.equal(boxesAt(tl3(false, 'cleared', true), 10.5)[0].state, 'blurred', 'a cut between B and C: C is another shot');
+  // Born at B with the clear pending, confirmed at C: cleared from birth.
+  const tl = makeTimeline(10000);
+  pushSnapshot(tl, 10.0, []);
+  pushSnapshot(tl, 11.0, [{ id: 1, box: box, state: 'blurred', clearPending: true }]);
+  pushSnapshot(tl, 12.0, [{ id: 1, box: box, state: 'cleared' }]);
+  assert.equal(boxesAt(tl, 10.5)[0].state, 'cleared', 'the back-dated birth is cleared too');
+  // And with no A at all (rule 2) the same lookahead applies.
+  const tl2 = makeTimeline(10000);
+  pushSnapshot(tl2, 11.0, [{ id: 1, box: box, state: 'blurred', clearPending: true }]);
+  pushSnapshot(tl2, 12.0, [{ id: 1, box: box, state: 'cleared' }]);
+  assert.equal(boxesAt(tl2, 5.0)[0].state, 'cleared');
 });
 
 // Rule: no A (no snapshot with mediaTime <= m) -> B's tracks as-is.

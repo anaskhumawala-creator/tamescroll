@@ -82,7 +82,7 @@ test('a verdict pass reads the newest ring frame and the tracker result is snaps
   // otherwise never reach a presented frame (2026-09-02, the Linus
   // false-cover root cause).
   assert.match(SRC, /nullHeld = videoTracks\.nullHeld \|\| \[\];\s*if \(presenter\) pushSnapshot\(timeline, passMediaTime, presentTracks\(videoTracks\)\);/);
-  assert.match(SRC, /var b = boxesAt\(timeline, m\);\s*if \(!b\) \{\s*bumpLife\('delayVerdictLate'\);\s*lastTarget = null;\s*return null;\s*\}\s*var merged = mergePresented\(b\);\s*lastTarget = \{ m: m, entries: b, merged: merged \};\s*return merged;/);
+  assert.match(SRC, /var b = boxesAt\(timeline, m\);\s*if \(!b\) \{\s*bumpLife\('delayVerdictLate'\);\s*lastTarget = null;\s*return null;\s*\}[\s\S]{0,600}?var merged = mergePresented\(b\);\s*lastTarget = \{ m: m, entries: b, merged: merged \};\s*return merged;/);
 });
 
 test('a scene cut reaches the timeline', () => {

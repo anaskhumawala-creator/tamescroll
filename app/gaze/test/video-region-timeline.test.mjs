@@ -217,8 +217,8 @@ test('a timeline survives clear(video) and is read again by the next entry', () 
     const left = leftOf(overlay);
     assert.ok(left > 200 && left < 300, 'left=' + left + ': the re-created entry must still read the timeline, not the live track at 0');
   } finally {
-    vr.clear(video);
     vr.clearTimeline(video);
+    vr.clear(video);
   }
 });
 
@@ -237,8 +237,8 @@ test('clearTimeline is the only thing that detaches a timeline', () => {
     for (let i = 0; i < 60; i++) vr._reposition(video, now);
     assert.ok(leftOf(patchesIn(player)[0]) < 50, 'detached: the live track is drawn');
   } finally {
-    vr.clear(video);
     vr.clearTimeline(video);
+    vr.clear(video);
   }
 });
 
@@ -289,6 +289,57 @@ test('clearAll tears the timelines down with the entries (fail-open sweep)', () 
     for (let i = 0; i < 60; i++) vr._reposition(video, now);
     assert.ok(leftOf(patchesIn(player)[0]) < 50, 'the timeline is gone: live track drawn');
   } finally {
+    vr.clear(video);
+  }
+});
+
+// THE TIMELINE PATH DRAWS THE TARGET, NOT A GLIDE TOWARD IT (1096).
+//
+// boxesAt already interpolates between two measured verdicts by media
+// time, so its answer is continuous frame to frame and every abrupt
+// change in it is a DECISION (a clamp opening a cleared man's face, a
+// hindsight clear, a cut). lerpRect's shrink glide and shrink deadband
+// were built for the live path, where the target jumps once per pass;
+// on the timeline path they only re-add lag to a target that is already
+// smooth. Measured on the Redmi (events-v1096b): the drawn rect differed
+// from the timeline's own target on 2,639 of 5,597 frames, and 6 of 23
+// covered certain-male reads were the drawn edge parked 0.05-0.17 wider
+// than the target on the shrink side -- a clamp that HAD freed his face
+// in the timeline, undone for up to 16 frames by the render damper.
+test('on the timeline path a shrinking target is drawn exactly on the next frame, not glided', () => {
+  const { player, video } = playerWithVideo({ left: 0, top: 0, width: 640, height: 360 });
+  let box = { x1: 0.1, y1: 0.1, x2: 0.9, y2: 0.9 };
+  vr.setTracks(video, [{ key: 't1', box: box, vx: 0, vy: 0 }]);
+  vr.setTimeline(video, () => [{ id: 't1', box: box, state: 'blurred' }]);
+  try {
+    const now = performance.now();
+    for (let i = 0; i < 10; i++) vr._reposition(video, now + i * 16);
+    assert.equal(leftOf(patchesIn(player)[0]), 64, 'settled on the wide target');
+    // The clamp frees a face on the left: x1 0.1 -> 0.4 (left 64 -> 256).
+    box = { x1: 0.4, y1: 0.1, x2: 0.9, y2: 0.9 };
+    vr._reposition(video, now + 200);
+    const left = leftOf(patchesIn(player)[0]);
+    assert.equal(left, 256, 'left=' + left + ': the edge must be at the target on the very next frame');
+  } finally {
+    vr.clearTimeline(video);
+    vr.clear(video);
+  }
+});
+
+test('on the timeline path a sub-deadband wobble still does not move the patch (a still subject stays still)', () => {
+  const { player, video } = playerWithVideo({ left: 0, top: 0, width: 640, height: 360 });
+  let box = { x1: 0.1, y1: 0.1, x2: 0.9, y2: 0.9 };
+  vr.setTracks(video, [{ key: 't1', box: box, vx: 0, vy: 0 }]);
+  vr.setTimeline(video, () => [{ id: 't1', box: box, state: 'blurred' }]);
+  try {
+    const now = performance.now();
+    for (let i = 0; i < 10; i++) vr._reposition(video, now + i * 16);
+    // 1% of the patch span (0.8 * 640 = 512px -> 5px): under MOVE_DEADBAND.
+    box = { x1: 0.108, y1: 0.1, x2: 0.908, y2: 0.9 };
+    vr._reposition(video, now + 200);
+    assert.equal(leftOf(patchesIn(player)[0]), 64, 'a wobble under the deadband is refused');
+  } finally {
+    vr.clearTimeline(video);
     vr.clear(video);
   }
 });

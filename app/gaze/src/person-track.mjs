@@ -2573,6 +2573,7 @@ export function presentTracks(tracks) {
       face: null,
       flagCertain: flagCertainOf(tracks, d.id),
       coasting: coastingOf(tracks, d.id),
+      clearPending: clearPendingOf(tracks, d.id),
     });
   }
   for (var j = 0; j < tracks.length; j++) {
@@ -2599,6 +2600,15 @@ function trackById(tracks, id) {
 function flagCertainOf(tracks, id) {
   var t = trackById(tracks, id);
   return !!(t && (t.lastVerdict === 'flag-certain' || t.flagEvidence));
+}
+
+// A blurred track whose LAST read was a certain clear and which carries no
+// certain flag evidence: the ladder has credited one rung and is waiting
+// for the next. The timeline's rule 3'' presents the interval before this
+// snapshot cleared once the following snapshot confirms the clear.
+function clearPendingOf(tracks, id) {
+  var t = trackById(tracks, id);
+  return !!(t && t.state === 'blurred' && t.lastVerdict === 'clear-certain' && !t.flagEvidence);
 }
 
 function coastingOf(tracks, id) {

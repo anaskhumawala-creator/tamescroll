@@ -76,6 +76,11 @@ export function pushSnapshot(tl, mediaTime, tracks) {
       // (no observation) at this snapshot.
       flagCertain: !!t.flagCertain,
       coasting: !!t.coasting,
+      // A certain clear was credited at this snapshot but the ladder had
+      // not finished (person-track.presentTracks). Read by rule 3'': the
+      // verdict AFTER this one decides whether the interval before it is
+      // presented cleared.
+      clearPending: !!t.clearPending,
       // Set in hindsight by markDeadCoasts: a coasted snapshot of a
       // track that then expired with no cut and nobody taking its box.
       dead: false,
@@ -195,6 +200,22 @@ function cutBetween(tl, fromExclusive, toInclusive) {
   return false;
 }
 
+// Rule 3'': the state a B-side entry counts as. A pending clear at B is
+// 'cleared' iff the snapshot right after B has the same id cleared and no
+// cut separates the two; otherwise B's own state stands.
+function stateAt(tl, B, tb) {
+  if (tb.state !== 'blurred' || !tb.clearPending) return tb.state;
+  var idx = tl.snapshots.indexOf(B);
+  if (idx === -1 || idx + 1 >= tl.snapshots.length) return tb.state;
+  var C = tl.snapshots[idx + 1];
+  if (cutBetween(tl, B.mediaTime, C.mediaTime)) return tb.state;
+  for (var i = 0; i < C.tracks.length; i++) {
+    var tc = C.tracks[i];
+    if (tc.id === tb.id) return tc.state === 'cleared' ? 'cleared' : tb.state;
+  }
+  return tb.state;
+}
+
 function lerp(a, b, frac) {
   return a + (b - a) * frac;
 }
@@ -216,6 +237,21 @@ function lerpBox(boxA, boxB, frac) {
 // moving entrant crossed between A and B, never just their B-time
 // endpoint. One rectangle, still solid -- a pad, never a split.
 export var BIRTH_BACKDATE_PAD = 0.15;
+
+// Rule 1 (1096): how long past the newest verdict a presented frame may
+// still HOLD that verdict's boxes before boxesAt gives up and answers null
+// (the caller then falls back to the live tracks). On the Redmi 6.9% of
+// presented frames ran past the newest snapshot -- a dropped pass at a
+// cut doubles the verdict gap -- and null sent the renderer to the LIVE
+// tracks, a whole delay ahead of the picture, which is where 5 of 23
+// covered certain-male reads and the exposure classifier's 69 'late'
+// frames came from. The newest verdict is at most one gap stale; holding
+// it, padded outward with lateness (one solid rectangle), is the closest
+// measurement there is. Past this bound something upstream has stopped
+// (a dead worker, a stalled pass) and the live path is the right owner.
+export var LATE_HOLD_MS = 3000;
+// The held box's outward pad reaches BIRTH_BACKDATE_PAD at this lateness.
+export var LATE_PAD_FULL_MS = 1000;
 
 // One presented entry: the resolved box/state plus the fields the
 // presentation merge needs (person-track.mergePresented), read off the
@@ -240,8 +276,10 @@ function padBoxTowardBirth(box, frac) {
 /**
  * Boxes to present for mediaTime, following the six rules:
  *
- * 1. No B (no snapshot with mediaTime >= m) -> null. Caller falls back
- *    to extrapolating latestSnapshot and should count it as late.
+ * 1. No B (no snapshot with mediaTime >= m) -> A's live tracks held at
+ *    A's box/state, padded outward with lateness, while m is within
+ *    LATE_HOLD_MS of A and no cut fell in (A.t, m]; otherwise null, and
+ *    the caller falls back to the live tracks and counts it as late.
  * 2. No A (no snapshot with mediaTime <= m) -> B's tracks as-is
  *    (blur-first: cover before the first verdict has even arrived).
  * 3. A track present in both A and B -> box lerped by
@@ -261,6 +299,13 @@ function padBoxTowardBirth(box, frac) {
  *    (phase-i I8: an unpadded hold left a walking-in subject sharp at
  *    their real position for up to one verdict interval, exactly what
  *    the delay line exists to remove).
+ * 3''. A track blurred at B with `clearPending` (a certain clear credited,
+ *    ladder unfinished) whose id is CLEARED at the snapshot after B, with
+ *    no cut between, is treated as cleared at B -- so the interval before
+ *    it is presented cleared unless A carried a certain flag. The live
+ *    path clears at C either way; hindsight moves that clear one interval
+ *    earlier for a person it was about to clear (1096: 7 of 23 covered
+ *    certain-male reads on the Redmi were this interval).
  *
  * @param {ReturnType<typeof makeTimeline>} tl
  * @param {number} mediaTime
@@ -270,11 +315,22 @@ export function boxesAt(tl, mediaTime) {
   var A = findA(tl, mediaTime);
   var B = findB(tl, mediaTime);
 
-  if (!B) return null;
+  if (!B) {
+    // Rule 1: hold the newest verdict while it is recent and still in
+    // the presented frame's shot.
+    if (!A) return null;
+    var lateMs = (mediaTime - A.mediaTime) * 1000;
+    if (lateMs > LATE_HOLD_MS) return null;
+    if (cutBetween(tl, A.mediaTime, mediaTime)) return null;
+    var padFrac = 1 - Math.min(1, lateMs / LATE_PAD_FULL_MS);
+    return liveTracks(A).map(function (t) {
+      return present(t, padBoxTowardBirth(t.box, padFrac), t.state);
+    });
+  }
   var bTracks = liveTracks(B);
   if (!A) {
     return bTracks.map(function (t) {
-      return present(t, t.box, t.state);
+      return present(t, t.box, stateAt(tl, B, t));
     });
   }
   var aTracks = liveTracks(A);
@@ -283,7 +339,7 @@ export function boxesAt(tl, mediaTime) {
     // Same snapshot brackets both sides (mediaTime landed exactly on
     // a verdict); nothing to lerp.
     return aTracks.map(function (t) {
-      return present(t, t.box, t.state);
+      return present(t, t.box, stateAt(tl, B, t));
     });
   }
 
@@ -305,13 +361,15 @@ export function boxesAt(tl, mediaTime) {
       if (cutAfter) {
         out.push(present(ta, ta.box, ta.state));
       } else if (cutBefore) {
-        out.push(present(tb, tb.box, tb.state));
+        out.push(present(tb, tb.box, stateAt(tl, B, tb)));
       } else {
         // 3': B cleared him and A's blur was not a certain
         // opposite-gender read (the ladder had simply not cleared him
         // yet, or he was coasting): the frame between is CLEARED in
         // hindsight. A certain flag at either side keeps it blurred.
-        var state = tb.state === 'blurred' || (ta.state === 'blurred' && ta.flagCertain)
+        // 3'': B's own pending clear counts as cleared once the verdict
+        // after B confirms it (stateAt).
+        var state = stateAt(tl, B, tb) === 'blurred' || (ta.state === 'blurred' && ta.flagCertain)
           ? 'blurred' : 'cleared';
         out.push(present(tb, lerpBox(ta.box, tb.box, frac), state));
       }
@@ -332,7 +390,7 @@ export function boxesAt(tl, mediaTime) {
     // padded toward the swept region (I8) rather than held at B's own
     // box unpadded.
     if (cutBetween(tl, mediaTime, B.mediaTime)) continue;
-    out.push(present(tb2, padBoxTowardBirth(tb2.box, frac), tb2.state));
+    out.push(present(tb2, padBoxTowardBirth(tb2.box, frac), stateAt(tl, B, tb2)));
   }
 
   return out;

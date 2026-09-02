@@ -129,3 +129,26 @@ test('L6: a cleared entry is presented with the padded box, so a cleared->blurre
   assert.deepEqual(e.box, pt.padTrackBox(t));
   assert.ok(e.box.y1 < box.y1, 'the crown pad is on the cleared entry too');
 });
+
+// --- 1096: the ladder's pending clear rides the presented entry --------
+
+test('presentTracks carries clearPending: one certain clear below the instant bar, no flag evidence', () => {
+  const box = { x1: 0.5, y1: 0.4, x2: 0.9, y2: 1.0 };
+  let tracks = pt.updatePersonTracks([], [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
+  assert.equal(tracks[0].state, 'blurred', 'fixture: one read is one rung, still blurred');
+  assert.equal(pt.presentTracks(tracks)[0].clearPending, true);
+  // A certain flag is not pending anything.
+  let flagged = pt.updatePersonTracks([], [{ box, flagged: true, certain: true, verdictDt: 250 }], 250);
+  assert.equal(pt.presentTracks(flagged)[0].clearPending, false);
+  // Nor is an uncertain read on a fresh track.
+  let unc = pt.updatePersonTracks([], [{ box, flagged: true, certain: false, verdictDt: 250 }], 250);
+  assert.equal(pt.presentTracks(unc)[0].clearPending, false);
+  // A certain clear after certain flag evidence: L4 says a certain clear
+  // is the one thing that resets flagEvidence, so this IS pending -- and
+  // the interval before it stays covered anyway, because the snapshot on
+  // the A side still carries flagCertain (track-timeline rule 3').
+  let rev = pt.updatePersonTracks([], [{ box, flagged: true, certain: true, verdictDt: 250 }], 250);
+  assert.equal(pt.presentTracks(rev)[0].flagCertain, true);
+  rev = pt.updatePersonTracks(rev, [{ box, flagged: false, certain: true, verdictDt: 250 }], 250);
+  assert.equal(pt.presentTracks(rev)[0].clearPending, true);
+});

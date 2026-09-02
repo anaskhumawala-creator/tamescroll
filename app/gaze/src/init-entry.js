@@ -1898,6 +1898,11 @@ if (
           lastTarget = null;
           return null;
         }
+        // Rule 1 hold (track-timeline.mjs): the frame ran past the newest
+        // verdict and got that verdict's boxes, padded. Counted apart from
+        // delayVerdictLate, which is now only the cases the hold refused.
+        var newest = latestSnapshot(timeline);
+        if (newest && m > newest.mediaTime) bumpLife('delayHeldLate');
         var merged = mergePresented(b);
         lastTarget = { m: m, entries: b, merged: merged };
         return merged;
@@ -4695,6 +4700,7 @@ if (
                 lf.bodyFromSlot = lf.bodyFromSlot || 0;
                 lf.genderReadSkipped = lf.genderReadSkipped || 0;
                 lf.delayVerdictLate = lf.delayVerdictLate || 0;
+lf.delayHeldLate = lf.delayHeldLate || 0;
               } catch (e) {}
               var cost = performance.now() - now;
               if (wasVerdict) lastVerdictMs = cost;
