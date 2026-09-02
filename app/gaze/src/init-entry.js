@@ -104,6 +104,9 @@ import { startWorker } from './worker-entry.js';
 import { installMiniplayer } from './miniplayer.mjs';
 import { makeVerdictCache, verdictKey } from './verdict-cache.mjs';
 import { applyTuningFromWindow, TUNED, TUNE_REFUSED, TUNE_CLAMPED } from './tuning.mjs';
+import * as delayCore from './delay-core.mjs';
+import { attachDelay } from './delay-presenter.mjs';
+import { makeTimeline, pushSnapshot, pushCut, boxesAt, latestSnapshot } from './track-timeline.mjs';
 
 // ONE ARTIFACT, TWO ROLES.
 //
@@ -1703,6 +1706,85 @@ if (
     // Boxes whose birth the null-mint hold refused last pass. See
     // updatePersonTracks: a null read mints on its SECOND sighting.
     var nullHeld = [];
+    // ---- DELAY LINE (Stage B, plan 2026-09-02) ----
+    // The picture the viewer sees is DELAY_MS behind the frame the
+    // tracker judged. presenter (delay-presenter.mjs) hides the real
+    // <video>, holds a bitmap ring and paints a canvas inside the
+    // player; timeline (track-timeline.mjs) keeps the verdicts keyed by
+    // media time so the renderer interpolates between two KNOWN
+    // verdicts for the presented frame instead of extrapolating past
+    // the last one. Player only, region mode only, never a feed
+    // preview, and off entirely when DELAY_MS is 0 (OTA). While a
+    // presenter is attached the CSS blur on the hidden video paints
+    // nothing, so every whole-cover decision also drives
+    // presenter.cover() -- coverVideo/uncoverVideo below are the only
+    // two doors.
+    var presenter = null;
+    var timeline = makeTimeline(0);
+    // Media time of the frame the pass in flight was judged on
+    // (verdictBusy serialises passes, so one slot is enough).
+    var passMediaTime = 0;
+    function delayWanted() {
+      return isPlayer && useRegionVideo && !feedPreview() && delayCore.DELAY_MS > 0;
+    }
+    function delayAttach() {
+      if (presenter || !delayWanted()) return;
+      var host = video.closest ? video.closest('#movie_player') : null;
+      if (!host) return;
+      var p = attachDelay(video, host, { delayMs: delayCore.DELAY_MS, onFrame: null });
+      if (!p) return;
+      presenter = p;
+      timeline = makeTimeline(delayCore.DELAY_MS + 2000);
+      videoRegion.setTimeline(video, function () {
+        if (!presenter) return null;
+        var m = presenter.presentedMediaTime();
+        if (m == null) return null;
+        var b = boxesAt(timeline, m);
+        if (!b) {
+          bumpLife('delayVerdictLate');
+          return null;
+        }
+        return b;
+      });
+      // Blur-first: the hidden video is pending/flagged until the first
+      // verdict says otherwise, and the canvas must say the same.
+      presenter.cover(true);
+      try {
+        // Read-only probe hook, same contract as __TS_GAZE_VTRACKS.
+        window.__TS_DELAY_STATS = function () {
+          if (!presenter) return null;
+          return {
+            stats: presenter.stats(),
+            presentedMediaTime: presenter.presentedMediaTime(),
+            snapshots: latestSnapshot(timeline),
+            delayMs: delayCore.DELAY_MS,
+          };
+        };
+      } catch (e) {
+        /* probes never break the pipeline */
+      }
+    }
+    function delayDetach() {
+      if (!presenter) return;
+      var p = presenter;
+      presenter = null;
+      videoRegion.clearTimeline(video);
+      timeline = makeTimeline(0);
+      try {
+        p.detach();
+      } catch (e) {
+        /* a presenter fault must not take the player path down */
+      }
+    }
+    function coverVideo() {
+      markFlagged(video);
+      if (presenter) presenter.cover(true);
+    }
+    function uncoverVideo() {
+      clearEl(video);
+      if (presenter) presenter.cover(false);
+    }
+    // ---- end delay line state ----
     // Persons admitted by the LAST person pass, fed back into
     // parsePersons as its hysteresis input (R17). Continuity of the
     // DETECTOR, not of a verdict: it is dropped wherever positions stop
@@ -2015,7 +2097,23 @@ if (
         // createImageBitmap replaces the synchronous fromPixels(video)
         // texture upload -- it is async and the bitmap is TRANSFERRED,
         // so the only main-thread work a pass now costs is asking.
-        return createImageBitmap(video)
+        // With a presenter attached the pass reads the NEWEST ring
+        // frame -- the frame the viewer will see DELAY_MS from now --
+        // so the verdict can land before the frame is presented. A
+        // ring that is empty (just attached, just flushed) falls back
+        // to the live frame; either way passMediaTime names the frame
+        // the snapshot below is keyed on.
+        var frameP = presenter
+          ? presenter.requestVerdictFrame().then(function (r) {
+              if (r && r.bitmap) {
+                passMediaTime = r.mediaTime;
+                return r.bitmap;
+              }
+              passMediaTime = video.currentTime;
+              return createImageBitmap(video);
+            })
+          : (passMediaTime = video.currentTime, createImageBitmap(video));
+        return Promise.resolve(frameP)
           .then(function (bmp) {
             mark('upload');
             return gazeWorker.videoFrame(bmp, aspect, heldPersons, withFaces, askPersons);
@@ -2056,6 +2154,7 @@ if (
             throw e;
           });
       }
+      passMediaTime = video.currentTime;
       var frame = directPersonOk ? detector.uploadFrame(video) : null;
       keepFrame(frame);
       mark('upload');
@@ -2142,6 +2241,9 @@ if (
         // proposed changes to CUT_DELTA and the forced-pass gap are NOT
         // taken until this number exists on real footage.
         bumpLife('cutDetected');
+        // The timeline must know a cut happened at THIS media time, or
+        // boxesAt would carry the old shot's patches across it.
+        if (presenter) pushCut(timeline, video.currentTime);
         // A cut is where new people appear: bypass the interval AND
         // force the next pass to re-read gender, not just positions.
         lastSample = 0;
@@ -3202,6 +3304,7 @@ if (
       if (dead) return;
       dead = true;
       stop();
+      delayDetach();
       clearEl(video);
       videoRegion.clear(video);
       regionActive = false;
@@ -3312,7 +3415,7 @@ if (
       // and the pass that narrows it to patches runs the moment the
       // finger stops.
       if (isPlayer && feedPreview() && scrolling(performance.now())) {
-        if (useRegionVideo) markFlagged(video);
+        if (useRegionVideo) coverVideo();
         return;
       }
       // Same rule as the image drain: verdicts handed out before the
@@ -4215,6 +4318,7 @@ if (
               // them would refuse the same subject a second time.
               videoTracks = updatePersonTracks(videoTracks, observations, dt, nullHeld);
               nullHeld = videoTracks.nullHeld || [];
+              if (presenter) pushSnapshot(timeline, passMediaTime, videoTracks);
               mark('tracks');
               // Calibration probe: per-track state after every pass, so
               // a "why is he not clearing" question is answered by
@@ -4298,11 +4402,12 @@ if (
                   video.classList.remove(dom.PENDING_CLASS, dom.FLAGGED_CLASS);
                   track(video);
                   regionActive = true;
+                  if (presenter) presenter.cover(false);
                 } else {
-                  markFlagged(video);
+                  coverVideo();
                 }
               } else {
-                clearEl(video);
+                uncoverVideo();
                 videoRegion.clear(video);
                 regionActive = false;
               }
@@ -4368,6 +4473,7 @@ if (
                 lf.faceNoShape = lf.faceNoShape || 0;
                 lf.bodyFromSlot = lf.bodyFromSlot || 0;
                 lf.genderReadSkipped = lf.genderReadSkipped || 0;
+                lf.delayVerdictLate = lf.delayVerdictLate || 0;
               } catch (e) {}
               var cost = performance.now() - now;
               if (wasVerdict) lastVerdictMs = cost;
@@ -4456,12 +4562,12 @@ if (
             if (failed) return;
             if (anyFlagged) {
               cleanStreak = 0;
-              markFlagged(video);
+              coverVideo();
             } else {
               cleanStreak++;
               if (cleanStreak >= unblurStreak) {
                 wholeFrameLife('wholeFrameCleared');
-                clearEl(video);
+                uncoverVideo();
               }
             }
           })
@@ -4494,6 +4600,7 @@ if (
 
     function start() {
       if (failed || dead) return;
+      if (playerBlurOn) delayAttach();
       // A played video can't wait for post-load idle to bring the models
       // — the deferral would hold it blur-first forever on a busy watch
       // page. Kick the loads now (both idempotent).
@@ -4565,7 +4672,7 @@ if (
         // Seeked while PAUSED (review A7): no pass will run until play
         // — the landed frame is unknown, so cover it whole. The first
         // pass after play replaces this with real patches.
-        if (useRegionVideo) markFlagged(video);
+        if (useRegionVideo) coverVideo();
       } else {
         sampleOnce();
       }
@@ -4601,6 +4708,10 @@ if (
       videoTracks = [];
       heldPersons = [];
       lastPassAt = 0;
+      if (presenter) {
+        timeline = makeTimeline(delayCore.DELAY_MS + 2000);
+        presenter.cover(true);
+      }
       // New stream = new scene: forget the luma baseline and re-enable
       // the direct pixel path (a per-stream quirk shouldn't outlive it).
       prevLuma = null;
@@ -4740,6 +4851,9 @@ if (
           markPending(video);
           if (!video.paused) start();
         } else {
+          // Pill off = the viewer wants the raw stream: the delayed
+          // picture and its audio go with the patches.
+          delayDetach();
           clearEl(video);
           videoRegion.clear(video);
           regionActive = false;

@@ -16,6 +16,7 @@ import * as identityMemory from '../src/identity-memory.mjs';
 import * as personSkip from '../src/person-skip.mjs';
 import * as cadence from '../src/cadence.mjs';
 import * as personTrack from '../src/person-track.mjs';
+import * as delayCore from '../src/delay-core.mjs';
 
 // Every test restores the shipped values, because these modules hold
 // module-global state and a leaked dial would silently rebase every
@@ -34,6 +35,7 @@ const SHIPPED = {
   PTRACK_MIN_COAST_PASSES: personTrack.PTRACK_MIN_COAST_PASSES,
   PTRACK_IOU_MIN: personTrack.PTRACK_IOU_MIN,
   GENDER_REFRESH_MS: personTrack.GENDER_REFRESH_MS,
+  DELAY_MS: delayCore.DELAY_MS,
 };
 const restore = () => applyTuning(SHIPPED);
 

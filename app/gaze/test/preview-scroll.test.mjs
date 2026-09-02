@@ -13,8 +13,11 @@ test('a feed preview does not run a pass while the feed is scrolling', () => {
 test('the skipped preview is covered whole, never left exposed', () => {
   const i = sample.indexOf('feedPreview()');
   const gate = sample.slice(i, i + 260);
-  assert.ok(gate.includes('markFlagged(video)'), 'blur-first: a skipped pass must cover the video');
-  assert.ok(gate.indexOf('return') > gate.indexOf('markFlagged'), 'cover before returning');
+  // coverVideo() is the player's whole-cover door (Stage B wiring): it is
+  // markFlagged(video) plus presenter.cover(true) when a delay presenter
+  // is attached. delay-wired.test.mjs pins that the door does both.
+  assert.ok(gate.includes('coverVideo()'), 'blur-first: a skipped pass must cover the video');
+  assert.ok(gate.indexOf('return') > gate.indexOf('coverVideo'), 'cover before returning');
 });
 
 test('the watch player is never skipped -- that page has no preview', () => {

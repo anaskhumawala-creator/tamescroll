@@ -29,6 +29,7 @@ import * as identityMemory from './identity-memory.mjs';
 import * as personSkip from './person-skip.mjs';
 import * as cadence from './cadence.mjs';
 import * as personTrack from './person-track.mjs';
+import * as delayCore from './delay-core.mjs';
 
 export var TUNED = null;      // what actually took effect, for the report
 export var TUNE_REFUSED = 0;  // keys refused outright
@@ -256,6 +257,15 @@ var SPEC = {
   // read, which is longer than CLEARED_TTL_MS already allows a clear to
   // stand unrefreshed.
   GENDER_REFRESH_MS: [1000, 4000, function (v) { personTrack.setGenderRefreshMs(v); }],
+  // DELAY LINE (Stage B, plan 2026-09-02). How far behind the judged
+  // frame the presented picture runs. 0 = presenter OFF, the reactive
+  // pipeline exactly as 1091 ran it; 1000 is what the Redmi spike sized
+  // the ring for (spikes/delay-line/FINDINGS.md); 2500 is the most the
+  // ring budget (delay-core RING_BYTES_MAX) holds at 720p30 with room
+  // to spare. Read at attach time per video, so a pushed value reaches
+  // the NEXT video attached, not one mid-play -- deliberately: a ring
+  // resized under a playing video is a flush and a full-cover refill.
+  DELAY_MS: [0, 2500, function (v) { delayCore.setDelayMs(v); }],
 };
 
 export function tunableNames() { return Object.keys(SPEC); }

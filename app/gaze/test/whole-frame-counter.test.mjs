@@ -35,7 +35,8 @@ test('the reveal is counted apart from the blind frame', () => {
   // the user, and only the second is an exposure. Counting one number
   // for both is how `birthClaimed` lost a round of analysis (R17).
   const idx = page.indexOf("wholeFrameLife('wholeFrameCleared')");
-  const clear = page.indexOf('clearEl(video)', idx);
+  // uncoverVideo() = clearEl(video) + presenter.cover(false) (Stage B door).
+  const clear = page.indexOf('uncoverVideo()', idx);
   assert.ok(idx !== -1, 'the reveal is counted');
   assert.ok(clear !== -1 && clear - idx < 200, 'counted at the reveal itself');
   // And the denominator, or a count of blind frames says nothing about
