@@ -39,6 +39,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.webkit.WebMessageCompat
+import androidx.webkit.WebMessagePortCompat
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 
 class MainActivity : TauriActivity() {
   private lateinit var webView: WebView
@@ -663,19 +667,24 @@ class MainActivity : TauriActivity() {
 
       override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
         pageUrlForBlocking = url
+        bindNativeInfer(view, url)
         wry.onPageStarted(view, url, favicon)
       }
 
       // An SPA navigation fires no onPageStarted, and m.youtube is one:
       // tapping a video never leaves the document. Without this the
       // source url handed to the engine would be whatever page was last
-      // hard-loaded, and exception rules are scoped by source.
+      // hard-loaded, and exception rules are scoped by source. (The
+      // native-inference port is NOT re-bound here: an SPA nav keeps the
+      // document, and the document keeps its port.)
       override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
         pageUrlForBlocking = url
         wry.doUpdateVisitedHistory(view, url, isReload)
       }
 
-      override fun onPageFinished(view: WebView, url: String) = wry.onPageFinished(view, url)
+      override fun onPageFinished(view: WebView, url: String) {
+        wry.onPageFinished(view, url)
+      }
 
       override fun onReceivedError(
         view: WebView,
@@ -794,6 +803,61 @@ class MainActivity : TauriActivity() {
   </div>
   <p class="host">$safe</p>
 </main></body></html>"""
+  }
+
+  // ---- Native on-device inference (2026-09-02 plan): the page keeps
+  // all policy (anchors/NMS, parsePersons, gender/age reads, tracking,
+  // cadence); Kotlin is a dumb tensor runner reached over a
+  // WebMessagePort. See NativeInfer.kt for the protocol and why
+  // WebMessagePortCompat.postMessage needs no main-thread hop (it is
+  // annotated @AnyThread at the class level -- confirmed by
+  // disassembling androidx.webkit 1.14.0's WebMessagePortCompat.class,
+  // not merely assumed from the docs).
+  //
+  // The native tensor runner (NativeInfer.kt). ONE engine for the
+  // process -- the GPU delegate spends ~8s compiling the three models on
+  // the Redmi, so they are loaded on the first YouTube page and kept.
+  // Each DOCUMENT gets its own WebMessagePort, bound from onPageStarted:
+  // that is the only hook a new document has before its scripts run, and
+  // an SPA navigation (doUpdateVisitedHistory) keeps the document and
+  // therefore the port. The page's end is posted as the string message
+  // `ts-native-port` with the port attached; the document-start script
+  // stashes it, because the gaze bundle is evaluated later and a message
+  // nobody is listening for is simply gone. No @JavascriptInterface is
+  // involved anywhere in this path.
+  @Volatile private var nativeInfer: NativeInfer? = null
+
+  override fun onDestroy() {
+    nativeInfer?.close()
+    nativeInfer = null
+    super.onDestroy()
+  }
+
+  private fun isYoutubeHost(host: String?): Boolean =
+    host != null && (host == "youtube.com" || host.endsWith(".youtube.com"))
+
+  private fun bindNativeInfer(view: WebView, url: String) {
+    try {
+      val host = try { Uri.parse(url).host } catch (e: Exception) { null }
+      if (!isYoutubeHost(host)) return
+      if (!WebViewFeature.isFeatureSupported(WebViewFeature.CREATE_WEB_MESSAGE_CHANNEL) ||
+        !WebViewFeature.isFeatureSupported(WebViewFeature.POST_WEB_MESSAGE) ||
+        !WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_CALLBACK_ON_MESSAGE) ||
+        !WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_ARRAY_BUFFER)
+      ) {
+        return
+      }
+      val engine = nativeInfer ?: NativeInfer(this).also { nativeInfer = it }
+      val ports = WebViewCompat.createWebMessageChannel(view)
+      engine.bind(ports[0])
+      WebViewCompat.postWebMessage(
+        view,
+        WebMessageCompat("ts-native-port", arrayOf(ports[1])),
+        Uri.parse("*"),
+      )
+    } catch (e: Throwable) {
+      Log.w("TsNative", "native infer setup failed: " + e.message)
+    }
   }
 
   override fun onWebViewCreate(webView: WebView) {
