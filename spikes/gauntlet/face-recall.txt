@@ -1,0 +1,39 @@
+18 windows, EVERY banked frame (not thinned), 2160 frames, 640x360
+PERSON_MIN_SCORE 0.35   admitted slots 1749
+min(nose, lEye, rEye) score over admitted slots:  p05 0.250  p50 0.410  p95 0.586
+
+BlazeFace found a face where MoveNet put a FRONTAL head:
+kp bar           0-24px       24-40px       40-64px       64-96px         96px+           all
+0.20          68.0% 231     92.1% 393     91.9% 197     99.8% 482    100.0% 417    92.9% 1720
+0.30          71.2% 205     92.2% 374     94.4% 162    100.0% 444    100.0% 347    93.7% 1532
+0.40          74.8% 123     94.7% 188      96.6% 89    100.0% 313    100.0% 226     95.3% 939
+0.50           90.6% 53      95.1% 41     100.0% 22    100.0% 130     100.0% 96     98.0% 342
+
+THE TREND ACROSS THE BAR IS THE MOST INFORMATIVE COLUMN.
+Agreement rises monotonically as MoveNet is asked to be
+more sure a head is facing the camera (92.9% -> 98.0%),
+which is what you see if the disagreements are mostly
+MoveNet being UNSURE -- a turned head, a hallucinated slot
+-- rather than BlazeFace missing a face that is there. If
+BlazeFace were the weak half the rate would be flat in the
+bar and steep in px, and it is steep in px only at 0-24.
+
+READ THE DENOMINATOR, not just the rate: a band with a
+handful of heads in it says nothing. And this is a
+CROSS-CHECK, not ground truth -- a disagreement is one of
+the two models being wrong and this bench cannot say which.
+What it bounds is the SIZE of the never-measured class.
+
+disagreements at kp bar 0.3 (first 12):
+  4u3jS_cTHH0_w1602 f32  px 13  at (0.147,0.322)  kp 0.31  slot 0.35  faces in frame 2
+  4u3jS_cTHH0_w1602 f79  px 45  at (0.665,0.315)  kp 0.34  slot 0.39  faces in frame 1
+  4u3jS_cTHH0_w1602 f82  px 59  at (0.342,0.369)  kp 0.37  slot 0.42  faces in frame 1
+  4u3jS_cTHH0_w1602 f84  px 17  at (0.371,0.222)  kp 0.38  slot 0.37  faces in frame 3
+  4u3jS_cTHH0_w252 f12  px 10  at (0.550,0.346)  kp 0.46  slot 0.39  faces in frame 1
+  4u3jS_cTHH0_w252 f13  px 5  at (0.534,0.307)  kp 0.44  slot 0.40  faces in frame 1
+  4u3jS_cTHH0_w252 f23  px 14  at (0.697,0.293)  kp 0.56  slot 0.44  faces in frame 1
+  4u3jS_cTHH0_w252 f24  px 16  at (0.699,0.295)  kp 0.55  slot 0.47  faces in frame 1
+  4u3jS_cTHH0_w252 f31  px 26  at (0.307,0.570)  kp 0.54  slot 0.38  faces in frame 2
+  4u3jS_cTHH0_w252 f32  px 24  at (0.305,0.569)  kp 0.45  slot 0.35  faces in frame 3
+  4u3jS_cTHH0_w252 f79  px 3  at (0.329,0.353)  kp 0.42  slot 0.38  faces in frame 1
+  8R1hy3uHds0_w1052 f30  px 35  at (0.892,0.213)  kp 0.38  slot 0.35  faces in frame 0

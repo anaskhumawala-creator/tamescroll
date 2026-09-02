@@ -3587,3 +3587,82 @@ the cost is the box.
   nobody, which is **100% of his phone today**.
 
 **Raw: `spikes/gauntlet/mnbody-births.txt`. New: `bench/mnbody-births.mjs`.**
+
+
+## 24 -- THE ERROR CLASS NOBODY HAD EVER MEASURED IS SMALL, AND THE INSTRUMENT SAID 31% BEFORE IT SAID 93%
+
+Findings 8 has stood since this file began: **BlazeFace detector recall
+is invisible to the corpus scorer by construction** -- it scores the
+reads that exist, so a face the detector never found cannot appear in
+any arm or any sweep here. Every exposure number in this repo is a lower
+bound and nobody knew by how much. §8 proposed an afternoon of hand
+annotation.
+
+**IT DID NOT NEED THE AFTERNOON.** A second, independent model is
+already banked over all 2,160 frames: MoveNet's facial keypoints. COCO
+slots 0-4 are nose, left eye, right eye, left ear, right ear, so a
+person whose nose and both eyes are confidently placed is a head facing
+the camera at a known point -- produced by a different architecture on
+different training data. `bench/face-recall.mjs` asks, for every such
+head, whether BlazeFace found a face there.
+
+| kp bar | 0-24px | 24-40px | 40-64px | 64-96px | 96px+ | all |
+|---|---|---|---|---|---|---|
+| 0.20 | 68.0% (231) | 92.1% (393) | 91.9% (197) | 99.8% (482) | 100.0% (417) | **92.9% (1720)** |
+| 0.30 | 71.2% (205) | 92.2% (374) | 94.4% (162) | 100.0% (444) | 100.0% (347) | 93.7% (1532) |
+| 0.40 | 74.8% (123) | 94.7% (188) | 96.6% (89) | 100.0% (313) | 100.0% (226) | 95.3% (939) |
+| 0.50 | 90.6% (53) | 95.1% (41) | 100.0% (22) | 100.0% (130) | 100.0% (96) | **98.0% (342)** |
+
+- **ABOVE 64px THE TWO MODELS AGREE ESSENTIALLY PERFECTLY** -- 99.8% and
+  100.0% at every bar, on 899 heads. There is no missing-face problem at
+  native resolution, and the corpus's absolute numbers are not hiding
+  one.
+- **THE FAILURE IS SIZE-DEPENDENT AND IT LIVES UNDER 40px**, worst in
+  0-24px at 68.0%. That is the expected shape for a detector and it is
+  the first direct evidence in this repo that BlazeFace's small-face
+  behaviour is a real edge rather than an assumption.
+- **AND IN HIS OWN BAND IT IS 92-94%.** His player decodes 640x360 and
+  faces reach faceres at **px p50 38-62** (loop 38), which straddles the
+  24-40 and 40-64 rows. So on the order of **6-8% of frontal heads in
+  his regime are not found**, and every exposure figure quoted for his
+  regime is understated by at most about that.
+- **THE TREND ACROSS THE BAR IS THE MOST INFORMATIVE COLUMN, and it
+  argues the residual is mostly NOT BlazeFace.** Agreement rises
+  monotonically as MoveNet is asked to be more certain the head faces
+  the camera: **92.9% -> 93.7% -> 95.3% -> 98.0%**. If BlazeFace were
+  the weak half the rate would be flat in the bar and steep in px; it is
+  steep in px only in the 0-24 band, where MoveNet's own eye-distance
+  estimate (which is what sets the px band) is noisiest. The reading:
+  most disagreements are MoveNet unsure -- a turned head, a low-quality
+  slot -- rather than a face BlazeFace walked past.
+- **SO FINDINGS 8's AFTERNOON IS DEPRIORITISED, not cancelled.** The
+  never-measured class is bounded small and concentrated below his own
+  `FACE_MIN_NATIVE_PX` floor of 40. Hand annotation remains the only way
+  to say which model is wrong in a disagreement, and it is the gate on
+  ever training a detector for our input distribution -- but it is no
+  longer plausibly the largest unclaimed win, and the cadence and extent
+  layers keep their priority.
+
+**THE INSTRUMENT REPORTED 31% FIRST, AND 31% IS 1/3.** The first version
+passed the frames through `thinFrames(w, K_HIS)` out of habit -- which
+is correct for every arm in this directory and wrong for this question.
+Thinning moves a non-verdict frame's faces to `_labelFaces` and leaves
+`faces` EMPTY, so two frames in three compared MoveNet's heads against
+nothing. It printed "68% of frontal heads are missed" and every one of
+its twelve disagreement examples said `faces in frame 0`. **Recall is a
+property of the detector on a frame, not of the cadence the app runs it
+at.** Caught by the ratio being suspiciously exactly the thinning ratio,
+which is loop 40's rule running in the third direction: a CATASTROPHIC
+result at a familiar-looking number is a claim about the instrument.
+
+**HONEST LIMITS, and they are the whole of what this bench cannot say.**
+This is a CROSS-CHECK, not ground truth: a disagreement is one of two
+models being wrong and nothing here says which. The frontal gate is a
+proxy -- MoveNet emits moderate keypoint confidence on turned heads too
+(87.6% of admitted slots clear bar 0.30), which is why the bar sweep
+matters more than any single row. And it is scoped to slots MoveNet
+ADMITS at `PERSON_MIN_SCORE`: a face in a frame where MoveNet admits
+nobody -- **100% of his phone today**, findings 36 -- is outside this
+instrument entirely, and that population is unmeasured.
+
+**Raw: `spikes/gauntlet/face-recall.txt`. New: `bench/face-recall.mjs`.**

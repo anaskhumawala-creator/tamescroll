@@ -68,7 +68,17 @@ geometry, tracking and coasting. So:
    admits nobody on his footage.
 2. **The association/state layer** — 69% of false cover is a misread, and
    77% of that clears the bar and is covered anyway. A timing failure.
-3. **Detector recall** — the one error class never measured (§8).
+3. **Detector recall** — ~~never measured~~ **MEASURED (§24) and it is
+   SMALL.** MoveNet's facial keypoints are an independent second model
+   banked over all 2,160 frames; where one puts a frontal head, does the
+   other find a face? **99.8-100% above 64px, 92-94% in his own 38-62px
+   band, 68% under 24px** -- and agreement RISES with MoveNet's own
+   confidence (92.9% -> 98.0%), which says most of the residual is
+   MoveNet unsure rather than BlazeFace missing. §8's afternoon of hand
+   annotation is DEPRIORITISED, not cancelled: it is still the only way
+   to say which model is wrong, and the gate on training our own
+   detector. Unmeasured population: frames where MoveNet admits nobody,
+   which is 100% of his phone.
 4. **Thumbnails** — a separate pipeline with no null-read guard.
 5. **Models** — last, and only where a measurement says it helps.
 
