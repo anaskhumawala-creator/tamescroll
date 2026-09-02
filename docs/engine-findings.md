@@ -3091,3 +3091,74 @@ file, and a test header claiming coverage it does not have.
   suite that fails on a CORRECT change teaches people to re-run it until
   it goes green**, which is worse than a slow suite.
 - gaze **576/576**, cargo **60/60**, critic-gate **58/58 CONFIRMED**.
+
+
+## 20 -- EVERY CORPUS NUMBER THIS REPO HAS EVER PRODUCED WAS MEASURED ON THE FACE **FALLBACK** PATH, AND ON THIS FOOTAGE THE SHIPPED APP WOULD NOT BE ON IT
+
+Phase-f F3 established that `control-triple.test.mjs` cannot see
+`PATCH_MARGIN`, `PERSON_MIN_SCORE` or `HEAD_ANCHOR_UP`, and the reason
+given was that the corpus banks parsed boxes. **That reason was
+incomplete and the complete one is much bigger.**
+
+**THE APP'S PRIMARY OBSERVATION SOURCE IS THE ADMITTED MoveNet PERSON.**
+`init-entry.js:3922` pushes `{ box: p, positionOnly: true }` for every
+un-cropped person and `observePerson(p)` for every budgeted one -- `box`
+IS the person. `personFromFace` is the CLOSE-UP FALLBACK, for a face
+that lands inside no person box (findings from 2026-08-24: it exists
+because MoveNet returned 0 persons on a child close-up and she was
+fully sharp).
+
+**THE CORPUS ARM IS THE FALLBACK, ALWAYS.** `arch-arms.mjs:731` opens
+every observation with `let box = null`, and only the OPT-IN arms
+(`ssdEdge`, `slotBound`) ever set it. The banked face record carries
+`x1..y2, conf, px, gender, score, raw, age, childP, nm, shape, descIdx,
+crop` -- **and no body box at all**. So the control arm paints
+`personFromFace`'s synthetic body for 100% of observations.
+
+**AND THE FOOTAGE IS NOT IN THAT REGIME.** The raw `[1,6,56]` tensors
+have been banked all along (`bank/persons/*.f32`, 2.9MB). Run through
+the SHIPPED `parsePersons` (`bench/extent-reach.mjs`), 18 windows,
+2,160 frames, his k=3:
+
+| | |
+|---|---|
+| frames where `parsePersons` ADMITS anybody | **1,900 of 2,160 (88.0%)** |
+| persons admitted, total | **3,940** |
+| best slot score in frame | p05 0.125 / p50 0.382 / p95 0.522 / max 0.618 |
+| banked faces | 1,153 |
+| **faces whose centre falls inside an ADMITTED person** | **959 (83.2%)** |
+| faces with no admitted person -- genuinely synthetic | 194 (16.8%) |
+
+Per window it runs **45.0% to 100.0%**, five windows at 100%, only one
+under 70%. So on this corpus the shipped app would take a MEASURED body
+for five faces in six, and the instrument takes a guess for six in six.
+
+**WHAT THIS DOES AND DOES NOT INVALIDATE.** It does NOT invalidate the
+DECISION-layer work -- cadence, the coast, the clear bars, the
+assignment, `CUT_DELTA` -- because those act on tracks and verdicts and
+were swept with both arms on the identical body source, so the
+DIFFERENCES stand. What it bounds is every ABSOLUTE number, and every
+claim about EXTENT: `PATCH_MARGIN`, the head anchor, the body ladder,
+the adjacency clamp and the whole "the fat guess covers people by
+accident" argument are all statements about a path the app would be on
+for 16.8% of these faces, not 100%.
+
+**AND IT IS HIS REGIME BY ACCIDENT, NOT BY CONSTRUCTION.** Findings 36
+measured his phone at all twelve slots `n:0` with `faceNoShape` 121 of
+184 passes -- MoveNet admits nobody there, so the fallback IS what he
+runs, and the corpus happens to model it. **Nothing in the tree says
+so**, and the moment his device starts admitting persons (better
+hardware, whatever fixes the `n:0` regime, the letterbox if it is ever
+revived) every absolute corpus number stops describing his screen. A
+regime an instrument occupies by accident is one it can leave without
+anyone noticing -- which is the D2 cadence defect restated one layer up.
+
+**NOT MEASURED, AND IT IS THE NEXT ROUND:** what the corpus scores with
+admitted MoveNet persons as the body where one is available. The
+tensors are banked and `parsePersons` is already called from this
+directory, so it is an arm, not a round -- but it is a change of body
+source on 83.2% of observations, so it will move all three columns and
+must be run as a matched A/B in both genders before a single sentence is
+written about it.
+
+**Raw: `spikes/gauntlet/extent-reach.txt`.**

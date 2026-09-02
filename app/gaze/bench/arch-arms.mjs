@@ -728,6 +728,37 @@ export function makeArms(mod) {
         if (o.ssdMin != null && win.ssd && win.ssd[fi]) ssdBoxes = win.ssd[fi].p;
         let nMeasured = 0;
         let obs = fr.faces.map((f, i) => {
+          // *** THE SINGLE BIGGEST LIMIT ON EVERY NUMBER THIS FILE
+          // PRODUCES, AND IT IS THIS LINE. ***
+          //
+          // `box` starts null and only the OPT-IN arms (`ssdEdge`,
+          // `slotBound`) ever set it, so the CONTROL arm paints
+          // `personFromFace`'s synthetic body for 100% of observations.
+          // The app does not: `init-entry.js:3922` pushes `{box: p}` for
+          // every ADMITTED MoveNet person and `personFromFace` is the
+          // close-up FALLBACK, for a face inside no person box.
+          //
+          // On this corpus that is not a small difference.
+          // `bench/extent-reach.mjs` runs the banked raw [1,6,56]
+          // tensors through the SHIPPED `parsePersons`: **1,900 of 2,160
+          // frames admit somebody (88.0%), 3,940 persons, and 959 of
+          // 1,153 banked faces (83.2%) sit inside an admitted person.**
+          // Per window 45.0% to 100.0%. So the app would take a MEASURED
+          // body for five faces in six here and this arm takes a guess
+          // for six in six.
+          //
+          // WHAT SURVIVES: the DECISION layer. Cadence, the coast, the
+          // clear bars, the assignment and CUT_DELTA act on tracks and
+          // verdicts, and every sweep of them ran both arms on the
+          // identical body source, so the DIFFERENCES are fair. What is
+          // bounded is every ABSOLUTE number and every claim about
+          // EXTENT.
+          //
+          // AND IT MATCHES HIS PHONE BY ACCIDENT, NOT BY CONSTRUCTION:
+          // findings 36 measured all twelve slots `n:0` there, so the
+          // fallback IS what he runs -- today. The moment his device
+          // admits persons, every absolute number here stops describing
+          // his screen. Findings 20.
           let box = null;
           // ONLY WHERE IT MATTERS. Replacing every body with the
           // measured extent buys -55s of phantom and costs +7.5s of

@@ -1,0 +1,36 @@
+18 windows, k=3 (1.5s/verdict), 2160 frames, 2160 with a banked MoveNet tensor
+PERSON_MIN_SCORE 0.35
+
+frames where parsePersons ADMITS anybody   1900  (88.0%)
+persons admitted, total                    3940
+slot score, best in frame   p05 0.125  p50 0.382  p95 0.522  max 0.618
+
+banked faces                               1153
+  whose centre falls in an ADMITTED person 959  (83.2%)
+  with no admitted person -- SYNTHETIC     194  (16.8%)
+
+THE READING: the right-hand number is the share of the corpus
+whose extent comes from personFromFace rather than from a
+measurement. Constants inside parsePersons can only reach the
+other share, and no sweep of them can move a window that has
+none of it.
+
+win                       frames  admitFrames  persons   admit%
+8R1hy3uHds0_w1642            120          120      405   100.0%
+Ary1gIbaOTc_w342             120          120      175   100.0%
+H14bBuluwB8_w222             120          120      283   100.0%
+z86LGEFyQpo_w182             120          120      256   100.0%
+z86LGEFyQpo_w2               120          120      242   100.0%
+4u3jS_cTHH0_w252             120          116      231    96.7%
+Ary1gIbaOTc_w162             120          113      136    94.2%
+NWoT1ZVd1Lo_w702             120          113      250    94.2%
+4u3jS_cTHH0_w1602            120          110      298    91.7%
+eIho2S0ZahI_w242             120          109      123    90.8%
+H14bBuluwB8_w22              120          108      243    90.0%
+KAWvDsghyc8_w552             120          104      258    86.7%
+RcGyVTAoXEU_w42              120          101      115    84.2%
+8R1hy3uHds0_w1052            120          100      270    83.3%
+NWoT1ZVd1Lo_w292             120           97      202    80.8%
+1L_R0MB2W5A_w2               120           89      159    74.2%
+KAWvDsghyc8_w152             120           86      196    71.7%
+RcGyVTAoXEU_w522             120           54       98    45.0%
