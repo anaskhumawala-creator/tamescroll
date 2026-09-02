@@ -139,12 +139,39 @@ class BenchActivity : Activity() {
 - [ ] On the Redmi, with a debug hook `window.__TS_NATIVE_PARITY` (flag-gated, nothing in the app sets it, a test pins that), feed 20 banked thumbnails (the ids in `spikes/gauntlet/probe_faceres_parity.py` — reuse its serving trick over `adb reverse tcp:8899`) through BOTH paths: Worker (WebGL) and native. Compare: BlazeFace boxes after NMS (IoU ≥ 0.9 per matched box, same count), MoveNet persons admitted (same count, keypoint max within 0.02), faceres gender raw within 0.03, age within 1.0 year, descriptor cosine ≥ 0.98. **Gate:** 0 decision flips at `GENDER_MIN_SCORE` 0.25 and `GENDER_IMAGE_MIN_SCORE` 0.4 across all faces (the 2026-08-31 uint8 requant was refused at 8/100 flips; the bar here is the same). If f16 flips any, use f32 for that model and re-measure Task 1's sum.
 - [ ] Commit the probe + report.
 
-### Task 4: Transport selection, kill switch, counters (Sonnet, timebox 60m)
+### Task 4: Transport selection, kill switch, counters (Sonnet, timebox 60m) -- DONE 2026-09-02 15:45 (this session, not an agent)
 
-- [ ] `worker-client.mjs`: prefer native when `window.__TS_NATIVE_PORT` arrived AND `native-ready` was posted AND `NATIVE_INFER` (tuning) is 1; otherwise today's path. A native request that errors falls back to the Worker for THAT request and bumps `nativeFallback`; three in a row → native off for the page (`nativeFailed`).
-- [ ] `tuning.mjs` + `rules/tuning.json`: `NATIVE_INFER: [0, 1, setter]`, default **1**. Regenerate the manifest. Test pins the default and the emitted constant.
-- [ ] `diag-report.mjs`: `worker.backend` gains `native-gpu`/`native-cpu`; `player.life.nativeUsed/nativeFallback/nativeFailed` seeded to 0 on the first player pass (loop-34 rule: absent ≠ never hooked).
-- [ ] Tests red-proved; bundle rebuilt; commit.
+What landed differs from the bullets below in three named ways: (1) the
+selection lives in `init-entry.js` as an accessor `vid()` (native when the
+port was adopted AND the client is ready AND not dead AND `NATIVE_INFER > 0`,
+else `gazeWorker`), not in `worker-client.mjs` -- every player-path model
+call (`videoFrame`, `cropFaces`, `cropGender`, `releaseCrop`, `genderOnce`,
+`preloadPerson`, `genderReady`, `waitMs`) goes through it and
+`test/native-wired.test.mjs` fails on any `gazeWorker.<method>(` left in the
+player path; `workerVideo()` is true when native is live. (2) NO per-request
+fallback: a native request that errors rejects like a worker error would,
+and native-client's 3-consecutive-failures rule marks the client dead, after
+which `vid()` is the worker for the rest of the page -- one-way, the same
+shape as `banWorkerVideo`. (3) Counters are `player.life.nativeReady /
+nativeFailed / nativeDead / nativePasses`, seeded to 0 at first bump
+(`player.life` is a pass-through since loop 37e, so they reach the report);
+`worker.backend` is untouched and the probe marker `window.__TS_GAZE_NATIVE`
+carries `adopted / ready / backend / initMs / dead / why`. The port reaches
+the page through a document-start stash in lib.rs (`native_port_stash_script`,
+on the Android `js_init_script` between the prestart and the universal script;
+guard `e.source === null && e.origin === ""`, `__TS_NATIVE_PORT_SEEN` counts
+arrivals before the guard so a refused message is visible from a probe).
+`NATIVE_INFER` ships 1 in `rules/tuning.json` (manifest regenerated) -- inert
+on 1092, whose whitelist refuses the key. Gaze 689/689, cargo 61/61, emitted
+bundle reads `bw>0&&lt.genderReady()` at the accessor.
+
+**Ordering note:** this landed BEFORE Task 3. The parity gate still blocks
+Task 5/8 -- nothing is installed anywhere yet.
+
+- [x] (in init-entry, see above) `worker-client.mjs`: prefer native when `window.__TS_NATIVE_PORT` arrived AND `native-ready` was posted AND `NATIVE_INFER` (tuning) is 1; otherwise today's path. A native request that errors falls back to the Worker for THAT request and bumps `nativeFallback`; three in a row → native off for the page (`nativeFailed`).
+- [x] `tuning.mjs` + `rules/tuning.json`: `NATIVE_INFER: [0, 1, setter]`, default **1**. Regenerate the manifest. Test pins the default and the emitted constant.
+- [x] (as `player.life.native*` + `__TS_GAZE_NATIVE`, see above) `diag-report.mjs`: `worker.backend` gains `native-gpu`/`native-cpu`; `player.life.nativeUsed/nativeFallback/nativeFailed` seeded to 0 on the first player pass (loop-34 rule: absent ≠ never hooked).
+- [x] Tests red-proved (the four budget/adopt tests went red on the accessor rename and were re-pointed); bundle rebuilt; commit.
 
 ### Task 5: Device A/B (Sonnet, timebox 45m) — GATE
 
@@ -171,7 +198,7 @@ class BenchActivity : Activity() {
 Updated by whoever finishes a task. The loop reads this section first.
 
 - **Lock:** `docs/native/LOCK` (contents: ISO time + who). Take it before editing, delete it after push. A lock older than 90 minutes is stale — delete it and say so here.
-- **Current task:** 2 (NativeInfer.kt + native-client.mjs), two Sonnet agents started 2026-09-02 15:25 local, timebox 90m each, this session integrates.
+- **Current task:** 3 + 5 together (device parity, then the A/B) -- needs an APK carrying the new bundle AND the Kotlin engine (rust rebuild: `gaze-page.js` is `include_str!`d). Task 2 DONE: `NativeInfer.kt` (process-long engine, `HandlerThread`, GPU delegate + per-model XNNPACK fallback, `bind(port)` per onPageStarted, `native-ready`/`native-failed`), `MainActivity.bindNativeInfer` (four WebViewFeature checks, YouTube hosts only), `native-frame.mjs` / `face-decode.mjs` / `native-client.mjs` (commits a3dcfba, 06edff8). Task 4 DONE (above).
 - **Decisions so far:** transport = **WebMessagePort + ArrayBuffer** (0b, Redmi: WEB_MESSAGE_ARRAY_BUFFER supported; Kotlin copy 0.30ms p50 vs base64 decode 2.19ms; page+Kotlin 21.4ms vs 32.2ms at 256x256 RGBA). delegate = **TFLite GPU delegate, XNNPACK auto-fallback** (1: one verdict pass MoveNet 160 + BlazeFace 19 + 2x faceres 76 = ~255ms on the Redmi against 922ms on WebGL today; CPU fallback ~510ms; two runs within 1ms). models = **all three builtin-only** (0a): the first blazeface/movenet 'conversions' were Flex models, cause was tfjs-graph-converter's own grappler 'remap' pass; f32 parity 1.000000 on all outputs, f16 parity descriptor 0.9973 on one face -- **f16 ships only if Task 3's corpus parity holds**. MoveNet is 112/237 nodes on the GPU (decode tail on CPU) -- fine for the gate, a later win. GPU init 1.4-3.9s per model, once per process, must be off the critical path.
 - **THE REAL FRAME COST IS THE READBACK, NOT THE BRIDGE (0b):** `drawImage`+`getImageData` is 17-24ms p50 and **150-200ms p95** on the Redmi, size-independent (128px no cheaper than 256px). Task 2 must move that off the page's main thread: `createImageBitmap(video)` (0.9ms) -> transfer the ImageBitmap to a Worker (the existing gaze Worker already receives bitmaps) -> `OffscreenCanvas` + `getImageData` THERE -> post the ArrayBuffer to Kotlin from the Worker over a `MessagePort` handed in at start (WebMessagePort ports are transferable to a Worker). Measure p95 there before wiring. The Kotlin bench bridge (base64 + port, `TsFrameBench`) is left UNCOMMITTED on purpose: our releases are DEBUG builds, so `BuildConfig.DEBUG` is not a guard; Task 2 replaces it with `NativeInfer` and no page-exposed `@JavascriptInterface` is added.
 - **Device rows:** 1092 = verdict 922 / gap 2000 / rAF 34.3 / coverage 0.628 (`latency-ab-stageB5.json`). TFLite GPU per model p50: blazeface 19 / faceres 38 / movenet 160 (`gpu-bench-1.json`, `gpu-bench-2.json`).
@@ -181,4 +208,5 @@ Updated by whoever finishes a task. The loop reads this section first.
 - **Log:**
   - 2026-09-02 14:45 plan written; spikes 0a/0b in flight; gauntlet cron deleted.
   - 2026-09-02 15:05 0b done (report committed); 0a two of three models; bench app compiles; GPU bench running on the Redmi for blazeface+movenet.
+  - 2026-09-02 15:45 Task 2 integrated (engine-per-process rewrite of the agent's per-page design), Task 4 wired + stash script in lib.rs; 689/689, 61/61; pushed. Next: rust+APK build, install on the Redmi, port-arrival probe (`__TS_NATIVE_PORT_SEEN`, `__TS_GAZE_NATIVE`), then Task 3 parity and Task 5 A/B.
   - 2026-09-02 15:20 0a REDONE (the two 'converted' models were Flex; faceres fixed by the same cause) -- all three builtin-only, parity green. Task 1 gate passed on the Redmi, twice. Task 2 started.

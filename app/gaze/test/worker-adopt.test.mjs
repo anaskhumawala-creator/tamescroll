@@ -90,8 +90,8 @@ test('with no prestart the client builds its own worker from our url', () => {
 
 test('the player asks for MoveNet instead of waiting for its first frame', () => {
   const src = fs.readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
-  assert.ok(src.includes('gazeWorker.preloadPerson()'), 'the page has to ask');
-  const at = src.indexOf('gazeWorker.preloadPerson()');
+  assert.ok(src.includes('vid().preloadPerson()'), 'the page has to ask');
+  const at = src.indexOf('vid().preloadPerson()');
   const around = src.slice(at - 700, at);
   assert.ok(around.includes('isPlayer && !feedPreview()'), 'a feed preview keeps the lazy load');
   const worker = fs.readFileSync(new URL('../src/worker-entry.js', import.meta.url), 'utf8');

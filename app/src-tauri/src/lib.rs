@@ -1539,6 +1539,44 @@ fn universal_injection_script() -> String {
     )
 }
 
+/// Android hands the page a MessagePort to the native TFLite engine
+/// (NativeInfer.kt): MainActivity posts a WebMessage tagged
+/// `ts-native-port` from onPageStarted, with the port attached. The gaze
+/// bundle evaluates well after that message can land, so this
+/// document-start script parks the port on `window.__TS_NATIVE_PORT` and
+/// announces it with a `ts-native-port` CustomEvent; init-entry adopts it
+/// from either (native-client.mjs). A page script cannot forge the
+/// message: one posted by Kotlin arrives with no source window and an
+/// empty origin, and both are checked. Every message that reaches the
+/// listener is counted first (`__TS_NATIVE_PORT_SEEN`) so a device probe
+/// can tell "never delivered" from "delivered and refused".
+fn native_port_stash_script() -> &'static str {
+    r#"
+(function () {
+  try {
+    if (window.top !== window) return;
+    window.addEventListener("message", function (e) {
+      try {
+        if (!e || e.data !== "ts-native-port") return;
+        window.__TS_NATIVE_PORT_SEEN = (window.__TS_NATIVE_PORT_SEEN || 0) + 1;
+        if (e.source !== null || e.origin !== "") return;
+        if (!e.ports || !e.ports[0]) return;
+        window.__TS_NATIVE_PORT = e.ports[0];
+        window.dispatchEvent(new CustomEvent("ts-native-port"));
+      } catch (x) {}
+    });
+  } catch (e) {}
+})();
+"#
+}
+
+/// Everything Android runs at document start, in order: the worker
+/// prestart, the native-port stash, the universal rules script.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+fn android_init_script(mode: &str) -> String {
+    worker_prestart_script(mode) + native_port_stash_script() + &universal_injection_script()
+}
+
 /// The plugin carrying `universal_injection_script` into every webview.
 /// Android-only: on desktop each platform window gets its own richer
 /// script (vendor cosmetics, scriptlets, mode and shown prefs) and this
@@ -1546,7 +1584,7 @@ fn universal_injection_script() -> String {
 #[cfg(target_os = "android")]
 fn injection_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("ts-inject")
-        .js_init_script(worker_prestart_script(gaze_state()) + &universal_injection_script())
+        .js_init_script(android_init_script(gaze_state()))
         // Gaze rides page-load events because the mode is runtime state:
         // eval at Started so blur-first holds (the document exists but
         // nothing has painted), again at Finished as the fallback when
@@ -1793,6 +1831,27 @@ mod tests {
     /// EasyPrivacy and the uBO lists all along and was never asked about
     /// a single network request. These four URLs were MEASURED reaching
     /// the network from one YouTube watch page in the dev app.
+    // Task 4 of plan 2026-09-02-native-inference: the port Kotlin posts is
+    // useless unless a document-start script is there to catch it -- the
+    // gaze bundle evaluates too late -- and it rides the SAME init script
+    // as the prestart, so a change to either can drop the other.
+    #[test]
+    fn android_init_script_carries_the_native_port_stash() {
+        let s = android_init_script("smart");
+        let stash = native_port_stash_script();
+        assert!(stash.contains("\"ts-native-port\""));
+        assert!(stash.contains("window.__TS_NATIVE_PORT = e.ports[0]"));
+        assert!(stash.contains("new CustomEvent(\"ts-native-port\")"));
+        // The forgery check: a page script's postMessage always carries a
+        // source window; Kotlin's WebMessage never does.
+        assert!(stash.contains("e.source !== null || e.origin !== \"\""));
+        assert!(stash.contains("window.top !== window"));
+        let a = s.find("__TS_PRESTART_RAN").expect("prestart in the init script");
+        let b = s.find("__TS_NATIVE_PORT_SEEN").expect("stash in the init script");
+        let c = s.find(&universal_injection_script()[..40]).expect("universal script in the init script");
+        assert!(a < b && b < c, "order: prestart, stash, universal");
+    }
+
     #[test]
     fn blocks_the_ad_requests_that_were_measured_getting_through() {
         let page = "https://www.youtube.com/watch?v=E4lnTIJaz-g";

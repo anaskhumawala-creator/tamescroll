@@ -34,7 +34,7 @@ test('the wrapped resolve calls the ORIGINAL, not itself', function () {
 });
 
 test('the player pass takes a baseline before its first request', function () {
-  assert.match(init, /var waitBase = workerVideo\(\) && gazeWorker \? gazeWorker\.waitMs\(\) : null;/);
+  assert.match(init, /var waitBase = workerVideo\(\) \? vid\(\)\.waitMs\(\) : null;/);
   var base = init.indexOf('var waitBase =');
   var call = init.indexOf('runPass(wasVerdict, mark');
   assert.ok(base > 0 && call > base, 'the baseline must precede the pass');
@@ -44,7 +44,7 @@ test('the player pass charges only what it spent here, floored at zero', functio
   var i = init.indexOf('var mine = cost;');
   assert.ok(i > 0);
   var seg = init.slice(i, i + 400);
-  assert.match(seg, /gazeWorker\.waitMs\(\) - waitBase/);
+  assert.match(seg, /vid\(\)\.waitMs\(\) - waitBase/);
   assert.match(seg, /Math\.max\(0, cost - waited\)/);
   assert.match(seg, /noteSpend\(performance\.now\(\), mine\)/);
 });
@@ -54,7 +54,7 @@ test('the in-page path is still charged in full', function () {
   // subtraction cannot fire: that time really was spent on this thread.
   var i = init.indexOf('var mine = cost;');
   var seg = init.slice(i, i + 400);
-  assert.match(seg, /if \(waitBase !== null && gazeWorker\)/);
+  assert.match(seg, /if \(waitBase !== null\)/);
 });
 
 test('lastVerdictMs still measures WALL time, because cadence is about the gap', function () {

@@ -16,6 +16,7 @@
 import * as dom from './dom.js';
 import { shouldRetry } from './image-retry.mjs';
 import { wantPersons, notePersons, resetPersonSkip, forcePersonLook, personsLive } from './person-skip.mjs';
+import { createNativeClient, NATIVE_INFER } from './native-client.mjs';
 import * as cadence from './cadence.mjs';
 import * as detector from './detector.js';
 import {
@@ -527,7 +528,107 @@ if (
   // How long a playing video waits for a worker that is up but has not
   // reported its models yet, before this page loads its own set.
   var WORKER_VIDEO_GRACE_MS = 3000;
+  // NATIVE INFERENCE (plan 2026-09-02-native-inference). Android hands the
+  // page a MessagePort to a TFLite engine (NativeInfer.kt); the
+  // document-start stash in lib.rs parks it on window.__TS_NATIVE_PORT and
+  // announces it. When that client is ready and NATIVE_INFER > 0, every
+  // player-path model call goes through it instead of the WebGL worker --
+  // same result shapes, so the policy above the accessor does not know.
+  // One-way on failure: a client that dies (3 consecutive failures) stays
+  // dead for the page and vid() falls back to the worker.
+  var nativeClient = null;
+  var nativeDeadCounted = false;
+  function nativeLife(key) {
+    try {
+      var d = (window.__TS_GAZE_IDS = window.__TS_GAZE_IDS || {});
+      d.life = d.life || {};
+      if (d.life.nativeReady === undefined) {
+        d.life.nativeReady = 0;
+        d.life.nativeFailed = 0;
+        d.life.nativeDead = 0;
+        d.life.nativePasses = 0;
+      }
+      d.life[key] = (d.life[key] || 0) + 1;
+    } catch (e) {}
+  }
+  function nativeMark(k, v) {
+    try {
+      var t = (window.__TS_GAZE_NATIVE = window.__TS_GAZE_NATIVE || {});
+      t[k] = v;
+    } catch (e) {}
+  }
+  function nativeVideo() {
+    try {
+      if (!nativeClient) return false;
+      if (nativeClient.dead()) {
+        if (!nativeDeadCounted) {
+          nativeDeadCounted = true;
+          nativeLife('nativeDead');
+          nativeMark('dead', Math.round(performance.now()));
+        }
+        return false;
+      }
+      return NATIVE_INFER > 0 && nativeClient.genderReady();
+    } catch (e) {
+      return false;
+    }
+  }
+  // The engine the player path talks to. Callers hold no reference across
+  // a pass boundary; a cid minted by one engine is released on whichever
+  // is current, and a release the other engine does not know is swept by
+  // its own TTL.
+  function vid() {
+    return nativeVideo() ? nativeClient : gazeWorker;
+  }
+  function adoptNativePort() {
+    var port = null;
+    try {
+      port = window.__TS_NATIVE_PORT || null;
+    } catch (e) {
+      port = null;
+    }
+    if (!port) return;
+    if (nativeClient && nativeClient.port === port) return;
+    if (nativeClient) {
+      // Kotlin re-bound (a second onPageStarted on this document): the
+      // old port is closed on its side, so the old client would only die.
+      try {
+        nativeClient.terminate();
+      } catch (e) {}
+      nativeClient = null;
+      nativeDeadCounted = false;
+    }
+    try {
+      nativeClient = createNativeClient(port);
+      nativeClient.port = port;
+    } catch (e) {
+      nativeClient = null;
+      nativeLife('nativeFailed');
+      nativeMark('why', String((e && e.message) || e).slice(0, 90));
+      return;
+    }
+    nativeMark('adopted', Math.round(performance.now()));
+    nativeClient.ready.then(
+      function (r) {
+        nativeLife('nativeReady');
+        nativeMark('ready', Math.round(performance.now()));
+        nativeMark('backend', (r && r.backend) || '?');
+        if (r && typeof r.initMs === 'number') nativeMark('initMs', r.initMs);
+      },
+      function (e) {
+        nativeLife('nativeFailed');
+        nativeMark('why', String((e && e.message) || e).slice(0, 90));
+      }
+    );
+  }
+  function watchNativePort() {
+    adoptNativePort();
+    try {
+      window.addEventListener('ts-native-port', adoptNativePort);
+    } catch (e) {}
+  }
   function workerVideo() {
+    if (nativeVideo()) return true;
     if (workerVideoBanned) return false;
     try {
       return !!(
@@ -560,13 +661,13 @@ if (
   // in-page test is unchanged; the worker's is its own staged readiness
   // (face + gender), which is the same pair `genderSettled` gates on.
   function videoModelsReady() {
-    if (workerVideo()) return gazeWorker.genderReady();
+    if (workerVideo()) return vid().genderReady();
     return !!model && genderSettled;
   }
   // Is a gender read available at all? The crop path skips work it
   // cannot use when it is not.
   function genderAvailable() {
-    return workerVideo() ? gazeWorker.genderReady() : !!genderModel;
+    return workerVideo() ? vid().genderReady() : !!genderModel;
   }
   // Everything that ever wore pending/flagged, for the fail-open sweep.
   // WeakRefs + a per-element tracked flag: virtualised feeds detach
@@ -1646,7 +1747,7 @@ if (
       var askPerson = function () {
         if (failed || dead) return;
         try {
-          if (workerVideo() && gazeWorker.preloadPerson()) {
+          if (workerVideo() && vid().preloadPerson()) {
             var wm = (window.__TS_GAZE_WORKER = window.__TS_GAZE_WORKER || {});
             wm['asked:person'] = Math.round(performance.now());
             return;
@@ -2032,14 +2133,14 @@ if (
         return false;
       }
       if (workerVideo()) {
-        return gazeWorker.cropFaces(pixels).then(function (r) {
+        return vid().cropFaces(pixels).then(function (r) {
           var faces = r.faces || [];
           if (!faces.length) {
             wholeFrameLife('wholeFrameNoFaces');
-            gazeWorker.releaseCrop(r.cid);
+            vid().releaseCrop(r.cid);
             return false;
           }
-          return gazeWorker
+          return vid()
             .cropGender(r.cid, faces)
             .then(function (g) {
               return anyFlagged(g.reads || []);
@@ -2049,7 +2150,7 @@ if (
               return true;
             })
             .then(function (v) {
-              gazeWorker.releaseCrop(r.cid);
+              vid().releaseCrop(r.cid);
               return v;
             });
         });
@@ -2116,7 +2217,8 @@ if (
         return Promise.resolve(frameP)
           .then(function (bmp) {
             mark('upload');
-            return gazeWorker.videoFrame(bmp, aspect, heldPersons, withFaces, askPersons);
+            if (nativeVideo()) nativeLife('nativePasses');
+            return vid().videoFrame(bmp, aspect, heldPersons, withFaces, askPersons);
           })
           .then(function (r) {
             // Structured clone copies an array's elements, not the
@@ -2399,7 +2501,7 @@ if (
     // frame. The worker takes ownership of the bitmap.
     function genderOnPixels(pix, boxes) {
       if (workerVideo()) {
-        return gazeWorker.genderOnce(pix, boxes).then(function (r) {
+        return vid().genderOnce(pix, boxes).then(function (r) {
           return r.reads || [];
         });
       }
@@ -2553,7 +2655,7 @@ if (
         if (zpix && typeof zpix.close === 'function') zpix.close();
         if (zcid) {
           try {
-            gazeWorker.releaseCrop(zcid);
+            vid().releaseCrop(zcid);
           } catch (e) {
             /* a worker that cannot be told sweeps it on its own TTL */
           }
@@ -2568,11 +2670,11 @@ if (
       function cropGenderReads(faces) {
         if (!workerVideo()) return detector.classifyFaceGenders(genderModel, zpixRef, faces);
         if (zcid) {
-          return gazeWorker.cropGender(zcid, faces).then(function (r) {
+          return vid().cropGender(zcid, faces).then(function (r) {
             return r.reads || [];
           });
         }
-        return gazeWorker.genderOnce(zpixRef, faces).then(function (r) {
+        return vid().genderOnce(zpixRef, faces).then(function (r) {
           return r.reads || [];
         });
       }
@@ -2873,7 +2975,7 @@ if (
         var facesP = known
           ? Promise.resolve(known)
           : workerVideo()
-            ? gazeWorker.cropFaces(zpix).then(function (r) {
+            ? vid().cropFaces(zpix).then(function (r) {
                 // The crop is now the worker's; `zcid` is how the gender
                 // read reaches the same upload.
                 zcid = r.cid;
@@ -3597,7 +3699,7 @@ if (
           // See noteSpend below: everything this pass spends waiting on
           // the worker belongs to the worker, not to the main-thread
           // budget. Baseline taken before the first request goes out.
-          var waitBase = workerVideo() && gazeWorker ? gazeWorker.waitMs() : null;
+          var waitBase = workerVideo() ? vid().waitMs() : null;
           var sharedFrame = null;
           var frameDone = false;
           var releaseFrame = function () {
@@ -4527,8 +4629,8 @@ if (
               // is charged in full, which is correct -- it really did
               // spend all of it here.
               var mine = cost;
-              if (waitBase !== null && gazeWorker) {
-                var waited = gazeWorker.waitMs() - waitBase;
+              if (waitBase !== null) {
+                var waited = vid().waitMs() - waitBase;
                 if (waited > 0) mine = Math.max(0, cost - waited);
               }
               noteSpend(performance.now(), mine);
@@ -5297,6 +5399,7 @@ if (
 
   function startInferenceWorker() {
     if (!plan.boot || failed) return;
+    watchNativePort();
     // Probe escape hatch, and the only way to A/B the two paths on one
     // build. Also the switch to pull if the worker ever misbehaves on a
     // platform we cannot reproduce here.

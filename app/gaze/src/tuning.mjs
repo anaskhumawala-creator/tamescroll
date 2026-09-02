@@ -30,6 +30,7 @@ import * as personSkip from './person-skip.mjs';
 import * as cadence from './cadence.mjs';
 import * as personTrack from './person-track.mjs';
 import * as delayCore from './delay-core.mjs';
+import * as nativeClient from './native-client.mjs';
 
 export var TUNED = null;      // what actually took effect, for the report
 export var TUNE_REFUSED = 0;  // keys refused outright
@@ -287,6 +288,14 @@ var SPEC = {
   // the NEXT video attached, not one mid-play -- deliberately: a ring
   // resized under a playing video is a flush and a full-cover refill.
   DELAY_MS: [0, 2500, function (v) { delayCore.setDelayMs(v); }],
+  // NATIVE INFERENCE (plan 2026-09-02-native-inference). 1 = the player
+  // runs its models through the TFLite engine Kotlin hands the page a
+  // port for (Redmi: 255ms a verdict against 922 on WebGL); 0 = that port
+  // is ignored and the WebGL worker carries the player as 1092 did. The
+  // range is a boolean, so a pushed 0.5 clamps to nothing useful -- read
+  // as > 0 at the accessor. Pushing 0 is the way a bad native build is
+  // switched off on every phone without an install.
+  NATIVE_INFER: [0, 1, function (v) { nativeClient.setNativeInfer(v); }],
 };
 
 export function tunableNames() { return Object.keys(SPEC); }

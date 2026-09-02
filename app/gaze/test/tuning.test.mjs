@@ -17,6 +17,7 @@ import * as personSkip from '../src/person-skip.mjs';
 import * as cadence from '../src/cadence.mjs';
 import * as personTrack from '../src/person-track.mjs';
 import * as delayCore from '../src/delay-core.mjs';
+import * as nativeClient from '../src/native-client.mjs';
 
 // Every test restores the shipped values, because these modules hold
 // module-global state and a leaked dial would silently rebase every
@@ -37,6 +38,7 @@ const SHIPPED = {
   GENDER_REFRESH_MS: personTrack.GENDER_REFRESH_MS,
   CUT_PERSON_LOOK: personSkip.CUT_PERSON_LOOK,
   DELAY_MS: delayCore.DELAY_MS,
+  NATIVE_INFER: nativeClient.NATIVE_INFER,
 };
 const restore = () => applyTuning(SHIPPED);
 

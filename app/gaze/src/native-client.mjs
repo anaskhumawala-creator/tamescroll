@@ -47,6 +47,14 @@ var DEFAULT_READY_TIMEOUT_MS = 15000;
 // caller to re-draw the whole frame.
 var CROP_TTL_MS = 8000;
 
+// KILL SWITCH, on the OTA channel (tuning.mjs). 1 = the player path uses
+// the native engine whenever Kotlin handed the page a live port; 0 = the
+// WebGL worker exactly as 1092 ran it, the port ignored. A number, not
+// code: pushing 0 is how a bad native build is turned off on every phone
+// without an install.
+export var NATIVE_INFER = 1;
+export function setNativeInfer(v) { NATIVE_INFER = v; }
+
 export function createNativeClient(port, opts) {
   var o = opts || {};
   var requestTimeoutMs = typeof o.requestTimeoutMs === 'number' ? o.requestTimeoutMs : DEFAULT_REQUEST_TIMEOUT_MS;
