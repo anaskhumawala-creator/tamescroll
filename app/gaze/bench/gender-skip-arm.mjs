@@ -33,13 +33,29 @@
 // runs (JS is single-threaded and `arm(win, g)` finishes one window
 // before the next is handed to it, so there is no reentrancy hazard).
 //
-// RED-PROOF, BUILT IN: `setGenderRefreshMs(0)` makes
-// `nowMs - t.readAt >= GENDER_REFRESH_MS` true for every track that has
-// ever been read (the clock only ever advances, so `readAt` -- stamped
-// from an earlier or equal tick -- can never be ahead of `nowMs`), and
-// `!(t.readAt > 0)` catches every track that has not. So at 0 the skip
-// can never fire and the arm must reproduce CONTROL byte for byte --
-// asserted below, not merely printed.
+// RED-PROOF, BOTH HALVES ASSERTED (phase-i I5). `setGenderRefreshMs(0)`
+// makes `nowMs - t.readAt >= GENDER_REFRESH_MS` true for every track
+// that has ever been read (the clock only ever advances, so `readAt` --
+// stamped from an earlier or equal tick -- can never be ahead of
+// `nowMs`), and `!(t.readAt > 0)` catches every track that has not. So
+// at 0 the skip can never fire and the arm must reproduce CONTROL byte
+// for byte -- asserted below.
+//
+// THAT HALF ALONE CANNOT FAIL, which is exactly the defect I5 found:
+// the branch is never ENTERED at refresh 0, so it proves only that the
+// wrapper's `{...o, at: nowMs}` spread is transparent when the skip
+// never fires -- nothing about whether the CONVERSION the wrapper
+// performs when the skip DOES fire (dropping the crop+gender read,
+// pushing `{box, positionOnly: true, at}` instead) resembles what
+// init-entry.js does. A wrapper that silently dropped the stamped `at`
+// field on a fired skip, say, would still pass the refresh-0 half.
+// So the shipped-refresh run below (2000ms, `runSkip(g, 2000)`) is
+// asserted too: it must ACTUALLY exercise the branch (`fired > 0`) and
+// the resulting triple must differ from CONTROL in at least one column
+// -- if either fails, either the predicate never fires at the shipped
+// setting (in which case this arm is measuring nothing) or the skip
+// path has zero effect on the score (in which case the wrapper itself
+// is inert), and both are defects in the arm, not a tuning question.
 import { loadWin, makeArms, thinFrames, hisRegimeOpts, K_HIS, CONTROL } from './arch-arms.mjs';
 import { score } from './corpus-score.mjs';
 import { ROOT, winFiles } from './corpus-lib.mjs';
@@ -165,6 +181,19 @@ for (const g of ['man', 'woman']) {
   const shipped = runSkip(g, 2000);
   console.log(row('skip @ GENDER_REFRESH_MS=2000 (shipped)', shipped.agg, control)
     + `  fired=${shipped.skipFired}`);
+
+  // THE OTHER HALF OF THE RED-PROOF: the shipped setting must actually
+  // exercise the branch, and exercising it must actually move the
+  // triple. Neither is eyeballed.
+  const shippedDiffers = Object.keys(control).some((k) => shipped.agg[k] !== control[k]);
+  if (shipped.skipFired === 0 || !shippedDiffers) {
+    console.error(`\nRED-PROOF FAILED for ${g}: GENDER_REFRESH_MS=2000 must fire the `
+      + `skip at least once (fired=${shipped.skipFired}) and the resulting triple must `
+      + `differ from CONTROL (got ${JSON.stringify(shipped.agg)} vs `
+      + `${JSON.stringify(control)}). If it does not, this arm is not exercising the `
+      + 'skip conversion at all -- a defect in the arm, not a tuning question.');
+    process.exit(2);
+  }
 
   const exposureDelta = shipped.agg.exposureS - control.exposureS;
   const withinBudget = exposureDelta <= 1.0;

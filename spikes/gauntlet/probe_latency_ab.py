@@ -16,6 +16,18 @@ Drives the app through its REAL path (launcher -> open_platform man/smart
   - verdict / position pass counts and p50 costs from __TS_GAZE_IDS.stages
     (first-seen tagging: the ring saturates, so a diff of lengths is the
     fill, not the rate -- loop 29)
+  - "verdicts" IS THE USEFUL COUNT (phase-i I7), not every stage entry
+    with v:1. A pass the epoch guard discards (`passDropped`) still gets
+    pushed to `stages` in its `.finally`, so counting `v:1` entries alone
+    over-counts verdicts and, worse, feeds a drop-forced near-zero gap
+    (`lastZoomAt = 0` on drop) into `verdictGapP50/P95`. `verdictsDropped`
+    is the discarded half and `passesAll` is the old total (dropped +
+    useful) under its own name, not silently reused. A stage entry is
+    "useful" iff `typeof e.tracks === 'number'` -- `mark('tracks')` in
+    init-entry.js only runs past the epoch check. The raw per-entry
+    series (`vAtMs`, `vDroppedFlags`) is banked too, so a future reducer
+    can re-derive a different split (cut-forced vs free-running, say)
+    offline without a fresh device run.
   - rAF Hz and the fraction of frames with a patch up, in page
   - life counters that name the mechanism (positionPassSkipped,
     genderReadSkipped, personPassSkipped, coastExpired, birthFresh,
@@ -281,8 +293,8 @@ LAT_JS = """(function(){
   }
   var r=(window.__TS_GAZE_IDS&&window.__TS_GAZE_IDS.stages)||[]; for(var i=0;i<r.length;i++) r[i].__seen=1;
   var life=(window.__TS_GAZE_IDS&&window.__TS_GAZE_IDS.life)||{};
-  var st={v:0,p:0,vms:[],pms:[],t0:performance.now(),stopped:false,raf:0,cov:0,frames:0,
-          vAt:[],life0:JSON.parse(JSON.stringify(life)),
+  var st={v:0,p:0,vDropped:0,vms:[],pms:[],t0:performance.now(),stopped:false,raf:0,cov:0,frames:0,
+          vAt:[],vAtUseful:[],vDroppedSeries:[],life0:JSON.parse(JSON.stringify(life)),
           delayFrames:[],delaySnaps:[],lastSnapMt:null,delayStatsStart:null,delayStatsEnd:null};
   if (DELAY && window.__TS_DELAY_STATS) {
     try { st.delayStatsStart = window.__TS_DELAY_STATS().stats; } catch(e) { st.delayStatsStart = null; }
@@ -320,7 +332,24 @@ LAT_JS = """(function(){
   var iv=setInterval(function(){
     var r=(window.__TS_GAZE_IDS&&window.__TS_GAZE_IDS.stages)||[];
     for(var i=0;i<r.length;i++){ var e=r[i]; if(!e||e.__seen) continue; e.__seen=1;
-      if(e.v){ st.v++; if(typeof e.end==='number'){ st.vms.push(Math.round(e.end)); } st.vAt.push(Math.round(performance.now()-st.t0)); }
+      if(e.v){
+        // A stage entry only reaches `mark('tracks')` (init-entry.js,
+        // right after updatePersonTracks) once it is PAST the epoch-drop
+        // check -- the branch that bumps `passDropped` and returns early
+        // never runs it. So `typeof e.tracks !== 'number'` is exactly a
+        // dropped pass (phase-i I7): it still gets counted in `st.v`/
+        // `vAt` (banked as `passesAll`/the raw series below, unchanged
+        // shape), but excluded from `vAtUseful`, which is what gaps are
+        // computed from now.
+        var useful=typeof e.tracks==='number';
+        st.v++;
+        if(!useful) st.vDropped++;
+        if(typeof e.end==='number'){ st.vms.push(Math.round(e.end)); }
+        var atMs=Math.round(performance.now()-st.t0);
+        st.vAt.push(atMs);
+        st.vDroppedSeries.push(useful?0:1);
+        if(useful) st.vAtUseful.push(atMs);
+      }
       else { st.p++; if(typeof e.end==='number') st.pms.push(Math.round(e.end)); } }
   },200);
   window.__TS_LAT=function(){ clearInterval(iv); st.stopped=true;
@@ -389,7 +418,17 @@ def main():
 
     raw = t.eval("(function(){return window.__TS_LAT?window.__TS_LAT():'{}';})()")
     st = json.loads(raw) if isinstance(raw, str) else (raw or {})
-    gaps = [b - a for a, b in zip(st.get("vAt", []), st.get("vAt", [])[1:])]
+    # PHASE-I I7: `st["vAt"]` includes passes the epoch guard DISCARDED
+    # (`passDropped`) -- they still get a stage entry with `v:1`, so a gap
+    # computed over the whole series mixes cadence gaps with drop-forced
+    # near-zero gaps (`lastZoomAt = 0` on drop) and cut-forced ones. Gaps
+    # are computed over `vAtUseful` -- the entries that reached
+    # `mark('tracks')`, i.e. were NOT dropped -- only. The full raw series
+    # (`vAt` + a same-length `vDroppedSeries` of 0/1 flags) is banked
+    # alongside it so a re-derivation offline does not need a fresh device
+    # run to change how the gap is computed.
+    vAtUseful = st.get("vAtUseful", [])
+    gaps = [b - a for a, b in zip(vAtUseful, vAtUseful[1:])]
     life0 = st.get("life0", {})
     life = st.get("life", {})
     dl = {k: life.get(k, 0) - life0.get(k, 0) for k in
@@ -398,12 +437,29 @@ def main():
     out = {
         "label": LABEL, "video": VIDEO, "seek": SEEK, "secs": round(st.get("secs", 0), 1),
         "bundle": json.loads(pre).get("bundle") if isinstance(pre, str) else None,
-        "verdicts": st.get("v"), "positions": st.get("p"),
+        # "verdicts" now means USEFUL verdicts -- passes that were not
+        # dropped by the epoch guard and actually reached the tracker.
+        # "passesAll" is the OLD meaning of "verdicts" (every stage entry
+        # with v:1, dropped or not) -- kept under its own name so nothing
+        # that read the old field silently gets a smaller number under
+        # the same key. "verdictsDropped" is the other half of passesAll.
+        "verdicts": len(vAtUseful), "verdictsDropped": st.get("vDropped"),
+        "passesAll": st.get("v"), "positions": st.get("p"),
         "verdictMsP50": pct(st.get("vms", []), 0.5), "verdictMsP95": pct(st.get("vms", []), 0.95),
         "positionMsP50": pct(st.get("pms", []), 0.5),
         "verdictGapP50": pct(gaps, 0.5), "verdictGapP95": pct(gaps, 0.95),
+        # Old field, unchanged meaning (secs / OLD "verdicts", i.e. every
+        # stage entry). secsPerVerdictUseful is the corrected reading I7
+        # asked for -- 1.53s vs 2.94s, not the mixture this used to print.
         "secsPerVerdict": round(st.get("secs", 0) / max(1, st.get("v", 0)), 2),
+        "secsPerVerdictUseful": round(st.get("secs", 0) / max(1, len(vAtUseful)), 2),
         "rafHz": st.get("rafHz"), "coverage": st.get("coverage"),
+        # Raw per-entry series, banked going forward (I7): the ms-since-t0
+        # of every verdict-shaped stage entry, and a same-length 0/1 flag
+        # for "this one was dropped". Lets a future reducer re-derive
+        # useful/all/cut-forced/free-running gap series offline without a
+        # fresh device run.
+        "vAtMs": st.get("vAt", []), "vDroppedFlags": st.get("vDroppedSeries", []),
         "lifeDelta": dl, "tuning": (st.get("tuning") or {}).get("applied"),
         "coastMs": (st.get("tuning") or {}).get("coastMs"), "toldMs": (st.get("tuning") or {}).get("toldMs"),
         "slotsN": [s.get("n") for s in st.get("slots", [])], "delay": st.get("delay"), "video_state": st.get("video"),

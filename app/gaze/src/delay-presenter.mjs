@@ -35,8 +35,24 @@ var Z_INDEX = 15;
 // the refill cover too instead of a second, disagreeing constant.
 var COVER_FILTER = 'blur(var(--ts-blur-strong, 24px))';
 // HTMLVideoElement exposes no synchronous fps. His phone decodes 640x360
-// at 30fps (findings loop 38); that is the regime this ring is sized for.
+// at 30fps (findings loop 38); that is the FALLBACK this ring is sized
+// for until enough real samples exist to measure it (I9). A hard-coded
+// 30 with no measurement left a 60fps stream's ring spanning 0.75s of a
+// 1.0s delay: `pickPresent` returned -1 forever and the presenter never
+// left 'refilling' -- permanent whole-video blur, which is the exposure
+// that matters (a user who sees that turns the feature off).
 var ASSUMED_FPS = 30;
+// Rolling window of instantaneous fps samples (1 / mediaTime delta)
+// between consecutive rVFC callbacks -- the real output cadence, not
+// affected by whether a given frame's capture succeeds.
+var FPS_SAMPLES_MAX = 30;
+var FPS_SAMPLES_MIN = 10;
+// How far the measured fps must drift from what the ring is CURRENTLY
+// sized for before the eviction budget is re-derived. Without a
+// threshold, per-frame timer jitter would thrash `ringBudget`'s frame
+// count every single capture; a real rate change (30fps content next to
+// 60fps content, say) must still move it.
+var FPS_RESIZE_THRESHOLD = 0.2;
 var ERRORS_MAX = 8;
 
 /**
@@ -69,6 +85,11 @@ export function attachDelay(video, host, opts) {
     capFailed: 0,
     ring: 0,
     late: 0,
+    // I9: a presentation forced past the target because the ring is at
+    // its own cap and cannot hold anything older -- the delay
+    // effectively shrank for that frame rather than the picture staying
+    // frozen/covered. See presentTick.
+    delayCollapsed: 0,
     errors: [],
   };
   function noteError(label, e) {
@@ -77,6 +98,15 @@ export function attachDelay(video, host, opts) {
   }
 
   var ring = []; // [{ bitmap, mediaTime, at }], ascending by mediaTime (capture order)
+  // I9: rolling fps measurement. `fpsSamples` holds instantaneous fps
+  // values (1 / mediaTime delta) from consecutive rVFC callbacks;
+  // `sizedForFps` is the rate the ring's CURRENT eviction budget was
+  // last derived from -- only re-derived when the measured rate has
+  // moved past FPS_RESIZE_THRESHOLD, so ordinary sample jitter cannot
+  // thrash the ring size every frame.
+  var fpsSamples = [];
+  var lastCaptureMediaTime = null;
+  var sizedForFps = ASSUMED_FPS;
   // Blur-first: covered until the ring has filled enough for a real pick.
   var refillState = 'refilling';
   var externalCover = false;
@@ -136,10 +166,40 @@ export function attachDelay(video, host, opts) {
     }
   }
 
+  // I9: called once per rVFC callback with that frame's own mediaTime,
+  // BEFORE capture is attempted -- the output cadence is real whether or
+  // not this particular frame's async createImageBitmap succeeds.
+  function noteFrameInterval(mediaTime) {
+    if (lastCaptureMediaTime != null) {
+      var dt = mediaTime - lastCaptureMediaTime;
+      // Only a sane, forward, sub-second gap counts. A seek/loadstart
+      // (flush resets lastCaptureMediaTime) or a non-monotonic read must
+      // not corrupt the estimate with a division by a near-zero or
+      // negative delta.
+      if (dt > 0 && dt < 1) {
+        fpsSamples.push(1 / dt);
+        if (fpsSamples.length > FPS_SAMPLES_MAX) fpsSamples.shift();
+      }
+    }
+    lastCaptureMediaTime = mediaTime;
+  }
+
+  function measuredFps() {
+    if (fpsSamples.length < FPS_SAMPLES_MIN) return ASSUMED_FPS;
+    var sorted = fpsSamples.slice().sort(function (a, b) {
+      return a - b;
+    });
+    return sorted[Math.floor(sorted.length / 2)];
+  }
+
   function currentBudget() {
     var w = video.videoWidth || 640;
     var h = video.videoHeight || 360;
-    return ringBudget(w, h, ASSUMED_FPS, delayMs);
+    var fps = measuredFps();
+    if (Math.abs(fps - sizedForFps) / sizedForFps > FPS_RESIZE_THRESHOLD) {
+      sizedForFps = fps;
+    }
+    return ringBudget(w, h, sizedForFps, delayMs);
   }
 
   function flush(why) {
@@ -153,10 +213,16 @@ export function attachDelay(video, host, opts) {
     stats.flushes++;
     presentedMediaTimeVal = null;
     refillState = refillStep(refillState, 'flush');
+    // I9: a discontinuity's mediaTime jump must not be read as a frame
+    // interval (it would corrupt the fps estimate, possibly badly), so
+    // the sample history resets with it. `sizedForFps` is left alone --
+    // a seek does not change the stream's own frame rate.
+    fpsSamples = [];
+    lastCaptureMediaTime = null;
     applyCover();
   }
 
-  function presentTick() {
+  function presentTick(budget) {
     if (detached) return;
     var target;
     try {
@@ -166,9 +232,28 @@ export function attachDelay(video, host, opts) {
       return;
     }
     var pick = pickPresent(ring, target);
+    var collapsed = false;
     if (pick < 0) {
-      stats.late++;
-      return;
+      // I9: normally "nothing old enough yet" means wait for the next
+      // capture. But when the ring is already at its OWN eviction cap
+      // and its oldest entry is still newer than the target, waiting
+      // can never help -- the cap guarantees nothing older will ever
+      // arrive (each new capture evicts the oldest first). Left alone
+      // this is a PERMANENT freeze: pickPresent returns -1 forever,
+      // refillState never leaves 'refilling', and the whole video stays
+      // covered for the life of the page. Present the oldest entry
+      // anyway -- the delay effectively shrinks for this frame, which
+      // is the safe direction (still covering, never exposing a frame
+      // detection has not seen) -- and count it separately so a report
+      // can tell "waiting normally" apart from "the ring cannot serve
+      // the requested delay".
+      if (ring.length > 0 && budget && ring.length >= budget.frames && ring[0].mediaTime > target) {
+        pick = 0;
+        collapsed = true;
+      } else {
+        stats.late++;
+        return;
+      }
     }
     var entry = ring[pick];
     try {
@@ -178,6 +263,7 @@ export function attachDelay(video, host, opts) {
       }
       if (ctx) ctx.drawImage(entry.bitmap, 0, 0, canvas.width, canvas.height);
       stats.presented++;
+      if (collapsed) stats.delayCollapsed++;
       presentedMediaTimeVal = entry.mediaTime;
     } catch (e) {
       noteError('present', e);
@@ -224,14 +310,17 @@ export function attachDelay(video, host, opts) {
         noteError('onFrame', e);
       }
     }
-    presentTick();
+    presentTick(budget);
   }
 
   function onVideoFrame(now, meta) {
     if (detached) return;
+    var mediaTime = meta && typeof meta.mediaTime === 'number' ? meta.mediaTime : video.currentTime;
+    // I9: fed from the real rVFC cadence before anything else touches
+    // this frame, so the fps estimate is not skewed by capture success.
+    noteFrameInterval(mediaTime);
     var budget = currentBudget();
     var resizeOpts = budget.scale !== 1 ? { resizeWidth: budget.w, resizeHeight: budget.h } : {};
-    var mediaTime = meta && typeof meta.mediaTime === 'number' ? meta.mediaTime : video.currentTime;
     var atMs = now;
     try {
       Promise.resolve(createImageBitmap(video, resizeOpts)).then(
@@ -387,6 +476,7 @@ export function attachDelay(video, host, opts) {
       capFailed: stats.capFailed,
       ring: stats.ring,
       late: stats.late,
+      delayCollapsed: stats.delayCollapsed,
       errors: stats.errors.slice(),
     };
   }

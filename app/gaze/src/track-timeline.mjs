@@ -131,6 +131,27 @@ function lerpBox(boxA, boxB, frac) {
   };
 }
 
+// I8: how far the only-in-B (born) branch pads B's box outward, as a
+// fraction of the box's own width/height, on every side. `boxesAt`
+// scales this by (1 - frac) so the pad is maximal at A (frac 0, the
+// oldest media time the back-dated box is presented for) and shrinks to
+// exactly zero at B itself (frac 1) -- covering the SWEPT region a
+// moving entrant crossed between A and B, never just their B-time
+// endpoint. One rectangle, still solid -- a pad, never a split.
+export var BIRTH_BACKDATE_PAD = 0.15;
+
+function padBoxTowardBirth(box, frac) {
+  var amt = BIRTH_BACKDATE_PAD * (1 - frac);
+  var px = (box.x2 - box.x1) * amt;
+  var py = (box.y2 - box.y1) * amt;
+  return {
+    x1: Math.max(0, box.x1 - px),
+    y1: Math.max(0, box.y1 - py),
+    x2: Math.min(1, box.x2 + px),
+    y2: Math.min(1, box.y2 + py),
+  };
+}
+
 /**
  * Boxes to present for mediaTime, following the six rules:
  *
@@ -147,8 +168,14 @@ function lerpBox(boxA, boxB, frac) {
  *    uncover anyone.
  * 5. A track only in B (born by B): if a cut falls in (m, B.t] it is
  *    omitted (it was not in the presented frame's shot); otherwise it
- *    is back-dated to B's box/state from A onward -- zero exposure,
- *    at most one verdict interval of false cover.
+ *    is back-dated to B's box/state from A onward, padded outward by up
+ *    to BIRTH_BACKDATE_PAD (shrinking to zero exactly at B) rather than
+ *    held at B's own box unpadded -- a moving entrant is covered along
+ *    the swept region between where they were seen and where the
+ *    back-dated frame presents them, not just their B-time position
+ *    (phase-i I8: an unpadded hold left a walking-in subject sharp at
+ *    their real position for up to one verdict interval, exactly what
+ *    the delay line exists to remove).
  *
  * @param {ReturnType<typeof makeTimeline>} tl
  * @param {number} mediaTime
@@ -202,9 +229,11 @@ export function boxesAt(tl, mediaTime) {
     if (seenB[tb2.id]) continue;
     // Only in B: born by B. A cut strictly after mediaTime (and at or
     // before B) means the presented frame is in a shot before the one
-    // this track was ever seen in -- omit it. Otherwise back-date it.
+    // this track was ever seen in -- omit it. Otherwise back-date it,
+    // padded toward the swept region (I8) rather than held at B's own
+    // box unpadded.
     if (cutBetween(tl, mediaTime, B.mediaTime)) continue;
-    out.push({ id: tb2.id, box: tb2.box, state: tb2.state });
+    out.push({ id: tb2.id, box: padBoxTowardBirth(tb2.box, frac), state: tb2.state });
   }
 
   return out;

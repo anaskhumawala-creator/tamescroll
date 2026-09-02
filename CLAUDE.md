@@ -365,8 +365,13 @@ and deriving a **1250ms coast** where his phone is told **2000** and
 coasts **4000**. Four published tables were measured that way and
 **three REVERSED** when re-run. Any arm that does not pin one now writes
 a loud stderr block. **Pass `hisRegimeOpts(g)` and `thinFrames(w,
-K_HIS)`.** Self-check: the control row must read **man 22.5 / 136.5 /
-547.5**, **woman 25.5 / 201.5 / 628.0**. Do not maintain that list by
+K_HIS)`.** Self-check: the control row must read **man 13.5 / 117.5 /
+477.5**, **woman 15.0 / 181.0 / 569.5** (phase-i I1 -- moved from 22.5 /
+136.5 / 547.5 and 25.5 / 201.5 / 628.0 because `HIS_EFFZOOM`/`K_HIS`
+were a hand-picked `2000`/`3` literal, exactly the re-derived-shipped-
+rule failure rule 1 above describes; they are now DERIVED from a banked
+device measurement, `bench/his-regime.json`, through the shipped
+`cadence.mjs` constants -- never a copy). Do not maintain that list by
 hand -- `arch-arms.CONTROL` is the single source and
 `test/control-triple.test.mjs` runs the shipped arm over the corpus to
 assert it.

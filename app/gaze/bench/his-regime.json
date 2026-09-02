@@ -1,0 +1,8 @@
+{
+  "source": "spikes/gauntlet/latency-ab-stageA.json",
+  "verdictMsP50": 705,
+  "verdictGapP50": 1201,
+  "toldMsP50": 1589,
+  "coastMs": 3179,
+  "measured": "2026-09-02 Redmi M2010J19SI, man mode, NWoT1ZVd1Lo@55, 150s"
+}

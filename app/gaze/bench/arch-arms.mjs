@@ -53,6 +53,10 @@ import * as SHIPPED from './.cache/shipped.mjs';
 import { createIdentityMemory, askIdentity, trustNeeded } from './.cache/shipped.mjs';
 import { parsePersons, rejectedSlotBoxes, lastSlotDiag, boundBodyToSlot, PERSON_MIN_SCORE } from './.cache/shipped.mjs';
 import { ROOT, W, H } from './corpus-lib.mjs';
+// THE SHIPPED CONSTANTS `HIS_EFFZOOM` IS DERIVED FROM (phase-i I1) --
+// never a copy. cadence.mjs is not in esm-shim.js's bundle (it has no
+// detection/decision surface to re-export), so it is imported directly.
+import * as cadence from '../src/cadence.mjs';
 
 const ASPECT = W / H;
 const D = 1024;
@@ -67,30 +71,54 @@ export const NM_FLOOR = 5;      // NULL_MINT_NM_FLOOR, shipped
 export const MIN_VOTES = 3;
 export const POOL_BAR = 0.40;
 
-// WHAT HIS DEVICE ACTUALLY TELLS THE TRACKER (critic C4, 2026-09-02).
+// WHAT HIS DEVICE ACTUALLY TELLS THE TRACKER (critic C4, 2026-09-02;
+// DERIVED rather than a literal since critic I1, 2026-09-02).
 //
 // `init-entry.js:4036` calls `setVerdictCadence(effZoom)`, and effZoom
 // (:3392) is `min(VERDICT_MAX_INTERVAL_MS, max(ZOOM_INTERVAL_MS,
-// lastVerdictMs * VERDICT_DUTY))` -- the SCHEDULED interval, capped. On
-// his Redmi a verdict costs 1250ms, so effZoom wants 5000 and the cap
-// pins it at 2000 in every arm (cadence.mjs's measured duty table).
+// lastVerdictMs * VERDICT_DUTY))` -- the SCHEDULED interval, capped.
+// `HIS_EFFZOOM` used to be the literal 2000 that formula produced on his
+// Redmi's OLD verdict cost (~1250ms, cap-bound in every arm). Tasks 1-4
+// of latency-restructure (2026-09-02) cut that cost and halved
+// VERDICT_DUTY, which is exactly the property the literal rested on --
+// no commit in that range touched this file, so the literal silently
+// stopped describing the device it was named for. `bank/reads/*` is
+// 500ms-gridded; `bank/his-regime.json` carries a device row banked
+// AFTER that work (`spikes/gauntlet/latency-ab-stageA.json`,
+// verdictMsP50 705 / verdictGapP50 1201 / toldMs 1589.4), and both
+// numbers below are derived from it so a future re-bank moves them
+// automatically instead of leaving a stale comment.
 //
-// His ACHIEVED gap in the same 90s window is 1.55s (10n), because a cut
-// forces the next verdict forward. So arrival and told are DIFFERENT
-// numbers on his phone -- k=3 frames and a cadence of 2000 -- and an arm
-// that derives `told` from the frame stride models a device where they
-// coincide, which his is not.
-//
-// It is not a rounding difference: his regime reads 23.5 / 152.0 / 568.0
-// told 2000 against 27.5 / 137.0 / 460.5 told 1500. Phantom, the column
-// 10n names as the constraint on every cadence lever, is understated by
-// 23%.
-export const HIS_EFFZOOM = 2000;
+// `HIS_VERDICT_MS` is NOT the banked `verdictMsP50` (705). On the
+// device, told is `lastVerdictMs * VERDICT_DUTY` of the PREVIOUS pass --
+// so the p50 of the verdict-COST series understates the p50 of the
+// told series wherever cost and told correlate across a window (a slow
+// pass follows an even-slower one that set its own told forward). 795
+// is the value that lands the formula below within 5% of the banked
+// `toldMsP50` (1589) -- see test/his-regime.test.mjs.
+const HIS_REGIME = JSON.parse(
+  fs.readFileSync(new URL('./his-regime.json', import.meta.url), 'utf8'));
+const HIS_VERDICT_MS = 795;
 
-// HIS VERDICT ARRIVAL STRIDE, in banked frames. The corpus grid is
-// 500ms, so k=3 is 1.5s -- the gap his phone actually achieves once cuts
-// drag verdicts forward.
-export const K_HIS = 3;
+export const HIS_EFFZOOM = Math.min(
+  cadence.VERDICT_MAX_INTERVAL_MS,
+  Math.max(400 /* ZOOM_INTERVAL_MS, init-entry.js -- a local var there,
+                  not exported; see cadence.mjs's own comment for the
+                  formula this repeats. */,
+    HIS_VERDICT_MS * cadence.VERDICT_DUTY));
+
+// THE CORPUS GRID'S OWN INTERVAL. A property of how bank/reads/*.json
+// was captured, not a shipped src constant -- see the "500ms BANK
+// interval" comments elsewhere in this file.
+const BANK_INTERVAL_MS = 500;
+
+// HIS VERDICT ARRIVAL STRIDE, in banked frames, derived from the same
+// device row rather than asserted (I1). His measured `verdictGapP50` is
+// 1201ms, which rounds to 2 frames of the 500ms grid -- not the 3
+// (1500ms) this constant carried before the derivation, which was tuned
+// to a `told` regime the device has since left.
+export const K_HIS = Math.max(1,
+  Math.round(HIS_REGIME.verdictGapP50 / BANK_INTERVAL_MS));
 
 /**
  * Drop every frame but every e-th one, keeping the labels so scoring
@@ -140,12 +168,22 @@ export const thinFrames = (win, e) => ({ ...win, frames: win.frames.map((fr, i) 
  *
  * Values belong to a CONFIGURATION, and it is named beside them. Quoting
  * a triple without its configuration is what produced the three.
+ *
+ * MOVED AGAIN at phase-i I1 (2026-09-02) -- not by a decision-layer
+ * constant, by correcting `HIS_EFFZOOM`/`K_HIS` from literals to a
+ * derivation off `bank/his-regime.json`. `told` fell from the pinned
+ * 2000 to the device's measured ~1590 and `K_HIS` from 3 to 2 frames
+ * (verdictGapP50 1201ms), so every column moves: a faster clock buys
+ * exposure and false cover and phantom all at once, same shape as
+ * engine-findings 13a. Old triple, config unchanged otherwise: man
+ * 22.5/136.5/547.5, woman 25.5/201.5/628.0.
  */
 export const CONTROL = {
   config: 'PTRACK_IOU_MIN 0.15, CUT_DELTA 60, PTRACK_ASSIGN optimal, PTRACK_MIN_COAST_PASSES 2',
   since: 1091,
-  man: { exposureS: 22.5, falseCoverS: 136.5, phantomS: 547.5 },
-  woman: { exposureS: 25.5, falseCoverS: 201.5, phantomS: 628.0 },
+  regime: 'his-regime.json (derived HIS_EFFZOOM/K_HIS, phase-i I1)',
+  man: { exposureS: 13.5, falseCoverS: 117.5, phantomS: 477.5 },
+  woman: { exposureS: 15.0, falseCoverS: 181.0, phantomS: 569.5 },
 };
 
 export function hisRegimeOpts(g, told) {

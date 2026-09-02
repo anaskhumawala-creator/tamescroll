@@ -214,10 +214,20 @@ test('attachDelay mounts a ts-gaze-delay canvas over the video and hides it; det
 test('detach removes the canvas and restores opacity even after frames have been presented', async () => {
   var { host, video, presenter } = setup({ delayMs: 1000 });
   video.currentTime = 0;
-  driveFrame(video, 0, 1000);
+  driveFrame(video, 0, 1000); // currentTime still 0 here -> target -1, nothing old
+  await flushAsync(); // enough to present yet; this capture is only banked for later.
+  assert.equal(presenter.stats().late, 1, 'sanity: the first capture must miss its own pick');
+
+  video.currentTime = 1.0; // past the 1000ms delay: presentTarget(1.0, 1000, 1) = 0, so
+  driveFrame(video, 1.0, 1001); // the mediaTime-0 frame captured above is now old enough.
   await flushAsync();
+  assert.equal(presenter.stats().presented, 1, 'sanity: a frame must actually be presented');
+
   var canvas = host.children.find((c) => c.className === 'ts-gaze-delay');
   assert.ok(canvas);
+  assert.ok(canvas._ctx.calls.length > 0, 'no drawImage call was ever recorded on the canvas');
+  assert.notEqual(presenter.presentedMediaTime(), null, 'presentedMediaTime must be set before detach');
+
   presenter.detach();
   assert.ok(!host.children.includes(canvas), 'canvas not removed on detach');
   assert.equal(video.style.opacity, '');
@@ -257,18 +267,49 @@ test('captures via createImageBitmap into a ring and presents the newest entry a
   assert.equal(presenter.stats().refills, 1, 'no second refill once live');
 });
 
-test('the ring never exceeds the ringBudget frame count', async () => {
-  var { video, presenter, bitmaps } = setup({ delayMs: 1000 }); // budget.frames = 45
-  video.currentTime = 0; // held fixed: presentTarget stays negative, so nothing is ever
-  // picked for presentation -- only the ring's own size cap can shrink it.
+test('the ring never exceeds the ringBudget frame count, and a permanently-unreachable target still gets served once the ring is full', async () => {
+  var { video, presenter, bitmaps } = setup({ delayMs: 1000 }); // budget.frames = 45 at ~30fps
+  video.currentTime = 0; // held fixed: presentTarget stays negative, so a normal pick can
+  // never succeed on media-time grounds alone. Before I9 that meant the ring filled to
+  // its cap and sat there forever with 0 presentations -- permanently covered. The I9
+  // collapse fallback means it must not: once the ring is full and its oldest entry is
+  // still newer than target, the oldest gets served anyway rather than never.
   for (var i = 0; i < 60; i++) {
-    driveFrame(video, i * 0.1, 1000 + i);
+    driveFrame(video, i / 30, 1000 + i); // ~30fps mediaTime cadence, matches ASSUMED_FPS
+    // -- kept off the fps-resize threshold on purpose; that path has its own test.
     await flushAsync();
     assert.ok(presenter.stats().ring <= 45, 'ring exceeded its budget at frame ' + i);
   }
-  assert.equal(presenter.stats().ring, 45);
   assert.equal(bitmaps.log.created, 60);
-  assert.equal(bitmaps.log.closed, 15, 'the 15 oldest evicted by the cap were closed');
+  // Every bitmap not currently held in the ring was closed -- true whether it left via
+  // the ring's own size cap (onCapturedFrame) or a presentTick collapse pick.
+  assert.equal(bitmaps.log.closed, 60 - presenter.stats().ring);
+  // I9: the ring being permanently unable to reach `target` must not mean nothing is
+  // ever shown -- once it fills, the collapse fallback serves the oldest entry instead
+  // of freezing covered for the rest of the session.
+  assert.ok(presenter.stats().presented > 0, 'collapse fallback never presented anything');
+  assert.ok(presenter.stats().delayCollapsed > 0, 'delayCollapsed never counted the fallback');
+});
+
+// --- behaviour 2b: I9 -- the ring budget follows the MEASURED capture fps ---
+
+test('a 60fps stream grows the ring budget past the 30fps-assumed cap once fps is measured', async () => {
+  var { video, presenter } = setup({ delayMs: 1000 });
+  // At the ASSUMED_FPS=30 default, ringBudget(1000ms) is 45 frames. If the ring stayed
+  // sized for that no matter what the stream really runs at, capturing more than 45
+  // frames of a genuinely 60fps stream (whose own 1500ms window needs 90) would evict
+  // the oldest ones -- exactly the under-provisioned-ring failure I9 exists to fix.
+  video.currentTime = 0; // held fixed like the cap test above: nothing is ever picked,
+  // so ring size is governed ENTIRELY by the budget cap, which is what this measures.
+  var t = 0;
+  for (var i = 0; i < 50; i++) {
+    driveFrame(video, t, 1000 + i);
+    t += 1 / 60; // a 60fps mediaTime cadence
+    await flushAsync();
+  }
+  // 50 captures of a stream the presenter has correctly measured at ~60fps must all
+  // still fit (budget.frames grows to 90) -- staying at the old 45 would evict 5.
+  assert.equal(presenter.stats().ring, 50, 'ring capped at the stale 30fps budget instead of growing for the measured 60fps stream');
 });
 
 // --- behaviour 3: discontinuities flush + cover; uncover on next pick --

@@ -11,6 +11,7 @@ import {
   pushCut,
   boxesAt,
   latestSnapshot,
+  BIRTH_BACKDATE_PAD,
 } from '../src/track-timeline.mjs';
 
 // Rule: no B (no snapshot with mediaTime >= m) -> null.
@@ -107,6 +108,60 @@ test('...but not across a cut that happened after the presented frame', () => {
   pushSnapshot(tl, 11.0, [{ id: 7, box: { x1: 0.4, y1: 0.1, x2: 0.6, y2: 0.9 }, state: 'blurred' }]);
   assert.equal(boxesAt(tl, 10.2).length, 0);
   assert.equal(boxesAt(tl, 10.6).length, 1);
+});
+
+// Phase-i I8: a born track's back-dated box is PADDED toward the swept
+// region, not held at B's own box unadjusted -- a moving entrant would
+// otherwise be covered at their arrival position and sharp at their
+// real one for up to a whole verdict interval. The pad shrinks to
+// exactly zero at B itself (frac 1), so the box is unmodified there.
+test('a born track is padded outward for the back-dated segment, and exact at its own verdict', () => {
+  const tl = makeTimeline(3000);
+  const bBox = { x1: 0.4, y1: 0.1, x2: 0.6, y2: 0.9 };
+  pushSnapshot(tl, 10.0, []);
+  pushSnapshot(tl, 11.0, [{ id: 7, box: bBox, state: 'blurred' }]);
+
+  // t=10.2 -> frac 0.2 -> pad amount BIRTH_BACKDATE_PAD * (1 - 0.2).
+  const w = bBox.x2 - bBox.x1, h = bBox.y2 - bBox.y1;
+  const amt = BIRTH_BACKDATE_PAD * (1 - 0.2);
+  const out = boxesAt(tl, 10.2);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].id, 7);
+  assert.equal(out[0].state, 'blurred');
+  assert.ok(Math.abs(out[0].box.x1 - (bBox.x1 - w * amt)) < 1e-9, out[0].box.x1);
+  assert.ok(Math.abs(out[0].box.x2 - (bBox.x2 + w * amt)) < 1e-9, out[0].box.x2);
+  assert.ok(Math.abs(out[0].box.y1 - (bBox.y1 - h * amt)) < 1e-9, out[0].box.y1);
+  assert.ok(Math.abs(out[0].box.y2 - (bBox.y2 + h * amt)) < 1e-9, out[0].box.y2);
+  // Genuinely padded, not a no-op -- catches a fix that computes `amt`
+  // but never applies it.
+  assert.ok(out[0].box.x1 < bBox.x1);
+  assert.ok(out[0].box.x2 > bBox.x2);
+
+  // Exactly at B (frac 1): unpadded, byte-exact.
+  const atB = boxesAt(tl, 11.0);
+  assert.deepEqual(atB[0].box, bBox);
+});
+
+test("the born-track pad clamps to the timeline's own [0,1] domain", () => {
+  const tl = makeTimeline(3000);
+  // Wide box near the left/top edge, queried just after A (frac ~0.01,
+  // near-maximal pad -- mediaTime cannot equal A's own snapshot time and
+  // still enter this branch, since that collapses A and B to one
+  // snapshot -- rule 3's shortcut, not rule 5). The pad would push
+  // x1/y1 negative without the clamp.
+  pushSnapshot(tl, 10.0, []);
+  pushSnapshot(tl, 11.0, [{ id: 9, box: { x1: 0.01, y1: 0.01, x2: 0.5, y2: 0.5 }, state: 'blurred' }]);
+  const outLow = boxesAt(tl, 10.01);
+  assert.equal(outLow[0].box.x1, 0);
+  assert.equal(outLow[0].box.y1, 0);
+
+  // Wide box near the right/bottom edge: pad would push x2/y2 past 1.
+  const tl2 = makeTimeline(3000);
+  pushSnapshot(tl2, 10.0, []);
+  pushSnapshot(tl2, 11.0, [{ id: 9, box: { x1: 0.5, y1: 0.5, x2: 0.99, y2: 0.99 }, state: 'blurred' }]);
+  const outHigh = boxesAt(tl2, 10.01);
+  assert.equal(outHigh[0].box.x2, 1);
+  assert.equal(outHigh[0].box.y2, 1);
 });
 
 // keepMs pruning.
