@@ -70,6 +70,104 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-02 10:20 (**1091 IS STILL THE RELEASE, sha
+3fef6384, and nothing user-visible changed.** HEAD 4c63d59, pushed,
+tree clean. No constant moved: this round is instruments, checks and
+two corrected numbers.)
+
+**Session 2026-09-02 (loop 45) -- PHASE G: FIVE OF THE TWELVE FINDINGS
+ARE DEFECTS IN INSTRUMENTS PHASE F HAD JUST BUILT, AND THREE REVERSE A
+CONCLUSION RATHER THAN A NUMBER.** 12 rows, 12 CONFIRMED, **no
+EXPOSURE**. Every one fixed at source. critic-gate **70/70**.
+
+- **G1: THE SYNTHETIC SHARE IS 27.5%, NOT 16.8%, AND I HAD
+  RE-IMPLEMENTED A SHIPPED RULE TO GET THE WRONG ONE.**
+  `bench/extent-reach.mjs` used a private face-in-person test:
+  **unpadded, and with no one-face-per-person rule**. The shipped
+  `faceInsideIndex` pads the person box **10% per axis** (MoveNet draws
+  it round the KEYPOINTS, so a leaning head sits just outside the person
+  it plainly belongs to) and the shipped `claimed` loop gives one box to
+  ONE face, largest first -- so **every SECOND face inside a box falls
+  through to `personFromFace` anyway**. Netted: **317 of 1,153 (27.5%)**.
+  That figure BOUNDS every extent claim in findings 20 and 21, both
+  corrected. `faceInsideIndex` / `faceOrderBySize` / `synthFaceIndices`
+  moved to `person-gate.mjs`; the app imports them and the bench imports
+  them **out of the emitted bundle** -- one copy, the
+  `crop-geometry.fitBox` remedy. `test/face-in-person.test.mjs` pins
+  both halves and is **red-proved against each** (drop the pad: 1 fail;
+  drop `claimed`: 1 fail).
+- **G2: "IT IS HEIGHT AND IT IS OCCLUSION" IS WITHDRAWN, AND IT WAS
+  TESTABLE ALL ALONG.** `ssdUnionH` floors the measured body's vertical
+  extent with the guess's and recovers **0.5s of 30.5s (1.6%)**. Width
+  past a point runs the OTHER way: **`faceW 6.0` costs 142.0s of
+  exposure (+119.5)**, six times the control -- a box wide enough to
+  swallow the neighbour's observation takes the neighbour's TRACK with
+  it. Neither axis of the EXTENT explains the residual.
+- **G7: THE EDGE ARM IS NOT FOUR TIMES MORE ACTIVE IN HIS MODE.**
+  `mnEdgeInert` fired whether the branch found a cleared neighbour and
+  declined, **or found none at all**, and the second dominates -- so
+  28.1% against 6.6% was measuring how often men clear on this footage,
+  which was already known. Split (`mnEdgeOpportunity` /
+  `mnEdgeNoNeighbour`): the branch runs 1,014 times in both arms, with a
+  neighbour **348 man / 84 woman**, and **per OPPORTUNITY the edge moves
+  81.9% against 79.8%** -- two points apart. The consequence REVERSES: a
+  woman-mode adjacency measurement is **under-powered, not structurally
+  inert**.
+- **G3, AND IT SCOPES THE WHOLE BODY-SOURCE ROUND: every `mnBody` arm is
+  BYTE-IDENTICAL TO CONTROL where MoveNet admits nobody** -- 12.0% of
+  corpus frames and **100% of his phone** (findings 36, twelve slots
+  `n:0`). So none of 21's rows describe what he runs today. Worse, **the
+  CONTROL triple both raws print is structurally blind to it**, because
+  CONTROL never builds `ssdBoxes`: it proves the downstream constants
+  and nothing about the arm beside it.
+- **G4: `--test-concurrency=1` WAS THE WRONG FIX AND ITS OWN COMMENT
+  SAID IT WORKED.** Serialising turns THREE stale-cache failures into
+  **ONE** (565 tests, 1 fail), not zero -- the first process to notice
+  still throws by design -- and costs **~30% of every run** (16.584s
+  against 12.782s). The real fix is a **`pretest`** that rebuilds ahead
+  of every test process; `_build.mjs` exits 0 when it IS the entry point
+  and throws only when imported. **583/583 first run, 12.7s.**
+- **G5: F4's FIX WAS ITSELF A DEAD CHECK** -- it re-implemented the
+  inverse map and never called `unpadPersons`, and was one-sided. Now
+  two-sided against an independent inverse; red-proved growing
+  (6.48e-1) and shrinking (6.53e-1), green 2.65e-8. **G6:** the same
+  bench exited **0** while printing "THE INVERSE MAP IS WRONG".
+- **G9: THE COUNTER-COLLISION SWEEP MATCHED TEXT, NOT WRITES.** Three
+  comment lines in `init-entry.js` explaining that `clampFired` was
+  taken counted as ownership, and the red-proof fixture demonstrated
+  only that a twice-MENTIONED name trips it -- **the fixture proved the
+  bug, not the check**. Comments stripped, only a bump SITE counts, and
+  the rule is **structural rather than a helper-name enumeration**
+  because the first two attempts reported **ZERO owners for `clampFired`
+  itself** (it bumps out of a ternary) and missed `init-entry`'s local
+  `wholeFrameLife`.
+- **G8:** `assignFellBackGreedy` seeded to 0, in optimal mode ONLY -- in
+  greedy mode a constant 0 would read as a measurement. **G10/G11** are
+  miscounts of my own banked raws. **G12** narrows F2: keypoints ARE
+  also read as absolute positions, and unclamped is still right --
+  **because every consumer is monotone toward COVERING**, not because no
+  consumer reads a position.
+- **VERIFIED R15-STYLE IN THE EMITTED BUNDLE, and the rule is READ
+  rather than merely emitted:** `hE` carries `(s.x2-s.x1)*.1` on both
+  axes, and the claim site reads `=DX(xe)` then `hE(xe[Lt],ye)` with
+  `Wn[Bo]=1;continue`.
+- **THE PATTERN WORTH CARRYING.** Phase F's lesson was "a check that
+  cannot fail is worse than no check". Phase G's is one layer up: **an
+  instrument that re-derives a shipped rule IS a check that cannot fail,
+  and I built three of them in one session** (G1, G5, G9), each after
+  writing down the rule that forbids it. The remedy worked all three
+  times: move the rule into a module, call it from both sides, delete
+  the copy.
+- gaze **583/583**, cargo **60/60**, critic-gate **70/70**.
+- **NEXT, YouTube only:** (1) push the coast dial if he rules -- no
+  install needed (2 -> 1.33 is +5.0s man / +4.0s woman of exposure for
+  141.0s and 156.5s of phantom); (2) the residual in the body source is
+  **horizontal POSITION, not extent** (G2), and it is unmeasured; (3)
+  `movenet-held` selecting runs for LOW CONTROL COVERAGE -- 12 of 15
+  runs are at ceiling today, so the arm is measuring its own headroom.
+- **THE ONE OPEN QUESTION FOR HIM IS UNCHANGED:** the coast dial is an
+  EXPOSURE trade and it is his call.
+
 **Last updated:** 2026-09-02 07:55 (**1091 PUBLISHED, sha 3fef6384**
 -- local APK, raw manifest AND the downloaded asset all agree, isDraft
 false. HEAD bfa1508, pushed, tree clean. 1090 went out 75 minutes
