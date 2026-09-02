@@ -9,6 +9,11 @@
 var lastFamily = 'none';
 var changes = 0;
 var installed = false;
+// OTA kill switch (tuning CODEC_PROBE, ships 1): init-entry installs
+// the wrappers only while this is 1. Read at boot, so a push lands on
+// the next document.
+export var CODEC_PROBE = 1;
+export function setCodecProbe(v) { CODEC_PROBE = v > 0 ? 1 : 0; }
 
 export function family(mime) {
   var m = String(mime || '').toLowerCase();
@@ -26,8 +31,11 @@ export function note(mime) {
   lastFamily = f;
 }
 
+/** `hooked` says whether the wrappers are in place (phase-n N13): a
+ * codec of 'none' with hooked 0 is a probe that never installed, with
+ * hooked 1 a player that opened no video buffer after it did. */
 export function served() {
-  return { codec: lastFamily, codecChanges: changes };
+  return { codec: lastFamily, codecChanges: changes, hooked: installed ? 1 : 0 };
 }
 
 export function _resetForTest() {

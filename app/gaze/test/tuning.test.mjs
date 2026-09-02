@@ -20,6 +20,8 @@ import * as delayCore from '../src/delay-core.mjs';
 import * as nativeClient from '../src/native-client.mjs';
 import * as perf from '../src/perf.mjs';
 import * as glPresenter from '../src/gl-presenter.mjs';
+import * as videoRegion from '../src/video-region.mjs';
+import * as codecProbe from '../src/codec-probe.mjs';
 
 // Every test restores the shipped values, because these modules hold
 // module-global state and a leaked dial would silently rebase every
@@ -41,7 +43,7 @@ const SHIPPED = {
   CUT_PERSON_LOOK: personSkip.CUT_PERSON_LOOK,
   DELAY_MS: delayCore.DELAY_MS,
   NATIVE_INFER: nativeClient.NATIVE_INFER,
-  RENDER_EVERY: 1,
+  RENDER_EVERY: videoRegion.RENDER_EVERY,
   SUSTAINED_PERF: perf.SUSTAINED_PERF,
   REFRESH_CAP_HZ: perf.REFRESH_CAP_HZ,
   THERMAL_DUTY: perf.THERMAL_DUTY,
@@ -51,8 +53,9 @@ const SHIPPED = {
   PERF_HINT: perf.PERF_HINT,
   INFER_PRIO: perf.INFER_PRIO,
   PLAYBACK_SLOW: perf.PLAYBACK_SLOW,
-  BLUR_IN_FRAME: 0,
+  BLUR_IN_FRAME: videoRegion.BLUR_IN_FRAME,
   PRESENTER_GL: glPresenter.PRESENTER_GL,
+  CODEC_PROBE: codecProbe.CODEC_PROBE,
 };
 const restore = () => applyTuning(SHIPPED);
 

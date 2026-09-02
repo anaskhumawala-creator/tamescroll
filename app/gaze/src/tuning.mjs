@@ -34,6 +34,7 @@ import * as nativeClient from './native-client.mjs';
 import * as videoRegion from './video-region.mjs';
 import * as perf from './perf.mjs';
 import * as glPresenter from './gl-presenter.mjs';
+import * as codecProbe from './codec-probe.mjs';
 
 export var TUNED = null;      // what actually took effect, for the report
 export var TUNE_REFUSED = 0;  // keys refused outright
@@ -299,13 +300,16 @@ var SPEC = {
   // as > 0 at the accessor. Pushing 0 is the way a bad native build is
   // switched off on every phone without an install.
   NATIVE_INFER: [0, 1, function (v) { nativeClient.setNativeInfer(v); }],
-  // PERFORMANCE BATCH (2026-09-03), all shipped inert. Each is a switch
-  // he can flip over the air and back; none moves a verdict, a bar or a
-  // coast. Reasons and costs beside each setter's module.
+  // PERFORMANCE BATCH (2026-09-03), all shipped inert -- NATIVE_NPU
+  // included since phase-n N1. Each is a switch he can flip over the
+  // air and back; none moves a verdict, a bar or a coast. Reasons and
+  // costs beside each setter's module.
   // Render the patch loop every Nth rAF (video-region.setRenderEvery).
-  // 1 = every frame, as every release so far; 4 = ~13Hz, the most a
-  // patch may lag the picture before the pad stops covering the trail.
-  RENDER_EVERY: [1, 4, function (v) { videoRegion.setRenderEvery(v); }],
+  // 1 = every frame, as every release so far; 2 = every other rAF, the
+  // only value with a device arm (Redmi 2026-09-03, no drop gain
+  // measured). Above 2 is UNMEASURED and refused here until an arm
+  // prices the trail (phase-n N5).
+  RENDER_EVERY: [1, 2, function (v) { videoRegion.setRenderEvery(v); }],
   // Window.setSustainedPerformanceMode on Android (perf.mjs).
   SUSTAINED_PERF: [0, 1, function (v) { perf.setSustainedPerf(v); }],
   // Display refresh cap in Hz; 0 = leave the display alone. 120 is the
@@ -321,12 +325,23 @@ var SPEC = {
   NATIVE_CPU_MASK: [0, 7, function (v) { nativeClient.setNativeCpuMask(v); }],
   // Refuse AV1 to the player (perf.mjs setNoAv1): a phone without an
   // AV1 hardware decoder plays it in software on the same cores the
-  // page composites with. 1 = MediaSource.isTypeSupported answers false
-  // for av01 so YouTube picks VP9/H.264; 0 = untouched.
+  // page composites with. 1 = the document-start wrappers lib.rs injects
+  // (no_av1_script) answer no for av01 on isTypeSupported, canPlayType
+  // AND mediaCapabilities.decodingInfo -- the one YouTube actually
+  // consults, measured -- so it picks VP9/H.264; 0 = untouched.
   NO_AV1: [0, 1, function (v) { perf.setNoAv1(v); }],
-  // NPU auto-try kill switch (native-client.mjs NATIVE_NPU). 1 = try the
-  // Qualcomm delegate first on a phone that has it; 0 = GPU/CPU only.
+  // NPU auto-try (native-client.mjs NATIVE_NPU). 1 = the engine trials
+  // Android's NNAPI delegate against the shipping GPU/CPU graph on a
+  // real frame, all heads, and keeps it only when it is faster AND
+  // agrees; 0 = GPU/CPU only. SHIPS 0 (phase-n N1): the arbiter is not
+  // yet priced on real crops the way loop 34 priced faceres, and the
+  // heads it guards are the child gate and the identity memory.
   NATIVE_NPU: [0, 1, function (v) { nativeClient.setNativeNpu(v); }],
+  // Kill switch for the MediaSource wrappers that read the served codec
+  // (codec-probe.mjs; phase-n N11 -- the one page-API touch in the
+  // batch with no way off short of an install). 1 = installed at bundle
+  // boot; 0 = the player's API is untouched. Next document.
+  CODEC_PROBE: [0, 1, function (v) { codecProbe.setCodecProbe(v); }],
   // ADPF performance-hint session over the inference thread (perf.mjs).
   PERF_HINT: [0, 1, function (v) { perf.setPerfHint(v); }],
   // Inference thread priority: 0 default, 1 below the compositor,

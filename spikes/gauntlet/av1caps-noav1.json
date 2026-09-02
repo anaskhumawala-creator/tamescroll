@@ -1,0 +1,147 @@
+{
+ "log": [
+  {
+   "api": "dec",
+   "t": 519,
+   "av1": true,
+   "arg": "video/mp4; codecs=\"av01.0.12M.08\"",
+   "ret": true
+  },
+  {
+   "api": "its",
+   "t": 598,
+   "av1": true,
+   "arg": "video/mp4; codecs=av01.0.05M.08",
+   "ret": true
+  },
+  {
+   "api": "its",
+   "t": 600,
+   "av1": true,
+   "arg": "video/mp4; codecs=\"av01.0.12M.08\"",
+   "ret": true
+  },
+  {
+   "api": "dec",
+   "t": 684,
+   "av1": true,
+   "arg": "video/mp4; codecs=\"av01.0.12M.08\"",
+   "ret": true
+  },
+  {
+   "api": "asb",
+   "t": 956,
+   "event": "reassigned"
+  },
+  {
+   "api": "its",
+   "t": 957,
+   "event": "reassigned"
+  },
+  {
+   "api": "cpt",
+   "t": 957,
+   "event": "reassigned"
+  },
+  {
+   "event": "bundle",
+   "t": 1927,
+   "v": "601a93f-dirty"
+  },
+  {
+   "api": "dec",
+   "t": 1968,
+   "av1": true,
+   "arg": "video/mp4; codecs=\"av01.0.12M.08\"",
+   "ret": true
+  },
+  {
+   "api": "asb",
+   "t": 1969,
+   "av1": false,
+   "arg": "audio/webm; codecs=\"opus\"",
+   "ret": {}
+  },
+  {
+   "api": "asb",
+   "t": 1969,
+   "av1": false,
+   "arg": "audio/webm; codecs=\"opus\"",
+   "ret": {}
+  },
+  {
+   "api": "asb",
+   "t": 1970,
+   "av1": true,
+   "arg": "video/mp4; codecs=\"av01.0.00M.08\"",
+   "ret": {}
+  },
+  {
+   "api": "asb",
+   "t": 1970,
+   "av1": true,
+   "arg": "video/mp4; codecs=\"av01.0.00M.08\"",
+   "ret": {}
+  },
+  {
+   "api": "dec",
+   "t": 2041,
+   "av1": true,
+   "arg": "video/mp4; codecs=\"av01.0.08M.08\"",
+   "ret": true
+  },
+  {
+   "api": "dec",
+   "t": 2062,
+   "av1": true,
+   "arg": "video/mp4; codecs=\"av01.0.05M.08\"",
+   "ret": true
+  },
+  {
+   "api": "dec",
+   "t": 2156,
+   "av1": true,
+   "arg": "video/mp4; codecs=\"av01.0.04M.08\"",
+   "ret": true
+  },
+  {
+   "api": "dec",
+   "t": 2354,
+   "av1": true,
+   "arg": "video/mp4; codecs=\"av01.0.01M.08\"",
+   "ret": true
+  },
+  {
+   "api": "dec",
+   "t": 2430,
+   "av1": true,
+   "arg": "video/mp4; codecs=\"av01.0.00M.08\"",
+   "ret": true
+  },
+  {
+   "api": "dec",
+   "t": 2456,
+   "av1": true,
+   "arg": "video/mp4; codecs=\"av01.0.00M.08\"",
+   "ret": true
+  },
+  {
+   "api": "cpt",
+   "t": 4072,
+   "arg": "audio/x-m4a",
+   "threw": "TypeError: Illegal invocation"
+  },
+  {
+   "api": "cpt",
+   "t": 4072,
+   "arg": "audio/x-m4a",
+   "threw": "TypeError: Illegal invocation"
+  }
+ ],
+ "tuning": "{\"NO_AV1\":1}",
+ "vw": 426,
+ "diag": {
+  "codec": "av01",
+  "changes": 1
+ }
+}

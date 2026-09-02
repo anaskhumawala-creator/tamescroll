@@ -81,7 +81,7 @@ async function presentedSetup() {
   return { host, video, presenter, canvas, ctx: canvas._ctx };
 }
 
-test('canPaint is true when the 2D context has a filter property', async () => {
+test('canPaint is true only when a written filter reads back (a context that drops the write refuses)', async () => {
   const { presenter } = await presentedSetup();
   assert.equal(presenter.canPaint(), true);
   presenter.detach();
@@ -141,4 +141,12 @@ test('paintPatches after detach is a no-op', async () => {
   const n = ctx.calls.length;
   presenter.paintPatches([{ x: 0, y: 0, w: 1, h: 1, br: 0.01, rr: 0 }]);
   assert.equal(ctx.calls.length, n);
+});
+
+test('a context that accepts the filter write and drops it cannot paint (phase-n N4)', async () => {
+  const { presenter, ctx } = await presentedSetup();
+  // The write "succeeds" and reads back 'none': the identity-copy case.
+  Object.defineProperty(ctx, 'filter', { get() { return 'none'; }, set() {}, configurable: true });
+  assert.equal(presenter.canPaint(), false);
+  presenter.detach();
 });

@@ -1590,11 +1590,108 @@ fn native_port_stash_script() -> &'static str {
 "#
 }
 
+/// NO_AV1 (performance batch 2026-09-03, phase-n). A phone without an
+/// AV1 hardware decoder still gets AV1 from YouTube and decodes it in
+/// software on the cores the page composites with. MEASURED on the
+/// Redmi (spikes/gauntlet/probe_av1_caps.py): the player asks
+/// `navigator.mediaCapabilities.decodingInfo` for av01 ~380ms after
+/// document start and `MediaSource.isTypeSupported` at ~530ms; the gaze
+/// bundle evaluates at ~1100ms. So the wrappers must run HERE, at
+/// document start, and must cover decodingInfo -- the first 1098 arm
+/// wrapped only isTypeSupported/canPlayType from the bundle and the
+/// player took AV1 anyway. The wrappers decide at CALL time: the
+/// `__TS_NO_AV1` flag once the bundle's tuning has applied, the tuning
+/// payload string (`__TS_GAZE_TUNING__`, whitelisted page-side) before
+/// that, so a plant or an OTA push both reach the first query. They
+/// count every refusal in `__TS_AV1_REFUSED` so the report can tell
+/// "nothing refused" from "no wrapper". Read-only otherwise: every
+/// other mime goes straight through to the original.
+fn no_av1_script() -> &'static str {
+    r#"
+(function () {
+  try {
+    if (window.top !== window) return;
+    var tuned = null, tunedSrc = null;
+    function refuse() {
+      try {
+        if (typeof window.__TS_NO_AV1 === "number") return window.__TS_NO_AV1 === 1;
+        var s = window.__TS_GAZE_TUNING__;
+        if (typeof s === "string") {
+          if (s !== tunedSrc) { tunedSrc = s; try { tuned = JSON.parse(s); } catch (e) { tuned = null; } }
+        } else if (s && typeof s === "object") { tuned = s; }
+        return !!(tuned && tuned.NO_AV1 === 1);
+      } catch (e) { return false; }
+    }
+    function av1(t) { return /av01|av1/i.test(String(t || "")); }
+    function count() { window.__TS_AV1_REFUSED = (window.__TS_AV1_REFUSED || 0) + 1; }
+    var MS = window.MediaSource;
+    if (MS && typeof MS.isTypeSupported === "function") {
+      var its = MS.isTypeSupported;
+      MS.isTypeSupported = function (t) { if (av1(t) && refuse()) { count(); return false; } return its.apply(this, arguments); };
+    }
+    var ME = window.HTMLMediaElement && window.HTMLMediaElement.prototype;
+    if (ME && typeof ME.canPlayType === "function") {
+      var cpt = ME.canPlayType;
+      ME.canPlayType = function (t) { if (av1(t) && refuse()) { count(); return ""; } return cpt.apply(this, arguments); };
+    }
+    var MC = window.MediaCapabilities && window.MediaCapabilities.prototype;
+    if (MC && typeof MC.decodingInfo === "function") {
+      var dec = MC.decodingInfo;
+      MC.decodingInfo = function (c) {
+        try {
+          var v = c && c.video && c.video.contentType;
+          if (av1(v) && refuse()) { count(); return Promise.resolve({ supported: false, smooth: false, powerEfficient: false, configuration: c }); }
+        } catch (e) {}
+        return dec.apply(this, arguments);
+      };
+    }
+  } catch (e) {}
+})();
+"#
+}
+
+/// The TsPerf bridge (MainActivity.PerfBridge) can background the
+/// inference thread, cap the display mode and cap the clocks, and it is
+/// a @JavascriptInterface on the WebView that loads YouTube -- reachable
+/// by every script on the page (phase-n N8). So it answers only to a
+/// token: MainActivity hands one out to the FIRST caller of
+/// `TsPerf.claim()` per document, which is this document-start script,
+/// and every method takes it as its first argument. Same one-shot,
+/// non-configurable door as the native port (`__TS_TAKE_PERF_TOKEN`):
+/// the page can neither pre-define it, replace it, nor ask twice. A page
+/// script that reaches the bridge gets "" from claim() and a no-op from
+/// everything else.
+fn perf_token_stash_script() -> &'static str {
+    r#"
+(function () {
+  try {
+    if (window.top !== window) return;
+    var tok = null;
+    try {
+      if (window.TsPerf && typeof window.TsPerf.claim === "function") {
+        var t = window.TsPerf.claim();
+        tok = typeof t === "string" && t ? t : null;
+      }
+    } catch (e) {}
+    Object.defineProperty(window, "__TS_TAKE_PERF_TOKEN", {
+      value: function () { var t = tok; tok = null; return t; },
+      writable: false, configurable: false, enumerable: false
+    });
+  } catch (e) {}
+})();
+"#
+}
+
 /// Everything Android runs at document start, in order: the worker
-/// prestart, the native-port stash, the universal rules script.
+/// prestart, the AV1 capability wrappers, the perf-token stash, the
+/// native-port stash, the universal rules script.
 #[cfg_attr(not(target_os = "android"), allow(dead_code))]
 fn android_init_script(mode: &str) -> String {
-    worker_prestart_script(mode) + native_port_stash_script() + &universal_injection_script()
+    worker_prestart_script(mode)
+        + no_av1_script()
+        + perf_token_stash_script()
+        + native_port_stash_script()
+        + &universal_injection_script()
 }
 
 /// The plugin carrying `universal_injection_script` into every webview.
@@ -1744,7 +1841,7 @@ async fn open_platform(
     let built = WebviewWindowBuilder::new(&app, platform.id, WebviewUrl::External(url))
         .title(platform.name)
         .inner_size(1200.0, 860.0)
-        .initialization_script(&(worker_prestart_script(mode) + &script))
+        .initialization_script(&(worker_prestart_script(mode) + no_av1_script() + &script))
         .on_navigation(move |url| {
             if url.host_str() == Some("tauri.localhost") {
                 if let Some(main) = home_app.get_webview_window("main") {
@@ -1878,6 +1975,53 @@ mod tests {
         let b = s.find("__TS_NATIVE_PORT_SEEN").expect("stash in the init script");
         let c = s.find(&universal_injection_script()[..40]).expect("universal script in the init script");
         assert!(a < b && b < c, "order: prestart, stash, universal");
+    }
+
+    // NO_AV1 has to win a race the bundle cannot: YouTube asks
+    // decodingInfo ~380ms after document start and the bundle evaluates
+    // at ~1100ms (Redmi, probe_av1_caps.py). The wrappers ride the
+    // document-start script on both platforms and cover all three
+    // capability questions, deciding at call time from the flag or the
+    // tuning payload.
+    #[test]
+    fn no_av1_wrappers_run_at_document_start_and_cover_decoding_info() {
+        let w = no_av1_script();
+        for needle in [
+            "MS.isTypeSupported = function",
+            "ME.canPlayType = function",
+            "MC.decodingInfo = function",
+            "supported: false, smooth: false, powerEfficient: false",
+            "window.__TS_NO_AV1",
+            "window.__TS_GAZE_TUNING__",
+            "tuned.NO_AV1 === 1",
+            "__TS_AV1_REFUSED",
+            "window.top !== window",
+        ] {
+            assert!(w.contains(needle), "no_av1_script lacks {needle}");
+        }
+        let s = android_init_script("smart");
+        let a = s.find("__TS_PRESTART_RAN").expect("prestart");
+        let b = s.find("MC.decodingInfo = function").expect("av1 wrappers in the android init script");
+        let c = s.find("__TS_NATIVE_PORT_SEEN").expect("stash");
+        assert!(a < b && b < c, "order: prestart, av1, stash");
+    }
+
+    // Phase-n N8: the perf bridge answers only to a token the page
+    // cannot get. The stash claims it at document start and parks it
+    // behind a one-shot non-configurable getter, never on an assignable
+    // global.
+    #[test]
+    fn perf_token_stash_is_a_one_shot_door() {
+        let t = perf_token_stash_script();
+        assert!(t.contains("window.TsPerf.claim()"));
+        assert!(t.contains("Object.defineProperty(window, \"__TS_TAKE_PERF_TOKEN\""));
+        assert!(t.contains("writable: false, configurable: false"));
+        assert!(t.contains("var t = tok; tok = null; return t;"));
+        assert!(!t.contains("window.__TS_PERF_TOKEN ="));
+        let s = android_init_script("smart");
+        let a = s.find("__TS_TAKE_PERF_TOKEN").expect("perf stash in the android init script");
+        let b = s.find("__TS_NATIVE_PORT_SEEN").expect("native stash");
+        assert!(a < b, "the perf stash precedes the native stash");
     }
 
     #[test]

@@ -60,7 +60,7 @@ export function setNativeInfer(v) { NATIVE_INFER = v; }
 // set bit asks NativeInfer.kt to rebuild that interpreter on XNNPACK (4
 // threads); the GPU delegate then stops competing with the video decode
 // and the page's own compositing for the one GPU the phone has. Sent as
-// a CONFIG request (modelId 0, w = mask) once the engine reports ready;
+// a CONFIG request (modelId 0, w = mask) on EVERY native-ready;
 // the reply is the ordinary empty-outputs ack and is not waited on.
 export var NATIVE_CPU_MASK = 0;
 export function setNativeCpuMask(v) { NATIVE_CPU_MASK = Math.max(0, Math.min(7, Math.round(v))); }
@@ -70,9 +70,14 @@ export var CONFIG_MODEL_ID = 0;
 // tries the Qualcomm QNN delegate first when this is 1, then GPU, then
 // CPU, and reports per-model backends in its ready message. 0 = never
 // try it (OTA kill switch, NATIVE_NPU). Flags bit 0 of the CONFIG
-// request; the engine's own default is 1, so a CONFIG is only sent when
-// something differs from the defaults.
-export var NATIVE_NPU = 1;
+// request. SHIPS 0 (phase-n N1): the engine's arbiter compares the NNAPI
+// graph against the shipping one on one real frame, all heads, within
+// 2% -- but that gate has not been priced the way loop 34 priced a new
+// faceres backend (probe_faceres_parity, 100 real crops, three heads),
+// and until it is the NPU is his to switch on, per phone, over the air.
+// The engine's own default is 0 too, so a page that never sends a
+// CONFIG never starts a trial.
+export var NATIVE_NPU = 0;
 export function setNativeNpu(v) { NATIVE_NPU = v > 0 ? 1 : 0; }
 export function configFlags() { return NATIVE_NPU === 1 ? 1 : 0; }
 
@@ -262,9 +267,13 @@ export function createNativeClient(port, opts) {
         state.models = msg.models;
         state.backends = msg.backends || null;
         state.npu = typeof msg.npu === 'string' ? msg.npu : 'absent';
-        if (NATIVE_CPU_MASK > 0 || configFlags() !== 1) {
-          configure(NATIVE_CPU_MASK, configFlags()).catch(function () { /* counted at the reply */ });
-        }
+        // ALWAYS sent (phase-n, the CONFIG leak): the engine outlives
+        // the document, so a mask one page set stays set until another
+        // page says otherwise -- the 1098 smoke's cpumask1 arm left the
+        // NEXT page reading native 'cpu' with the dial at 0. The engine
+        // rebuilds only what changed, so the default case is one
+        // 16-byte round trip.
+        configure(NATIVE_CPU_MASK, configFlags()).catch(function () { /* counted at the reply */ });
         try {
           readyResolve({ backend: msg.backend, models: msg.models });
         } catch (err) {

@@ -153,8 +153,8 @@ if (
   try {
     // Which codec the player is fed (research 2026-09-03 #1): wrap the
     // MediaSource entry points before the player opens a buffer. Read-only.
-    codecProbe.install(window);
     applyTuningFromWindow(window);
+    if (codecProbe.CODEC_PROBE === 1) codecProbe.install(window);
     // WHICH NUMBERS IS HIS PHONE ACTUALLY RUNNING?
     //
     // Nothing recorded it. The channel exists so a threshold can move
@@ -5528,6 +5528,17 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
       codec: codecProbe.served(),
       native: nativeClient && typeof nativeClient.snapshot === 'function' ? nativeClient.snapshot() : null,
       perf: perf.slowStats(),
+      // What the presenter painted (phase-n N10): the two dials that
+      // change what a patch LOOKS like report here, not only on the
+      // probe hook.
+      paint: (function () {
+        try {
+          var d = typeof window.__TS_DELAY_STATS === 'function' ? window.__TS_DELAY_STATS() : null;
+          return d && d.stats ? d.stats : null;
+        } catch (e) {
+          return null;
+        }
+      })(),
       ids: window.__TS_GAZE_IDS || {},
       render: typeof window.__TS_GAZE_RENDER === 'function' ? window.__TS_GAZE_RENDER() : null,
       longTasks: longTasks,

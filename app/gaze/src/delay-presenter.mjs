@@ -473,7 +473,16 @@ export function attachDelay(video, host, opts) {
   var patchesKey = '';
   function canPaint() {
     try {
-      return !!ctx && 'filter' in ctx;
+      if (!ctx || !('filter' in ctx)) return false;
+      // Phase-n N4: a context that ACCEPTS the assignment and ignores it
+      // would make drawPatches an identity copy while the divs stand
+      // down -- every patch region sharp, and nothing in the report to
+      // say so. Write once, read back, restore.
+      var save = ctx.filter;
+      ctx.filter = 'blur(1px)';
+      var ok = ctx.filter !== 'none' && ctx.filter !== '' && ctx.filter != null;
+      ctx.filter = save;
+      return ok;
     } catch (e) {
       return false;
     }

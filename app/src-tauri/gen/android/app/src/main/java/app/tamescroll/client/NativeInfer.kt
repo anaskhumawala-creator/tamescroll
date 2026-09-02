@@ -76,6 +76,9 @@ class NativeInfer(private val ctx: Context) {
     val outputNames: List<String>,
   ) {
     var consecutiveErrors = 0
+    // True once a page request has filled inputBuffer: the NNAPI
+    // arbiter compares on the last REAL frame, never on zeros.
+    var realInput = false
   }
 
   private val thread = HandlerThread("ts-infer").also { it.start() }
@@ -88,11 +91,14 @@ class NativeInfer(private val ctx: Context) {
   // NATIVE_CPU_MASK / NATIVE_NPU (native-client.mjs `configure`): bit i
   // of cpuMask forces model (i+1) onto XNNPACK CPU regardless of GPU
   // availability; flags bit 0 says whether the page allows an NPU
-  // delegate. Defaults match the page's own defaults (mask 0 = every
-  // model tries its normal delegate order; flags 1 = NPU allowed) so a
-  // page that never sends a CONFIG behaves exactly as before.
+  // delegate. Defaults: mask 0 = every model on its normal delegate
+  // order; flags 0 = NO NPU trial until a page asks (phase-n N1: the
+  // arbiter is unpriced on real crops, NATIVE_NPU ships 0). The page
+  // sends a CONFIG on every ready, so a mask one document set never
+  // leaks into the next (the 1098 smoke's cpumask1 arm did exactly that).
   private var cpuMask = 0
-  private var flags = 1
+  private var flags = 0
+  private val NPU_SNAPSHOT_TRIES = 30
   // The `ts-infer` thread's Linux tid, captured from inside the thread
   // itself (Process.myTid() is only meaningful called from the thread
   // it is asking about) -- MainActivity's PerfBridge needs it for
@@ -180,11 +186,11 @@ class NativeInfer(private val ctx: Context) {
   // compiles MoveNet in ~10s on the Helio G85) against the page's 15s
   // ready timeout, so the client died and that page ran on the WebGL
   // worker for good -- drops 26.5% against 13.2% on 1097. Now loadAll
-  // ships GPU/CPU exactly as 1097 and posts ready; each trial builds and
-  // times its NNAPI interpreter on `ts-npu-trial`; only the DECISION
-  // (time the shipping candidate on zeros, compare outputs, swap on a
-  // win) runs on ts-infer, one best-of-3 of the candidate (~0.8s for
-  // MoveNet on the Redmi), under the page's 4s request timeout. The page
+  // ships GPU/CPU exactly as 1097 and posts ready; each trial builds its
+  // NNAPI interpreter AND a shadow copy of the shipping model on
+  // `ts-npu-trial`, times and compares them there on the last real frame
+  // (phase-n N9: ts-infer does one buffer copy and, on a win, the swap --
+  // never a timed run under the page's 4s request timeout). The page
   // hears the outcome as a `native-backends` update. A model that lost
   // stays lost for the process (npuLost): its answer does not change.
   private var trialThread: HandlerThread? = null
@@ -211,7 +217,7 @@ class NativeInfer(private val ctx: Context) {
     try { m.delegate?.close() } catch (_: Throwable) {}
   }
 
-  /** Best of `n` runs on the (zero) input buffer, in ms. The first run
+  /** Best of `n` runs on whatever the input buffer holds, in ms. The first run
    * is the delegate's warm-up and is excluded: it carries allocation
    * and clock ramp, not the steady cost the arbiter is comparing. */
   private fun bestRunMs(m: LoadedModel, n: Int): Double {
@@ -225,24 +231,32 @@ class NativeInfer(private val ctx: Context) {
     return best
   }
 
-  /** Output-0 of `a` against `b` on the input both just ran: false on a
-   * non-finite value or a relative max-abs difference over 10%. Catches a
-   * delegate that "works" and returns garbage, which is what an
-   * accelerator driver mishandling an op looks like from Java. */
+  /** EVERY output head of `a` against `b` on the SAME input: false on a
+   * non-finite value, a head-count or size mismatch, or a max-abs
+   * difference over 2% of that head's own max-abs. Phase-n N1: output 0
+   * alone skipped faceres' age head (the child gate) and its descriptor
+   * (the identity memory and the nm floor that decides whether a face
+   * may mint a patch at all), and 10% was looser than the uint8 requant
+   * loop 34 refused on a MEASURED p50 0.023. Catches a delegate that
+   * "works" and returns garbage, which is what an accelerator driver
+   * mishandling an op looks like from Java. */
   private fun outputsAgree(a: LoadedModel, b: LoadedModel): Boolean {
-    if (a.outputBuffers.isEmpty() || b.outputBuffers.isEmpty()) return false
-    val fa = a.outputBuffers[0].duplicate().order(ByteOrder.nativeOrder()).asFloatBuffer()
-    val fb = b.outputBuffers[0].duplicate().order(ByteOrder.nativeOrder()).asFloatBuffer()
-    if (fa.capacity() != fb.capacity()) return false
-    var maxDiff = 0f
-    var maxRef = 0f
-    for (i in 0 until fa.capacity()) {
-      val x = fa.get(i); val y = fb.get(i)
-      if (!x.isFinite()) return false
-      maxDiff = maxOf(maxDiff, Math.abs(x - y))
-      maxRef = maxOf(maxRef, Math.abs(y))
+    if (a.outputBuffers.isEmpty() || a.outputBuffers.size != b.outputBuffers.size) return false
+    for (h in a.outputBuffers.indices) {
+      val fa = a.outputBuffers[h].duplicate().order(ByteOrder.nativeOrder()).asFloatBuffer()
+      val fb = b.outputBuffers[h].duplicate().order(ByteOrder.nativeOrder()).asFloatBuffer()
+      if (fa.capacity() != fb.capacity()) return false
+      var maxDiff = 0f
+      var maxRef = 0f
+      for (i in 0 until fa.capacity()) {
+        val x = fa.get(i); val y = fb.get(i)
+        if (!x.isFinite() || !y.isFinite()) return false
+        maxDiff = maxOf(maxDiff, Math.abs(x - y))
+        maxRef = maxOf(maxRef, Math.abs(y))
+      }
+      if (maxDiff > 0.02f * (maxRef + 1e-3f)) return false
     }
-    return maxDiff <= 0.1f * (maxRef + 1e-3f)
+    return true
   }
 
   private fun loadModel(id: Int, assetBase: String): LoadedModel {
@@ -313,15 +327,20 @@ class NativeInfer(private val ctx: Context) {
   // NNAPI cannot be trusted on its say-so. With useNnapiCpu(false) a
   // device with no accelerator gets a delegate that takes NO nodes and
   // the graph silently runs on CPU kernels -- initialising is not
-  // proof of an NPU. So the arm is an ARBITER: NNAPI has to beat the
-  // GPU/CPU candidate on the clock by 10% AND agree with it on the
-  // outputs, or it is closed and the candidate stays. `npu: ok` in the
-  // report therefore means "measured faster", never "present". NNAPI is
+  // proof of an NPU. So the arm is an ARBITER: NNAPI has to beat a
+  // SHADOW copy of the shipping GPU/CPU graph on the clock by 10% AND
+  // agree with it on every output head within 2%, on the last REAL
+  // frame the shipping model saw (never zeros: a black frame is where
+  // the heads sit on their priors and every gate in the page was
+  // calibrated where they differ), or it is closed and the candidate
+  // stays. `npu: ok` in the report therefore means "measured faster
+  // and agreeing", never "present". Three hops: build + warm on
+  // ts-npu-trial; copy the live input on ts-infer (cheap); time both
+  // and compare on ts-npu-trial; swap or drop on ts-infer. NNAPI is
   // deprecated since Android 15 (still there, no new features); on a
   // phone whose vendor dropped the driver the arm loses the race.
   private fun npuTrial(id: Int, assetBase: String, gen: Int) {
     var nn: LoadedModel? = null
-    var nnMs = Double.MAX_VALUE
     var nd: NnApiDelegate? = null
     try {
       val bytes = loadAssetModel("$assetBase.tflite")
@@ -331,42 +350,77 @@ class NativeInfer(private val ctx: Context) {
         .setExecutionPreference(NnApiDelegate.Options.EXECUTION_PREFERENCE_SUSTAINED_SPEED)
       nd = NnApiDelegate(nopts)
       nn = buildModel(id, Interpreter(bytes, Interpreter.Options().addDelegate(nd)), nd, "npu")
-      nnMs = bestRunMs(nn, 3)
+      run(nn) // warm: allocation and clock ramp, not the cost the arbiter compares
     } catch (e: Throwable) {
       Log.w(TAG, "NNAPI failed for $assetBase: " + e.message)
       if (nn != null) closeModel(nn) else try { nd?.close() } catch (_: Throwable) {}
       nn = null
     }
     val trial = nn
-    handler.post { decideNpu(id, assetBase, trial, nnMs, gen) }
+    if (trial == null) { handler.post { decideNpu(id, assetBase, null, false, gen) }; return }
+    handler.post { snapshotInput(id, assetBase, trial, gen, 0) }
   }
 
-  /** On ts-infer: the arbiter's decision for one model. */
-  private fun decideNpu(id: Int, assetBase: String, nn: LoadedModel?, nnMs: Double, gen: Int) {
+  /** On ts-infer: copy the shipping model's LAST REAL INPUT for the
+   * arbiter -- one buffer copy, the only work this thread does before
+   * the decision. No real frame yet: try again in a second, up to
+   * NPU_SNAPSHOT_TRIES, then the arm loses. */
+  private fun snapshotInput(id: Int, assetBase: String, nn: LoadedModel, gen: Int, tries: Int) {
+    val candidate = models[id]
+    if (closed || gen != configGen || candidate == null) {
+      decideNpu(id, assetBase, nn, false, gen)
+      return
+    }
+    if (!candidate.realInput) {
+      if (tries >= NPU_SNAPSHOT_TRIES) { decideNpu(id, assetBase, nn, false, gen); return }
+      handler.postDelayed({ snapshotInput(id, assetBase, nn, gen, tries + 1) }, 1000L)
+      return
+    }
+    val ib = candidate.inputBuffer.duplicate()
+    ib.rewind()
+    val input = ByteArray(ib.remaining())
+    ib.get(input)
+    val th = trialHandler
+    if (th == null || !th.post { arbitrate(id, assetBase, nn, input, gen) }) decideNpu(id, assetBase, nn, false, gen)
+  }
+
+  /** On ts-npu-trial: a SHADOW copy of the shipping candidate (its own
+   * interpreter and GPU context, this thread's) against the NNAPI trial
+   * on the same real frame. Nothing here touches ts-infer. */
+  private fun arbitrate(id: Int, assetBase: String, nn: LoadedModel, input: ByteArray, gen: Int) {
+    var win = false
+    var shadow: LoadedModel? = null
+    try {
+      shadow = loadModel(id, assetBase)
+      val sb = shadow.inputBuffer; sb.rewind(); sb.put(input)
+      val nb = nn.inputBuffer; nb.rewind(); nb.put(input)
+      val nnMs = bestRunMs(nn, 3)
+      val shadowMs = bestRunMs(shadow, 3)
+      val agree = outputsAgree(nn, shadow)
+      win = agree && nnMs < shadowMs * 0.9
+      Log.i(TAG, "NNAPI arbiter $assetBase: nnapi=${"%.1f".format(nnMs)}ms ${shadow.backend}=${"%.1f".format(shadowMs)}ms agree=$agree -> " + (if (win) "npu" else shadow.backend))
+    } catch (e: Throwable) {
+      Log.w(TAG, "NNAPI arbitration failed for $assetBase: " + e.message)
+      win = false
+    }
+    if (shadow != null) closeModel(shadow)
+    handler.post { decideNpu(id, assetBase, nn, win, gen) }
+  }
+
+  /** On ts-infer: swap or drop. The only arbiter work on this thread. */
+  private fun decideNpu(id: Int, assetBase: String, nn: LoadedModel?, win: Boolean, gen: Int) {
     if (gen == configGen) trialsPending--
     val candidate = models[id]
     if (closed || gen != configGen || candidate == null || forceCpuFor(id) || !npuAllowedByFlags()) {
       if (nn != null) closeModel(nn)
-    } else if (nn == null) {
+    } else if (nn == null || !win) {
+      if (nn != null) closeModel(nn)
       npuLost.add(id)
     } else {
-      // The candidate's input buffer holds the last real frame; the trial
-      // ran on zeros. Compare on the same input -- the next frame refills
-      // the buffer before it is read again.
-      val ib = candidate.inputBuffer
-      ib.clear()
-      while (ib.hasRemaining()) ib.put(0)
-      val candMs = bestRunMs(candidate, 3)
-      val agree = outputsAgree(nn, candidate)
-      val win = agree && nnMs < candMs * 0.9
-      Log.i(TAG, "NNAPI arbiter $assetBase: nnapi=${"%.1f".format(nnMs)}ms ${candidate.backend}=${"%.1f".format(candMs)}ms agree=$agree -> " + (if (win) "npu" else candidate.backend))
-      if (win) {
-        models[id] = nn
-        closeModel(candidate)
-      } else {
-        closeModel(nn)
-        npuLost.add(id)
-      }
+      nn.realInput = candidate.realInput
+      models[id] = nn
+      closeModel(candidate)
+      Log.i(TAG, "NNAPI arbiter: $assetBase now on npu")
     }
     if (gen == configGen && trialsPending <= 0) {
       trialsPending = 0
@@ -483,6 +537,7 @@ class NativeInfer(private val ctx: Context) {
    * BlazeFace (x/127.5)-1, faceres raw 0..255 as float, MoveNet raw int32. */
   private fun fillInput(model: LoadedModel, src: ByteArray, offset: Int, n: Int) {
     val buf = model.inputBuffer
+    model.realInput = true
     buf.rewind()
     var p = offset
     when (model.id) {

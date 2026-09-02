@@ -54,13 +54,14 @@ function makeEl(tag) {
 function makeGl(opts) {
   opts = opts || {};
   var calls = [];
-  var consts = { TEXTURE_2D: 1, RGBA: 2, UNSIGNED_BYTE: 3, FRAMEBUFFER: 4, COLOR_ATTACHMENT0: 5, ARRAY_BUFFER: 6, FLOAT: 7, STATIC_DRAW: 8, TRIANGLE_STRIP: 9, VERTEX_SHADER: 10, FRAGMENT_SHADER: 11, COMPILE_STATUS: 12, LINK_STATUS: 13, DEPTH_TEST: 14, BLEND: 15, LINEAR: 16, CLAMP_TO_EDGE: 17, TEXTURE_MIN_FILTER: 18, TEXTURE_MAG_FILTER: 19, TEXTURE_WRAP_S: 20, TEXTURE_WRAP_T: 21, TEXTURE0: 22, UNPACK_FLIP_Y_WEBGL: 23, UNPACK_PREMULTIPLY_ALPHA_WEBGL: 24 };
+  var consts = { TEXTURE_2D: 1, RGBA: 2, UNSIGNED_BYTE: 3, FRAMEBUFFER: 4, COLOR_ATTACHMENT0: 5, ARRAY_BUFFER: 6, FLOAT: 7, STATIC_DRAW: 8, TRIANGLE_STRIP: 9, VERTEX_SHADER: 10, FRAGMENT_SHADER: 11, COMPILE_STATUS: 12, LINK_STATUS: 13, DEPTH_TEST: 14, BLEND: 15, LINEAR: 16, CLAMP_TO_EDGE: 17, TEXTURE_MIN_FILTER: 18, TEXTURE_MAG_FILTER: 19, TEXTURE_WRAP_S: 20, TEXTURE_WRAP_T: 21, TEXTURE0: 22, UNPACK_FLIP_Y_WEBGL: 23, UNPACK_PREMULTIPLY_ALPHA_WEBGL: 24, FRAMEBUFFER_COMPLETE: 0x8cd5, FRAMEBUFFER_UNSUPPORTED: 0x8cdd };
   var answers = {
     createShader: () => ({}),
     createProgram: () => ({}),
     createTexture: () => ({ tex: true }),
     createBuffer: () => ({}),
     createFramebuffer: () => ({}),
+    checkFramebufferStatus: () => (opts.fboIncomplete ? 0x8cdd : 0x8cd5),
     getShaderParameter: () => !opts.badShader,
     getProgramParameter: () => true,
     getShaderInfoLog: () => 'nope',
@@ -302,4 +303,17 @@ test('the wiring tries the GL presenter only at 1, falls back to 2D, and re-atta
   assert.match(fn, /attachDelayGl\(video, host, \{/);
   assert.match(fn, /glRefused = true;\s*bumpLife\('presenterGlLost'\);\s*if \(presenter === p\) \{\s*delayDetach\(\);\s*delayAttach\(\);/);
   assert.match(fn, /if \(!p\) p = attachDelay\(video, host, \{ delayMs: delayCore\.DELAY_MS, onFrame: null \}\);/);
+});
+
+test('an incomplete framebuffer refuses the attach before the canvas is appended (phase-n N4)', () => {
+  var s = setup({ fboIncomplete: true });
+  var p = attachDelayGl(s.video, s.host, { delayMs: 500 });
+  assert.equal(p, null);
+  assert.equal(s.host.children.length, 1, 'only the video: no canvas appended');
+  assert.ok(count(s.gl, 'checkFramebufferStatus') >= 1, 'the status was read');
+  var ok = setup();
+  var q = attachDelayGl(ok.video, ok.host, { delayMs: 500 });
+  assert.ok(q, 'a complete framebuffer attaches');
+  assert.ok(count(ok.gl, 'checkFramebufferStatus') >= 1);
+  q.detach();
 });

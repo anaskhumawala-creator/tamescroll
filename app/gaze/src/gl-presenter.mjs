@@ -222,6 +222,24 @@ export function attachDelayGl(video, host, opts) {
     gl.disable(gl.BLEND);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    // Phase-n N4: prove the framebuffer path COMPLETES before this
+    // presenter is allowed to own a frame. Every blur pass renders into
+    // an RGBA texture through `fbo`; a context whose FBO is incomplete
+    // draws nothing there, and with BLUR_IN_FRAME 1 the divs would
+    // already be hidden. One 4x4 texture, one status read, once, before
+    // the canvas is appended -- refused here, the 2D presenter attaches.
+    var probeTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, probeTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 4, 4, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, probeTex, 0);
+    var fboStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.deleteTexture(probeTex);
+    if (fboStatus !== gl.FRAMEBUFFER_COMPLETE) {
+      noteError('fbo', new Error('framebuffer incomplete: ' + fboStatus));
+      return null;
+    }
   } catch (e) {
     noteError('program', e);
     return null;

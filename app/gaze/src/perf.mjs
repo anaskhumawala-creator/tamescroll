@@ -33,6 +33,35 @@ var bridgeOverride = null;
 /** Test seam: hand in a fake TsPerf (or null to read the window). */
 export function _setBridgeForTest(b) { bridgeOverride = b; }
 
+// THE BRIDGE ANSWERS ONLY TO A TOKEN THE PAGE CANNOT GET (phase-n N8).
+// window.TsPerf is a @JavascriptInterface on the WebView that loads
+// YouTube, reachable by every script on the page; inferPriority(2)
+// backgrounds the inference thread (a wider gap, a wider coast, more
+// exposure -- chosen by the page), refreshCap changes the display mode,
+// sustained caps the clocks. So MainActivity hands out ONE token per
+// document to the first caller of TsPerf.claim(), which is the
+// document-start stash lib.rs injects (perf_token_stash_script), and
+// the stash exposes it once through a non-configurable
+// __TS_TAKE_PERF_TOKEN -- the same one-shot door the native port uses.
+// A page script that finds the bridge gets "" from claim() and a
+// silent no-op from every method. Read once, the first time a dial
+// needs the phone.
+var perfToken = null;
+var perfTokenTaken = false;
+export function _setTokenForTest(t) { perfToken = t; perfTokenTaken = true; }
+function token() {
+  if (perfTokenTaken) return perfToken;
+  perfTokenTaken = true;
+  try {
+    var g = typeof window !== 'undefined' ? window : null;
+    var take = g && g.__TS_TAKE_PERF_TOKEN;
+    perfToken = typeof take === 'function' ? take() : null;
+  } catch (e) {
+    perfToken = null;
+  }
+  return perfToken;
+}
+
 function bridge() {
   if (bridgeOverride) return bridgeOverride;
   try {
@@ -48,7 +77,7 @@ function call(name, arg) {
   var b = bridge();
   if (!b || typeof b[name] !== 'function') return false;
   try {
-    b[name](arg);
+    b[name](token(), arg);
     return true;
   } catch (e) {
     return false;
@@ -86,7 +115,7 @@ export function readHeadroom() {
   var b = bridge();
   if (!b || typeof b.thermalHeadroom !== 'function') return NaN;
   try {
-    var h = Number(b.thermalHeadroom());
+    var h = Number(b.thermalHeadroom(token()));
     return isFinite(h) ? h : NaN;
   } catch (e) {
     return NaN;
@@ -146,53 +175,40 @@ export function setInferPrio(v) {
 // --- NO_AV1 -------------------------------------------------------------------
 // A phone without an AV1 hardware decoder still gets AV1 from YouTube
 // (Android 12+, since 2024-03) and decodes it in software on the cores
-// the page composites with. When this is 1 the page answers "no" for
-// av01 in the two capability questions the player asks --
-// MediaSource.isTypeSupported and HTMLMediaElement.canPlayType -- so it
-// picks VP9 or H.264, which both phones decode in hardware. A capability
-// answer, not a page mutation: same class as the request shaper, and the
-// MIT precedent is enhanced-h264ify. Takes effect at the player's NEXT
-// init (the override is installed at bundle boot; a player already
-// running keeps the stream it chose).
+// the page composites with. MEASURED on the Redmi (probe_av1_caps.py,
+// 2026-09-03): the player asks navigator.mediaCapabilities.decodingInfo
+// for av01 at ~380ms and MediaSource.isTypeSupported at ~530ms after
+// document start, and this bundle boots at ~1100ms -- so a wrapper
+// installed here is too late for the first stream, and one that leaves
+// decodingInfo alone is ignored (the first 1098 arm read av01 with the
+// dial at 1). The wrappers therefore live in the DOCUMENT-START script
+// lib.rs injects (no_av1_script: isTypeSupported, canPlayType,
+// decodingInfo) and consult a flag at CALL time: window.__TS_NO_AV1
+// once this setter has run, the tuning payload before that. decodingInfo
+// is polled on every ABR decision, so a dial pushed mid-playback takes
+// effect at the next quality step, not the next navigation. Every av01
+// answer refused is counted in __TS_AV1_REFUSED (report perf.av1Refused)
+// so "0 refused" and "no wrapper" can be told apart. A capability answer,
+// not a page mutation: same class as the request shaper; the MIT
+// precedent is enhanced-h264ify.
 export var NO_AV1 = 0;
-var av1Saved = null;
 export function isAv1Type(t) {
   return /av01|av1/i.test(String(t || ''));
-}
-function av1Patch(g) {
-  if (av1Saved) return;
-  var MS = g && g.MediaSource;
-  var ME = g && g.HTMLMediaElement && g.HTMLMediaElement.prototype;
-  if (!MS || typeof MS.isTypeSupported !== 'function') return;
-  var saved = { ms: MS, isType: MS.isTypeSupported, me: ME, canPlay: ME && ME.canPlayType };
-  MS.isTypeSupported = function (t) {
-    if (isAv1Type(t)) return false;
-    return saved.isType.apply(this, arguments);
-  };
-  if (ME && typeof saved.canPlay === 'function') {
-    ME.canPlayType = function (t) {
-      if (isAv1Type(t)) return '';
-      return saved.canPlay.apply(this, arguments);
-    };
-  }
-  av1Saved = saved;
-}
-function av1Unpatch() {
-  if (!av1Saved) return;
-  try { av1Saved.ms.isTypeSupported = av1Saved.isType; } catch (e) { /* frozen global */ }
-  try { if (av1Saved.me && av1Saved.canPlay) av1Saved.me.canPlayType = av1Saved.canPlay; } catch (e) { /* same */ }
-  av1Saved = null;
 }
 export function setNoAv1(v, g) {
   NO_AV1 = v > 0 ? 1 : 0;
   var w = g || (typeof window !== 'undefined' ? window : null);
   if (!w) return;
   try {
-    if (NO_AV1 === 1) av1Patch(w);
-    else av1Unpatch();
+    w.__TS_NO_AV1 = NO_AV1;
   } catch (e) {
     /* a page that refuses the write keeps its own answer */
   }
+}
+export function av1Refused(g) {
+  var w = g || (typeof window !== 'undefined' ? window : null);
+  var n = w ? Number(w.__TS_AV1_REFUSED) : 0;
+  return isFinite(n) && n > 0 ? n : 0;
 }
 
 // --- PLAYBACK_SLOW ---------------------------------------------------------------
@@ -209,7 +225,7 @@ export var SLOW_ON_SHARE = 0.08;
 export var SLOW_OFF_SHARE = 0.03;
 export var SLOW_POLL_MS = 5000;
 var slowState = { ours: false, slowed: 0, restored: 0 };
-export function slowStats() { return { slowed: slowState.slowed, restored: slowState.restored, ours: slowState.ours }; }
+export function slowStats() { return { slowed: slowState.slowed, restored: slowState.restored, ours: slowState.ours, av1Refused: av1Refused() }; }
 export function _resetSlowForTest() { slowState = { ours: false, slowed: 0, restored: 0 }; }
 export function slowStep(share, rate) {
   if (slowState.ours && Math.abs(rate - SLOW_RATE) > 1e-6) {

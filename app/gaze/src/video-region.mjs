@@ -64,7 +64,7 @@ var timelines = new Map();
 // rectangles, same LOOK; no backdrop snapshot, no transform writes.
 // Without a painter, or at 0, nothing here changes.
 var painters = new Map();
-var BLUR_IN_FRAME = 0;
+export var BLUR_IN_FRAME = 0;
 export function setBlurInFrame(v) {
   BLUR_IN_FRAME = v > 0 ? 1 : 0;
 }
@@ -1264,14 +1264,18 @@ try {
 
 // RENDER EVERY Nth FRAME (performance batch, 2026-09-03; OTA
 // RENDER_EVERY, ships 1 = every frame). The patch loop is a rAF that
-// re-reads the presented media time and rewrites transforms 50-60 times
-// a second; at 2 it does that 25-30 times and a moving subject's patch
-// trails the picture by one extra presented frame (~16-33ms, one to two
-// pixels at ordinary motion, inside the pad). The skipped frame still
-// schedules the next one, so the loop's liveness (the 1096 defect) is
-// untouched; rectsDirty is not consumed on a skipped frame either, so a
-// scroll's refresh lands on the frame that renders.
-var RENDER_EVERY = 1;
+// re-reads the presented media time and rewrites transforms ~50 times
+// a second with the presenter attached (49-50Hz on the Redmi, 1098
+// smoke); at 2 it does that ~25 times and a reposition lands up to one
+// rAF period (~20ms) later than at 1 -- one to two pixels at ordinary
+// motion, inside the pad. MEASURED at 2 only (Redmi 2026-09-03: 14.5%
+// dropped frames against 13.7% control, inside the run-to-run spread,
+// so no gain either); above 2 is UNMEASURED and tuning.mjs clamps the
+// dial there (phase-n N5). The skipped frame still schedules the next
+// one, so the loop's liveness (the 1096 defect) is untouched; rectsDirty
+// is not consumed on a skipped frame either, so a scroll's refresh lands
+// on the frame that renders.
+export var RENDER_EVERY = 1;
 export function setRenderEvery(n) {
   RENDER_EVERY = Math.max(1, Math.round(n));
 }
@@ -1279,7 +1283,6 @@ export function setRenderEvery(n) {
 function loop(video) {
   var entry = entries.get(video);
   if (!entry) return;
-  renderStats.raf++;
   entry.frameNo = (entry.frameNo || 0) + 1;
   if (RENDER_EVERY > 1 && entry.frameNo % RENDER_EVERY !== 0) {
     renderStats.rafSkipped++;
@@ -1288,6 +1291,10 @@ function loop(video) {
     });
     return;
   }
+  // `raf` counts frames the loop RENDERED (phase-n N6): a skipped frame
+  // bumps rafSkipped only, so an A/B at RENDER_EVERY 2 reads half the
+  // raf of control instead of the same number for half the work.
+  renderStats.raf++;
   // ONE THROWING FRAME MUST NOT END THE RENDERER. Measured on the
   // Redmi: an exception inside reposition left `entry.raf` holding a
   // stale id, so `if (!entry.raf) loop(video)` in setTracks never

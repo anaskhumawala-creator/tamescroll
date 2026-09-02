@@ -680,6 +680,7 @@ class MainActivity : TauriActivity() {
         // navigations on the Redmi, 2026-09-02), and a message nobody
         // hears is a page with no native engine and no counter saying so.
         nativePortServed = false
+        perfTokenServed = false
         wry.onPageStarted(view, url, favicon)
       }
 
@@ -966,9 +967,33 @@ class MainActivity : TauriActivity() {
   // it lives inside an SDK_INT-guarded try/catch in PerfBridge.hint.
   @Volatile private var hintSession: Any? = null
 
+  // PerfBridge answers only to a token the page cannot get (phase-n
+  // N8). One token per process, handed to the FIRST caller of claim()
+  // per document -- the document-start stash lib.rs injects
+  // (perf_token_stash_script), which runs before any page script and
+  // parks it behind a one-shot non-configurable getter. Reset on every
+  // onPageStarted beside nativePortServed. A page script that finds
+  // the bridge gets "" from claim() and a silent no-op from every
+  // method: inferPriority(2) would otherwise let the page background
+  // the inference thread (a wider verdict gap = more exposure),
+  // refreshCap change the display mode, sustained cap the clocks.
+  private val perfToken: String = java.util.UUID.randomUUID().toString()
+  @Volatile private var perfTokenServed = false
+
   inner class PerfBridge {
+    private fun ok(token: String?): Boolean = token != null && token == perfToken
+
+    /** The token, once per document; "" for every later caller. */
     @JavascriptInterface
-    fun sustained(on: Boolean) {
+    fun claim(): String {
+      if (perfTokenServed) return ""
+      perfTokenServed = true
+      return perfToken
+    }
+
+    @JavascriptInterface
+    fun sustained(token: String?, on: Boolean) {
+      if (!ok(token)) return
       try {
         runOnUiThread {
           try {
@@ -985,7 +1010,8 @@ class MainActivity : TauriActivity() {
     }
 
     @JavascriptInterface
-    fun refreshCap(hz: Int) {
+    fun refreshCap(token: String?, hz: Int) {
+      if (!ok(token)) return
       try {
         runOnUiThread {
           try {
@@ -1004,7 +1030,8 @@ class MainActivity : TauriActivity() {
      * round trip through the UI thread. Synchronous, like every
      * @JavascriptInterface method with a return value. */
     @JavascriptInterface
-    fun currentRefreshHz(): Float {
+    fun currentRefreshHz(token: String?): Float {
+      if (!ok(token)) return Float.NaN
       return try {
         currentDisplayCompat()?.refreshRate ?: Float.NaN
       } catch (e: Throwable) {
@@ -1013,7 +1040,8 @@ class MainActivity : TauriActivity() {
     }
 
     @JavascriptInterface
-    fun thermalHeadroom(): Float {
+    fun thermalHeadroom(token: String?): Float {
+      if (!ok(token)) return Float.NaN
       return try {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return Float.NaN
         val pm = getSystemService(POWER_SERVICE) as? android.os.PowerManager ?: return Float.NaN
@@ -1030,7 +1058,8 @@ class MainActivity : TauriActivity() {
      * guessing from CPU load alone. off() closes the session; a session
      * the OS has already invalidated fails its report/close silently. */
     @JavascriptInterface
-    fun hint(on: Boolean) {
+    fun hint(token: String?, on: Boolean) {
+      if (!ok(token)) return
       try {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
         if (on) {
@@ -1066,7 +1095,8 @@ class MainActivity : TauriActivity() {
     }
 
     @JavascriptInterface
-    fun inferPriority(level: Int) {
+    fun inferPriority(token: String?, level: Int) {
+      if (!ok(token)) return
       try {
         val engine = nativeInfer ?: return
         val tid = engine.inferTid
@@ -1096,10 +1126,10 @@ class MainActivity : TauriActivity() {
     // hostile page cannot turn it into anything but a wasted disk write.
     webView.addJavascriptInterface(DiagBridge(), "TsDiag")
     webView.addJavascriptInterface(NativePortBridge(), "TsNativePort")
-    // Perf dials (PerfBridge): every dial ships inert on the OTA
-    // channel, so this interface being reachable from a remote platform
-    // page can at most toggle a throttle/hint back to Android's own
-    // default -- never anything destructive.
+    // Perf dials (PerfBridge): reachable from every platform page like
+    // any @JavascriptInterface, so every method is gated on the
+    // per-document token only the document-start stash can claim (see
+    // PerfBridge). Inert dials would not have made the BRIDGE inert.
     webView.addJavascriptInterface(PerfBridge(), "TsPerf")
     // AUTOFILL. Owner ask: "can't we have the sign in page automatically
     // show the existing accounts on the device". There is no device

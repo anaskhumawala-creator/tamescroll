@@ -29,11 +29,11 @@ test('install wraps addSourceBuffer and changeType, calls through, and records t
   const ms = new MS();
   const sb = ms.addSourceBuffer('audio/mp4; codecs="mp4a.40.2"');
   assert.deepEqual(sb, { type: 'audio/mp4; codecs="mp4a.40.2"' }, 'call-through returns the real buffer');
-  assert.deepEqual(cp.served(), { codec: 'none', codecChanges: 0 }, 'audio does not count');
+  assert.deepEqual(cp.served(), { codec: 'none', codecChanges: 0, hooked: 1 }, 'audio does not count');
   ms.addSourceBuffer('video/mp4; codecs="av01.0.08M.08"');
-  assert.deepEqual(cp.served(), { codec: 'av01', codecChanges: 1 });
+  assert.deepEqual(cp.served(), { codec: 'av01', codecChanges: 1, hooked: 1 });
   new SB().changeType('video/webm; codecs="vp09.00.41.08"');
-  assert.deepEqual(cp.served(), { codec: 'vp09', codecChanges: 2 });
+  assert.deepEqual(cp.served(), { codec: 'vp09', codecChanges: 2, hooked: 1 });
   new SB().changeType('video/webm; codecs="vp09.00.41.08"');
   assert.equal(cp.served().codecChanges, 2, 'same family is not a change');
   assert.equal(log.length, 4, 'every call reached the original');

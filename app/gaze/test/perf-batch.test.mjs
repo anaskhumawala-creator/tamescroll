@@ -18,23 +18,29 @@ function fakeGlobal() {
   return g;
 }
 
-test('NO_AV1 1 answers no for av01 on both capability questions and leaves VP9/H.264 alone', () => {
+test('NO_AV1 writes the flag the document-start wrappers read, and never patches the page itself', () => {
   const g = fakeGlobal();
+  const its = g.MediaSource.isTypeSupported;
+  const cpt = g.HTMLMediaElement.prototype.canPlayType;
   perf.setNoAv1(1, g);
   assert.equal(perf.NO_AV1, 1);
-  assert.equal(g.MediaSource.isTypeSupported('video/mp4; codecs="av01.0.08M.08"'), false);
-  assert.equal(g.MediaSource.isTypeSupported('video/webm; codecs="vp09.00.10.08"'), true);
-  assert.equal(g.MediaSource.isTypeSupported('video/mp4; codecs="avc1.42E01E"'), true);
-  assert.equal(g.HTMLMediaElement.prototype.canPlayType('video/mp4; codecs="av01.0.08M.08"'), '');
-  assert.equal(g.HTMLMediaElement.prototype.canPlayType('video/mp4; codecs="avc1.42E01E"'), 'probably');
-  // the original still answers everything else
-  assert.equal(g.MediaSource.isTypeSupported('video/nope'), false);
+  assert.equal(g.__TS_NO_AV1, 1);
+  // The bundle boots ~700ms after YouTube asks (probe_av1_caps.py), so a
+  // patch here would be too late; the wrappers live in lib.rs.
+  assert.equal(g.MediaSource.isTypeSupported, its, 'not patched here');
+  assert.equal(g.HTMLMediaElement.prototype.canPlayType, cpt, 'not patched here');
   perf.setNoAv1(0, g);
-  assert.equal(g.MediaSource.isTypeSupported('video/mp4; codecs="av01.0.08M.08"'), true, 'unpatched');
-  assert.equal(g.HTMLMediaElement.prototype.canPlayType('video/mp4; codecs="av01.0.08M.08"'), 'probably');
+  assert.equal(g.__TS_NO_AV1, 0);
 });
 
-test('NO_AV1 on a page without MediaSource is a no-op that does not throw', () => {
+test('av1Refused reads the wrapper counter and treats absent as 0', () => {
+  assert.equal(perf.av1Refused({}), 0);
+  assert.equal(perf.av1Refused({ __TS_AV1_REFUSED: 'x' }), 0);
+  assert.equal(perf.av1Refused({ __TS_AV1_REFUSED: 7 }), 7);
+  assert.equal(perf.slowStats().av1Refused, 0, 'rides the perf snapshot');
+});
+
+test('NO_AV1 on a page without a window is a no-op that does not throw', () => {
   assert.doesNotThrow(() => perf.setNoAv1(1, {}));
   perf.setNoAv1(0, {});
   assert.doesNotThrow(() => perf.setNoAv1(1, null));
@@ -51,7 +57,7 @@ test('PLAYBACK_SLOW: slows at >8% dropped, restores under 3%, never touches a us
   assert.equal(perf.slowStep(0.2, 1), perf.SLOW_RATE);
   assert.equal(perf.slowStep(0.05, perf.SLOW_RATE), null, 'between thresholds: hold');
   assert.equal(perf.slowStep(0.01, perf.SLOW_RATE), 1, 'restored');
-  assert.deepEqual(perf.slowStats(), { slowed: 1, restored: 1, ours: false });
+  assert.deepEqual(perf.slowStats(), { slowed: 1, restored: 1, ours: false, av1Refused: 0 });
   // the user moved it under us: we stop owning it and never restore
   assert.equal(perf.slowStep(0.2, 1), perf.SLOW_RATE);
   assert.equal(perf.slowStep(0.0, 2), null);
@@ -110,19 +116,22 @@ test('thermal duty: doubles the verdict duty while hot, restores below the cool 
   cadence.setVerdictDuty(base);
 });
 
-test('the TsPerf bridge receives every dial and a missing bridge is a silent no-op', () => {
+test('the TsPerf bridge receives every dial WITH the claimed token first, and a missing bridge is a silent no-op', () => {
   const calls = [];
+  perf._setTokenForTest('tok-1');
   perf._setBridgeForTest({
-    sustained(v) { calls.push(['sustained', v]); },
-    refreshCap(v) { calls.push(['refreshCap', v]); },
-    hint(v) { calls.push(['hint', v]); },
-    inferPriority(v) { calls.push(['inferPriority', v]); },
+    sustained(t, v) { calls.push(['sustained', t, v]); },
+    refreshCap(t, v) { calls.push(['refreshCap', t, v]); },
+    hint(t, v) { calls.push(['hint', t, v]); },
+    inferPriority(t, v) { calls.push(['inferPriority', t, v]); },
+    thermalHeadroom(t) { calls.push(['thermalHeadroom', t]); return 0.5; },
   });
   perf.setSustainedPerf(1);
   perf.setRefreshCapHz(60);
   perf.setPerfHint(1);
   perf.setInferPrio(2);
-  assert.deepEqual(calls, [['sustained', true], ['refreshCap', 60], ['hint', true], ['inferPriority', 2]]);
+  assert.equal(perf.readHeadroom(), 0.5);
+  assert.deepEqual(calls, [['sustained', 'tok-1', true], ['refreshCap', 'tok-1', 60], ['hint', 'tok-1', true], ['inferPriority', 'tok-1', 2], ['thermalHeadroom', 'tok-1']]);
   perf._setBridgeForTest(null);
   assert.doesNotThrow(() => {
     perf.setSustainedPerf(0);

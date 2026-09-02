@@ -403,6 +403,9 @@ export function buildReport(snap) {
     codec: {
       codec: enumOr('codec', s.codec && s.codec.codec, 'none'),
       changes: num(s.codec && s.codec.codecChanges),
+      // 0 = the wrappers never installed, so 'none' above says nothing
+      // (phase-n N13); 1 = installed, so 'none' means no video buffer.
+      hooked: num(s.codec && s.codec.hooked),
     },
     native: {
       nativeBackend: enumOr('nativeBackend', s.native && s.native.backend, 'none'),
@@ -417,6 +420,18 @@ export function buildReport(snap) {
     perf: {
       slowed: num(s.perf && s.perf.slowed),
       restored: num(s.perf && s.perf.restored),
+      // av01 capability answers the document-start wrappers refused.
+      av1Refused: num(s.perf && s.perf.av1Refused),
+    },
+    // The presenter's own paint counters (phase-n N10): repaints and
+    // patchesDrawn move with BLUR_IN_FRAME, gl with PRESENTER_GL, lost
+    // is 1 once the GL presenter handed the video back.
+    paint: {
+      repaints: num(s.paint && s.paint.repaints),
+      patchesDrawn: num(s.paint && s.paint.patchesDrawn),
+      gl: num(s.paint && s.paint.gl),
+      lost: s.paint && s.paint.lost ? 1 : 0,
+      errors: num(s.paint && s.paint.errors && s.paint.errors.length),
     },
     player: {
       attached: !!s.playerAttached,

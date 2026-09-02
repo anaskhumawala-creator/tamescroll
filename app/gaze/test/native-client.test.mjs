@@ -47,13 +47,19 @@ function makeFakeBitmap(w, h) {
 
 function makeFakePort() {
   const sent = [];
+  const configs = [];
   const port = {
     postMessage(data) {
-      sent.push(data);
+      // The CONFIG frame the client sends on every ready (modelId 0, 16
+      // bytes, native-config.test.mjs) is kept apart so the model
+      // request counts below stay about models.
+      if (data && data.byteLength === 16 && new DataView(data).getUint32(4, true) === 0) configs.push(data);
+      else sent.push(data);
     },
     onmessage: null,
   };
   port.sent = sent;
+  port.configs = configs;
   port.emit = function (data) {
     port.onmessage({ data: data });
   };
