@@ -169,17 +169,25 @@ def compute_exit_hang(snaps, frames, iou_min=0.3):
         for id_, t in cur.items():
             if id_ not in nxt_ids:
                 deaths.append({"id": id_, "md": snaps[i]["mt"], "box": t["box"]})
+    # The hang is the CONSECUTIVE run of presented frames after the death
+    # that still overlap the last box -- it ends at the first clean frame.
+    # Counting every later overlapping frame in the run (the first version
+    # of this) charged a subject who walked back into the same spot, or a
+    # re-minted track, to the death before it: p50 822 frames on the first
+    # Stage B run, which no 1000ms delay line can produce.
+    ordered = sorted((f for f in frames if f.get("pm") is not None), key=lambda f: f["pm"])
     counts = []
     for d in deaths:
         n = 0
         covered = False
-        for f in frames:
-            pm = f.get("pm")
-            if pm is None or pm < d["md"]:
+        for f in ordered:
+            if f["pm"] < d["md"]:
                 continue
             covered = True
             if any(iou(p, d["box"]) >= iou_min for p in f.get("p", [])):
                 n += 1
+            else:
+                break
         if covered:
             counts.append(n)
     return counts
@@ -529,6 +537,17 @@ def _selftest():
     hangsC = compute_exit_hang(snapsC, framesC)
     print("hangs (frames):", hangsC)
     assert hangsC == [0], hangsC
+
+    print("== compute_exit_hang, a later re-entry is not the hang ==")
+    framesD = [
+        {"pm": 12.0, "p": [[0.0, 0.0, 0.2, 0.2]]},   # still covered
+        {"pm": 12.1, "p": []},                       # clean -> hang ends at 1
+        {"pm": 14.0, "p": [[0.0, 0.0, 0.2, 0.2]]},   # someone back in the same spot
+        {"pm": 14.1, "p": [[0.0, 0.0, 0.2, 0.2]]},
+    ]
+    hangsD = compute_exit_hang(snapsC, framesD)
+    print("hangs (frames):", hangsD)
+    assert hangsD == [1], hangsD
 
     print("== build_delay_arm (entry-lag scenario) ==")
     armA = build_delay_arm(snapsA, framesA, {"presented": 100}, {"presented": 150}, {"delayVerdictLate": 3})
