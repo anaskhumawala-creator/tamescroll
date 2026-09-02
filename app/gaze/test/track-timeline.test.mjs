@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import {
   makeTimeline,
   LATE_HOLD_MS,
+  LOOKAHEAD_MS,
   pushSnapshot,
   pushCut,
   boxesAt,
@@ -246,4 +247,48 @@ test('latestSnapshot returns null on an empty timeline and the newest snapshot o
   pushSnapshot(tl, 5.0, [{ id: 1, box: { x1: 0, y1: 0, x2: 1, y2: 1 }, state: 'blurred' }]);
   pushSnapshot(tl, 6.0, [{ id: 1, box: { x1: 0, y1: 0, x2: 1, y2: 1 }, state: 'cleared' }]);
   assert.equal(latestSnapshot(tl).mediaTime, 6.0);
+});
+
+// Rule 3'' walks over UNDECIDED snapshots (1096e). On the Redmi the
+// timeline gets a snapshot per pass and most passes are position passes
+// (no gender read), so "the snapshot after B" was a position pass still
+// carrying the pending clear, and the lookahead answered 'blurred'.
+// Track 28, events-v1096d: born at a cut at 181.382, certain male 0.75
+// (pending), position passes at 182.483 and 183.05 still pending,
+// verdict at 183.35 cleared -- 2.0s covered with two certain male reads
+// and nothing against him. The walk stops at the first DECIDING snapshot
+// (cleared, blurred-without-pending, or the id gone), at a cut, and at
+// LOOKAHEAD_MS.
+test('a pending clear confirmed after intervening position passes is presented cleared from B', () => {
+  const box = { x1: 0.3, y1: 0.3, x2: 0.5, y2: 0.7 };
+  function build(decide, extra) {
+    const tl = makeTimeline(10000);
+    pushSnapshot(tl, 10.0, [{ id: 1, box: box, state: 'blurred', clearPending: true }]);
+    pushSnapshot(tl, 10.3, [{ id: 1, box: box, state: 'blurred', clearPending: true }]);
+    pushSnapshot(tl, 10.6, [{ id: 1, box: box, state: 'blurred', clearPending: true }]);
+    if (extra) extra(tl);
+    if (decide) pushSnapshot(tl, 11.2, decide === 'gone' ? [] : [{ id: 1, box: box, state: decide }]);
+    return tl;
+  }
+  assert.equal(boxesAt(build('cleared'), 10.1)[0].state, 'cleared', '(B, pos1)');
+  assert.equal(boxesAt(build('cleared'), 10.45)[0].state, 'cleared', '(pos1, pos2)');
+  assert.equal(boxesAt(build('cleared'), 10.9)[0].state, 'cleared', '(pos2, C)');
+  assert.equal(boxesAt(build('blurred'), 10.1)[0].state, 'blurred', 'C decided blurred: the ladder was right');
+  assert.equal(boxesAt(build('gone'), 10.1)[0].state, 'blurred', 'the track died undecided');
+  assert.equal(boxesAt(build(null), 10.1)[0].state, 'blurred', 'nothing decided yet');
+  assert.equal(boxesAt(build('cleared', (tl) => pushCut(tl, 10.7)), 10.1)[0].state, 'blurred', 'a cut before C: C is another shot');
+  // Past the walk bound the answer stays blurred even if a later snapshot
+  // clears: pending snapshots every 0.3s for longer than LOOKAHEAD_MS
+  // from B, then a clear. The walk from B must give up before it.
+  const far = makeTimeline(20000);
+  const stepS = 0.3;
+  let t = 10.0;
+  while (t - 10.0 <= LOOKAHEAD_MS / 1000 + stepS) {
+    pushSnapshot(far, t, [{ id: 1, box: box, state: 'blurred', clearPending: true }]);
+    t += stepS;
+  }
+  pushSnapshot(far, t, [{ id: 1, box: box, state: 'cleared' }]);
+  assert.equal(boxesAt(far, 10.1)[0].state, 'blurred', 'the walk from B outran LOOKAHEAD_MS');
+  // ...while a frame bracketed by the LAST pending snapshot is one step from the clear.
+  assert.equal(boxesAt(far, t - stepS / 2)[0].state, 'cleared');
 });

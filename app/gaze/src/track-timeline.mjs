@@ -206,12 +206,30 @@ function cutBetween(tl, fromExclusive, toInclusive) {
 function stateAt(tl, B, tb) {
   if (tb.state !== 'blurred' || !tb.clearPending) return tb.state;
   var idx = tl.snapshots.indexOf(B);
-  if (idx === -1 || idx + 1 >= tl.snapshots.length) return tb.state;
-  var C = tl.snapshots[idx + 1];
-  if (cutBetween(tl, B.mediaTime, C.mediaTime)) return tb.state;
-  for (var i = 0; i < C.tracks.length; i++) {
-    var tc = C.tracks[i];
-    if (tc.id === tb.id) return tc.state === 'cleared' ? 'cleared' : tb.state;
+  if (idx === -1) return tb.state;
+  // WALK OVER THE UNDECIDED SNAPSHOTS. The timeline gets a snapshot per
+  // pass and most passes are POSITION passes (no gender read), so the
+  // snapshot right after B usually carries the same pending clear and
+  // says nothing. Redmi, events-v1096d: track 28 born at a cut, certain
+  // male at 181.382 (pending), position passes at 182.483 and 183.05
+  // still pending, cleared at the 183.35 verdict -- 2.0s covered by a
+  // lookahead that read one position pass and stopped. The first
+  // DECIDING snapshot answers: cleared, blurred without the pending
+  // clear (an uncertain or opposite read -- the ladder was right), or
+  // the id gone. A cut ends the shot, and LOOKAHEAD_MS bounds the walk.
+  var prev = B;
+  for (var k = idx + 1; k < tl.snapshots.length; k++) {
+    var C = tl.snapshots[k];
+    if ((C.mediaTime - B.mediaTime) * 1000 > LOOKAHEAD_MS) return tb.state;
+    if (cutBetween(tl, prev.mediaTime, C.mediaTime)) return tb.state;
+    var tc = null;
+    for (var i = 0; i < C.tracks.length; i++) {
+      if (C.tracks[i].id === tb.id) { tc = C.tracks[i]; break; }
+    }
+    if (!tc) return tb.state;
+    if (tc.state === 'cleared') return 'cleared';
+    if (!(tc.state === 'blurred' && tc.clearPending)) return tb.state;
+    prev = C;
   }
   return tb.state;
 }
@@ -252,6 +270,8 @@ export var BIRTH_BACKDATE_PAD = 0.15;
 export var LATE_HOLD_MS = 3000;
 // The held box's outward pad reaches BIRTH_BACKDATE_PAD at this lateness.
 export var LATE_PAD_FULL_MS = 1000;
+// How far past B the rule-3'' lookahead may walk for a DECIDING snapshot.
+export var LOOKAHEAD_MS = 3000;
 
 // One presented entry: the resolved box/state plus the fields the
 // presentation merge needs (person-track.mergePresented), read off the

@@ -3150,6 +3150,9 @@ if (
                     // the two numbers R11's critic had to infer.
                     v: typeof pick.raw === 'number' ? Math.round(pick.raw * 1000) / 1000 : null,
                     px: typeof pick.px === 'number' ? pick.px : null,
+                    // The person box this read was made for, so a banked read
+                    // can be joined to the track that consumed it (1096e).
+                    pb: [Math.round(person.x1 * 1000) / 1000, Math.round(person.y1 * 1000) / 1000, Math.round(person.x2 * 1000) / 1000, Math.round(person.y2 * 1000) / 1000],
                     // Was this read REFUSED as the model's prior? Without
                     // it the abstention is invisible in the artifact —
                     // which is exactly how it shipped dead for a round.

@@ -81,7 +81,7 @@ COLLECT_JS = r"""(function(){
       // whatever follows the last OBJECT seen (identity, not index).
       var r=d.reads||[];
       var ri=lastR?r.lastIndexOf(lastR):-1;
-      if(r.length){ for(var i=ri+1;i<r.length;i++){ var e=r[i]||{}; st.reads.push({ms:now,lm:lm,vt:vt,g:e.g,s:e.s,v:e.v,ab:e.ab,px:e.px,fc:e.fc,b:e.b,nm:e.nm,a:e.a,pc:e.pc}); } lastR=r[r.length-1]; }
+      if(r.length){ for(var i=ri+1;i<r.length;i++){ var e=r[i]||{}; st.reads.push({ms:now,lm:lm,vt:vt,g:e.g,s:e.s,v:e.v,ab:e.ab,px:e.px,fc:e.fc,b:e.b,nm:e.nm,a:e.a,pc:e.pc,pb:e.pb}); } lastR=r[r.length-1]; }
       var tk=d.tracks||[];
       var ti=lastT?tk.lastIndexOf(lastT):-1;
       if(tk.length){ for(var j=ti+1;j<tk.length;j++){ var snap=tk[j]||[];
