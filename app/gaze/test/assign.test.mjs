@@ -102,3 +102,30 @@ test('optimal never matches fewer than greedy, over 2000 random frames', () => {
   // so this arm is not a no-op dressed up as a fix.
   assert.ok(better > 0, `greedy loses matches on ${better} of 2000 frames`);
 });
+
+test('an absurd frame falls back to greedy rather than to a cubic stall', () => {
+  // Nothing in the tracker bounds the track list, and this runs per
+  // verdict pass. The ceiling's failure mode has to be the shipped
+  // behaviour, not a slow frame -- so above it the result must be
+  // greedy's, exactly.
+  let seed = 991;
+  const rnd = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x7fffffff;
+  };
+  const n = 40; // > OPTIMAL_MAX_SIDE
+  const pairs = [];
+  for (let t = 0; t < n; t++) {
+    for (let o = 0; o < n; o++) {
+      if (rnd() < 0.9) continue;
+      pairs.push({ t, o, iou: 0.15 + rnd() * 0.85 });
+    }
+  }
+  assert.ok(pairs.length > 20, 'precondition: the frame has pairs to assign');
+  assert.equal(ids(optimalAssign(pairs, n, n)), ids(greedyAssign(pairs, n, n)));
+  // And just under the ceiling it is still doing the real thing, or the
+  // ceiling would have quietly disabled the whole change.
+  const small = pairs.filter((p) => p.t < 32 && p.o < 32);
+  const o = optimalAssign(small, 32, 32);
+  assert.ok(o.length >= greedyAssign(small, 32, 32).length);
+});

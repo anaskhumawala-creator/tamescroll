@@ -68,8 +68,21 @@ export function greedyAssign(pairs, nTracks, nObs) {
 // inventing a match that no pair permitted.
 var FORBIDDEN = 1e9;
 
+// AN O(n^3) IN A PATH THAT RUNS PER VERDICT NEEDS A CEILING, even one it
+// is not expected to reach. MoveNet emits at most six persons and the
+// face fallback adds a handful, so a real frame is well under ten a side
+// and costs 26 microseconds at twelve; there is nothing in the tracker
+// that BOUNDS the track list, though, and an unbounded cubic on a device
+// already measured as cap-limited is not a thing to leave to chance.
+// Above the ceiling this falls back to the shipped greedy loop, so the
+// worst case is the behaviour that has always shipped rather than a
+// stall.
+var OPTIMAL_MAX_SIDE = 32;
+
 export function optimalAssign(pairs, nTracks, nObs) {
   if (!pairs.length) return [];
+  if (nTracks > OPTIMAL_MAX_SIDE || nObs > OPTIMAL_MAX_SIDE)
+    return greedyAssign(pairs, nTracks, nObs);
   // Cost, because the classical formulation minimises. A better pair is
   // a lower cost, and an eligible pair always beats a forbidden one.
   var n = nTracks, m = nObs;
