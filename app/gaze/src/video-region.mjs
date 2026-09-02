@@ -40,18 +40,20 @@ var BASE_PX = 100;
 // video -> { host, video, tracks, at, overlays, raf, timer, ro, hr, vr }
 var entries = new Map();
 
-// A TIMELINE MAY BE ATTACHED BEFORE THE ENTRY EXISTS.
+// THE TIMELINE IS NOT PART OF THE ENTRY. It is keyed by video here and
+// lives from setTimeline until clearTimeline, whatever the entry does.
 //
-// setTimeline is called from init-entry when the delay presenter is
-// wired (Task 10), which can happen before the first setTracks call for
-// that video ever runs -- the player may not have covered anyone yet.
-// entries is keyed by video and only setTracks creates a row in it, so a
-// boxesFn handed over first has nowhere to live. Queued here instead,
-// keyed by the same video, and adopted onto entry.boxesFn the moment
-// setTracks builds the entry. Cleared the same way clearTimeline clears
-// an attached one, so a stale pending fn cannot outlive the caller that
-// meant to replace or remove it.
-var pendingTimelines = new Map();
+// It used to be adopted ONCE onto `entry.boxesFn` from a pending queue,
+// and `clear(video)` -- which init-entry calls on every pass that covers
+// nobody -- deleted the entry holding it while the queued copy was
+// already consumed. From the first empty pass on, the re-created entry
+// had no boxesFn and the renderer silently drew the LIVE tracks, a full
+// DELAY_MS ahead of the presented picture: patches for people who had
+// not yet appeared, patches gone before their subject left. Redmi, 1095,
+// one watch session: timelineFrames 100 against overlayFrames 53,801
+// (2026-09-02). Every "delay arm" number taken between 1092 and 1095 was
+// measured on that renderer.
+var timelines = new Map();
 
 // WHAT THE RENDERER WAS ASKED FOR, NEXT TO WHAT IT DREW.
 //
@@ -1099,8 +1101,9 @@ function reposition(entry, now) {
   // verdict at/after the presented time yet) falls back to the ordinary
   // `entry.tracks` + elapsed path exactly as if no timeline were attached
   // at all, with no state to unwind.
-  if (entry.boxesFn) {
-    var live = entry.boxesFn();
+  var boxesFn = timelines.get(entry.video);
+  if (boxesFn) {
+    var live = boxesFn();
     if (live) {
       renderStats.timelineFrames++;
       // 'cleared' is a real answer from the timeline (a person who is on
@@ -1294,28 +1297,20 @@ function reconcileOverlays(entry, tracks) {
  * or equivalent. A 'cleared' item is never drawn as a patch.
  *
  * Callable before the video has any tracks at all (the presenter can be
- * wired ahead of the first cover): with no entry yet, the fn is queued
- * in `pendingTimelines` and adopted onto `entry.boxesFn` the moment
- * `setTracks` creates the entry.
+ * wired ahead of the first cover), and it outlives every entry:
+ * `clear(video)` does not touch it, only clearTimeline does.
  */
 export function setTimeline(video, boxesFn) {
-  var entry = entries.get(video);
-  if (entry) {
-    entry.boxesFn = boxesFn;
-  } else {
-    pendingTimelines.set(video, boxesFn);
-  }
+  timelines.set(video, boxesFn);
 }
 
 /**
  * Detach a video's timeline (pill off, `loadstart`, presenter torn
  * down): `reposition` returns to the plain `entry.tracks` + elapsed
- * velocity path. Clears a queued-but-not-yet-adopted fn too.
+ * velocity path.
  */
 export function clearTimeline(video) {
-  pendingTimelines.delete(video);
-  var entry = entries.get(video);
-  if (entry) entry.boxesFn = null;
+  timelines.delete(video);
 }
 
 /**
@@ -1354,18 +1349,8 @@ export function setTracks(video, tracks) {
       hr: null,
       vr: null,
       clip: null,
-      // Set by setTimeline (Task 9, Stage B); reposition prefers it over
-      // entry.tracks + elapsed velocity extrapolation when present. See
-      // the note above setTimeline.
-      boxesFn: null,
     };
     entries.set(video, entry);
-    // A TIMELINE ATTACHED BEFORE THIS ENTRY EXISTED IS ADOPTED HERE, ONCE.
-    // See the note above `pendingTimelines`.
-    if (pendingTimelines.has(video)) {
-      entry.boxesFn = pendingTimelines.get(video);
-      pendingTimelines.delete(video);
-    }
     refreshRects(entry);
     // Rect refresh lives OUTSIDE the rAF loop: a slow timer catches
     // scroll/theater drift, a ResizeObserver catches player resizes the

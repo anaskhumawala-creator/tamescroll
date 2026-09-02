@@ -186,3 +186,58 @@ test('setTimeline before any setTracks call is adopted when the entry is created
   assert.ok(left > 200 && left < 300, 'left=' + left + ' should already be reading the pending timeline');
   vr.clear(video);
 });
+
+// THE TIMELINE MUST OUTLIVE THE ENTRY. `clear(video)` runs on every pass
+// that covers nobody (init-entry: render.length 0 -> uncoverVideo +
+// videoRegion.clear), and it deleted the entry that held boxesFn while
+// the queued copy had already been consumed on first adoption -- so from
+// the first empty pass on, the renderer drew the LIVE tracks, ~DELAY_MS
+// ahead of the presented picture. Redmi, 1095, one watch session:
+// timelineFrames 100 against overlayFrames 53,801 (2026-09-02).
+//
+// try/finally, because an assertion that throws above vr.clear leaks the
+// 250ms rect timer and HANGS the suite instead of reporting.
+test('a timeline survives clear(video) and is read again by the next entry', () => {
+  const { player, video } = playerWithVideo({ left: 0, top: 0, width: 640, height: 360 });
+  const live = [{ key: 'x', box: { x1: 0.0, y1: 0.0, x2: 0.1, y2: 0.1 }, vx: 0, vy: 0 }];
+  try {
+    vr.setTimeline(video, () => [
+      { id: 'x', box: { x1: 0.4, y1: 0.4, x2: 0.6, y2: 0.6 }, state: 'blurred' },
+    ]);
+    vr.setTracks(video, live);
+    const now = performance.now();
+    for (let i = 0; i < 60; i++) vr._reposition(video, now);
+    assert.ok(leftOf(patchesIn(player)[0]) > 200, 'fixture: the first entry reads the timeline');
+
+    vr.clear(video); // nobody blurred on one pass
+    vr.setTracks(video, live); // somebody blurred again
+    for (let i = 0; i < 60; i++) vr._reposition(video, now);
+    const overlay = patchesIn(player)[0];
+    assert.ok(overlay, 'a patch was drawn');
+    const left = leftOf(overlay);
+    assert.ok(left > 200 && left < 300, 'left=' + left + ': the re-created entry must still read the timeline, not the live track at 0');
+  } finally {
+    vr.clear(video);
+    vr.clearTimeline(video);
+  }
+});
+
+test('clearTimeline is the only thing that detaches a timeline', () => {
+  const { player, video } = playerWithVideo({ left: 0, top: 0, width: 640, height: 360 });
+  const live = [{ key: 'x', box: { x1: 0.0, y1: 0.0, x2: 0.1, y2: 0.1 }, vx: 0, vy: 0 }];
+  try {
+    vr.setTimeline(video, () => [
+      { id: 'x', box: { x1: 0.4, y1: 0.4, x2: 0.6, y2: 0.6 }, state: 'blurred' },
+    ]);
+    vr.setTracks(video, live);
+    vr.clear(video);
+    vr.clearTimeline(video);
+    vr.setTracks(video, live);
+    const now = performance.now();
+    for (let i = 0; i < 60; i++) vr._reposition(video, now);
+    assert.ok(leftOf(patchesIn(player)[0]) < 50, 'detached: the live track is drawn');
+  } finally {
+    vr.clear(video);
+    vr.clearTimeline(video);
+  }
+});
