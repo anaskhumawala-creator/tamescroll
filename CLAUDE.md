@@ -70,6 +70,137 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-03 03:40 (**1098 PUBLISHED, sha e69297ff** --
+bundle 85d1152, manifest to app-v0.1.98, served APK re-downloaded and
+hashed against the raw manifest, isDraft false. The Redmi runs it; his
+phone gets it in-app. He was told to HOLD installing until this landed;
+it has landed.)
+
+## HANDOFF 2026-09-03 -- THE PERFORMANCE BATCH SHIPPED AS 1098
+
+**WHAT 1098 IS.** Every idea from `docs/research/wild-performance-2026-09-03.md`
+that he ruled in ("do all of these in one go"), each behind an OTA dial
+that ships at TODAY'S behaviour, so 1098 renders exactly like 1097 until a
+number is pushed. Plan + loop log:
+`docs/superpowers/plans/2026-09-03-performance-batch-1098.md`. Critic:
+`docs/critic/phase-n.md`, ledger N1-N13 (all CONFIRMED, all fixed at
+source; N12 open as a NIT). critic-gate 153 rows / 0 blocking. gaze
+788/788, cargo 63/63, Kotlin compile clean.
+
+**THE DIALS (`rules/tuning.json`, whitelist + clamp in `tuning.mjs`; a
+1097 phone refuses the unknown keys):** RENDER_EVERY 1 [1,2] (N5: the
+unit is rAF periods at the measured 49-50Hz, nothing above 2 measured),
+SUSTAINED_PERF 0, REFRESH_CAP_HZ 0, THERMAL_DUTY 0, NATIVE_CPU_MASK 0,
+NO_AV1 0, **NATIVE_NPU 0**, PERF_HINT 0, INFER_PRIO 0, PLAYBACK_SLOW 0,
+BLUR_IN_FRAME 0, PRESENTER_GL 0, CODEC_PROBE 1 (the one page-API touch
+that is ON: it only READS the served codec, N11 gave it a kill switch).
+
+**REDMI SMOKE ON THE RELEASED BUILD (`probe_drops_ab.py`, 426p, 120s,
+one planted arm per process -- `drops-v1098c-*.json`, `diag-v1098c-*.json`):**
+
+| arm (1098c, bundle 85d1152) | dropped | rAF Hz | native | read |
+  |---|---|---|---|---|
+  | control | 12.05% | 49.9 | gpu x3, 258 passes | npu `failed` = arbiter ran off the STALE cache (NATIVE_NPU 1 from 84b9c68), lost, native survived |
+  | NATIVE_CPU_MASK 1 | 11.65% | 50.1 | face cpu / gender gpu / person gpu, 286 | -- |
+  | control again | 12.26% | 49.7 | gpu x3, 295 | CONFIG leak closed (would have read cpu on 1098b) |
+  | NO_AV1 1 | **15.51%** | 46.1 | gpu x3, 294 | `av1Refused` 10; player fmt **242 (VP9)** vs base **395 (AV1)** -- the switch works and COSTS drops on the Redmi |
+  | PRESENTER_GL 1 | 12.57% | 48.5 | gpu x3, 284 | gl 1, no context loss |
+  | BLUR_IN_FRAME 1 | 12.34% | 51.2 | gpu x3, 312 | repaints 465, patchesDrawn 1 |
+  | (1098b, previous build) control / blurframe / glpres / cpumask1 / render2 | 13.71 / 10.96 / 11.75 / 12.24 / 14.51 | | | same footage; the spread between builds is as wide as the spread between arms |
+
+Read that table honestly: on 1098c NO arm separates from control -- the
+11.65-12.57 spread is the run-to-run noise (1098b's control read 13.71 on
+the same footage), so BLUR_IN_FRAME and PRESENTER_GL's 1098b "wins" (2-3
+points) are NOT confirmed; they are within the band. What the smoke DOES
+prove: every dial is live and fail-safe on hardware (native alive in all
+six arms, GL context held, blur-into-frame repaints), the CONFIG leak is
+closed, and NO_AV1 flips the served codec. NO_AV1 is a LOSS on the Redmi
+(Helio G85: VP9 software decode costs more than AV1's there); his Redmi
+13 is a different SoC and the dial is his to try. RENDER_EVERY 2 bought
+nothing on 1098b and was not re-run.
+
+**NO_AV1 -- THE MECHANISM WAS WRONG TWICE AND IS MEASURED NOW.**
+`probe_av1_caps.py` on the Redmi: YouTube asks
+`mediaCapabilities.decodingInfo` for av01 at ~380ms after document start
+and `MediaSource.isTypeSupported` at ~530ms; our bundle boots at
+~1100-1930ms; the first `addSourceBuffer(av01)` is at ~1180ms. So a
+page-bundle wrapper is always late and `decodingInfo` was never wrapped.
+The wrappers now live in `lib.rs no_av1_script()` in the DOCUMENT-START
+script (Android init script + desktop initialization_script), cover all
+three (`isTypeSupported`, `canPlayType`, `decodingInfo`), and decide AT
+CALL TIME from `window.__TS_NO_AV1` (set by `perf.setNoAv1`) or, before
+the bundle runs, the `__TS_GAZE_TUNING__` payload. `__TS_AV1_REFUSED`
+counts refusals and rides the report as `perf.av1Refused`; `codec.hooked`
+says whether the codec probe installed at all (N13: "none" with hooked 1
+is a race the probe lost against the first addSourceBuffer, not a page
+without MSE). Takes effect on the NEXT document, never mid-page.
+
+**THE CONFIG LEAK (found by the 1098b glpres arm reading native "cpu").**
+`NativeInfer` outlives the document; the client only sent CONFIG when
+something differed from the engine defaults, so a planted
+NATIVE_CPU_MASK 1 stayed in the engine for every later page. CONFIG is
+sent on EVERY native-ready now (defaults included).
+
+**NPU: QUALCOMM'S DELEGATE IS DEAD BY LICENCE (AI Hub Model License
+2.c forbids biometric categorisation -- that is faceres gender and the
+identity memory; POMs + PDF in `spikes/native/qnn-licence-check/`).
+NNAPI (TFLite's own delegate, Apache-2.0) is the route, and IT SHIPS
+OFF.** He ruled auto-detect; N1 overruled it for one release because the
+arbiter is unpriced on real crops the way loop 34 priced faceres. The
+arbiter as built: after ready, on `ts-npu-trial`, build+warm the NNAPI
+copy; wait up to 30s for the shipping model's LAST REAL FRAME
+(`LoadedModel.realInput`, copied on ts-infer); time and compare against
+a SHADOW copy of the shipping model on the trial thread (every output
+head within 2% of its own max-abs, win = agree AND nn < shadow x 0.9);
+swap or drop on ts-infer. `npu: ok` = MEASURED faster on real input;
+`failed` = tried, lost; `absent` = API<27 or all-CPU; `disabled` =
+NATIVE_NPU 0. To flip it: push `NATIVE_NPU: 1` in rules/tuning.json,
+then read `native.npu` + per-model `nativeBackend` in HIS About report
+(the Redmi is MediaTek Helio G85, no APU -- it can only prove the arm
+loses cleanly, and it read `failed` on every 1098b arm).
+
+**TsPerf IS TOKEN-GATED (N8).** One UUID per process, handed to the
+first `TsPerf.claim()` per document (reset in onPageStarted), parked by
+the document-start stash behind a one-shot non-configurable
+`__TS_TAKE_PERF_TOKEN`; every bridge method takes the token first and
+no-ops without it. Page scripts can no longer background the inference
+thread or change the display mode.
+
+**PAINT CAPABILITY PROBES (N4).** `canPaint()` writes `blur(1px)` to the
+2D context and reads it back; the GL presenter attaches a probe texture
+to its FBO and refuses the whole attach unless FRAMEBUFFER_COMPLETE,
+before the canvas is appended. Without these a context that swallowed
+the write would have hidden the divs and drawn NOTHING over every patch
+-- an exposure behind a dial that ships 0. The report carries
+`paint {repaints, patchesDrawn, gl, lost, errors}`.
+
+**HELD BACK, said so:** #20 (144p side stream, ToS), #19 (storyboard,
+own spec), #16/#17/#18 (exposure dials, need corpus pricing first).
+
+**UNVERIFIED / OPEN:** (1) no frame capture of a GL-painted patch exists
+(glpres ran with BLUR_IN_FRAME 0) -- PRESENTER_GL stays 0 until one is
+read off the device; (2) the NNAPI arm has never returned `ok` on any
+hardware; (3) one "cast must be a Tensor" error on the worker fallback
+path during the 1098b native-dead run, unexplained, not reproduced with
+native alive; (4) `ctx.filter` on a desynchronized 2D context is
+unmeasured; (5) his Redmi 13 (Adreno, 90Hz) has run NONE of this -- the
+REFRESH_CAP_HZ and NPU arms are HIS phone's to answer.
+
+**NEXT:** push dials over OTA one at a time against a fresh drops read
+on his phone, in the order the smoke ranks them: BLUR_IN_FRAME 1, then
+PRESENTER_GL 1 (after a visual capture), NATIVE_CPU_MASK 1, NO_AV1 1
+(read `codec` + `av1Refused` the page after), NATIVE_NPU 1 (his phone
+only). Each push = one manifest regen + commit + a re-read of
+`__TS_DIAG_NOW()`.
+
+**GOTCHAS THIS LOOP:** the Bash tool's heredocs break on long bodies --
+write a .py to the scratchpad and run it; CRLF files need
+newline-normalised replacements. `probe_drops_ab.py`'s CDP plant lives
+for the session, so ONE planted arm per process. The NNAPI arbiter
+running inside loadAll took 19s against the client's 15s ready timeout
+and killed native on the first 1098 build (26.5% drops, native dead) --
+anything expensive at load goes AFTER ready, on its own thread.
+
 **Last updated:** 2026-09-03 02:40 (**1097 IS STILL THE RELEASE.** The
 performance batch is HALF LANDED: JS half committed as 84b9c68, Kotlin
 half in flight on disk, nothing built, nothing measured, nothing

@@ -103,3 +103,16 @@ NO_AV1 1, PRESENTER_GL 1); Opus critic on the diff; release 1098; manifest.
   NATIVE_NPU ships 0 (N1); TsPerf token (N8); CONFIG on every ready.
 - Next: rebuild (85d1152 + bundle commit), re-smoke control / cpumask1 /
   control-after / noav1 / glpres / blurframe, release 1098 + manifest.
+
+## T5 DONE 2026-09-03 03:40 -- 1098 PUBLISHED (sha e69297ff)
+
+- Build at 85d1152 (bundle commit 2eaa243): marker == HEAD, every batch
+  constant present in the emitted `gaze-page.js`, APK versionCode 1098.
+- Redmi smoke (`drops-v1098c-*`, `diag-v1098c-*`): control 12.05 /
+  cpumask1 11.65 / control-after 12.26 / noav1 15.51 / glpres 12.57 /
+  blurframe 12.34. Native alive in all six; leak closed; NO_AV1 proven by
+  the player's own itag (395 av01 -> 242 vp9, `probe_served_codec.py`)
+  and it costs drops on the Redmi. No arm separates from control.
+- Release: `app-v0.1.98`, isDraft false, served APK re-downloaded and
+  hashed against the raw manifest. Tree in sync with origin.
+- Next: OTA pushes one at a time against a drops read on HIS phone.
