@@ -12,6 +12,10 @@
 
 **Spec:** this plan is the spec; it is derived from the two spikes in `spikes/native/` (`REPORT.md` = model conversion + parity, `BRIDGE-REPORT.md` = page→Kotlin frame transfer cost) and the 1092 device rows in `spikes/gauntlet/latency-ab-stageB5.json` (verdict p50 922ms, gap p50 2000ms, rAF 34.3, coverage 0.628).
 
+## iOS (owner, 2026-09-02: "we are making this app for Apple as well")
+
+The seam is chosen so iOS is a second implementation of ONE small interface, not a second pipeline. All policy (decode, NMS, tracking, cadence, rendering) stays in the page; the native side is a tensor runner reached through a message port. On iOS that is a `WKScriptMessageHandler` (with `WKWebView` `postMessage` for results) running the same `.tflite` files through TensorFlow Lite's iOS pod with the Metal delegate (Core ML delegate as the alternative). The port protocol (Task 2) is therefore platform-neutral by construction: a 16-byte header + raw RGBA in, `[reqId,status,nOutputs,elapsedUs]` + Float32 tensors out; `native-client.mjs` must not know which platform answered. iOS work itself happens in the cousin's visit window (project CLAUDE.md); everything here must leave it a copy-the-protocol job.
+
 ## Global Constraints
 
 - BLOCK-ONLY, NO NAGS, patches SOLID, player red line (`docs/VISION.md`). Never copy from HaramBlur or any AGPL/GPL source. TFLite/LiteRT are Apache-2.0; the models are MIT (Human) / Apache-2.0 (MoveNet) — add every new dependency to `NOTICE`.
@@ -167,5 +171,6 @@ Updated by whoever finishes a task. The loop reads this section first.
 - **Decisions so far:** transport = TBD (0b); delegate = TBD (1); models converted = TBD (0a).
 - **Device rows:** 1092 = verdict 922 / gap 2000 / rAF 34.3 / coverage 0.628 (`latency-ab-stageB5.json`).
 - **Blocked / needs owner:** nothing yet.
+- **Bench scaffold:** `spikes/native/bench-android/` written (Task 1 Step 1 done); `run.sh` builds+installs+runs and writes `gpu-bench.json`. Waiting on `.tflite`s from 0a.
 - **Log:**
   - 2026-09-02 14:45 plan written; spikes 0a/0b in flight; gauntlet cron deleted.
