@@ -33,7 +33,11 @@ import {
   lastSlotDiag,
   unpadPersons,
 } from './person-gate.mjs';
-import { nonMaxSuppression } from './nms.mjs';
+// The BlazeFace anchor/NMS decode and the faceres verdict loop live in
+// face-decode.mjs now -- the native (TFLite) path needs the exact same
+// arithmetic and has no tensor ops to do it with, so this is the one
+// copy both paths call. See face-decode.mjs's header.
+import { generateAnchors, facesFromRows, genderReadsFromOutputs, FACE_MIN_CONFIDENCE } from './face-decode.mjs';
 
 import { synthetic } from './synthetic-url.mjs';
 export var INPUT_SIZE = 256; // matches the embedded face model's fixed input shape
@@ -45,37 +49,13 @@ export var GENDER_INPUT_SIZE = 224; // faceres (HSE-FaceRes) fixed input shape
 // detections on the observed set were mostly non-faces (patterns,
 // hands), each one a phantom patch. Still below the 0.5 common default
 // so obscured real faces keep flagging — fail-safe leans kept.
-export var FACE_MIN_CONFIDENCE = 0.35;
-// (The 2026-08-24 small-subject rescue floor is gone: the person-primary
-// video pipeline runs faces on native-res person crops, where small
-// faces are big — redesign, blur-pipeline-audit.)
-var FACE_IOU = 0.1;
-var FACE_MAX = 20;
-// MEASURED AND PINNED (gauntlet R26). Do not move this to buy gender
-// certainty on a small face — it is the child gate's operating point.
 //
-// R26 scored FALSE COVER on all ten frames of a classroom in `woman`
-// mode: the one adult woman, face 74 native px, reads female with
-// certainty 0.14-0.63 (one read of twelve over GENDER_CLEAR_SCORE_FEMALE
-// 0.45), so she has no path to a clear. The obvious free fix is the
-// crop, since the enlargement is a constant and costs nothing.
-// `spikes/gauntlet/facecrop.py` swept it over ALL EIGHT faces in that
-// frame (found the way the pipeline finds them — person slot, native
-// per-person crop, BlazeFace inside it — because the full-frame pass
-// finds one of ten), at 0.55/0.7/0.85/1.0/1.2/1.5/1.9 of the shipped box:
-//
-//   the adult woman   gender FLIPS with the crop: male .38 / male .63 /
-//                     male .15 / female .30 / female .38 / female .24 /
-//                     male .13. There is no scale that clears her, and
-//                     the tight end reads her confidently WRONG.
-//   two known children childP peaks at the SHIPPED scale — .751 and .746
-//                     at 1.0, falling to .199/.340 at 1.9 and .283/.285
-//                     at 0.55, against GENDER_CHILD_MASS 0.25.
-//
-// So 1.0 is where the child gate works and every other scale leaks it,
-// which is the trade S6 and R23 refused twice from the other direction.
-// A child rendered sharp is the worst outcome this project has.
-var FACE_ENLARGE = 1.4; // gender wants context around the face crop
+// FACE_IOU / FACE_MAX / FACE_ENLARGE and the R26 calibration story for
+// the 1.4 enlarge factor now live in face-decode.mjs, next to the NMS
+// call that uses them -- this re-export is the one place detector.js's
+// own callers (init-entry.js reads `detector.FACE_MIN_CONFIDENCE`) still
+// see it.
+export { FACE_MIN_CONFIDENCE };
 
 function b64ToBuffer(b64) {
   var binStr = atob(b64);
@@ -724,27 +704,8 @@ export async function isNsfw(model, pixelSource, sharedImg) {
   return porn + hentai > 0.5 || sexy > 0.8;
 }
 
-// SSD anchor centers for the 256 "back" BlazeFace model: stride-16 grid
-// (16x16 cells x 2 anchors = 512) + stride-32 grid (8x8 x 6 = 384), 896
-// total — matching the model's two classificator outputs. Adapted from
-// vladmandic/human generateAnchors (MIT).
-function generateAnchors(inputSize) {
-  var spec = { strides: [inputSize / 16, inputSize / 8], anchors: [2, 6] };
-  var anchors = [];
-  for (var i = 0; i < spec.strides.length; i++) {
-    var stride = spec.strides[i];
-    var grid = Math.floor((inputSize + stride - 1) / stride);
-    for (var gy = 0; gy < grid; gy++) {
-      for (var gx = 0; gx < grid; gx++) {
-        for (var n = 0; n < spec.anchors[i]; n++) {
-          anchors.push([stride * (gx + 0.5), stride * (gy + 0.5)]);
-        }
-      }
-    }
-  }
-  return anchors;
-}
-
+// Anchor generation (adapted from vladmandic/human, MIT) lives in
+// face-decode.mjs now, shared with the native path's plain-JS decode.
 var anchorsT = null;
 
 function ensureAnchors() {
@@ -756,15 +717,10 @@ function ensureAnchors() {
  * Full face detection: returns an array of { x1, y1, x2, y2, confidence }
  * with coordinates normalized to 0..1 of the source (enlarged and
  * squarified in model space for downstream gender crops). Empty array =
- * no faces. Decode adapted from vladmandic/human getBoxes (MIT).
+ * no faces. Decode adapted from vladmandic/human getBoxes (MIT); the CPU
+ * half (NMS, enlarge, squarify, marks) is face-decode.mjs's
+ * `facesFromRows`, shared with the native path.
  */
-/** The 6 landmark pairs of one row, normalized to 0..1 of the source. */
-function readMarks(data, off) {
-  var out = new Array(12);
-  for (var k = 0; k < 12; k++) out[k] = data[off + k] / INPUT_SIZE;
-  return out;
-}
-
 export async function detectFaceBoxes(model, pixelSource, sharedImg) {
   var anchors = ensureAnchors();
   var out = tf.tidy(function () {
@@ -814,40 +770,9 @@ export async function detectFaceBoxes(model, pixelSource, sharedImg) {
   } finally {
     tf.dispose(out);
   }
-  var STRIDE = 17;
-  var rows = data.length / STRIDE;
-  var scoresArr = new Float32Array(rows);
-  var boxesArr = new Float32Array(rows * 4);
-  for (var r = 0; r < rows; r++) {
-    scoresArr[r] = data[r * STRIDE];
-    boxesArr[r * 4] = data[r * STRIDE + 1];
-    boxesArr[r * 4 + 1] = data[r * STRIDE + 2];
-    boxesArr[r * 4 + 2] = data[r * STRIDE + 3];
-    boxesArr[r * 4 + 3] = data[r * STRIDE + 4];
-  }
-  var idx = nonMaxSuppression(boxesArr, scoresArr, FACE_MAX, FACE_IOU, FACE_MIN_CONFIDENCE);
-  var kept = [];
-  for (var i = 0; i < idx.length; i++) {
-    var j = idx[i] * 4;
-    // Enlarge + squarify in model space, then normalize to 0..1 of
-    // the (resize-stretched) source — fractions map back correctly.
-    var cx = (boxesArr[j] + boxesArr[j + 2]) / 2;
-    var cy = (boxesArr[j + 1] + boxesArr[j + 3]) / 2;
-    var half = (Math.max(boxesArr[j + 2] - boxesArr[j], boxesArr[j + 3] - boxesArr[j + 1]) / 2) * FACE_ENLARGE;
-    kept.push({
-      x1: Math.max(0, (cx - half) / INPUT_SIZE),
-      y1: Math.max(0, (cy - half) / INPUT_SIZE),
-      x2: Math.min(1, (cx + half) / INPUT_SIZE),
-      y2: Math.min(1, (cy + half) / INPUT_SIZE),
-      confidence: scoresArr[idx[i]],
-      // Normalized to 0..1 of the source the SAME WAY the box is, so a
-      // landmark and a box edge are comparable numbers. The row is the
-      // pre-NMS row, not the enlarged/squarified box -- FACE_ENLARGE is
-      // a crop convenience and must not move a measured point.
-      marks: readMarks(data, idx[i] * STRIDE + 5),
-    });
-  }
-  return kept;
+  // `data` is already the [896,17] rows facesFromRows expects: [score,
+  // x1,y1,x2,y2, mark0..mark11] per row, stride 17.
+  return facesFromRows(data);
 }
 
 /**
@@ -937,92 +862,9 @@ export async function classifyFaceGenders(model, pixelSource, boxes, sharedImg, 
   } finally {
     tf.dispose(outs);
   }
-  var verdicts = [];
-  for (var k = 0; k < boxes.length; k++) {
-    var v = data[k];
-    var confidence = hadGenderHead ? Math.min(0.99, 2 * Math.abs(v - 0.5)) : 0;
-    // AGE IS AN EXPECTED VALUE over a 100-bin softmax, and that is the
-    // wrong statistic for the one question we ask of it (gauntlet R18).
-    // A mean over a bimodal posterior lands where no mass is: on a child
-    // face faceres splits between a young mode and its adult training
-    // prior, and the mean comes out in the twenties. Measured on the
-    // classroom footage, twelve directed reads of ONE eight-year-old
-    // returned ages 14,14,17,19,19,21,22,26,26,27,29,37 — the child gate
-    // would fire on three of twelve, and the two reads that age him 19
-    // and 22 are `male` at 0.79 and 0.81, i.e. consecutive certain-clear
-    // evidence, which in MAN mode is two of the two CLEAR_STREAK_N reads
-    // needed to render an eight-year-old sharp.
-    //
-    // So carry the MASS under GENDER_ADULT_AGE alongside the mean. It
-    // answers the actual question — is there meaningful probability that
-    // this face is a child — and it costs nothing: the loop over all 100
-    // bins already runs. `age` stays, because it is what the artifact has
-    // recorded for eleven rounds and the probes join on it.
-    //
-    // R22 carries the posterior's SHAPE out alongside its mean, for the
-    // same reason and at the same price: the loop over all 100 bins
-    // already runs, and `ageData` is already in CPU memory from the
-    // download above, so `maxBin`/`maxMass`/entropy are three more
-    // accumulators in a loop of 100 rather than any new work. The
-    // question they exist to answer is R22's open item — separating a
-    // NEWS TITLE CARD from a real close-up, which no threshold on the
-    // person pass can do (measured: the two regimes overlap on MoveNet
-    // score, maxKp and nKp15 alike). The premise is that faceres answers
-    // with its training PRIOR when handed a crop containing no face, and
-    // a prior is broad where a real read is a narrow peak. That premise
-    // is established for the gender head (it is what `isNullRead` and
-    // the [0.545,0.705] null band ship against) and is INFERENCE for the
-    // age head — which is why this is a measurement and not yet a gate.
-    var age = 0;
-    var childP = 0;
-    var ageMaxBin = 0;
-    var ageMaxMass = 0;
-    var ageEnt = 0;
-    for (var a = 0; a < 100; a++) {
-      var pa = ageData[k * 100 + a];
-      age += a * pa;
-      if (a < 18) childP += pa;
-      if (pa > ageMaxMass) {
-        ageMaxMass = pa;
-        ageMaxBin = a;
-      }
-      if (pa > 1e-9) ageEnt -= pa * Math.log(pa);
-    }
-    // L2-normalized descriptor slice so identity matching is a plain
-    // dot product downstream.
-    var desc = descData.slice(k * 1024, (k + 1) * 1024);
-    var norm = 0;
-    for (var n = 0; n < desc.length; n++) norm += desc[n] * desc[n];
-    norm = Math.sqrt(norm) || 1;
-    for (var m = 0; m < desc.length; m++) desc[m] /= norm;
-    // KEEP THE RAW SIGMOID. `confidence` folds it around 0.5, which
-    // destroys the sign the null test needs: faceres answers with a
-    // CONSTANT when it has no signal, and that constant lives on one
-    // side of 0.5 only. Folded, a null (v~0.63) and a genuine weak
-    // female read (v~0.37) are the same number; unfolded they are
-    // 0.26 apart. R11's critic measured the null band at v in
-    // [0.545, 0.705] over 44 reads against real male reads starting at
-    // v = 0.74 — a 1-D gap of 0.035, too thin to threshold alone, which
-    // is exactly why the raw value has to survive to where age and the
-    // descriptor are also in scope.
-    // `norm` IS THE DESCRIPTOR'S MAGNITUDE AND IT WAS BEING DISCARDED BY
-    // THE VERY LINE THAT COMPUTES IT (R22 critic). The descriptor is
-    // global-average-pooled trunk output; a crop with no face excites the
-    // trunk weakly, and L2-normalising is precisely the step that erases
-    // that difference before anything downstream can see it. Carrying the
-    // scalar out costs nothing — it is already a live local — and it is a
-    // 1024-dimensional null test that is ORTHOGONAL to the 1-dimensional
-    // one `isNullRead` already performs on the gender sigmoid.
-    // Recorded, not acted on: whether it separates a graphic from a face
-    // is R23's measurement, and the magnitude-as-quality result it is
-    // borrowed from comes from margin-trained recognition embeddings,
-    // which faceres's pooled feature is not.
-    var shape = { norm: norm, ageBin: ageMaxBin, ageMass: ageMaxMass, ageEnt: ageEnt };
-    verdicts.push(
-      v <= 0.5
-        ? { gender: 'female', score: confidence, age: age, childP: childP, desc: desc, raw: v, shape: shape }
-        : { gender: 'male', score: confidence, age: age, childP: childP, desc: desc, raw: v, shape: shape }
-    );
-  }
-  return verdicts;
+  // The verdict loop (age-as-mass, descriptor normalise, raw sigmoid
+  // kept alongside the folded confidence -- see face-decode.mjs for the
+  // R18/R22/R11/R23 notes this used to carry inline) is
+  // genderReadsFromOutputs now, shared with the native TFLite path.
+  return genderReadsFromOutputs(data, ageData, descData, boxes, hadGenderHead);
 }
