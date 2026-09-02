@@ -1425,10 +1425,26 @@ export function setBoxes(video, boxes) {
   return setTracks(video, tracks);
 }
 
-/** Remove all region overlays for one video. */
+/**
+ * Remove all region overlays for one video. WITH A TIMELINE ATTACHED
+ * THIS ONLY DROPS THE LIVE TRACKS: init-entry calls it on every pass
+ * where the LIVE tracker covers nobody, and the presented picture is
+ * DELAY_MS behind -- its subject may still be on screen for that long
+ * after the live track died. Tearing the entry down killed the rAF loop
+ * the timeline draws through, so every delayed frame after the live
+ * state emptied was presented with NO patch (his "opposite gender
+ * visible for under a second", 2026-09-02). The loop stays up and draws
+ * whatever the timeline answers, none included; clearTimeline (pill
+ * off, loadstart, giveUp) is what ends it.
+ */
 export function clear(video) {
   var entry = entries.get(video);
   if (!entry) return;
+  if (timelines.has(video)) {
+    entry.tracks = [];
+    entry.at = performance.now();
+    return;
+  }
   if (entry.raf) cancelAnimationFrame(entry.raf);
   if (entry.timer) clearInterval(entry.timer);
   if (entry.ro) {
@@ -1446,11 +1462,12 @@ export function clear(video) {
   entries.delete(video);
 }
 
-/** Fail-open sweep support: tear every player overlay down. */
+/** Fail-open sweep support: tear every player overlay AND timeline down. */
 export function clearAll() {
   var vids = [];
   entries.forEach(function (_entry, video) {
     vids.push(video);
   });
+  timelines.clear();
   for (var i = 0; i < vids.length; i++) clear(vids[i]);
 }

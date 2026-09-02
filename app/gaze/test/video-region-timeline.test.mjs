@@ -241,3 +241,54 @@ test('clearTimeline is the only thing that detaches a timeline', () => {
     vr.clearTimeline(video);
   }
 });
+
+// THE RENDER LOOP MUST OUTLIVE THE LIVE TRACKS TOO. init-entry calls
+// clear(video) on every pass where the LIVE tracker covers nobody, and
+// with a timeline attached that is the wrong question: the presented
+// picture is DELAY_MS behind, and its subject may still be on screen
+// for that long after the live track died. Killing the entry kills the
+// rAF loop the timeline draws through, so the delayed frames lost their
+// patches the instant the live state emptied -- his "opposite gender
+// visible for under a second".
+test('clear(video) with a timeline attached keeps the loop alive and the timeline drawn', () => {
+  const { player, video } = playerWithVideo({ left: 0, top: 0, width: 640, height: 360 });
+  const live = [{ key: 'x', box: { x1: 0.0, y1: 0.0, x2: 0.1, y2: 0.1 }, vx: 0, vy: 0 }];
+  try {
+    vr.setTimeline(video, () => [
+      { id: 'x', box: { x1: 0.4, y1: 0.4, x2: 0.6, y2: 0.6 }, state: 'blurred' },
+    ]);
+    vr.setTracks(video, live);
+    const now = performance.now();
+    for (let i = 0; i < 60; i++) vr._reposition(video, now);
+    assert.ok(leftOf(patchesIn(player)[0]) > 200, 'fixture: drawn from the timeline');
+
+    vr.clear(video); // live tracker: nobody blurred; presented picture: still her
+    for (let i = 0; i < 60; i++) vr._reposition(video, now);
+    const overlay = patchesIn(player)[0];
+    assert.ok(overlay, 'the timeline box is still drawn after clear()');
+    assert.ok(leftOf(overlay) > 200 && leftOf(overlay) < 300, 'left=' + leftOf(overlay));
+  } finally {
+    vr.clearTimeline(video);
+    vr.clear(video);
+    assert.equal(patchesIn(player).length, 0, 'detached and cleared: nothing left in the player');
+  }
+});
+
+test('clearAll tears the timelines down with the entries (fail-open sweep)', () => {
+  const { player, video } = playerWithVideo({ left: 0, top: 0, width: 640, height: 360 });
+  vr.setTimeline(video, () => [
+    { id: 'x', box: { x1: 0.4, y1: 0.4, x2: 0.6, y2: 0.6 }, state: 'blurred' },
+  ]);
+  vr.setTracks(video, [{ key: 'x', box: { x1: 0.0, y1: 0.0, x2: 0.1, y2: 0.1 }, vx: 0, vy: 0 }]);
+  vr.clearAll();
+  const now = performance.now();
+  for (let i = 0; i < 5; i++) vr._reposition(video, now);
+  assert.equal(patchesIn(player).length, 0, 'nothing drawn after clearAll');
+  vr.setTracks(video, [{ key: 'x', box: { x1: 0.0, y1: 0.0, x2: 0.1, y2: 0.1 }, vx: 0, vy: 0 }]);
+  try {
+    for (let i = 0; i < 60; i++) vr._reposition(video, now);
+    assert.ok(leftOf(patchesIn(player)[0]) < 50, 'the timeline is gone: live track drawn');
+  } finally {
+    vr.clear(video);
+  }
+});
