@@ -16,6 +16,10 @@
 
 The seam is chosen so iOS is a second implementation of ONE small interface, not a second pipeline. All policy (decode, NMS, tracking, cadence, rendering) stays in the page; the native side is a tensor runner reached through a message port. On iOS that is a `WKScriptMessageHandler` (with `WKWebView` `postMessage` for results) running the same `.tflite` files through TensorFlow Lite's iOS pod with the Metal delegate (Core ML delegate as the alternative). The port protocol (Task 2) is therefore platform-neutral by construction: a 16-byte header + raw RGBA in, `[reqId,status,nOutputs,elapsedUs]` + Float32 tensors out; `native-client.mjs` must not know which platform answered. iOS work itself happens in the cousin's visit window (project CLAUDE.md); everything here must leave it a copy-the-protocol job.
 
+## Desktop and other platforms (owner, 2026-09-02: "all platforms, all devices ... the video part would generally be similar")
+
+Same seam. Desktop (Tauri/WebView2 on Windows) gets a Rust tensor runner behind the identical port protocol only if a measurement says WebGL in WebView2 is the bottleneck there -- it is not today (verdict p50 ~90ms on the RTX). Candidates when it is: `ort` (ONNX Runtime, DirectML EP) or `tflitec`; the page code does not change either way. The Worker/WebGL path stays as the universal fallback on every platform, so a platform with no native runner is never worse than 1092. Decision rule: measure the platform's own verdict cost first; a runner is added where the number, not the architecture diagram, says so.
+
 ## Global Constraints
 
 - BLOCK-ONLY, NO NAGS, patches SOLID, player red line (`docs/VISION.md`). Never copy from HaramBlur or any AGPL/GPL source. TFLite/LiteRT are Apache-2.0; the models are MIT (Human) / Apache-2.0 (MoveNet) — add every new dependency to `NOTICE`.
