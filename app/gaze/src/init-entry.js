@@ -1873,6 +1873,21 @@ if (
     // Media time of the frame the pass in flight was judged on
     // (verdictBusy serialises passes, so one slot is enough).
     var passMediaTime = 0;
+    // THE CUT IS KEYED AT THE FRAME THAT SHOWED IT. The scene gate samples
+    // the LIVE video -- the newest rVFC frame the presenter's ring just
+    // captured -- while every pass is keyed at its frame's mediaTime. Keyed
+    // at `video.currentTime` (a clock reading up to a luma tick later) the
+    // cut landed 10-100ms AFTER that frame, so a verdict on the cut frame
+    // itself sat on the old-shot side: the rule-3'' walk stopped at it
+    // (Redmi, events-v1096e 65.532: a certain man covered 19 frames), and a
+    // demotion pass keyed 11-56ms before its own cut back-projected blur
+    // onto the previous shot's last frames (88.188, 140.374). Never later
+    // than the clock: cutBetween is (from, to], so a cut AT the pass frame
+    // puts that frame on the new-shot side.
+    function cutMediaTime() {
+      var newest = presenter ? presenter.newestMediaTime() : null;
+      return typeof newest === 'number' ? Math.min(video.currentTime, newest) : video.currentTime;
+    }
     // Probe-only: the last answer boxesFn gave the renderer (the timeline
     // entries and the merged target), so a drawn rect can be told apart
     // from the target it was drawn toward. References, no copies.
@@ -2417,7 +2432,7 @@ if (
         bumpLife('cutDetected');
         // The timeline must know a cut happened at THIS media time, or
         // boxesAt would carry the old shot's patches across it.
-        if (presenter) pushCut(timeline, video.currentTime);
+        if (presenter) pushCut(timeline, cutMediaTime());
         // A cut is where new people appear: bypass the interval AND
         // force the next pass to re-read gender, not just positions.
         lastSample = 0;

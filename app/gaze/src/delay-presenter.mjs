@@ -503,6 +503,14 @@ export function attachDelay(video, host, opts) {
     return presentedMediaTimeVal;
   }
 
+  /** Media time of the newest captured frame (the one the live video is
+   *  showing), or null when the ring is empty. The scene gate keys a cut
+   *  on it so the cut lands ON the frame that showed it, not at a clock
+   *  reading 10-100ms later (1096f). */
+  function newestMediaTime() {
+    return ring.length ? ring[ring.length - 1].mediaTime : null;
+  }
+
   function statsFn() {
     return {
       captured: stats.captured,
@@ -546,5 +554,6 @@ export function attachDelay(video, host, opts) {
     presentedMediaTime: presentedMediaTime,
     stats: statsFn,
     requestVerdictFrame: requestVerdictFrame,
+    newestMediaTime: newestMediaTime,
   };
 }

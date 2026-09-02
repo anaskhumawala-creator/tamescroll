@@ -86,7 +86,8 @@ test('a verdict pass reads the newest ring frame and the tracker result is snaps
 });
 
 test('a scene cut reaches the timeline', () => {
-  assert.match(SRC, /bumpLife\('cutDetected'\);\s*if \(presenter\) pushCut\(timeline, video\.currentTime\);/);
+  assert.match(SRC, /bumpLife\('cutDetected'\);\s*if \(presenter\) pushCut\(timeline, cutMediaTime\(\)\);/);
+  assert.match(SRC, /function cutMediaTime\(\) \{[\s\S]{0,400}?presenter\.newestMediaTime\(\)[\s\S]{0,200}?Math\.min\(video\.currentTime, /);
 });
 
 test('start attaches (pill on), pill off and giveUp detach, loadstart restarts the timeline covered', () => {

@@ -15,6 +15,10 @@ probe_events.py, with the two joins the first classifier got wrong:
 
     python events_reclass.py events-<label>.json
 """
+# A read with childP >= 0.25 (GENDER_CHILD_MASS) is NOT a clearable read:
+# the child gate holds it covered by design, so it is excluded from the
+# same-gender-certain population here (events-v1096d: 3 of 102 certain
+# male reads, ages 21-23, all three counted as false cover before this).
 import json, sys
 
 
@@ -124,9 +128,9 @@ def main(path):
         snap = next((s for s in sn if s["lm"] == m), None)
         idx = sn.index(snap) if snap else None
         for r in rs:
-            if r.get("g") != same or r.get("ab") or (r.get("s") or 0) < 0.45 or not r.get("b"):
+            if r.get("g") != same or r.get("ab") or (r.get("s") or 0) < 0.45 or (r.get("pc") or 0) >= 0.25 or not r.get("b"):
                 continue
-            near = [f for f in frames if abs(f["pm"] - m) <= 0.25]
+            near = [f for f in frames if abs(f["pm"] - m) <= 0.25 and not any(min(f["pm"], m) < c <= max(f["pm"], m) for c in cuts)]
             cov = [f for f in near if any(contains(p, r["b"]) for p in f["p"])]
             if not near or not cov:
                 continue
@@ -164,7 +168,7 @@ def main(path):
                 # contain his face at this pass: another subject's body
                 why = "otherSubjectsPatch"
             fc_rows.append({"m": round(m, 3), "s": r["s"], "px": r.get("px"), "covered": len(cov), "near": len(near), "why": why, "track": info})
-    same_reads = [r for r in reads if r.get("g") == same and not r.get("ab") and (r.get("s") or 0) >= 0.45]
+    same_reads = [r for r in reads if r.get("g") == same and not r.get("ab") and (r.get("s") or 0) >= 0.45 and (r.get("pc") or 0) < 0.25]
     why_counts = {}
     for r in fc_rows:
         why_counts[r["why"]] = why_counts.get(r["why"], 0) + 1

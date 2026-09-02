@@ -435,6 +435,26 @@ test('requestVerdictFrame clones the newest ring bitmap and leaves the ring entr
   assert.equal(bitmaps.log.closed, 0, 'the original ring bitmaps are untouched');
 });
 
+// THE CUT IS KEYED AT THE FRAME THAT SHOWED IT (1096f). The scene gate
+// samples the LIVE video, which is the newest rVFC frame the ring just
+// captured; pushing the cut at `video.currentTime` instead keyed it
+// 10-100ms AFTER that frame's mediaTime, so a verdict pass on the cut
+// frame itself (keyed at the frame's time) sat on the wrong side of the
+// cut. Redmi, events-v1096e: verdict at 65.532, cut keyed 65.542, the
+// rule-3'' walk stopped at the "cut" and covered a certain man for 19
+// frames; demotion passes keyed 11-56ms BEFORE their cut back-projected
+// blur onto the last frames of the previous shot (88.188, 140.374).
+test('newestMediaTime is the newest captured frame, null when the ring is empty', async () => {
+  var { video, presenter } = setup({ delayMs: 1000 });
+  assert.equal(presenter.newestMediaTime(), null);
+  video.currentTime = 0;
+  driveFrame(video, 0, 1000);
+  await flushAsync();
+  driveFrame(video, 0.5, 1500);
+  await flushAsync();
+  assert.equal(presenter.newestMediaTime(), 0.5);
+});
+
 test('requestVerdictFrame resolves null when the ring is empty', async () => {
   var { presenter } = setup({ delayMs: 1000 });
   var out = await presenter.requestVerdictFrame();
