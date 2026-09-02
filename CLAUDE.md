@@ -278,48 +278,141 @@ DEFECT IN A FOURTH FILE.**
 - **THE ONE OPEN QUESTION FOR HIM IS UNCHANGED** and only its digits
   moved: the coast dial is an EXPOSURE trade and it is his call.
 
-## HANDOFF -- READ THIS FIRST (written 2026-09-02 06:40, at his request)
+## HANDOFF -- READ THIS FIRST (rewritten 2026-09-02 11:00, at his request)
 
 **HIS LAST INSTRUCTION, and it overrides the queue: "i need you to
-atleast fix youtube first."** The platform-widening thread (16/16b/16c)
-is PARKED. Everything below is YouTube unless it says otherwise.
+atleast fix youtube first."** Platform widening (16/16b/16c) is PARKED.
+Everything below is YouTube unless it says otherwise.
 
-**WHAT HE RUNS.** 1091 is the release (1090 before it). He installed 1086 and said "I'm
+**WHAT HE RUNS. 1091 IS THE RELEASE AND IT IS VERIFIED LIVE** -- tag
+`app-v0.1.91`, isDraft false, and the SERVED APK was re-downloaded on
+2026-09-02 and hashes `3fef6384...`, matching `updates/app-manifest.json`
+exactly. Nothing is pending publication. He installed 1086 and said "I'm
 tired of installing new versions", so **batch anything else into ONE
-build** -- 1087/1088/1089/1090 all exist and he may have installed none
-of them. The old Redmi `1ec2c48e0621` (M2010J19SI) is the arm64
-smoke-test device and HAS the app; **its screen is LOCKED WITH A
-CREDENTIAL and I cannot unlock it** -- `wm dismiss-keyguard`, the MENU
-keyevent and a swipe were all refused on 2026-09-02, so do not spend a
-fourth attempt. (I turned it off with keyevent 26 -- do not do that
-again; a locked screen makes `innerWidth` read **0** and every rect
-worthless, which invented a whole page of false geometry.) It is on
-**1089**. **The x86_64 emulator is the fallback and it works**: the 1091
-release sweep ran there. Emulator now on 1091.
+build**. The old Redmi `1ec2c48e0621` (M2010J19SI) is the arm64
+smoke-test device and is on **1089**; **its screen is LOCKED WITH A
+CREDENTIAL and I cannot unlock it** -- `wm dismiss-keyguard`, MENU and a
+swipe were all refused on 2026-09-02, so do not spend a fourth attempt.
+(Do not turn it off with keyevent 26 again: a locked screen reads
+`innerWidth` **0** and every rect off it is worthless, which invented a
+whole page of false geometry.) **The x86_64 emulator is the fallback and
+it works** -- the 1091 release sweep ran there; it is on 1091.
 
-**THE ONE OPEN QUESTION FOR HIM, unchanged for two sessions:**
-`PTRACK_MIN_COAST_PASSES` 2 -> 1.33 buys **26% of the phantom** he
-complains about most ("random blur marks here and there") for **~4.5s
-more exposure** across 18 windows. It is an EXPOSURE trade, so it is his
-call. **It can now travel over OTA without an install** (1086+ carries
-the whitelist) -- push `rules/tuning.json` and re-read his rings.
+### THE ONE DECISION THAT IS HIS, and he has now had it explained twice
 
-**THE INSTRUMENT DEFECT THAT DOMINATED TONIGHT, and it will bite the
-next session too.** ~30 benches in `app/gaze/bench/` build their options
-by hand and pass no `fixedCadence`, so they tell the tracker the **500ms
-BANK interval** and derive a **1250ms coast** -- where his phone is told
-**2000** and coasts **4000**. Four published tables were measured that
-way and **three of them REVERSED** when re-run. Any arm that does not
-pin a cadence now writes a loud stderr block (`arch-arms.warnDerivedCadence`,
-`test/cadence-pinned.test.mjs`). **Pass `hisRegimeOpts(g)` and
-`thinFrames(w, K_HIS)`, always.** The self-check that a bench is in his
-regime: its control row must read **man 22.5 / 136.5 / 547.5** and
-**woman 25.5 / 201.5 / 628.0** (post-1091; 1090 was 23.0 / 139.0 /
-561.0 and 24.5 / 200.5 / 663.0; pre-1090 22.0 / 155.0 / 573.5 and
-25.5 / 201.0 / 679.5). **Do not maintain that list by hand any more:**
-`arch-arms.CONTROL` is the single source and
+`PTRACK_MIN_COAST_PASSES` **2 -> 1.33**. A blur patch keeps following its
+subject on prediction between verdicts (~2s apart on his phone); the dial
+is how long it may coast before giving up, currently ~4s. A patch that
+lost its person sits there for the whole 4s -- that IS his "random blur
+marks here and there". 1.33 cuts phantom **26%** (141.0s man / 156.5s
+woman) for **+5.0s / +4.0s of exposure** across 18 windows. It is an
+EXPOSURE trade, so it is his. **It travels over OTA with no install**
+(1086+ carries the whitelist): push `rules/tuning.json`, then re-read his
+rings. He has NOT ruled. Do not push it on your own judgement.
+
+### WHAT HE ASKED ON 2026-09-02 MORNING, and the answers given
+
+- **"From 1080 what improvement did we make?"** MEASURED, and the bench
+  that answers it is new: `bench/release-1080-1091.mjs`, raw in
+  `spikes/gauntlet/release-1080-1091.txt`. His man setting, 1080 ->
+  1091: **false cover -12%, phantom -5%, exposure +2%.** Woman: phantom
+  -8%, the other two flat. **The bench CANNOT price `CUT_DELTA` 28 -> 60**
+  (the corpus banks cut BOOLEANS, so a variant threshold has nothing to
+  re-decide -- findings 10), nor 1083/1084/1087/1088, whose behaviour is
+  modelled by `hisRegimeOpts` flags that are on in BOTH arms because the
+  arm options are not versioned. So the real total is AT LEAST that.
+- **"Did the overnight session cause any benefit or was it a waste?"**
+  Answered straight: **no benefit to his phone -- nothing shipped, no
+  constant moved.** What it bought was stopping three wrong published
+  numbers being built on, and refusing a body-source change that would
+  have doubled his exposure. **Roughly a third of the night was rework on
+  my own instruments** (five of twelve critic findings were defects in
+  things phase F had just built). He was told that in those words.
+- **"Did we reach HaramBlur levels?"** Answered honestly: **unknown,
+  never measured head to head.** They run detection on EVERY frame on
+  desktop hardware; his phone affords it about every 2s. Same MIT models.
+  Their smoothness is compute, not modelling. We are probably still
+  behind on phantom marks specifically, because that artifact is a direct
+  consequence of coasting, which is a consequence of his hardware. We are
+  likely ahead where they have no temporal tracker at all. **The offer he
+  has not taken up: run their app side by side on the same clips and
+  measure it.** Reading their code is forbidden (AGPL-3.0, hard rule);
+  running it and scoring the output is not.
+
+### IN FLIGHT AT HANDOFF
+
+**A phase-H adversarial critic (Opus) was launched and its result is NOT
+known.** It is attacking findings 23, the phase-G fixes G1-G12, and the
+in-place corrections to 20/21/21a. Deliverable `docs/critic/phase-h.md`;
+it was told not to edit anything else and not to commit. **Check whether
+that file exists before starting new work** -- if it does, record its
+rows in `docs/critic/ledger.md` and fix at source, because an OPEN
+EXPOSURE or WRONG-NUMBER row blocks a release.
+
+### THE TWO RULES THAT COST THE MOST WHEN FORGOTTEN
+
+**1. AN INSTRUMENT THAT RE-DERIVES A SHIPPED RULE IS A CHECK THAT CANNOT
+FAIL, and I built three in one session** (phase-g G1, G5, G9) each after
+writing down the rule forbidding it. G1 alone had the synthetic-body
+share at 16.8% when the shipped rule says **27.5%**. The remedy worked
+all three times: move the rule into a module, call it from BOTH sides,
+delete the copy. `faceInsideIndex` / `faceOrderBySize` /
+`synthFaceIndices` now live in `person-gate.mjs` for exactly this.
+
+**2. PIN THE CADENCE, ALWAYS.** ~30 benches build options by hand and
+pass no `fixedCadence`, telling the tracker the **500ms BANK interval**
+and deriving a **1250ms coast** where his phone is told **2000** and
+coasts **4000**. Four published tables were measured that way and
+**three REVERSED** when re-run. Any arm that does not pin one now writes
+a loud stderr block. **Pass `hisRegimeOpts(g)` and `thinFrames(w,
+K_HIS)`.** Self-check: the control row must read **man 22.5 / 136.5 /
+547.5**, **woman 25.5 / 201.5 / 628.0**. Do not maintain that list by
+hand -- `arch-arms.CONTROL` is the single source and
 `test/control-triple.test.mjs` runs the shipped arm over the corpus to
-assert it, so a constant that moves without the triple moving is red.
+assert it.
+
+**AND A THIRD, EARNED TWICE ON 2026-09-02:** a number whose shape looks
+familiar is a claim about the instrument. `face-recall.mjs` printed
+**31%** -- which is 1/3, the thinning ratio -- because it thinned frames
+out of habit for a question that is not about cadence. `extent-reach`
+did the same class of thing. Check the shape before writing the number
+down.
+
+### STATE AT HANDOFF
+
+gaze **583/583**, cargo **60/60**, critic-gate **70/70 CONFIRMED, no
+blocking row open**. HEAD pushed, tree clean, nothing ahead of origin.
+Findings run to **24**. Two new sections landed this morning: **23** (the
+measured MoveNet body tracks BETTER on every count and costs 2.4x the
+exposure, so the cost is the fat the guess has, not association -- and
+37-42% of the contended births 1091's Hungarian shipped for are
+manufactured by the guess overlapping itself) and **24** (detector
+recall, open since this file began, measured at last: 99.8-100% above
+64px, 92-94% in his own 38-62px band, 68% under 24px, and agreement
+RISES with MoveNet's confidence, so most of the residual is MoveNet
+unsure rather than a face BlazeFace walked past -- findings 8's
+hand-annotation afternoon is DEPRIORITISED, not cancelled).
+
+### NEXT, YouTube only, in order
+
+1. **Land phase-H** (above) before anything else.
+2. **Push the coast dial IF HE RULES.** No install needed.
+3. **The residual in the body source is horizontal POSITION, not
+   extent** (G2 killed height at 1.6% and width reverses at faceW 6.0 to
+   +119.5s; findings 23 exonerated association). Unmeasured.
+4. **`movenet-held` must select runs for LOW CONTROL COVERAGE** -- 12 of
+   15 runs are at ceiling today, so the arm is measuring its own
+   headroom. This is the last thing that could revive `PERSON_LETTERBOX`,
+   which ships OFF (`pde=!1` in the emitted bundle).
+5. **The HaramBlur side-by-side**, if he wants a number instead of a
+   guess. Run it, score it; never read it.
+
+**SCOPE WARNING THAT BOUNDS THE WHOLE BODY-SOURCE THREAD (G3):** every
+`mnBody` arm is byte-identical to CONTROL where MoveNet admits nobody --
+12.0% of corpus frames and **100% of his phone** (findings 36, twelve
+slots `n:0`). None of findings 21/21a/23's rows describe what he runs
+today. And the CONTROL triple those raws print never builds `ssdBoxes`,
+so it is structurally blind to the arm printed beside it.
 
 **Session 2026-09-02 (loop 43) -- THE PATH THE OTHER FOUR PLATFORMS USE
 WAS READING FACES 1.78x TALLER THAN WIDE, AND THREE MEASURED REFUSALS

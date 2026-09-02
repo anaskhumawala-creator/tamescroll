@@ -1,0 +1,26 @@
+18 windows, k=3 (1.5s/verdict), his regime
+exposure = someone who should be covered was left sharp
+falseCover = someone who should be sharp was covered
+phantom = a patch on nobody -- the "random blur marks"
+
+-- MAN  (HIS SETTING) --
+arm                         exposure   falseCover     phantom
+1080  greedy, iou 0.20           22.0s      155.0s      573.5s
+1090  greedy, iou 0.15       23.0s +5% 139.0s -10%  561.0s -2%
+1091  optimal, iou 0.15      22.5s +2% 136.5s -12%  547.5s -5%
+
+-- WOMAN --
+arm                         exposure   falseCover     phantom
+1080  greedy, iou 0.20           25.5s      201.0s      679.5s
+1090  greedy, iou 0.15       24.5s -4%  200.5s -0%  663.0s -2%
+1091  optimal, iou 0.15      25.5s +0%  201.5s +0%  628.0s -8%
+
+SCOPE, and it bounds the total in BOTH directions.
+CUT_DELTA 28 -> 60 is NOT in this table: the corpus banks cut
+BOOLEANS, so a variant threshold has nothing to re-decide
+(findings 10). 1085 was measured on his own footage instead --
+17 of 27 "cuts" were his camera moving. And 1083/1084/1087/
+1088 are modelled by hisRegimeOpts flags that are on in BOTH
+arms, because the arm options are not versioned. So this is
+the association + assignment delta only, and the real
+improvement from 1080 is AT LEAST this.
