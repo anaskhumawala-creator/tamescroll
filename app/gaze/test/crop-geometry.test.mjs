@@ -170,11 +170,43 @@ test('the whole-frame video path fits through this function, and clears first', 
   // if it comes back this goes red.
   const src = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
   assert.match(src, /fitBox\(/, 'the whole-frame path delegates to the shared function');
-  assert.equal(
-    (src.match(/drawImage\(video, 0, 0, detector\.INPUT_SIZE/g) || []).length,
-    0,
-    'no four-argument squash back in the face path'
-  );
+
+  // THIS USED TO MATCH ONE SPELLING, and the phase-E critic turned it red
+  // by rewriting the squash as `drawImage(video, 0, 0, canvas.width,
+  // canvas.height)` -- fifteen tests still green with the frame squashing
+  // again, on the only path Reddit, X, Instagram and Facebook have.
+  //
+  // So enumerate instead. Every `drawImage` in the file is parsed for its
+  // real argument count, and a call with FIVE arguments whose destination
+  // origin is `0, 0` is a whole-frame squash whatever the size is spelled
+  // as. Two of those are deliberate and documented in crop-geometry.mjs:
+  // the luma scene gate (both frames squashed identically, so the
+  // distortion cancels out of a difference) and MoveNet (whose outputs
+  // are normalized to its own input -- findings 16b, a round not an edit).
+  // Anything else is the 1089 defect coming back.
+  const calls = [];
+  const NL = String.fromCharCode(10);
+  const re = /drawImage\(/g;
+  let m;
+  while ((m = re.exec(src))) {
+    let depth = 0, cur = '', out = [];
+    for (let i = m.index + 'drawImage('.length; i < src.length; i++) {
+      const c = src[i];
+      if (c === '(' || c === '[' || c === '{') depth++;
+      else if (c === ')' && depth === 0) break;
+      else if (c === ')' || c === ']' || c === '}') depth--;
+      if (c === ',' && depth === 0) { out.push(cur.trim()); cur = ''; continue; }
+      cur += c;
+    }
+    out.push(cur.trim());
+    calls.push({ args: out, line: src.slice(0, m.index).split(NL).length });
+  }
+  assert.ok(calls.length >= 3, 'precondition: the draws were actually parsed');
+  const squashes = calls
+    .filter((c) => c.args.length === 5 && c.args[1] === '0' && c.args[2] === '0')
+    .map((c) => c.args[3]);
+  assert.deepEqual(squashes.sort(), ['detector.PERSON_INPUT_SIZE', 'sceneGate.GATE_SIZE'],
+    'the only whole-frame squashes left are the luma gate and MoveNet');
   // AND THE BARS ARE PAINTED. Without this the reused canvas shows the
   // PREVIOUS frame in the margins and the detector is handed two frames
   // at once -- which is worse than the squash it replaces.

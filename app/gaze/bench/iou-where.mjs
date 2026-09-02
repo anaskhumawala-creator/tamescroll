@@ -21,7 +21,22 @@ import { patchConsts, readConst } from './_patch.mjs';
 
 const src = fs.readFileSync(new URL('./.cache/shipped.mjs', import.meta.url), 'utf8');
 const SHIPPED = readConst(src, 'PTRACK_IOU_MIN');
-const CAND = Number(process.env.IOU || 0.15);
+// THE CANDIDATE MAY NOT DEFAULT TO A LITERAL. It defaulted to 0.15 while
+// 0.20 shipped, which was right for exactly as long as it took 1090 to
+// ship 0.15 -- after which this instrument compared the shipped value
+// against itself and printed `0 of 18 windows moved` in both arms. The
+// tool that justified the release then reported, confidently, that the
+// release changed nothing. Caught by the phase-E critic.
+//
+// A candidate equal to the shipped value is refused rather than run: a
+// control row is a legitimate thing to want from `iou-ab`, and a
+// PER-WINDOW DELTA of an arm against itself is nothing but zeros.
+const CAND = Number(process.env.IOU || (SHIPPED > 0.15 ? 0.15 : 0.20));
+if (CAND === SHIPPED) {
+  console.error(`IOU=${CAND} is the SHIPPED value -- a delta against itself is all zeros.`);
+  console.error('Pass IOU= something else. This refuses rather than printing a false null.');
+  process.exit(2);
+}
 const labels = JSON.parse(fs.readFileSync(`${ROOT}/bank/label/labels.json`, 'utf8'));
 const cropLabel = new Map();
 for (const c of JSON.parse(fs.readFileSync(`${ROOT}/bank/label/clusters.json`, 'utf8')))

@@ -62,3 +62,42 @@ test('and it is printed ONCE per process, so a sweep cannot bury it', () => {
     'a second unpinned arm must not re-print the warning');
   assert.doesNotMatch(out, /750ms/, 'nor name the second arm at all');
 });
+
+// AND IT HAS TO FIRE FROM THE ARM, NOT ONLY FROM ITS OWN FUNCTION.
+//
+// The phase-E critic deleted the guard's ONLY call site -- the
+// `warnDerivedCadence(told)` line in `makeArms`' replay -- and both tests
+// above stayed green, because both called the function directly. That is
+// the shape this repo has shipped three times: a test that pins a
+// property without running the path the property lives in (C3). These
+// two run a real arm over a real corpus window.
+import { loadWin, makeArms, thinFrames, hisRegimeOpts, K_HIS } from '../bench/arch-arms.mjs';
+import { winFiles } from '../bench/corpus-lib.mjs';
+import * as SHIPPED from '../bench/.cache/shipped.mjs';
+
+function armWarns(opts) {
+  // The corpus is a build artifact like the bundle, so an absent one
+  // SKIPS rather than fails -- a stale checkout is not a regression.
+  let files = [];
+  try { files = winFiles(); } catch { return null; }
+  if (!files.length) return null;
+  const w = loadWin(files[0]);
+  _resetCadenceWarning();
+  return capture(() => { makeArms(SHIPPED)(opts)(thinFrames(w, K_HIS), 'man'); });
+}
+
+test('an arm built without fixedCadence warns THROUGH makeArms', () => {
+  // Deliberately the shape ~30 benches still use: options built by hand,
+  // no cadence pinned. This is the call site that matters.
+  const out = armWarns({ hold: true, clampPad: 0.02, cut: true });
+  if (out === null) return; // corpus not present in this checkout
+  assert.match(out, /CADENCE NOT PINNED/,
+    'the arm itself must announce it -- deleting the call site goes red here');
+});
+
+test('and hisRegimeOpts is silent, so the warning is not just always on', () => {
+  const out = armWarns(hisRegimeOpts('man'));
+  if (out === null) return;
+  assert.doesNotMatch(out, /CADENCE NOT PINNED/,
+    'a pinned arm must not warn, or the guard is noise nobody reads');
+});
