@@ -41,11 +41,24 @@ test('an unpinned cadence is announced, and names both numbers', () => {
   assert.match(out, /hisRegimeOpts/, 'it must say what to do instead');
 });
 
+// THIS TEST WAS FLAKY AND THE PACKET'S OWN ORACLE CAUGHT IT: one run in
+// four failed under `node --test` over the whole directory while passing
+// alone. `capture` replaces the PROCESS-WIDE `process.stderr.write`, so
+// anything else that writes to stderr inside the window -- a node
+// ExperimentalWarning, the runner's own diagnostics under load -- landed
+// in `out`, and `assert.equal(out, '')` failed on a warning that is not
+// ours. A guard against a defect class may not itself be a coin flip.
+//
+// The property is "OUR warning does not re-print", so that is what is
+// asserted. A stray unrelated line on stderr is not a second warning.
 test('and it is printed ONCE per process, so a sweep cannot bury it', () => {
   _resetCadenceWarning();
-  capture(() => warnDerivedCadence(500));
+  const first = capture(() => warnDerivedCadence(500));
+  assert.match(first, /CADENCE NOT PINNED/, 'precondition: the first one warned');
   let again;
   const out = capture(() => { again = warnDerivedCadence(750); });
   assert.equal(again, false);
-  assert.equal(out, '', 'a second unpinned arm must not re-print');
+  assert.doesNotMatch(out, /CADENCE NOT PINNED/,
+    'a second unpinned arm must not re-print the warning');
+  assert.doesNotMatch(out, /750ms/, 'nor name the second arm at all');
 });
