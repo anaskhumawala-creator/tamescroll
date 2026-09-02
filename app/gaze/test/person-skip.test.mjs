@@ -17,6 +17,8 @@ import {
   wantPersons,
   notePersons,
   resetPersonSkip,
+  forcePersonLook,
+  personsLive,
   setPersonSkipEvery,
   PERSON_EMPTY_STREAK,
 } from '../src/person-skip.mjs';
@@ -220,4 +222,30 @@ test('the back-off actually decays once reset', () => {
   resetPersonSkip();
   assert.equal(wantPersons(), true, 'a reset stream must run the model again');
   setPersonSkipEvery(1);
+});
+
+// A cut gets ONE forced look and keeps the back-off (stageB2 on the
+// Redmi measured what a full reset costs on footage that cuts every 5s).
+test('forcePersonLook asks MoveNet on the next pass only, and a nobody answer resumes the back-off', () => {
+  resetPersonSkip();
+  setPersonSkipEvery(4);
+  for (let i = 0; i < PERSON_EMPTY_STREAK; i++) notePersons([], false);
+  assert.equal(wantPersons(), false, 'backed off before the cut');
+  assert.equal(personsLive(), false);
+  forcePersonLook();
+  assert.equal(wantPersons(), true, 'the pass after a cut asks MoveNet');
+  assert.equal(personsLive(), false, 'a cut alone is not evidence of a person');
+  notePersons([], false);
+  assert.equal(wantPersons(), false, 'nobody admitted: the back-off resumes, not restarts');
+  for (let k = 0; k < 3; k++) { assert.equal(wantPersons(), false); notePersons(null, true); }
+  assert.equal(wantPersons(), true, 'the ordinary 1-in-4 cycle continues');
+});
+
+test('forcePersonLook is a no-op while the model is still live', () => {
+  resetPersonSkip();
+  setPersonSkipEvery(4);
+  notePersons([{}], false);
+  forcePersonLook();
+  assert.equal(wantPersons(), true);
+  assert.equal(personsLive(), true);
 });

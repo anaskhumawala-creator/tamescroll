@@ -57,7 +57,7 @@ test('init-entry.js gates the position pass on personsLive() inside sampleOnce, 
 // ~5.4s once backed off). Anchored on the cut branch's own per-cut
 // counter, the way person-skip.test.mjs anchors on the per-video
 // loadstart reset; comments stripped for the same reason.
-test('a scene cut resets the person-skip back-off, through the shipped entry', () => {
+test('a scene cut forces ONE person look and keeps the back-off, through the shipped entry', () => {
   const src = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
   const i = src.indexOf("bumpLife('cutDetected')");
   assert.ok(i > 0, 'the cut branch moved -- re-anchor this test');
@@ -66,9 +66,14 @@ test('a scene cut resets the person-skip back-off, through the shipped entry', (
   const block = src.slice(i, end)
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^[ \t]*\/\/.*$/gm, '');
-  assert.match(block, /resetPersonSkip\(\)/,
-    'a scene cut must reset the person-skip back-off, or a held "nobody ' +
-    'admitted" answer can outlive the shot it was measured in');
+  assert.match(block, /forcePersonLook\(\)/,
+    'a scene cut must force a person look, or a held "nobody admitted" ' +
+    'answer can outlive the shot it was measured in');
+  // A RESET here ran MoveNet 3x as often on footage that cuts every ~5s
+  // (stageB2 on the Redmi: personPassSkipped 89 -> 29, verdict gap
+  // 1201 -> 2068ms). One look per cut, never the whole cycle.
+  assert.doesNotMatch(block, /resetPersonSkip\(\)/,
+    'a scene cut must not reset the whole back-off cycle');
 });
 
 // `lastPassMs` HAS EXACTLY ONE WRITE SITE (the position-pass branch of

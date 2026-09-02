@@ -93,6 +93,23 @@ export function notePersons(persons, skipped) {
 // Tests and a fresh video both need the run to start from nothing --
 // otherwise a backed-off state survives a navigation into footage the
 // model can actually read.
+/**
+ * A scene cut gets ONE fresh MoveNet look, and keeps the back-off.
+ * The first phase-i I10 fix called resetPersonSkip() on every cut, so
+ * on footage that cuts every ~5s (his vlog: 30 cuts in 150s) the model
+ * never re-entered its back-off -- personPassSkipped fell 89 -> 29 and
+ * the verdict gap went 1201 -> 2068ms, the whole of stage A's win,
+ * while every one of those looks admitted nobody (all slots n:0).
+ * Forcing only the NEXT pass answers the critic's point -- a held
+ * "nobody" answer cannot outlive its shot -- at the cost of one look
+ * per cut: if that look admits someone, notePersons zeroes emptyRun
+ * and the position gate stands down as before; if it admits nobody,
+ * emptyRun keeps counting and the back-off resumes.
+ */
+export function forcePersonLook() {
+  if (emptyRun >= PERSON_EMPTY_STREAK) skipsSince = PERSON_SKIP_EVERY - 1;
+}
+
 export function resetPersonSkip() {
   emptyRun = 0;
   skipsSince = 0;

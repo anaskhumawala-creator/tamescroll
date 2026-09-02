@@ -15,7 +15,7 @@
 // sampling — never its AGPL-3.0 source; see NOTICE / VISION.md).
 import * as dom from './dom.js';
 import { shouldRetry } from './image-retry.mjs';
-import { wantPersons, notePersons, resetPersonSkip, personsLive } from './person-skip.mjs';
+import { wantPersons, notePersons, resetPersonSkip, forcePersonLook, personsLive } from './person-skip.mjs';
 import * as cadence from './cadence.mjs';
 import * as detector from './detector.js';
 import {
@@ -2268,11 +2268,12 @@ if (
         // touches that independent cycle, so a cut into a shot with a
         // faceless subject would otherwise wait out the same backoff a
         // static shot would -- up to ~5.4s measured on the arm64 Redmi.
-        // Resetting it stands the position-skip gate down AND forces
-        // the very next pass's askPersons true -- the per-shot MoveNet
-        // look loop 29 already believed a cut forced, before Task 2's
-        // backoff cycle existed to be reset.
-        resetPersonSkip();
+        // ONE forced look, not a reset: a reset on every cut ran the
+        // model 3x as often on his 30-cuts-per-150s footage and gave
+        // stage A's verdict gap back (1201 -> 2068ms) -- see
+        // forcePersonLook in person-skip.mjs. The back-off stays; the
+        // next pass asks MoveNet and its answer decides.
+        forcePersonLook();
         passEpoch++;
         // NO whole-frame blackout here. Measured 2026-08-25: cuts fire
         // every ~2.8s on ordinary edited video, so blacking out the
