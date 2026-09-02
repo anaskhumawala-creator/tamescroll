@@ -86,7 +86,11 @@ test('a verdict pass reads the newest ring frame and the tracker result is snaps
 });
 
 test('a scene cut reaches the timeline', () => {
-  assert.match(SRC, /bumpLife\('cutDetected'\);\s*if \(presenter\) pushCut\(timeline, cutMediaTime\(\)\);/);
+  // M4: the cut is keyed where the RING says the jump is, not at the
+  // gate sample; the window's far edge is the previous sample's frame.
+  assert.match(SRC, /bumpLife\('cutDetected'\);\s*if \(presenter\) pushCut\(timeline, locateCutMediaTime\(gateFrom\)\);/);
+  assert.match(SRC, /var gateFrom = prevGateMedia;\s*prevGateMedia = presenter \? cutMediaTime\(\) : null;/);
+  assert.match(SRC, /function locateCutMediaTime\(gateFrom\) \{[\s\S]{0,300}?presenter\.locateCut\(gateFrom, to\)[\s\S]{0,200}?bumpLife\('cutLocated'\)[\s\S]{0,200}?bumpLife\('cutUnlocated'\);\s*return to;/);
   assert.match(SRC, /function cutMediaTime\(\) \{[\s\S]{0,400}?presenter\.newestMediaTime\(\)[\s\S]{0,200}?Math\.min\(video\.currentTime, /);
 });
 

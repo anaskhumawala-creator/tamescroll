@@ -445,3 +445,39 @@ test('an UNCLAIMED touch ends without re-parking the player, so the tap that fol
   assert.ok(end > guard, 'the unclaimed guard must come before endDrag');
   assert.match(fn.slice(guard, guard + 120), /if \(!claimed\) \{\s*start = null;\s*return;/);
 });
+
+// CLOSING THE MINI PLAYER LEAVES THE VIDEO (1097). Owner, 2026-09-02:
+// "when I click the X button to close it, it reopens in a big like how
+// it was before". The native app's X dismisses the video and leaves you
+// on the page you were browsing; ours restored the watch page at full
+// size, paused -- a "close" that put the video back. The page under a
+// parked player IS the watch page, so leaving means going BACK to the
+// nearest page that is not a video. Walked through the Navigation API's
+// entries, never past a foreign origin (the launcher), never onto
+// another /watch (that is a video too).
+test('closeBackSteps walks back to the nearest same-origin page that is not a video', () => {
+  const o = 'https://m.youtube.com';
+  const E = (...paths) => paths.map((p) => ({ url: p.startsWith('http') ? p : o + p }));
+  assert.equal(m.closeBackSteps(E('/results?search_query=x', '/watch?v=a'), 1, o), 1, 'search -> watch: one step');
+  assert.equal(m.closeBackSteps(E('/results?search_query=x', '/watch?v=a', '/watch?v=b'), 2, o), 2, 'a second video is still a video');
+  assert.equal(m.closeBackSteps(E('/', '/watch?v=a'), 1, o), 1, 'home counts');
+  assert.equal(m.closeBackSteps(E('http://tauri.localhost/', '/watch?v=a'), 1, o), 0, 'the launcher is not ours to cross');
+  assert.equal(m.closeBackSteps(E('http://tauri.localhost/', '/watch?v=a', '/watch?v=b'), 2, o), 0, 'nor through a video');
+  assert.equal(m.closeBackSteps(E('/watch?v=a'), 0, o), 0, 'nothing behind');
+  assert.equal(m.closeBackSteps(null, 3, o), 0);
+  assert.equal(m.closeBackSteps([{}, { url: o + '/watch?v=a' }], 1, o), 0, 'an entry with no url stops the walk');
+  assert.equal(m.closeBackSteps([{ url: 'nonsense' }, { url: o + '/watch?v=a' }], 1, o), 0, 'so does one that does not parse');
+});
+
+test('dismiss leaves the page through history when it can, and only falls back to restoring the layout', () => {
+  const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
+  // The walk uses the Navigation API and goes back exactly that many entries.
+  assert.match(src, /function leavePage\(\) \{[\s\S]{0,600}?closeBackSteps\(nav\.entries\(\), nav\.currentEntry\.index, win\.location\.origin\)[\s\S]{0,300}?win\.history\.go\(-steps\)/);
+  // The throw-away finish restores the layout ONLY when leaving was refused.
+  assert.match(src, /var finish = function \(\) \{[\s\S]{0,300}?if \(leavePage\(\)\) \{[\s\S]{0,700}?return;[\s\S]{0,200}?\}[\s\S]{0,200}?setState\('full'\);/);
+});
+
+test('restoreFull takes ts-mini-gone off whether or not the player survived the navigation', () => {
+  const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
+  assert.match(src, /function restoreFull\(\) \{\s*if \(state === 'full'\) return;[\s\S]{0,400}?classList\.remove\('ts-mini-gone'\);\s*if \(container\(\)\) \{/);
+});

@@ -27,6 +27,7 @@
 // player's render loop, which this sits directly in front of.
 
 import { ringBudget, pickPresent, presentTarget, refillStep, DELAY_MS } from './delay-core.mjs';
+import { GATE_SIZE, CUT_DELTA, lumaGrid, meanAbsDelta } from './scene-gate.mjs';
 
 var CANVAS_CLASS = 'ts-gaze-delay';
 var Z_INDEX = 15;
@@ -547,6 +548,65 @@ export function attachDelay(video, host, opts) {
     }
   }
 
+  // THE CUT IS LOCATED ON THE RING, NOT AT THE GATE SAMPLE (phase-m M4).
+  // The scene gate samples the live video every 100ms and compares two
+  // samples, so all it knows is that the cut happened somewhere in the
+  // 100ms ending at the sample; keying it there put up to 3-4 presented
+  // frames of the NEW shot on the old shot's side of `cutBetween`, where
+  // boxesAt resolved them against the old shot's snapshot. The ring holds
+  // every frame of that window, so the frame that carried the cut can be
+  // found by the same 16x16 luma delta the gate uses, frame by frame:
+  // the largest single-frame delta in (from, to] is the first frame of
+  // the new shot, and a cut keyed AT it lands that frame on the new side
+  // (cutBetween is (from, to]). Returns null when the ring cannot answer
+  // (no frames in the window, or no frame-to-frame delta reaching half
+  // the gate's own threshold -- a gradual change is not a cut) and the
+  // caller keeps the gate's own reading. Cost: at most the frames of one
+  // gate interval through a 16x16 canvas, only when the gate fires.
+  var cutCanvas = null;
+  function frameLuma(entry) {
+    if (!cutCanvas) {
+      cutCanvas = document.createElement('canvas');
+      cutCanvas.width = GATE_SIZE;
+      cutCanvas.height = GATE_SIZE;
+    }
+    var g = cutCanvas.getContext('2d', { willReadFrequently: true });
+    if (!g || typeof g.getImageData !== 'function') return null;
+    g.drawImage(entry.bitmap, 0, 0, GATE_SIZE, GATE_SIZE);
+    return lumaGrid(g.getImageData(0, 0, GATE_SIZE, GATE_SIZE).data, GATE_SIZE * GATE_SIZE);
+  }
+  function locateCut(fromMediaTime, toMediaTime, minDelta) {
+    if (detached || ring.length < 2) return null;
+    if (typeof fromMediaTime !== 'number' || typeof toMediaTime !== 'number') return null;
+    var floor = typeof minDelta === 'number' ? minDelta : CUT_DELTA / 2;
+    try {
+      var best = -1;
+      var bestDelta = -1;
+      var prevIdx = -1;
+      var prevL = null;
+      for (var i = 1; i < ring.length; i++) {
+        var m = ring[i].mediaTime;
+        if (m <= fromMediaTime) continue;
+        if (m > toMediaTime) break;
+        var a = prevIdx === i - 1 ? prevL : frameLuma(ring[i - 1]);
+        var b = frameLuma(ring[i]);
+        if (!a || !b) return null;
+        var d = meanAbsDelta(a, b);
+        if (d > bestDelta) {
+          bestDelta = d;
+          best = i;
+        }
+        prevIdx = i;
+        prevL = b;
+      }
+      if (best < 0 || bestDelta < floor) return null;
+      return ring[best].mediaTime;
+    } catch (e) {
+      noteError('locateCut', e);
+      return null;
+    }
+  }
+
   return {
     cover: cover,
     flush: flush,
@@ -555,5 +615,6 @@ export function attachDelay(video, host, opts) {
     stats: statsFn,
     requestVerdictFrame: requestVerdictFrame,
     newestMediaTime: newestMediaTime,
+    locateCut: locateCut,
   };
 }

@@ -85,7 +85,7 @@ no cut between the read's pass and the frame):
 
   | build | false cover | stale frames | exposure >300ms | repositionErrors | raf/3min |
   |---|---|---|---|---|---|
-  | v1096c (1095) | 23/87 | **90.7%** | 0 | -- | -- |
+  | v1096c (1095) | 20/82 (was quoted 23/87 on the OLD classifier, phase-m M2) | **90.7%** | 0 | -- | -- |
   | v1096d | 13/81 | 0 | 0 | 0 | ~7800 |
   | v1096e | 14/82 | 0 | 0 (max 277ms) | 0 | ~8200 |
   | **v1096f / 1096 SHIPPED** | **16/82** | **0** | **0** | **0** | 7836 |
@@ -130,11 +130,12 @@ no cut between the read's pass and the frame):
   neighbour's MEASURED body with no legal clamp edge over his face
   (neighbourMeasured 4, solid-patch rule), neighbourCoasting 2,
   neighbourSynthetic 1, bornBlurredAtCut 1, demotedAtCut 2, and
-  **clearedButTimelineBlurred 2 = a track pinned by `flagCertain` from
-  ONE certain-female read at s 0.28** (px 402, nm 11.68 -- the flag bar
-  is GENDER_MIN_SCORE 0.25) until a 0.95 male read cleared it 1.9s
-  later. Rule 3' keeps (A,B] covered while A carries flagCertain. That
-  is a protection dial and it is his.
+  clearedButTimelineBlurred 2 -- UNEXPLAINED. The first write-up said
+  "pinned by flagCertain from one 0.28 female read"; phase-m M5 showed
+  that read the tracks ring's `cf` (coreFresh) as the flag, and the
+  real flag field (`fc` in frames[].te) reads 0 on both rows. Withdrawn.
+  The ring banks `fe` = flagEvidence now so the next replay cannot
+  repeat it.
 - **IDENTITY MEMORY IS ALIVE on the phone:** `memClear` 65-68 per run.
   `memHit/memMiss/memStore/memInstant` in `probe_events.py`'s LIFE list
   are names nothing bumps -- read them as absent, not zero.
@@ -145,9 +146,7 @@ no cut between the read's pass and the frame):
 - gaze **745/745**, cargo **61/61**, critic-gate **0 blocking** (133
   rows; phase-M in flight against f3bf849..46dfe4e).
 - **HIS DIALS, batched (none pushed):** `VERDICT_DUTY` 2 -> 1.5
-  (shortens every ladder/demotion interval above); a weak flag
-  (< GENDER_CLEAR_SCORE) at A not pinning (A,B] when B clears at
-  instant grade (the 0.28 case; phase-M was told to attack it);
+  (shortens every ladder/demotion interval above);
   `GENDER_CHILD_MASS` (young men read pc 0.36-0.49); reading faces
   under 40px behind the nm floor (the remaining phantom class).
 - **NEXT:** land phase-M; the ladder-at-a-cut interval is the largest

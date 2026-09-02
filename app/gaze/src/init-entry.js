@@ -1888,6 +1888,21 @@ if (
       var newest = presenter ? presenter.newestMediaTime() : null;
       return typeof newest === 'number' ? Math.min(video.currentTime, newest) : video.currentTime;
     }
+    // The gate only knows the cut lies in (previous sample, this sample];
+    // the ring holds those frames, so ask it which one carried the jump
+    // (delay-presenter.locateCut, phase-m M4). Falls back to the sample's
+    // own reading when the ring cannot say -- the 1096 behaviour, never
+    // an earlier guess that could put a pre-cut verdict on the new side.
+    function locateCutMediaTime(gateFrom) {
+      var to = cutMediaTime();
+      var at = presenter && typeof gateFrom === 'number' ? presenter.locateCut(gateFrom, to) : null;
+      if (typeof at === 'number') {
+        bumpLife('cutLocated');
+        return at;
+      }
+      bumpLife('cutUnlocated');
+      return to;
+    }
     // Probe-only: the last answer boxesFn gave the renderer (the timeline
     // entries and the merged target), so a drawn rect can be told apart
     // from the target it was drawn toward. References, no copies.
@@ -2379,12 +2394,17 @@ if (
     var GATE_INTERVAL_MS = 100;
     var gateCanvas = null;
     var prevLuma = null;
+    // Media time of the PREVIOUS gate sample's frame: the far edge of the
+    // window a detected cut can lie in (phase-m M4, see cutMediaTime).
+    var prevGateMedia = null;
     var lastGateAt = 0;
     var lastCutAt = 0;
     var sceneState = 'motion';
     function gateTick(now) {
       if (now - lastGateAt < GATE_INTERVAL_MS) return;
       lastGateAt = now;
+      var gateFrom = prevGateMedia;
+      prevGateMedia = presenter ? cutMediaTime() : null;
       try {
         if (!gateCanvas) {
           gateCanvas = document.createElement('canvas');
@@ -2432,7 +2452,7 @@ if (
         bumpLife('cutDetected');
         // The timeline must know a cut happened at THIS media time, or
         // boxesAt would carry the old shot's patches across it.
-        if (presenter) pushCut(timeline, cutMediaTime());
+        if (presenter) pushCut(timeline, locateCutMediaTime(gateFrom));
         // A cut is where new people appear: bypass the interval AND
         // force the next pass to re-read gender, not just positions.
         lastSample = 0;
@@ -4616,6 +4636,10 @@ if (
                     // which is exactly the ambiguity the first
                     // after-capture ran into.
                     cf: tk.coreFresh ? 1 : 0,
+                    // `fe` is flagEvidence (a certain flag not yet revoked by a
+                    // certain clear) -- NOT `cf`, which is coreFresh; two
+                    // replays read cf as the flag and were wrong (phase-m M5).
+                    fe: tk.flagEvidence ? 1 : 0,
                     co: tk.core
                       ? [tk.core.x1, tk.core.y1, tk.core.x2, tk.core.y2].map(function (n) {
                           return typeof n === 'number' ? Math.round(n * 1000) / 1000 : null;
@@ -4923,6 +4947,7 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
       resetTimeline(timeline);
       heldPersons = [];
       prevLuma = null;
+      prevGateMedia = null;
       sceneState = 'motion';
       lastSample = 0;
       lastZoomAt = 0;
@@ -4974,6 +4999,7 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
       // New stream = new scene: forget the luma baseline and re-enable
       // the direct pixel path (a per-stream quirk shouldn't outlive it).
       prevLuma = null;
+      prevGateMedia = null;
       sceneState = 'motion';
       lastCutAt = 0;
       directPersonOk = true;

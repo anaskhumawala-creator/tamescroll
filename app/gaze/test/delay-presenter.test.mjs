@@ -522,3 +522,82 @@ test('re-picking the frame already on the canvas draws nothing and is not late',
   assert.equal(bitmaps.log.closed, 1, 'now the mediaTime-0 entry is behind the presented one and goes');
   presenter.detach();
 });
+
+// --- locateCut (phase-m M4) --------------------------------------------
+// Bitmaps carry a flat luma; a canvas stub reports the luma of whatever
+// was drawn into it last, so frame-to-frame deltas are exact.
+function setupLuma() {
+  var ctx = setup();
+  var doc = ctx.document;
+  var baseCreate = doc.createElement;
+  doc.createElement = function (tag) {
+    var el = baseCreate.call(doc, tag);
+    if (tag === 'canvas') {
+      var drawn = 0;
+      el.getContext = function () {
+        return {
+          drawImage(src) {
+            drawn = src && typeof src.luma === 'number' ? src.luma : 0;
+          },
+          getImageData(x, y, w, h) {
+            var data = new Uint8ClampedArray(w * h * 4);
+            for (var i = 0; i < w * h; i++) {
+              data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = drawn;
+              data[i * 4 + 3] = 255;
+            }
+            return { data: data };
+          },
+        };
+      };
+    }
+    return el;
+  };
+  return ctx;
+}
+
+async function fill(ctx, frames) {
+  // frames: [[mediaTime, luma], ...] in capture order
+  for (var i = 0; i < frames.length; i++) {
+    var v = ctx.video;
+    v.luma = frames[i][1];
+    driveFrame(v, frames[i][0], 1000 + i * 33);
+    await flushAsync();
+  }
+}
+
+test('locateCut keys the cut at the first frame of the new shot, not at the gate sample', async () => {
+  var ctx = setupLuma();
+  // createImageBitmap copies the video's luma onto the bitmap
+  var base = globalThis.createImageBitmap;
+  globalThis.createImageBitmap = function (src, opts) {
+    return base(src, opts).then(function (b) {
+      b.luma = src && typeof src.luma === 'number' ? src.luma : 0;
+      return b;
+    });
+  };
+  try {
+    // old shot at luma 40 through 10.033, new shot at 200 from 10.066 on;
+    // the gate sampled at 10.000 (prev) and 10.100 (this).
+    await fill(ctx, [[9.933, 40], [9.966, 40], [10.0, 40], [10.033, 40], [10.066, 200], [10.1, 200]]);
+    assert.equal(ctx.presenter.locateCut(10.0, 10.1), 10.066);
+    // A frame at exactly the far edge is inside the window; the near edge is not.
+    assert.equal(ctx.presenter.locateCut(10.066, 10.1), null, 'no jump inside (10.066, 10.1]');
+    assert.equal(ctx.presenter.locateCut(9.9, 10.033), null, 'a flat window is not a cut');
+    // Below half the gate threshold the ring declines and the caller keeps its own reading.
+    assert.equal(ctx.presenter.locateCut(10.0, 10.1, 1000), null);
+    // Not a number in: null out.
+    assert.equal(ctx.presenter.locateCut(null, 10.1), null);
+  } finally {
+    globalThis.createImageBitmap = base;
+    ctx.presenter.detach();
+  }
+});
+
+test('locateCut is null on a detached presenter or a canvas that cannot read pixels', async () => {
+  var ctx = setup();
+  await fill(ctx, [[1.0, 0], [1.033, 0], [1.066, 0]]);
+  // the default stub canvas has drawImage but no getImageData
+  assert.equal(ctx.presenter.locateCut(1.0, 1.066), null);
+  ctx.presenter.detach();
+  assert.equal(ctx.presenter.locateCut(1.0, 1.066), null);
+});

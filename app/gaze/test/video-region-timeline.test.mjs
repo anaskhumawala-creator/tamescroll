@@ -406,3 +406,32 @@ test('a frame that throws inside the render loop is counted and the next frame i
     vr.clear(video);
   }
 });
+
+// Critic M3: the round guarded reposition inside loop() and left the
+// first call -- the one setTracks makes on a fresh entry, before the
+// loop exists -- bare. A throw there skipped `if (!entry.raf) loop()`:
+// rAF queued 0, raf 0, repositionErrors 0, forever.
+test('a throw on the FIRST reposition of a fresh entry still starts the render loop and is counted', () => {
+  const { player, video } = playerWithVideo({ left: 0, top: 0, width: 640, height: 360 });
+  let calls = 0;
+  vr.setTimeline(video, () => {
+    calls++;
+    if (calls === 1) throw new Error('first frame');
+    return [{ id: 't1', box: { x1: 0.1, y1: 0.1, x2: 0.5, y2: 0.5 }, state: 'blurred' }];
+  });
+  const before = globalThis.window.__TS_GAZE_RENDER().repositionErrors;
+  try {
+    vr.setTracks(video, [{ key: 't1', box: { x1: 0.1, y1: 0.1, x2: 0.5, y2: 0.5 }, vx: 0, vy: 0 }]);
+    // setTracks' own reposition threw (call 1); loop() ran its first
+    // frame synchronously right after (call 2) and drew the patch.
+    assert.equal(calls, 2, 'the loop started and ran a frame after the throw');
+    assert.equal(globalThis.window.__TS_GAZE_RENDER().repositionErrors, before + 1, 'counted');
+    assert.ok(scheduled.size >= 1, 'the render loop is scheduled despite the throw');
+    assert.equal(patchesIn(player).length, 1, "the loop's frame drew the patch");
+  } finally {
+    // clearTimeline FIRST: clear() keeps a timeline-attached entry (and
+    // its rect interval) alive by design.
+    vr.clearTimeline(video);
+    vr.clear(video);
+  }
+});

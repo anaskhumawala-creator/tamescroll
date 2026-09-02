@@ -66,6 +66,37 @@ export function miniTransform(pw, ph, vw, vh, left0, top0, o) {
 
 /// What a finished drag means, given which state we are in.
 /// null = not our gesture, leave it to the page.
+/**
+ * How many history entries back the nearest same-origin page that is
+ * NOT a video sits, or 0 when there is none we may go to. Closing the
+ * mini player means leaving the video: the native app drops you on the
+ * page you were browsing, and under a parked player that page is the
+ * watch page itself, so "close" has to go back. A previous /watch is a
+ * video too (keep walking); a foreign origin -- the launcher on
+ * Android, where the WebView navigated in place -- is not ours to cross
+ * through history, so the walk stops there and the caller falls back.
+ * @param {Array<{url?: string}>|null} entries navigation.entries()
+ * @param {number} index navigation.currentEntry.index
+ * @param {string} origin location.origin
+ */
+export function closeBackSteps(entries, index, origin) {
+  if (!entries || !(index > 0)) return 0;
+  for (var i = index - 1; i >= 0; i--) {
+    var e = entries[i];
+    var url = e && e.url;
+    if (!url) return 0;
+    var u;
+    try {
+      u = new URL(url);
+    } catch (err) {
+      return 0;
+    }
+    if (u.origin !== origin) return 0;
+    if (!/^\/watch(\/|$)/.test(u.pathname)) return index - i;
+  }
+  return 0;
+}
+
 export function gestureVerdict(dx, dy, state) {
   var ax = Math.abs(dx);
   var ay = Math.abs(dy);
@@ -402,9 +433,34 @@ export function installMiniplayer(win) {
     }
   }
 
+  // Closing means LEAVING THE VIDEO (owner, 2026-09-02: the X "reopens
+  // it in a big like how it was before"). Go back to the nearest page
+  // that is not a video; navCheck's popstate takes the mini classes off
+  // on the way. Refused (nothing behind us but the launcher, or no
+  // Navigation API) -> the caller restores the layout as before.
+  function leavePage() {
+    var steps = 0;
+    try {
+      var nav = win.navigation;
+      if (nav && nav.currentEntry && typeof nav.entries === 'function') {
+        steps = closeBackSteps(nav.entries(), nav.currentEntry.index, win.location.origin);
+      }
+    } catch (e) {
+      steps = 0;
+    }
+    if (!steps) return false;
+    try {
+      win.history.go(-steps);
+    } catch (e) {
+      return false;
+    }
+    return true;
+  }
+
   // A fling sideways, or the X. The native app throws the player off
-  // screen and stops the video; we do the same and then restore the page
-  // to its full-size layout, because unlike the native app our player
+  // screen and stops the video; we do the same, then LEAVE the video
+  // (leavePage). Only when there is nowhere to go does the page get its
+  // full-size layout back, because unlike the native app our player
   // lives IN the page -- leaving it hidden would leave a collapsed band
   // with nothing in it and no way back.
   function dismiss(dir) {
@@ -426,6 +482,26 @@ export function installMiniplayer(win) {
     var finish = function () {
       if (done) return;
       done = true;
+      if (leavePage()) {
+        // Stay invisible until the navigation lands (popstate ->
+        // navCheck -> restoreFull). If it never does -- a back the
+        // browser refused -- give the layout back after a beat rather
+        // than leave a hidden player and a collapsed band.
+        var href = win.location.href;
+        win.setTimeout(function () {
+          if (state !== 'mini') return;
+          var now;
+          try {
+            now = win.location.href;
+          } catch (e) {
+            now = href;
+          }
+          if (now !== href) return;
+          doc.documentElement.classList.remove('ts-mini-gone');
+          setState('full');
+        }, 1200);
+        return;
+      }
       doc.documentElement.classList.remove('ts-mini-gone');
       setState('full');
     };
@@ -774,6 +850,11 @@ export function installMiniplayer(win) {
   // to do with.
   function restoreFull() {
     if (state === 'full') return;
+    // A dismiss that LEFT the page kept ts-mini-gone on <html> so the
+    // player stayed invisible until the navigation landed; this is
+    // where it lands. Off in both branches, or the next watch page
+    // would inherit an opacity-0 player.
+    doc.documentElement.classList.remove('ts-mini-gone');
     if (container()) {
       setState('full');
       return;

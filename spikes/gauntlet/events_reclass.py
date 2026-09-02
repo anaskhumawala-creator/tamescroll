@@ -43,6 +43,16 @@ def contains(p, box):
     return p[0] - 0.01 <= cx <= p[2] + 0.01 and p[1] - 0.01 <= cy <= p[3] + 0.01
 
 
+def covered_by(frame, box, iou_min=0.3):
+    """Same join probe_events.py uses: a presented patch (frames[].p,
+    display:none and sub-1px overlays already dropped by vis()) either
+    overlaps the box at IoU >= 0.3 or contains its centre."""
+    for p in frame.get("p", []):
+        if iou(p, box) >= iou_min or contains(p, box):
+            return True
+    return False
+
+
 def main(path):
     doc = json.load(open(path))
     d = doc["raw"]
@@ -95,12 +105,47 @@ def main(path):
                     floor = c - 0.15
             upper = max(0.0, arrival_pm - floor)
             rd = [r for r in by_pass.get(m0, []) if r.get("b") and contains(t["b"], r["b"])]
+            # PHASE-M M1: the presented picture. Frames of the subject's
+            # window (from the floor to the birth) with no patch on the
+            # box -- what the arithmetic above bounds, read off the DOM.
+            before = [f for f in frames if floor < f["pm"] < m0]
+            unc_before = sum(1 for f in before if not covered_by(f, t["b"]))
             rows.append({"id": t["id"], "m0": round(m0, 3), "arrivalLagMs": round((s["vt"] - m0) * 1000),
                          "exposureLowerMs": round(lower * 1000), "exposureUpperMs": round(upper * 1000),
+                         "framesBefore": len(before), "uncoveredBefore": unc_before,
                          "gapMs": round((m0 - prev) * 1000) if prev is not None else None,
                          "f": t.get("f"), "lv": t.get("lv"),
                          "read": ({"g": rd[0].get("g"), "s": rd[0].get("s"), "ab": rd[0].get("ab"), "px": rd[0].get("px")} if rd else None)})
         seen |= set(t["id"] for t in s["tr"])
+    # PHASE-M M1: THE EXPOSURE METRIC MUST SEE THE PRESENTED PICTURE.
+    # The arithmetic above is verdict-ARRIVAL timing only; it printed
+    # nPositive 0 / max 0 on events-v1096c, a run whose renderer drew a
+    # stale target for 90.7% of the wall clock. So, per blurred entry in
+    # every snapshot: the presented frames of its own interval [m0, next)
+    # that show NO patch on its box (probe_events' covered_by join). A
+    # frozen, mispositioned or dead patch lands here; a subject the
+    # tracker never had does not (no box to score against), and that
+    # class stays with the false-cover/never-tracked reads.
+    ent_frames = 0
+    ent_unc = 0
+    unc_by_id = {}
+    for i, s in enumerate(sn):
+        m0 = s["lm"]
+        m1 = sn[i + 1]["lm"] if i + 1 < len(sn) else None
+        if m1 is None or m1 <= m0:
+            continue
+        span = [f for f in frames if m0 <= f["pm"] < m1 and not any(m0 < c <= f["pm"] for c in cuts)]
+        for t in s["tr"]:
+            if t["st"] != "blurred" or not t.get("b"):
+                continue
+            unc = [f for f in span if not covered_by(f, t["b"])]
+            ent_frames += len(span)
+            ent_unc += len(unc)
+            if unc:
+                unc_by_id[t["id"]] = unc_by_id.get(t["id"], 0) + len(unc)
+    presented = {"blurredEntryFrames": ent_frames, "uncovered": ent_unc,
+                 "uncoveredFrac": round(ent_unc / ent_frames, 4) if ent_frames else None,
+                 "worstIds": sorted(unc_by_id.items(), key=lambda kv: -kv[1])[:8]}
     # a birth from a certain SAME-gender read is not an exposure of the
     # opposite gender; keep them apart
     opp_rows = [r for r in rows if not (r["read"] and r["read"]["g"] == same and not r["read"]["ab"])]
@@ -115,7 +160,9 @@ def main(path):
         "verdictArrivalMinusPresented": {"p50": pct(arr, .5), "p90": pct(arr, .9), "p95": pct(arr, .95), "max": max(arr) if arr else None,
                                          "nLate": sum(1 for a in arr if a > 0), "n": len(arr)},
         "lateFramesFrac": round(sum(1 for f in frames if f.get("lm") is not None and f["pm"] > f["lm"]) / max(1, len(frames)), 3),
-        "rows": sorted(opp_rows, key=lambda r: -r["exposureUpperMs"])[:12],
+        "uncoveredBeforeBirth": {"births": sum(1 for r in opp_rows if r["uncoveredBefore"] > 0), "frames": sum(r["uncoveredBefore"] for r in opp_rows)},
+        "presented": presented,
+        "rows": sorted(opp_rows, key=lambda r: (-r["uncoveredBefore"], -r["exposureUpperMs"]))[:12],
     }
 
     # ---------------- FALSE COVER ----------------

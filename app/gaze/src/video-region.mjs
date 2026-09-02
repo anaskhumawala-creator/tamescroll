@@ -1446,8 +1446,17 @@ export function setTracks(video, tracks) {
   // it lives in `reposition`, which this call reaches and which the rAF
   // loop reaches every frame. Once per PASS was measured too slow: the
   // track coasts out before the next verdict arrives.
-  reposition(entry, entry.at);
-  if (!entry.raf) loop(video);
+  // Guarded the same way as loop(): this is the FIRST reposition of a
+  // fresh entry (clear() fires on ~120 of ~300 passes per run, so it is
+  // a hot path), and a throw here used to skip the loop start below --
+  // no rAF, no repositionErrors, every patch frozen (critic M3).
+  try {
+    reposition(entry, entry.at);
+  } catch (e) {
+    renderStats.repositionErrors++;
+  } finally {
+    if (!entry.raf) loop(video);
+  }
   return true;
 }
 
