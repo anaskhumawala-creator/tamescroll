@@ -18,6 +18,7 @@ import * as cadence from '../src/cadence.mjs';
 import * as personTrack from '../src/person-track.mjs';
 import * as delayCore from '../src/delay-core.mjs';
 import * as nativeClient from '../src/native-client.mjs';
+import * as perf from '../src/perf.mjs';
 
 // Every test restores the shipped values, because these modules hold
 // module-global state and a leaked dial would silently rebase every
@@ -39,6 +40,17 @@ const SHIPPED = {
   CUT_PERSON_LOOK: personSkip.CUT_PERSON_LOOK,
   DELAY_MS: delayCore.DELAY_MS,
   NATIVE_INFER: nativeClient.NATIVE_INFER,
+  RENDER_EVERY: 1,
+  SUSTAINED_PERF: perf.SUSTAINED_PERF,
+  REFRESH_CAP_HZ: perf.REFRESH_CAP_HZ,
+  THERMAL_DUTY: perf.THERMAL_DUTY,
+  NATIVE_CPU_MASK: nativeClient.NATIVE_CPU_MASK,
+  NO_AV1: perf.NO_AV1,
+  NATIVE_NPU: nativeClient.NATIVE_NPU,
+  PERF_HINT: perf.PERF_HINT,
+  INFER_PRIO: perf.INFER_PRIO,
+  PLAYBACK_SLOW: perf.PLAYBACK_SLOW,
+  BLUR_IN_FRAME: 0,
 };
 const restore = () => applyTuning(SHIPPED);
 

@@ -31,6 +31,8 @@ import * as cadence from './cadence.mjs';
 import * as personTrack from './person-track.mjs';
 import * as delayCore from './delay-core.mjs';
 import * as nativeClient from './native-client.mjs';
+import * as videoRegion from './video-region.mjs';
+import * as perf from './perf.mjs';
 
 export var TUNED = null;      // what actually took effect, for the report
 export var TUNE_REFUSED = 0;  // keys refused outright
@@ -234,7 +236,7 @@ var SPEC = {
   // can afford. The ceiling of 4 is the value this constant shipped at
   // before it was ever tunable, so the range brackets rather than
   // exceeds what has already run in production.
-  VERDICT_DUTY: [1.5, 4, function (v) { cadence.setVerdictDuty(v); }],
+  VERDICT_DUTY: [1.5, 4, function (v) { cadence.setVerdictDuty(v); perf.setBaseDuty(v); }],
 
   // GENDER ONLY FOR TRACKS THAT NEED A READ (latency-restructure Task 4,
   // 2026-09-02). A crop + gender read costs ~536ms of faceres on the
@@ -296,6 +298,48 @@ var SPEC = {
   // as > 0 at the accessor. Pushing 0 is the way a bad native build is
   // switched off on every phone without an install.
   NATIVE_INFER: [0, 1, function (v) { nativeClient.setNativeInfer(v); }],
+  // PERFORMANCE BATCH (2026-09-03), all shipped inert. Each is a switch
+  // he can flip over the air and back; none moves a verdict, a bar or a
+  // coast. Reasons and costs beside each setter's module.
+  // Render the patch loop every Nth rAF (video-region.setRenderEvery).
+  // 1 = every frame, as every release so far; 4 = ~13Hz, the most a
+  // patch may lag the picture before the pad stops covering the trail.
+  RENDER_EVERY: [1, 4, function (v) { videoRegion.setRenderEvery(v); }],
+  // Window.setSustainedPerformanceMode on Android (perf.mjs).
+  SUSTAINED_PERF: [0, 1, function (v) { perf.setSustainedPerf(v); }],
+  // Display refresh cap in Hz; 0 = leave the display alone. 120 is the
+  // fastest panel any phone he owns ships; a value above the panel's
+  // rate is refused by the bridge, not clamped here.
+  REFRESH_CAP_HZ: [0, 120, function (v) { perf.setRefreshCapHz(v); }],
+  // Thermal-aware verdict duty (perf.mjs): 1 = double the duty while
+  // the phone reports throttling headroom >= THERMAL_HOT. Never below
+  // the tuned VERDICT_DUTY, so it can only widen the coast, never
+  // spend more GPU than the tuned duty already does.
+  THERMAL_DUTY: [0, 1, function (v) { perf.setThermalDuty(v); }],
+  // Native models moved to the CPU, bitmask (native-client.mjs).
+  NATIVE_CPU_MASK: [0, 7, function (v) { nativeClient.setNativeCpuMask(v); }],
+  // Refuse AV1 to the player (perf.mjs setNoAv1): a phone without an
+  // AV1 hardware decoder plays it in software on the same cores the
+  // page composites with. 1 = MediaSource.isTypeSupported answers false
+  // for av01 so YouTube picks VP9/H.264; 0 = untouched.
+  NO_AV1: [0, 1, function (v) { perf.setNoAv1(v); }],
+  // NPU auto-try kill switch (native-client.mjs NATIVE_NPU). 1 = try the
+  // Qualcomm delegate first on a phone that has it; 0 = GPU/CPU only.
+  NATIVE_NPU: [0, 1, function (v) { nativeClient.setNativeNpu(v); }],
+  // ADPF performance-hint session over the inference thread (perf.mjs).
+  PERF_HINT: [0, 1, function (v) { perf.setPerfHint(v); }],
+  // Inference thread priority: 0 default, 1 below the compositor,
+  // 2 background. A slower verdict for a steadier picture.
+  INFER_PRIO: [0, 2, function (v) { perf.setInferPrio(v); }],
+  // 1 = play at 0.95x while the decoder is dropping more than 8% of its
+  // frames, back to 1x under 3%. Never touches a rate the user picked.
+  // A player change, so it ships 0 until he rules.
+  PLAYBACK_SLOW: [0, 1, function (v) { perf.setPlaybackSlow(v); }],
+  // 1 = the delay presenter blurs the patch region INTO the frame it
+  // draws and the overlay divs stand down (video-region.setBlurInFrame).
+  // Same solid rectangles, same radius, same corners; no backdrop
+  // snapshot, no per-frame transform writes. 0 = overlays as 1097.
+  BLUR_IN_FRAME: [0, 1, function (v) { videoRegion.setBlurInFrame(v); }],
 };
 
 export function tunableNames() { return Object.keys(SPEC); }

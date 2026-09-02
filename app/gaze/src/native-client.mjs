@@ -54,6 +54,27 @@ var CROP_TTL_MS = 8000;
 // without an install.
 export var NATIVE_INFER = 1;
 export function setNativeInfer(v) { NATIVE_INFER = v; }
+// WHICH MODELS RUN ON THE CPU (performance batch, 2026-09-03; OTA
+// NATIVE_CPU_MASK, ships 0 = every model on the GPU delegate as 1093
+// measured it). Bit 0 = BlazeFace, bit 1 = faceres, bit 2 = MoveNet. A
+// set bit asks NativeInfer.kt to rebuild that interpreter on XNNPACK (4
+// threads); the GPU delegate then stops competing with the video decode
+// and the page's own compositing for the one GPU the phone has. Sent as
+// a CONFIG request (modelId 0, w = mask) once the engine reports ready;
+// the reply is the ordinary empty-outputs ack and is not waited on.
+export var NATIVE_CPU_MASK = 0;
+export function setNativeCpuMask(v) { NATIVE_CPU_MASK = Math.max(0, Math.min(7, Math.round(v))); }
+export var CONFIG_MODEL_ID = 0;
+// NPU AUTO-TRY (owner, 2026-09-03: "let it auto detect if the phone has
+// NPU then it uses NPU and it mentions it somewhere"). NativeInfer.kt
+// tries the Qualcomm QNN delegate first when this is 1, then GPU, then
+// CPU, and reports per-model backends in its ready message. 0 = never
+// try it (OTA kill switch, NATIVE_NPU). Flags bit 0 of the CONFIG
+// request; the engine's own default is 1, so a CONFIG is only sent when
+// something differs from the defaults.
+export var NATIVE_NPU = 1;
+export function setNativeNpu(v) { NATIVE_NPU = v > 0 ? 1 : 0; }
+export function configFlags() { return NATIVE_NPU === 1 ? 1 : 0; }
 
 export function createNativeClient(port, opts) {
   var o = opts || {};
@@ -70,6 +91,8 @@ export function createNativeClient(port, opts) {
 
   var state = {
     backend: null,
+    backends: null,
+    npu: null,
     models: null,
     dead: false,
     consecutiveFailures: 0,
@@ -186,6 +209,35 @@ export function createNativeClient(port, opts) {
     });
   }
 
+  // The config request carries no pixels: a bare 16-byte header with
+  // modelId CONFIG_MODEL_ID and the mask in the `w` slot. Matched by
+  // reqId like any other request so a lost ack times out rather than
+  // leaking a pending entry.
+  function configure(mask, flags) {
+    if (state.dead) return Promise.reject(new Error('native dead'));
+    var reqId = nextReqId++;
+    var buf = new ArrayBuffer(16);
+    var view = new DataView(buf);
+    view.setUint32(0, reqId >>> 0, true);
+    view.setUint32(4, CONFIG_MODEL_ID >>> 0, true);
+    view.setUint32(8, mask >>> 0, true);
+    view.setUint32(12, (flags || 0) >>> 0, true);
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () {
+        pending.delete(reqId);
+        reject(new Error('native config timeout'));
+      }, requestTimeoutMs);
+      pending.set(reqId, { resolve: resolve, reject: reject, timer: timer });
+      try {
+        port.postMessage(buf, [buf]);
+      } catch (e) {
+        pending.delete(reqId);
+        clearTimeout(timer);
+        reject(e);
+      }
+    });
+  }
+
   port.onmessage = function (e) {
     // A MessageEvent the page DISPATCHED on this port (rather than one
     // the port delivered) arrives with isTrusted false (phase-j J6): a
@@ -200,6 +252,11 @@ export function createNativeClient(port, opts) {
       if (msg.ok) {
         state.backend = msg.backend;
         state.models = msg.models;
+        state.backends = msg.backends || null;
+        state.npu = typeof msg.npu === 'string' ? msg.npu : 'absent';
+        if (NATIVE_CPU_MASK > 0 || configFlags() !== 1) {
+          configure(NATIVE_CPU_MASK, configFlags()).catch(function () { /* counted at the reply */ });
+        }
         try {
           readyResolve({ backend: msg.backend, models: msg.models });
         } catch (err) {
@@ -495,8 +552,13 @@ export function createNativeClient(port, opts) {
 
   return {
     ready: ready,
+    configure: configure,
     backend: function () {
       return state.backend;
+    },
+    /** For the diagnostics report: which engine each model landed on. */
+    snapshot: function () {
+      return { backend: state.backend, npu: state.npu, backends: state.backends, dead: state.dead };
     },
     dead: function () {
       return state.dead;

@@ -96,6 +96,9 @@ var ENUMS = {
   g: ['male', 'female', 'unknown'],
   backend: ['webgl', 'cpu', 'none'],
   otaLast: ['ok', 'fail', 'never'],
+  codec: ['av01', 'vp09', 'avc1', 'other', 'none'],
+  nativeBackend: ['npu', 'gpu', 'cpu', 'none'],
+  npu: ['ok', 'failed', 'absent', 'disabled', 'none'],
 };
 
 /** The version string of a WebView or an OS is free-form vendor text,
@@ -390,6 +393,31 @@ export function buildReport(snap) {
         };
       }),
     },
+    // WHICH CODEC, WHICH ENGINE (research 2026-09-03). The codec family
+    // the player opened its buffer with -- AV1 on a phone with no AV1
+    // decoder is software decode on the page's own cores -- and where
+    // each native model landed once the NPU auto-try ran.
+    // Field NAMES are enum keys: the violation walker looks a string up
+    // by the key it sits under, so every enum-valued field here is named
+    // after its enum.
+    codec: {
+      codec: enumOr('codec', s.codec && s.codec.codec, 'none'),
+      changes: num(s.codec && s.codec.codecChanges),
+    },
+    native: {
+      nativeBackend: enumOr('nativeBackend', s.native && s.native.backend, 'none'),
+      npu: enumOr('npu', s.native && s.native.npu, 'none'),
+      models: {
+        face: { nativeBackend: enumOr('nativeBackend', s.native && s.native.backends && s.native.backends['1'], 'none') },
+        gender: { nativeBackend: enumOr('nativeBackend', s.native && s.native.backends && s.native.backends['2'], 'none') },
+        person: { nativeBackend: enumOr('nativeBackend', s.native && s.native.backends && s.native.backends['3'], 'none') },
+      },
+      dead: !!(s.native && s.native.dead),
+    },
+    perf: {
+      slowed: num(s.perf && s.perf.slowed),
+      restored: num(s.perf && s.perf.restored),
+    },
     player: {
       attached: !!s.playerAttached,
       verdictP50: pctl(verdicts, 0.5),
@@ -538,6 +566,12 @@ function tuningBlock(t) {
 
 function num(x) {
   return typeof x === 'number' && isFinite(x) ? Math.round(x * 1000) / 1000 : null;
+}
+
+/** A value from a closed ENUMS set, or the fallback. */
+function enumOr(key, x, fallback) {
+  var allowed = ENUMS[key];
+  return allowed && allowed.indexOf(x) !== -1 ? x : fallback;
 }
 
 // Version-shaped or nothing. A vendor string that does not look like a

@@ -54,6 +54,31 @@ var entries = new Map();
 // (2026-09-02). Every "delay arm" number taken between 1092 and 1095 was
 // measured on that renderer.
 var timelines = new Map();
+// BLUR DRAWN INTO THE FRAME (performance batch 2026-09-03, idea #5; OTA
+// BLUR_IN_FRAME, ships 0). With a painter registered for a video (the
+// delay presenter's `paintPatches`) and the dial at 1, this renderer
+// stops placing overlay divs and instead hands the painter, every frame,
+// the SAME rectangles it would have placed -- in video-normalized units
+// with the blur radius and corner radius normalized the same way -- and
+// the presenter blurs those regions into the frame it draws. Same solid
+// rectangles, same LOOK; no backdrop snapshot, no transform writes.
+// Without a painter, or at 0, nothing here changes.
+var painters = new Map();
+var BLUR_IN_FRAME = 0;
+export function setBlurInFrame(v) {
+  BLUR_IN_FRAME = v > 0 ? 1 : 0;
+}
+export function setPainter(video, fn) {
+  if (typeof fn === 'function') painters.set(video, fn);
+  else painters.delete(video);
+}
+export function clearPainter(video) {
+  painters.delete(video);
+}
+function painterFor(entry) {
+  if (BLUR_IN_FRAME !== 1) return null;
+  return painters.get(entry.video) || null;
+}
 
 // WHAT THE RENDERER WAS ASKED FOR, NEXT TO WHAT IT DREW.
 //
@@ -131,12 +156,15 @@ try {
 // the same event Task 10's `delayVerdictLate` life counter prices from
 // the player side. Both are per-REPOSITION-CALL like hideNoVr/hideZeroVr
 // above, not per-second.
-var renderStats = { raf: 0, overlayFrames: 0, maskCalls: 0, maskWrites: 0, tfWrites: 0, sizeWrites: 0, dispWrites: 0, hideNoVr: 0, hideZeroVr: 0, hideClipped: 0, rectsNoBoxes: 0, drawnZero: 0, clipRebuilt: 0, timelineFrames: 0, timelineFallback: 0, repositionErrors: 0 };
+var renderStats = { raf: 0, rafSkipped: 0, overlayFrames: 0, maskCalls: 0, maskWrites: 0, tfWrites: 0, sizeWrites: 0, dispWrites: 0, hideNoVr: 0, hideZeroVr: 0, hideClipped: 0, rectsNoBoxes: 0, drawnZero: 0, clipRebuilt: 0, timelineFrames: 0, timelineFallback: 0, repositionErrors: 0, painted: 0, paintPatches: 0 };
 try {
   if (typeof window !== 'undefined') {
     window.__TS_GAZE_RENDER = function () {
       return {
         raf: renderStats.raf,
+        rafSkipped: renderStats.rafSkipped,
+        painted: renderStats.painted,
+        paintPatches: renderStats.paintPatches,
         overlayFrames: renderStats.overlayFrames,
         maskCalls: renderStats.maskCalls,
         maskWrites: renderStats.maskWrites,
@@ -1014,7 +1042,7 @@ function renderTrackOverlay(entry, vr, index, track, elapsedMs, direct) {
   // below the transform-string compare that exists precisely because an
   // identical assignment still crosses CSSOM. Measured at 140-160
   // writes/s on this build, all but a handful of them redundant.
-  if (entry.overlays[index].__tsDisp !== 1) {
+  if (!entry.paintList && entry.overlays[index].__tsDisp !== 1) {
     renderStats.dispWrites++;
     entry.overlays[index].style.display = '';
     entry.overlays[index].__tsDisp = 1;
@@ -1084,6 +1112,25 @@ function renderTrackOverlay(entry, vr, index, track, elapsedMs, direct) {
   // exists, is display:'', and paints nothing. A probe counting
   // rendered patches sees the same thing a hidden one produces.
   if (drawn.width === 0 || drawn.height === 0) renderStats.drawnZero++;
+  if (entry.paintList) {
+    // Painting path: the rect goes to the presenter, the div stays hidden.
+    var vx0 = vr.left - entry.hr.left;
+    var vy0 = vr.top - entry.hr.top;
+    entry.paintList.push({
+      x: (drawn.left - vx0) / vr.width,
+      y: (drawn.top - vy0) / vr.height,
+      w: drawn.width / vr.width,
+      h: drawn.height / vr.height,
+      br: blurRadiusFor(drawn, strongPreset()) / vr.width,
+      rr: LOOK.radiusPx / vr.width,
+    });
+    if (entry.overlays[index].__tsDisp !== 0) {
+      renderStats.dispWrites++;
+      entry.overlays[index].style.display = 'none';
+      entry.overlays[index].__tsDisp = 0;
+    }
+    return;
+  }
   var hs = entry.scale || 1;
   var local = toLocalRect(drawn, hs);
   place(entry.overlays[index], local);
@@ -1091,6 +1138,17 @@ function renderTrackOverlay(entry, vr, index, track, elapsedMs, direct) {
 }
 
 function reposition(entry, now) {
+  var painter = painterFor(entry);
+  entry.paintList = painter ? [] : null;
+  repositionInner(entry, now);
+  if (painter) {
+    renderStats.painted++;
+    renderStats.paintPatches += entry.paintList.length;
+    painter(entry.paintList);
+  }
+}
+
+function repositionInner(entry, now) {
   // RE-PARENTING ONCE PER PASS IS TOO SLOW, MEASURED ON A BUILT APK.
   // The first version of this guard lived only at the end of setTracks,
   // so recovery took one VERDICT pass -- and the emulator's measured gap
@@ -1204,10 +1262,32 @@ try {
   /* no listener is the old 250ms behaviour, not a broken patch */
 }
 
+// RENDER EVERY Nth FRAME (performance batch, 2026-09-03; OTA
+// RENDER_EVERY, ships 1 = every frame). The patch loop is a rAF that
+// re-reads the presented media time and rewrites transforms 50-60 times
+// a second; at 2 it does that 25-30 times and a moving subject's patch
+// trails the picture by one extra presented frame (~16-33ms, one to two
+// pixels at ordinary motion, inside the pad). The skipped frame still
+// schedules the next one, so the loop's liveness (the 1096 defect) is
+// untouched; rectsDirty is not consumed on a skipped frame either, so a
+// scroll's refresh lands on the frame that renders.
+var RENDER_EVERY = 1;
+export function setRenderEvery(n) {
+  RENDER_EVERY = Math.max(1, Math.round(n));
+}
+
 function loop(video) {
   var entry = entries.get(video);
   if (!entry) return;
   renderStats.raf++;
+  entry.frameNo = (entry.frameNo || 0) + 1;
+  if (RENDER_EVERY > 1 && entry.frameNo % RENDER_EVERY !== 0) {
+    renderStats.rafSkipped++;
+    entry.raf = requestAnimationFrame(function () {
+      loop(video);
+    });
+    return;
+  }
   // ONE THROWING FRAME MUST NOT END THE RENDERER. Measured on the
   // Redmi: an exception inside reposition left `entry.raf` holding a
   // stale id, so `if (!entry.raf) loop(video)` in setTracks never

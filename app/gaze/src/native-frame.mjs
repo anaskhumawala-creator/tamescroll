@@ -92,7 +92,15 @@ export function parseReady(str) {
   }
   if (!msg || typeof msg !== 'object') return null;
   if (msg.type === 'native-ready') {
-    return { ok: true, backend: msg.backend || null, models: msg.models || [], initMs: msg.initMs };
+    return {
+      ok: true,
+      backend: msg.backend || null,
+      models: msg.models || [],
+      initMs: msg.initMs,
+      // 2026-09-03: per-model engines and the NPU auto-try outcome.
+      backends: msg.backends && typeof msg.backends === 'object' ? msg.backends : null,
+      npu: typeof msg.npu === 'string' ? msg.npu : null,
+    };
   }
   if (msg.type === 'native-failed') {
     return { ok: false, why: msg.why || 'unknown' };

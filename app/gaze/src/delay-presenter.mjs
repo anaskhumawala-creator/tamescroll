@@ -91,6 +91,10 @@ export function attachDelay(video, host, opts) {
     // effectively shrank for that frame rather than the picture staying
     // frozen/covered. See presentTick.
     delayCollapsed: 0,
+    // Blur-in-frame: frames redrawn because the patch list moved between
+    // two presented frames, and the patch count drawn on the last one.
+    repaints: 0,
+    patchesDrawn: 0,
     errors: [],
   };
   function noteError(label, e) {
@@ -298,6 +302,7 @@ export function attachDelay(video, host, opts) {
         canvas.height = entry.bitmap.height;
       }
       if (ctx) ctx.drawImage(entry.bitmap, 0, 0, canvas.width, canvas.height);
+      drawPatches(entry.bitmap);
       stats.presented++;
       if (collapsed) stats.delayCollapsed++;
       presentedMediaTimeVal = entry.mediaTime;
@@ -458,6 +463,97 @@ export function attachDelay(video, host, opts) {
     applyCover();
   }
 
+  // --- BLUR DRAWN INTO THE FRAME (idea #5) ----------------------------------
+  // The renderer hands over, every rAF, the rectangles it would have
+  // placed as overlay divs (video-region.setPainter), normalized to the
+  // video: {x,y,w,h, br: blur radius / video width, rr: corner radius /
+  // video width}. Each is drawn as a rounded clip filled with the SAME
+  // frame region blurred by ctx.filter -- the source rect padded by 2x
+  // the radius so the clip edge sits on fully-sampled pixels and stays
+  // solid (a blur of an unpadded region fades to transparent at its
+  // border, which would be a soft-edged patch the LOOK contract forbids).
+  // presentTick draws the frame THEN the patches, so a new frame is never
+  // on screen without the latest patches; paintPatches redraws the held
+  // frame only when a rounded canvas-pixel rect actually changed.
+  var patches = [];
+  var patchesKey = '';
+  function canPaint() {
+    try {
+      return !!ctx && 'filter' in ctx;
+    } catch (e) {
+      return false;
+    }
+  }
+  function roundRectPath(g, x, y, w, h, r) {
+    var rr = Math.max(0, Math.min(r, w / 2, h / 2));
+    g.moveTo(x + rr, y);
+    g.lineTo(x + w - rr, y);
+    g.arcTo(x + w, y, x + w, y + rr, rr);
+    g.lineTo(x + w, y + h - rr);
+    g.arcTo(x + w, y + h, x + w - rr, y + h, rr);
+    g.lineTo(x + rr, y + h);
+    g.arcTo(x, y + h, x, y + h - rr, rr);
+    g.lineTo(x, y + rr);
+    g.arcTo(x, y, x + rr, y, rr);
+    g.closePath();
+  }
+  function drawPatches(bitmap) {
+    if (!ctx || !patches.length || !bitmap) {
+      stats.patchesDrawn = 0;
+      return;
+    }
+    var W = canvas.width;
+    var H = canvas.height;
+    var n = 0;
+    for (var i = 0; i < patches.length; i++) {
+      var q = patches[i];
+      var x = Math.round(q.x * W);
+      var y = Math.round(q.y * H);
+      var w = Math.round(q.w * W);
+      var h = Math.round(q.h * H);
+      if (!(w > 0) || !(h > 0)) continue;
+      var b = Math.max(1, Math.round(q.br * W));
+      var r = Math.round(q.rr * W);
+      var pad = 2 * b;
+      try {
+        ctx.save();
+        ctx.beginPath();
+        roundRectPath(ctx, x, y, w, h, r);
+        ctx.clip();
+        ctx.filter = 'blur(' + b + 'px)';
+        ctx.drawImage(bitmap, x - pad, y - pad, w + 2 * pad, h + 2 * pad, x - pad, y - pad, w + 2 * pad, h + 2 * pad);
+        ctx.restore();
+        n++;
+      } catch (e) {
+        try { ctx.restore(); } catch (e2) { /* already balanced */ }
+        noteError('patch', e);
+      }
+    }
+    stats.patchesDrawn = n;
+  }
+  function paintPatches(list) {
+    if (detached) return;
+    var next = Array.isArray(list) ? list : [];
+    var W = canvas.width;
+    var H = canvas.height;
+    var key = '';
+    for (var i = 0; i < next.length; i++) {
+      var q = next[i];
+      key += Math.round(q.x * W) + ',' + Math.round(q.y * H) + ',' + Math.round(q.w * W) + ',' + Math.round(q.h * H) + ',' + Math.round(q.br * W) + ';';
+    }
+    if (key === patchesKey) return;
+    patches = next;
+    patchesKey = key;
+    if (!lastPresented || !ctx) return;
+    try {
+      ctx.drawImage(lastPresented.bitmap, 0, 0, W, H);
+      drawPatches(lastPresented.bitmap);
+      stats.repaints++;
+    } catch (e) {
+      noteError('repaint', e);
+    }
+  }
+
   function detach() {
     if (detached) return;
     detached = true;
@@ -516,6 +612,8 @@ export function attachDelay(video, host, opts) {
     return {
       captured: stats.captured,
       presented: stats.presented,
+      repaints: stats.repaints,
+      patchesDrawn: stats.patchesDrawn,
       refills: stats.refills,
       flushes: stats.flushes,
       capFailed: stats.capFailed,
@@ -616,5 +714,7 @@ export function attachDelay(video, host, opts) {
     requestVerdictFrame: requestVerdictFrame,
     newestMediaTime: newestMediaTime,
     locateCut: locateCut,
+    canPaint: canPaint,
+    paintPatches: paintPatches,
   };
 }

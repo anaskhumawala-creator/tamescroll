@@ -114,6 +114,8 @@ import { makeVerdictCache, verdictKey } from './verdict-cache.mjs';
 import { applyTuningFromWindow, TUNED, TUNE_REFUSED, TUNE_CLAMPED } from './tuning.mjs';
 import * as delayCore from './delay-core.mjs';
 import { attachDelay } from './delay-presenter.mjs';
+import * as perf from './perf.mjs';
+import * as codecProbe from './codec-probe.mjs';
 import { makeTimeline, resetTimeline, pushSnapshot, pushCut, boxesAt, latestSnapshot } from './track-timeline.mjs';
 
 // ONE ARTIFACT, TWO ROLES.
@@ -148,6 +150,9 @@ if (
   // worst a bad push can do is move a dial to an edge that file already
   // considered safe. It cannot throw.
   try {
+    // Which codec the player is fed (research 2026-09-03 #1): wrap the
+    // MediaSource entry points before the player opens a buffer. Read-only.
+    codecProbe.install(window);
     applyTuningFromWindow(window);
     // WHICH NUMBERS IS HIS PHONE ACTUALLY RUNNING?
     //
@@ -1869,6 +1874,7 @@ if (
     // presenter.cover() -- coverVideo/uncoverVideo below are the only
     // two doors.
     var presenter = null;
+    var slowDetach = null;
     var timeline = makeTimeline(0);
     // Media time of the frame the pass in flight was judged on
     // (verdictBusy serialises passes, so one slot is enough).
@@ -1917,6 +1923,12 @@ if (
       var p = attachDelay(video, host, { delayMs: delayCore.DELAY_MS, onFrame: null });
       if (!p) return;
       presenter = p;
+      // Blur-in-frame (idea #5): the presenter paints the renderer's
+      // rectangles when BLUR_IN_FRAME is 1; inert otherwise.
+      videoRegion.setPainter(video, p.canPaint() ? p.paintPatches : null);
+      // PLAYBACK_SLOW poll (inert at 0): reads the decoder's own dropped
+      // share every 5s, only ever on the watch player.
+      slowDetach = perf.watchPlayback(video);
       timeline = makeTimeline(delayCore.DELAY_MS + 2000);
       videoRegion.setTimeline(video, function () {
         if (!presenter) return null;
@@ -1960,6 +1972,11 @@ if (
       if (!presenter) return;
       var p = presenter;
       presenter = null;
+      videoRegion.clearPainter(video);
+      if (slowDetach) {
+        try { slowDetach(); } catch (e) { /* timer already gone */ }
+        slowDetach = null;
+      }
       videoRegion.clearTimeline(video);
       timeline = makeTimeline(0);
       try {
@@ -5483,6 +5500,9 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
       imgTotal: imgTotal,
       imgdiag: window.__TS_GAZE_IMGDIAG || [],
       playerAttached: anyVideoAttached,
+      codec: codecProbe.served(),
+      native: nativeClient && typeof nativeClient.snapshot === 'function' ? nativeClient.snapshot() : null,
+      perf: perf.slowStats(),
       ids: window.__TS_GAZE_IDS || {},
       render: typeof window.__TS_GAZE_RENDER === 'function' ? window.__TS_GAZE_RENDER() : null,
       longTasks: longTasks,
