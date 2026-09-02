@@ -190,10 +190,14 @@ is PARKED. Everything below is YouTube unless it says otherwise.
 tired of installing new versions", so **batch anything else into ONE
 build** -- 1087/1088/1089/1090 all exist and he may have installed none
 of them. The old Redmi `1ec2c48e0621` (M2010J19SI) is the arm64
-smoke-test device and HAS the app; **its screen is LOCKED and I cannot
-unlock it** (I turned it off with keyevent 26 -- do not do that again;
-a locked screen makes `innerWidth` read **0** and every rect worthless,
-which invented a whole page of false geometry tonight). Emulator on 1079.
+smoke-test device and HAS the app; **its screen is LOCKED WITH A
+CREDENTIAL and I cannot unlock it** -- `wm dismiss-keyguard`, the MENU
+keyevent and a swipe were all refused on 2026-09-02, so do not spend a
+fourth attempt. (I turned it off with keyevent 26 -- do not do that
+again; a locked screen makes `innerWidth` read **0** and every rect
+worthless, which invented a whole page of false geometry.) It is on
+**1089**. **The x86_64 emulator is the fallback and it works**: the 1091
+release sweep ran there. Emulator now on 1091.
 
 **THE ONE OPEN QUESTION FOR HIM, unchanged for two sessions:**
 `PTRACK_MIN_COAST_PASSES` 2 -> 1.33 buys **26% of the phantom** he
