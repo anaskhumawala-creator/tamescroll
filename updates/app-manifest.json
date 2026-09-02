@@ -1,7 +1,7 @@
 {
-  "versionCode": 1097,
-  "versionName": "0.1.97",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.97/tamescroll-v0.1.97.apk",
-  "sha256": "99c03c8cde9b0f9bfef8486b4dc05790c6e7a6ae000d91ee75dcdcaefa02d8f7",
-  "notes": "In-video blur: seeking back on the timeline no longer leaves one patch frozen; a scene cut is keyed on the exact frame; mini player X now closes it and goes back to where you were."
+  "versionCode": 1098,
+  "versionName": "0.1.98",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.98/tamescroll-v0.1.98.apk",
+  "sha256": "e69297ffca0d82bc70221b8dc604332d7c31057bf1f8477659b666dcbf736fe2",
+  "notes": "Performance batch: eleven tuning dials (all inert until pushed), served-codec read, AV1 refusal switch, native NPU arbiter (off)."
 }
