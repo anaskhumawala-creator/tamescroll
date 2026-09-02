@@ -1,6 +1,7 @@
 package app.tamescroll.client
 
 import android.content.Context
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Process
@@ -10,9 +11,11 @@ import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebMessagePortCompat
 import org.json.JSONArray
 import org.json.JSONObject
+import org.tensorflow.lite.Delegate
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.gpu.CompatibilityList
 import org.tensorflow.lite.gpu.GpuDelegate
+import org.tensorflow.lite.nnapi.NnApiDelegate
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
@@ -64,8 +67,8 @@ class NativeInfer(private val ctx: Context) {
   private class LoadedModel(
     val id: Int,
     val interpreter: Interpreter,
-    val delegate: GpuDelegate?,
-    val backend: String, // "npu" | "gpu" | "cpu" -- see loadModel's NPU_STUB note
+    val delegate: Delegate?,
+    val backend: String, // "npu" | "gpu" | "cpu" -- see loadModel's NNAPI note
     val inputW: Int,
     val inputH: Int,
     val inputBuffer: ByteBuffer,
@@ -168,29 +171,110 @@ class NativeInfer(private val ctx: Context) {
    * bit0 BlazeFace (id1), bit1 faceres (id2), bit2 MoveNet (id3). */
   private fun forceCpuFor(id: Int): Boolean = (cpuMask shr (id - 1)) and 1 == 1
 
-  /** flags bit0 = NATIVE_NPU. Read only for postReady's `npu` field --
-   * see the NPU_STUB note below for why nothing here ever acts on it. */
+  /** flags bit0 = NATIVE_NPU: whether loadModel may try the NNAPI arm. */
   private fun npuAllowedByFlags(): Boolean = flags and 1 == 1
+
+  // postReady's `npu` field: did any loadModel in this configuration
+  // attempt the NNAPI arm, and did any model end up on it.
+  private var npuTried = false
+
+  /** A model's interpreter plus the buffers `run` needs, tensors allocated. */
+  private fun buildModel(id: Int, interp: Interpreter, delegate: Delegate?, backend: String): LoadedModel {
+    interp.allocateTensors()
+    val inT = interp.getInputTensor(0)
+    val shape = inT.shape() // NHWC
+    val inputBuffer = ByteBuffer.allocateDirect(inT.numBytes()).order(ByteOrder.nativeOrder())
+    val outputBuffers = Array(interp.outputTensorCount) { i ->
+      ByteBuffer.allocateDirect(interp.getOutputTensor(i).numBytes()).order(ByteOrder.nativeOrder())
+    }
+    val outputNames = (0 until interp.outputTensorCount).map { interp.getOutputTensor(it).name() }
+    return LoadedModel(id, interp, delegate, backend, shape[2], shape[1], inputBuffer, outputBuffers, outputNames)
+  }
+
+  private fun closeModel(m: LoadedModel) {
+    try { m.interpreter.close() } catch (_: Throwable) {}
+    try { m.delegate?.close() } catch (_: Throwable) {}
+  }
+
+  /** Best of `n` runs on the (zero) input buffer, in ms. The first run
+   * is the delegate's warm-up and is excluded: it carries allocation
+   * and clock ramp, not the steady cost the arbiter is comparing. */
+  private fun bestRunMs(m: LoadedModel, n: Int): Double {
+    run(m)
+    var best = Double.MAX_VALUE
+    repeat(n) {
+      val t0 = SystemClock.elapsedRealtimeNanos()
+      run(m)
+      best = minOf(best, (SystemClock.elapsedRealtimeNanos() - t0) / 1e6)
+    }
+    return best
+  }
+
+  /** Output-0 of `a` against `b` on the input both just ran: false on a
+   * non-finite value or a relative max-abs difference over 10%. Catches a
+   * delegate that "works" and returns garbage, which is what an
+   * accelerator driver mishandling an op looks like from Java. */
+  private fun outputsAgree(a: LoadedModel, b: LoadedModel): Boolean {
+    if (a.outputBuffers.isEmpty() || b.outputBuffers.isEmpty()) return false
+    val fa = a.outputBuffers[0].duplicate().order(ByteOrder.nativeOrder()).asFloatBuffer()
+    val fb = b.outputBuffers[0].duplicate().order(ByteOrder.nativeOrder()).asFloatBuffer()
+    if (fa.capacity() != fb.capacity()) return false
+    var maxDiff = 0f
+    var maxRef = 0f
+    for (i in 0 until fa.capacity()) {
+      val x = fa.get(i); val y = fb.get(i)
+      if (!x.isFinite()) return false
+      maxDiff = maxOf(maxDiff, Math.abs(x - y))
+      maxRef = maxOf(maxRef, Math.abs(y))
+    }
+    return maxDiff <= 0.1f * (maxRef + 1e-3f)
+  }
 
   private fun loadModel(id: Int, assetBase: String): LoadedModel {
     val bytes = loadAssetModel("$assetBase.tflite")
     var delegate: GpuDelegate? = null
     var interp: Interpreter? = null
     var backend = "cpu"
+    // NNAPI arm (performance batch 2026-09-03). Android's own Neural
+    // Networks API hands the graph to whatever accelerator driver the
+    // phone ships -- Qualcomm's Hexagon on the SM4450, MediaTek's APU
+    // where there is one -- through code that is Apache-2.0 and already
+    // in the TFLite we vendor. Qualcomm's OWN LiteRT delegate is NOT
+    // used: its "AI Model Hub License" 2.c forbids biometric systems and
+    // categorization of persons by sensitive characteristics, which is
+    // this engine (see NOTICE). NNAPI never puts us under that licence:
+    // the driver is the phone's, not something we distribute.
+    //
+    // NNAPI cannot be trusted on its say-so. With useNnapiCpu(false) a
+    // device with no accelerator gets a delegate that takes NO nodes and
+    // the graph silently runs on CPU kernels -- initialising is not
+    // proof of an NPU. So the arm is an ARBITER: NNAPI has to beat the
+    // GPU/CPU candidate on the clock by 10% AND agree with it on the
+    // outputs, or it is closed and the candidate ships. `npu: ok` in the
+    // ready message therefore means "measured faster", never "present".
+    // NNAPI is deprecated since Android 15 (still there, no new
+    // features); on a phone whose vendor dropped the driver the arm
+    // loses the race and costs one extra load.
+    var nn: LoadedModel? = null
+    var nnMs = Double.MAX_VALUE
+    if (!forceCpuFor(id) && npuAllowedByFlags() && Build.VERSION.SDK_INT >= 27) {
+      npuTried = true
+      var nd: NnApiDelegate? = null
+      try {
+        val nopts = NnApiDelegate.Options()
+          .setUseNnapiCpu(false)
+          .setAllowFp16(id in MODEL_FP16)
+          .setExecutionPreference(NnApiDelegate.Options.EXECUTION_PREFERENCE_SUSTAINED_SPEED)
+        nd = NnApiDelegate(nopts)
+        nn = buildModel(id, Interpreter(bytes, Interpreter.Options().addDelegate(nd)), nd, "npu")
+        nnMs = bestRunMs(nn, 3)
+      } catch (e: Throwable) {
+        Log.w(TAG, "NNAPI failed for $assetBase: " + e.message)
+        if (nn != null) closeModel(nn) else try { nd?.close() } catch (_: Throwable) {}
+        nn = null
+      }
+    }
     if (!forceCpuFor(id)) {
-      // NPU_STUB (performance batch 2026-09-03, plan Task 2): the
-      // Qualcomm QNN LiteRT delegate is deliberately NOT wired in. Its
-      // Maven artifact (com.qualcomm.qti:qnn-litert-delegate) ships
-      // under the "Qualcomm AI Hub Model License", whose Section 2.c
-      // forbids using the Software for "biometric and biometrics-based
-      // systems, including categorization of persons based on sensitive
-      // characteristics" -- and gender/age classification on detected
-      // faces is this whole engine's job, not an edge case of it. See
-      // NOTICE. So `npuAllowedByFlags()` has nothing to try here; it
-      // only decides what postReady's `npu` field reports (absent vs
-      // disabled). GPU is attempted next exactly as it was before this
-      // task -- a device with no NPU story at all sees no behavior
-      // change.
       val cl = CompatibilityList()
       if (cl.isDelegateSupportedOnThisDevice) {
         try {
@@ -215,19 +299,18 @@ class NativeInfer(private val ctx: Context) {
       interp = Interpreter(bytes, Interpreter.Options().setNumThreads(4).setUseXNNPACK(true))
       backend = "cpu"
     }
-    interp.allocateTensors()
-    val inT = interp.getInputTensor(0)
-    val shape = inT.shape() // NHWC
-    val inputBuffer = ByteBuffer.allocateDirect(inT.numBytes()).order(ByteOrder.nativeOrder())
-    val outputBuffers = Array(interp.outputTensorCount) { i ->
-      ByteBuffer.allocateDirect(interp.getOutputTensor(i).numBytes()).order(ByteOrder.nativeOrder())
+    val candidate = buildModel(id, interp, delegate, backend)
+    if (nn == null) {
+      // One warm run: the delegate's first invocation carries allocation
+      // and clock ramp that must not land on the first real frame.
+      run(candidate)
+      return candidate
     }
-    val outputNames = (0 until interp.outputTensorCount).map { interp.getOutputTensor(it).name() }
-    val model = LoadedModel(id, interp, delegate, backend, shape[2], shape[1], inputBuffer, outputBuffers, outputNames)
-    // One warm run: the delegate's first invocation carries allocation
-    // and clock ramp that must not land on the first real frame.
-    run(model)
-    return model
+    val candMs = bestRunMs(candidate, 3)
+    val agree = outputsAgree(nn, candidate)
+    val win = agree && nnMs < candMs * 0.9
+    Log.i(TAG, "NNAPI arbiter $assetBase: nnapi=${"%.1f".format(nnMs)}ms $backend=${"%.1f".format(candMs)}ms agree=$agree -> " + (if (win) "npu" else backend))
+    return if (win) { closeModel(candidate); nn } else { closeModel(nn); candidate }
   }
 
   private fun loadAssetModel(name: String): ByteBuffer {
@@ -310,6 +393,7 @@ class NativeInfer(private val ctx: Context) {
     val t0 = SystemClock.elapsedRealtimeNanos()
     cpuMask = newCpuMask
     flags = newFlags
+    npuTried = false
     var failed = false
     for ((id, asset) in MODEL_ASSET) {
       try {
@@ -401,10 +485,18 @@ class NativeInfer(private val ctx: Context) {
       backendsJson.put(id.toString(), models[id]?.backend ?: "cpu")
     }
     // Worst of the three, per the plan: 'cpu' if any model landed on
-    // CPU, else 'gpu' (an 'npu' backend -- never reached today, see the
-    // NPU_STUB note on loadModel -- would count as gpu-or-better here).
+    // CPU, else 'gpu' (an 'npu' backend counts as gpu-or-better here).
     val anyCpu = models.values.any { it.backend == "cpu" }
-    val npuState = if (!npuAllowedByFlags()) "disabled" else "absent"
+    val anyNpu = models.values.any { it.backend == "npu" }
+    // ok = at least one model measured faster on NNAPI (loadModel's
+    // arbiter); failed = the arm ran and won nothing; absent = never
+    // attempted (API < 27 or every model forced to CPU).
+    val npuState = when {
+      !npuAllowedByFlags() -> "disabled"
+      anyNpu -> "ok"
+      npuTried -> "failed"
+      else -> "absent"
+    }
     val msg = JSONObject()
       .put("type", "native-ready")
       .put("backend", if (anyCpu) "cpu" else "gpu")
@@ -422,10 +514,7 @@ class NativeInfer(private val ctx: Context) {
   }
 
   private fun releaseModels() {
-    for (m in models.values) {
-      try { m.interpreter.close() } catch (_: Throwable) {}
-      try { m.delegate?.close() } catch (_: Throwable) {}
-    }
+    for (m in models.values) closeModel(m)
     models.clear()
   }
 

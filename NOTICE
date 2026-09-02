@@ -74,13 +74,15 @@ qnn-runtime) — EVALUATED 2026-09-03, NOT USED, NOT VENDORED
   compiled .aar could be shipped inside the APK at all.
 
   So: NOT added to build.gradle.kts, NOT linked, NOT distributed.
-  NativeInfer.kt's loadModel() has a stub (search "NPU_STUB") that
-  always falls through past the NPU step straight to the GPU delegate
-  — the same behavior as before this evaluation — and reports
-  `"npu": "absent"` (or `"disabled"` when NATIVE_NPU=0) rather than
-  ever attempting the delegate. If a future round revisits on-device
-  NPU acceleration, it needs either a differently-licensed delegate or
-  a licensing conversation with Qualcomm that this project has not had.
+
+  The NPU path that IS used is Android's own Neural Networks API through
+  TensorFlow Lite's NnApiDelegate (org.tensorflow.lite.nnapi, part of
+  the Apache-2.0 tensorflow-lite artifact already listed above). NNAPI
+  routes to whatever accelerator driver the phone's vendor shipped in
+  its firmware; this project distributes no vendor code and accepts no
+  vendor licence for it. NativeInfer.kt's loadModel() tries NNAPI
+  behind the NATIVE_NPU dial and keeps it only where it measures faster
+  than the GPU/CPU candidate and agrees with it on the outputs.
 
 BlazeFace model — Apache License 2.0
   https://github.com/tensorflow/tfjs-models (Google / MediaPipe)

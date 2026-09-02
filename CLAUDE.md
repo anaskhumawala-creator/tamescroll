@@ -133,16 +133,30 @@ NativeInfer.kt: modelId-0 CONFIG (`handleConfig` rebuilds the masked
 models on XNNPACK, swaps only on success, replies status 0 empty);
 `LoadedModel.backend` string; ready message carries `backends {1,2,3}` +
 top-level `npu`; `inferTid` + `onInferenceDuration` feed the hint session.
-**THE NPU IS DEAD BY LICENCE, NOT BY HARDWARE.** The QNN artifacts on
-Maven Central (`qnn-litert-delegate` / `qnn-runtime` 2.34.0) are under
-the "Qualcomm AI Hub Model License"; its section 2.c forbids "biometric
-and biometrics-based systems, including categorization of persons based
-on sensitive characteristics" -- which is exactly BlazeFace + faceres
-gender. Dependency NOT added; `NPU_STUB` in `loadModel` always falls
-through GPU -> CPU and reports `npu: absent` (or `disabled` at flag 0).
-Clause quoted in NOTICE; POMs + PDF banked in
-`spikes/native/qnn-licence-check/`. Do not re-open without Qualcomm
-in the conversation. TELL HIM -- he ruled auto-detect and it cannot ship.
+**NPU: QUALCOMM'S DELEGATE IS DEAD BY LICENCE, NNAPI IS THE ROUTE.**
+The QNN artifacts on Maven Central (`qnn-litert-delegate` / `qnn-runtime`
+2.34.0) are under the "Qualcomm AI Hub Model License"; its section 2.c
+(read from the PDF, not the agent's summary) forbids use "for or in
+connection with" "biometric and biometrics-based systems, including
+categorization of persons based on sensitive characteristics" -- that
+is faceres gender AND the identity memory's descriptor matching. "We
+store nothing" does not help: the clause is about the application, not
+data handling. Dependency NOT added; POMs + PDF banked in
+`spikes/native/qnn-licence-check/`. **What SHIPS instead: TFLite's own
+`NnApiDelegate`** (Apache-2.0, already vendored; the phone's driver is
+the phone's, we distribute nothing of Qualcomm's). `loadModel` is an
+ARBITER: NNAPI must beat the GPU/CPU candidate by 10% on the clock AND
+agree on output 0 within 10% (`outputsAgree`), else it is closed --
+because with `useNnapiCpu(false)` a device with no accelerator gets a
+delegate that takes no nodes and "initialises" fine. `npu: ok` means
+MEASURED faster; `failed` = tried, won nothing; `absent` = API<27 or all
+forced CPU; `disabled` = NATIVE_NPU 0. Costs ~3 extra timed runs per
+model at load when NNAPI initialises. NNAPI is deprecated since Android
+15 (present, frozen). UNMEASURED: the old Redmi (Helio G85, no APU) can
+only prove the arm loses cleanly; only his Redmi 13 says whether Hexagon
+takes the graphs -- read `native.npu` + per-model `nativeBackend` in
+his About report. He asked "is it allowed then or not": Qualcomm's
+package no, NNAPI yes.
 
 **NEXT, in order (T1, T2, T3 done):**
 1. T4 (optional tonight): `gl-presenter.mjs` behind PRESENTER_GL -- WebGL
