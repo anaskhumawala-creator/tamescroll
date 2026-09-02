@@ -1,7 +1,7 @@
 {
-  "versionCode": 1091,
-  "versionName": "0.1.91",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.91/tamescroll-v0.1.91.apk",
-  "sha256": "3fef638443017e4165dbf6584199a986830d184922de03d8c498115d7f9b0c22",
-  "notes": "The assignment layer: overlapping people are matched optimally, so a tracked subject is no longer re-minted as a new blur."
+  "versionCode": 1092,
+  "versionName": "0.1.92",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.92/tamescroll-v0.1.92.apk",
+  "sha256": "5ab3f53dc342d2ed4d6456a2c151ed3a891368e87cc758a7f3fb20597545f02c",
+  "notes": "1092: faster in-player blur decisions and a 1s delay line so the blur lands on the person as they appear"
 }
