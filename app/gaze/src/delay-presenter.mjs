@@ -140,6 +140,16 @@ export function attachDelay(video, host, opts) {
     // video it replaces.
     canvas.style.width = '100%';
     canvas.style.height = '100%';
+    // And CONTAIN it, the way the <video> it replaces is laid out. In
+    // portrait the player box and the video coincide, so a stretched
+    // canvas looked right; rotated (or fullscreen) the player is wider
+    // than the video and the video letterboxes inside it -- measured on
+    // the Redmi in landscape: video [85,48,652,367] inside a canvas
+    // [0,48,823,367]. A stretched canvas there draws a 16:9 frame at
+    // 2.24:1, and every patch (positioned against the VIDEO rect) lands
+    // beside the face it was drawn for. object-fit applies to a canvas
+    // as to any replaced element; the letterbox shows the host's black.
+    canvas.style.objectFit = 'contain';
     canvas.style.zIndex = String(Z_INDEX);
     canvas.style.pointerEvents = 'none';
     host.appendChild(canvas);

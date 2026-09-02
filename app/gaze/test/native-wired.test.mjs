@@ -112,3 +112,24 @@ test('the parity hook is flag-gated and nothing in the app sets the flag', () =>
     assert.doesNotMatch(src, /__TS_NATIVE_PARITY\s*=[^=]/, f + ' sets the parity flag');
   }
 });
+
+test('the cfg probe publishes the bars a player patch is DECIDED at, not only the flag bars', () => {
+  // Ledger K11: the native parity gate was written over GENDER_MIN_SCORE
+  // and GENDER_IMAGE_MIN_SCORE -- the FLAG bars -- and passed 0/24 at
+  // both, while 2 of 24 reads flipped at `clearBarFor` and the child
+  // gate, which are what decide whether a covered person is REVEALED.
+  // The probe must read these off the running bundle (R15 / G1): an
+  // instrument that re-derives a shipped rule is a check that cannot
+  // fail. So a bar the player reads must be published here or the next
+  // parity round measures the wrong thing again.
+  assert.match(SRC, /genderMinScore: GENDER_MIN_SCORE,/);
+  assert.match(SRC, /clearScore: GENDER_CLEAR_SCORE,/);
+  assert.match(SRC, /clearScoreFemale: GENDER_CLEAR_SCORE_FEMALE,/);
+  assert.match(SRC, /childMass: GENDER_CHILD_MASS,/);
+  assert.match(SRC, /nmFloor: NULL_MINT_NM_FLOOR,/);
+  // and they must be the IMPORTED bindings, never re-typed literals
+  assert.match(
+    SRC,
+    /GENDER_MIN_SCORE,\s*GENDER_CLEAR_SCORE,\s*GENDER_CLEAR_SCORE_FEMALE,\s*GENDER_CHILD_MASS,\s*NULL_MINT_NM_FLOOR,\s*\} from '\.\/gender-verdict\.mjs';/
+  );
+});

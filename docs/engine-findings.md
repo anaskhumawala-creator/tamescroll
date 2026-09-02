@@ -3771,18 +3771,38 @@ derived synthetic one. Two instruments now answer it, and the hypothesis
 is REFUTED while the drop is EXPLAINED.
 
 **Geometry, offline, same frames through both engines**
-(`bench/native-body-vs-synth.mjs` over `native-parity-1788347487.json`,
+(`bench/native-body-vs-synth.mjs` over `native-parity-1788354123.json`,
 shipped `personFromFace` / `synthFaceIndices` out of the emitted
-bundle): worker set = synthetic bodies over every face; native set =
-MoveNet boxes plus synthetic bodies over the faces `synthFaceIndices`
-leaves unclaimed. 16 frames, 24 faces, MoveNet admits on 12:
+bundle): worker set = synthetic bodies over the WORKER's own faces;
+native set = MoveNet boxes plus synthetic bodies over the faces
+`synthFaceIndices` leaves unclaimed, from NATIVE's own faces. 16 frames,
+MoveNet admits on 12:
 
+  worker faces 24   native faces 24   frames where they disagree 0
   mean covered area   worker 0.569   native 0.624   (native/worker 1.098)
   worker set NOT covered by native   0.038 of frame, of which inside a
                                      face box 0.0000
-  faces with any sharp pixel on native   0 of 24
+  WORKER faces with any sharp pixel on native   0 of 24
 
 The measured body covers MORE, not less, and never leaves a face sharp.
+
+**EACH SET MUST COME FROM ITS OWN ENGINE'S FACES, and until 2026-09-02
+this bench built BOTH from `native.faces` (phase-k K13).** That makes it
+structurally blind to a face native does not detect at all: the missing
+face leaves the worker set, the native set AND the sharp-face
+denominator together, so an engine that found nothing would score
+perfectly. It is not hypothetical -- on the fp16 dump the same round's
+K1 found exactly that frame, and the old bench printed `faces 23` and
+`0 of 23 sharp` while t=90 had a close-up with NO patch at all.
+Corrected, the fp16 dump reads `worker 24 / native 23 / disagree 1`,
+ratio **1.022** (not 1.106), uncovered **0.081** of frame of which
+**0.0231 inside a face box**, and **1 of 24** worker faces sharp. The
+numbers above are the SHIPPED build (fp32 BlazeFace), where the two
+engines agree on all 24 faces; quote them only with that qualifier. The
+bench also now takes `_build.mjs`, the freshness guard every other
+corpus bench takes -- it FIRED on its first corrected run, so the
+previously published figures were scored against a stale
+`.cache/shipped.mjs`.
 
 **Track snapshots, on device, both arms of the same build**
 (`probe_latency_ab.py` now banks the per-verdict snapshots -- the
@@ -3803,7 +3823,7 @@ size as the frame-level `coverage` difference in the same two files
 (0.583 against 0.604). So the snapshot instrument does NOT show the drop
 living between verdicts; it shows the drop. What still separates
 "phantom leaving" from "people uncovered" is the geometry bench above
-(0 of 24 faces sharp, native area 1.098x) and the exit hang: after a
+(0 of 24 WORKER faces sharp on the shipped build, native area 1.098x) and the exit hang: after a
 track dies, the worker arm's patch hangs **30-60 frames** (p50, 1092 and
 both kill-switch arms) where the native arm's hangs **0-3**. The worker
 arm is told a 2000ms cadence and coasts 4000; native is told ~860-1010

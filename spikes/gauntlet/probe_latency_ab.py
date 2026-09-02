@@ -269,9 +269,28 @@ def check_geometry(t):
       if(!v) return JSON.stringify({video:null,canvas:null});
       var vr=v.getBoundingClientRect();
       var cr=c?c.getBoundingClientRect():null;
+      // The PAINTED rect: where the presented picture actually lands
+      // inside the canvas box under its object-fit. In portrait the box
+      // and the video coincide; rotated or fullscreen the video
+      // letterboxes inside a wider player, and only the painted rect
+      // can be compared with the video rect (phase-k follow-up: the
+      // stretched canvas was found by this check reading 823 vs 652).
+      var painted=null, fit=null;
+      if(c && cr && c.width && c.height){
+        fit=getComputedStyle(c).objectFit;
+        if(fit==='contain'){
+          var k=Math.min(cr.width/c.width, cr.height/c.height);
+          var pw=c.width*k, ph=c.height*k;
+          painted=[Math.round(cr.left+(cr.width-pw)/2),Math.round(cr.top+(cr.height-ph)/2),Math.round(pw),Math.round(ph)];
+        } else painted=[Math.round(cr.left),Math.round(cr.top),Math.round(cr.width),Math.round(cr.height)];
+      }
+      var ok=null;
+      if(painted){ ok=true; var vv=[Math.round(vr.left),Math.round(vr.top),Math.round(vr.width),Math.round(vr.height)];
+        for(var i=0;i<4;i++) if(Math.abs(painted[i]-vv[i])>2) ok=false; }
       return JSON.stringify({
         video:[Math.round(vr.left),Math.round(vr.top),Math.round(vr.width),Math.round(vr.height)],
-        canvas:cr?[Math.round(cr.left),Math.round(cr.top),Math.round(cr.width),Math.round(cr.height)]:null
+        canvas:cr?[Math.round(cr.left),Math.round(cr.top),Math.round(cr.width),Math.round(cr.height)]:null,
+        objectFit:fit, intrinsic:c?[c.width,c.height]:null, painted:painted, paintedEqualsVideo:ok
       });
     })()"""
     )

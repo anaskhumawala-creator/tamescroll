@@ -1,0 +1,155 @@
+{
+ "port": 9227,
+ "video": "NWoT1ZVd1Lo",
+ "seek": 217.0,
+ "arms": {
+  "portrait": {
+   "label": "PORTRAIT",
+   "samples": 7,
+   "last": {
+    "vp": [
+     392,
+     822
+    ],
+    "orientation": "portrait-primary",
+    "video": [
+     0,
+     48,
+     393,
+     221
+    ],
+    "canvas": [
+     0,
+     48,
+     393,
+     221
+    ],
+    "intrinsic": [
+     640,
+     360
+    ],
+    "objectFit": "contain",
+    "painted": [
+     0,
+     48,
+     393,
+     221
+    ],
+    "paintedEqualsVideo": true,
+    "player": [
+     0,
+     48,
+     393,
+     221
+    ],
+    "patches": 0,
+    "patchesOutsidePlayer": 0,
+    "t": 236,
+    "paused": false
+   },
+   "paintedEqualsVideoAll": true,
+   "samplesWithCanvas": 7,
+   "patchesOutsidePlayerMax": 0,
+   "patchesMax": 2
+  },
+  "landscape": {
+   "label": "LANDSCAPE",
+   "samples": 7,
+   "last": {
+    "vp": [
+     822,
+     364
+    ],
+    "orientation": "landscape-primary",
+    "video": [
+     85,
+     48,
+     652,
+     367
+    ],
+    "canvas": [
+     0,
+     48,
+     823,
+     367
+    ],
+    "intrinsic": [
+     640,
+     360
+    ],
+    "objectFit": "contain",
+    "painted": [
+     85,
+     48,
+     652,
+     367
+    ],
+    "paintedEqualsVideo": true,
+    "player": [
+     0,
+     48,
+     823,
+     367
+    ],
+    "patches": 1,
+    "patchesOutsidePlayer": 0,
+    "t": 257,
+    "paused": false
+   },
+   "paintedEqualsVideoAll": true,
+   "samplesWithCanvas": 7,
+   "patchesOutsidePlayerMax": 0,
+   "patchesMax": 1
+  },
+  "portrait2": {
+   "label": "PORTRAIT2",
+   "samples": 7,
+   "last": {
+    "vp": [
+     392,
+     822
+    ],
+    "orientation": "portrait-primary",
+    "video": [
+     0,
+     48,
+     393,
+     221
+    ],
+    "canvas": [
+     0,
+     48,
+     393,
+     221
+    ],
+    "intrinsic": [
+     640,
+     360
+    ],
+    "objectFit": "contain",
+    "painted": [
+     0,
+     48,
+     393,
+     221
+    ],
+    "paintedEqualsVideo": true,
+    "player": [
+     0,
+     48,
+     393,
+     221
+    ],
+    "patches": 1,
+    "patchesOutsidePlayer": 0,
+    "t": 278,
+    "paused": false
+   },
+   "paintedEqualsVideoAll": true,
+   "samplesWithCanvas": 7,
+   "patchesOutsidePlayerMax": 0,
+   "patchesMax": 1
+  }
+ },
+ "verdict": "PAINTED RECT == VIDEO RECT in every arm (landscape player wider than video: True)"
+}

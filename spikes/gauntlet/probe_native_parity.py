@@ -153,6 +153,23 @@ def main():
     t.cmd("Runtime.enable")
     st = t.eval("(function(){return JSON.stringify({flag: !!window.__TS_NATIVE_PARITY, hook: !!window.__TS_GAZE_ENGINES, native: window.__TS_GAZE_NATIVE||null, worker: (window.__TS_GAZE_WORKER||{}).backend||null, bundle: window.__TS_GAZE_BUNDLE__});})()")
     print("state", st)
+    # THE BARS THE PLAYER PATH ACTUALLY DECIDES A PATCH AT, read off the
+    # RUNNING bundle (ledger K11 + the R15 rule). This probe must never
+    # re-type them: an instrument that re-derives a shipped rule is a
+    # check that cannot fail (phase-G G1/G5/G9). If the hook is absent
+    # the bar comparison is REFUSED rather than run against defaults --
+    # a silently-skipped gate is what K11 is about.
+    bars_raw = t.eval("(function(){var c=(window.__TS_GAZE_IDS||{}).cfg; return JSON.stringify(c||null);})()")
+    try:
+        BARS = json.loads(bars_raw) if isinstance(bars_raw, str) else bars_raw
+    except Exception:
+        BARS = None
+    if isinstance(BARS, str):
+        try:
+            BARS = json.loads(BARS)
+        except Exception:
+            BARS = None
+    print("bars", json.dumps(BARS))
     t.eval("(function(){var v=document.querySelector('video'); if(v){v.pause();} return 1;})()")
     # Let the engine settle (ready) before the first frame.
     time.sleep(4)
@@ -218,6 +235,41 @@ def main():
             if a.get("age") is not None and b.get("age") is not None:
                 age_d.append(abs(a["age"] - b["age"]))
         cosv.extend(c for c in f["descCos"] if c is not None)
+    # DECISION FLIPS AT EVERY SHIPPED BAR (ledger K11). The written gate
+    # was "0 flips at GENDER_MIN_SCORE / GENDER_IMAGE_MIN_SCORE" -- both
+    # FLAG bars. A player patch is REVEALED through clearBarFor
+    # (GENDER_CLEAR_SCORE / _FEMALE) and held through the child gate and
+    # the nm floor, and none of those was counted. `covering` is the
+    # count of flips where NATIVE is the more protective of the two;
+    # a flip in the exposing direction is the one that matters.
+    flips = None
+    if BARS and BARS.get("clearScore") is not None:
+        def _clear(r):
+            bar = BARS["clearScoreFemale"] if r.get("gender") == "female" else BARS["clearScore"]
+            return (r.get("score") or 0) >= bar
+        def _nm(r):
+            return ((r.get("shape") or {}).get("norm") or 0) >= BARS["nmFloor"]
+        # (name, predicate, True when a TRUE answer is the COVERING one)
+        tests = [
+            ("flagMin", lambda r: (r.get("score") or 0) >= BARS["genderMinScore"], True),
+            ("clear", _clear, False),
+            ("child", lambda r: (r.get("childP") or 0) >= BARS["childMass"], True),
+            ("nmFloor", _nm, False),
+            ("label", lambda r: r.get("gender"), None),
+        ]
+        flips = {}
+        for name, fn, cov_true in tests:
+            n = cov = 0
+            for f in ok:
+                for a, b in zip(f["readsNative"], f["readsWorker"]):
+                    va, vb = fn(a), fn(b)
+                    if va != vb:
+                        n += 1
+                        if cov_true is not None and va == cov_true:
+                            cov += 1
+            flips[name] = {"flips": n, "nativeMoreCovering": cov if cov_true is not None else None}
+        flips["reads"] = labels_total
+        flips["bars"] = BARS
     summary = {
         "frames": len(frames), "ok": len(ok),
         "personCountMismatchFrames": count_mismatch_persons, "faceCountMismatchFrames": count_mismatch_faces,
@@ -226,6 +278,8 @@ def main():
         "maxKpAbsDiff": {"p50": pct(kp_d, 0.5), "max": max(kp_d) if kp_d else None},
         "faceIou": {"n": len(face_iou), "p50": pct(face_iou, 0.5), "min": min(face_iou) if face_iou else None},
         "genderLabelAgree": "%d/%d" % (labels_same, labels_total),
+        # K11: quote THIS, not genderLabelAgree, when claiming parity.
+        "shippedBarFlips": flips if flips is not None else "REFUSED: no __TS_GAZE_IDS.cfg bars on the page",
         "genderRawAbsDiff": {"p50": pct(raw_d, 0.5), "max": max(raw_d) if raw_d else None},
         "ageAbsDiff": {"p50": pct(age_d, 0.5), "max": max(age_d) if age_d else None},
         "descCosine": {"n": len(cosv), "p50": pct(cosv, 0.5), "min": min(cosv) if cosv else None},

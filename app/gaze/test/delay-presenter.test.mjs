@@ -465,6 +465,10 @@ test('the canvas is stretched to the host, not left at the frame size', () => {
   var canvas = host.children[host.children.length - 1];
   assert.equal(canvas.style.width, '100%');
   assert.equal(canvas.style.height, '100%');
+  // Letterboxed players (landscape, fullscreen) lay the video out narrower
+  // than the host; the canvas must contain-fit like the video it replaces
+  // or the picture stretches and the patches land beside the faces.
+  assert.equal(canvas.style.objectFit, 'contain');
   presenter.detach();
 });
 

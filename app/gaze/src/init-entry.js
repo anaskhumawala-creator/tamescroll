@@ -25,6 +25,11 @@ import {
   isNullRead,
   hasDescriptorSignal,
   FACE_MIN_NATIVE_PX,
+  GENDER_MIN_SCORE,
+  GENDER_CLEAR_SCORE,
+  GENDER_CLEAR_SCORE_FEMALE,
+  GENDER_CHILD_MASS,
+  NULL_MINT_NM_FLOOR,
 } from './gender-verdict.mjs';
 import { markShape, markRing } from './face-marks.mjs';
 import {
@@ -191,6 +196,20 @@ if (
     dbgC.cfg = {
       faceMinPx: FACE_MIN_NATIVE_PX,
       faceMinConf: detector.FACE_MIN_CONFIDENCE,
+      // THE BARS A PLAYER PATCH IS ACTUALLY DECIDED AT (ledger K11).
+      // The native-vs-worker parity gate was written over
+      // GENDER_MIN_SCORE and GENDER_IMAGE_MIN_SCORE -- the FLAG bars --
+      // and passed, while 2 of 24 reads flipped at `clearBarFor` and
+      // the child gate, which are what decide whether a covered person
+      // is REVEALED. A parity probe cannot re-derive these (that is the
+      // G1/G5/G9 failure: an instrument that re-implements a shipped
+      // rule is a check that cannot fail), so it reads them from the
+      // running bundle here, the same way R15's faceMinPx is read.
+      genderMinScore: GENDER_MIN_SCORE,
+      clearScore: GENDER_CLEAR_SCORE,
+      clearScoreFemale: GENDER_CLEAR_SCORE_FEMALE,
+      childMass: GENDER_CHILD_MASS,
+      nmFloor: NULL_MINT_NM_FLOOR,
     };
   } catch (e) {}
 
