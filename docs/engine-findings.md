@@ -3212,7 +3212,9 @@ measurement pull back only the side facing a cleared face.
   signs. That is the same exposure price as the coast dial for a third
   of the phantom, so it is strictly the worse buy of the two -- but it
   is a real one and it is on a different mechanism, so they compose.
-- **EDGE ONLY IS THE ROW THAT MATTERS, AND IN HIS MODE IT IS FREE.**
+- **EDGE ONLY LOOKED LIKE THE ROW THAT MATTERS AND IT IS REFUSED --
+  SEE 21a, WHICH IS THE PER-WINDOW TRACE THIS BULLET ASKED FOR.** What
+  follows is the total, and the total is the misleading half.**
   Man: **-0.5s exposure, -1.0s false cover, -11.5s phantom** -- better
   on all three, which is the first arm this session to manage that.
   Woman: +1.5s exposure for -0.5s and -1.0s, so roughly a wash. The
@@ -3220,13 +3222,75 @@ measurement pull back only the side facing a cleared face.
   anywhere except the side where somebody who should be sharp is
   standing, which IS the owner's complaint ("her patch reaches the man
   beside her").
-- **NOT SHIPPED THIS PASS, deliberately.** EDGE ONLY in the woman arm
-  costs 1.5s of exposure and a mode toggle changes which arm he is in,
-  so it is an EXPOSURE trade under this repo's own rule. It also has no
-  counter yet: nothing says how OFTEN the edge moves, and an arm whose
-  effect is 11.5s of phantom across 2,160 frames could be one window
-  doing all the work. **Before it ships: a per-window trace, a
-  `mnEdgeMoved` counter, and the critic.**
+- **NOT SHIPPED, AND THEN REFUSED OUTRIGHT.** The reason to hold it was
+  that EDGE ONLY costs the woman arm 1.5s of exposure, that a mode
+  toggle changes which arm he is in, and above all that **nothing said
+  how OFTEN the edge moves** -- 11.5s of phantom across 2,160 frames
+  could be one window doing all the work. The trace and the counter were
+  built and run in the same pass: **it is one window doing most of the
+  work** (8.0 of the 11.5 seconds), the score changes in 6 of 18
+  windows, and the false cover column has two windows going the wrong
+  way. **21a is the refusal and its numbers.**
 
 **Raw: `spikes/gauntlet/mnbody-ab.txt`. New: `bench/mnbody-ab.mjs`,
 `bench/extent-reach.mjs`, the `mnBody` arm in `arch-arms.mjs`.**
+
+
+## 21a -- AND THE PER-WINDOW TRACE REFUSES IT: 285 EDGE MOVES, SIX WINDOWS CHANGED, AND 70% OF THE HEADLINE IS ONE OF THEM
+
+21 said the measured edge was better on all three columns in his mode
+and named the gate before shipping: a per-window trace and a counter,
+because "11.5s of phantom across 2,160 frames could be one window doing
+all the work". `bench/mnedge-where.mjs` ran that gate and **it is one
+window doing most of the work.**
+
+**MAN (his setting):** the edge moves in 13 of 18 windows, **285 times
+against 729 where the branch ran and changed nothing (28.1%)** -- and
+only **6 windows' scores changed at all**:
+
+| window | dExposure | dFalseCover | dPhantom | moved | inert |
+|---|---|---|---|---|---|
+| **KAWvDsghyc8_w552** | 0.0 | **-1.5** | **-8.0** | 43 | 53 |
+| 4u3jS_cTHH0_w252 | 0.0 | **+0.5** | -3.0 | 15 | 59 |
+| 4u3jS_cTHH0_w1602 | 0.0 | **+1.5** | -0.5 | 30 | 40 |
+| KAWvDsghyc8_w152 | -0.5 | 0.0 | 0.0 | 22 | 37 |
+| NWoT1ZVd1Lo_w292 | 0.0 | -0.5 | 0.0 | 25 | 39 |
+| NWoT1ZVd1Lo_w702 | 0.0 | -1.0 | 0.0 | 37 | 48 |
+| **total** | **-0.5** | **-1.0** | **-11.5** | 285 | 729 |
+
+**8.0 of the 11.5 seconds is `KAWvDsghyc8_w552` alone**, and the false
+cover column has TWO windows going the WRONG way (+0.5, +1.5) offset by
+two going the right way. Seven further windows move an edge 1 to 43
+times and change nothing at all.
+
+**WOMAN:** the arm is nearly inert -- **67 moves against 947 (6.6%)**,
+4 windows changed, net **+1.5s exposure** for -0.5s and -1.0s, with two
+windows paying exposure and one window's phantom going UP (+1.0).
+
+- **SO 21'S "FREE IN HIS MODE" WAS THE TOTAL HIDING THE
+  DISTRIBUTION**, which is the exact failure `iou-where.mjs` was built
+  for and the exact failure this bullet was written to catch. Recorded
+  here rather than edited away, because a refusal that took a purpose-
+  built instrument to reach is worth more than the arm was.
+- **REFUSED.** A change whose score effect appears in 6 of 18 windows,
+  is 70% one window, carries mixed signs in both arms, and costs the
+  woman arm exposure, is a coincidence with a mechanism attached -- not
+  a mechanism. It ships nothing.
+- **THE GENDER ASYMMETRY IS REAL AND IT IS THE MECHANISM.** 28.1%
+  against 6.6% is not noise: the edge only pulls back where a
+  **CLEARED** face with descriptor signal stands beside the subject, and
+  in MAN mode men clear, so nearly every crowd frame has a cleared
+  neighbour. In WOMAN mode the neighbour is usually flagged too and
+  there is no edge to give up. **Any future adjacency work inherits
+  this: the arm is structurally four times more active in his mode than
+  the other, so a woman-mode measurement of it is nearly a control.**
+- **WHAT SURVIVES FROM 21, UNCHANGED:** the full swap is refused at
+  +30.5s exposure, the face-width floor does not rescue it, and
+  `s >= 0.40` remains the only defensible body-source row at -46.0s /
+  -25.0s phantom for +6.0s / +5.0s exposure -- strictly the worse buy
+  than the coast dial on the same exposure budget, but on a different
+  mechanism, so they compose. It is untraced per window and inherits
+  this section's warning until it is.
+
+**Raw: `spikes/gauntlet/mnedge-where.txt`. New: `bench/mnedge-where.mjs`,
+`mnEdgeMoved`/`mnEdgeInert` in `arch-arms.mjs`.**

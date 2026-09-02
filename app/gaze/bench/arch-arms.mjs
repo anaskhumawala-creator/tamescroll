@@ -307,6 +307,16 @@ export function clampAway(body, face, others, pad) {
  * applies, so this is the shipped geometry with a better rectangle
  * rather than a second set of constants nobody has calibrated.
  */
+// Same guarded increment as person-track's `bump`, so an arm counter
+// rides the harness's existing `life` bag and a probe can never throw
+// inside a scoring run.
+function bumpArm(key) {
+  const g = typeof globalThis !== 'undefined' ? globalThis.__TS_GAZE_IDS : null;
+  if (!g) return;
+  if (!g.life) g.life = {};
+  g.life[key] = (g.life[key] || 0) + 1;
+}
+
 function bodyFromSsd(boxes, face, minScore, margin) {
   if (!boxes || !boxes.length) return null;
   const fcx = (face.x1 + face.x2) / 2, fcy = (face.y1 + face.y2) / 2;
@@ -830,7 +840,17 @@ export function makeArms(mod) {
                 if (hcx > fcx) x2 = Math.min(x2, Math.max(meas.x2, f.x2));
                 else x1 = Math.max(x1, Math.min(meas.x1, f.x1));
               }
-              if (x2 - x1 > 0) { box = { ...guess, x1: x1, x2: x2, faceBox: guess.faceBox }; nMeasured++; }
+              // COUNTED, because "-11.5s of phantom across 2,160 frames"
+              // could be one window doing all the work and nothing
+              // outside could tell (findings 21). `mnEdgeMoved` fires
+              // only when an edge ACTUALLY moved -- an arm that reaches
+              // this branch and changes nothing must not read as an arm
+              // that did something.
+              if (x2 - x1 > 0) {
+                if (x1 !== guess.x1 || x2 !== guess.x2) bumpArm('mnEdgeMoved');
+                else bumpArm('mnEdgeInert');
+                box = { ...guess, x1: x1, x2: x2, faceBox: guess.faceBox }; nMeasured++;
+              }
             }
           }
           if (!o.ssdEdge && ssdBoxes && !f._noRead && adjacent) {
