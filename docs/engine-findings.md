@@ -3525,3 +3525,65 @@ sides, and delete the copy.
 
 **Raw: `spikes/gauntlet/extent-reach.txt`, `mnbody-ab.txt`,
 `mnedge-where.txt`. Critique: `docs/critic/phase-g.md`.**
+
+
+## 23 -- THE MEASURED BODY TRACKS BETTER ON EVERY COUNT AND IS 2.4x WORSE ON EXPOSURE, SO THE COST IS THE FAT AND NOT THE ASSOCIATION
+
+G2 left 83% of the body source's +30.5s of exposure with no geometric
+explanation (height 1.6%, width ~15%). The obvious remaining suspect was
+the decision layer, and it is the one the standing brief points at
+first: IoU is computed between observation boxes and track boxes, so
+changing the body source changes every IoU in the system, and a subject
+whose box changes shape mid-shot fails to re-associate.
+
+**THE PREDICTION WAS WRITTEN INTO THE BENCH BEFORE THE RUN** -- if this
+is an association problem `birthNearMiss` rises sharply and `birthFresh`
+does not -- **and it is FALSIFIED in both genders on every axis.**
+
+| | man CONTROL | man `s>=0.00` | woman CONTROL | woman `s>=0.00` |
+|---|---|---|---|---|
+| exposure | 22.5 | **53.0** | 25.5 | **44.0** |
+| births | 141 | **113** | 136 | **111** |
+| `birthFresh` | 38 | 42 (+4) | 38 | 41 (+3) |
+| `birthNearMiss` | 43 | **33 (-10)** | 34 | 34 (0) |
+| `birthContended` | 60 | **38 (-22)** | 62 | **36 (-26)** |
+| `coastExpired` | 96 | **74 (-22)** | 92 | **74 (-18)** |
+
+**The measured body associates BETTER on every count** -- fewer births,
+fewer near misses, far fewer contended births, fewer expired tracks --
+**and costs 2.4x the exposure.** So the decision layer is exonerated and
+the cost is the box.
+
+- **SPECIFICALLY IT IS THE AREA THE GUESS HAS AND THE MEASUREMENT DOES
+  NOT, and the false cover column is the signature.** Exposure rises
+  30.5s while false cover FALLS 7.0s (man) and 15.0s (woman). Strip the
+  fat and some of what it was covering was people who should be covered
+  and some was people who should not be. **That is findings 20's "the
+  fat guess covers people by accident" measured from the inside**,
+  rather than argued -- and it is why no floor recovers it: a floor
+  enlarges a box that is too small, and this box is not too small, it is
+  *correct*, which is the problem.
+- **AND IT MAKES 1091's ASSIGNMENT LOOK CHEAPER THAN IT IS.**
+  `birthContended` is the class the Hungarian shipped for -- 44-51% of
+  births, the largest -- and **37% of it (man) / 42% (woman) is
+  manufactured by the guess overlapping itself.** On a measured body
+  source there is far less to contend over. The assignment is still the
+  right change on the shipped body (it is better on all three columns in
+  his mode, findings 17) but its headroom is partly an artifact of the
+  extent layer beneath it, and a future round that ever adopts a
+  measured body must re-price it rather than carrying 17's numbers
+  forward.
+- **WHAT THIS DOES NOT SAY.** It does not say the fat guess is right.
+  Over-covering to protect a neighbour is exactly what the adjacency
+  clamp (`body-clamp.mjs`) and the owner's "her patch reaches the man
+  beside her" complaint are about, and the score counts that over-run as
+  protection because on this corpus it usually is. What it says is that
+  the +30.5s is not a bug in the measurement, an association failure or
+  a height problem -- it is the honest price of covering only what is
+  there, and it is therefore an EXPOSURE trade and HIS call, like every
+  other one in this file.
+- **SCOPE, inherited from G3 and restated because it is easy to lose:**
+  every row above is byte-identical to CONTROL where MoveNet admits
+  nobody, which is **100% of his phone today**.
+
+**Raw: `spikes/gauntlet/mnbody-births.txt`. New: `bench/mnbody-births.mjs`.**

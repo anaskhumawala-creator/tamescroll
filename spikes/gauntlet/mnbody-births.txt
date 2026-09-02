@@ -1,0 +1,37 @@
+18 windows, k=3 (1.5s/verdict), his regime
+CONTROL must read PTRACK_IOU_MIN 0.15, CUT_DELTA 60, PTRACK_ASSIGN optimal, PTRACK_MIN_COAST_PASSES 2
+
+-- MAN --
+arm                          exp   births  fresh  nearMiss  contend  sizeRej  coastExp
+CONTROL  synthetic guess    22.5      141      38      43      60       0      96
+mnBody   s>=0.00            53.0      113    42+4   33-10   38-22     0+0   74-22
+mnBody   s>=0.40            28.5      137    41+3    42-1    54-6     0+0    94-2
+mnBody   EDGE ONLY          22.0      139    40+2    42-1    57-3     0+0    95-1
+
+-- WOMAN --
+arm                          exp   births  fresh  nearMiss  contend  sizeRej  coastExp
+CONTROL  synthetic guess    25.5      136      38      34      62       2      92
+mnBody   s>=0.00            44.0      111    41+3    34+0   36-26     0-2   74-18
+mnBody   s>=0.40            30.5      134    40+2    36+2    56-6     2+0    90-2
+mnBody   EDGE ONLY          27.0      135    38+0    34+0    61-1     2+0    91-1
+
+THE PREDICTION ABOVE IS FALSIFIED, in both genders and on
+every axis. The measured body does not associate WORSE --
+it associates BETTER: births 141 -> 113 man / 136 -> 111
+woman, contended 60 -> 38 and 62 -> 36, coastExpired 96 ->
+74 and 92 -> 74, nearMiss falling or flat. Cleaner tracking
+on every count, and exposure 2.4x worse.
+
+SO IT IS THE BOX, and specifically the AREA the guess has
+and the measurement does not. The signature is in the false
+cover column moving the OTHER way at the same time (136.5 ->
+129.5 man, 201.5 -> 186.5 woman): strip the fat and some of
+what it was covering was people who should be covered
+(exposure up) and some was people who should not be (false
+cover down). That is findings 20 "the fat guess covers
+people by accident", measured from the inside.
+
+AND IT MAKES 1091 CHEAPER THAN IT LOOKS: birthContended is
+the class the Hungarian assignment shipped for, and 37% of
+it is manufactured by the guess overlapping itself. On a
+measured body source there is much less to contend over.
