@@ -1,0 +1,119 @@
+{
+ "ts": 1788356855,
+ "video": "NWoT1ZVd1Lo",
+ "trials": [
+  {
+   "before": {
+    "state": "full",
+    "x": 0,
+    "y": 48,
+    "w": 393,
+    "h": 221,
+    "cls": false,
+    "vw": 392,
+    "vh": 822,
+    "cover": 0,
+    "paused": false
+   },
+   "is_portrait": true,
+   "parked": {
+    "state": "mini",
+    "x": 160,
+    "y": 687,
+    "w": 220,
+    "h": 123,
+    "cls": true,
+    "vw": 392,
+    "vh": 822,
+    "cover": 1,
+    "paused": false
+   },
+   "tap_at": [
+    270,
+    748
+   ],
+   "t150": {
+    "state": "full",
+    "x": 0,
+    "y": 48,
+    "w": 393,
+    "h": 221,
+    "cls": false,
+    "vw": 392,
+    "vh": 822,
+    "cover": 0,
+    "paused": false
+   },
+   "restored": {
+    "state": "full",
+    "x": 0,
+    "y": 48,
+    "w": 393,
+    "h": 221,
+    "cls": false,
+    "vw": 392,
+    "vh": 822,
+    "cover": 0,
+    "paused": false
+   },
+   "ok": true
+  },
+  {
+   "before": {
+    "state": "full",
+    "x": 0,
+    "y": 48,
+    "w": 393,
+    "h": 221,
+    "cls": false,
+    "vw": 392,
+    "vh": 822,
+    "cover": 0,
+    "paused": false
+   },
+   "is_portrait": true,
+   "parked": {
+    "state": "mini",
+    "x": 160,
+    "y": 687,
+    "w": 220,
+    "h": 123,
+    "cls": true,
+    "vw": 392,
+    "vh": 822,
+    "cover": 1,
+    "paused": false
+   },
+   "tap_at": [
+    270,
+    748
+   ],
+   "t150": {
+    "state": "full",
+    "x": 0,
+    "y": 48,
+    "w": 393,
+    "h": 221,
+    "cls": false,
+    "vw": 392,
+    "vh": 822,
+    "cover": 0,
+    "paused": false
+   },
+   "restored": {
+    "state": "full",
+    "x": 0,
+    "y": 48,
+    "w": 393,
+    "h": 221,
+    "cls": false,
+    "vw": 392,
+    "vh": 822,
+    "cover": 0,
+    "paused": false
+   },
+   "ok": true
+  }
+ ],
+ "verdict": "PORTRAIT TAP RESTORES: 2 of 2"
+}
