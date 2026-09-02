@@ -380,10 +380,26 @@ LAT_JS = """(function(){
   return 'started';})()"""
 
 
+PLANT_FILE = os.environ.get("TS_PLANT_FILE")
+
+
+def plant(t):
+    """Task 5 kill-switch arm: TS_PLANT_FILE names a JS file evaluated on
+    every new document of this CDP session BEFORE the app's own scripts
+    (e.g. a getter that pins window.__TS_GAZE_TUNING__ to NATIVE_INFER 0),
+    so an arm can be run on one build without pushing rules."""
+    if not PLANT_FILE:
+        return
+    src = open(PLANT_FILE, encoding="utf-8").read()
+    t.cmd("Page.enable")
+    t.cmd("Page.addScriptToEvaluateOnNewDocument", source=src)
+
+
 def main():
     t = Tab(page(port=PORT))
     t.cmd("Page.enable")
     t.cmd("Runtime.enable")
+    plant(t)
     t.cmd("Page.navigate", url="http://tauri.localhost/")
     time.sleep(6)
     t.eval("""(async function(){
@@ -394,6 +410,7 @@ def main():
     time.sleep(6)
     t = Tab(page(port=PORT))
     t.cmd("Runtime.enable")
+    plant(t)
     t.cmd("Page.navigate", url="https://m.youtube.com/watch?v=%s" % VIDEO)
     time.sleep(26)
     t = Tab(page(port=PORT))

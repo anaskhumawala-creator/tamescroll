@@ -1,0 +1,113 @@
+        Info Using installed NDK: C:\Users\zvcla\AppData\Local\Android\Sdk\ndk\27.1.12297006
+        Info Looking up installed tauri packages to check mismatched versions...
+     Running beforeBuildCommand `pnpm build`
+
+> app@0.1.0 build Z:\Apps\Disconnect\app
+> tsc && vite build
+
+[36mvite v6.4.3 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 11 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32massets/spectral-cyrillic-ext-400-normal--n_iQ4wr.woff   [39m[1m[2m 4.34 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-cyrillic-ext-500-normal-B5u3KHyE.woff   [39m[1m[2m 4.56 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-vietnamese-400-normal-DMkecbls.woff2       [39m[1m[2m 4.97 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-vietnamese-600-normal-Cc8MFFhd.woff2       [39m[1m[2m 5.10 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-vietnamese-500-normal-DOriooB6.woff2       [39m[1m[2m 5.11 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-greek-ext-400-normal-DGGRlc-M.woff2        [39m[1m[2m 5.26 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-greek-ext-500-normal-C4iEst2y.woff2        [39m[1m[2m 5.43 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-greek-ext-600-normal-DRtmH8MT.woff2        [39m[1m[2m 5.43 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-vietnamese-400-normal-CWkMWCzb.woff     [39m[1m[2m 5.71 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-vietnamese-500-normal-BfZg6KYt.woff     [39m[1m[2m 5.74 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-vietnamese-400-normal-Bbgyi5SW.woff        [39m[1m[2m 6.50 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-cyrillic-ext-400-normal-B4-YHs9i.woff2  [39m[1m[2m 6.52 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-vietnamese-500-normal-mJboJaSs.woff        [39m[1m[2m 6.60 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-vietnamese-600-normal-BuLX-rYi.woff        [39m[1m[2m 6.64 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-cyrillic-ext-500-normal-bcG1qx3J.woff2  [39m[1m[2m 6.72 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-greek-ext-400-normal-KugGGMne.woff         [39m[1m[2m 7.06 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-greek-ext-500-normal-2j5mBUwD.woff         [39m[1m[2m 7.19 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-greek-ext-600-normal-B8X0CLgF.woff         [39m[1m[2m 7.21 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-vietnamese-400-normal-C7CRHYqk.woff2    [39m[1m[2m 7.68 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-cyrillic-400-normal-obahsSVq.woff2         [39m[1m[2m 7.71 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-vietnamese-500-normal-qnENts6X.woff2    [39m[1m[2m 7.73 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-greek-400-normal-B4URO6DV.woff2            [39m[1m[2m 7.78 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-cyrillic-500-normal-BasfLYem.woff2         [39m[1m[2m 7.90 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-greek-500-normal-BIZE56-Y.woff2            [39m[1m[2m 7.92 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-greek-600-normal-plRanbMR.woff2            [39m[1m[2m 7.94 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-cyrillic-600-normal-CWCymEST.woff2         [39m[1m[2m 7.97 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-cyrillic-400-normal-HOLc17fK.woff          [39m[1m[2m 9.78 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-greek-400-normal-q2sYcFCs.woff             [39m[1m[2m 9.92 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-cyrillic-600-normal-4D_pXhcN.woff          [39m[1m[2m 9.94 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-cyrillic-500-normal-CxZf_p3X.woff          [39m[1m[2m 9.94 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-greek-500-normal-Xzm54t5V.woff             [39m[1m[2m 9.98 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-greek-600-normal-BZpKdvQh.woff             [39m[1m[2m10.03 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-cyrillic-ext-400-normal-BQZuk6qB.woff2     [39m[1m[2m10.23 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-cyrillic-ext-500-normal-B0yAr1jD.woff2     [39m[1m[2m10.43 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-cyrillic-ext-600-normal-Dfes3d0z.woff2     [39m[1m[2m10.48 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-cyrillic-400-normal-X3p2PSzL.woff       [39m[1m[2m11.70 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-cyrillic-500-normal-CNC_J6mt.woff       [39m[1m[2m13.12 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-cyrillic-ext-400-normal-DQukG94-.woff      [39m[1m[2m13.34 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-cyrillic-ext-500-normal-BmqWE9Dz.woff      [39m[1m[2m13.45 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-cyrillic-ext-600-normal-Bcila6Z-.woff      [39m[1m[2m13.46 kB[22m[1m[22m
+[2mdist/[22m[32mindex.html                                              [39m[1m[2m14.90 kB[22m[1m[22m[2m │ gzip: 3.60 kB[22m
+[2mdist/[22m[32massets/spectral-cyrillic-400-normal-Bx9Tn3WZ.woff2      [39m[1m[2m15.37 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-latin-ext-400-normal-BHbqXr-7.woff      [39m[1m[2m16.59 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-cyrillic-500-normal-medSbGbm.woff2      [39m[1m[2m16.62 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-latin-ext-500-normal-Bmnp8FUT.woff      [39m[1m[2m17.08 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-latin-400-normal-D34IWA1h.woff          [39m[1m[2m17.34 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-latin-500-normal-PrYyf_gG.woff          [39m[1m[2m18.45 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-latin-ext-400-normal-XDLFwhqg.woff2     [39m[1m[2m20.24 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-latin-ext-500-normal-CC9VEg_t.woff2     [39m[1m[2m20.64 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-latin-400-normal-CTVgUekv.woff2         [39m[1m[2m21.70 kB[22m[1m[22m
+[2mdist/[22m[32massets/spectral-latin-500-normal-nNjq7_Cd.woff2         [39m[1m[2m22.84 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-latin-400-normal-C38fXH4l.woff2            [39m[1m[2m23.66 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-latin-500-normal-Cerq10X2.woff2            [39m[1m[2m24.27 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-latin-600-normal-LgqL8muc.woff2            [39m[1m[2m24.45 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-latin-400-normal-CyCys3Eg.woff             [39m[1m[2m30.70 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-latin-600-normal-CiBQ2DWP.woff             [39m[1m[2m31.26 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-latin-500-normal-BL9OpVg8.woff             [39m[1m[2m31.28 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-latin-ext-400-normal-C1nco2VV.woff2        [39m[1m[2m35.00 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-latin-ext-500-normal-CV4jyFjo.woff2        [39m[1m[2m36.02 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-latin-ext-600-normal-D2bJ5OIk.woff2        [39m[1m[2m36.26 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-latin-ext-400-normal-77YHD8bZ.woff         [39m[1m[2m47.56 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-latin-ext-500-normal-BxGbmqWO.woff         [39m[1m[2m48.49 kB[22m[1m[22m
+[2mdist/[22m[32massets/inter-latin-ext-600-normal-CIVaiw4L.woff         [39m[1m[2m48.67 kB[22m[1m[22m
+[2mdist/[22m[35massets/index-FFnn-P8G.css                               [39m[1m[2m21.23 kB[22m[1m[22m[2m │ gzip: 4.37 kB[22m
+[2mdist/[22m[36massets/index-B0yLbvVt.js                                [39m[1m[2m16.54 kB[22m[1m[22m[2m │ gzip: 5.30 kB[22m
+[32m✓ built in 1.17s[39m
+[1m[92m   Compiling[0m app v0.1.0 (Z:\Apps\Disconnect\app\src-tauri)
+[1m[93mwarning[0m[1m[97m: function `rules_refresh_script` is never used[0m
+    [1m[96m--> [0msrc\lib.rs:1201:4
+     [1m[96m|[0m
+[1m[96m1201[0m [1m[96m|[0m fn rules_refresh_script(url: &str, platform_id: &str, blur: bool, shown: &[String]) -> String {
+     [1m[96m|[0m    [1m[93m^^^^^^^^^^^^^^^^^^^^[0m
+     [1m[96m|[0m
+     [1m[96m= [0m[1m[97mnote[0m: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+[1m[93mwarning[0m: `app` (lib) generated 1 warning
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 32.78s
+        Info symlinking lib "Z:\\Apps\\Disconnect\\app\\src-tauri\\target\\aarch64-linux-android\\debug\\libapp_lib.so" in jniLibs dir "Z:\\Apps\\Disconnect\\app\\src-tauri\\gen/android\\app/src/main/jniLibs/arm64-v8a"
+failed to build Android app: Failed to create a symbolic link from "Z:\\Apps\\Disconnect\\app\\src-tauri\\target\\aarch64-linux-android\\debug\\libapp_lib.so" to file "Z:\\Apps\\Disconnect\\app\\src-tauri\\gen/android\\app/src/main/jniLibs/arm64-v8a\\libapp_lib.so" (file clobbering enabled): 
+Creation symbolic link is not allowed for this system.
+
+For Windows 10 or newer:
+You should use developer mode.
+See https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development
+
+For Window 8.1 or older:
+You need `SeCreateSymbolicLinkPrivilege` security policy.
+See https://docs.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/create-symbolic-links
+       Error failed to build Android app: Failed to create a symbolic link from "Z:\\Apps\\Disconnect\\app\\src-tauri\\target\\aarch64-linux-android\\debug\\libapp_lib.so" to file "Z:\\Apps\\Disconnect\\app\\src-tauri\\gen/android\\app/src/main/jniLibs/arm64-v8a\\libapp_lib.so" (file clobbering enabled): 
+Creation symbolic link is not allowed for this system.
+
+For Windows 10 or newer:
+You should use developer mode.
+See https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development
+
+For Window 8.1 or older:
+You need `SeCreateSymbolicLinkPrivilege` security policy.
+See https://docs.microsoft.com/en-us/windows/security/threat-protection/security-policy-settings/create-symbolic-links
+-rw-r--r-- 2 zvcla 197609 181569224 Sep  2 13:27 src-tauri/target/aarch64-linux-android/debug/libapp_lib.so
+-rw-r--r-- 1 zvcla 197609 48635576 Sep  2 13:27 src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/libapp_lib.so
+-rw-r--r-- 1 zvcla 197609 55828486 Sep  2 13:28 app/build/outputs/apk/arm64/debug/app-arm64-debug.apk

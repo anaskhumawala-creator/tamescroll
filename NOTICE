@@ -31,6 +31,14 @@ TensorFlow.js — Apache License 2.0
   On-device inference runtime (tfjs-core, tfjs-converter, and the CPU
   and WebGL backends) powering the gaze protection module.
 
+TensorFlow Lite (org.tensorflow:tensorflow-lite, -gpu, -gpu-api 2.16.1)
+— Apache License 2.0
+  https://github.com/tensorflow/tensorflow
+  Native on-device inference runtime on Android: the same three
+  models (BlazeFace, faceres, MoveNet) converted to .tflite and run
+  through the GPU delegate at fp32, bridged to the page over a
+  WebMessagePort. The WebGL runtime above stays as the fallback.
+
 BlazeFace model — Apache License 2.0
   https://github.com/tensorflow/tfjs-models (Google / MediaPipe)
   Face-presence detection model, embedded (base64) in the gaze

@@ -1,0 +1,25 @@
+{
+ "nativeOn": {
+  "totalPssKb": 416179,
+  "totalRssKb": 388076,
+  "graphicsKb": 158828,
+  "nativeHeapKb": 38026,
+  "javaHeapKb": 10076,
+  "nativePasses": 97,
+  "nativeReady": 1,
+  "worker": "webgl",
+  "planted": false
+ },
+ "nativeOff": {
+  "totalPssKb": 453587,
+  "totalRssKb": 422936,
+  "graphicsKb": 187444,
+  "nativeHeapKb": 42547,
+  "javaHeapKb": 17868,
+  "nativePasses": 0,
+  "nativeReady": 1,
+  "worker": "webgl",
+  "planted": true
+ },
+ "deltaPssKb": -37408
+}
