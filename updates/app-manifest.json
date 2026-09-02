@@ -1,7 +1,7 @@
 {
-  "versionCode": 1095,
-  "versionName": "0.1.95",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.95/tamescroll-v0.1.95.apk",
-  "sha256": "97df2bdb85f9188490fe0b307c39e0927976c33a41dff3c1f82352aa5040ba62",
-  "notes": "In-video blur: the delay line now draws the clamped patch geometry, so a cleared man beside a covered person stays sharp; phantom coasts retired in hindsight; delay 1.0s -> 1.5s."
+  "versionCode": 1096,
+  "versionName": "0.1.96",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.96/tamescroll-v0.1.96.apk",
+  "sha256": "15659569abd3c37c7cf255263f43e756d077ec3cf50803f89790418e95894f6b",
+  "notes": "In-video blur: the render loop no longer dies on a frame that throws (patches froze for the rest of the page); a pending clear is confirmed across position passes, so a man reads sharp one verdict earlier; scene cuts are keyed at the frame that showed them."
 }

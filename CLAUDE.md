@@ -70,6 +70,90 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-02 23:40 (**1096 PUBLISHED, sha 15659569** --
+GitHub asset `tamescroll-v0.1.96.apk` served, isDraft false, manifest
+pushed. The Redmi runs 1096; his phone gets it in-app. He asked to
+test it, so it went out with the phase-M critic still running -- land
+its rows first thing.)
+
+**Session 2026-09-02 (loop 49) -- HIS "LINUS STILL GETS COVERED /
+RANDOM PATCHES" WAS A DEAD RENDER LOOP, AND TWO MORE ROOT CAUSES SAT
+UNDER IT.** Every row is the Redmi, `probe_events.py`, 180s,
+NWoT1ZVd1Lo seek 55, man mode, classified by `events_reclass.py` /
+`cover_source.py` (certain same-gender reads inside a patch, pc<0.25,
+no cut between the read's pass and the frame):
+
+  | build | false cover | stale frames | exposure >300ms | repositionErrors | raf/3min |
+  |---|---|---|---|---|---|
+  | v1096c (1095) | 23/87 | **90.7%** | 0 | -- | -- |
+  | v1096d | 13/81 | 0 | 0 | 0 | ~7800 |
+  | v1096e | 14/82 | 0 | 0 (max 277ms) | 0 | ~8200 |
+  | **v1096f / 1096 SHIPPED** | **16/82** | **0** | **0** | **0** | 7836 |
+
+- **DEFECT 1, THE BIG ONE (f3bf849): THE PER-VIDEO rAF LOOP DIED ON
+  ONE EXCEPTION AND EVERY PATCH FROZE FOR THE REST OF THE PAGE.** When
+  `boxesAt` returned null after the timeline had shrunk the overlay
+  set, the fallback branch drew `entry.tracks` against overlays the
+  timeline path had removed: `Cannot read properties of undefined
+  (reading '__tsDisp')`, thrown inside `loop()` BEFORE the next
+  `requestAnimationFrame` -- so the loop never re-armed. 90.7% of
+  v1096c's frames drew a stale target. A frozen patch is BOTH of his
+  complaints at once: it sits where nobody is (random patch) and it
+  covers whoever walks into it (Linus). Fix: the fallback reconciles
+  overlays to `entry.tracks` first, and `loop()` is try/catch/finally
+  with `renderStats.repositionErrors` (in `__TS_GAZE_RENDER()`). Two
+  tests, both red against the old code.
+- **DEFECT 2 (0e3305e): THE HINDSIGHT CLEAR READ THE NEXT SNAPSHOT,
+  WHICH IS USUALLY A POSITION PASS.** Rule 3'' presented (A,B] cleared
+  only if the snapshot right after B confirmed the clear; position
+  passes carry no verdict, so a pending clear was confirmed by hindsight
+  almost never (~2s of cover after every cut on the man who reads
+  certain). `stateAt` now WALKS forward up to `LOOKAHEAD_MS` 3000
+  through pending snapshots, stopping at a cut, a missing id or a
+  blurred non-pending state. Red-proved, bound fixture included.
+- **DEFECT 3 (27e6595): CUTS WERE KEYED AT THE CLOCK, NOT THE FRAME.**
+  `pushCut(timeline, video.currentTime)` keyed the cut 10-100ms after
+  the frame that showed it (the scene gate samples the live video at
+  10Hz), so a verdict frame just before a real cut sat on the wrong side
+  of it. `cutMediaTime()` = min(currentTime, `presenter.newestMediaTime()`).
+  bornBlurredAtCut 4 -> 1, demotedAtCut 4 -> 2 on the same footage.
+- **THE CLASSIFIER WAS COUNTING THREE THINGS THE SHIPPED CODE REFUSES
+  BY DESIGN:** reads with childP >= GENDER_CHILD_MASS 0.25 (a "certain
+  male" read on a 21-23-year-old never clears -- 3 rows), frames on the
+  far side of a cut from the read's pass (164.331), and an hf-join at
+  IoU ~0.16 (replaced by the `pb` person-box join, `read_join.py`).
+  Reads now bank `pb`.
+- **THE 16 THAT REMAIN ARE DESIGN COSTS, traced one by one
+  (`trace_cover.py`):** the ladder interval before the next verdict
+  (pendingClearLadder 3 -- the shot at 65-70s cuts every 1-2s and each
+  cut demotes him before the second certain read lands), a woman's or
+  neighbour's MEASURED body with no legal clamp edge over his face
+  (neighbourMeasured 4, solid-patch rule), neighbourCoasting 2,
+  neighbourSynthetic 1, bornBlurredAtCut 1, demotedAtCut 2, and
+  **clearedButTimelineBlurred 2 = a track pinned by `flagCertain` from
+  ONE certain-female read at s 0.28** (px 402, nm 11.68 -- the flag bar
+  is GENDER_MIN_SCORE 0.25) until a 0.95 male read cleared it 1.9s
+  later. Rule 3' keeps (A,B] covered while A carries flagCertain. That
+  is a protection dial and it is his.
+- **IDENTITY MEMORY IS ALIVE on the phone:** `memClear` 65-68 per run.
+  `memHit/memMiss/memStore/memInstant` in `probe_events.py`'s LIFE list
+  are names nothing bumps -- read them as absent, not zero.
+- **EXPOSURE:** nPositive 0 over 300ms windows in all four runs;
+  phantom `syntheticBornFromUnreadFace` 1-4 per run, all faces px
+  24-37 (under FACE_MIN_NATIVE_PX 40 -- a face too small to read
+  still mints a patch, fail-closed).
+- gaze **745/745**, cargo **61/61**, critic-gate **0 blocking** (133
+  rows; phase-M in flight against f3bf849..46dfe4e).
+- **HIS DIALS, batched (none pushed):** `VERDICT_DUTY` 2 -> 1.5
+  (shortens every ladder/demotion interval above); a weak flag
+  (< GENDER_CLEAR_SCORE) at A not pinning (A,B] when B clears at
+  instant grade (the 0.28 case; phase-M was told to attack it);
+  `GENDER_CHILD_MASS` (young men read pc 0.36-0.49); reading faces
+  under 40px behind the nm floor (the remaining phantom class).
+- **NEXT:** land phase-M; the ladder-at-a-cut interval is the largest
+  remaining class and is a cadence question (VERDICT_DUTY), not a
+  defect.
+
 **Last updated:** 2026-09-02 21:35 (**1095 PUBLISHED, sha 97df2bdb** --
 served APK re-downloaded and hashed against the raw manifest, isDraft
 false. HEAD pushed, tree clean. The Redmi runs 1095 (bundle d513529);
