@@ -57,12 +57,13 @@ test('O7: applyPendingArm, codecProbe.install and the tuning report block each h
 
 test('O2: cancelRun is wired at every place a run\'s owning document can go away', () => {
   const calls = SRC.match(/autoTest\.cancelRun\(window\)/g) || [];
-  // loadstart (SPA watch->watch reuses the <video>), the pillWatch
-  // teardown (video disconnected or failed) and pagehide (leaving for
-  // the launcher, or any other document teardown the shared WebView
-  // does not fire a per-video event for).
-  assert.equal(calls.length, 3, 'cancelRun must be reachable from loadstart, pillWatch teardown and pagehide');
-  assert.match(SRC, /addEventListener\('loadstart', function \(\) \{\s*try \{ autoTest\.cancelRun\(window\); \} catch \(e\) \{\}/);
+  // the pillWatch teardown (video disconnected or failed) and pagehide
+  // (leaving for the launcher, or any other document teardown the
+  // shared WebView does not fire a per-video event for). loadstart
+  // (SPA watch->watch reuses the <video>) goes through cancelRunOnLoad
+  // since 1100 -- our own seek at arm start fires it on the same video.
+  assert.equal(calls.length, 2, 'cancelRun must be reachable from pillWatch teardown and pagehide');
+  assert.match(SRC, /addEventListener\('loadstart', function \(\) \{\s*(\/\/[^]*\s*)*try \{ autoTest\.cancelRunOnLoad\(window\); \} catch \(e\) \{\}/);
   assert.match(SRC, /if \(!video\.isConnected \|\| failed\) \{\s*clearInterval\(pillWatch\);\s*try \{ autoTest\.cancelRun\(window\); \} catch \(e\) \{\}/);
   assert.match(SRC, /addEventListener\('pagehide', function \(\) \{\s*submitDiag\('pagehide'\);\s*try \{ autoTest\.cancelRun\(window\); \} catch \(e\) \{\}/);
 });

@@ -671,6 +671,12 @@ class NativeInfer(private val ctx: Context) {
     }
     if (failed) { replyError(reqId); return }
     reply(reqId, 0, emptyArray(), ((SystemClock.elapsedRealtimeNanos() - t0) / 1000L).toInt())
+    // 1100: the report's per-model backends were one DOCUMENT late --
+    // the ready message carries the engine's state from BEFORE this
+    // page's CONFIG, and nothing re-posted them after the rebuild, so
+    // the auto test's "faces on CPU" row read gpu and the NEXT row read
+    // cpu. Post them now that the rebuild has settled.
+    postBackends()
     scheduleNpuTrials()
   }
 
