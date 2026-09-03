@@ -70,6 +70,99 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-03 16:30 (**1100 IS THE RELEASE, sha 1b527007**,
+HEAD pushed, tree clean. Nothing built or changed this loop -- it was a
+READ of the first diagnostics ever from HIS phone. He asked for this
+handoff so he can /clear. HIS STANDING INSTRUCTION: "Do not start with
+anything" -- answer, then wait for his go. Keep replies simple; he asked
+twice for plainer wording.)
+
+## HANDOFF 2026-09-03 16:30 -- HIS PHONE'S FIRST NUMBERS: NATIVE RUNS ON CPU, AND DIES HALF THE TIME
+
+**THE DATA:** `spikes/gauntlet/phone-diag-1100.jsonl` (41 reports off
+his Redmi 13, 23122PCD1I, Android 16, WebView 151, 8 cores, dpr 3,
+viewport 406x816; versionCodes 1096/1097/1098/1100). The last reports
+carry the five `tune.autotest` rows from the in-app auto test he ran on
+1100 (60s per arm, codec vp09, blur on, 0 overrides):
+
+  | arm | dropped | rAF Hz | native |
+  |---|---|---|---|
+  | control | **3.62%** | 51.5 | cpu x3 |
+  | BLUR_IN_FRAME 1 | 16.68% | 42.6 | **none** (worker carried the player) |
+  | PRESENTER_GL 1 | 13.44% | 44.7 | cpu x3, gl 1 |
+  | NATIVE_CPU_MASK 1 | 17.74% | 42.3 | **none** |
+  | RENDER_EVERY 2 | 5.39% | 24.7 | cpu x3 |
+
+Read: shipped settings win on his phone; no dial to push. The two worst
+rows are NOT the dials -- the native engine never came up in those
+documents and the WebGL worker ran MoveNet (worker.loadedPerson 3439 /
+4378ms), so they measure the worker path. PRESENTER_GL with native alive
+is a real loss (13.4 vs 3.6). RENDER_EVERY 2 halves rAF and buys
+nothing. His steady-state control 3.6% vs the old Redmi's ~12% matches
+his "lags at the start, then fine" report.
+
+**THE TWO FINDINGS THAT MATTER (both Kotlin-side, both unmeasured
+beyond the report):**
+1. **On his Adreno phone the TFLite engine runs every model on CPU,
+   never GPU** -- `native.nativeBackend "cpu"`, face/gender/person all
+   "cpu", in EVERY 1098 and 1100 report; the old Redmi (Mali) reads gpu
+   x3. His verdict p50 on native-cpu documents is 531-828ms against
+   ~300 on the Redmi's GPU. So the 1099 MoveNet heads split (GPU-only
+   graph) and the shader cache buy him nothing today -- the GPU delegate
+   is refused/falling back on his SoC (SM4450, Adreno 613). `npu`
+   reads "disabled" (NATIVE_NPU 0, expected).
+2. **Native never came ready in 3 of the 11 1100 watch documents**
+   (`nativeBackend "none"`, `life.nativeReady` absent) and the page
+   handed MoveNet to the worker within ~3s -- a FAST failure (port
+   never arrived or the engine posted native-failed), not the 15s ready
+   timeout. Fail-safe held (no exposure, worker alive) but half his
+   watch pages can be on the slow path. The report carries NO reason:
+   `NativeInfer` load/delegate errors reach logcat only.
+
+**HIS QUESTION "is it worth chasing?" -- answered YES:** it is a defect,
+not a trade; native on his phone should be ~2x faster than what he has,
+and the dead-native documents are the slow worker path. Cheapest route:
+1101 adds the delegate init error + load failure reason to the report
+(`native.whyR`, per-model delegate error strings, redacted like every
+other R field) so he only has to Share again; OR put his phone on
+wireless adb (`adb mdns services` -> `adb connect`, platform-tools 37,
+recipe in loop 27-28) and read logcat `NativeInfer` lines directly.
+Likely suspects, unverified: GPU delegate `setPrecisionLossAllowed
+(false)` refused on Adreno 613's OpenCL/GL path; the shader-cache
+`setSerializationParams` dir; or the heads graph binding-by-name
+failing on that driver -> every model drops to XNNPACK. Do NOT touch
+until he says go.
+
+**ALSO IN THE REPORTS:** his phone is served VP9 (`codec vp09`) so
+NO_AV1 does nothing for him; DELAY_MS 1500 applied on 1100; the 1097
+reports' `refused 11` was the old bundle refusing the 1098 keys
+(expected); image path p50 ~170ms, worker webgl, up 1.4-2.1s.
+
+**HIS OTHER OPEN ASKS, all answered, none started (his call each):**
+(a) blur delay 0 = the boxes-on-top technique (Muslim AI Browser /
+HaramBlur); saves ~4 points on the Redmi, exposes one verdict of
+latency on every entry; gear -> Blur delay -> 0 tries it. (b) <1% drops:
+not with a per-frame delay ring; realistic floor ~3% on his phone
+(control already 3.6%). (c) startup stutter: designed, not built --
+attach the delay presenter after the FIRST verdict (`start()` ->
+`delayAttach()` init-entry ~4985), hold the thumbnail drain while a
+video starts; measure first-5s drops on the Redmi vs 35%. (d) hide
+pending thumbnails instead of blurring + stricter image bars
+(GENDER_IMAGE_MIN_SCORE 0.4 gender-verdict.mjs:61, FACE_MIN_CONFIDENCE
+0.35 face-decode.mjs:31, IMAGE_MIN_SIZE 120 init-entry.js:355 -- none
+on OTA) -> needs 1101 + whitelist. (e) autoplay-next kill: block-only
+judgment, his ruling. (f) "replace YouTube entirely" (intent filters
+for youtube.com/youtu.be, own-glyph shortcuts, never their logo):
+feature-sized -> grill-with-docs first. (g) HaramBlur + Muslim AI
+Browser side-by-side on the OLD Redmi (he sends store links; pair it
+wireless when charged; run + score, never read -- AGPL). (h) coast dial
+2 -> 1.33, still unruled.
+
+**NEXT, in order, on his word:** (1) the GPU-delegate fallback + fast
+native death on his phone (report field or logcat); (2) startup lever;
+(3) 1101 = thumbnail hide/strict dials on OTA; (4) single-frame crops
+(T1 first).
+
 **Last updated:** 2026-09-03 15:00 (**1100 PUBLISHED, sha 1b527007** --
 bundle 7772946, manifest to app-v0.1.100, served APK re-downloaded and
 hashed, isDraft false. 1099 (sha 8ac97230) went out ~2h earlier at his
