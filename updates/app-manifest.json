@@ -1,7 +1,7 @@
 {
-  "versionCode": 1100,
-  "versionName": "0.1.100",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.100/tamescroll-v0.1.100.apk",
-  "sha256": "1b5270076433369ad04923ad198f3c39b80d21459b9569c367b5803414596741",
-  "notes": "Faster person detection, faster second launch, and a tuning panel (gear beside the blur switch) with an auto test."
+  "versionCode": 1101,
+  "versionName": "0.1.101",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.101/tamescroll-v0.1.101.apk",
+  "sha256": "2b2cce278fa615c028ab44105f7261241daf381828d24b346bbcc21dc7b6386b",
+  "notes": "GPU now measured, not assumed. Your phone's graphics chip was being skipped."
 }
