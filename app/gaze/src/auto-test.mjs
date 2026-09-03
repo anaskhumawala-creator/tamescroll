@@ -368,6 +368,13 @@ export var SETTLE_MS = 8000;
 
 var armStartedAt = 0;
 var running = false;
+// The video id the in-flight arm attached to. `attachRun` seeks the
+// video, and a seek fires `loadstart` on the SAME element -- so the
+// unconditional cancel init-entry ran on loadstart cancelled the arm it
+// had just started, and every run on the Redmi sat at arm 0 forever
+// (1100). cancelRunOnLoad cancels only when the video under the run
+// has actually changed.
+var attachedVideo = null;
 var settleTimer = null;
 var armTimer = null;
 
@@ -412,6 +419,30 @@ export function cancelRun(g) {
   settleTimer = null;
   armTimer = null;
   running = false;
+  attachedVideo = null;
+}
+
+/** The `v` parameter of a watch location, or null. */
+export function videoIdOf(loc) {
+  try {
+    var src = loc && loc.search != null ? loc.search : loc;
+    var m = /[?&]v=([^&#]+)/.exec(String(src));
+    return m ? m[1] : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/** The loadstart hook. A loadstart on the video the arm attached to is
+ * our own seek (or a quality change) and must not cancel the arm; a
+ * loadstart under a different video id is a real navigation and does.
+ * Returns true when it cancelled. */
+export function cancelRunOnLoad(g) {
+  if (!running) return false;
+  var idNow = videoIdOf(g && g.location);
+  if (attachedVideo && idNow === attachedVideo) return false;
+  cancelRun(g);
+  return true;
 }
 
 /** Leave a note for the panel to open itself once, after the final
@@ -509,6 +540,7 @@ export function attachRun(g, env) {
   // document was already open and waiting for a player to attach.
   if (staleRun(st, wallNow())) { endRun(g); return null; }
   running = true;
+  attachedVideo = videoIdOf(g && g.location);
   armStartedAt = now(g);
 
   try {
@@ -566,4 +598,4 @@ export function attachRun(g, env) {
   return st;
 }
 
-export function _resetForTest() { running = false; armStartedAt = 0; settleTimer = null; armTimer = null; }
+export function _resetForTest() { running = false; armStartedAt = 0; settleTimer = null; armTimer = null; attachedVideo = null; }

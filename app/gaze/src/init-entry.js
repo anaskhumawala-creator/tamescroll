@@ -5094,7 +5094,10 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
       // still fire against the NEW one and push a row measuring neither.
       // The run's own stored state is untouched; the next attach (below)
       // picks the same arm back up and measures it from scratch.
-      try { autoTest.cancelRun(window); } catch (e) {}
+      // 1100: attachRun's OWN seek fires loadstart on this element, so
+      // the cancel is keyed on the video id -- same id, same stream,
+      // the arm stands; a different id is the swap described above.
+      try { autoTest.cancelRunOnLoad(window); } catch (e) {}
       if (failed) return;
       dead = false;
       cleanStreak = 0;
