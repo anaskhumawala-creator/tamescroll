@@ -112,7 +112,7 @@ import { startWorker } from './worker-entry.js';
 import { installMiniplayer } from './miniplayer.mjs';
 import { makeVerdictCache, verdictKey } from './verdict-cache.mjs';
 import { applyTuningFromWindow, TUNED, TUNE_REFUSED, TUNE_CLAMPED, tunableNames, currentValue } from './tuning.mjs';
-import { applyOverrides, overrideBlock } from './tuning-override.mjs';
+import { applyOverrides, overrideBlock, setToken as setOverrideToken } from './tuning-override.mjs';
 import * as autoTest from './auto-test.mjs';
 import { installTuneUi } from './tune-overlay.mjs';
 import * as delayCore from './delay-core.mjs';
@@ -174,12 +174,43 @@ if (
     shippedTuning = {};
     var tnames = tunableNames();
     for (var ti = 0; ti < tnames.length; ti++) shippedTuning[tnames[ti]] = currentValue(tnames[ti]);
+    // O1 (phase-o): claim the one-shot door ONCE, here, and hand the SAME
+    // token to both perf.mjs and the override store. Before this, each
+    // module lazily self-claimed __TS_TAKE_PERF_TOKEN the first time IT
+    // needed the phone -- a page that touched a perf dial before the
+    // panel could leave the override store's own claim racing an already-
+    // spent door. Centralizing the claim here means there is exactly one
+    // caller of __TS_TAKE_PERF_TOKEN in the whole bundle.
+    var perfTok = null;
+    try {
+      var takeTok = window.__TS_TAKE_PERF_TOKEN;
+      perfTok = typeof takeTok === 'function' ? takeTok() : null;
+    } catch (e) { perfTok = null; }
+    perf.provideToken(perfTok);
+    setOverrideToken(perfTok);
     applyOverrides(window);
+  } catch (e) {}
+
+  // O7 (phase-o): applyPendingArm used to share the tuning try above with
+  // codecProbe.install and the ids.tuning report block below it -- a
+  // malformed auto-test run state (a non-integer arm index reaching this
+  // far) threw out of applyPendingArm and silently took both of those
+  // with it: the codec probe never installed, and the report never
+  // carried which OTA numbers this phone actually applied. A diagnostic
+  // must not be able to take a page mutation with it, and neither may
+  // take the other's report block, so each gets its own try now.
+  try {
     autoTest.applyPendingArm(window);
+  } catch (e) {}
+
+  try {
     // Which codec the player is fed (research 2026-09-03 #1): wrap the
     // MediaSource entry points before the player opens a buffer. Read-only.
     // After all three tuning layers, because CODEC_PROBE is one of them.
     if (codecProbe.CODEC_PROBE === 1) codecProbe.install(window);
+  } catch (e) {}
+
+  try {
     // WHICH NUMBERS IS HIS PHONE ACTUALLY RUNNING?
     //
     // Nothing recorded it. The channel exists so a threshold can move
@@ -5048,6 +5079,14 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
     // fires. Reset them all — a tainted giveUp on the previous stream,
     // the user's toggle, the clean streak — and blur-first the new one.
     video.addEventListener('loadstart', function () {
+      // O2 (phase-o): a settle/measure timer this attach's attachRun
+      // armed belongs to the stream that was playing when it started --
+      // an SPA watch->watch swap (the comment two lines down) reuses the
+      // same <video>, so without this a timer from the OLD stream could
+      // still fire against the NEW one and push a row measuring neither.
+      // The run's own stored state is untouched; the next attach (below)
+      // picks the same arm back up and measures it from scratch.
+      try { autoTest.cancelRun(window); } catch (e) {}
       if (failed) return;
       dead = false;
       cleanStreak = 0;
@@ -5248,6 +5287,9 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
             return nativeClient && typeof nativeClient.snapshot === 'function' ? nativeClient.snapshot() : null;
           },
           codecInfo: function () { return codecProbe.served(); },
+          // O5 (phase-o): what the row was actually measuring, alongside
+          // the drop percentage -- playerBlurOn is in scope right here.
+          blurOn: function () { return !!playerBlurOn; },
         });
       } catch (e) {
         /* the panel is a tool, the player is the product */
@@ -5255,6 +5297,10 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
       var pillWatch = setInterval(function () {
         if (!video.isConnected || failed) {
           clearInterval(pillWatch);
+          // O2 (phase-o): the video this run was attached to is gone or
+          // dead -- a timer it armed must not fire against whatever
+          // attaches next.
+          try { autoTest.cancelRun(window); } catch (e) {}
           if (pill.parentNode) pill.parentNode.removeChild(pill);
           if (tuneUi) {
             try { tuneUi.destroy(); } catch (e) { /* already gone with the host */ }
@@ -5510,6 +5556,12 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
       // rebuilds and overwrites.
       addEventListener('pagehide', function () {
         submitDiag('pagehide');
+        // O2 (phase-o): the same reason BACK needs its own listener here
+        // -- a shared WebView means leaving for the launcher (or any
+        // navigation off this document entirely) fires pagehide and
+        // nothing else a per-video listener would catch. A settle/measure
+        // timer this document armed must die with it.
+        try { autoTest.cancelRun(window); } catch (e) {}
       });
       setInterval(function () {
         if (!document.hidden) submitDiag('tick');

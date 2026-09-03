@@ -62,3 +62,73 @@ test('a page that never opened the panel reports an empty block, not a missing o
   assert.deepEqual(r.tune.applied, {});
   assert.deepEqual(r.tune.autotest, []);
 });
+
+// O10: the arm row used to record native.backend alone. A row measured
+// with native dead, or with NATIVE_CPU_MASK moving one model onto the
+// CPU while the others stayed on the GPU, read identically to a clean
+// one -- these fields are what tells them apart.
+test('O10: nativeDead and the three per-model backends reach the report', () => {
+  const r = buildReport(snap({
+    count: 0,
+    applied: {},
+    autotest: [
+      {
+        arm: 3, dropPct: 11.65, rafHz: 50.1, mediaSecs: 60, wallSecs: 60,
+        nativeBackend: 'gpu', nativeDead: 1, faceBackend: 'cpu', genderBackend: 'gpu',
+        personBackend: 'gpu', codec: 'av01', gl: 0,
+        blurOn: 1, overrides: 0, paused: 0, mini: 0, hidden: 0,
+      },
+    ],
+  }));
+  assert.deepEqual(reportViolations(r, HREF), []);
+  const row = r.tune.autotest[0];
+  assert.equal(row.nativeDead, 1, 'a row measured with native dead must say so');
+  assert.equal(row.faceBackend, 'cpu', 'NATIVE_CPU_MASK only moves the face model in this row');
+  assert.equal(row.genderBackend, 'gpu');
+  assert.equal(row.personBackend, 'gpu');
+  assert.equal(row.blurOn, 1);
+  assert.equal(row.overrides, 0);
+  assert.equal(row.paused, 0);
+  assert.equal(row.mini, 0);
+  assert.equal(row.hidden, 0);
+});
+
+test('O10: a hostile per-model backend cannot smuggle text past the walker', () => {
+  const r = buildReport(snap({
+    count: 0,
+    applied: {},
+    autotest: [
+      {
+        arm: 0, faceBackend: 'https://evil.example/x', genderBackend: 'sideways',
+        personBackend: 42, nativeDead: 'yes',
+      },
+    ],
+  }));
+  assert.deepEqual(reportViolations(r, HREF), []);
+  const row = r.tune.autotest[0];
+  assert.equal(row.faceBackend, 'none');
+  assert.equal(row.genderBackend, 'none');
+  assert.equal(row.personBackend, 'none');
+  assert.equal(row.nativeDead, null, 'a non-number nativeDead is dropped, not coerced');
+});
+
+// O12: `tuneBlock` claimed lifeCounters' key-regex-and-cap standard for
+// itself without implementing it. `applied` used to filter values only
+// and count nothing.
+test('O12: a hostile key in `applied` is dropped and counted, not carried', () => {
+  const r = buildReport(snap({
+    count: 1,
+    applied: { 'drop tables; --': 5, GOOD_ONE: 2, 'evil.example.com': 9 },
+    autotest: [],
+  }));
+  assert.deepEqual(reportViolations(r, HREF), [], 'a hostile key must not make the whole report unshareable');
+  assert.deepEqual(r.tune.applied, { GOOD_ONE: 2 });
+  assert.equal(r.tune.tuneDropped, 2);
+});
+
+test('O12: a clean applied block reports no drops at all', () => {
+  const r = buildReport(snap({ count: 1, applied: { CUT_DELTA: 60, VERDICT_DUTY: 1.5 }, autotest: [] }));
+  assert.deepEqual(reportViolations(r, HREF), []);
+  assert.deepEqual(r.tune.applied, { CUT_DELTA: 60, VERDICT_DUTY: 1.5 });
+  assert.equal(r.tune.tuneDropped, undefined, 'nothing was dropped, so the key must not appear at all');
+});

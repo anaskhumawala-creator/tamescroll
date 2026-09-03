@@ -58,6 +58,12 @@ class MainActivity : TauriActivity() {
     // One frame at ~30fps -- the target the ADPF session in PerfBridge.hint
     // asks the scheduler to keep ts-infer's inferences under.
     private const val PERF_HINT_TARGET_NS = 33_000_000L
+    private const val TAG_TUNE = "TsTune"
+    private const val TUNE_PREFS = "tamescroll.tuning"
+    private const val TUNE_KEY = "json"
+    // A dial JSON blob is a few dozen small numbers -- this is generous
+    // headroom against a corrupted or hostile write, not a real budget.
+    private const val TUNE_MAX_BYTES = 8 * 1024
   }
 
   // Platform requested by a home-screen shortcut before the webview
@@ -1113,6 +1119,61 @@ class MainActivity : TauriActivity() {
     }
   }
 
+  // O1 (phase-o): the local override store used to be `localStorage`,
+  // which belongs to the PAGE on m.youtube -- so a script on YouTube's
+  // own origin (or one it loads) could read AND WRITE
+  // `tamescroll.tuning` and weaken any protection dial the panel can
+  // reach, silently, with no build and no OTA push. That is the same
+  // shape as the pre-N8 TsPerf hole: an interface reachable by any
+  // script is an interface OWNED by any script.
+  //
+  // Fix is the SAME token door PerfBridge already uses -- `perfToken`
+  // is claimed once per document via `__TS_TAKE_PERF_TOKEN`, and every
+  // method here refuses without it, exactly like `PerfBridge.ok`. The
+  // store itself moves off the page entirely into SharedPreferences,
+  // which no page script can reach at all (WebView never exposes app
+  // SharedPreferences to content). A page that never claims the token
+  // -- or claims it after gaze's own init script already took it --
+  // gets "" from get() and a silent no-op from set(): the panel reports
+  // "Overrides need the Android app" and edits stay in memory only,
+  // which is the fail-safe already documented for desktop.
+  inner class TsTune {
+    private fun ok(token: String?): Boolean = token != null && token == perfToken
+
+    /** The stored JSON blob, or "" if there is none / the token is
+     * wrong / the store is unreadable. Never throws. */
+    @JavascriptInterface
+    fun get(token: String?): String {
+      if (!ok(token)) return ""
+      return try {
+        val prefs = getSharedPreferences(TUNE_PREFS, MODE_PRIVATE)
+        prefs.getString(TUNE_KEY, "") ?: ""
+      } catch (e: Throwable) {
+        Log.w(TAG_TUNE, "get failed: " + e.message)
+        ""
+      }
+    }
+
+    /** Persist one JSON blob (the whole override map -- the page owns
+     * shaping it, this bridge only stores bytes). Empty string clears
+     * it. Oversized or unwritable input is dropped silently -- a
+     * failed persist must never look like a crash to the page. */
+    @JavascriptInterface
+    fun set(token: String?, json: String?) {
+      if (!ok(token)) return
+      try {
+        val body = json ?: ""
+        if (body.length > TUNE_MAX_BYTES) return
+        val prefs = getSharedPreferences(TUNE_PREFS, MODE_PRIVATE)
+        val editor = prefs.edit()
+        if (body.isEmpty()) editor.remove(TUNE_KEY) else editor.putString(TUNE_KEY, body)
+        editor.apply()
+      } catch (e: Throwable) {
+        Log.w(TAG_TUNE, "set failed: " + e.message)
+      }
+    }
+  }
+
   override fun onWebViewCreate(webView: WebView) {
     this.webView = webView
     webView.addJavascriptInterface(ShortcutBridge(), "TsShortcuts")
@@ -1131,6 +1192,9 @@ class MainActivity : TauriActivity() {
     // per-document token only the document-start stash can claim (see
     // PerfBridge). Inert dials would not have made the BRIDGE inert.
     webView.addJavascriptInterface(PerfBridge(), "TsPerf")
+    // Local override store (O1, phase-o): same token as PerfBridge,
+    // SharedPreferences instead of localStorage -- see TsTune above.
+    webView.addJavascriptInterface(TsTune(), "TsTune")
     // AUTOFILL. Owner ask: "can't we have the sign in page automatically
     // show the existing accounts on the device". There is no device
     // account chooser available to a WebView -- Android 8+ account

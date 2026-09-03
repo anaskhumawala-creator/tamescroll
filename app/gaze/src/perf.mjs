@@ -49,6 +49,18 @@ export function _setBridgeForTest(b) { bridgeOverride = b; }
 var perfToken = null;
 var perfTokenTaken = false;
 export function _setTokenForTest(t) { perfToken = t; perfTokenTaken = true; }
+// O1 (phase-o): the door is ONE-SHOT, and tuning-override.mjs now needs
+// the same token TsPerf was handed (see MainActivity's TsTune bridge).
+// So init-entry claims __TS_TAKE_PERF_TOKEN itself, ONCE, at boot, and
+// hands the result to both modules -- this module no longer races the
+// override store for the single claim. A no-op if something already
+// took the token (the lazy self-claim below, or an earlier provide),
+// so a second caller cannot silently null out a token already in use.
+export function provideToken(t) {
+  if (perfTokenTaken) return;
+  perfToken = typeof t === 'string' && t ? t : null;
+  perfTokenTaken = true;
+}
 function token() {
   if (perfTokenTaken) return perfToken;
   perfTokenTaken = true;

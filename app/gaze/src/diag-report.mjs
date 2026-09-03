@@ -99,6 +99,16 @@ var ENUMS = {
   codec: ['av01', 'vp09', 'avc1', 'other', 'none'],
   nativeBackend: ['npu', 'gpu', 'cpu', 'none'],
   npu: ['ok', 'failed', 'pending', 'absent', 'disabled', 'none'],
+  // O10: the auto-test row keeps a per-model backend as three flat
+  // fields (`faceBackend`/`genderBackend`/`personBackend`) rather than
+  // nesting them under `nativeBackend` the way `native.models` above
+  // does, so a row off the phone and a row off probe_drops_ab.py stay
+  // the same shape. The walker looks a string up by the KEY it sits
+  // under, so each flat name needs its own entry here -- the same
+  // closed set nativeBackend already uses.
+  faceBackend: ['npu', 'gpu', 'cpu', 'none'],
+  genderBackend: ['npu', 'gpu', 'cpu', 'none'],
+  personBackend: ['npu', 'gpu', 'cpu', 'none'],
 };
 
 /** The version string of a WebView or an OS is free-form vendor text,
@@ -609,14 +619,34 @@ export var AUTOTEST_MAX_ROWS = 12;
 // tuningBlock and lifeCounters: the SHAPE is the guarantee, never an
 // assumption about who wrote the object -- both of these are read back
 // out of browser storage, which any script on the page can write.
+//
+// O12 (phase-o): this used to filter VALUES only and cap nothing, while
+// claiming lifeCounters' standard for itself in the comment above. Keys
+// are not enum-checked here -- walk() never inspects an object key --
+// but they ARE in the serialized scan reportViolations runs first
+// (:130-135), so a hostile key does not leak; it makes the whole report
+// unshareable instead, which is a correctness gap, not a safety one.
+// lifeCounters' key regex + cap close that gap the same way it already
+// closed it for `player.life` -- widened to allow the underscore every
+// tuning constant name carries (BLUR_IN_FRAME, CUT_DELTA, ...), which
+// lifeCounters' own key space (camelCase counters) never needed.
+var TUNE_KEY = /^[A-Za-z][A-Za-z0-9_]{0,31}$/;
 function tuneBlock(t) {
   var out = { overrides: num(t && t.count), applied: {}, autotest: [] };
   var a = t && t.applied;
   if (a && typeof a === 'object') {
-    for (var k in a) {
-      if (!Object.prototype.hasOwnProperty.call(a, k)) continue;
-      if (typeof a[k] === 'number' && isFinite(a[k])) out.applied[k] = a[k];
+    var keys = Object.keys(a).sort();
+    var n = 0, dropped = 0;
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      if (!TUNE_KEY.test(k)) { dropped++; continue; }
+      if (k.charAt(k.length - 1) === 'R') { dropped++; continue; }
+      if (typeof a[k] !== 'number' || !isFinite(a[k])) { dropped++; continue; }
+      if (n >= LIFE_MAX_KEYS) { dropped++; continue; }
+      out.applied[k] = a[k];
+      n++;
     }
+    if (dropped) out.tuneDropped = dropped;
   }
   var rows = t && t.autotest;
   if (Array.isArray(rows)) {
@@ -630,8 +660,26 @@ function tuneBlock(t) {
         mediaSecs: num(r.mediaSecs),
         wallSecs: num(r.wallSecs),
         nativeBackend: enumOr('nativeBackend', r.nativeBackend, 'none'),
+        // O10: the same three fields that told 1098's per-model table
+        // apart from a bare `backend: gpu`, named after the nativeBackend
+        // enum so the violation walker checks them the same way. `dead`
+        // is a number by construction (pushResult already coerces it to
+        // 0/1) -- a row measured with native dead is a different engine
+        // and must not read like a clean one.
+        nativeDead: num(r.nativeDead),
+        faceBackend: enumOr('faceBackend', r.faceBackend, 'none'),
+        genderBackend: enumOr('genderBackend', r.genderBackend, 'none'),
+        personBackend: enumOr('personBackend', r.personBackend, 'none'),
         codec: enumOr('codec', r.codec, 'none'),
         gl: num(r.gl),
+        // O5: what the row was actually measuring, alongside the drop
+        // percentage -- a run that spent half its window paused or
+        // backgrounded is not a clean read of the arm.
+        blurOn: num(r.blurOn),
+        overrides: num(r.overrides),
+        paused: num(r.paused),
+        mini: num(r.mini),
+        hidden: num(r.hidden),
       });
     }
   }

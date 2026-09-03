@@ -481,3 +481,113 @@ test('restoreFull takes ts-mini-gone off whether or not the player survived the 
   const src = readFileSync(new URL('../src/miniplayer.mjs', import.meta.url), 'utf8');
   assert.match(src, /function restoreFull\(\) \{\s*if \(state === 'full'\) return;[\s\S]{0,400}?classList\.remove\('ts-mini-gone'\);\s*if \(container\(\)\) \{/);
 });
+
+// O13 (phase-o): tune-overlay.test.mjs used to grep this file's source for
+// `var OUR_CONTROLS` and check the substring 'ts-gaze-gear' appeared on
+// that line -- a dead check, because the guard onDown actually consults
+// is onAControl, and nothing ever called it with a real gear element.
+// onAControl has two branches: `target.closest(...)` when the DOM
+// supports it, and a manual ancestor walk when it does not. This drives
+// the closest() branch end to end -- a real touch on a real gear, through
+// the real document-level listeners installMiniplayer binds -- so a
+// regression that dropped '.ts-gaze-gear' from OUR_CONTROLS, or that
+// stopped consulting closest() at all, fails this test instead of being
+// invisible to it.
+test('a press that starts on the tuning gear cannot arm the miniplayer drag', () => {
+  const prevLocation = globalThis.location;
+  globalThis.location = { pathname: '/watch', origin: 'https://m.youtube.com' };
+  try {
+    function fakeEl(tag) {
+      const el = {
+        tagName: (tag || 'div').toUpperCase(),
+        id: '',
+        className: '',
+        style: {
+          transform: '', opacity: '',
+          setProperty() {}, removeProperty() {},
+          getPropertyValue: () => '', getPropertyPriority: () => '',
+        },
+        children: [],
+        parentNode: null,
+        classList: {
+          _set: new Set(),
+          add(c) { this._set.add(c); },
+          remove(c) { this._set.delete(c); },
+          contains(c) { return this._set.has(c); },
+        },
+        appendChild(c) { c.parentNode = el; el.children.push(c); return c; },
+        addEventListener() {},
+        removeEventListener() {},
+        getBoundingClientRect() { return { left: 0, top: 48, width: 412, height: 232 }; },
+        contains(n) { for (let p = n; p; p = p.parentNode) if (p === el) return true; return false; },
+        // Just enough of `closest` to resolve `#id`, `.class` and a bare
+        // tag name across a comma list -- OUR_CONTROLS and PAGE_CONTROLS
+        // are both built from those three forms plus attribute selectors
+        // this stub does not need to understand to prove the gear is
+        // refused: an unsupported part simply never matches.
+        closest(sel) {
+          const parts = String(sel).split(',').map((s) => s.trim());
+          for (let n = el; n; n = n.parentNode) {
+            for (const part of parts) {
+              if (part[0] === '#' && n.id === part.slice(1)) return n;
+              if (part[0] === '.' && n.classList && n.classList.contains(part.slice(1))) return n;
+              if (/^[a-zA-Z]+$/.test(part) && n.tagName === part.toUpperCase()) return n;
+            }
+          }
+          return null;
+        },
+      };
+      return el;
+    }
+
+    const player = fakeEl('div');
+    player.id = 'player-container-id';
+    const gear = fakeEl('button');
+    gear.className = 'ts-gaze-gear';
+    player.appendChild(gear);
+
+    const htmlClassList = {
+      _set: new Set(),
+      add(c) { this._set.add(c); },
+      remove(c) { this._set.delete(c); },
+      contains(c) { return this._set.has(c); },
+    };
+    const listeners = {};
+    const doc = {
+      documentElement: { classList: htmlClassList, appendChild() {} },
+      head: { appendChild() {} },
+      getElementById(id) { return id === 'player-container-id' ? player : null; },
+      createElement(t) { return fakeEl(t); },
+      createElementNS(ns, t) { return fakeEl(t); },
+      querySelector() { return null; },
+      addEventListener(type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
+      removeEventListener() {},
+    };
+    const win = {
+      document: doc,
+      innerWidth: 412,
+      innerHeight: 915,
+      location: globalThis.location,
+      addEventListener() {},
+      removeEventListener() {},
+      setTimeout: () => 0,
+      clearTimeout() {},
+    };
+
+    const mini = m.installMiniplayer(win);
+    assert.ok(mini, 'installMiniplayer refused a minimal but real DOM');
+    assert.ok(listeners.mousedown && listeners.mousedown[0], 'no mousedown listener was bound');
+    assert.ok(listeners.mousemove && listeners.mousemove[0], 'no mousemove listener was bound');
+
+    // Press down ON THE GEAR, then move well past every claim threshold
+    // in both directions -- if the guard failed, EITHER axis would arm.
+    listeners.mousedown[0]({ clientX: 300, clientY: 60, target: gear });
+    listeners.mousemove[0]({ clientX: 300, clientY: 260, cancelable: true, preventDefault() {} });
+
+    assert.equal(htmlClassList.contains('ts-mini-drag'), false,
+      'a press that started on the gear armed the miniplayer drag');
+    assert.equal(player.style.transform, '', 'the gear press moved the player');
+  } finally {
+    globalThis.location = prevLocation;
+  }
+});

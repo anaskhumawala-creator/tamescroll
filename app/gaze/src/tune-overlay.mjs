@@ -81,12 +81,23 @@ var META = {
   NATIVE_CPU_MASK: {
     group: 'speed', label: 'Models on the CPU',
     desc: 'Move models off the graphics chip: add 1 for faces, 2 for gender, 4 for bodies. 0 leaves them all on the GPU.',
-    dp: 0, step: 1, zero: 'all on GPU',
+    // O11 (phase-o): the native engine only rebuilds its models when it
+    // reports ready, once per document -- a mask changed mid-document
+    // has nothing left to rebuild until the next one.
+    dp: 0, step: 1, zero: 'all on GPU', nextDoc: true,
   },
   NO_AV1: {
     group: 'speed', label: 'Refuse AV1 video',
     desc: 'Ask for VP9 or H.264 instead of AV1, which some phones have to decode in software.',
-    bool: true, nextDoc: true,
+    // O4 (phase-o): this used to say "applies on next video", which was
+    // never true from here. YouTube decides the codec via
+    // MediaSource.isTypeSupported at ~380-530ms after the document
+    // starts (measured, probe_av1_caps.py); a value moved through this
+    // panel only reaches the page once the gaze bundle boots, half a
+    // second to a second later -- on THIS document or the next one. The
+    // OTA channel reaches the same document-start script this dial
+    // needs and is the only channel that can move it in time.
+    bool: true, otaOnly: true,
   },
   SUSTAINED_PERF: {
     group: 'speed', label: 'Steady clocks',
@@ -187,7 +198,9 @@ var META = {
   NATIVE_NPU: {
     group: 'advanced', label: 'Try the NPU',
     desc: 'Trial the phone’s neural chip at load and keep it only if it is faster and agrees with the GPU.',
-    bool: true,
+    // O11 (phase-o): the trial runs once, after the engine reports
+    // ready, same as NATIVE_CPU_MASK above.
+    bool: true, nextDoc: true,
   },
   CODEC_PROBE: {
     group: 'advanced', label: 'Read the served codec',
@@ -252,6 +265,7 @@ export function rows() {
         zero: m.zero || null,
         bool: !!bool,
         nextDoc: !!m.nextDoc,
+        otaOnly: !!m.otaOnly,
         step: m.step || (bool ? 1 : defaultStep(r.min, r.max)),
         min: r.min,
         max: r.max,
@@ -384,7 +398,13 @@ var CSS = {
     'width:36px;min-height:36px;border:none;border-radius:999px;opacity:.85;' +
     'cursor:pointer;pointer-events:auto;',
   panel:
-    'position:absolute;top:48px;right:8px;left:8px;z-index:2147483646;' +
+    // O9 (phase-o): this used to sit at top:48px, the SAME row as the
+    // blur pill and this gear, so opening the panel visually buried his
+    // one-tap escape hatch under it -- reachable in the DOM (a tap
+    // outside the panel still closes it), invisible on the screen. The
+    // panel now starts below that row so the pill and the gear stay on
+    // screen, and shrinks its own height to fit.
+    'position:absolute;top:92px;right:8px;left:8px;z-index:2147483646;' +
     'max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch;' +
     'background:rgba(16,16,18,.96);color:#eee;font:400 13px/1.4 system-ui;' +
     'border-radius:12px;padding:10px 12px 14px;pointer-events:auto;' +
@@ -451,6 +471,13 @@ export function installTuneUi(o) {
   var readouts = makeReadouts();
   var advancedOpen = false;
   var message = '';
+  // O8 (phase-o): the two pieces that actually change every tick, kept
+  // by reference so the 500ms refresh can patch them in place instead
+  // of tearing the whole panel down and rebuilding it -- a full rebuild
+  // under a finger mid-press was replacing the very button the press
+  // landed on.
+  var readoutsEl = null;
+  var testEl = null;
 
   function el(tag, css, text) {
     var e = doc.createElement(tag);
@@ -535,7 +562,13 @@ export function installTuneUi(o) {
     return track;
   }
 
-  function rowEl(row) {
+  // O6 (phase-o): while a mode test is running, the row for a dial the
+  // CURRENT ARM moves shows the arm's temporary value -- pressing its
+  // stepper would call setOverride and PERSIST that temporary number as
+  // his own real setting, silently, the moment the test happened to be
+  // sitting on it. `underTest` disables the control instead and says
+  // why, so a press cannot lock in a value he never chose.
+  function rowEl(row, underTest) {
     var wrap = el('div', CSS.row);
     var top = el('div', CSS.rowTop);
     var left = el('div', '');
@@ -545,18 +578,22 @@ export function installTuneUi(o) {
     if (row.bool) {
       var sw = doc.createElement('button');
       sw.type = 'button';
-      sw.style.cssText = 'background:none;border:none;padding:6px;min-height:36px;cursor:pointer;';
+      sw.style.cssText = 'background:none;border:none;padding:6px;min-height:36px;cursor:pointer;' +
+        (underTest ? 'opacity:.4;' : '');
+      sw.disabled = !!underTest;
       sw.appendChild(switchEl(row.value > 0));
-      sw.addEventListener('click', function () { stepKey(row.key, +1); });
+      if (!underTest) sw.addEventListener('click', function () { stepKey(row.key, +1); });
       ctl.appendChild(sw);
     } else {
-      var minus = el('button', CSS.step, '−');
+      var minus = el('button', CSS.step + (underTest ? 'opacity:.4;' : ''), '−');
       minus.type = 'button';
-      minus.addEventListener('click', function () { stepKey(row.key, -1); });
+      minus.disabled = !!underTest;
+      if (!underTest) minus.addEventListener('click', function () { stepKey(row.key, -1); });
       var val = el('span', CSS.value, formatValue(row, row.value));
-      var plus = el('button', CSS.step, '+');
+      var plus = el('button', CSS.step + (underTest ? 'opacity:.4;' : ''), '+');
       plus.type = 'button';
-      plus.addEventListener('click', function () { stepKey(row.key, +1); });
+      plus.disabled = !!underTest;
+      if (!underTest) plus.addEventListener('click', function () { stepKey(row.key, +1); });
       ctl.appendChild(minus);
       ctl.appendChild(val);
       ctl.appendChild(plus);
@@ -565,17 +602,26 @@ export function installTuneUi(o) {
     top.appendChild(ctl);
     wrap.appendChild(top);
     wrap.appendChild(el('div', CSS.desc, row.desc));
-    if (row.nextDoc) wrap.appendChild(el('div', CSS.tag, 'applies on next video'));
+    if (underTest) wrap.appendChild(el('div', CSS.tag, 'under test — back to your own setting when the test ends'));
+    else if (row.otaOnly) wrap.appendChild(el('div', CSS.tag, 'only takes effect from a pushed update, not from here'));
+    else if (row.nextDoc) wrap.appendChild(el('div', CSS.tag, 'applies on next video'));
     // The constant's own name, for the one place it is useful: reading a
     // comment in tuning.mjs, or pushing the same number over the air.
     if (row.group === 'advanced') wrap.appendChild(el('div', CSS.key, row.key));
     return wrap;
   }
 
+  // O4 (phase-o): the button text used to hardcode "6 min" for a fixed
+  // six arms at sixty seconds each -- true only by coincidence. It is
+  // derived from ARMS and ARM_SECS now, so removing an arm (as noAv1
+  // was) cannot leave the label promising a runtime the run no longer
+  // takes.
+  var TEST_MINUTES = Math.round((autoTest.ARMS.length * (autoTest.ARM_SECS + 8)) / 60);
+
   function testBlock() {
     var wrap = el('div', '');
     var run = autoTest.readRun(win);
-    var btn = el('button', CSS.btn, 'Test modes on this video (6 min)');
+    var btn = el('button', CSS.btn, 'Test modes on this video (' + TEST_MINUTES + ' min)');
     btn.type = 'button';
     btn.addEventListener('click', startTest);
     if (!run) wrap.appendChild(btn);
@@ -599,7 +645,12 @@ export function installTuneUi(o) {
       var best = autoTest.bestRow(res);
       var table = el('table', CSS.table);
       var head = el('tr', '');
-      ['Mode', 'Dropped', 'Frame rate'].forEach(function (h) {
+      // O10 (phase-o): a row measured with the native engine dead, or
+      // with a model quietly running on a different backend than the
+      // control row, used to look identical to a clean measurement --
+      // the two things `native-client.mjs` already tracks
+      // (snapshot().dead, snapshot().backends) never left this module.
+      ['Mode', 'Dropped', 'Frame rate', 'Engine'].forEach(function (h) {
         head.appendChild(el('th', CSS.cell + 'color:#9e9e9e;font-weight:600;', h));
       });
       table.appendChild(head);
@@ -610,7 +661,28 @@ export function installTuneUi(o) {
         tr.appendChild(el('td', CSS.cell + (i === best ? 'color:#8d8;' : ''), arm.label + mark));
         tr.appendChild(el('td', CSS.cell, res[i].dropPct === null ? '—' : res[i].dropPct.toFixed(1) + '%'));
         tr.appendChild(el('td', CSS.cell, res[i].rafHz === null ? '—' : Math.round(res[i].rafHz) + ' Hz'));
+        var eword = ENGINE_WORD[res[i].nativeBackend] || res[i].nativeBackend || '—';
+        var ecell = el(
+          'td',
+          CSS.cell + (res[i].nativeDead ? 'color:#e77;text-decoration:line-through;' : ''),
+          res[i].nativeDead ? eword + ' (died)' : eword,
+        );
+        tr.appendChild(ecell);
         table.appendChild(tr);
+        // A row measured with the blur pill off, or while backgrounded
+        // or in the miniplayer, did not exercise what it claims to.
+        var caveats = [];
+        if (!res[i].blurOn) caveats.push('blur was off');
+        if (res[i].hidden) caveats.push('tab was backgrounded');
+        if (res[i].mini) caveats.push('miniplayer');
+        if (res[i].paused) caveats.push('paused');
+        if (caveats.length) {
+          var noteTr = el('tr', '');
+          var noteTd = el('td', CSS.cell + 'color:#d8a657;font-size:10px;', '(' + caveats.join(', ') + ')');
+          noteTd.setAttribute('colspan', '4');
+          noteTr.appendChild(noteTd);
+          table.appendChild(noteTr);
+        }
       }
       wrap.appendChild(table);
     }
@@ -632,8 +704,18 @@ export function installTuneUi(o) {
     });
     head.appendChild(x);
     p.appendChild(head);
-    p.appendChild(readoutBlock());
-    p.appendChild(testBlock());
+    readoutsEl = readoutBlock();
+    p.appendChild(readoutsEl);
+    testEl = testBlock();
+    p.appendChild(testEl);
+
+    // O6 (phase-o): while a mode test is running, the keys IT moves
+    // render read-only below, so a press cannot lock in a temporary
+    // arm value as a permanent setting. `run.i` is already
+    // bounds-checked by readRun; the `||` here is the same second line
+    // of defence the panel's results table already uses for ARMS[i].
+    var run = autoTest.readRun(win);
+    var testingOver = (run && autoTest.ARMS[run.i] && autoTest.ARMS[run.i].over) || null;
 
     var all = rows();
     for (var g = 0; g < GROUPS.length; g++) {
@@ -648,7 +730,10 @@ export function installTuneUi(o) {
       } else {
         p.appendChild(el('div', CSS.group, GROUP_LABELS[group]));
       }
-      for (var i = 0; i < mine.length; i++) p.appendChild(rowEl(mine[i]));
+      for (var i = 0; i < mine.length; i++) {
+        var underTest = !!(testingOver && Object.prototype.hasOwnProperty.call(testingOver, mine[i].key));
+        p.appendChild(rowEl(mine[i], underTest));
+      }
     }
 
     var btns = el('div', CSS.btnRow);
@@ -663,6 +748,12 @@ export function installTuneUi(o) {
     p.appendChild(btns);
     var count = overrides.overrideCount(win);
     if (count) p.appendChild(el('div', CSS.note, count + (count === 1 ? ' setting' : ' settings') + ' changed from shipped'));
+    // O1 (phase-o): no bridge, no token -- an edit made here still
+    // applies live (this document only) but the next reload forgets
+    // it. Said plainly, once, rather than left to look like silence.
+    if (!overrides.bridgeAvailable(win)) {
+      p.appendChild(el('div', CSS.note, 'Overrides need the Android app — changes apply now but are not remembered after this page.'));
+    }
     return p;
   }
 
@@ -676,13 +767,33 @@ export function installTuneUi(o) {
     panel = next;
   }
 
+  // O8 (phase-o): the 500ms interval calls this, not render() -- it
+  // patches only the readouts and the test/progress block, the two
+  // pieces that change on their own between presses. Everything else
+  // (the dial rows, the reset/reload buttons) is rebuilt only by
+  // render(), which runs on an actual press -- infrequent, and exactly
+  // when the rows need to reflect a new value anyway.
+  function tick() {
+    if (!panel) return;
+    var freshReadouts = readoutBlock();
+    if (readoutsEl && readoutsEl.parentNode) {
+      readoutsEl.parentNode.replaceChild(freshReadouts, readoutsEl);
+    }
+    readoutsEl = freshReadouts;
+    var freshTest = testBlock();
+    if (testEl && testEl.parentNode) {
+      testEl.parentNode.replaceChild(freshTest, testEl);
+    }
+    testEl = freshTest;
+  }
+
   function open() {
     if (panel) return;
     readouts.reset();
     panel = build();
     host.appendChild(panel);
     try {
-      timer = win.setInterval(render, REFRESH_MS);
+      timer = win.setInterval(tick, REFRESH_MS);
     } catch (e) { timer = null; }
   }
 
