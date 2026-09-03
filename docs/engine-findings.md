@@ -4034,3 +4034,79 @@ runs on boxes BlazeFace produced, so it is a refusal rate on face-free
 crops and not a prediction of how many patches leave his feed.
 `FACE_MIN_CONFIDENCE` 0.35 is upstream of both arms (the crops are
 already detections) and remains unswept.
+
+## 29 -- A DYNAMIC CLEAR BAR LOOKS LIKE FREE MONEY IN SAMPLE AND DOES NOT SURVIVE A HELD-OUT SPLIT
+
+His question: *"By any chance, can there be a dynamic mode?"* -- a bar
+that asks "sure enough GIVEN what else I know about this crop" instead
+of one threshold for every read. `bench/image-bar-dynamic.mjs` answers
+it on the 2,520 human-labelled reads finding 28 assembled.
+
+**THE ONLY WAY A DYNAMIC BAR CAN WIN is on an axis carrying information
+the SCORE DOES NOT ALREADY CARRY.** A dial keyed on a function of the
+score is the same bar wearing a hat -- the circularity loop 38 published
+and retracted (`score` is `2|raw-0.5|`, so "his reads read 0.23 like the
+non-face arm's 0.234" merely restated "they are in band").
+
+Three axes, all banked per read: `nm` (measured non-circular -- pearson
+with |v-0.5| is 0.464 overall but collapses to -0.21..+0.30 inside a
+narrow v slice), `px`, and BlazeFace `conf` (on the list to be refuted:
+loop 35 measured refused vs kept faces at conf p50 0.74 vs 0.76).
+
+**THE SHIPPED RULE IS NOT RE-IMPLEMENTED.** Evaluating the shipped
+`flaggedFaceIndices` at bar 0 and bar 1.01 decomposes every read exactly
+-- always-flagged 843 (`!same` or `!adult`), score-GATED 1,510,
+nullMint-skipped 167 -- and the dynamic policy is applied to the gated
+set alone.
+
+### In sample it wins, at IDENTICAL exposure
+
+| target exposure | fixed | best dynamic | gain |
+|---|---|---|---|
+| 36 (today's) | 94 (bar 0.40) | `px >= 64 ? 0.32 : 0.40` -> 80 | **14 fewer** |
+| 38 | 56 (bar 0.33) | `nm >= 6 ? 0.32 : 0.33` -> 53 | 3 fewer |
+| 41 | 52 (bar 0.32) | `px >= 64 ? 0.28 : 0.32` -> 48 | 4 fewer |
+
+**A CORRECTION MADE BEFORE THE NUMBER WAS BELIEVED.** The first version
+swept the fixed bar at 0.01 and the dynamic pair at 0.05, so the dynamic
+search could not express the policy it was scored against and one row
+reported a dynamic LOSS of 8 that was purely the resolution gap. A
+comparison whose two arms search different spaces measures the spaces.
+
+### Held out, it does not
+
+Leave one VIDEO out (not one read -- reads in a video share a subject, a
+camera and a lighting setup, so a read-level split leaks across the
+fold; `critic-lovo.mjs` set that precedent here). **Both** families are
+refitted on each training fold, because scoring a refitted dynamic
+policy against a frozen fixed bar credits the dynamic family with the
+refit.
+
+| | false cover | exposure |
+|---|---|---|
+| FIXED | 93 | 37 |
+| DYNAMIC | 78 | **43** |
+
+Dynamic won 6 folds, lost 1, tied 3 -- but it **did not hold exposure**.
+Out of sample it buys 15 fewer false covers for **6 more exposures**,
+which is a 2.5:1 trade, not the free win the in-sample table shows at
+identical exposure. A policy that lowers one error by raising another
+has moved along the fixed bar's own curve; it has not beaten it.
+
+**VERDICT: ship the fixed bar. The 14-at-identical-exposure gain was the
+search fitting this corpus.** ~670,000 policies were evaluated against
+2,520 reads; that is what a data dredge looks like from the inside, and
+the held-out split is the only thing that could tell the difference.
+
+### The useful part of the negative result
+
+`px`, `nm` and `conf` all describe **the same crop the model already
+looked at**. That is why none of them generalises: they are not
+independent evidence, they are re-descriptions of the input. The first
+genuinely independent signal anyone has proposed for this decision is
+TEXT -- title, description, captions -- which comes from outside the
+pixel pipeline entirely and, uniquely, is available **before the first
+frame is decoded**. Whether it carries signal is unmeasured; the corpus
+banks no captions or descriptions, so it is a day of banking away from
+being answerable. Recorded here so the next attempt at a dynamic bar
+starts on an axis that could in principle win.
