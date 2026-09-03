@@ -4110,3 +4110,296 @@ frame is decoded**. Whether it carries signal is unmeasured; the corpus
 banks no captions or descriptions, so it is a day of banking away from
 being answerable. Recorded here so the next attempt at a dynamic bar
 starts on an axis that could in principle win.
+
+
+## 30 -- HEAD POSE IS REAL AND FACE SIZE IS A PASSENGER, ON THE SAME CONTROL THAT KILLED SIZE ONCE BEFORE
+
+His hypothesis, in his words: *"it's generally the more smaller, a bit
+smaller opposite gender frame, or like the pose which isn't directly on
+camera, that kind of poses or like side face etc."* Two claims. One
+survives, one does not, and the instrument that separates them is the
+within-identity control (M-4a), where each subject is their own control
+so a hard SUBJECT cannot masquerade as a hard CONDITION.
+
+BlazeFace's six landmarks were already decoded and thrown away
+(`face-decode.mjs` writes `marks` on every face; the comment above the
+download said "12 landmark values we ignore" and was stale).
+`src/face-marks.mjs` turns them into scale-free geometry, of which the
+load-bearing one is **asym** -- the nose's offset from the eye midpoint
+in interocular units, i.e. a yaw proxy. `bench/yaw-slice.mjs` re-runs
+BlazeFace over the 2,385 banked crops for landmarks the bank predates,
+joins to the 107 human labels, and slices.
+
+Women only, within-identity:
+
+| condition | accuracy change | clusters worse / better |
+|---|---|---|
+| turned head, asym >= 0.20 | **-10.0 pts** | 5 / 2 |
+| turned head, asym >= 0.25 | -11.1 pts | -- |
+| tilted head, tilt >= 5 deg | **-4.5 pts** | 8 / 1 |
+| detector conf >= 0.72 | **+7.3 pts** | 6 worse below / 0 |
+| **face size 40-64px vs >96px** | **+0.1 pts** | **3 / 4, 2 flat** |
+
+The raw size gradient is dramatic -- women wrong 24.6% at 40-64px against
+5.0% above 96px -- and it is **entirely between-subject**. Within a
+person it vanishes. That reproduces M-4a on a second cut and it is the
+second time this repo has had to kill the face-size story with the same
+control.
+
+**A CORRECTION TO MY OWN FIRST READ, recorded because the mistake is
+reusable:** the first within-identity control on `asym` was cut at 0.1,
+which is the MEDIAN, so it split easy-from-easy and read +0.7 pts -- a
+null. The band table shows the jump is at 0.2. Re-cut there it is -10.0.
+A control cut at the median of the axis measures nothing; cut it where
+the band table says the effect is.
+
+**AND ONE ARM MEASURED NOTHING AT ALL:** the `earSpan >= 1.8` control
+returned 0 clusters, because earSpan is ~2.03 for essentially every
+face, so nothing fell below the cut. Reported as inert rather than as a
+null.
+
+**UNCHECKED BIAS, stated because it runs the dangerous way:** only
+successfully re-detected crops were banked, so the 226 crops BlazeFace
+failed to re-detect are absent from `yaw-rows.json` and their pose
+distribution cannot be tested from that file.
+
+### What was built on it, and what it is worth
+
+`src/face-align.mjs` (**nothing calls it**) is the candidate fix: eyes to
+a fixed place, eye line level, the dlib/FairFace alignment convention
+every face-attribute model in this lineage is trained on and that
+`squareBox` does not produce. It is split into TWO arms on his own
+instruction ("make sure we're optimized on performance as well"):
+
+- `eyeRect()` -- centre and scale on the eyes. **A different rectangle,
+  so `cropAndResize` takes it at exactly the price the shipped path
+  already pays.** Zero extra ops, zero extra fence waits.
+- `alignTransform()` -- eye-rect PLUS rotation. Needs
+  `tf.image.transform`, which takes ONE transform per image, so N faces
+  is N ops and N fence waits against the shipped path's one. **Not
+  free**, and it has to beat the free arm to be worth a per-face GPU call
+  on a Helio G85.
+
+`bench/crop-align-ab.mjs` prices all three against the human labels, on
+re-decoded frames (re-cropping the banked crops would measure arm 1
+against arm 1, since those crops were already cut by `squareBox`). **The
+A/B had not returned when this was written.**
+
+## 31 -- THE GENDER HEAD HAS A SEVERE, RACE-CORRELATED FEMALE-RECALL DEFECT, AND IT IS A SHIFT RATHER THAN A SPREAD
+
+Every accuracy number this repo owns came from ten YouTube videos of
+mostly white tech presenters, so "is the gender head worse on some skin
+tones" had never been asked in either direction. FairFace exists for
+exactly this: 108,501 Flickr faces balanced across seven race groups.
+**Dataset licence CC BY 4.0 -- commercial use with attribution,
+re-verified live on 2026-09-03**, which closes the licence column the
+September research had flagged as never web-checked. Their trained
+checkpoints carry NO licence (the repo has no LICENSE for them) and are
+not used; only the images.
+
+`bench/fairface-bias.mjs`, 1,400 adults (100 per race x gender, fixed
+seed, 0.25-padding validation split), through the SHIPPED chain --
+`detectFaceBoxes` then `classifyFaceGenders({square:true})`:
+
+    read 1,348 of 1,400 (BlazeFace found no face in 52)
+    OVERALL wrong 19.4% [17.3-21.6]
+      truth female 36.0%      truth male 2.3%
+
+    women wrong, by race        men wrong
+      Indian          52.6%      0.0%
+      Black           51.5%      1.1%
+      Middle Eastern  33.7%      0.0%
+      White           31.6%      0.0%
+      East Asian      29.2%      7.2%
+      SE Asian        28.6%      5.1%
+      Latino          25.3%      2.1%
+
+Under the SHIPPED image rule (man mode: read male AND score >= 0.40 ->
+cleared -> she stays sharp) **Black 24.7% and Indian 21.6% of women are
+exposed, against White 3.1% and East Asian 3.1%.** He is in India. This
+lands on his actual feed.
+
+This reproduces the 2018 Gender Shades result almost exactly, which
+corroborates the harness rather than suggesting a bug in it.
+
+### It is not calibration, and moving the line does not fix it
+
+Raw sigmoid medians: Black women 0.53, Indian women 0.55 -- sitting ON
+the 0.50 fence -- against White women 0.25 and Latino 0.21. The female
+distribution is **BIMODAL**: 257 of 683 women pile up below 0.2, a dip at
+0.3, then a second pile of 181 at 0.5-0.7 which is substantially the
+Indian and Black women. **That is a systematic SHIFT for darker skin, not
+extra noise**, which is the easiest kind of defect for retraining to
+remove and the hardest for a threshold to touch.
+
+Best global threshold is **0.65, not the shipped 0.50** (80.6% -> 85.7%).
+But it trades rather than fixes: at the image bar, women exposed
+9.5% -> 4.8% while men falsely covered 22.6% -> 36.5%. And for Indian
+plus Black women **even T = 0.70 leaves 11.3% exposed against 4.0%
+overall** -- the gap does not close, because separability itself is worse:
+AUC Black 0.868 and Indian 0.898 against Middle Eastern 0.982, Latino
+0.977, White 0.967, ALL 0.932.
+
+**PER-RACE CALIBRATION IS OFF THE TABLE ON PRINCIPLE, not on
+measurement.** Correcting per face would require inferring skin tone,
+which is biometric categorisation on a sensitive characteristic -- the
+exact clause (AI Hub Model License 2.c) that killed the Qualcomm NPU
+delegate in loop 47. Do not propose it again.
+
+### What this makes the fix
+
+A better gender model. Measured comparison of what is available:
+
+| model | FairFace gender | size | licence |
+|---|---|---|---|
+| **ours (faceres)** | **80.6%** | 7MB | MIT, clean |
+| dima806 ViT-base | 93.4% | 343MB, 49.7MB smallest quant | Apache-2.0, clean |
+| prithiv SigLIP2 | 97% (own test) | ~370MB | Apache-2.0 |
+| AgeRaceGenderNet | not reported | 114MB | MIT code, UTKFace = non-commercial |
+| FairFace res34 | -- | ~85MB | **weights: no licence** |
+| InsightFace genderage | -- | **1.3MB** | **non-commercial** |
+
+**Nothing is small AND clean AND better.** Every big model beats us by
+13+ points; every small model is licence-poisoned. `yakhyo/fairface-onnx`
+states its weights are CC BY 4.0 -- **that is a conflation**; the upstream
+repo licences only the images. Do not rely on it.
+
+What the search did buy is that the DISTILLATION job got cheaper, not
+the shopping trip: dima806's ViT is an Apache-2.0 teacher available
+today, and FairFace is a CC BY 4.0 training set available today. Both
+halves that were priced as work in `distill-2026-09-03` already exist.
+
+### The measurement that must be repeated before quoting any of this
+
+FairFace crops are ALIGNED (their README: dlib `get_face_chip()`), 224px,
+and single unoccluded portraits. Production input is a raw detector box
+off a 640x360 stream at 38-62 native px. **So 36.0% is the model's GOOD
+DAY** and the real number is worse. Relatedly, `bench/wild-signals.mjs`
+finds wrong reads come from measurably blurrier crops (Laplacian variance
+p50 284 against 425 for right reads), which is independent support for
+the untried stream-resolution lever -- his player takes 640x360 because
+m.youtube sizes quality off a 393px player box, not because the link is
+slow (9.6 Mbps, 1080p offered).
+
+## 32 -- THE FAILURE IS PER-PERSON AND DETERMINISTIC, WHICH KILLS EVERY TEMPORAL IDEA AT ONCE
+
+`proof-gates.mjs` priced his own design instinct -- *"we just find the
+male and we are sure about him and then the rest we already know"* -- and
+found it already shipped and already working: on the corpus the clear
+rule leaks **1.1% of women per read** at 11.2% false cover on men.
+
+**That 1.1% is a misleading average and the per-person cut is the finding:**
+
+    22 women in the corpus
+      19 leak on ZERO reads
+       2 leak on exactly one read (2.9%, 1.3%)
+       1 leaks on 8 of 8 -- every read she has
+
+So it is not "1 frame in 100 slips". It is **one woman in 22 is invisible
+to this app, permanently**. And on FairFace-like faces that ratio is
+roughly one in four.
+
+Three consequences, all of which close ideas that looked good an hour
+earlier:
+
+1. **Multi-frame voting is worthless.** Errors are not independent draws;
+   the same face gets the same wrong answer. `bench/wild-signals.mjs`:
+   the fully-leaking woman's LOWEST raw over all 8 reads is 0.73. There
+   is no good frame to find.
+2. **Steadiness is worthless in the direction that matters.** She is
+   perfectly steady and perfectly wrong. Measured: steady-2 moves
+   exposure 1.1% -> 0.8% for false cover 11.2% -> 18.3%.
+3. **A persistent identity memory ("passport") is ACTIVELY WORSE for
+   her** -- it would stamp the wrong verdict and hold it. The passport
+   idea is only safe on top of a decision that is right.
+
+Best-frame picking out of the 1.5s delay ring survives for the mild
+cases (2 of 3 leaking women read correctly on most of their frames) and
+cannot touch the hard one.
+
+### The gates, priced one at a time
+
+Per read, at the shipped clear bar. Baseline exposure 1.1% / false cover
+11.2%:
+
+| gate | exposure | false cover |
+|---|---|---|
+| asym < 0.20 | 1.0% | 30.2% |
+| tilt < 5 | 0.7% | 57.2% |
+| conf >= 0.72 | 0.4% | 34.9% |
+| **px >= 56** | **0.2%** | **22.1%** |
+| nm >= 8 | 0.7% | 22.6% |
+| steady K=2 | 0.8% | 18.3% |
+| all stacked | 0.2% | 73.0% |
+
+**Every gate is a bad deal on this corpus and the reason is that the
+corpus is at ceiling** -- 1.1% is nearly nothing to win, so any extra
+demand only buys false cover. Face size is the least bad. These numbers
+must be re-derived on FairFace-like faces, where there is 9.5% to win,
+before any of them is refused for good.
+
+### Judging against the room
+
+`bench/room-relative.mjs`. **Only 43% of reads have another face in
+frame**, so whatever this buys, it buys on a minority. On those reads,
+adding "refuse to clear a face more than 0.10 below the highest-scoring
+face in the same frame" moves exposure **2.3% -> 0.6%** for false cover
+11.7% -> 18.6%, and it catches the fully-leaking woman (her gapMax runs
+-0.15 p50, worst -0.22) where her absolute score cannot.
+
+As a signal ALONE the gap separates worse than the raw score (women p90
+-0.14 against men p10 -0.13, versus raw's 0.59/0.72). The gain is from
+the conjunction, not from the gap being better. Known hole: in a frame of
+two women the higher-scoring one becomes the reference and walks free.
+
+## 33 -- THE FREE RELIABILITY SIGNALS ARE REDUNDANT WITH THE BAR WE ALREADY GATE ON
+
+Five quantities already computed on every read lean the same way on a
+wrong read (`bench/wild-signals.mjs`, right p50 vs wrong p50): descriptor
+magnitude `nm` 9.70 / 7.23, detector `conf` 0.75 / 0.65, age-posterior
+entropy 3.73 / 4.06, `px` 78.4 / 54.7, crop sharpness 425 / 284. That
+looks like an uncertainty model waiting to be assembled.
+
+`bench/distrust.mjs` assembles it -- six-feature logistic regression,
+leave-one-VIDEO-out, train-fold standardisation only -- and it separates
+beautifully: distrust p50 **0.08 on right reads against 0.83 on wrong**.
+
+**As a veto it buys exactly nothing.** Exposure stays 1.0% at every
+threshold from 0.80 down to 0.30 while false cover climbs 12.9% -> 16.7%.
+The learned weights say why: `certainty` carries -2.068 against nm's
+-0.300 and everything else under 0.15. **The distrust score is mostly the
+model's own certainty re-derived, and the shipped clear rule already
+gates on certainty.** The other four signals describe the same crop the
+model already looked at -- re-descriptions of the input, not independent
+evidence, which is the same conclusion finding 29 reached about a dynamic
+bar.
+
+Two further arms, same session, same shape of answer:
+
+- **Linear probe on the 1024-d descriptor** (`bench/desc-probe.mjs`,
+  leave-one-video-out, class-weighted): overall 9.4% wrong against the
+  head's 6.7%. It LOSES. But it is better on women (7.2% vs 15.8%) and
+  much worse on men (11.0% vs 0.4%) -- the head is male-biased and the
+  probe is balanced.
+- **k-NN on the same descriptor** (`bench/wild-signals.mjs`, K=1/5/15):
+  16.2-16.5% wrong overall, women 10.6-11.6%, men ~20%. Same shape.
+
+**So the descriptor is consistently better on women and worse on men,
+twice, by two methods.** That makes it useless as a replacement and
+possibly useful as a one-way VETO -- "the fingerprint says woman,
+therefore do not clear" -- which is untested. Caveat that bounds both
+arms: 1024 free parameters fitted on 52 people is badly under-powered,
+and the honest version of this test fits on FairFace's 108,501 faces,
+where the 52.6% actually lives.
+
+**A NOTE ON WHAT NONE OF THIS SESSION MEASURED.** Every number above is
+conditional on DETECTION -- the corpus reads exist because BlazeFace
+found a face, and the FairFace table scores the 1,348 crops it found a
+face in. A face the detector walks past gets no read, no track and no
+patch, and is invisible to all of it by construction. One hint that the
+class is real: BlazeFace found nothing in 52 of 1,400 clean aligned
+224px portraits. `bench/detect-recall.mjs` pastes known faces at chosen
+native sizes into a 640x360 frame to price it; it had not returned when
+this was written. It measures RECALL only -- one face is present, so it
+is structurally blind to the false-positive side, which is his "random
+blur marks" complaint and is a different bench on different data.
