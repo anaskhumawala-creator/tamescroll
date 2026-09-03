@@ -1,7 +1,7 @@
 {
-  "versionCode": 1098,
-  "versionName": "0.1.98",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.98/tamescroll-v0.1.98.apk",
-  "sha256": "e69297ffca0d82bc70221b8dc604332d7c31057bf1f8477659b666dcbf736fe2",
-  "notes": "Performance batch: eleven tuning dials (all inert until pushed), served-codec read, AV1 refusal switch, native NPU arbiter (off)."
+  "versionCode": 1099,
+  "versionName": "0.1.99",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.99/tamescroll-v0.1.99.apk",
+  "sha256": "8ac97230a33f2f5c57119695c29a91665283072a38f175c6dcef376486e92551",
+  "notes": "Faster person detection, faster second launch, and a tuning panel (gear beside the blur switch) with an auto test."
 }
