@@ -4653,3 +4653,68 @@ it is why finding 36's grey arm is the only lever left with real upside.
 is CLEANER than a real video pipeline, which also adds compression
 blocking, chroma subsampling and motion blur. So 4.7 points is a FLOOR on
 what 360p costs, not a ceiling.
+
+
+## 38 -- THE DETECTOR IS NOT THE LEAK: 0.4% MISSED AT 48px, AND NO GROUP OR SEX BIAS AT ALL
+
+Every accuracy figure this repo owns is CONDITIONAL ON DETECTION. The
+corpus reads exist because BlazeFace reported a face; the FairFace bias
+table scores the crops it reported a face in. A face the detector walks
+past gets no read, no track and no patch -- the subject is simply sharp
+-- and it is invisible to all of it, by construction. We only ever grade
+the questions we asked.
+
+One number made that look like a real gap: on FairFace's clean 224px
+portraits BlazeFace found nothing in 52 of 1,400 (3.7%) under ideal
+conditions. `bench/detect-recall.mjs` asks the honest version. Each of
+1,400 FairFace crops -- exactly one face, known present, known label --
+is resized to a chosen NATIVE PIXEL SIZE and pasted into the middle of a
+flat mid-grey 640x360 frame, the exact frame size his player decodes.
+Then the shipped detector runs and is asked whether it found anything.
+
+| native size | found | MISSED |
+|---|---|---|
+| 128 px | 1382/1400 | 1.3% |
+| 96 | 1393/1400 | 0.5% |
+| 80 | 1395/1400 | 0.4% |
+| 64 | 1395/1400 | 0.4% |
+| 56 | 1398/1400 | 0.1% |
+| **48 (his band)** | 1395/1400 | **0.4%** |
+| 40 | 1375/1400 | 1.8% |
+| 32 | 1339/1400 | 4.4% |
+| 24 | 1235/1400 | 11.8% |
+
+**HIS FACES LAND AT 38-62px AND THE DETECTOR MISSES UNDER 2% OF THEM.**
+So detection is not what is failing him. That is the third independent
+route to the same conclusion this round: finding 37 showed the gender
+head is 34.3% wrong on women at a perfect 224px portrait, finding 34
+showed the crop geometry is already right, and this shows the faces are
+being found. The gender model is the wall.
+
+**AND THERE IS NO DETECTOR BIAS.** Across all seven groups the miss rate
+at 48px is 0.0-1.5%, and Female 0.4% against Male 0.3%. The race-
+correlated defect finding 31 measured is entirely in the gender head; it
+does not begin at detection. Worth knowing, because "we never even see
+her" was the cheaper explanation and it is false.
+
+**ONE ODDITY, REPORTED RATHER THAN SMOOTHED:** 128px misses MORE (1.3%)
+than 48px (0.4%). Unexplained. Likeliest cause is a large face filling
+the pasted square edge to edge with no surrounding context, which is a
+property of this synthetic frame rather than of the detector. It does not
+touch the conclusion -- every size in his band is under 2% -- and it is
+recorded so nobody later reads the curve as monotone.
+
+**WHAT THIS CANNOT SEE, and it is the half that matters for his random
+blur marks.** One face is present in every frame, so this measures
+RECALL only. It is structurally blind to FALSE POSITIVES -- the detector
+reporting a face on text, a logo or a pattern, which is the mechanism
+finding 35 could only bound from above. Finding 35 measured 19.1% of
+crops the detector ALREADY reported as non-people still minting a patch;
+how often it reports one in the first place is still unmeasured, and
+needs frames with no people in them.
+
+**LIMIT: THIS IS THE OPTIMISTIC ESTIMATE.** The background is flat grey
+-- no distractors, no motion blur, no compression blocking, no occlusion,
+no pose beyond what FairFace already contains. A real 360p YouTube frame
+is harder in every one of those directions, so a miss here is definitely
+a miss and a hit here is not a promise of a hit in the wild.
