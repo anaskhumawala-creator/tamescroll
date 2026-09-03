@@ -19,6 +19,7 @@ import org.tensorflow.lite.nnapi.NnApiDelegate
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.nio.FloatBuffer
 import java.nio.channels.FileChannel
 
 /**
@@ -51,8 +52,21 @@ class NativeInfer(private val ctx: Context) {
   companion object {
     private const val TAG = "TsNative"
     private const val MAX_CONSECUTIVE_ERRORS = 3
-    private val MODEL_ASSET = mapOf(1 to "blazeface", 2 to "faceres", 3 to "movenet-multipose")
+    // Model 3 is the SPLIT graph (spikes/native/HEADS-REPORT.md):
+    // movenet-heads.tflite stops at the six conv heads (101 ops, no
+    // TopK/GatherNd/ArgMax -- the GPU delegate takes it whole) and
+    // MoveNetHeadsDecoder re-implements the CenterNet decode tail in
+    // Kotlin, so the page still gets the full model's [1,6,56]. The
+    // report name stays "movenet" so About/native.models.person do not
+    // rebase across this swap.
+    private val MODEL_ASSET = mapOf(1 to "blazeface", 2 to "faceres", 3 to "movenet-heads")
     private val MODEL_REPORT_NAME = mapOf(1 to "blazeface", 2 to "faceres", 3 to "movenet")
+    // PartitionedCall:<slot> -> expected channel count, keyed by the
+    // slot each tensor name resolves to (HEADS-REPORT.md section 1):
+    // 0 centre[1], 1 kptHeat[17], 2 kptRegress[34], 3 kptOffset[34],
+    // 4 boxScale[2], 5 boxOffset[2].
+    private val MOVENET_HEAD_CHANNELS = intArrayOf(1, 17, 34, 34, 2, 2)
+    private val MOVENET_HEAD_NAME = Regex("^PartitionedCall:([0-5])$")
     // Per-model delegate precision. fp16 is BLIND to MoveNet on Adreno 610
     // (engine-findings 25: maxKp 0.03-0.19, admits nobody -- the same
     // defect the WebGL runtime has), so MoveNet computes in fp32. faceres
@@ -75,6 +89,16 @@ class NativeInfer(private val ctx: Context) {
     val inputBuffer: ByteBuffer,
     val outputBuffers: Array<ByteBuffer>,
     val outputNames: List<String>,
+    // Non-null only for id 3 (the movenet-heads split): the pure Kotlin
+    // CenterNet decode tail, six FloatBuffer views over outputBuffers in
+    // [center, kptHeat, kptRegress, kptOffset, boxScale, boxOffset]
+    // order, and the single-tensor reply buffer handleFrame ships
+    // instead of outputBuffers. Built once per model load (buildModel)
+    // so every copy of model 3 -- the shipping one, an NNAPI trial, an
+    // arbiter shadow -- carries its own.
+    val decoder: MoveNetHeadsDecoder? = null,
+    val decoderHeads: Array<FloatBuffer>? = null,
+    val replyBuffer: ByteBuffer? = null,
   ) {
     var consecutiveErrors = 0
     // True once a page request has filled inputBuffer: the NNAPI
@@ -214,7 +238,56 @@ class NativeInfer(private val ctx: Context) {
       ByteBuffer.allocateDirect(interp.getOutputTensor(i).numBytes()).order(ByteOrder.nativeOrder())
     }
     val outputNames = (0 until interp.outputTensorCount).map { interp.getOutputTensor(it).name() }
-    return LoadedModel(id, interp, delegate, backend, shape[2], shape[1], inputBuffer, outputBuffers, outputNames)
+    var decoder: MoveNetHeadsDecoder? = null
+    var decoderHeads: Array<FloatBuffer>? = null
+    var replyBuffer: ByteBuffer? = null
+    if (id == 3) {
+      val bound = bindMoveNetHeads(interp, outputNames, outputBuffers)
+      decoder = MoveNetHeadsDecoder(bound.h, bound.w)
+      decoderHeads = bound.views
+      replyBuffer = ByteBuffer.allocateDirect(MoveNetHeadsDecoder.OUTPUT_FLOATS * 4).order(ByteOrder.nativeOrder())
+      Log.i(TAG, "movenet-heads bound: H=${bound.h} W=${bound.w} order=[center,kptHeat,kptRegress,kptOffset,boxScale,boxOffset]")
+    }
+    return LoadedModel(id, interp, delegate, backend, shape[2], shape[1], inputBuffer, outputBuffers, outputNames,
+      decoder, decoderHeads, replyBuffer)
+  }
+
+  private class MoveNetHeadsBinding(val h: Int, val w: Int, val views: Array<FloatBuffer>)
+
+  /** Resolves the six movenet-heads output tensors to fixed roles by
+   * their `PartitionedCall:<slot>` NAME, never by tensor position --
+   * the interpreter's own output-detail order is NOT signature order
+   * (measured: index 0 is slot 4 / box_scale) -- and fails the model
+   * (throws, caught by loadAll -> the page falls back to the worker)
+   * if any name, shape or H/W does not match what the decoder expects.
+   * HEADS-REPORT.md section 5. */
+  private fun bindMoveNetHeads(interp: Interpreter, outputNames: List<String>, outputBuffers: Array<ByteBuffer>): MoveNetHeadsBinding {
+    val views = arrayOfNulls<FloatBuffer>(6)
+    val seen = BooleanArray(6)
+    var h = -1
+    var w = -1
+    for (i in outputNames.indices) {
+      val name = outputNames[i]
+      val m = MOVENET_HEAD_NAME.matchEntire(name)
+        ?: throw IllegalStateException("movenet-heads: unrecognised output tensor name '$name'")
+      val slot = m.groupValues[1].toInt()
+      if (seen[slot]) throw IllegalStateException("movenet-heads: duplicate output slot $slot ('$name')")
+      seen[slot] = true
+      val tshape = interp.getOutputTensor(i).shape() // [1, H, W, C]
+      if (tshape.size != 4 || tshape[0] != 1 || tshape[3] != MOVENET_HEAD_CHANNELS[slot]) {
+        throw IllegalStateException("movenet-heads: slot $slot shape ${tshape.joinToString(",", "[", "]")} " +
+          "!= expected [1,H,W,${MOVENET_HEAD_CHANNELS[slot]}]")
+      }
+      if (h == -1) { h = tshape[1]; w = tshape[2] }
+      else if (h != tshape[1] || w != tshape[2]) {
+        throw IllegalStateException("movenet-heads: slot $slot is ${tshape[1]}x${tshape[2]}, disagrees with ${h}x$w")
+      }
+      outputBuffers[i].rewind()
+      views[slot] = outputBuffers[i].asFloatBuffer()
+    }
+    if (seen.any { !it }) throw IllegalStateException("movenet-heads: missing output slot(s) among ${outputNames.joinToString()}")
+    @Suppress("UNCHECKED_CAST")
+    return MoveNetHeadsBinding(h, w, views as Array<FloatBuffer>)
   }
 
   private fun closeModel(m: LoadedModel) {
@@ -259,7 +332,15 @@ class NativeInfer(private val ctx: Context) {
         maxDiff = maxOf(maxDiff, Math.abs(x - y))
         maxRef = maxOf(maxRef, Math.abs(y))
       }
-      if (maxDiff > 0.02f * (maxRef + 1e-3f)) return false
+      if (maxDiff > 0.02f * (maxRef + 1e-3f)) {
+        // Model 3 is now movenet-heads: SIX raw regression/offset heads
+        // compared per-head instead of one [1,6,56] -- named here so the
+        // next Redmi NNAPI trial log says WHICH head tripped the 2%
+        // bar and by how much, not just "disagree".
+        val name = a.outputNames.getOrElse(h) { "output$h" }
+        Log.i(TAG, "outputsAgree: head '$name' (idx $h) disagrees, maxDiff=${"%.5f".format(maxDiff)} maxRef=${"%.5f".format(maxRef)}")
+        return false
+      }
     }
     return true
   }
@@ -525,9 +606,26 @@ class NativeInfer(private val ctx: Context) {
     try {
       fillInput(model, buf, 16, w * h)
       run(model)
+      // Model 3 (movenet-heads): the six raw heads never leave this
+      // class. MoveNetHeadsDecoder reproduces the full model's
+      // [1,6,56] from them, on this same thread, inside this same
+      // try/catch -- a decode exception is a failed request like any
+      // other, never a silent zero reply.
+      val outputsToSend: Array<ByteBuffer>
+      if (model.id == 3) {
+        val heads = model.decoderHeads!!
+        val out = model.decoder!!.decode(heads[0], heads[1], heads[2], heads[3], heads[4], heads[5])
+        val rb = model.replyBuffer!!
+        rb.rewind()
+        val fb = rb.asFloatBuffer()
+        fb.put(out)
+        outputsToSend = arrayOf(rb)
+      } else {
+        outputsToSend = model.outputBuffers
+      }
       model.consecutiveErrors = 0
       val elapsedNanos = SystemClock.elapsedRealtimeNanos() - t0
-      reply(reqId, 0, model.outputBuffers, (elapsedNanos / 1000L).toInt())
+      reply(reqId, 0, outputsToSend, (elapsedNanos / 1000L).toInt())
       // ADPF hint feed (PerfBridge.hint): only real inferences count as
       // "work" here, never a CONFIG rebuild.
       try { onInferenceDuration?.invoke(elapsedNanos) } catch (_: Throwable) {}
@@ -665,7 +763,11 @@ class NativeInfer(private val ctx: Context) {
     val modelsJson = JSONArray()
     for ((id, name) in MODEL_REPORT_NAME) {
       val outs = JSONArray()
-      models[id]?.outputNames?.forEach { outs.put(it) }
+      // Model 3 replies with ONE decoded [6,56] tensor, never the six
+      // raw heads -- publishing all six here would tell the page it is
+      // getting six tensors back (HEADS-REPORT.md section 5 point 4).
+      if (models[id]?.decoder != null) outs.put("movenet-decoded")
+      else models[id]?.outputNames?.forEach { outs.put(it) }
       modelsJson.put(JSONObject().put("id", id).put("name", name).put("outputs", outs))
     }
     val msg = JSONObject()

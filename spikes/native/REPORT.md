@@ -5,6 +5,14 @@ with stub packages for tensorflow_decision_forests and jax, tfjs-graph-converter
 1.6.3). Run: `venv/Scripts/python convert.py` (`MODELS_ONLY=faceres` to restrict),
 then `venv/Scripts/python flex_check.py out/*.tflite` and `venv/Scripts/python parity.py`.
 
+**A fresh clone has NO `app/src-tauri/gen/android/app/src/main/assets/models/*.tflite`
+at all** (the whole directory is gitignored) -- run `convert.py` with no
+`MODELS_ONLY` and it now also produces `out/movenet-heads.tflite`
+(HEADS-REPORT.md, `movenet-multipose` cut at the six conv heads for the
+Kotlin-side decoder in `NativeInfer.kt`); copy it into that assets
+directory alongside `blazeface.tflite` / `faceres.tflite` /
+`movenet-multipose.tflite` before an Android build.
+
 ## Result
 
 | model | f32 | f16 | ops | Flex/custom | parity f32 (cosine / max abs) | parity f16 |
