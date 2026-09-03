@@ -63,7 +63,7 @@ test('O2: cancelRun is wired at every place a run\'s owning document can go away
   // (SPA watch->watch reuses the <video>) goes through cancelRunOnLoad
   // since 1100 -- our own seek at arm start fires it on the same video.
   assert.equal(calls.length, 2, 'cancelRun must be reachable from pillWatch teardown and pagehide');
-  assert.match(SRC, /addEventListener\('loadstart', function \(\) \{\s*(\/\/[^]*\s*)*try \{ autoTest\.cancelRunOnLoad\(window\); \} catch \(e\) \{\}/);
+  assert.match(SRC, /addEventListener\('loadstart', function \(\) \{\s*(\/\/[^\r\n]*\s*)*try \{ autoTest\.cancelRunOnLoad\(window\); \} catch \(e\) \{\}/);
   assert.match(SRC, /if \(!video\.isConnected \|\| failed\) \{\s*clearInterval\(pillWatch\);\s*try \{ autoTest\.cancelRun\(window\); \} catch \(e\) \{\}/);
   assert.match(SRC, /addEventListener\('pagehide', function \(\) \{\s*submitDiag\('pagehide'\);\s*try \{ autoTest\.cancelRun\(window\); \} catch \(e\) \{\}/);
 });
