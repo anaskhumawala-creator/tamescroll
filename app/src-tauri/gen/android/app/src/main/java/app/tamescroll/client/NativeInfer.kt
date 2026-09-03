@@ -16,6 +16,7 @@ import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.gpu.CompatibilityList
 import org.tensorflow.lite.gpu.GpuDelegate
 import org.tensorflow.lite.nnapi.NnApiDelegate
+import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
@@ -115,6 +116,10 @@ class NativeInfer(private val ctx: Context) {
   // own (a bad crop size) rather than the engine's.
   private var deadForThisPage = false
   @Volatile private var closed = false
+  // GPU_KERNEL_CACHE: logged once, either side, so a device that never
+  // gets the cache (dir failure) or falls back (API throw) is visible
+  // without spamming per-model.
+  private var warnedGpuCache = false
 
   init {
     handler.post {
@@ -259,7 +264,20 @@ class NativeInfer(private val ctx: Context) {
     return true
   }
 
+  /** A subdirectory of codeCacheDir for TFLite's serialized GPU kernel
+   * cache, created on demand. Null (never thrown) if it cannot be made,
+   * which is the fallback-to-uncached signal loadModel acts on. */
+  private fun gpuKernelCacheDir(): File? {
+    return try {
+      val dir = File(ctx.codeCacheDir, "tflite-gpu")
+      if (dir.isDirectory || dir.mkdirs()) dir else null
+    } catch (e: Throwable) {
+      null
+    }
+  }
+
   private fun loadModel(id: Int, assetBase: String): LoadedModel {
+    val t0 = SystemClock.elapsedRealtimeNanos()
     val bytes = loadAssetModel("$assetBase.tflite")
     var delegate: GpuDelegate? = null
     var interp: Interpreter? = null
@@ -272,6 +290,30 @@ class NativeInfer(private val ctx: Context) {
           // Allowing precision loss computes in f16 on the Adreno 610.
           // MoveNet cannot (see MODEL_FP16); the face models can.
           dopts.setPrecisionLossAllowed(id in MODEL_FP16)
+          // GPU delegate init spends 1.4-3.9s per model compiling
+          // shaders (spikes/native/GPU-REPORT.md) -- TFLite can persist
+          // the compiled kernels to disk and skip the compile on a
+          // later load of the SAME model on the SAME device. Token
+          // carries the build's versionCode and the asset's byte
+          // length so a new build or a swapped .tflite can never load
+          // a stale cache. Never let this stop the model from loading:
+          // a missing dir or a throw here falls back to today's
+          // uncached options.
+          try {
+            val dir = gpuKernelCacheDir()
+            if (dir != null) {
+              val token = "$assetBase-${BuildConfig.VERSION_CODE}-${bytes.remaining()}"
+              dopts.setSerializationParams(dir.absolutePath, token)
+            } else if (!warnedGpuCache) {
+              warnedGpuCache = true
+              Log.w(TAG, "GPU kernel cache dir unavailable, delegate init will not be cached")
+            }
+          } catch (e: Throwable) {
+            if (!warnedGpuCache) {
+              warnedGpuCache = true
+              Log.w(TAG, "GPU kernel cache setup failed, delegate init will not be cached: " + e.message)
+            }
+          }
           delegate = GpuDelegate(dopts)
           interp = Interpreter(bytes, Interpreter.Options().addDelegate(delegate))
           backend = "gpu"
@@ -293,6 +335,8 @@ class NativeInfer(private val ctx: Context) {
     // One warm run: the delegate's first invocation carries allocation
     // and clock ramp that must not land on the first real frame.
     run(candidate)
+    val ms = ((SystemClock.elapsedRealtimeNanos() - t0) / 1e6).toInt()
+    Log.i(TAG, "loaded $assetBase backend=$backend ms=$ms")
     return candidate
   }
 
