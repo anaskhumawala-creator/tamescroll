@@ -116,3 +116,15 @@ NO_AV1 1, PRESENTER_GL 1); Opus critic on the diff; release 1098; manifest.
 - Release: `app-v0.1.98`, isDraft false, served APK re-downloaded and
   hashed against the raw manifest. Tree in sync with origin.
 - Next: OTA pushes one at a time against a drops read on HIS phone.
+
+## 1098d smoke 2026-09-03 04:30 -- the six dials 1098c did not exercise
+
+control 13.56 / SUSTAINED_PERF 12.07 / REFRESH_CAP_HZ 60 12.29 (60Hz panel,
+no-op) / THERMAL_DUTY 11.46 (not hot, inert) / PERF_HINT 11.59 /
+INFER_PRIO 2 12.25 (`ts-infer` nice 10 vs 0 on the control, read from
+/proc during the arm) / PLAYBACK_SLOW **10.17** (slowed 3, restored 2,
+114.4s media in 120s wall -- works, visibly slows the video, stays 0).
+Native alive in every arm. The per-document perf token was claimed by
+the stash and consumed by perf.mjs (claim() returns "", the door null).
+Bank: `drops-v1098d-*.json`, `diag-v1098d-*.json`, plants `plant-{sustained,
+refreshcap,thermal,hint,inferprio,slow}.js`.
