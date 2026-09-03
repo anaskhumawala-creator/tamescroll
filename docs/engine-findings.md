@@ -4594,3 +4594,62 @@ this repo used BEFORE faceres (Oarriaga mini-Xception) was 64x64
 grayscale -- but it was dropped for being WIRED WRONG (a single saturated
 output, every real face reading ~1.0), not for being grey. Those are
 different failures and the old model is not evidence against this arm.
+
+
+## 37 -- 360p COSTS 4.7 POINTS AND THE MODEL COSTS 34: THE STREAM IS NOT THE WALL
+
+Raising the stream from 360p to 720p is one of his open rulings. It
+spends his data and is a page mutation beyond hide/blur/remove, so it has
+been sitting unpriced since loop 38 measured his player decoding 640x360
+with faces reaching faceres at px p50 38-62. This prices it offline, with
+no phone and no data spent.
+
+`bench/resolution-cost.mjs`: 339 FairFace faces, each read at its native
+224px and then at seven degraded detail levels. The face is downscaled
+and upscaled BACK to the same pixel dimensions, because
+`classifyFaceGenders` resizes every crop to the model's fixed input
+anyway -- so feeding a smaller tensor would measure nothing. What changes
+is the DETAIL, which is exactly what a 360p stream destroys. Detection
+runs once at native resolution and the box is reused at every level, so a
+gender number here cannot be contaminated by a detection number.
+
+| detail | all wrong | women | men |
+|---|---|---|---|
+| 224 px (ceiling) | 18.6% | **34.3%** | 2.4% |
+| 112 | 19.2% | 35.5% | 2.4% |
+| 80 | 19.8% | 36.6% | 2.4% |
+| 64 | 19.2% | 36.0% | 1.8% |
+| 56 | 20.1% | 37.2% | 2.4% |
+| **48 (his band)** | 20.6% | **39.0%** | 1.8% |
+| 40 | 21.2% | 40.7% | 1.2% |
+| **32** | 27.1% | **52.3%** | 1.2% |
+
+**RESOLUTION COSTS 4.7 POINTS AND THE MODEL COSTS 34.3.** At a perfect
+224px portrait the gender head still gets a third of women wrong. So the
+stream is not what is failing him -- the model is, and a better picture
+cannot buy back an error the model makes on a clean face.
+
+**BUT THERE IS A CLIFF JUST BELOW HIS BAND.** 40px -> 32px is 40.7% ->
+52.3%, a 12-point fall in one step, where every step above it costs 1-2.
+His faces land at 38-62px, sitting ON the edge of that cliff, so part of
+his population is already over it. 720p roughly doubles native face size
+and moves the whole distribution clear. That is worth ~5 points plus
+whatever the sub-40px tail is costing today, which this bench cannot
+size because it does not know his size distribution -- only that p50 is
+38-62.
+
+**MEN ARE FLAT AND SLIGHTLY IMPROVE AS DETAIL DROPS** (2.4% -> 1.2%),
+which is the same asymmetry finding 31 measured: the head's decision
+boundary sits far into male territory, so blur pushes ambiguous faces
+toward "male" and men benefit from exactly what costs women.
+
+**THE PER-GROUP TABLE IS THE HARSHEST NUMBER IN THIS FILE.** Black women
+read **64.0% wrong at FULL 224px resolution**, rising to 88.0% at 32px.
+Indian women 48.0% at native. That is not blur, not the stream, and not
+the crop -- it is the model on a clean, aligned, well-lit portrait, and
+it is why finding 36's grey arm is the only lever left with real upside.
+
+**LIMIT, stated because it runs the optimistic way:** bicubic downscale
+is CLEANER than a real video pipeline, which also adds compression
+blocking, chroma subsampling and motion blur. So 4.7 points is a FLOOR on
+what 360p costs, not a ceiling.
