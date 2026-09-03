@@ -640,6 +640,16 @@ class MainActivity : TauriActivity() {
         view: WebView,
         request: WebResourceRequest,
       ): WebResourceResponse? {
+        // THE PER-DOCUMENT TOKEN DOOR RE-ARMS HERE, on the main-frame
+        // request, NOT in onPageStarted. The document cannot run its
+        // start scripts before its bytes were asked for, so this always
+        // precedes the stash's TsPerf.claim(); onPageStarted does not --
+        // measured on the Redmi (1100): one reload's stash claimed before
+        // the reset and got "", so the tuning store had no token for that
+        // document (override not read, Reset refused). And a reset that
+        // lands AFTER the stash claimed would re-open the door to a page
+        // script, which is the N8 exposure back again.
+        if (request.isForMainFrame) perfTokenServed = false
         try {
           val url = request.url.toString()
           // Never evaluate our own surfaces: a false positive there
@@ -686,7 +696,8 @@ class MainActivity : TauriActivity() {
         // navigations on the Redmi, 2026-09-02), and a message nobody
         // hears is a page with no native engine and no counter saying so.
         nativePortServed = false
-        perfTokenServed = false
+        // perfTokenServed re-arms on the main-frame REQUEST (see
+        // shouldInterceptRequest), never here.
         wry.onPageStarted(view, url, favicon)
       }
 
