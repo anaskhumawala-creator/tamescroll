@@ -4531,6 +4531,12 @@ are a separate, unmeasured question.
 
 ## 36 -- GREY BEATS COLOUR; FORCING EVERY FACE TO THE SAME SKIN TONE MAKES IT WORSE
 
+**PARTLY WITHDRAWN BY FINDING 39 -- read that first.** The grey win
+replicates at z 4.16 on 1,348 faces, but the between-group GAP claim
+below (31.1 -> 21.1 points) does NOT: on the full sample the gap is
+27.3 -> 27.2 and does not move. Grey is a uniform six-point win on
+women, not a bias fix.
+
 Finding 31 measured the gender head failing 52.6% of Indian women and
 51.5% of Black women against 31.6% of White women, and diagnosed a SHIFT
 rather than a spread. Per-race calibration is refused on principle here
@@ -4718,3 +4724,126 @@ needs frames with no people in them.
 no pose beyond what FairFace already contains. A real 360p YouTube frame
 is harder in every one of those directions, so a miss here is definitely
 a miss and a hit here is not a promise of a hit in the wild.
+
+
+## 39 -- GREY CONFIRMED ON 1,348 FACES, AND FINDING 36's HEADLINE IS WITHDRAWN: IT IS A UNIFORM WIN, NOT A BIAS FIX
+
+Finding 36 measured grey beating colour on 386 faces at z 1.84 and said
+so honestly -- leaning, not proven, on four cells CHOSEN because they
+were already known to be broken. This is the confirmation run: all seven
+FairFace groups, 1,348 faces scored, same four arms, paired.
+
+| arm | all wrong | women | men | worst-minus-best female cell |
+|---|---|---|---|---|
+| `rgb` (ships) | 19.4% | **36.0%** | 2.3% | **27.3 pts** |
+| **`grey`** | **16.6%** | **30.0%** | 2.9% | **27.2 pts** |
+| `eq` | 18.6% | 33.5% | 3.3% | 27.6 pts |
+| `norm` | 16.6% | 29.6% | 3.3% | 28.2 pts |
+
+Paired, counting only faces where an arm disagrees with `rgb`: grey fixed
+**56** and broke **19** (**z 4.16**, women fixed 53 broke 12); `norm`
+fixed 60 broke 23 (z 3.95); `eq` fixed 59 broke 49 (z 0.87, noise).
+
+**THE WIN IS REAL AND IT IS SIX POINTS ON WOMEN.** 36.0% -> 30.0%, and
+every one of the seven groups improves with no exception: Indian 52.6 ->
+48.5, Black 51.5 -> 44.3, White 31.6 -> 24.5, East Asian 29.2 -> 25.0,
+Latino 25.3 -> 21.2, Middle Eastern 33.7 -> 23.5, Southeast Asian 28.6
+-> 23.5.
+
+**AND FINDING 36's HEADLINE IS WITHDRAWN.** It reported the between-group
+gap falling 31.1 -> 21.1 points and read that as grey removing a
+race-correlated leak. On the full sample the gap is **27.3 -> 27.2** --
+it does not move at all. The 10-point shrink was small-sample noise
+across four cherry-picked cells, which is exactly the failure that run
+warned about in its own text and then produced anyway. **Grey lifts
+everybody by about the same amount; it does not close the bias.** The
+mechanism sentence in finding 36 stands only in its negative half: it is
+not skin tone, because tone equalisation made things worse. Why grey
+helps at all remains unexplained.
+
+**THE COST IS MEN, AND IT IS SMALL BUT NOT ZERO:** 2.3% -> 2.9% overall,
+and the worst cell is Southeast Asian men 5.1% -> 10.1%. On a corpus of
+~99 men per group that is 5 faces, so treat the per-cell number as
+indicative and the aggregate as the real figure.
+
+**`norm` TIES GREY EXACTLY** (29.6% vs 30.0%, z 3.95 vs 4.16) and costs
+an extra pass over the crop. Plain grey is the simpler of two equals and
+is the one to carry forward.
+
+**NOT SHIPPED, AND THE REASON IS FINDING 40'S DOMAIN GAP.** Everything
+above is 224px studio portraits. His faces arrive off a 640x360 stream at
+38-62px, and finding 37 showed the head behaving differently down there.
+`bench/grey-corpus.mjs` runs the same arms over the 2,385 labelled corpus
+reads -- real frames, real sizes, real lighting -- and that is what
+decides whether this is shippable.
+
+## 40 -- TEST-TIME AUGMENTATION WORKS, BUT ONLY WHEN SCORED ON WHAT ACTUALLY SHIPS
+
+Finding 32 established that the failure is per-person and deterministic
+-- 19 of 22 corpus women never leak a read and one leaks on all 8 of
+hers, with a best raw of 0.73 -- and concluded that every temporal idea
+was dead. This tests the non-temporal version: read the SAME face four
+ways in the same instant (original, mirrored, zoomed 1.12x, rotated 8
+degrees) and combine.
+
+`bench/wiggle-test.mjs`, 2,385 labelled corpus reads, all four views
+through the shipped `classifyFaceGenders`.
+
+**ON LABEL ACCURACY IT LOOKS DEAD OR WORSE.** Wrong on women: orig 18.5%,
+mirror 18.2%, zoom 25.2%, rot 20.6%, mean-of-four 20.3%. Zoom is
+significantly WORSE (fixed 26, broke 86, z 5.57). Taking the
+most-female of the four looked like a large win (11.8%) and is not one --
+it is a one-way tilt toward "female", which is the same move as lowering
+the decision boundary, and the control confirms it: min-of-four at
+11.8%/1.6% sits on the plain-threshold curve between orig@0.54 and
+orig@0.56. That is finding 29's trap in a new shape.
+
+**BUT THE LABEL BOUNDARY IS NOT WHAT SHIPS.** The clear rule is
+`GENDER_CLEAR_SCORE` 0.45 on the male branch, i.e. raw >= **0.725**. A
+face that flips label anywhere between 0.50 and 0.725 was already
+uncleared and already patched -- the flip changes NOTHING. So every
+label-accuracy number above is measuring a question the pipeline does not
+ask. Rescored on the shipped consequences (exposure = a woman CLEARED;
+false cover = a man NOT cleared), with each arm's bar tuned to hit the
+SAME exposure so no arm wins by simply being more cautious:
+
+| at exposure <= 1.6% (today's level) | bar | false cover |
+|---|---|---|
+| orig, 1x inference | 0.736 | 18.0% |
+| **mean of orig+mirror, ~1.5x** | 0.714 | **12.3%** |
+| min of orig+mirror | 0.700 | 14.0% |
+| min of all four, 4x | 0.684 | 14.7% |
+| mean of all four, 4x | 0.722 | 15.3% |
+
+| at exposure <= 1.0% | bar | false cover |
+|---|---|---|
+| orig | 0.766 | 23.7% |
+| mean2 | 0.750 | 19.5% |
+| min2 | 0.722 | 18.9% |
+| **min of all four** | 0.696 | **17.1%** |
+
+**MIRROR-AVERAGING BUYS 3-6 POINTS OF FALSE COVER AT EQUAL EXPOSURE**,
+and it is NOT a threshold move in disguise -- the matched-exposure
+comparison is the control for exactly that, and mean2 beats the orig
+curve at every operating point on it. At a tighter exposure target the
+four-view minimum wins by 6.6 points.
+
+**THE COST, AND IT IS SMALLER THAN IT LOOKS.** faceres is the expensive
+half of a verdict (220ms of ~355 on the Redmi at fp32). Naively mirroring
+doubles it. But `classifyFaceGenders` already batches EVERY face in a
+frame into ONE inference, so mirroring means one batch of 2N crops rather
+than two calls of N -- one extra crop-and-upload, one inference, one
+readback. The readback count, which findings on the single-frame-crops
+plan identify as the real cost driver, does not change at all. Unmeasured
+on device; the prediction is closer to 1.4-1.6x than 2x and it needs a
+BenchActivity run to confirm.
+
+**ZOOM AND ROTATE ARE NOT WORTH THEIR PRICE** -- zoom is worse on its
+own and the four-view arms only beat mean2 at exposure targets tighter
+than today's. If this ships it ships as MIRROR ONLY.
+
+**THE SPREAD ACROSS VIEWS IS A WEAK DISTRUST SIGNAL AND NOT A USABLE
+ONE:** right reads p50 0.063, wrong reads p50 0.101. Real separation,
+same order as everything finding 33 already priced and refused.
+
+**IT IS A COMPUTE-FOR-ACCURACY TRADE AND THEREFORE HIS CALL.**
