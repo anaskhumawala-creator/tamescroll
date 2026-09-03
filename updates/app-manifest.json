@@ -1,7 +1,7 @@
 {
-  "versionCode": 1101,
-  "versionName": "0.1.101",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.101/tamescroll-v0.1.101.apk",
-  "sha256": "2b2cce278fa615c028ab44105f7261241daf381828d24b346bbcc21dc7b6386b",
-  "notes": "GPU now measured, not assumed. Your phone's graphics chip was being skipped."
+  "versionCode": 1102,
+  "versionName": "0.1.102",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.102/tamescroll-v0.1.102.apk",
+  "sha256": "0a495cfa3f2e371c8c77070cdd55868820f86ee663002c8cc3bb7e36e120d596",
+  "notes": "The blur switch and the tuning gear no longer ride the home feed."
 }
