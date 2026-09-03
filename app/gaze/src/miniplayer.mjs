@@ -245,7 +245,10 @@ var CSS =
   // still measured 223 tall.
   'html.ts-mini .player-placeholder{height:0 !important;min-height:0 !important;' +
   'padding:0 !important;overflow:hidden !important;}' +
-  'html.ts-mini .ts-gaze-pill{display:none !important;}' +
+  'html.ts-mini .ts-gaze-pill,html.ts-mini .ts-gaze-gear,' +
+  // The tuning panel is a sheet the width of the player; at 0.56
+  // scale it would be the only thing left in a 231px box.
+  'html.ts-mini .ts-gaze-tune{display:none !important;}' +
   '#' +
   COVER_ID +
   '{position:absolute;inset:0;z-index:2147480000;background:transparent;cursor:pointer;}';
@@ -643,7 +646,10 @@ export function installMiniplayer(win) {
   // Refusing on the control CONTAINER would therefore kill the
   // drag-to-mini gesture outright. Refusing on actual interactive
   // elements leaves that div draggable and takes only the buttons back.
-  var OUR_CONTROLS = '#' + BTN_ID + ',.ts-gaze-pill';
+  // The gear that opens the tuning panel is ours too, and it sits
+  // beside the pill: without it here, a press on it arms the drag and
+  // a thumb roll shrinks the player instead (1061/1062, twice).
+  var OUR_CONTROLS = '#' + BTN_ID + ',.ts-gaze-pill,.ts-gaze-gear,.ts-gaze-tune';
   var PAGE_CONTROLS = 'button,a[href],input,select,textarea,[role="button"],[role="slider"]';
 
   function onAControl(el) {
@@ -652,7 +658,8 @@ export function installMiniplayer(win) {
     for (var n = el; n; n = n.parentElement) {
       if (n.id === BTN_ID) return true;
       if (n.tagName === 'BUTTON' || n.tagName === 'A') return true;
-      if (n.classList && n.classList.contains('ts-gaze-pill')) return true;
+      if (n.classList && (n.classList.contains('ts-gaze-pill') ||
+        n.classList.contains('ts-gaze-gear') || n.classList.contains('ts-gaze-tune'))) return true;
     }
     return false;
   }

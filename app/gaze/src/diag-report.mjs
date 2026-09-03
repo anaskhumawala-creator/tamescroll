@@ -491,6 +491,27 @@ export function buildReport(snap) {
     // `player.life` was just fixed for. Same shape check, so the same
     // guarantee.
     render: s.render ? lifeCounters(s.render, 'renderDropped') : null,
+    // WHAT HE CHANGED ON THE PHONE, AND WHAT IT MEASURED.
+    //
+    // `engine.tuning` above answers "which numbers arrived over the
+    // air". It cannot answer "which numbers is this phone running",
+    // because the in-player panel writes a LOCAL override that wins over
+    // the pushed value for that key -- so without this block a phone
+    // with four dials moved by hand reports as a stock one, and every
+    // ring read off it is unattributable in exactly the way the OTA
+    // channel already taught us to care about.
+    //
+    // `autotest` is the on-device A/B: the same fields
+    // probe_drops_ab.py prints, so a row off his phone and a row off the
+    // Redmi are comparable. `arm` is an INDEX into auto-test.ARMS, which
+    // is append-only for this reason.
+    //
+    // `applied` carries our own constant names as object KEYS, which the
+    // violation walker never inspects -- only values are checked, and
+    // every value here is a number by construction. That is why this
+    // block needs no new enum: the two string fields are named after the
+    // enums they already had.
+    tune: tuneBlock(s.tune),
     // `ours` means one of our own recorded main-thread segments fell
     // inside that task -- overlap, not authorship. A 360ms task can be
     // the page's with 20ms of ours in it. Zero overlaps would settle the
@@ -574,6 +595,44 @@ function tuningBlock(t) {
     for (var k in a) {
       if (!Object.prototype.hasOwnProperty.call(a, k)) continue;
       if (typeof a[k] === 'number' && isFinite(a[k])) out.applied[k] = a[k];
+    }
+  }
+  return out;
+}
+
+// How many measured arms survive into a report. Six arms is one full
+// run; twelve is a run plus the one before it, which is as much history
+// as a comparison is worth.
+export var AUTOTEST_MAX_ROWS = 12;
+
+// The local override layer plus the on-device A/B table. Same rule as
+// tuningBlock and lifeCounters: the SHAPE is the guarantee, never an
+// assumption about who wrote the object -- both of these are read back
+// out of browser storage, which any script on the page can write.
+function tuneBlock(t) {
+  var out = { overrides: num(t && t.count), applied: {}, autotest: [] };
+  var a = t && t.applied;
+  if (a && typeof a === 'object') {
+    for (var k in a) {
+      if (!Object.prototype.hasOwnProperty.call(a, k)) continue;
+      if (typeof a[k] === 'number' && isFinite(a[k])) out.applied[k] = a[k];
+    }
+  }
+  var rows = t && t.autotest;
+  if (Array.isArray(rows)) {
+    var keep = rows.slice(-AUTOTEST_MAX_ROWS);
+    for (var i = 0; i < keep.length; i++) {
+      var r = keep[i] || {};
+      out.autotest.push({
+        arm: num(r.arm),
+        dropPct: num(r.dropPct),
+        rafHz: num(r.rafHz),
+        mediaSecs: num(r.mediaSecs),
+        wallSecs: num(r.wallSecs),
+        nativeBackend: enumOr('nativeBackend', r.nativeBackend, 'none'),
+        codec: enumOr('codec', r.codec, 'none'),
+        gl: num(r.gl),
+      });
     }
   }
   return out;

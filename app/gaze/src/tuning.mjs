@@ -365,6 +365,88 @@ var SPEC = {
 
 export function tunableNames() { return Object.keys(SPEC); }
 
+// READING A DIAL BACK, which the OTA channel never had to do.
+//
+// A push is write-only: it lands and the report says what landed. The
+// in-player panel has to RENDER the current value before anyone touches
+// it, and a stepper that starts from `null` writes nonsense on its first
+// press. These are the live module bindings, so a value moved by an OTA
+// push, by the panel, or by an auto-test arm all read the same way.
+// tuning-override.test.mjs fails if a SPEC key has no getter, because a
+// dial nobody can read is a blank row in the panel.
+var GETTERS = {
+  CUT_DELTA: function () { return sceneGate.CUT_DELTA; },
+  GENDER_CLEAR_SCORE: function () { return genderVerdict.GENDER_CLEAR_SCORE; },
+  GENDER_CLEAR_SCORE_FEMALE: function () { return genderVerdict.GENDER_CLEAR_SCORE_FEMALE; },
+  NULL_MINT_NM_FLOOR: function () { return genderVerdict.NULL_MINT_NM_FLOOR; },
+  MEM_TRUST_MAN: function () { return identityMemory.MEM_TRUST_MAN; },
+  MEM_TRUST_WOMAN: function () { return identityMemory.MEM_TRUST_WOMAN; },
+  MEM_SIM: function () { return identityMemory.MEM_SIM; },
+  PERSON_SKIP_EVERY: function () { return personSkip.PERSON_SKIP_EVERY; },
+  PTRACK_MIN_COAST_PASSES: function () { return personTrack.PTRACK_MIN_COAST_PASSES; },
+  PTRACK_IOU_MIN: function () { return personTrack.PTRACK_IOU_MIN; },
+  VERDICT_MAX_INTERVAL_MS: function () { return cadence.VERDICT_MAX_INTERVAL_MS; },
+  VERDICT_DUTY: function () { return cadence.VERDICT_DUTY; },
+  GENDER_REFRESH_MS: function () { return personTrack.GENDER_REFRESH_MS; },
+  CUT_PERSON_LOOK: function () { return personSkip.CUT_PERSON_LOOK; },
+  DELAY_MS: function () { return delayCore.DELAY_MS; },
+  NATIVE_INFER: function () { return nativeClient.NATIVE_INFER; },
+  RENDER_EVERY: function () { return videoRegion.RENDER_EVERY; },
+  SUSTAINED_PERF: function () { return perf.SUSTAINED_PERF; },
+  REFRESH_CAP_HZ: function () { return perf.REFRESH_CAP_HZ; },
+  THERMAL_DUTY: function () { return perf.THERMAL_DUTY; },
+  NATIVE_CPU_MASK: function () { return nativeClient.NATIVE_CPU_MASK; },
+  NO_AV1: function () { return perf.NO_AV1; },
+  NATIVE_NPU: function () { return nativeClient.NATIVE_NPU; },
+  CODEC_PROBE: function () { return codecProbe.CODEC_PROBE; },
+  PERF_HINT: function () { return perf.PERF_HINT; },
+  INFER_PRIO: function () { return perf.INFER_PRIO; },
+  PLAYBACK_SLOW: function () { return perf.PLAYBACK_SLOW; },
+  BLUR_IN_FRAME: function () { return videoRegion.BLUR_IN_FRAME; },
+  PRESENTER_GL: function () { return glPresenter.PRESENTER_GL; },
+};
+
+/** The value this build is running for `key`, or null for a key that is
+ * not on the whitelist. Never throws. */
+export function currentValue(key) {
+  var g = GETTERS[key];
+  if (!g) return null;
+  try {
+    var v = g();
+    return typeof v === 'number' && isFinite(v) ? v : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/** The clamp declared above for `key`, or null. The panel draws its
+ * steppers from this rather than from a second copy of the ranges. */
+export function specRange(key) {
+  var s = SPEC[key];
+  return s ? { min: s[0], max: s[1] } : null;
+}
+
+/**
+ * Apply ONE whitelisted, clamped value. Returns what took effect, or
+ * null if the key or the value was refused.
+ *
+ * DELIBERATELY DOES NOT TOUCH `TUNED` / `TUNE_REFUSED` / `TUNE_CLAMPED`.
+ * Those three describe the OTA PUSH, and the report reads them to answer
+ * "which numbers did this phone receive over the air". A local override
+ * writing through them would overwrite that record with a two-key object
+ * and make every tuned phone look untuned. Overrides are counted
+ * separately, in their own report block.
+ */
+export function applyOne(key, v) {
+  var spec = SPEC[key];
+  if (!spec) return null;
+  if (typeof v !== 'number' || !isFinite(v)) return null;
+  var lo = spec[0], hi = spec[1];
+  var c = v < lo ? lo : (v > hi ? hi : v);
+  try { spec[2](c); } catch (e) { return null; }
+  return c;
+}
+
 /**
  * Apply an OTA tuning object. Returns what took effect.
  * Never throws: a malformed payload must leave the shipped constants

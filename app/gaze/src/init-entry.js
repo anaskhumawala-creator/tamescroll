@@ -111,7 +111,10 @@ import { createWorkerClient } from './worker-client.mjs';
 import { startWorker } from './worker-entry.js';
 import { installMiniplayer } from './miniplayer.mjs';
 import { makeVerdictCache, verdictKey } from './verdict-cache.mjs';
-import { applyTuningFromWindow, TUNED, TUNE_REFUSED, TUNE_CLAMPED } from './tuning.mjs';
+import { applyTuningFromWindow, TUNED, TUNE_REFUSED, TUNE_CLAMPED, tunableNames, currentValue } from './tuning.mjs';
+import { applyOverrides, overrideBlock } from './tuning-override.mjs';
+import * as autoTest from './auto-test.mjs';
+import { installTuneUi } from './tune-overlay.mjs';
 import * as delayCore from './delay-core.mjs';
 import { attachDelay } from './delay-presenter.mjs';
 import { attachDelayGl, PRESENTER_GL } from './gl-presenter.mjs';
@@ -142,6 +145,8 @@ if (
   // string literal — esbuild won't rename it) so the Rust side can prove
   // this exact bundle is what got injected. See lib.rs gaze tests.
   window.__TS_GAZE_BUNDLE__ = 'v7'; // v7: crowd path (faces past MoveNet's 6) + no cut blackout
+  // What the dials read before any local override -- see the boot block.
+  var shippedTuning = null;
 
   // OTA TUNING, FIRST, BEFORE ANY VERDICT CAN BE MADE.
   // The numbers ride the rules OTA so a threshold change costs a git
@@ -151,9 +156,29 @@ if (
   // worst a bad push can do is move a dial to an edge that file already
   // considered safe. It cannot throw.
   try {
+    applyTuningFromWindow(window);
+    // THREE WRITERS, ONE WHITELIST, IN A FIXED ORDER.
+    //
+    //   1. the OTA push        every phone, decided here
+    //   2. his own overrides   this phone, decided in the panel
+    //   3. the auto-test arm   this reload only, thrown away at the end
+    //
+    // Each later layer wins for the KEYS IT NAMES and for no others, so
+    // a protection fix pushed over the air still lands on a phone with a
+    // couple of speed dials set by hand. All three go through the same
+    // SPEC clamp; none of them can throw a boot.
+    //
+    // `shippedTuning` is snapshotted BETWEEN 1 and 2, because nothing
+    // downstream can reconstruct it -- it is what "Reset to shipped" in
+    // the panel puts the dials back to.
+    shippedTuning = {};
+    var tnames = tunableNames();
+    for (var ti = 0; ti < tnames.length; ti++) shippedTuning[tnames[ti]] = currentValue(tnames[ti]);
+    applyOverrides(window);
+    autoTest.applyPendingArm(window);
     // Which codec the player is fed (research 2026-09-03 #1): wrap the
     // MediaSource entry points before the player opens a buffer. Read-only.
-    applyTuningFromWindow(window);
+    // After all three tuning layers, because CODEC_PROBE is one of them.
     if (codecProbe.CODEC_PROBE === 1) codecProbe.install(window);
     // WHICH NUMBERS IS HIS PHONE ACTUALLY RUNNING?
     //
@@ -1838,6 +1863,7 @@ if (
     var dead = false;
     var hasRvfc = typeof video.requestVideoFrameCallback === 'function';
     var pill = null;
+    var tuneUi = null;
     var pillRefresh = null;
     // The player unblurs faster than feed videos: 2s of guaranteed
     // blackout on a video the user deliberately opened was the review's
@@ -5190,10 +5216,50 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
         }
       });
       pillHost.appendChild(pill);
+      // THE TUNING PANEL, behind a gear of our own beside the switch.
+      //
+      // Same host as the pill for the same three reasons: element
+      // fullscreen keeps it rendered, YouTube's control overlay cannot
+      // paint over it, and the miniplayer's own sheet hides it with the
+      // pill. It is NOT bound to the pill -- a long press there would
+      // have made his one escape hatch from a wrong verdict ambiguous,
+      // and the panel is a developer tool while the pill is not.
+      //
+      // Nothing here can fail the player: a panel that cannot be built
+      // is a panel that is not there.
+      try {
+        tuneUi = installTuneUi({
+          doc: document,
+          host: pillHost,
+          win: window,
+          pill: pill,
+          video: video,
+          shipped: shippedTuning,
+          nativeInfo: function () {
+            return nativeClient && typeof nativeClient.snapshot === 'function' ? nativeClient.snapshot() : null;
+          },
+        });
+        // A run in flight picks itself up here: this is the first moment
+        // there is a player to seek, and the arm is already applied
+        // (boot). One attach, one arm -- attachRun refuses a second.
+        autoTest.attachRun(window, {
+          video: video,
+          nativeInfo: function () {
+            return nativeClient && typeof nativeClient.snapshot === 'function' ? nativeClient.snapshot() : null;
+          },
+          codecInfo: function () { return codecProbe.served(); },
+        });
+      } catch (e) {
+        /* the panel is a tool, the player is the product */
+      }
       var pillWatch = setInterval(function () {
         if (!video.isConnected || failed) {
           clearInterval(pillWatch);
           if (pill.parentNode) pill.parentNode.removeChild(pill);
+          if (tuneUi) {
+            try { tuneUi.destroy(); } catch (e) { /* already gone with the host */ }
+            tuneUi = null;
+          }
         }
       }, 1000);
     }
@@ -5540,6 +5606,19 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
         }
       })(),
       ids: window.__TS_GAZE_IDS || {},
+      // WHICH DIALS THIS PHONE IS ACTUALLY RUNNING, and what the
+      // on-device A/B measured. `engine.tuning` says what arrived over
+      // the air; a local override wins over that for its own key, so
+      // without this a hand-tuned phone reports as a stock one.
+      tune: (function () {
+        try {
+          var b = overrideBlock(window);
+          b.autotest = autoTest.results(window);
+          return b;
+        } catch (e) {
+          return null;
+        }
+      })(),
       render: typeof window.__TS_GAZE_RENDER === 'function' ? window.__TS_GAZE_RENDER() : null,
       longTasks: longTasks,
       longTaskMaxMs: Math.round(longTaskMax),
