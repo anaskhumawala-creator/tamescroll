@@ -1,7 +1,7 @@
 {
-  "versionCode": 1099,
-  "versionName": "0.1.99",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.99/tamescroll-v0.1.99.apk",
-  "sha256": "8ac97230a33f2f5c57119695c29a91665283072a38f175c6dcef376486e92551",
+  "versionCode": 1100,
+  "versionName": "0.1.100",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.100/tamescroll-v0.1.100.apk",
+  "sha256": "1b5270076433369ad04923ad198f3c39b80d21459b9569c367b5803414596741",
   "notes": "Faster person detection, faster second launch, and a tuning panel (gear beside the blur switch) with an auto test."
 }
