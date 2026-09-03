@@ -1,74 +1,62 @@
-# tamescroll — project CLAUDE.md
-
-**Read `docs/VISION.md` before doing anything.** It is the settled product
-definition. The owner has corrected scope drift three times (extension-first,
-Brave-pairing, "app can't block ads" — all dead, all listed there). Any
-statement elsewhere that conflicts with VISION.md is stale.
-
-## What this is
-
-One self-contained, free, open-source app (Tauri v2 + embedded `adblock`
-crate) that opens the feed platforms — YouTube, Reddit, X, Instagram — as
-cleaned versions of themselves: no ads, no Shorts, no algorithmic feeds,
-optional on-device gaze blur. Desktop + Android + iOS from one codebase.
-Users install this one app and nothing else.
-
-## Hard rules (owner-set, non-negotiable, from the original handoff)
-
-- BLOCK-ONLY. Hide/blur/remove on pages the user views. Never modify,
-  repackage or impersonate platform apps; never unlock paid features
-  (that is what got ProTube removed — background play, audio-only).
-- INSTANT by default. AI/detection never in the critical path; blur-first
-  so nothing ever flashes.
-- NO NAGS, ever — ours or the platforms'.
-- Must not look or feel like a parental-control app.
-- Free + open forever. Code MPL-2.0, our rules CC0.
-- **Never copy code from HaramBlur or any AGPL/GPL source** — AGPL would
-  legally end App Store distribution. Gaze module builds on Human +
-  nsfwjs (both MIT). See NOTICE.
-- Bundle identifier `app.tamescroll.client` is PERMANENT once published.
-  Never change it; rename only the display name.
-
-## Repo map
-
-- `docs/VISION.md` — product definition. Overrides everything.
-- `docs/plan.md` — phases, platform order, risks, decisions.
-- `docs/technical-findings.md` — verified platform/store/engine facts.
-- `docs/gaze-research.md` — gaze Stage B delivery architecture (CSP per
-  site; models must be inlined base64; Worker + Reddit fallback).
-- `docs/android-research.md` — Android build path (when present).
-- `docs/rules-updates.md` — hosted rules OTA design note (Phase 6 prep).
-- `docs/handoff-original.md` — archived original planning handoff.
-- `rules/` — our filter rules (EasyList syntax, CC0). Every rule carries
-  a `! test:` line and a `[live]`/`[unverified]` tag. `rules/vendor/` —
-  upstream list snapshots (their own licences, not CC0).
-- `app/` — the Tauri app. `app/src-tauri/src/lib.rs` is the engine
-  wiring + injection; frontend is vanilla TS launcher.
-
-## Working agreements
-
-- **Never render test content on the owner's screen.** Verification
-  that needs a feed -- searches, thumbnails, anything the blur is
-  judging -- runs on the emulator or through CDP with the window off
-  his desktop, and the dev app gets closed after. He said it once:
-  "don't open this trash on my PC". Screenshots taken for evidence
-  are deleted unless he asked for them.
-
-- Owner is a beginner developer: explain as you go, small steps, working
-  checkpoints they can SEE.
-- Subagents: Sonnet by default, passed explicitly; Opus only for
-  judgement calls (architecture, adversarial review).
-- Selectors are read from the live DOM, never guessed from memory.
-  Test-env gotcha: owner's Chrome runs an Unhook-style extension setting
-  ~26 `hide_*` attributes on `<html>` on YouTube — strip them before
-  reading the DOM (page-local, resets on reload).
-- Verification is visual where the claim is visual: run the app,
-  screenshot, compare. Player integrity is the red line — a broken
-  selector that hides the video player is worse than a missed shelf.
-- iOS work only happens in the cousin's visit window (§7 of the archived
-  handoff): everything iOS must be prepared before, tested during.
-
 ## Session state (update every session)
+
+**Last updated:** 2026-09-03 17:20 (**1102 IS THE RELEASE, sha
+0a495cfa**, served APK re-downloaded and hashed against the raw
+manifest, isDraft false. HEAD pushed, tree clean. The old Redmi runs
+1102. HIS phone: installed 1101, reports "still using the CPU" but "the
+video somehow feels smoother" -- STILL OWES ONE SHARE; the gpu block is
+the only thing that says why his Adreno stayed on CPU.)
+
+## HANDOFF 2026-09-03 17:20 -- 1102: THE PILL AND GEAR STOP RIDING THE FEED
+
+**HIS REPORT:** "turn on the home screen and try to scroll down ... each
+of the videos just when I am just scrolling it gets highlighted and
+whatnot."
+
+**WHAT IT ACTUALLY WAS, found by screenshotting the Redmi's home feed:**
+our own blur pill ("Blur on", 99x36) and the tuning gear (36x36) sitting
+at the top right of the FEED with no player behind them, so every
+thumbnail scrolling under them wore the badge in turn. m.youtube SHARES
+`#player-container-id` between the watch player and the feed's autoplay
+previews, and an SPA nav off /watch collapses it to **823x0** at the top
+of the feed instead of removing it -- the `<video>` inside stays
+CONNECTED, so the pill teardown (which only fires on a disconnected or
+failed video) never ran.
+
+**FIXED:** `setChrome(feedPreview())` at attach and on a 250ms tick
+(was 1000ms, teardown-only). Hidden, not destroyed -- the same player
+returns on the next watch page and rebuilding the panel would drop his
+overrides. Gate is `feedPreview()`, the ONE copy of that rule already in
+scope, and it fails SHOWN so an unreadable path cannot take his escape
+hatch away. **`installTuneUi` now returns its `gear` element**: a class
+query against the separately-resolved host read NULL on the device and
+the gear rode the feed while the pill hid correctly -- caught only
+because the device probe checked both.
+
+**VERIFIED ON THE REDMI, five states** (`spikes/gauntlet/probe_pill_scope.py`):
+cold home both hidden; /watch both visible, panel opens; SPA off /watch
+both hidden and an open panel closes; SPA back both return; pill still
+toggles Blur on/off/on. Home screenshot clean (deleted).
+
+**THREE THINGS RULED OUT ON THE WAY, do not re-chase:** (1) no
+non-passive listener touches the feed -- 18 touchmoves, `prevented 0`,
+scroll started at 91ms and ran 240px; (2) YouTube's own
+`yt-touch-feedback-shape` adds `...ShapeDown` for ~80ms on touchstart
+and removes it when the scroll is recognised, and its fill measured
+**opacity 0 on every one of 122 frames** -- their ripple does NOT fire
+on a scroll; (3) `filter: brightness(0.9)` on every feed thumbnail is
+YOUTUBE'S, not ours (grep: we ship no brightness anywhere).
+
+**PROBES ADDED:** `probe_home_highlight.py` (per-frame :active +
+defaultPrevented + scroll offset + mutation log under a driven touch
+scroll), `probe_feed_wash.py` (per-item filter/class/patch changes
+during a scroll), `probe_pill_scope.py`, `probe_feedpill.py`,
+`probe_touchfb.py`, `probe_flash.py`.
+
+gaze **863/863** (5 new in `test/pill-watch-scope.test.mjs`, red-proved
+3/4 against the pre-fix source), cargo 63/63.
+
+
 
 **Last updated:** 2026-09-03 16:55 (**1101 IS THE RELEASE, sha
 2b2cce27**, served APK re-downloaded and hashed against the raw
