@@ -70,12 +70,86 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
-**Last updated:** 2026-09-03 16:30 (**1100 IS THE RELEASE, sha 1b527007**,
-HEAD pushed, tree clean. Nothing built or changed this loop -- it was a
-READ of the first diagnostics ever from HIS phone. He asked for this
-handoff so he can /clear. HIS STANDING INSTRUCTION: "Do not start with
-anything" -- answer, then wait for his go. Keep replies simple; he asked
-twice for plainer wording.)
+**Last updated:** 2026-09-03 16:55 (**1101 IS THE RELEASE, sha
+2b2cce27**, served APK re-downloaded and hashed against the raw
+manifest, isDraft false. HEAD pushed, tree clean. The old Redmi runs
+1101; HIS phone gets it in-app and OWES ONE SHARE -- that report answers
+whether his Adreno 613 now runs on GPU.)
+
+## HANDOFF 2026-09-03 16:55 -- 1101: THE GPU IS MEASURED, NOT ASSUMED
+
+**HIS RULING:** "I want it so that any mobile would work fine with this,
+instead of it missing my phone's GPU completely."
+
+**THE DEFECT.** `CompatibilityList.isDelegateSupportedOnThisDevice`
+answers out of `gpu_compatibility.bin`, a device database frozen when
+tensorflow-lite-gpu 2.16.1 was built. His Redmi 13 (SM4450 / Adreno 613,
+2023) is absent, so every model landed on CPU with **no throw and no log
+line** -- invisible in the report, and the same silent fallback awaits
+every phone newer than that database.
+
+**WHAT SHIPPED** (plan: `docs/superpowers/plans/2026-09-03-gpu-delegate-measured.md`):
+an unlisted device is refused a GPU at LOAD (three cold delegates are
+1.4-3.9s of shader compile each; that is the 1098 NNAPI-in-loadAll
+defect) and given a MEASURED trial after ready on the trial thread --
+agree with a shadow CPU copy on every output head within 2% AND beat it
+by 10% on the last real frame, or CPU stays. `shouldSwap` is in the
+companion object and JVM-tested. A win is remembered per
+asset+versionCode+bytes, so only the first launch on a build pays. The
+NNAPI arm now waits for the GPU arm. A driver segfault is not catchable
+from Kotlin, so a breadcrumb (`commit`, not `apply`) is written before
+the driver is touched and cleared after; still there next launch = that
+model never tries again on this build.
+
+**THE REPORT NOW SAYS WHY:** `native.models.*.gpu {listed, remembered,
+tried, ran, agree, won, gpuMs, cpuMs, whyR}`. One Share from any phone
+answers "why is this phone on this backend" with no cable.
+
+**REDMI SMOKE** (`spikes/gauntlet/probe_gpu_note.py`, ~40s, banked
+`gpu-note-*.json`). Listed path UNCHANGED: gpu x3, `ran` false -- a
+listed device still takes the fast load and pays for no trial. Forced
+unlisted (`adb shell touch
+/sdcard/Android/data/app.tamescroll.client/files/force-gpu-unlisted` --
+a debug switch that exists because the only phone on a cable here IS
+listed, so the new path could not otherwise be exercised):
+
+  | model | gpu ms | cpu ms | agree | outcome |
+  |---|---|---|---|---|
+  | blazeface (cold) | 80.1 | 67.3 | yes | **CPU kept** -- GPU was slower |
+  | faceres | 52.3 | 141.3 | yes | swapped to gpu |
+  | movenet-heads | 140.6 | 254.8 | yes | swapped to gpu |
+  | blazeface (2nd launch, warm shader cache) | 30 | 67 | yes | swapped to gpu |
+
+  Ready **2597ms** on the trial path against **6816ms** loading GPU up
+  front -- the page gets a working engine 4s sooner, then upgrades,
+  which also helps the 15s ready timeout. Second launch: the two winners
+  loaded straight on GPU (`remembered` true, `ran` false). **The arbiter
+  refuses a GPU that would have been SLOWER, which the listed path never
+  checked** -- 1100 put BlazeFace on GPU at 80ms where CPU does 67.
+
+**CORRECTIONS TO THE 16:30 HANDOFF, both from re-reading
+`phone-diag-1100.jsonl`:** (1) native never came ready in **4 of 9**
+distinct 1100 watch documents, not 3 of 11. (2) **"dead native = the
+slow path" is NOT supported**: verdict p50 on native-cpu documents
+611/657/760/763/805 against dead-native documents 478/531/584/828 --
+overlapping, and the worker was sometimes faster. n=5 vs 4, different
+videos, uncontrolled. So the native engine on CPU was buying close to
+nothing on his phone and the GPU is its whole remaining value.
+
+**WHAT HIS SHARE ANSWERS NEXT:** `native.models.*.gpu` on 1101. `won`
+true = fixed. `agree` false = his driver returns different numbers (the
+arbiter did its job, and the reason is a real finding). `whyR` set = the
+delegate refused, with the message. `ran` false with `listed` false =
+the trial never got a real frame.
+
+**STILL NOT STARTED, his call each:** the "native never came ready"
+reason field (step 2, needs the page-side failure reason, not the
+engine's); the startup-stutter lever (attach the delay presenter after
+the FIRST verdict); 1101-era thumbnail hide + stricter image bars;
+single-frame crops; HaramBlur side-by-side on the old Redmi; coast dial
+2 -> 1.33. He also asked for "the mode the other apps use" (video
+untouched, boxes on top) -- **that is DELAY_MS 0 and already shipped**:
+gear -> Blur delay -> 0, no build needed.
 
 ## HANDOFF 2026-09-03 16:30 -- HIS PHONE'S FIRST NUMBERS: NATIVE RUNS ON CPU, AND DIES HALF THE TIME
 
