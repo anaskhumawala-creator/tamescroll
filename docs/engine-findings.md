@@ -4403,3 +4403,194 @@ native sizes into a 640x360 frame to price it; it had not returned when
 this was written. It measures RECALL only -- one face is present, so it
 is structurally blind to the false-positive side, which is his "random
 blur marks" complaint and is a different bench on different data.
+
+
+## 34 -- FACE ALIGNMENT LOSES, BOTH THE FREE VERSION AND THE EXPENSIVE ONE, AND R26 WAS RIGHT ALL ALONG
+
+Every serious face model in the literature aligns before it classifies:
+rotate the face so the eyes sit on a fixed pair of pixels, then crop. It
+is the single most standard preprocessing step in the field, our
+detector already hands us the eye landmarks for free (`face-decode.mjs`
+writes `marks`), and we do not do it. That gap looked like the largest
+unclaimed win in the pipeline.
+
+It is not a win. It is a large, decisive loss.
+
+`bench/crop-align-ab.mjs` ran three crop geometries over the SAME 2,385
+labelled reads, all through the shipped `classifyFaceGenders`, one row
+per read carrying all three answers -- so the comparison is paired and no
+arm can win by being asked easier questions. Scored by
+`bench/crop-align-score.mjs`.
+
+| arm | wrong | wrong on women | wrong on men | exposure | false cover |
+|---|---|---|---|---|---|
+| **shipped** `squareBox` at FACE_ENLARGE 1.4 | **6.7%** | **15.8%** | 0.4% | **1.0%** | **12.9%** |
+| `eyeRect` -- eye-anchored rectangle, FREE | 12.0% | 29.1% | 0.1% | 2.9% | 16.0% |
+| `alignTransform` -- full similarity warp, COSTS | 11.8% | 28.8% | 0.0% | 2.9% | 14.9% |
+
+Nearly DOUBLE the error on women, both arms. Paired, counting only the
+reads where the arms disagree: eye-rect fixed 44 faces and broke 171
+(z 8.59); the full warp fixed 42 and broke 164 (z 8.43). It loses on 8 of
+the 10 corpus videos, and on one (`8R1hy3uHds0`) it goes from 28.8% wrong
+to 86.3%.
+
+**WHY, AND IT IS THE SAME REASON R26 PINNED 1.4 IN THE FIRST PLACE.** An
+aligned crop is a TIGHT crop: it puts the eyes on fixed pixels, which
+fixes the scale to the interocular distance and cuts away hair, jaw edge
+and ear. The shipped `squareBox` is deliberately 1.4x the detector box
+and square, so faceres sees forehead, hairline and jaw. R26 swept crop
+scale from 0.55x to 1.9x and kept 1.4; this is that same sweep arriving
+from a different direction and landing on the same answer. Alignment
+buys geometric consistency and pays for it in context, and on this model
+context is worth more.
+
+**THE COST ARM WAS SPLIT ON PURPOSE AND THAT SPLIT IS NOW MOOT.**
+`eyeRect` is free -- it is just a different rectangle handed to the same
+batched `cropAndResize`. `alignTransform` is expensive, because
+`tf.image.transform` takes ONE transform per image, so N faces means N
+ops and N fence waits instead of one batched crop. The split existed so a
+win could be bought at the cheaper price. Both arms lose by the same
+margin, so the price never came up.
+
+**`app/gaze/src/face-align.mjs` IS DEAD CODE AND SHOULD STAY THAT WAY.**
+Nothing calls it. It exports `ALIGN_EYE_Y`, `ALIGN_EYE_DX`,
+`setAlignTarget`, `alignTransform`, `alignError` and `eyeRect`, all
+written for this round. The eye-target geometry was going to be swept
+next if the A/B was close; it is not close, so the sweep is cancelled
+rather than deferred.
+
+**AND IT RETIRES A STALE COMMENT.** `detector.js` says BlazeFace's 6
+facial landmarks are "computed and thrown away". They have not been
+thrown away since `face-decode.mjs` started writing `marks`; they feed
+`markShape()` and finding 30's yaw proxy. What this round establishes is
+that having them does not help the CROP.
+
+## 35 -- HIS RANDOM BLUR MARKS, MEASURED AT LAST: THE NULL GUARD KILLS 78% AND ONE IN FIVE STILL GETS THROUGH
+
+His most repeated complaint has never been measured. Every accuracy
+number this repo owns answers "given a person is there, did we get their
+gender right"; the marks he sees are the other question -- how often does
+a patch land where NOBODY IS. That is precision, and the corpus can
+answer it: 32 clusters are labelled `notperson` (135 reads) and 4 are
+`bodypart` (59 reads), all crops BlazeFace reported a face in and faceres
+then read a gender on. `bench/false-patch.mjs`, no inference, joins the
+cluster labels to the full read objects by crop path.
+
+In his man mode a patch is minted whenever the read is NOT cleared, and
+the shipped clear rule is same-gender AND adult AND `score >= 0.45`.
+
+| label | n | mints a mark | 95% | image rules | after the null guard |
+|---|---|---|---|---|---|
+| notperson | 135 | 95.6% | 91-98% | 91.9% | **18.5%** |
+| bodypart | 59 | 100.0% | 94-100% | 98.3% | **20.3%** |
+| man | 1410 | 13.2% | 12-15% | 8.9% | 10.6% |
+| woman | 975 | 99.1% | 98-100% | 99.0% | 96.4% |
+
+**NON-PEOPLE, 194 reads: 96.9% would mint a mark, the null guard refuses
+77.8%, and 19.1% STILL GET THROUGH.** So the guard shipped in 1079/1042
+is doing most of the work -- it is not a dead check -- and one mark in
+five survives it.
+
+**WHAT ESCAPES, AND WHY THE GUARD CANNOT SEE IT.** The escapees read
+`nm` p50 **5.11** against a floor of **5** -- they clear it by a
+hundredth. Raw p50 0.63, score p50 0.25, age p50 34.2, px p50 39.8.
+**89.2% are a WEAK MALE read** and only 10.8% read female. So the
+mechanism is not the model calling a signpost a woman; it is the model
+shrugging, and a shrug fails closed into a patch. `isNullRead` fires on
+the model returning its own PRIOR, and these sit just outside that
+window.
+
+**THE LEVER, AND ITS PRICE.** `NULL_MINT_NM_FLOOR`, swept on the same
+data:
+
+| floor | junk marks | man false cover | woman exposure |
+|---|---|---|---|
+| **5 (ships)** | **19.1%** | **10.6%** | **3.6%** |
+| 5.5 (OTA ceiling) | -- | -- | -- |
+| 6 | 11.9% | 9.7% | 4.7% |
+| 7 | 11.3% | 8.4% | 5.1% |
+| 8 | 11.3% | 7.3% | 5.3% |
+| 10 | 11.3% | 6.5% | 6.5% |
+
+5 -> 6 nearly halves the junk marks AND improves men slightly, for +1.1
+points of woman exposure. That +1.1 is not a surprise: loop 38's ground
+-truth arm measured floor 6 refusing 5 of 125 real faces, four of them
+one woman at 32px and 48px.
+
+**BUT IT IS NOT AN OTA PUSH.** `tuning.mjs` clamps
+`NULL_MINT_NM_FLOOR` to **[0, 5.5]**. 6 needs a build. 5.5 is reachable
+today and is untested -- the sweep above jumps from 5 to 6.
+
+**IT IS AN EXPOSURE TRADE, SO IT IS HIS.**
+
+**THE HONEST BOUND, and it is a big one.** These are crops BlazeFace
+ALREADY reported a face in. A mark that appears on a stretch of text the
+detector invented from nothing is not in this corpus at all. So 19.1% is
+a LOWER bound on the mark rate, and the detector's own false positives
+are a separate, unmeasured question.
+
+## 36 -- GREY BEATS COLOUR; FORCING EVERY FACE TO THE SAME SKIN TONE MAKES IT WORSE
+
+Finding 31 measured the gender head failing 52.6% of Indian women and
+51.5% of Black women against 31.6% of White women, and diagnosed a SHIFT
+rather than a spread. Per-race calibration is refused on principle here
+(inferring a sensitive characteristic in order to treat a person
+differently is biometric categorisation -- the AI Hub Model License 2.c
+clause that killed the QNN delegate in loop 47). The question this round
+asks instead is whether a UNIFORM preprocessing step, applied identically
+to every face with no branch and no group label read anywhere, removes
+the shift.
+
+`bench/colour-arms.mjs` and `bench/skin-norm.mjs`, 386 FairFace faces
+scored, four arms per face, paired, over the two worst cells (Indian,
+Black) and two controls (White, East Asian), women and men both -- men
+included as the control that catches an arm which merely drags every read
+toward "female".
+
+| arm | all wrong | women | men | worst-minus-best female cell |
+|---|---|---|---|---|
+| `rgb` (ships) | 21.5% | **40.6%** | 1.6% | **31.1 pts** |
+| **`grey`** luma to 3 channels | **18.9%** | **35.0%** | 2.1% | **21.1 pts** |
+| `eq` per-crop histogram equalisation | 20.7% | 38.1% | 2.6% | 29.3 pts |
+| `norm` per-crop luma mean/sd | 19.4% | 35.5% | 2.6% | 27.3 pts |
+| `tone` per-channel MEAN to a fixed target | 23.3% | 42.6% | 3.2% | 31.0 pts |
+| `tonesd` mean AND sd to fixed targets | 24.6% | 45.2% | 3.2% | 35.0 pts |
+
+Paired, counting only the faces where an arm disagrees with `rgb`:
+
+| arm | fixed | broke | net | z |
+|---|---|---|---|---|
+| grey | 17 | 7 | **+10** | 1.84 |
+| norm | 17 | 9 | +8 | 1.37 |
+| eq | 18 | 15 | +3 | 0.35 |
+| tone | 5 | 12 | -7 | 1.46 |
+| **tonesd** | 4 | 16 | **-12** | **2.46** |
+
+**GREY WINS AND SKIN-TONE EQUALISATION LOSES, WHICH TOGETHER KILL THE
+OBVIOUS EXPLANATION.** Black women's raw median moves 0.57 -> 0.47 under
+grey, crossing the decision fence, and their wrong rate falls 54% -> 44%.
+But forcing every face onto one neutral tone -- the direct test of "the
+model reads dark skin as male" -- makes Indian women WORSE (48% -> 56%)
+and Black women worse (54% -> 60%), and `tonesd` is the only arm whose
+loss is significant on its own (z 2.46). If a tone offset were the
+mechanism, flattening tone would have fixed it. It did not; it hurt.
+
+So grey is not working by removing skin tone. UNEXPLAINED, and stated as
+a hypothesis rather than a result: stripping the channel may force the
+model onto shape and structure rather than whatever colour cue it was
+leaning on. Not measured.
+
+**GREY IS NOT YET SHIPPABLE AND THE REASON IS THE SAMPLE.** z 1.84 is
+p ~ 0.07 -- leaning, not proven -- on 386 faces, over four cells CHOSEN
+because they were already known to be broken. A full 1,400-face run over
+all seven groups is the confirmation, and it is running. If the net holds
+at ~4 points of women with 3x the faces it is real; if it shrinks to
+nothing it was noise, and this repo has already shipped one flat sweep as
+a finding (loop 40).
+
+**AND THE DIRECTION HAS A REAL WAY TO FAIL:** faceres was trained on
+colour, so a grayscale face is off-distribution for it. The gender model
+this repo used BEFORE faceres (Oarriaga mini-Xception) was 64x64
+grayscale -- but it was dropped for being WIRED WRONG (a single saturated
+output, every real face reading ~1.0), not for being grey. Those are
+different failures and the old model is not evidence against this arm.
