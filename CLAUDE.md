@@ -70,6 +70,143 @@ Users install this one app and nothing else.
 
 ## Session state (update every session)
 
+**Last updated:** 2026-09-03 15:00 (**1100 PUBLISHED, sha 1b527007** --
+bundle 7772946, manifest to app-v0.1.100, served APK re-downloaded and
+hashed, isDraft false. 1099 (sha 8ac97230) went out ~2h earlier at his
+"cant you just release to test" with two critic rows OPEN; 1100 closes
+them, so the manifest points past it. The Redmi runs 1100.)
+
+## HANDOFF 2026-09-03 -- 1099/1100: MOVENET SPLIT, SHADER CACHE, THE TUNING PANEL
+
+**WHAT SHIPPED (three Kotlin/JS levers from his "implement on each of
+these", plus his "give me controls in the app" + "auto test mode"):**
+
+1. **MoveNet is a GPU-only heads graph + a Kotlin decode**
+   (`movenet-heads.tflite`, 101 ops, no TopK/GatherNd/ArgMax;
+   `MoveNetHeadsDecoder.kt` = the TF CenterNet decode tail, Apache).
+   Bit-exact vs the full model on coordinates/boxes, 1 ulp on scores,
+   159 corpus frames (`spikes/native/HEADS-REPORT.md`) and a JVM parity
+   test over 12 dumped frames (`MoveNetHeadsDecoderParityTest`,
+   fixture from `spikes/native/dump_heads_fixture.py`, red-proved).
+   **Redmi BenchActivity: GPU p50 160ms -> 80ms per pass**
+   (`spikes/native/bench-heads-redmi-1099.txt`); in the app the verdict
+   "Last check" reads ~301-311ms vs 355 on 1098. The page still gets
+   [1,6,56]; `native-client.mjs` untouched. Heads are bound by NAME
+   (`PartitionedCall:<slot>` -- output-detail order is NOT signature
+   order, index 0 is box_scale); any name/shape mismatch fails the load
+   and the worker takes over. f16 heads REFUSED (weights diverge 0.98).
+   The old `movenet-multipose.tflite` is out of assets (APK ~94MB;
+   1099 still carried both, 113MB). Fresh clone: `convert.py` (no
+   MODELS_ONLY) regenerates it, see `spikes/native/REPORT.md`.
+2. **GPU delegate shader cache** (`setSerializationParams`,
+   `codeCacheDir/tflite-gpu`, token = asset + versionCode + byte size):
+   model init cold 2957/2414/4085ms -> warm 1304/848/1155.
+3. **The tuning panel**: a gear (`.ts-gaze-gear`, 36px) beside the blur
+   pill on `#player-container-id`, in the miniplayer's OUR_CONTROLS,
+   hidden while mini. Panel `.ts-gaze-tune`: live readouts (drops, Hz,
+   last check, engine, NPU, codec, presenter), every SPEC dial in plain
+   language grouped Blur / Speed / Advanced, -/+ steppers, "Reset to
+   shipped", "Reload", and **"Test modes on this video (6 min)"**: five
+   arms (control, BLUR_IN_FRAME, PRESENTER_GL, NATIVE_CPU_MASK,
+   RENDER_EVERY), one reload per arm, 60s each, rows into the
+   Diagnostics report's `tune.autotest`. NO_AV1 is `otaOnly` (O4: the
+   codec is decided at ~380/530ms, before the bundle boots -- an
+   in-document arm would print a fake row).
+   **Layers, fixed order, one whitelist+clamp:** OTA push -> his
+   overrides -> the test arm. Overrides live behind **`TsTune`, a
+   Kotlin bridge gated on the SAME per-document token as TsPerf**
+   (init-entry claims `__TS_TAKE_PERF_TOKEN` once and hands it to both
+   `perf.mjs` and `tuning-override.mjs`); localStorage on m.youtube is
+   the PAGE's, so a page script could have weakened protection dials
+   (phase-o O1, EXPOSURE). No bridge/no token (desktop) = overrides
+   empty. The arm rides sessionStorage as an INDEX into a fixed
+   perf-only ARMS table, never a value; stale on wall clock; reclaimed
+   at boot before any player; cancelled on loadstart/pagehide/pill
+   teardown; watch player only, never a feed preview (O2).
+   `PROTECTION_DIALS` can never be an arm; a test pins it.
+
+**PHASE-O CRITIC:** 13 rows (2 EXPOSURE, 3 WRONG-NUMBER, 5 DEFECT, 1
+DEAD-CHECK, 2 NIT), all CONFIRMED and fixed at source in d59be2d
+(`docs/critic/phase-o.md`, ledger O1-O13). critic-gate 166 rows / 0
+blocking. gaze 846/846, cargo 63/63, JVM 1/1, Kotlin compile clean.
+
+**REDMI READS ON 1100 (landscape, innerWidth 823 -- re-lock rotation
+before a rect-sensitive probe):** bridge present, `__TS_TAKE_PERF_TOKEN`
+consumed by boot (null after), `TsTune.get('x')` = "" (wrong token
+refused); gear hit-testable at its centre, panel opens/closes on the
+gear (`probe_tune_overlay.py`, `tune-overlay-1099.json`); an override
+(+ on Blur delay) survives a reload through the bridge and "Reset to
+shipped" clears it; control drops 11.28% on 1099a
+(`drops-v1099a-control.json`, native gpu x3). **Auto test end to end
+(`probe_autotest.py`, `autotest-v1100.json`):** five arms, one reload each, run ended on its own at 355s (autotest-v1100e.json): control 11.85% / 50.0Hz, blurInFrame 12.23 / 51.8, presenterGl 12.13 / 49.7 (gl 1), cpuMask 12.11 / 50.4 (face cpu, gender+person gpu), renderEvery 13.36 / 24.8Hz. Same noise band as the 1098 smoke: no arm separates from control on the Redmi. codec 'none' on the last two rows is the N13 race (probe lost to the first addSourceBuffer), not a codec change. HIS 720p read of the HaramBlur mobile app: 38 dropped of 5000 (0.8%) -- their smoothness is having NO delay line (browser plays the video untouched, blur divs on top, blur lands after a check); ours is 12-15% with ~4 points from the ring and ~8 from per-frame draw + gate work. He can try their trade himself: gear -> Blur delay -> 0. He also offered a side-by-side on the Redmi; run it, score it, never read it (AGPL).
+
+**STARTUP LAG, HIS REPORT, SPLIT ON THE REDMI (`probe_startup_drops.py`,
+`startup-*.json`, dropped frames in the first 5s of a fresh-launch watch
+page then steady):** gaze off **13% then 0**; smart with `DELAY_MS 0`
+**21% then ~14%**; smart as shipped **35% then 13-24%**; shader cache
+cold vs warm **35% vs 38%** (native up 5s sooner, first-5s unchanged).
+So the start stutter is ~1/3 YouTube itself, ~1/3 the pipeline warming
+(worker WebGL compile + first passes), ~1/3 the delay ring filling; the
+shader cache does not touch it. **His "why does it lag with nothing to
+blur" answered: the delay ring copies every frame and the models look
+every ~0.8s whether or not anyone is there -- cost is per frame, not
+per patch.** NOT BUILT, priced next: attach the delay presenter only
+after the FIRST VERDICT (`start()` calls `delayAttach()` at
+init-entry ~4948 today; the video is whole-blurred until that verdict,
+so nothing is exposed; cost is a ~DELAY_MS ring refill at that moment).
+
+**RESEARCH RUN (his "distill everything into one model"):
+`docs/research/distill-2026-09-03/README.md`** -- a student is a
+LATENCY project (a perfect gender model fixes 13.7%/24.1% of scored
+error); 65% of the latency prize needed no training (row 1 above, now
+shipped); the student = MobileNetV3 pair, ~5h/run on the 3060 Ti or
+$1.2-2/run rented, 20.5 engineering days on top; licence traps listed
+there (NudeNet AGPL on GitHub, Sapiens biometric clause, InsightFace
+weights, ViTPose init). Rulings that are HIS: coast dial (2 -> 1.33
+OTA, still unruled), bulk-downloading training video (ToS), child gate
+by policy, publishing weights (EU AI Act), full-frame labelling on his
+monitor vs emulator.
+
+**DESIGN WRITTEN, NOT BUILT:** `docs/superpowers/plans/2026-09-03-native-single-frame-crops.md`
+-- one frame upload per verdict, crops cut in Kotlin (kinds 4/5/6),
+srcRect echo as the parity check, `NATIVE_SINGLE_FRAME` ships 0,
+`NATIVE_FRAME_MAX_W` 1280 is an exposure dial. Gain is READBACKS not
+bytes (5 x ~20ms p50 -> 1); predicted verdict 355 -> 275-300 on top of
+the MoveNet split.
+
+**NEXT:** (1) read HIS phone's auto-test rows out of a shared report
+(the first numbers ever from his hardware); (2) delay-attach-after-
+first-verdict arm on the startup probe; (3) single-frame crops (T1
+first: `faceRegionInVideo` exists in three copies); (4) coast dial if
+he rules.
+
+**AUTO-TEST DEFECTS FOUND ON THE DEVICE, FIXED BEFORE 1100:** (1) the
+run sat at arm 0 forever -- `attachRun`'s own seek fires `loadstart`
+on the SAME video and the O2 cancel-on-loadstart hook cancelled the arm
+it had just started; `cancelRunOnLoad` now cancels only on a video-id
+change (red-proved). (2) the "faces on CPU" row read gpu and the NEXT
+row read cpu: the ready message carries the engine's backends from
+BEFORE that page's CONFIG and nothing re-posted them after the rebuild;
+`handleConfig` calls `postBackends()` now.
+
+**GOTCHAS THIS LOOP:** a pre-compaction edit to two source files was
+LOST (only the tests reached the commit, 5bfa289) and the build shipped
+the old code -- after a compaction, `git diff` the files the summary
+calls "edited" before trusting them; python text-mode reads turn CRLF
+into LF so `'
+
+' in s` is always False -- read files as BYTES when
+preserving line endings (init-entry.js and auto-test.mjs went LF for one
+commit and the throttle anchor test, which matches a literal `
+
+`,
+went red); build script constant checks must list only
+strings that live in the EMITTED BUNDLE (a Kotlin-side string failed
+the 1100 build once); the Redmi lies landscape again; agents die on
+network drops -- resume them with SendMessage, the work on disk
+survives; `probe_drops_ab` writes no diag file for a control arm, read
+`__TS_DIAG_NOW()` live instead.
+
 **Last updated:** 2026-09-03 03:40 (**1098 PUBLISHED, sha e69297ff** --
 bundle 85d1152, manifest to app-v0.1.98, served APK re-downloaded and
 hashed against the raw manifest, isDraft false. The Redmi runs it; his
