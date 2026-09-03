@@ -3942,3 +3942,95 @@ NOT CLOSED, and unchanged by this: the 92-94% face recall in his own
 38-62px band (finding 24), which is a recall number on faces coco-ssd
 also declines to call people; and the whole-frame path on the four
 non-YouTube platforms (s16), which this corpus cannot see.
+
+## 28 -- THE THUMBNAIL CLEAR BAR HAD NEVER BEEN SWEPT, AND ABOVE 0.35 IT BUYS ALMOST NOTHING
+
+`GENDER_IMAGE_MIN_SCORE` 0.4 decides every thumbnail on the feed:
+`flaggedFaceIndices` clears a face only when it is same-gender AND adult
+AND `score >= 0.4`. The VIDEO pair (`GENDER_CLEAR_SCORE` 0.45 /
+`_FEMALE` 0.35) has been swept four times -- `clear-bar-roc`, `bar-ab`,
+`bar-risk`, `critic-lowbar`. The image bar had been swept **zero**
+times. It was set on 2026-08-28 by looking at a distribution after the
+crop-squash fix, not at a curve. `bench/image-bar-roc.mjs` sweeps it,
+both directions, on two independent ground truths.
+
+**THE STRUCTURAL FACT FIRST, because it changes what the bar even is.**
+An opposite-gender face is flagged by the `!same` test, not by the
+score test, so the bar CANNOT protect against a correctly-read
+opposite-gender face. Its entire job is: *when the model says
+same-gender, how sure must it be.* Every exposure in the tables below is
+a MISREAD.
+
+### Arm 1 -- 25 real faces re-read at nine sizes (faceres-at-native truth)
+
+Exposure reaches **0 at bar 0.35 and stays 0 to 0.90**, while false
+cover climbs 7.7% -> 11.5% -> 19.2% -> 82.7%. Phantom is flat
+(39 -> 44 of 509). So on this arm everything above 0.35 is pure cost.
+
+**AND THE ARM IS TOO THIN TO MOVE A DIAL ON.** The whole result rests
+on **4 misread instances belonging to 2 subjects**, all female->male at
+32-48px. One of the four (childP 0.316) is caught by the child gate
+regardless of the bar, and two more score 0.159 and 0.029. So a single
+instance -- `X0Qyuw5ietg` at 32px, **score 0.321** -- sets the floor,
+and 0.35 clears it by **0.029**. That is calibrating against one
+subject's margin, which is the trap `PFF_FRAME_KP_FLOOR` 0.12 was
+refused for.
+
+### Arm 2 -- 2,385 HUMAN-labelled corpus reads (man 1,410 / woman 975)
+
+Video crops rather than thumbnails, so it cannot answer "how does a feed
+thumbnail behave". It answers the only question the bar decides, which
+is identical on both paths, with two orders of magnitude more data and
+strictly better truth.
+
+**man mode** (his setting):
+
+| bar | false cover | exposure | phantom |
+|---|---|---|---|
+| 0.25 | 34 (2.4%) | 48 (4.9%) | 12 (8.9%) |
+| 0.30 | 48 (3.4%) | 43 (4.4%) | 17 (12.6%) |
+| **0.35** | **65 (4.6%)** | **38 (3.9%)** | **20 (14.8%)** |
+| **0.40 SHIPPED** | **94 (6.7%)** | **36 (3.7%)** | **24 (17.8%)** |
+| 0.45 | 149 (10.6%) | 35 (3.6%) | 25 (18.5%) |
+| 0.60 | 416 (29.5%) | 30 (3.1%) | 30 (22.2%) |
+| 0.90 | 1105 (78.4%) | 26 (2.7%) | 31 (23.0%) |
+
+**0.40 -> 0.35 buys 29 fewer false covers and 4 fewer phantoms for 2
+more exposures** -- a 16:1 trade in the direction of his oldest
+complaint ("it blurs males"). 0.40 -> 0.30 is -46 false cover / -7
+phantom for +7 exposure. Above 0.35 exposure is nearly flat: from 0.35
+to 0.90 it falls by **12 reads** while false cover rises by **1,040**.
+
+**woman mode, and here the bar is free money:**
+
+| bar | false cover | exposure | phantom |
+|---|---|---|---|
+| 0.20 | 373 (38.3%) | **37** | 31 |
+| 0.40 SHIPPED | 532 (54.6%) | **37** | 31 |
+| 0.55 | 629 (64.5%) | **37** | 31 |
+
+**Exposure is PINNED at 37 from 0.20 to 0.55 while false cover climbs
+16 points.** In woman mode the bar buys literally nothing above 0.20
+and costs 159 covered women. That is a pure cost with no benefit and it
+does not need an exposure ruling, because there is no exposure to
+trade.
+
+### What this says
+
+- **0.40 is above the knee in both modes.** The defensible move is
+  **0.35**, which both arms support and which arm 2 powers properly.
+- It is still an EXPOSURE trade in man mode (+2 reads), so **it is his
+  ruling**, not mine. In woman mode it is not a trade at all.
+- 54.6% of woman reads are covered in woman mode at the shipped bar --
+  that is M-4 (7 of 22 woman clusters below 50% accurate) surfacing on
+  a second instrument, and no bar setting fixes it.
+
+**HONEST LIMITS.** Arm 1's truth is faceres at native resolution, not a
+human, so it can only see a face the model gets wrong AS IT SHRINKS --
+never one it reads wrong at every size. Arm 2's population is video
+crops at 640x360, not feed thumbnails. Arm 1's non-face column is crops
+where BlazeFace found nothing, FORCE read; in production gender only
+runs on boxes BlazeFace produced, so it is a refusal rate on face-free
+crops and not a prediction of how many patches leave his feed.
+`FACE_MIN_CONFIDENCE` 0.35 is upstream of both arms (the crops are
+already detections) and remains unswept.
