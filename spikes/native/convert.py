@@ -200,7 +200,7 @@ def patch_fused_ops(model_json):
         log(f"  patched TArgs onto {patched} fused node(s) (op-def version skew)")
 
 
-def stage_model_json(name):
+def stage_model_json(name, source=None):
     """tfjs_graph_converter reads weight bytes from
     weightsManifest[].paths, resolved relative to the .json's own
     directory. movenet-multipose.json's manifest says `weights.bin`
@@ -210,18 +210,23 @@ def stage_model_json(name):
     .bin by its own MODEL_ASSETS mapping, never the manifest's path
     string). Stage a copy where the manifest's path and the file on
     disk agree, for every model, rather than special-casing one."""
-    src_json = os.path.join(MODELS_DIR, f"{name}.json")
-    src_bin = os.path.join(MODELS_DIR, f"{name}.bin")
+    # `source` lets a config re-use another model's weights and topology
+    # under a different export name (movenet-heads = movenet-multipose cut
+    # at the six conv heads). Staging is keyed on the SOURCE so the two
+    # configs share one staged copy.
+    source = source or name
+    src_json = os.path.join(MODELS_DIR, f"{source}.json")
+    src_bin = os.path.join(MODELS_DIR, f"{source}.bin")
     with open(src_json, encoding="utf-8") as f:
         model_json = json.load(f)
     unfuse_matmul(model_json)
     patch_fused_ops(model_json)
-    stage_dir = os.path.join(STAGE_DIR, name)
+    stage_dir = os.path.join(STAGE_DIR, source)
     os.makedirs(stage_dir, exist_ok=True)
     for g in model_json["weightsManifest"]:
         for p in g["paths"]:
             shutil.copyfile(src_bin, os.path.join(stage_dir, p))
-    staged_json = os.path.join(stage_dir, f"{name}.json")
+    staged_json = os.path.join(stage_dir, f"{source}.json")
     with open(staged_json, "w", encoding="utf-8") as f:
         json.dump(model_json, f)
     return staged_json
@@ -238,6 +243,40 @@ MODELS = {
         "input_shape": [1, 224, 224, 3],
         "input_dtype": tf.float32,
         "outputs": ["gender_pred/Sigmoid:0", "age_pred/Softmax:0", "global_pooling/Mean:0"],
+    },
+    # THE SAME GRAPH, CUT AT THE SIX CONV HEADS. GPU-REPORT.md: the full
+    # model is 112 of 237 nodes on the GPU delegate in 2 partitions,
+    # because the CenterNet decode tail (TopKV2 / GatherNd / Range /
+    # Select / ArgMax) has no GPU kernels and runs on the CPU BETWEEN two
+    # delegate boundaries -- ~120ms of the 160ms pass. Exporting only the
+    # heads leaves a graph that is conv / depthwise / add / resize /
+    # sigmoid, which the delegate takes whole; movenet_decode.py
+    # re-implements the tail and reproduces the full model's [1,6,56].
+    #
+    # `Sigmoid` / `Sigmoid_1` are the center and keypoint heatmaps
+    # (already through the activation, so there is no cleaner boundary
+    # below them); the other four are the raw BiasAdd of each head's last
+    # 1x1 conv, which is exactly what the tail consumes -- the tail's
+    # first touch of each is a Squeeze/Reshape/GatherNd, never arithmetic
+    # the GPU could have absorbed.
+    "movenet-heads": {
+        "source": "movenet-multipose",
+        "input_name": "input",
+        "input_shape": [1, 256, 256, 3],
+        "input_dtype": tf.int32,
+        # NAME NOTE: CompatMode.TFLITE's split_all_fused_ops replaces each
+        # `_FusedConv2D` named X with `X/Conv2D` + `X/BiasAdd`, so the head
+        # tensor in the LOADED graph is `.../BiasAdd/BiasAdd:0`, not the
+        # `.../BiasAdd:0` the tfjs json shows. Sigmoid/Sigmoid_1 are not
+        # fused ops and keep their names.
+        "outputs": [
+            "StatefulPartitionedCall/Sigmoid:0",                          # center heatmap   [1,64,64,1]
+            "StatefulPartitionedCall/Sigmoid_1:0",                        # keypoint heatmap [1,64,64,17]
+            "StatefulPartitionedCall/kpt_regress_0/conv2d_8/BiasAdd/BiasAdd:0",   # kp regression    [1,64,64,34]
+            "StatefulPartitionedCall/kpt_offset_0/conv2d_9/BiasAdd/BiasAdd:0",    # kp offset        [1,64,64,34]
+            "StatefulPartitionedCall/box_scale_0/conv2d_5/BiasAdd/BiasAdd:0",     # box hw           [1,64,64,2]
+            "StatefulPartitionedCall/box_offset_0/conv2d_6/BiasAdd/BiasAdd:0",    # box offset       [1,64,64,2]
+        ],
     },
     "movenet-multipose": {
         "input_name": "input",
@@ -256,7 +295,7 @@ def log(msg):
 
 
 def load_and_freeze(name, cfg):
-    staged_json = stage_model_json(name)
+    staged_json = stage_model_json(name, cfg.get("source"))
     # CompatMode.TFLITE: tfjs-graph-converter's own rewrite splits EVERY
     # fused op (_FusedConv2D / _FusedMatMul / FusedDepthwiseConv2dNative)
     # into plain builtins before the graph exists. Without it all three

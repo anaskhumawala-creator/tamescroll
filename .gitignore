@@ -43,3 +43,5 @@ spikes/native/savedmodel/
 spikes/native/stage/
 spikes/gauntlet/__pycache__/
 spikes/release/
+spikes/native/frames.npy
+spikes/native/__pycache__/
