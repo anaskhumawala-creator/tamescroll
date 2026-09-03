@@ -7,13 +7,17 @@ import json, os, sys, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from emu_cdp import page, Tab  # noqa: E402
 PORT = int(sys.argv[1]); LABEL = sys.argv[2]; VIDEO = "NWoT1ZVd1Lo"
+MODE = os.environ.get("TS_MODE") or "smart"; PLANT = os.environ.get("TS_PLANT_FILE")
+# TS_MODE=off|blur|smart; TS_PLANT_FILE pins __TS_GAZE_TUNING__ on every new document (one per process).
 t = Tab(page(port=PORT)); t.cmd("Runtime.enable")
 if "tauri.localhost" not in (t.eval("location.href") or ""):
     t.cmd("Page.navigate", url="http://tauri.localhost/"); time.sleep(6); t = Tab(page(port=PORT)); t.cmd("Runtime.enable")
 t.eval("""(async function(){var inv=(window.__TAURI__&&window.__TAURI__.core&&window.__TAURI__.core.invoke)||(window.__TAURI__&&window.__TAURI__.invoke);
-  await inv('open_platform',{id:'youtube',mode:'smart',strength:24,gender:'man',shown:['watch_recs']}); return 1;})()""")
+  await inv('open_platform',{id:'youtube',mode:'%s',strength:24,gender:'man',shown:['watch_recs']}); return 1;})()""" % MODE)
 time.sleep(7)
 t = Tab(page(port=PORT)); t.cmd("Runtime.enable")
+if PLANT:
+    t.cmd("Page.enable"); t.cmd("Page.addScriptToEvaluateOnNewDocument", source=open(PLANT, encoding="utf-8").read())
 t0 = time.time(); t.cmd("Page.navigate", url="https://m.youtube.com/watch?v=" + VIDEO)
 Q = r"""(function(){var v=document.querySelector('#movie_player video'); if(!v) return null; var q=v.getVideoPlaybackQuality();
  var d=null; try{d=window.__TS_DIAG_NOW&&window.__TS_DIAG_NOW();}catch(e){} if(typeof d==='string'){try{d=JSON.parse(d);}catch(e){}}
@@ -33,6 +37,6 @@ while time.time() - t0 < 95:
             prev = {"now": now, "dropped": r["dropped"], "total": r["total"]}
         elif not prev: prev = {"now": now, "dropped": r["dropped"], "total": r["total"]}
     if playing_since is not None and now - playing_since > 60: break
-out = {"label": LABEL, "playingAt": playing_since, "rows": rows}
+out = {"label": LABEL, "mode": MODE, "plant": PLANT, "playingAt": playing_since, "rows": rows}
 print("STARTUP", json.dumps(out))
 json.dump(out, open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "startup-%s.json" % LABEL), "w"))
