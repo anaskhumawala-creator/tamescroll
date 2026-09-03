@@ -537,3 +537,38 @@ m.youtube.com##ytm-feed-nudge-renderer
 
 
 ! ota-roundtrip-check 2026-08-23 (harmless comment, proves live update path)
+
+! ============================================================
+! THUMBNAIL PRESS FLASH (mobile)
+! ============================================================
+! Owner, twice, 2026-09-03: "when scrolling through homepage there's
+! still that minute highlight of any video ... I do not want any
+! highlight."
+!
+! YouTube's own touch-feedback component. On touchstart it adds
+! `ytSpecTouchFeedbackShapeDown` and a white fill washes over the item;
+! it is removed once the gesture is recognised as a scroll, so on a
+! clean page it is a brief flash and on a busy one it lingers. Every
+! feed item carries exactly two of these: ONE on the whole 411x314
+! lockup (this rule -- `ThumbnailSizeLarge`, pointer-events NONE, so it
+! is decoration and nothing is made untappable by removing it) and one
+! on the 40x40 overflow BUTTON (pointer-events auto, NOT matched -- a
+! button that shows nothing when pressed reads as a button that did not
+! work, which is the defect chrome_css's pill :active rule exists to
+! avoid).
+!
+! Scoped by the size class rather than by an ancestor so it cannot reach
+! the button variant even if YouTube reparents the lockup.
+!
+! [live] m.youtube home, 3 feed items walked: each holds 2
+!   yt-touch-feedback-shape -- one on DIV.ytLockupViewModelHost at
+!   411x314 with class ...ThumbnailSizeLarge and pointer-events none,
+!   one on BUTTON.ytSpecButtonShapeNextHost at 40x40 with
+!   pointer-events auto and NO ThumbnailSize class (Redmi, 2026-09-03)
+! test: on m.youtube.com / ->
+!   document.querySelectorAll('yt-touch-feedback-shape[class*="ThumbnailSize"]').length > 0 &&
+!   Array.prototype.every.call(
+!     document.querySelectorAll('yt-touch-feedback-shape[class*="ThumbnailSize"]'),
+!     function (e) { return getComputedStyle(e).pointerEvents === 'none'; })
+!surface: press_flash Thumbnail press flash
+m.youtube.com##yt-touch-feedback-shape[class*="ThumbnailSize"]
