@@ -1,0 +1,54 @@
+{
+ "pre": {
+  "url": "https://m.youtube.com/",
+  "items": 2,
+  "w": 822,
+  "h": 364,
+  "rect": [
+   16,
+   110,
+   387,
+   314
+  ],
+  "bundle": "08ac9f5-dirty"
+ },
+ "run": {
+  "target": "IMG.ytCoreImageHost ytCoreImageFillParentHeight ytCoreImageFillP",
+  "item": "YTM-RICH-ITEM-RENDERER",
+  "moves": 18,
+  "prevented": 0,
+  "firstMoveT": 91,
+  "frames": 180,
+  "activeFrames": 0,
+  "activeSample": [],
+  "scrolled": 240,
+  "yFirst": 0,
+  "yLast": 240,
+  "muts": [
+   {
+    "t": 44,
+    "a": "class",
+    "n": "YT-TOUCH-FEEDBACK-SHAPE",
+    "v": "ytSpecTouchFeedbackShapeHost ytSpecTouchFeedbackShapeTouchResponse ytSpecTouchFe"
+   },
+   {
+    "t": 96,
+    "a": "class",
+    "n": "YT-TOUCH-FEEDBACK-SHAPE",
+    "v": "ytSpecTouchFeedbackShapeHost ytSpecTouchFeedbackShapeTouchResponse ytSpecTouchFe"
+   },
+   {
+    "t": 3362,
+    "a": "class",
+    "n": "SPAN",
+    "v": "yt-icon-shape ytSpecIconShapeHost"
+   },
+   {
+    "t": 3362,
+    "a": "class",
+    "n": "IMG",
+    "v": "ytCoreImageHost ytCoreImageFillParentHeight ytCoreImageFillParentWidth ytCoreIma"
+   }
+  ]
+ }
+}

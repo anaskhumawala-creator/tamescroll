@@ -5305,6 +5305,46 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
       } catch (e) {
         /* the panel is a tool, the player is the product */
       }
+      // THE PILL AND THE GEAR ARE WATCH-PAGE CONTROLS, AND THE PLAYER
+      // THEY LIVE ON OUTLIVES THE WATCH PAGE.
+      //
+      // On m.youtube #player-container-id is SHARED: the feed plays its
+      // autoplay previews into it, and leaving /watch by a single-page
+      // navigation collapses it to height 0 at the top of the feed
+      // rather than removing it. The <video> inside stays CONNECTED, so
+      // the teardown below -- which only fires on a disconnected or
+      // failed video -- never ran, and the pill and gear stayed on
+      // screen with no player behind them.
+      //
+      // MEASURED 2026-09-03 on the Redmi, m.youtube home, path "/":
+      // pill "Blur on" at (716,96) 99x36 and the gear at (675,96) 36x36
+      // while #player-container-id measures 823x0. A fixed badge at the
+      // top right of a feed that scrolls under it, so every video in
+      // turn wears it -- his report, "when I am just scrolling it gets
+      // highlighted and whatnot".
+      //
+      // Hidden rather than destroyed: the same player comes back on the
+      // next watch page, and rebuilding the panel would drop his
+      // overrides with it. The gear is found by class because
+      // installTuneUi owns the element.
+      //
+      // The gate is the miniplayer's, for the miniplayer's reason: a
+      // preview is transient, the switch is a watch-page control, and a
+      // preview is covered WHOLE anyway, so there is no per-face verdict
+      // on it for the pill to undo.
+      var chromeHidden = false;
+      var setChrome = function (hide) {
+        if (hide === chromeHidden) return;
+        chromeHidden = hide;
+        pill.style.display = hide ? 'none' : 'flex';
+        var gear = (tuneUi && tuneUi.gear) ||
+          (pillHost.querySelector ? pillHost.querySelector('.ts-gaze-gear') : null);
+        if (gear) gear.style.display = hide ? 'none' : '';
+        if (hide && tuneUi) {
+          try { tuneUi.close(); } catch (e) { /* already gone with the host */ }
+        }
+      };
+      setChrome(feedPreview());
       var pillWatch = setInterval(function () {
         if (!video.isConnected || failed) {
           clearInterval(pillWatch);
@@ -5317,8 +5357,10 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
             try { tuneUi.destroy(); } catch (e) { /* already gone with the host */ }
             tuneUi = null;
           }
+          return;
         }
-      }, 1000);
+        setChrome(feedPreview());
+      }, 250);
     }
 
     if (!video.paused) start();

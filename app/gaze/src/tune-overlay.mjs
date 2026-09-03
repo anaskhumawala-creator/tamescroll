@@ -825,6 +825,12 @@ export function installTuneUi(o) {
     open: open,
     close: close,
     destroy: destroy,
+    // The gear is OURS and the caller has to be able to hide it with
+    // the pill when the player leaves the watch page. Handing back the
+    // element beats a class query against a host the caller resolved
+    // separately -- that query read null on the device and the gear
+    // rode the feed while the pill correctly hid (2026-09-03).
+    gear: gear,
     isOpen: function () { return !!panel; },
     // Test seams: the presses, without synthesising a DOM event.
     _step: stepKey,
