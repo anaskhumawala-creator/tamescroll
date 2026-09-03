@@ -77,3 +77,11 @@ test('O1 (device, 1100): the door is claimed BEFORE applyTuningFromWindow, whose
   assert.ok(claimAt > 0 && applyAt > 0);
   assert.ok(claimAt < applyAt, 'the claim must precede the first SPEC setter');
 });
+
+test('device 1100: the loadstart hook cancels through cancelRunOnLoad, never the unconditional cancelRun', () => {
+  const at = SRC.indexOf("addEventListener('loadstart'");
+  assert.ok(at > 0);
+  const hook = SRC.slice(at, at + 1200);
+  assert.match(hook, /autoTest\.cancelRunOnLoad\(window\)/);
+  assert.doesNotMatch(hook, /autoTest\.cancelRun\(window\)/);
+});

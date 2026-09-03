@@ -335,3 +335,23 @@ test('O13: a full run puts his own dials back once the last arm finishes', () =>
   assert.deepEqual(at.applyPendingArm(w), {}, 'a finished run must move nothing at the next boot');
   at._resetForTest();
 });
+
+test('device 1100: a loadstart on the SAME video (our own seek at arm start) must not cancel the arm; a different video must', () => {
+  const w = fakeWin();
+  w.location = { pathname: '/watch', search: '?v=AAAAAAAAAAA', reload() {} };
+  fakeTimers(w);
+  at.writeRun(w, at.startRun(10, Date.now()));
+  const video = {
+    currentTime: 10, paused: false,
+    play() { return { catch() {} }; },
+    getVideoPlaybackQuality: () => ({ droppedVideoFrames: 0, totalVideoFrames: 0 }),
+  };
+  assert.ok(at.attachRun(w, { video: video }));
+  assert.equal(w._pendingCount(), 1);
+  assert.equal(at.cancelRunOnLoad(w), false, 'same video: the seek we made fired loadstart, nothing to cancel');
+  assert.equal(w._pendingCount(), 1, 'the settle timer must survive our own loadstart');
+  w.location.search = '?v=BBBBBBBBBBB';
+  assert.equal(at.cancelRunOnLoad(w), true, 'a different video under the run cancels it');
+  assert.equal(w._pendingCount(), 0);
+  assert.equal(at.videoIdOf({ search: '?x=1&v=abc_-9&t=3' }), 'abc_-9');
+});
