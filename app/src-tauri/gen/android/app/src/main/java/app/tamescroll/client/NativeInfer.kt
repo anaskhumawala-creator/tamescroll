@@ -77,6 +77,20 @@ class NativeInfer(private val ctx: Context) {
     // found NO face -- a close-up with no patch. The detector that
     // decides whether anyone is there stays fp32; it is the cheap model.
     private val MODEL_FP16 = setOf(2)
+
+    /** How much faster a trial delegate must be before it is worth
+     * swapping a working engine for. */
+    private const val TRIAL_WIN_RATIO = 0.9
+
+    /** The arbiter's whole decision, in the companion so it can be
+     * tested off a device: a trial wins only by AGREEING with the
+     * shipping model on every output head AND beating it by a clear
+     * margin. A tie, a hair's-breadth win, or a missing measurement is
+     * not worth swapping a working engine for -- which is the same bar
+     * `npu: ok` has meant since 1098. */
+    @JvmStatic
+    fun shouldSwap(agree: Boolean, trialMs: Double, shadowMs: Double): Boolean =
+      agree && trialMs > 0 && shadowMs > 0 && trialMs < shadowMs * TRIAL_WIN_RATIO
   }
 
   private class LoadedModel(
@@ -193,7 +207,7 @@ class NativeInfer(private val ctx: Context) {
       initMs = ((SystemClock.elapsedRealtimeNanos() - t0) / 1e6).toInt()
       loadState = 1
       if (port != null) postReady()
-      scheduleNpuTrials()
+      scheduleTrials()
     } catch (e: Throwable) {
       Log.w(TAG, "model load failed: " + e.message)
       loadState = 2
@@ -221,12 +235,92 @@ class NativeInfer(private val ctx: Context) {
   // (phase-n N9: ts-infer does one buffer copy and, on a win, the swap --
   // never a timed run under the page's 4s request timeout). The page
   // hears the outcome as a `native-backends` update. A model that lost
-  // stays lost for the process (npuLost): its answer does not change.
+  // stays lost for the process (`lost`): its answer does not change.
   private var trialThread: HandlerThread? = null
   private var trialHandler: Handler? = null
   private var configGen = 0
   private var trialsPending = 0
-  private val npuLost = HashSet<Int>()
+  // Keyed "<kind>:<id>" -- a model that lost a GPU trial and a model
+  // that lost an NNAPI trial are different facts about the same id.
+  private val lost = HashSet<String>()
+  // The NNAPI arm runs only after the GPU arm has settled, so two
+  // shadow interpreters never build at once on one device.
+  private var npuScheduled = false
+
+  /** What happened to this model's GPU, for the report. Every field is
+   * a number, a boolean or an `R` (redacted) string, because
+   * `reportViolations` walks the serialized report and rejects anything
+   * else. `listed`/`remembered` are what we KNEW before trying;
+   * `attempted`/`loadThrewR` are the load; the `trial*` fields are the
+   * measurement. All of it exists so one Share from any phone says why
+   * that phone is on the backend it is on -- no cable, no logcat. */
+  private class GpuNote(
+    var listed: Boolean = false,
+    var remembered: Boolean = false,
+    var attempted: Boolean = false,
+    var loadThrewR: String? = null,
+    var trialRan: Boolean = false,
+    var trialAgree: Boolean = false,
+    var trialWon: Boolean = false,
+    var trialGpuMs: Double = -1.0,
+    var trialCpuMs: Double = -1.0,
+    var trialThrewR: String? = null,
+  )
+
+  private val gpuNotes = HashMap<Int, GpuNote>()
+
+  /** Identifies THIS model file on THIS build: a remembered GPU win
+   * cannot survive a new versionCode or a swapped .tflite. Same shape
+   * as the shader cache's token, deliberately. */
+  private fun gpuToken(assetBase: String, bytes: ByteBuffer): String =
+    "$assetBase-${BuildConfig.VERSION_CODE}-${bytes.remaining()}"
+
+  private fun gpuPrefs() = ctx.getSharedPreferences("ts-native", Context.MODE_PRIVATE)
+
+  // THE UNLISTED PATH NEEDS A DEVICE TO RUN ON. The old Redmi (Mali-G52)
+  // IS in TFLite's compatibility database, so on the only phone on a
+  // cable here the new trial can never fire -- which would leave the
+  // whole point of 1101 shipped unverified. Dropping this file in the
+  // app's own external files dir makes any device answer "unlisted" and
+  // take the measured path:
+  //   adb shell touch /sdcard/Android/data/app.tamescroll.client/files/force-gpu-unlisted
+  // Absent (the normal case, and every phone that never had adb on it)
+  // it costs one File.exists per model load. Read once per load, never
+  // cached, so it can be toggled between launches.
+  private fun forceUnlisted(): Boolean =
+    try { File(ctx.getExternalFilesDir(null), "force-gpu-unlisted").exists() } catch (_: Throwable) { false }
+
+  private fun gpuRemembered(assetBase: String, bytes: ByteBuffer): Boolean =
+    try { gpuPrefs().getBoolean("gpuOk:" + gpuToken(assetBase, bytes), false) } catch (_: Throwable) { false }
+
+  private fun rememberGpu(assetBase: String, bytes: ByteBuffer) {
+    try { gpuPrefs().edit().putBoolean("gpuOk:" + gpuToken(assetBase, bytes), true).apply() } catch (_: Throwable) {}
+  }
+
+  private fun forgetGpu(assetBase: String, bytes: ByteBuffer) {
+    try { gpuPrefs().edit().remove("gpuOk:" + gpuToken(assetBase, bytes)).apply() } catch (_: Throwable) {}
+  }
+
+  // A GPU DRIVER CAN TAKE THE PROCESS WITH IT. Constructing a delegate
+  // on a device TFLite has never heard of runs vendor code we have not
+  // measured; a throw is caught below, but a segfault in the driver is
+  // not catchable from Kotlin and would repeat on every launch. So the
+  // trial writes a breadcrumb BEFORE it touches the driver and removes
+  // it after -- `commit`, not `apply`, because a crash must not lose the
+  // write. A breadcrumb still there at the next launch means the last
+  // attempt did not come back, and this model never tries again on this
+  // build. Worst case is therefore one bad launch, not a crash loop.
+  private fun gpuTrialStarted(assetBase: String, bytes: ByteBuffer): Boolean =
+    try { gpuPrefs().getBoolean("gpuTrying:" + gpuToken(assetBase, bytes), false) } catch (_: Throwable) { false }
+
+  private fun markGpuTrialStart(assetBase: String, bytes: ByteBuffer) {
+    try { gpuPrefs().edit().putBoolean("gpuTrying:" + gpuToken(assetBase, bytes), true).commit() } catch (_: Throwable) {}
+  }
+
+  private fun clearGpuTrialMark(assetBase: String, bytes: ByteBuffer) {
+    try { gpuPrefs().edit().remove("gpuTrying:" + gpuToken(assetBase, bytes)).commit() } catch (_: Throwable) {}
+  }
+
 
   /** A model's interpreter plus the buffers `run` needs, tensors allocated. */
   private fun buildModel(id: Int, interp: Interpreter, delegate: Delegate?, backend: String): LoadedModel {
@@ -357,51 +451,97 @@ class NativeInfer(private val ctx: Context) {
     }
   }
 
-  private fun loadModel(id: Int, assetBase: String): LoadedModel {
+  /** A GPU interpreter for this model, or a throw. `listed` picks the
+   * options source: the compatibility list's own recommendation where
+   * the device is in its database, plain defaults where it is not (a
+   * device the list has never heard of has no recommendation to give,
+   * and asking for one there is not meaningful). */
+  private fun newGpuInterpreter(id: Int, assetBase: String, bytes: ByteBuffer, listed: Boolean): Pair<Interpreter, GpuDelegate> {
+    val dopts = if (listed) {
+      try { CompatibilityList().bestOptionsForThisDevice } catch (_: Throwable) { GpuDelegate.Options() }
+    } else GpuDelegate.Options()
+    // Allowing precision loss computes in f16 on the Adreno 610.
+    // MoveNet cannot (see MODEL_FP16); the face models can.
+    dopts.setPrecisionLossAllowed(id in MODEL_FP16)
+    // GPU delegate init spends 1.4-3.9s per model compiling
+    // shaders (spikes/native/GPU-REPORT.md) -- TFLite can persist
+    // the compiled kernels to disk and skip the compile on a
+    // later load of the SAME model on the SAME device. Token
+    // carries the build's versionCode and the asset's byte
+    // length so a new build or a swapped .tflite can never load
+    // a stale cache. Never let this stop the model from loading:
+    // a missing dir or a throw here falls back to today's
+    // uncached options.
+    try {
+      val dir = gpuKernelCacheDir()
+      if (dir != null) {
+        dopts.setSerializationParams(dir.absolutePath, gpuToken(assetBase, bytes))
+      } else if (!warnedGpuCache) {
+        warnedGpuCache = true
+        Log.w(TAG, "GPU kernel cache dir unavailable, delegate init will not be cached")
+      }
+    } catch (e: Throwable) {
+      if (!warnedGpuCache) {
+        warnedGpuCache = true
+        Log.w(TAG, "GPU kernel cache setup failed, delegate init will not be cached: " + e.message)
+      }
+    }
+    val delegate = GpuDelegate(dopts)
+    try {
+      return Pair(Interpreter(bytes, Interpreter.Options().addDelegate(delegate)), delegate)
+    } catch (e: Throwable) {
+      try { delegate.close() } catch (_: Throwable) {}
+      throw e
+    }
+  }
+
+  /** @param allowGpu false builds a deliberately CPU copy -- the shadow
+   *   the GPU arbiter measures against.
+   * @param record false for a shadow or trial copy, so a throwaway
+   *   interpreter never rewrites what the report says about the
+   *   shipping one. */
+  private fun loadModel(id: Int, assetBase: String, allowGpu: Boolean = true, record: Boolean = true): LoadedModel {
     val t0 = SystemClock.elapsedRealtimeNanos()
     val bytes = loadAssetModel("$assetBase.tflite")
     var delegate: GpuDelegate? = null
     var interp: Interpreter? = null
     var backend = "cpu"
+    val note = if (record) gpuNotes.getOrPut(id) { GpuNote() } else GpuNote()
+    if (record) { note.loadThrewR = null }
     if (!forceCpuFor(id)) {
-      val cl = CompatibilityList()
-      if (cl.isDelegateSupportedOnThisDevice) {
+      // THE COMPATIBILITY LIST IS NOT AN AUTHORITY, IT IS A HINT.
+      // `isDelegateSupportedOnThisDevice` answers out of
+      // gpu_compatibility.bin, a device database frozen when
+      // tensorflow-lite-gpu 2.16.1 was built. His Redmi 13 (SM4450 /
+      // Adreno 613, 2023) is absent from it, so every model landed on
+      // CPU with NO throw and NO log line -- invisible in the report,
+      // and the same silent fallback awaits every phone newer than the
+      // database. So an unlisted device is no longer refused here: it
+      // is refused a GPU at LOAD (a cold delegate costs 1.4-3.9s of
+      // shader compile per model and three of those would run the page
+      // past its 15s ready timeout -- the 1098 NNAPI-in-loadAll defect)
+      // and given a MEASURED trial after ready instead, on its own
+      // thread. A trial that won is remembered, so only the first
+      // launch on a given build pays for it.
+      note.listed = !forceUnlisted() &&
+        try { CompatibilityList().isDelegateSupportedOnThisDevice } catch (_: Throwable) { false }
+      note.remembered = gpuRemembered(assetBase, bytes)
+      if (allowGpu && (note.listed || note.remembered)) {
         try {
-          val dopts = cl.bestOptionsForThisDevice
-          // Allowing precision loss computes in f16 on the Adreno 610.
-          // MoveNet cannot (see MODEL_FP16); the face models can.
-          dopts.setPrecisionLossAllowed(id in MODEL_FP16)
-          // GPU delegate init spends 1.4-3.9s per model compiling
-          // shaders (spikes/native/GPU-REPORT.md) -- TFLite can persist
-          // the compiled kernels to disk and skip the compile on a
-          // later load of the SAME model on the SAME device. Token
-          // carries the build's versionCode and the asset's byte
-          // length so a new build or a swapped .tflite can never load
-          // a stale cache. Never let this stop the model from loading:
-          // a missing dir or a throw here falls back to today's
-          // uncached options.
-          try {
-            val dir = gpuKernelCacheDir()
-            if (dir != null) {
-              val token = "$assetBase-${BuildConfig.VERSION_CODE}-${bytes.remaining()}"
-              dopts.setSerializationParams(dir.absolutePath, token)
-            } else if (!warnedGpuCache) {
-              warnedGpuCache = true
-              Log.w(TAG, "GPU kernel cache dir unavailable, delegate init will not be cached")
-            }
-          } catch (e: Throwable) {
-            if (!warnedGpuCache) {
-              warnedGpuCache = true
-              Log.w(TAG, "GPU kernel cache setup failed, delegate init will not be cached: " + e.message)
-            }
-          }
-          delegate = GpuDelegate(dopts)
-          interp = Interpreter(bytes, Interpreter.Options().addDelegate(delegate))
+          val pair = newGpuInterpreter(id, assetBase, bytes, note.listed)
+          interp = pair.first
+          delegate = pair.second
           backend = "gpu"
+          note.attempted = true
         } catch (e: Throwable) {
-          try { delegate?.close() } catch (_: Throwable) {}
           delegate = null
           interp = null
+          note.attempted = true
+          if (record) note.loadThrewR = e.message ?: e.toString()
+          // A remembered win that now throws is stale -- a driver or an
+          // OS update can take a delegate away. Forget it so the next
+          // launch measures again instead of failing again.
+          if (note.remembered) forgetGpu(assetBase, bytes)
           Log.w(TAG, "GPU delegate failed for $assetBase, falling back to CPU: " + e.message)
         }
       }
@@ -424,19 +564,105 @@ class NativeInfer(private val ctx: Context) {
   /** Which models an NNAPI trial may still be worth running for. */
   private fun npuTrialIds(): List<Int> =
     if (!npuAllowedByFlags() || Build.VERSION.SDK_INT < 27) emptyList()
-    else MODEL_ASSET.keys.filter { !forceCpuFor(it) && it !in npuLost && models[it]?.backend != "npu" }
+    else MODEL_ASSET.keys.filter { !forceCpuFor(it) && "npu:$it" !in lost && models[it]?.backend != "npu" }
+
+  /** Which models are on CPU only because the compatibility list has
+   * never heard of this device. A model that TRIED the GPU and threw is
+   * not here -- retrying a delegate that refused to build buys nothing.
+   * Neither is one the page masked to CPU on purpose. */
+  private fun gpuTrialIds(): List<Int> =
+    MODEL_ASSET.keys.filter {
+      val n = gpuNotes[it]
+      !forceCpuFor(it) && "gpu:$it" !in lost && models[it]?.backend == "cpu" &&
+        n != null && !n.listed && !n.attempted
+    }
+
+  private fun ensureTrialHandler(): Handler {
+    var h = trialHandler
+    if (h == null) {
+      val t = HandlerThread("ts-delegate-trial", Process.THREAD_PRIORITY_BACKGROUND).also { it.start() }
+      trialThread = t
+      h = Handler(t.looper)
+      trialHandler = h
+    }
+    return h
+  }
+
+  /** GPU arm first, NNAPI only once it has settled (see `decide`). With
+   * no GPU trial to run -- a listed device, or every model already off
+   * CPU -- the NNAPI arm starts immediately, which is 1100's behaviour
+   * unchanged. */
+  private fun scheduleTrials() {
+    npuScheduled = false
+    scheduleGpuTrials()
+    if (trialsPending <= 0) { npuScheduled = true; scheduleNpuTrials() }
+  }
+
+  private fun scheduleGpuTrials() {
+    val ids = gpuTrialIds()
+    if (ids.isEmpty()) return
+    val h = ensureTrialHandler()
+    val gen = configGen
+    trialsPending += ids.size
+    for (id in ids) h.post { gpuTrial(id, MODEL_ASSET[id]!!, gen) }
+  }
 
   private fun scheduleNpuTrials() {
     val ids = npuTrialIds()
     if (ids.isEmpty()) return
-    if (trialHandler == null) {
-      val t = HandlerThread("ts-npu-trial", Process.THREAD_PRIORITY_BACKGROUND).also { it.start() }
-      trialThread = t
-      trialHandler = Handler(t.looper)
-    }
+    val h = ensureTrialHandler()
     val gen = configGen
     trialsPending += ids.size
-    for (id in ids) trialHandler!!.post { npuTrial(id, MODEL_ASSET[id]!!, gen) }
+    for (id in ids) h.post { npuTrial(id, MODEL_ASSET[id]!!, gen) }
+  }
+
+  // THE GPU ARM. Same arbiter shape as the NNAPI one below and for the
+  // same reason: a delegate that initialises is not a delegate that
+  // works. On a device the compatibility list does not know, the driver
+  // may take the graph and return garbage, or take it and be slower
+  // than XNNPACK on four threads. So the GPU has to AGREE with the CPU
+  // copy on every output head within 2% and beat it by 10% on the clock,
+  // measured on the last REAL frame the page sent, or the CPU model
+  // stays. Runs entirely off ts-infer: build and warm here, one buffer
+  // copy on ts-infer, time and compare here, swap on ts-infer.
+  private fun gpuTrial(id: Int, assetBase: String, gen: Int) {
+    var gm: LoadedModel? = null
+    var marked: ByteBuffer? = null
+    try {
+      val bytes = loadAssetModel("$assetBase.tflite")
+      if (gpuTrialStarted(assetBase, bytes)) {
+        Log.w(TAG, "GPU trial for $assetBase did not survive a previous launch, not retrying on this build")
+        handler.post { gpuNotes[id]?.trialThrewR = "previous trial did not return" }
+        handler.post { decide("gpu", id, assetBase, null, false, gen) }
+        return
+      }
+      markGpuTrialStart(assetBase, bytes)
+      marked = bytes
+      val pair = newGpuInterpreter(id, assetBase, bytes, false)
+      val built = try {
+        buildModel(id, pair.first, pair.second, "gpu")
+      } catch (e: Throwable) {
+        try { pair.first.close() } catch (_: Throwable) {}
+        try { pair.second.close() } catch (_: Throwable) {}
+        throw e
+      }
+      gm = built
+      run(built) // warm: allocation and shader compile, not the cost being compared
+    } catch (e: Throwable) {
+      Log.w(TAG, "GPU trial failed to build for $assetBase: " + e.message)
+      handler.post { gpuNotes[id]?.trialThrewR = e.message ?: e.toString() }
+      if (gm != null) closeModel(gm)
+      gm = null
+    } finally {
+      // It came back, whatever the outcome -- the breadcrumb has done
+      // its job. Cleared here rather than after the arbitration so a
+      // driver that dies while TIMING (not while building) is still
+      // caught by the next launch's `attempted` path.
+      marked?.let { clearGpuTrialMark(assetBase, it) }
+    }
+    val trial = gm
+    if (trial == null) { handler.post { decide("gpu", id, assetBase, null, false, gen) }; return }
+    handler.post { snapshotInput("gpu", id, assetBase, trial, gen, 0) }
   }
 
   // NNAPI arm (performance batch 2026-09-03). Android's own Neural
@@ -482,23 +708,23 @@ class NativeInfer(private val ctx: Context) {
       nn = null
     }
     val trial = nn
-    if (trial == null) { handler.post { decideNpu(id, assetBase, null, false, gen) }; return }
-    handler.post { snapshotInput(id, assetBase, trial, gen, 0) }
+    if (trial == null) { handler.post { decide("npu", id, assetBase, null, false, gen) }; return }
+    handler.post { snapshotInput("npu", id, assetBase, trial, gen, 0) }
   }
 
   /** On ts-infer: copy the shipping model's LAST REAL INPUT for the
    * arbiter -- one buffer copy, the only work this thread does before
    * the decision. No real frame yet: try again in a second, up to
    * NPU_SNAPSHOT_TRIES, then the arm loses. */
-  private fun snapshotInput(id: Int, assetBase: String, nn: LoadedModel, gen: Int, tries: Int) {
+  private fun snapshotInput(kind: String, id: Int, assetBase: String, nn: LoadedModel, gen: Int, tries: Int) {
     val candidate = models[id]
     if (closed || gen != configGen || candidate == null) {
-      decideNpu(id, assetBase, nn, false, gen)
+      decide(kind, id, assetBase, nn, false, gen)
       return
     }
     if (!candidate.realInput) {
-      if (tries >= NPU_SNAPSHOT_TRIES) { decideNpu(id, assetBase, nn, false, gen); return }
-      handler.postDelayed({ snapshotInput(id, assetBase, nn, gen, tries + 1) }, 1000L)
+      if (tries >= NPU_SNAPSHOT_TRIES) { decide(kind, id, assetBase, nn, false, gen); return }
+      handler.postDelayed({ snapshotInput(kind, id, assetBase, nn, gen, tries + 1) }, 1000L)
       return
     }
     val ib = candidate.inputBuffer.duplicate()
@@ -506,50 +732,71 @@ class NativeInfer(private val ctx: Context) {
     val input = ByteArray(ib.remaining())
     ib.get(input)
     val th = trialHandler
-    if (th == null || !th.post { arbitrate(id, assetBase, nn, input, gen) }) decideNpu(id, assetBase, nn, false, gen)
+    if (th == null || !th.post { arbitrate(kind, id, assetBase, nn, input, gen) }) decide(kind, id, assetBase, nn, false, gen)
   }
 
-  /** On ts-npu-trial: a SHADOW copy of the shipping candidate (its own
-   * interpreter and GPU context, this thread's) against the NNAPI trial
-   * on the same real frame. Nothing here touches ts-infer. */
-  private fun arbitrate(id: Int, assetBase: String, nn: LoadedModel, input: ByteArray, gen: Int) {
+  /** On the trial thread: a SHADOW copy of the shipping candidate (its
+   * own interpreter and context, this thread's) against the trial on the
+   * same real frame. Nothing here touches ts-infer. The GPU arm forces
+   * its shadow to CPU -- the shipping model IS the CPU one there, and a
+   * remembered GPU win must not make the shadow a second GPU copy. */
+  private fun arbitrate(kind: String, id: Int, assetBase: String, nn: LoadedModel, input: ByteArray, gen: Int) {
     var win = false
     var shadow: LoadedModel? = null
+    var agree = false
+    var trialMs = -1.0
+    var shadowMs = -1.0
     try {
-      shadow = loadModel(id, assetBase)
+      shadow = loadModel(id, assetBase, allowGpu = kind != "gpu", record = false)
       val sb = shadow.inputBuffer; sb.rewind(); sb.put(input)
       val nb = nn.inputBuffer; nb.rewind(); nb.put(input)
-      val nnMs = bestRunMs(nn, 3)
-      val shadowMs = bestRunMs(shadow, 3)
-      val agree = outputsAgree(nn, shadow)
-      win = agree && nnMs < shadowMs * 0.9
-      Log.i(TAG, "NNAPI arbiter $assetBase: nnapi=${"%.1f".format(nnMs)}ms ${shadow.backend}=${"%.1f".format(shadowMs)}ms agree=$agree -> " + (if (win) "npu" else shadow.backend))
+      trialMs = bestRunMs(nn, 3)
+      shadowMs = bestRunMs(shadow, 3)
+      agree = outputsAgree(nn, shadow)
+      win = shouldSwap(agree, trialMs, shadowMs)
+      Log.i(TAG, "$kind arbiter $assetBase: $kind=${"%.1f".format(trialMs)}ms ${shadow.backend}=${"%.1f".format(shadowMs)}ms agree=$agree -> " + (if (win) kind else shadow.backend))
     } catch (e: Throwable) {
-      Log.w(TAG, "NNAPI arbitration failed for $assetBase: " + e.message)
+      Log.w(TAG, "$kind arbitration failed for $assetBase: " + e.message)
+      if (kind == "gpu") handler.post { gpuNotes[id]?.trialThrewR = e.message ?: e.toString() }
       win = false
     }
     if (shadow != null) closeModel(shadow)
-    handler.post { decideNpu(id, assetBase, nn, win, gen) }
+    val fAgree = agree; val fTrial = trialMs; val fShadow = shadowMs
+    if (kind == "gpu") handler.post {
+      gpuNotes[id]?.let { it.trialRan = true; it.trialAgree = fAgree; it.trialGpuMs = fTrial; it.trialCpuMs = fShadow }
+    }
+    handler.post { decide(kind, id, assetBase, nn, win, gen) }
   }
 
   /** On ts-infer: swap or drop. The only arbiter work on this thread. */
-  private fun decideNpu(id: Int, assetBase: String, nn: LoadedModel?, win: Boolean, gen: Int) {
+  private fun decide(kind: String, id: Int, assetBase: String, nn: LoadedModel?, win: Boolean, gen: Int) {
     if (gen == configGen) trialsPending--
     val candidate = models[id]
-    if (closed || gen != configGen || candidate == null || forceCpuFor(id) || !npuAllowedByFlags()) {
+    val stillWanted = !closed && gen == configGen && candidate != null && !forceCpuFor(id) &&
+      (kind != "npu" || npuAllowedByFlags())
+    if (!stillWanted) {
       if (nn != null) closeModel(nn)
     } else if (nn == null || !win) {
       if (nn != null) closeModel(nn)
-      npuLost.add(id)
+      lost.add("$kind:$id")
     } else {
-      nn.realInput = candidate.realInput
+      nn.realInput = candidate!!.realInput
       models[id] = nn
       closeModel(candidate)
-      Log.i(TAG, "NNAPI arbiter: $assetBase now on npu")
+      if (kind == "gpu") {
+        gpuNotes[id]?.trialWon = true
+        try { rememberGpu(assetBase, loadAssetModel("$assetBase.tflite")) } catch (_: Throwable) {}
+      }
+      Log.i(TAG, "$kind arbiter: $assetBase now on $kind")
     }
     if (gen == configGen && trialsPending <= 0) {
       trialsPending = 0
-      postBackends()
+      // The NNAPI arm waits for the GPU arm: a model that just moved to
+      // the GPU is a different (and better) shadow to beat, and two
+      // trials building shadow interpreters at once is exactly the load
+      // spike that killed native on 1098.
+      if (!npuScheduled) { npuScheduled = true; scheduleNpuTrials() }
+      if (trialsPending <= 0) postBackends()
     }
   }
 
@@ -677,7 +924,7 @@ class NativeInfer(private val ctx: Context) {
     // the auto test's "faces on CPU" row read gpu and the NEXT row read
     // cpu. Post them now that the rebuild has settled.
     postBackends()
-    scheduleNpuTrials()
+    scheduleTrials()
   }
 
   /** RGBA -> the model's input tensor, alpha dropped. The ranges are the
@@ -748,6 +995,33 @@ class NativeInfer(private val ctx: Context) {
     return j
   }
 
+  /** WHY each model is on the backend it is on -- the whole point of
+   * 1101. Before this, a device the compatibility list had never heard
+   * of reported `cpu` with no reason anywhere but logcat, so answering
+   * "why is this phone slow" needed the phone on a cable. `listed` is
+   * the list's own answer, `tried` whether a delegate was constructed at
+   * load, `ran`/`agree`/`won` the post-ready measurement, and `gpuMs`
+   * /`cpuMs` what it measured. -1 means "not measured", never zero. */
+  private fun gpuJson(): JSONObject {
+    val j = JSONObject()
+    for (id in MODEL_REPORT_NAME.keys) {
+      val n = gpuNotes[id] ?: continue
+      val o = JSONObject()
+        .put("listed", n.listed)
+        .put("remembered", n.remembered)
+        .put("tried", n.attempted)
+        .put("ran", n.trialRan)
+        .put("agree", n.trialAgree)
+        .put("won", n.trialWon)
+        .put("gpuMs", if (n.trialGpuMs < 0) -1 else Math.round(n.trialGpuMs).toInt())
+        .put("cpuMs", if (n.trialCpuMs < 0) -1 else Math.round(n.trialCpuMs).toInt())
+      val why = n.loadThrewR ?: n.trialThrewR
+      if (why != null) o.put("whyR", why)
+      j.put(id.toString(), o)
+    }
+    return j
+  }
+
   // ok = at least one model measured faster on NNAPI (decideNpu's
   // arbiter); pending = trials still running; failed = every eligible
   // model tried and lost; absent = nothing to try (API < 27 or every
@@ -756,7 +1030,7 @@ class NativeInfer(private val ctx: Context) {
     !npuAllowedByFlags() -> "disabled"
     models.values.any { it.backend == "npu" } -> "ok"
     trialsPending > 0 -> "pending"
-    npuLost.isNotEmpty() && npuTrialIds().isEmpty() -> "failed"
+    lost.any { it.startsWith("npu:") } && npuTrialIds().isEmpty() -> "failed"
     else -> "absent"
   }
 
@@ -781,6 +1055,7 @@ class NativeInfer(private val ctx: Context) {
       .put("backend", worstBackend())
       .put("backends", backendsJson())
       .put("npu", npuState())
+      .put("gpu", gpuJson())
       .put("models", modelsJson)
       .put("initMs", initMs)
     try { p.postMessage(WebMessageCompat(msg.toString())) } catch (e: Throwable) { Log.w(TAG, "ready post failed: " + e.message) }
@@ -794,6 +1069,7 @@ class NativeInfer(private val ctx: Context) {
       .put("backend", worstBackend())
       .put("backends", backendsJson())
       .put("npu", npuState())
+      .put("gpu", gpuJson())
     try { p.postMessage(WebMessageCompat(msg.toString())) } catch (e: Throwable) { Log.w(TAG, "backends post failed: " + e.message) }
   }
 

@@ -1,0 +1,58 @@
+{
+ "versionCode": 1101,
+ "native": {
+  "nativeBackend": "cpu",
+  "npu": "disabled",
+  "models": {
+   "face": {
+    "nativeBackend": "cpu",
+    "gpu": {
+     "listed": false,
+     "remembered": false,
+     "tried": false,
+     "ran": true,
+     "agree": true,
+     "won": false,
+     "gpuMs": 80,
+     "cpuMs": 67,
+     "whyR": null
+    }
+   },
+   "gender": {
+    "nativeBackend": "gpu",
+    "gpu": {
+     "listed": false,
+     "remembered": false,
+     "tried": false,
+     "ran": true,
+     "agree": true,
+     "won": true,
+     "gpuMs": 52,
+     "cpuMs": 141,
+     "whyR": null
+    }
+   },
+   "person": {
+    "nativeBackend": "gpu",
+    "gpu": {
+     "listed": false,
+     "remembered": false,
+     "tried": false,
+     "ran": true,
+     "agree": true,
+     "won": true,
+     "gpuMs": 141,
+     "cpuMs": 255,
+     "whyR": null
+    }
+   }
+  },
+  "dead": false
+ },
+ "bundle": "08ac9f5-dirty",
+ "nativeState": {
+  "adopted": 2022,
+  "ready": 2597,
+  "backend": "cpu"
+ }
+}

@@ -100,6 +100,10 @@ export function parseReady(str) {
       // 2026-09-03: per-model engines and the NPU auto-try outcome.
       backends: msg.backends && typeof msg.backends === 'object' ? msg.backends : null,
       npu: typeof msg.npu === 'string' ? msg.npu : null,
+      // 1101: WHY each model is on the backend it is on -- the
+      // compatibility list's answer, whether a delegate was built, and
+      // what the post-ready GPU trial measured. Report-only.
+      gpu: msg.gpu && typeof msg.gpu === 'object' ? msg.gpu : null,
     };
   }
   if (msg.type === 'native-failed') {
@@ -115,6 +119,7 @@ export function parseReady(str) {
       backend: msg.backend || null,
       backends: msg.backends && typeof msg.backends === 'object' ? msg.backends : null,
       npu: typeof msg.npu === 'string' ? msg.npu : null,
+      gpu: msg.gpu && typeof msg.gpu === 'object' ? msg.gpu : null,
     };
   }
   return null;

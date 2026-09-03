@@ -421,9 +421,18 @@ export function buildReport(snap) {
       nativeBackend: enumOr('nativeBackend', s.native && s.native.backend, 'none'),
       npu: enumOr('npu', s.native && s.native.npu, 'none'),
       models: {
-        face: { nativeBackend: enumOr('nativeBackend', s.native && s.native.backends && s.native.backends['1'], 'none') },
-        gender: { nativeBackend: enumOr('nativeBackend', s.native && s.native.backends && s.native.backends['2'], 'none') },
-        person: { nativeBackend: enumOr('nativeBackend', s.native && s.native.backends && s.native.backends['3'], 'none') },
+        face: {
+          nativeBackend: enumOr('nativeBackend', s.native && s.native.backends && s.native.backends['1'], 'none'),
+          gpu: gpuNote(s.native && s.native.gpu, '1'),
+        },
+        gender: {
+          nativeBackend: enumOr('nativeBackend', s.native && s.native.backends && s.native.backends['2'], 'none'),
+          gpu: gpuNote(s.native && s.native.gpu, '2'),
+        },
+        person: {
+          nativeBackend: enumOr('nativeBackend', s.native && s.native.backends && s.native.backends['3'], 'none'),
+          gpu: gpuNote(s.native && s.native.gpu, '3'),
+        },
       },
       dead: !!(s.native && s.native.dead),
     },
@@ -684,6 +693,27 @@ function tuneBlock(t) {
     }
   }
   return out;
+}
+
+/** WHY a model is on the backend it is on (1101). `listed` is what
+ * TFLite's frozen device database claimed, `tried` whether a delegate
+ * was built at load, and `ran`/`agree`/`won`/`gpuMs`/`cpuMs` what the
+ * post-ready trial measured. Null when the engine never reported --
+ * an older build, or native never came up. -1 ms means not measured. */
+export function gpuNote(gpu, id) {
+  var g = gpu && typeof gpu === 'object' ? gpu[id] : null;
+  if (!g || typeof g !== 'object') return null;
+  return {
+    listed: !!g.listed,
+    remembered: !!g.remembered,
+    tried: !!g.tried,
+    ran: !!g.ran,
+    agree: !!g.agree,
+    won: !!g.won,
+    gpuMs: num(g.gpuMs),
+    cpuMs: num(g.cpuMs),
+    whyR: redactFreeText(g.whyR),
+  };
 }
 
 function num(x) {

@@ -98,6 +98,7 @@ export function createNativeClient(port, opts) {
     backend: null,
     backends: null,
     npu: null,
+    gpu: null,
     models: null,
     dead: false,
     consecutiveFailures: 0,
@@ -259,6 +260,7 @@ export function createNativeClient(port, opts) {
         if (msg.backend) state.backend = msg.backend;
         if (msg.backends) state.backends = msg.backends;
         if (typeof msg.npu === 'string') state.npu = msg.npu;
+        if (msg.gpu) state.gpu = msg.gpu;
         return;
       }
       clearTimeout(readyTimer);
@@ -267,6 +269,7 @@ export function createNativeClient(port, opts) {
         state.models = msg.models;
         state.backends = msg.backends || null;
         state.npu = typeof msg.npu === 'string' ? msg.npu : 'absent';
+        state.gpu = msg.gpu || null;
         // ALWAYS sent (phase-n, the CONFIG leak): the engine outlives
         // the document, so a mask one page set stays set until another
         // page says otherwise -- the 1098 smoke's cpumask1 arm left the
@@ -575,7 +578,13 @@ export function createNativeClient(port, opts) {
     },
     /** For the diagnostics report: which engine each model landed on. */
     snapshot: function () {
-      return { backend: state.backend, npu: state.npu, backends: state.backends, dead: state.dead };
+      return {
+        backend: state.backend,
+        npu: state.npu,
+        backends: state.backends,
+        gpu: state.gpu,
+        dead: state.dead,
+      };
     },
     dead: function () {
       return state.dead;
