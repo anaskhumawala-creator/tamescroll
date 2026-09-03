@@ -3854,3 +3854,91 @@ the share of verdicts dropped by a cut landing mid-pass doubled, 4.7% ->
 9.5-10.1% (K6), because a verdict may now start on any 120ms tick.
 Numbers in the plan log.
 
+
+## 27 -- THE DETECTOR-RECALL CLASS IS PRICED AT LAST, AND IT CLOSES THE MODEL QUESTION
+
+`track-accuracy.md` s6.2 named one measurement as the gate on the entire
+model programme: the 119 person-instances seen by NEITHER model
+(finding 24 / s11) had only ever been counted as INSTANCES, and the unit
+the owner experiences is SECONDS. Every model-vs-pipeline argument this
+repo has had was conducted on the set where a detection already
+happened, because `corpus-score.mjs` says so in its own header: *"labels
+cover faces the DETECTOR FOUND. A person BlazeFace never detected is
+invisible here."*
+
+`bench/recall-seconds.mjs` converts one into the other. It replays the
+SHIPPED decision layer through `corpus-score.replay` -- not a
+re-derivation, because this repo has re-implemented a shipped rule and
+published the wrong number for it three times (phase-g G1/G5/G9) -- and
+charges EXPOSURE only for an ssd person-instance with **no face
+evidence and no pose evidence**, so nothing already scored is charged
+twice.
+
+**IT RECONCILES WITH THE EXISTING INSTRUMENT EXACTLY**: 2,131
+instances, 1,706 by face (80.1%), 306 pose-only (14.4%), 119 missed
+(5.6%) -- the same three numbers `detector-recall.mjs` publishes.
+
+### The price, man mode (his setting)
+
+| attribution arm | BOX cover | HEAD-band cover |
+|---|---|---|
+| LABELLED only (floor) | 3.5s | 4.0s |
+| **PRIOR-weighted (best)** | **18.3s** | **19.5s** |
+| ALL misses cover-worthy (ceiling) | 28.5s | 31.5s |
+
+Woman mode: 1.0 / **5.7** / 22.0s (BOX). Attribution is weak by
+construction -- a missed person has no face crop, so she has no label;
+the nearest labelled face in the window says who tends to stand there.
+So the answer is a RANGE and is reported as one. The PRIOR arm charges
+unattributed and `mixed` misses at the corpus's own cover-worthy share
+among labelled misses (70.4% man / 27.8% woman).
+
+### Sensitivity: every arm lands in the same place
+
+| arm | missed | man PRIOR (BOX) | ceiling |
+|---|---|---|---|
+| default | 119 (5.6%) | 18.3s | 28.5s |
+| `HEAD_BAND` 0.35 (stricter containment) | 223 (10.5%) | 19.6s | 44.5s |
+| `SSD_MIN` 0.7 (higher-confidence ground truth) | 21 (1.5%) | 3.1s | 4.2s |
+
+**No arm reaches 60s, and the most pessimistic reasonable one -- strict
+containment, every miss counted cover-worthy, head-band coverage --
+tops out at 48.5s.** The gate's own words: *"X < 20s -> the model
+question is closed for good. Every remaining accuracy day belongs to
+the decision layer."* The best estimate is 18.3-19.5s and the whole
+distribution sits under the 60s that would have justified a detector
+project.
+
+**READ IT WITH THE CEILING BESIDE IT.** Against man-mode scored error of
+491.5s, this class adds ~19s -- about 3.7%. A perfect gender model is
+worth 67.5s (13.7%) and a perfect model plus a perfect face/non-face
+gate 95.5s (19.4%). Adding the miss class to the oracle's blind spot
+does not change the conclusion it was raised against: **the decision
+layer and the clock still own 70-85% of the error.**
+
+### The finding nobody was looking for, and it is the useful one
+
+**52-63% of missed people are ALREADY under somebody else's patch**
+(man 62 of 119 by box / 56 by head band; woman 75 / 70). The
+solid-patch rule -- his own ruling, and the one this repo keeps paying
+false cover for -- is silently covering half of the class a detector
+project would have been built to fix. That is why the seconds are small
+while the instance count is not, and it is invisible to any
+instrument that counts detections.
+
+At `SSD_MIN` 0.7 the miss class nearly vanishes (119 -> 21, 5.6% ->
+1.5%), so most misses sit on coco-ssd's own marginal detections. Its
+header caveat -- *"coco-ssd has its own misses"* -- cuts in both
+directions and is the reason this stays a LOWER bound on the seconds
+and an UPPER bound on our recall.
+
+### What this closes and what it does not
+
+CLOSED: BlazeFace/MoveNet recall is not what stands between this product
+and "much nicer". A student, a new detector and a teacher ensemble are
+all now competing against ~19s of a 491.5s total.
+
+NOT CLOSED, and unchanged by this: the 92-94% face recall in his own
+38-62px band (finding 24), which is a recall number on faces coco-ssd
+also declines to call people; and the whole-frame path on the four
+non-YouTube platforms (s16), which this corpus cannot see.
