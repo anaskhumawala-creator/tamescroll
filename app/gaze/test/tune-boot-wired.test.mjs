@@ -70,3 +70,10 @@ test('O2: cancelRun is wired at every place a run\'s owning document can go away
 test('O5: attachRun is handed a blurOn reader so a row can be told a covered run from an off one', () => {
   assert.match(SRC, /autoTest\.attachRun\(window, \{[\s\S]*?blurOn: function \(\) \{ return !!playerBlurOn; \},[\s\S]*?\}\);/);
 });
+
+test('O1 (device, 1100): the door is claimed BEFORE applyTuningFromWindow, whose perf setters take it otherwise', () => {
+  const claimAt = SRC.indexOf('perf.provideToken(perfTok)');
+  const applyAt = SRC.indexOf('applyTuningFromWindow(window);');
+  assert.ok(claimAt > 0 && applyAt > 0);
+  assert.ok(claimAt < applyAt, 'the claim must precede the first SPEC setter');
+});

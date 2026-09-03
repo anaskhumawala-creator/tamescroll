@@ -156,6 +156,21 @@ if (
   // worst a bad push can do is move a dial to an edge that file already
   // considered safe. It cannot throw.
   try {
+    // THE CLAIM COMES BEFORE THE FIRST DIAL IS APPLIED. applyTuningFromWindow
+    // runs every SPEC setter, and the perf setters call the phone bridge
+    // even at value 0 (setSustainedPerf(0) -> call('sustained')), which
+    // takes the one-shot door for perf.mjs alone -- measured on the Redmi
+    // on 1100: no shared_prefs file ever appeared, the override store had
+    // no token, and a "+" did not survive a reload. So the door is opened
+    // here, once, and the same token handed to both modules before any
+    // setter can ask for it.
+    var perfTok = null;
+    try {
+      var takeTok = window.__TS_TAKE_PERF_TOKEN;
+      perfTok = typeof takeTok === 'function' ? takeTok() : null;
+    } catch (e) { perfTok = null; }
+    perf.provideToken(perfTok);
+    setOverrideToken(perfTok);
     applyTuningFromWindow(window);
     // THREE WRITERS, ONE WHITELIST, IN A FIXED ORDER.
     //
@@ -181,13 +196,6 @@ if (
     // panel could leave the override store's own claim racing an already-
     // spent door. Centralizing the claim here means there is exactly one
     // caller of __TS_TAKE_PERF_TOKEN in the whole bundle.
-    var perfTok = null;
-    try {
-      var takeTok = window.__TS_TAKE_PERF_TOKEN;
-      perfTok = typeof takeTok === 'function' ? takeTok() : null;
-    } catch (e) { perfTok = null; }
-    perf.provideToken(perfTok);
-    setOverrideToken(perfTok);
     applyOverrides(window);
   } catch (e) {}
 
