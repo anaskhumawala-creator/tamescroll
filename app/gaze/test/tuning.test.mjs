@@ -12,6 +12,7 @@ import {
 } from '../src/tuning.mjs';
 import * as sceneGate from '../src/scene-gate.mjs';
 import * as genderVerdict from '../src/gender-verdict.mjs';
+import * as genderInput from '../src/gender-input.mjs';
 import * as identityMemory from '../src/identity-memory.mjs';
 import * as personSkip from '../src/person-skip.mjs';
 import * as cadence from '../src/cadence.mjs';
@@ -31,6 +32,7 @@ const SHIPPED = {
   GENDER_CLEAR_SCORE: genderVerdict.GENDER_CLEAR_SCORE,
   GENDER_CLEAR_SCORE_FEMALE: genderVerdict.GENDER_CLEAR_SCORE_FEMALE,
   NULL_MINT_NM_FLOOR: genderVerdict.NULL_MINT_NM_FLOOR,
+  GENDER_GREY: genderInput.GENDER_GREY,
   MEM_TRUST_MAN: identityMemory.MEM_TRUST_MAN,
   MEM_TRUST_WOMAN: identityMemory.MEM_TRUST_WOMAN,
   MEM_SIM: identityMemory.MEM_SIM,

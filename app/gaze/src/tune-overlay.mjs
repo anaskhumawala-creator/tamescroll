@@ -145,7 +145,13 @@ var META = {
     desc: 'The same bar, for a read that came back female.',
     dp: 2, step: 0.02,
   },
-  NULL_MINT_NM_FLOOR: {
+  GENDER_GREY: {
+    group: 'blur', label: 'Read faces in black and white',
+    desc: 'Shows the face model a grey copy of each face instead of a colour one.'
+      + ' Measured to miss fewer women, and to leave fewer marks on things that'
+      + ' are not people. Costs nothing and takes effect on the next check.',
+    dp: 0, step: 1, zero: 'off',
+  },  NULL_MINT_NM_FLOOR: {
     group: 'advanced', label: 'Face signal floor',
     desc: 'How much the model must have found in a crop before it is allowed to start a new patch there.',
     dp: 1, step: 0.5, zero: 'off',

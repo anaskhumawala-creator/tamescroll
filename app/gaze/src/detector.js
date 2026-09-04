@@ -16,6 +16,7 @@
 // to ~1s each (Chrome nested-timer throttling, found 2026-08-23).
 import * as tf from '@tensorflow/tfjs-core';
 import { squareBox, fitBox } from './crop-geometry.mjs';
+import * as genderInput from './gender-input.mjs';
 import '@tensorflow/tfjs-backend-cpu';
 import '@tensorflow/tfjs-backend-webgl';
 import * as tfconv from '@tensorflow/tfjs-converter';
@@ -43,6 +44,7 @@ import { synthetic } from './synthetic-url.mjs';
 export var INPUT_SIZE = 256; // matches the embedded face model's fixed input shape
 export var NSFW_INPUT_SIZE = 224; // MobileNetV2Mid fixed input shape
 export var GENDER_INPUT_SIZE = 224; // faceres (HSE-FaceRes) fixed input shape
+
 
 // Face-box knobs — registered in docs/detection-engine.md.
 // 0.2 -> 0.35 2026-08-24 (owner: "sometimes false blurs"): sub-0.35
@@ -823,6 +825,17 @@ export async function classifyFaceGenders(model, pixelSource, boxes, sharedImg, 
     // cropAndResize interpolates from the 0..255 float source — faceres
     // wants exactly that range, so no further normalisation.
     var crops = tf.image.cropAndResize(input, rects, inds, [GENDER_INPUT_SIZE, GENDER_INPUT_SIZE]);
+    // ONE LINE, AND IT COVERS BOTH PATHS. The image path and the
+    // worker's per-person video path both reach faceres through here, so
+    // a single write turns grey on everywhere -- which is also why it
+    // must stay inside this tidy and inside the 0..255 float range
+    // faceres wants (there is no normalisation after this point).
+    // Rec.601 luma, broadcast back to 3 channels because the graph's
+    // input shape is fixed at [N,224,224,3].
+    if (genderInput.GENDER_GREY > 0) {
+      var lum = tf.sum(tf.mul(crops, tf.tensor1d([0.299, 0.587, 0.114])), -1, true);
+      crops = tf.tile(lum, [1, 1, 1, 3]);
+    }
     var res = model.execute(crops);
     var list = Array.isArray(res) ? res : [res];
     var genderT = null;

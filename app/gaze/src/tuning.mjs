@@ -31,6 +31,7 @@ import * as cadence from './cadence.mjs';
 import * as personTrack from './person-track.mjs';
 import * as delayCore from './delay-core.mjs';
 import * as nativeClient from './native-client.mjs';
+import * as genderInput from './gender-input.mjs';
 import * as videoRegion from './video-region.mjs';
 import * as perf from './perf.mjs';
 import * as glPresenter from './gl-presenter.mjs';
@@ -82,6 +83,17 @@ var SPEC = {
   // 125 REAL FACES, four of them the same woman, whose lowest nm was
   // 5.11. So 6 is the exposure edge and the range stops before it.
   NULL_MINT_NM_FLOOR: [0, 5.5, function (v) { genderVerdict.setNmFloor(v); }],
+  // GREY: feed faceres luma instead of colour. 0 is today's behaviour and
+  // is what ships, so 1098-style the switch and the revert both travel
+  // over OTA. It is a straight [0,1] switch rather than a blend -- there
+  // is no measurement for an intermediate value and inventing one would
+  // put the model in a regime nothing has ever scored.
+  //
+  // WHY THE RANGE IS SAFE IN BOTH DIRECTIONS: grey is better in 35 of 35
+  // (race x native size) cells and worse in none (finding 49), so 1
+  // cannot be an exposure; and 0 is the shipped behaviour, so the revert
+  // cannot be either.
+  GENDER_GREY: [0, 1, function (v) { genderInput.setGenderGrey(v); }],
 
   // How many earned clears an identity needs before memory may act, and
   // how alike two faces must be to count as the same person. A trust of
@@ -379,6 +391,7 @@ var GETTERS = {
   GENDER_CLEAR_SCORE: function () { return genderVerdict.GENDER_CLEAR_SCORE; },
   GENDER_CLEAR_SCORE_FEMALE: function () { return genderVerdict.GENDER_CLEAR_SCORE_FEMALE; },
   NULL_MINT_NM_FLOOR: function () { return genderVerdict.NULL_MINT_NM_FLOOR; },
+  GENDER_GREY: function () { return genderInput.GENDER_GREY; },
   MEM_TRUST_MAN: function () { return identityMemory.MEM_TRUST_MAN; },
   MEM_TRUST_WOMAN: function () { return identityMemory.MEM_TRUST_WOMAN; },
   MEM_SIM: function () { return identityMemory.MEM_SIM; },

@@ -5495,3 +5495,96 @@ on detection exactly as before.
 
 Bench: `app/gaze/bench/false-fire.mjs`, frames
 `Z:/tamescroll-corpus/frames-scan/`, bank `gpu-frames-detect.json`.
+
+
+## 49. RESOLUTION COSTS SEPARABILITY, NOT JUST BIAS -- AND GREY WINS ALL 35 RACE x SIZE CELLS, INCLUDING EVERY ONE OF THE WORST
+
+His ruling that forced this table: *"I need every single phase to work
+properly. People watch videos throughout the world. It isn't restricted
+to India or some other country."*
+
+The full FairFace validation split -- **10,580 usable faces, not the
+1,400** every earlier FairFace number in this file was measured on --
+degraded to each native size through the same box-down / bilinear-up path
+the player imposes (`bench/gpu/arms.degrade`), then read by the SHIPPED
+head. Nine banks, ~500s each on the GPU. On the CPU backend this table
+was a week and was never attempted.
+
+### WOMEN READ AS MEN, by race x native pixel size, shipped head
+
+    size      Black  EAsian  Indian  Latino  MidEast  SEAsian   White    WORST
+    224px     53.6%   20.4%   47.4%   28.3%    35.7%    23.7%   29.8%    53.6%
+     48px     64.9%   26.6%   53.2%   33.6%    40.8%    29.9%   37.3%    64.9%
+     40px     71.2%   30.8%   58.9%   38.5%    44.7%    32.9%   41.1%    71.2%
+     32px     79.7%   37.6%   68.1%   46.1%    49.4%    38.1%   48.4%    79.7%
+     24px     90.5%   52.1%   82.3%   63.2%    69.3%    56.0%   64.9%    90.5%
+
+**His own faces read at px p50 76** (finding 48, measured on 3,809 real
+frames), so he lives between the 48px and 96px rows -- and a Black woman
+there is read as a man **about two times in three.**
+
+### IT IS NOT A THRESHOLD EFFECT, AND THAT IS THE NEW PART
+
+Finding 47 established that the model leans male as resolution falls, and
+a lean is correctable by moving the bar. This is worse than a lean. AUC
+is threshold-free, and it decays monotonically:
+
+    224px  0.8913     48px  0.8659     32px  0.8293     24px  0.7695
+
+**The information is gone, not merely mis-centred.** No dial recovers it.
+That is why "just lower the clear bar" cannot work and why he was right
+to refuse it (*"No we can't blur everyone that's the problem"*).
+
+It also sharpens finding 37, which measured STREAM resolution and
+concluded 720p buys 4.7 points against the model's 34.3. The two are not
+the same axis -- this one is the face's own pixel count -- but part of
+what finding 37 charged to "the model" is this decay.
+
+### GREY WINS ALL 35 CELLS. NOT 34.
+
+Same table under Rec.601 luma:
+
+    size      Black  EAsian  Indian  Latino  MidEast  SEAsian   White    WORST
+    224px     44.1%   17.1%   41.1%   23.8%    30.0%    19.4%   26.6%    44.1%
+     48px     51.9%   18.9%   43.0%   26.4%    33.3%    22.4%   30.6%    51.9%
+     40px     55.9%   20.5%   45.7%   28.0%    35.7%    23.1%   32.9%    55.9%
+     32px     61.1%   25.0%   50.8%   32.4%    40.3%    26.9%   36.9%    61.1%
+     24px     75.1%   35.4%   66.2%   44.4%    54.0%    38.1%   51.5%    75.1%
+
+**Grey is better in 35 of 35 (race x size) cells and worse in none.** And
+it helps MOST exactly where the shipped head is worst: Black women -9.5
+points at 224px and **-15.4 at 24px**, Indian -6.3 and -16.1. It narrows
+the race gap and the size gap at the same time.
+
+AUC, threshold-free, rises at every size and the gain GROWS as faces
+shrink:
+
+    224px +0.0126     48px +0.0192     32px +0.0279     24px +0.0377
+
+So grey is not moving a bar. It is a genuinely better input. The cost is
+the mirror image and is a threshold matter: men wrong rises 3.8% -> 9.3%
+at 24px, which is what finding 47 already priced at matched exposure as
+0.2% -> 1.0%.
+
+### GREY HAS NOW BEEN CONFIRMED SIX INDEPENDENT WAYS AND HAS NOT SHIPPED
+
+    39  FairFace 1,348, women 36.0% -> 30.0% wrong, z 4.16
+    41  his corpus, 2,159 labelled reads, 25.8% -> 19.0%, z 5.56
+    45  the image path: junk marks 2.5-3x lower at matched protection
+    47  re-measured on the GPU: 3.6 pts of false cover at matched exposure
+    49  35 of 35 race x size cells, and AUC at every size
+    44  identity memory cleared: delta +-0.6 pts in 8 of 9 videos,
+        AUC 0.8914 -> 0.8895, memory-miss slightly BETTER
+
+It is one line after `cropAndResize` in `classifyFaceGenders`, covering
+the video AND thumbnail paths, for essentially zero compute. There is no
+measurement left to take.
+
+### WHAT IT DOES NOT FIX, said plainly
+
+Grey at 48px still reads a Black woman wrong **51.9%** of the time. Six
+confirmations make it the right thing to ship and it does not come close
+to closing the global gap. That is the head-retrain and the dima806
+question, and this table is the bar they have to beat.
+
+Banks `gpu-ff-s{24,32,40,48,64,96,128,192}.json`, `gpu-fairfull-desc.json`.
