@@ -1,7 +1,7 @@
 {
-  "versionCode": 1102,
-  "versionName": "0.1.102",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.102/tamescroll-v0.1.102.apk",
-  "sha256": "0a495cfa3f2e371c8c77070cdd55868820f86ee663002c8cc3bb7e36e120d596",
-  "notes": "The blur switch and the tuning gear no longer ride the home feed."
+  "versionCode": 1103,
+  "versionName": "0.1.103",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.103/tamescroll-v0.1.103.apk",
+  "sha256": "6de12c09e24a464645bcfc90808886bd9fc20f85cb496fb3dc5666d9bcb7a2f4",
+  "notes": "Grey face reads on by default"
 }

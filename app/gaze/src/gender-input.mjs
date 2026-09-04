@@ -40,5 +40,5 @@
 // solution: grey at 48px still reads a Black woman wrong 51.9% of the
 // time (finding 49). It is the right thing to ship and it does not close
 // the global gap.
-export var GENDER_GREY = 0;
+export var GENDER_GREY = 1;
 export function setGenderGrey(v) { GENDER_GREY = v; }
