@@ -62,14 +62,25 @@ student model. His phone still owes ONE SHARE on 1101/1102/1103 -- the
 `native.models.*.gpu` block is the only thing that says why his Adreno
 stayed on CPU.
 
-**STILL NOT BUILT, and it is NOT a one-liner:** finding 48's sub-40px
-abstention floor (3.2% of video patches). A detection under
-`FACE_MIN_NATIVE_PX` 40 abstains WITHOUT running faceres
-(`init-entry.js:3019`), so there is no `nm` to test -- applying the floor
-there means running the gender model on the smallest faces purely to get
-one number. That is added per-frame compute on his phone, unmeasured,
-and it was deliberately not batched into 1104 rather than stacking an
-unpriced cost onto a clean win.
+**FINDING 54 ANSWERS THE SUB-40px ITEM AND IT IS SMALLER THAN ADVERTISED.**
+Finding 48 offered it as 3.2% of video patches for an unpriced compute
+cost. Both halves are now measured on its own 3,809 frames
+(`bench/sub40-floor-cost.mjs`):
+
+- **The compute is free.** 144 sub-gate detections in 5,451; only 2.1% of
+  frames carry one; mean **0.038 extra crops per frame**, 1.78 on an
+  affected frame, worst frame 10. The gender pass is one batched call, so
+  98% of frames pay nothing. That kills the reason it was parked.
+- **The benefit halves.** 41 of the 68 refusals sit INSIDE an admitted
+  person box and are already covered, so nothing moves on screen. The
+  patches that actually disappear are **27 of 2,127 = 1.3%**, not 3.2% --
+  and all 27 are face-only, which is exactly the class nobody can call
+  graphic-or-person. There is no safe half to take first.
+- **nm barely separates down here:** p50 5.74 inside a person box against
+  4.12 outside, both spanning 2-9. Finding 38's clean 8.34-vs-4.56 gap was
+  a forced read on clean crops, not his frames.
+
+So it is cheap, small, and thin -- offer it as 1.3%, never as 3.2%.
 
 ## HANDOFF 2026-09-04 (late) -- HIS TWO COMPLAINTS ARE ONE PROBLEM, AND
 ## THE MODEL THAT FIXES IT IS 5x BETTER AND CANNOT SHIP
@@ -820,9 +831,18 @@ locally -- only after pushing.**
 
 ## HIS OPEN RULINGS, all exposure trades, none pushed
 
-`NULL_MINT_NM_FLOOR` 5 -> 5.5 (OTA) or 6 (build) · mirror-averaging
-(compute, marginal -- 7 women for 1.4-1.6x of the gender inference) ·
-`GENDER_IMAGE_MIN_SCORE` 0.40 -> 0.35 · decision boundary 0.50 -> 0.65 ·
-`PTRACK_MIN_COAST_PASSES` 2 -> 1.33 · `DELAY_MS` 1500 -> 0 (the
-boxes-on-top technique, already shippable via gear -> Blur delay -> 0) ·
-720p · the child gate by policy.
+**NEW THIS SESSION, and 1104 must ship before either can travel:**
+
+- **The thumbnail null guard (finding 53), ALREADY IN 1104.** junk marks
+  -66%, real marks -13.7%, and **16 thumbnails of 370 (4.3%) go from
+  covered to completely uncovered.** `GENDER_IMAGE_NM_FLOOR` 0 reverts it
+  over OTA without touching the video path.
+- **The sub-40px floor (finding 54).** 1.3% of video patches, compute
+  free, instrument thin. Not built.
+
+**STANDING:** `NULL_MINT_NM_FLOOR` 5 -> 5.5 (OTA) or 6 (build) ·
+mirror-averaging (compute, marginal -- 7 women for 1.4-1.6x of the gender
+inference) · `GENDER_IMAGE_MIN_SCORE` 0.40 -> 0.35 · decision boundary
+0.50 -> 0.65 · `PTRACK_MIN_COAST_PASSES` 2 -> 1.33 · `DELAY_MS` 1500 -> 0
+(the boxes-on-top technique, already shippable via gear -> Blur delay ->
+0) · 720p · the child gate by policy.
