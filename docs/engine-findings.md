@@ -5588,3 +5588,100 @@ to closing the global gap. That is the head-retrain and the dima806
 question, and this table is the bar they have to beat.
 
 Banks `gpu-ff-s{24,32,40,48,64,96,128,192}.json`, `gpu-fairfull-desc.json`.
+
+
+## 50. dima806 IS 5x BETTER THAN WHAT SHIPS ON HIS OWN FOOTAGE, AND IT CORRECTS THE HANDOFF THAT SAID DISTILLATION CANNOT FIX ACCURACY
+
+He asked about dima806 three times -- *"Are we using this now?"*, *"why
+are we not using that other model Dima?"*, *"You sure we shouldn't use
+Dima or any sample from it if it's better?"* -- and the instinct was
+right each time.
+
+### THE MEASUREMENT, on the same 2,159 labelled reads, joined BY CROP so
+### all three arms score identical rows
+
+    arm                    <=3.0%  <=2.4%  <=1.6%  <=1.0%  <=0.5%     AUC
+    SHIPPED head (rgb)      14.8%   19.2%   21.8%   25.8%   35.1%   0.9808
+    SHIPPED + GREY          14.3%   15.5%   18.2%   22.1%   29.1%   0.9855
+    dima806 ViT-base         1.1%    1.4%    4.2%    6.3%   11.4%   0.9974
+
+**False cover at his operating point falls 21.8% -> 4.2%.** Best or tied
+in 7 of 8 videos. And it wins hardest exactly where finding 49 says the
+shipped head collapses:
+
+    px band    women   rgb    grey   dima
+    32-48px      141  36.9%  24.8%  12.1%
+    48-64px      212  38.2%  32.5%   9.9%
+    64-96px      228  28.1%  19.7%   7.5%
+      96+px      319  11.3%   7.2%   1.6%
+
+That is his opening question answered: *"I'm targeting close to zero
+percent error rate on the women. Is it possible?"* At matched exposure,
+with this model, yes.
+
+### THE CONFOUND THAT HAD TO DIE FIRST, and it nearly took the round
+
+The model is literally named `fairface_gender_image_detection`. **FairFace
+is its training domain.** Its FairFace numbers -- 16.2% on Black women at
+224px against our 53.6% -- could be memorisation, and there is no way to
+tell from the repo whether it was fitted on the train split or all of it.
+Quoting that table alone would have been building on sand.
+
+His corpus settles it: 52 identities, ten real YouTube videos, hand-
+clustered and hand-labelled, at the sizes his player decodes. **Nothing in
+this comparison has ever seen it**, and dima806 wins there by more than it
+wins on FairFace. So it generalises, and the FairFace table is no longer
+load bearing.
+
+### IT IS ALSO ROBUST TO RESOLUTION, WHICH IS THE PART THAT MATTERS
+
+Finding 49 measured our head losing 11.5 points of women-recall between
+224px and 40px, with AUC decaying 0.891 -> 0.770. dima806 over the same
+degradation, 10,580 faces x 7 sizes:
+
+    size    women wrong    AUC          (ours: women wrong / AUC)
+    224px       9.3%     0.9860              33.8%  /  0.8913
+     48px      10.5%     0.9815              44.7%  /  0.8659
+     40px      11.8%     0.9790              45.3%  /  0.8550
+     24px      20.0%     0.9569              68.1%  /  0.7695
+
+**It is better at 24px than ours is at 224px.** Verified on degraded crops
+BEFORE anything was built on it, because a teacher that is excellent on
+clean portraits and noise at 40px would poison every pseudo-label it
+writes while looking like progress.
+
+### THIS CORRECTS THE 2026-09-04 HANDOFF, IN HIS FAVOUR
+
+That handoff wrote: *"'Distill all three models into one' is a LATENCY
+project and CANNOT fix accuracy. A student trained on teacher outputs
+reproduces the teacher's errors."* **True of faceres as teacher, and it
+was the wrong teacher.** With a 5x-better Apache-2.0 teacher that is
+already verified on degraded in-domain crops, distillation is precisely
+the accuracy fix, and it is the thing he asked about in his first message
+of the round.
+
+### WHAT IS STILL BLOCKED, said plainly
+
+**dima806 cannot ship as-is.** ViT-base is ~86M parameters against
+faceres' 3.5M, and finding 43 already refused a 1.96x speedup of the
+smaller model because 9.3% of decisions flipped. Shipping this one is not
+a tuning question, it is a different phone.
+
+So the route is a STUDENT, and the open questions are the ones a student
+project has: what architecture at what size, how much in-domain data,
+what it costs per frame, and whether the win survives the shrink. None of
+those are measured. What IS measured is that the ceiling exists and is
+worth 5x -- which is the thing nobody knew this morning.
+
+**AND ONE CHEAPER TEST COMES FIRST**, because if it works the student is
+unnecessary: pseudo-label real in-domain faces with dima806 and retrain
+OUR head on OUR trunk's descriptors. Zero extra inference, ~4KB of
+weights. Finding 46 bounds the hope (`pearson(head raw, probe) = 0.893`
+-- the descriptor is the same signal read earlier) and finding 50's own
+head-retrain arm already failed with TRUE FairFace labels, so this is a
+test and not a plan.
+
+Benches `bench/dima-degraded.py`, `bench/dima-corpus.py`,
+`bench/dima-score.mjs`. Banks `dima-degraded.json` (76,678 rows),
+`dima-corpus.json`. torch+CUDA and transformers live in a venv on
+**Z:/ml** -- C: is at 98%.
