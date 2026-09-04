@@ -4953,3 +4953,69 @@ not ship it on a story.
 ordered inside its own noise; the two significant rows (blueOnly against,
 invert catastrophic) are the load-bearing ones and they are the reason the
 hypothesis is closed.
+
+
+## 43 -- THE GENDER MODEL WILL NOT RUN SMALLER, AND THE FIRST RUN THAT SAID IT WOULD WAS A BROKEN HARNESS
+
+faceres is the most expensive thing in a verdict -- 220ms of ~355 on the
+Redmi at fp32, 7MB of the APK -- and its input is 224x224x3. A ResNet
+ending in a global average pool consumes any spatial size, so the
+locked-at-224 input shape is a GUARD rather than a limit. Halving it
+should cut the convolution cost about fourfold. That is the largest cheap
+performance lever this pipeline has left.
+
+`bench/faceres-input-size.mjs` patches the graph topology IN MEMORY to
+free the input dimension, reuses the shipped weight bytes, and runs the
+224 reference through the UNPATCHED graph so the reference cannot inherit
+a patching mistake. Nothing under `app/gaze/models` is written.
+
+**IT RUNS AT EVERY SIZE, AND IT IS FAST.** 224 / 160 / 112 / 96 all
+produce the full three-head output, at **1.00x / 1.96x / 3.82x / 5.38x**.
+
+**AND IT CHANGES WHO GETS BLURRED, AT EVERY SIZE.**
+
+| px | agrees with 224 | abs diff p50 | p95 | wrong vs label | speed |
+|---|---|---|---|---|---|
+| 224 (ships) | 100.0% | 0 | 0 | 12.1% | 1.00x |
+| 160 | 90.7% | 0.089 | 0.276 | 12.9% | 1.96x |
+| 112 | 89.3% | 0.106 | 0.423 | **20.0%** | 3.82x |
+| 96 | **71.4%** | 0.189 | 0.509 | **32.1%** | 5.38x |
+
+**REFUSED.** Loop 34 refused a uint8 requant of this same model at **8
+decision flips in 100**; the cheapest size here flips **9.3 in 100** and
+the fast ones flip 10.7 and 28.6. A verdict that changes is a person who
+was covered going sharp or the reverse, so none of this is a free speed
+win. The idea is closed: the shape guard was not the only thing holding
+faceres at 224.
+
+**THE FIRST RUN OF THIS BENCH SAID THE OPPOSITE, AND IT WAS ENTIRELY
+WRONG.** It reported **100.0% agreement at every size** and a free 3.8x.
+The cause was one line: it fed the model `x/255`, and faceres takes a
+**0..255 float** (`detector.js:797` and `:825` -- `cropAndResize`
+interpolates from a 0..255 float source and nothing divides). Starved of
+255x its expected input magnitude the network saturated: across 140 faces
+the reference output spanned **0.6262 to 0.6284, three distinct values**,
+with male and female means identical to three decimals.
+
+**A CONSTANT OUTPUT AGREES WITH ITSELF PERFECTLY AND SCORES EXACTLY
+CHANCE.** That is the signature, and both halves were printed in the same
+table: 100.0% agreement beside 50.0% label accuracy at EVERY size,
+including the 224 reference that ships. The 50.0% was the tell -- the
+shipped model is 12.1% wrong on this sample, so a reference reading
+chance is a reference that is not looking at the image.
+
+**A DEGENERACY GUARD NOW STANDS IN FRONT OF THE TABLE.** Before scoring,
+the bench measures the spread of the 224 reference across faces and the
+gap between its male and female means; under 0.2 spread or 0.05 gap it
+prints "REFERENCE IS DEGENERATE", names the likely preprocessing
+mismatch, and refuses to print an accuracy table at all. On the corrected
+run it reads **spread 0.993, male-minus-female 0.519**.
+
+**THE LESSON IS THE ONE PHASE G ALREADY WROTE DOWN, IN A NEW SHAPE.** An
+instrument that cannot fail is worse than no instrument, and a
+self-agreement metric is exactly that whenever the thing being compared
+can go flat. **Any agreement number needs a spread check beside it**, or
+100% means "identical" and "dead" indistinguishably. This repo has now
+shipped a saturated gender model once (mini-Xception, 2026-08-23) and
+nearly published a saturated one as a 4x speed win; the failure mode is
+the same both times and it looks like success from the outside.

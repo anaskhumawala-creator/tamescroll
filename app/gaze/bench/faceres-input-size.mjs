@@ -45,7 +45,7 @@ import * as tfconv from '@tensorflow/tfjs-converter';
 import { fsHandler, MODELS } from './corpus-lib.mjs';
 
 const DIR = 'Z:/tamescroll-corpus/fairface';
-const SIZES = [224, 160, 112, 96];
+const SIZES = [224, 208, 192, 176, 160];
 const PER = Number(process.env.FI_PER || 10);
 
 function readPPM(file) {
