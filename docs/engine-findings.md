@@ -5019,3 +5019,60 @@ can go flat. **Any agreement number needs a spread check beside it**, or
 shipped a saturated gender model once (mini-Xception, 2026-08-23) and
 nearly published a saturated one as a 4x speed win; the failure mode is
 the same both times and it looks like success from the outside.
+
+
+## 44 -- IF GREY SHIPS: WHERE IT GOES, WHAT IT COSTS, AND THE ONE THING IT SILENTLY BREAKS
+
+Findings 41 and 42 leave grey as the strongest unshipped accuracy lever
+this pipeline has. This is the shipping shape, written before anyone
+builds it, because two of the three points below are not obvious from the
+measurement.
+
+**IT IS ONE LINE, IN ONE PLACE, AND IT COVERS BOTH PATHS.**
+`classifyFaceGenders` is the single door every gender read goes through --
+video verdicts and thumbnail verdicts alike -- and the crop batch already
+exists as a tensor immediately after `cropAndResize` (`detector.js:825`).
+Grey is a weighted sum over the channel axis and a tile back to three,
+applied to `crops` before `model.execute`. No call site changes, no
+geometry changes, and the image path inherits it for free.
+
+**THE COMPUTE COST IS ESSENTIALLY ZERO.** One elementwise multiply, one
+reduction and one tile over `[N,224,224,3]`, against a ResNet forward pass
+on the same tensor. Unlike finding 40's mirror-averaging -- which is a
+real 1.4-1.6x on the most expensive model in the verdict -- grey is free.
+That matters for the ordering: **if only one of the two ships, grey is the
+one that costs nothing.**
+
+**SHIP IT THE 1098 WAY: CODE AT TODAY'S BEHAVIOUR, FLIPPED BY A DIAL.** A
+pixel transform cannot travel over OTA, so grey needs a build either way.
+But a build that ships `GENDER_GREY` at **0**, whitelisted and clamped
+`[0,1]` in `tuning.mjs`, renders exactly like 1102 until a number is
+pushed -- and then the switch, the A/B and the revert all travel with no
+second install. That is the pattern the whole 1098 dial batch used and it
+is the right one here, because grey changes who gets blurred and the first
+real device read of it should be reversible in seconds.
+
+**AND HERE IS THE THING IT SILENTLY BREAKS.** faceres is multi-head: the
+same forward pass that produces the gender sigmoid also produces the
+**[1024] descriptor** that the identity memory matches on, at
+`MEM_SIM = 0.6` (`identity-memory.mjs:71`). That constant is not a guess
+-- the module records that raising it to 0.65 was measured and destroys
+three quarters of the win, and that the descriptor's separability is
+"genuinely poor" to begin with. **Change the input and every descriptor
+changes with it, so 0.6 becomes an UNCALIBRATED number on a threshold
+that was already close to its edge.**
+
+Nothing in findings 41 or 42 measured this. The memory is per-video and
+cleared on `loadstart`, so there is no cross-build staleness hazard and
+nothing corrupts -- the risk is purely that same-person matching gets
+better or worse by an unknown amount, silently, in the same build that
+changes gender accuracy. Two effects, one release, no way to attribute a
+regression.
+
+**SO A GREY BUILD OWES ONE MORE BENCH BEFORE IT GOES OUT:** descriptors
+under both arms over the labelled clusters, scoring within-identity cosine
+against between-identity cosine, and re-deriving `MEM_SIM` on the grey
+distribution rather than inheriting 0.6. The corpus already carries the
+cluster identities that makes that a pure offline run. It is NOT written;
+it is deliberately not being written until he rules on grey, because it
+prices a change nobody has decided to make.
