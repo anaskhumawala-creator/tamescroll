@@ -5076,3 +5076,45 @@ distribution rather than inheriting 0.6. The corpus already carries the
 cluster identities that makes that a pure offline run. It is NOT written;
 it is deliberately not being written until he rules on grey, because it
 prices a change nobody has decided to make.
+
+
+### 43a -- THE KNEE, SWEPT: THERE IS NO FREE SIZE, AND 140 FACES CANNOT RANK THE ONES NEAR 224
+
+Finding 43 refused 160/112/96. The obvious follow-up is whether something
+just under 224 is cheap enough to be worth having, since faceres is 220ms
+of a ~355ms verdict and even a small factor moves the whole cadence.
+Re-swept at 208/192/176/160, same 140 faces, same patched-in-memory graph.
+
+| px | agrees with 224 | wrong vs label | speed |
+|---|---|---|---|
+| 224 (ships) | 100.0% | 12.1% | 1.00x |
+| 208 | 97.9% | 14.3% | 1.19x |
+| 192 | 94.3% | 10.7% | 1.41x |
+| 176 | **95.7%** | 12.1% | **1.68x** |
+| 160 | 90.7% | 12.9% | 2.08x |
+
+**READ THE NON-MONOTONICITY FIRST, because it bounds everything else: 176
+AGREES MORE THAN 192 while being 19% faster.** Agreement with the 224
+answer must fall as the input shrinks -- a smaller input cannot carry more
+of the original signal -- so an inversion is the instrument telling you the
+gap between those two cells is smaller than its own noise. At n=140 a
+single flip is 0.7 points, and 192-vs-176 is 1.4. **Nothing in the middle
+of this table can be ranked at this sample size.**
+
+**AND NO CELL IS FREE.** 208 costs 2.1 flips per 100 and buys only 1.19x,
+which is not worth a build. 176 buys a real 1.68x -- faceres 220ms -> 131,
+verdict ~355 -> ~266, a quarter off the whole cadence -- at 4.3 flips per
+100. That is under loop 34's refusal bar of 8 flips, so unlike 160 and
+below it is not automatically dead; it is simply unmeasured at a sample
+size that could support the decision.
+
+**RE-RUNNING AT n=700 ON 224/192/176 ONLY.** If 176 holds under 5 flips
+per 100 at that n it becomes a genuine question for him -- a quarter of
+the verdict clock against a small number of changed decisions -- and if it
+does not, the whole smaller-input idea closes for good. Either way the
+answer is a measurement rather than a ranking inside noise.
+
+**WHAT DOES NOT CHANGE:** the 224 reference reads spread 0.993 and
+male-minus-female 0.519 in every run, so the degeneracy guard of finding
+43 is satisfied throughout and none of these numbers are the saturated
+kind.
