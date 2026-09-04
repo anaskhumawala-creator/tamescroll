@@ -45,3 +45,4 @@ spikes/gauntlet/__pycache__/
 spikes/release/
 spikes/native/frames.npy
 spikes/native/__pycache__/
+app/gaze/bench/gpu/.bundle.js
