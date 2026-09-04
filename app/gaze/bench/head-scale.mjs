@@ -165,8 +165,18 @@ for (let seed = 1; seed <= SEEDS; seed++) {
   }
   // Per race, pooled over the sizes in HIS band (finding 37: 34-192px).
   const band = teAll.filter((r) => r.nativePx <= 192);
-  raceRuns.base.push({ rows: band, s: sB });
-  raceRuns.aug.push({ rows: band, s: sA });
+  // One global bar per arm, solved to a COMMON men-cover budget, so the
+  // per-race table below compares two arms at the same protection cost
+  // rather than at two different operating points.
+  const MEN_COVER = Number(arg('cover', '0.10'));
+  const solveBar = (s) => {
+    const men = band.filter(yOf).map(s).sort((a, b) => a - b);
+    // The bar that leaves at most MEN_COVER of men covered (scored below it).
+    const idx = Math.min(men.length - 1, Math.floor(men.length * MEN_COVER));
+    return men[idx];
+  };
+  raceRuns.base.push({ rows: band, s: sB, bar: solveBar(sB) });
+  raceRuns.aug.push({ rows: band, s: sA, bar: solveBar(sA) });
 }
 
 const t1 = [];
@@ -190,6 +200,8 @@ console.log('  that is the result the corpus arm below has to confirm.');
 // ARM 2 -- PER RACE, worst group, in his size band. His ruling.
 // =====================================================================
 console.log(NL + '=== ARM 2: PER RACE in his 24-192px band, WORST GROUP DECIDES');
+console.log('  Each arm at its OWN single global bar, solved to the same men-cover');
+console.log('  budget (' + (100 * Number(arg('cover', '0.10'))).toFixed(0) + '%), so the two are compared at equal protection cost.');
 const races = [...new Set(all.map((r) => r.race))].filter(Boolean).sort();
 console.log('  ' + 'race'.padEnd(18) + 'n(w)'.padStart(7) + 'base'.padStart(9) + 'aug'.padStart(9) + 'delta'.padStart(9));
 const worst = { base: 0, aug: 0 };
@@ -199,11 +211,22 @@ for (const race of races) {
     for (const run of raceRuns[k]) {
       const sub = run.rows.filter((r) => r.race === race);
       if (sub.length < 40) continue;
-      // Women wrong: scored as a man at the LABEL boundary. Threshold-free
-      // per-race read; the matched-exposure table above is the shipped view.
       const w = sub.filter((r) => !yOf(r));
       if (!w.length) continue;
-      cells[k].push(w.filter((r) => run.s(r) >= 0.5).length / w.length);
+      // *** AT THE ARM'S OWN MATCHED BAR, NOT THE 0.5 LABEL BOUNDARY.
+      // The first version of this arm read women-wrong at raw >= 0.5 and
+      // reported the augmented head making Black women 6.7 points WORSE
+      // while ARM 1 showed it better at every size on every cell. Both
+      // were right: the augmented head separates better AND sits at a
+      // different operating point, and a raw-boundary read cannot tell
+      // those apart. That is the rule findings 29, 40, 41, 45 and 47 each
+      // nearly got reported wrong on -- an arm wins any accuracy column
+      // by leaning, which is a threshold move in disguise.
+      //
+      // The shipped system has ONE global bar, so the honest per-race
+      // read is: solve the arm's single bar on the whole band to a common
+      // MEN-cover budget, then read each race at that one bar.
+      cells[k].push(w.filter((r) => run.s(r) >= run.bar).length / w.length);
     }
   }
   if (!cells.base.length) continue;
