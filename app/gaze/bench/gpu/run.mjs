@@ -156,11 +156,40 @@ function framesWork() {
   }
   return { work, root };
 }
+// REAL THUMBNAILS, INCLUDING PERSON-FREE ONES -- the half of his
+// complaint finding 48 could not reach.
+//
+// Finding 48 used video frames from videos that CONTAIN PEOPLE and found
+// the detector nearly innocent (5 false fires in 5,451 detections). His
+// words were about THUMBNAILS -- 'randomly just blur some text' -- and a
+// gaming or coding thumbnail often holds no person at all, which is a
+// population that bench structurally could not contain.
+//
+// 370 thumbnails off 14 searches chosen to span both kinds, fetched at
+// hq720 and normalised to 640x360. hqdefault was REFUSED: it is 480x360,
+// i.e. a 16:9 image letterboxed into 4:3, so every face would be smaller
+// than his feed shows and two hard black edges would enter the frame --
+// an artifact the app never sees.
+function thumbsWork() {
+  const root = 'Z:/tamescroll-corpus/thumbs-ppm';
+  const idx = JSON.parse(fs.readFileSync('Z:/tamescroll-corpus/thumbs/index.json', 'utf8'));
+  const meta = new Map(idx.map((r) => [r.id, r]));
+  const work = [];
+  for (const f of fs.readdirSync(root).filter((x) => x.endsWith('.ppm')).sort()) {
+    const id = f.slice(0, -4);
+    const m = meta.get(id) || {};
+    // `q`/`expect` ride along for slicing only. They are a HINT, never a
+    // label -- a gameplay thumbnail often carries a facecam.
+    work.push({ vid: id, frame: f, crop: f, q: m.q, expect: m.expect });
+  }
+  return { work, root };
+}
 const { work: allWork, root: CROPROOT } =
-  POP === 'frames' ? framesWork()
-    : POP === 'fairfull' ? fairfaceFullWork()
-      : POP === 'fairface' ? fairfaceWork()
-        : corpusWork();
+  POP === 'thumbs' ? thumbsWork()
+    : POP === 'frames' ? framesWork()
+      : POP === 'fairfull' ? fairfaceFullWork()
+        : POP === 'fairface' ? fairfaceWork()
+          : corpusWork();
 const work = LIMIT ? allWork.slice(0, LIMIT) : allWork;
 const job = { backend: BACKEND, arms: ARMS, work, mirror: MIRROR, keepDesc: KEEPDESC, sizes: SIZES, mode: MODE };
 

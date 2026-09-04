@@ -5747,3 +5747,86 @@ is a data project, and it should not start until someone decides it is
 cheaper than the student.
 
 Bench `app/gaze/bench/pseudo-label.mjs`.
+
+
+## 52. THE THUMBNAIL HALF: THE DETECTOR IS INNOCENT HERE TOO, AND HIS "BLUR SOME TEXT" IS THE IMAGE PATH HAVING NO NULL GUARD
+
+Finding 48 measured the detector's false-fire rate on VIDEO FRAMES and
+found it nearly innocent (5 in 5,451), but it said its own limit out
+loud: that population is frames from videos **that contain people**, and
+his words were about thumbnails -- *"the random blur marks are pretty
+pretty annoying on random places on random thumbnails, like randomly just
+blur some text."* A gaming or coding thumbnail often holds no person at
+all, which is a population that bench structurally could not contain.
+
+**370 real thumbnails** off 14 searches chosen to span both kinds --
+gameplay, landscape, code, whiteboard, unboxing, car, lofi on one side;
+vlog, interview, reaction, makeup, news on the other -- fetched at hq720
+and normalised to 640x360. `hqdefault` was REFUSED: it is 480x360, a 16:9
+image letterboxed into 4:3, so every face would be smaller than his feed
+shows and two hard black edges would enter the frame. **51.1% of these
+thumbnails have no person in them**, so the person-free half is genuinely
+represented.
+
+### THE DETECTOR IS INNOCENT ON THUMBNAILS TOO
+
+    face detections total                          399
+    landing where there is NO human shape at all     1   = 0.3%
+
+One. The same answer as finding 48 from a completely different
+population, and it kills the "BlazeFace hallucinates on text" hypothesis
+in the one place it was most likely to be true.
+
+### SO WHERE DO THE MARKS COME FROM
+
+**Person-free searches only, 200 thumbnails: 0.43 image marks each.** 48
+of those marks sit on thumbnails where MoveNet admits nobody. Their
+signature is the tell:
+
+    thumb          px  conf  read           nm   maxKp  query
+    RINfH7dJALk    42  0.63  male s0.26     1.4  0.263  minecraft gameplay
+    N2VeWVU-MGc   186  0.58  male s0.11     1.7  0.179  minecraft gameplay
+    CFoNGacLIpY   177  0.57  male s0.26     1.7  0.216  car review walkaround
+    TJjMK3dpmxw    74  0.58  male s0.32     2.2  0.177  minecraft gameplay
+    FWjZ0x2M8og    35  0.57  male s0.23     2.7  0.241  lofi hip hop radio
+
+**nm p50 3.44 against a floor of 5**, and **34 of 48 are under that
+floor.** These are weak male reads on crops the network extracted almost
+nothing from -- the model shrugging at a graphic. **The VIDEO path
+refuses exactly this. The IMAGE path has no such guard**, which finding
+45 recorded as an asymmetry and could not price. This is the price.
+
+### PORTING THE VIDEO PATH'S NULL GUARD, MEASURED BOTH WAYS
+
+JUNK = a mark on a person-free-search thumbnail where MoveNet admits
+nobody. REAL = a mark on a thumbnail where MoveNet DID admit a person, so
+something is genuinely there.
+
+    floor   junk marks   real marks    change
+      0 (ships)    48          171     baseline
+      3            29          161     -19 junk / -10 real
+      5            16          147     -32 junk / -24 real
+      6            11          143     -37 junk / -28 real
+
+**At the floor the video path already ships, junk falls 67% and real
+marks fall 14%.** Roughly 1.3 junk removed per real mark lost. **IT IS
+NOT FREE AND IT IS AN EXPOSURE TRADE, SO IT IS HIS.** A "real mark" lost
+is not automatically an exposure -- the subject may be covered by another
+mark on the same thumbnail -- but this bench cannot tell which, and the
+direction is toward uncovering.
+
+### AND THE CLOSE-UP TRAP FIRED A THIRD TIME
+
+The thumbnails where MoveNet admits nobody are dominated by **makeup-
+tutorial close-ups**: real women at 191-427px, detector confidence
+0.77-0.89, nm 9-11, frame maxKp 0.45-0.70. A head filling the frame has
+too few keypoints to clear `PERSON_MIN_SCORE`, so the person gate refuses
+it and `nPersons` reads 0 while a person is plainly there. Findings 48
+and 52 were each nearly written up wrong on this, and it is why the junk
+class above is defined by **the search that produced the thumbnail** as
+well as by the oracle -- one signal alone is not enough.
+
+Bench `bench/gpu/fetch-thumbs.mjs` (`--pop=thumbs`), bank
+`gpu-thumbs-detect.json`, images `Z:/tamescroll-corpus/thumbs-ppm/`.
+Nothing was rendered and nothing published: public search HTML for the
+ids, public i.ytimg.com for the jpegs, straight to disk on Z:.
