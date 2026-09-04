@@ -1,7 +1,7 @@
 {
-  "versionCode": 1103,
-  "versionName": "0.1.103",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.103/tamescroll-v0.1.103.apk",
-  "sha256": "6de12c09e24a464645bcfc90808886bd9fc20f85cb496fb3dc5666d9bcb7a2f4",
-  "notes": "Grey face reads on by default"
+  "versionCode": 1104,
+  "versionName": "0.1.104",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.104/tamescroll-v0.1.104.apk",
+  "sha256": "83815234da4bdab884c51715774e8c022dbd23ead21fa0e3a0d8fd2f03e6675d",
+  "notes": "Thumbnail marks: the null guard fires now, and gets its own dial"
 }
