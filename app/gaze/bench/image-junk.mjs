@@ -189,7 +189,7 @@ function score(rows, skip) {
   console.log(NL + 'nm distribution -- the axis the floor cuts on');
   const q = (a, p) => { const s = a.slice().sort((x, y) => x - y); return s.length ? s[Math.floor(p * (s.length - 1))] : NaN; };
   for (const [k, s] of [['junk', J], ['men', M], ['women', F]]) {
-    const v = s.map(r => r.rgb.nm).filter(x => typeof x === 'number');
+    const v = s.map(r => (r.rgb.shape || {}).norm).filter(x => typeof x === 'number');
     console.log('  ' + k.padEnd(8) + 'n ' + String(v.length).padStart(4)
       + '   p05 ' + q(v, 0.05).toFixed(2) + '   p50 ' + q(v, 0.5).toFixed(2)
       + '   p95 ' + q(v, 0.95).toFixed(2));

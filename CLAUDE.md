@@ -1,5 +1,118 @@
 ## Session state (update every session)
 
+**Last updated:** 2026-09-04 07:10 (**1102 IS STILL THE RELEASE, sha
+0a495cfa. NOTHING SHIPPED OVERNIGHT AND NO CONSTANT MOVED.** HEAD
+pushed, tree clean. The deliverable is eleven findings, 34-44, in
+`docs/engine-findings.md`. His phone still owes ONE SHARE on 1101/1102
+-- the `native.models.*.gpu` block is the only thing that says why his
+Adreno stayed on CPU.)
+
+## HANDOFF 2026-09-04 -- THE ACCURACY ROUND: GREY WINS, THE CROP IS
+## ALREADY RIGHT, AND THE BIGGEST PERF LEVER IS DEAD
+
+**HIS STANDING COMPLAINT, and it is what the round was aimed at:** "the
+random blur marks are pretty pretty annoying on random places on random
+thumbnails, like randomly just blur some text."
+
+**THE ONE RULE THAT INVALIDATES MOST NAIVE BENCHES, and it caught two
+of mine:** the clear bar sits far above the label boundary --
+`GENDER_CLEAR_SCORE` 0.45 male means **raw >= 0.725** -- so a label flip
+anywhere between 0.50 and 0.725 changes NOTHING that ships. And an arm
+can win any accuracy column by simply leaning female, which is a
+threshold move in disguise. **Every comparison must tune each arm's own
+bar to a COMMON EXPOSURE and read false cover.** Findings 29, 40 and 41
+were each nearly reported wrong for exactly this.
+
+**WHAT WON:**
+- **GREY (41, 42).** Rec.601 luma into faceres. FairFace 1,348 faces:
+  women 36.0% -> 30.0% wrong, z 4.16. **HIS OWN CORPUS, 2,159 labelled
+  reads off ten real videos: 25.8% -> 19.0%, z 5.56**, and it lands in
+  his own 38-62px band (32-48px: 36.9% -> 24.8%). At matched exposure it
+  buys **3.7-5.8 points of false cover** and beats rgb at every operating
+  point. Costs men 0.2% -> 1.0%. **NOBODY HAS A MECHANISM** -- every one
+  proposed has been tested and refused (tone equalisation worse; the
+  between-group gap does not move, 27.3 -> 27.2; and blueOnly, which
+  should strip tone best, is the WORST arm at z 2.25 AGAINST while
+  redOnly is the best single channel). `invert` collapses women to 84.5%
+  wrong while preserving all structure, so **faceres reads tone and
+  polarity, not geometry**. Ship it on the measurement or not at all.
+- **MIRROR-AVERAGING (40).** 18.0% -> 12.3% false cover at matched
+  exposure. Zoom and rotate are worse; if it ships it is MIRROR ONLY.
+  Costs ~1.4-1.6x of the gender inference (one batch of 2N crops, not
+  two calls -- readback count unchanged).
+
+**WHAT DIED, all cleanly:**
+- **CROP ALIGNMENT (34).** Shipped 15.8% wrong on women against 29.1%
+  eye-rect and 28.8% full-align; loses on 8 of 10 videos, z ~8.5.
+  `src/face-align.mjs` is dead code. The eye-target sweep is CANCELLED.
+- **FACERES AT A SMALLER INPUT (43).** Runs at 160/112/96 for
+  1.96x/3.82x/5.38x and flips 9.3% / 10.7% / 28.6% of decisions. Loop 34
+  refused a requant of this model at 8 flips per 100. Refused.
+- **THE DETECTOR AS THE CULPRIT (38).** 0.4% missed at 48px, under 2%
+  across his whole band, no race or sex bias. The gender model is the
+  wall -- third independent route to that.
+- **RESOLUTION (37).** 720p buys 4.7 points; the model costs 34.3.
+
+**HIS BLUR MARKS, MEASURED AT LAST (35):** 194 non-person reads, 96.9%
+would mint, the null guard refuses 77.8%, **19.1% still get through**.
+Escapees read nm p50 5.11 against a floor of 5, and **89.2% are WEAK
+MALE reads** -- the model shrugging, and a shrug fails closed into a
+patch. Floor 5 -> 6 cuts junk 19.1% -> 11.9% for +1.1 pts woman exposure.
+**The OTA clamp stops at 5.5 (`tuning.mjs:84`), so 6 needs a build.**
+From the labels: 3.90% of everything BlazeFace reports is not a person,
+so **junk patches are ~0.74% of all detections** -- that bounds the win.
+HONEST: all of it is conditional on detection; how often the detector
+fires on text in the first place is still unmeasured.
+
+**THE INSTRUMENT FAILURE WORTH CARRYING (43), because it looked exactly
+like success:** the size bench fed faceres `x/255` where it wants a
+**0..255 float** (`detector.js:797`, `:825`). The network saturated to
+0.6262-0.6284 across 140 faces -- three distinct values -- and the run
+printed **100.0% agreement at every size** beside **50.0% accuracy at
+the 224 reference that ships**. A constant output agrees with itself
+perfectly and scores exactly chance. **ANY AGREEMENT METRIC NEEDS A
+SPREAD CHECK BESIDE IT** or 100% means "identical" and "dead"
+indistinguishably; the bench now refuses to print a table below spread
+0.2. This repo shipped a saturated gender model once already
+(mini-Xception, 2026-08-23).
+
+**IF GREY SHIPS (44), READ THIS FIRST.** It is one line after
+`cropAndResize` in `classifyFaceGenders`, so it covers the video AND
+thumbnail paths at once for essentially no compute. Ship it the 1098
+way: `GENDER_GREY` at 0, clamped [0,1], so the switch and the revert
+travel over OTA. **AND IT SILENTLY CHANGES THE IDENTITY MEMORY** --
+faceres is multi-head, the same pass produces the [1024] descriptor
+matched at `MEM_SIM` 0.6, which that module records as already close to
+its edge. A grey build owes a descriptor-separability bench first.
+
+**RUNNING AT HANDOFF, results NOT yet read** (logs in
+`Z:/Apps/Disconnect/.overnight/`): `grey-mirror-stack.mjs` (do grey and
+mirror ADD UP, or attack the same errors -- 2,159 reads x 4),
+`image-junk.mjs` (his blur marks on the IMAGE rule, never measured:
+`flaggedFaceIndices` patches unless a read is CONFIDENTLY his gender, so
+a weak read IS a mark -- the opposite direction to the video rule), and
+`faceres-input-size` re-swept at 208/192/176/160 for a usable knee
+(speed 1.19x / 1.41x / 1.68x / 2.08x).
+
+**GOTCHAS THIS ROUND:** the Bash heredoc broke on long bench bodies
+twice -- use the Write tool; a python-injected `\n` lands as a real
+newline and splits a JS string literal -- use `String.fromCharCode(10)`;
+`sample.json` in the FairFace bank is GROUPED BY RACE so any subset run
+is biased; tfjs here is the pure-JS CPU backend, so run benches SERIALLY
+-- five in parallel only divide the same cores; and piping a background
+job to `| tail` swallows every live progress line.
+
+**HIS OPEN RULINGS, none pushed, all exposure trades:**
+`NULL_MINT_NM_FLOOR` 5 -> 5.5 (OTA) or 6 (build); grey (build); mirror
+(compute); `GENDER_IMAGE_MIN_SCORE` 0.40 -> 0.35; the decision boundary
+0.50 -> 0.65; the coast dial `PTRACK_MIN_COAST_PASSES` 2 -> 1.33;
+`DELAY_MS` 1500 -> 0; 720p; the child gate by policy.
+
+**REFUSED ON PRINCIPLE, do not re-open:** per-race calibration. Inferring
+skin tone to correct the model is biometric categorisation on a sensitive
+characteristic -- the same clause (AI Hub Model License 2.c) that killed
+the Qualcomm NPU delegate in loop 47.
+
 **Last updated:** 2026-09-03 17:20 (**1102 IS THE RELEASE, sha
 0a495cfa**, served APK re-downloaded and hashed against the raw
 manifest, isDraft false. HEAD pushed, tree clean. The old Redmi runs
