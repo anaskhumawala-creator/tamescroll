@@ -83,6 +83,24 @@ var SPEC = {
   // 125 REAL FACES, four of them the same woman, whose lowest nm was
   // 5.11. So 6 is the exposure edge and the range stops before it.
   NULL_MINT_NM_FLOOR: [0, 5.5, function (v) { genderVerdict.setNmFloor(v); }],
+  // THE SAME FLOOR FOR THUMBNAILS, ON ITS OWN DIAL, because the two are
+  // not the same trade and a shared number made a revert of one a revert
+  // of both. The video path refuses a BIRTH, so a face inside an
+  // already-admitted person box stays covered; a thumbnail has no second
+  // chance and goes from one mark to zero.
+  //
+  // MEASURED on finding 52's own 370 thumbnails, replaying the SHIPPED
+  // rule (`bench/image-guard-shipped.mjs`): junk marks 47 -> 16 (-66%),
+  // real marks 211 -> 182 (-13.7%), and 16 thumbnails of 370 (4.3%) go
+  // from covered to COMPLETELY UNCOVERED. That last row is the exposure,
+  // it is the number finding 52 said it could not compute, and 0 here
+  // hands it back over OTA without touching the video path.
+  //
+  // Top of the range is 6, not 5.5: the ground-truth arm refused 5 of 125
+  // real faces at 6 and that is the exposure edge for the VIDEO floor,
+  // whose cost is a lost birth. Here the same 6 is still inside what
+  // finding 52 priced (11 junk / 143 real), so the dial may reach it.
+  GENDER_IMAGE_NM_FLOOR: [0, 6, function (v) { genderVerdict.setImageNmFloor(v); }],
   // GREY: feed faceres luma instead of colour. 0 is today's behaviour and
   // is what ships, so 1098-style the switch and the revert both travel
   // over OTA. It is a straight [0,1] switch rather than a blend -- there
@@ -391,6 +409,7 @@ var GETTERS = {
   GENDER_CLEAR_SCORE: function () { return genderVerdict.GENDER_CLEAR_SCORE; },
   GENDER_CLEAR_SCORE_FEMALE: function () { return genderVerdict.GENDER_CLEAR_SCORE_FEMALE; },
   NULL_MINT_NM_FLOOR: function () { return genderVerdict.NULL_MINT_NM_FLOOR; },
+  GENDER_IMAGE_NM_FLOOR: function () { return genderVerdict.GENDER_IMAGE_NM_FLOOR; },
   GENDER_GREY: function () { return genderInput.GENDER_GREY; },
   MEM_TRUST_MAN: function () { return identityMemory.MEM_TRUST_MAN; },
   MEM_TRUST_WOMAN: function () { return identityMemory.MEM_TRUST_WOMAN; },

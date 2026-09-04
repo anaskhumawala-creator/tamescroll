@@ -28,6 +28,8 @@ import * as fs from 'node:fs';
 import { imageRead } from '../src/face-decode.mjs';
 import { flaggedFaceIndices, countRefusedByNullGuard, refusedByNullGuard } from '../src/gender-verdict.mjs';
 import { imgDiagRead } from '../src/diag-report.mjs';
+import * as gv from '../src/gender-verdict.mjs';
+import { applyTuning } from '../src/tuning.mjs';
 
 // A junk mark off finding 52's own table: `male s0.26`, nm 1.4, on a
 // minecraft-gameplay thumbnail where MoveNet admits nobody.
@@ -180,4 +182,32 @@ test('both image paths build the diag row through the one mapper', () => {
   assert.ok(!/\bg:\s*r\.gender,/.test(init), 'the hand-written read literal must be gone from init-entry');
   const nr = init.match(/nr:\s*countRefusedByNullGuard\(/g) || [];
   assert.equal(nr.length, 2, 'both paths must report what the guard refused');
+});
+
+// -- THE TWO FLOORS ARE INDEPENDENT ------------------------------------
+//
+// They shared one number, which meant handing back the thumbnail trade
+// also gave up the video path's guard. They are not the same trade: the
+// video floor refuses a BIRTH, so a face inside an already-admitted
+// person box stays covered, while a thumbnail with one mark on it goes
+// to zero marks and the picture is sharp. Finding 52 measured 16 of 370
+// thumbnails going fully uncovered, so the image half needs its own
+// revert.
+test('the image floor moves without touching the video floor', () => {
+  const before = gv.NULL_MINT_NM_FLOOR;
+  applyTuning({ GENDER_IMAGE_NM_FLOOR: 0 });
+  assert.equal(gv.GENDER_IMAGE_NM_FLOOR, 0);
+  assert.equal(gv.NULL_MINT_NM_FLOOR, before, 'the video path must not move with it');
+  // ...and at 0 the thumbnail guard refuses nothing, which is the revert.
+  assert.deepEqual(flaggedFaceIndices('man', [imageRead(junkRead())]), [0]);
+  applyTuning({ GENDER_IMAGE_NM_FLOOR: 5 });
+  assert.deepEqual(flaggedFaceIndices('man', [imageRead(junkRead())]), []);
+});
+
+test('the image floor is clamped like every other dial', () => {
+  applyTuning({ GENDER_IMAGE_NM_FLOOR: 99 });
+  assert.ok(gv.GENDER_IMAGE_NM_FLOOR <= 6, 'over-range is pulled to the edge, not accepted');
+  applyTuning({ GENDER_IMAGE_NM_FLOOR: -4 });
+  assert.ok(gv.GENDER_IMAGE_NM_FLOOR >= 0);
+  applyTuning({ GENDER_IMAGE_NM_FLOOR: 5 });
 });

@@ -647,6 +647,27 @@ export function isNullRead(face) {
 // whether it is worth the state it needs.
 export var NULL_MINT_NM_FLOOR = 5;
 
+// THE SAME FLOOR, FOR THE THUMBNAIL PATH, ON ITS OWN DIAL.
+//
+// Both paths refuse a no-signal read and both used one number, which
+// meant a revert of one was a revert of BOTH -- and they are not the
+// same trade. The video path refuses a BIRTH, so a face inside an
+// already-admitted person box is still covered and the cost is bounded.
+// The image path has no second chance: a thumbnail with one mark on it
+// goes to zero marks and the picture is sharp.
+//
+// MEASURED, on finding 52's own 370 thumbnails, replaying the SHIPPED
+// rule (`bench/image-guard-shipped.mjs`):
+//
+//   marks 258 -> 198   junk 47 -> 16 (-66%)   real 211 -> 182 (-13.7%)
+//   thumbnails that go from covered to COMPLETELY UNCOVERED:  16 of 370
+//
+// That last row is the exposure and finding 52 said it could not compute
+// it. 4.3% of thumbnails. It is a protection trade, so it is his, and
+// this dial is how he takes it back without also giving up the video
+// path's guard.
+export var GENDER_IMAGE_NM_FLOOR = 5;
+
 /**
  * May this read create a patch? False for everything except a null read
  * whose crop also carried no descriptor signal.
@@ -672,6 +693,12 @@ export function hasDescriptorSignal(face) {
   var nm = face && face.shape ? face.shape.norm : null;
   if (typeof nm !== 'number' || !isFinite(nm)) return false;
   return nm >= NULL_MINT_NM_FLOOR;
+}
+
+function imageHasNoSignal(face) {
+  var nm = face && face.shape ? face.shape.norm : null;
+  if (typeof nm !== 'number' || !isFinite(nm)) return false;
+  return nm < GENDER_IMAGE_NM_FLOOR;
 }
 
 function mayNotMint(face) {
@@ -836,7 +863,7 @@ export function faceMeta(userGender, faces) {
  * first version of the video-side gate reverted whole.
  */
 export function refusedByNullGuard(face) {
-  return !!face && isAdultRead(face) && isNullRead(face) && mayNotMint(face);
+  return !!face && isAdultRead(face) && isNullRead(face) && imageHasNoSignal(face);
 }
 
 /** How many of these reads the null guard refused a mark. Reporting only. */
@@ -907,3 +934,4 @@ export function flaggedFaceIndices(userGender, faces) {
 export function setClearScore(v) { GENDER_CLEAR_SCORE = v; }
 export function setClearScoreFemale(v) { GENDER_CLEAR_SCORE_FEMALE = v; }
 export function setNmFloor(v) { NULL_MINT_NM_FLOOR = v; }
+export function setImageNmFloor(v) { GENDER_IMAGE_NM_FLOOR = v; }

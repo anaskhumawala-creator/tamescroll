@@ -156,6 +156,13 @@ var META = {
     desc: 'How much the model must have found in a crop before it is allowed to start a new patch there.',
     dp: 1, step: 0.5, zero: 'off',
   },
+  GENDER_IMAGE_NM_FLOOR: {
+    group: 'advanced', label: 'Face signal floor (thumbnails)',
+    desc: 'The same floor, for pictures in the feed rather than the video.'
+      + ' Higher leaves fewer marks on things that are not people, and covers'
+      + ' fewer real faces. Set it to 0 to mark every face the model reports.',
+    dp: 1, step: 0.5, zero: 'off',
+  },
   MEM_TRUST_MAN: {
     group: 'advanced', label: 'Memory trust (man)',
     desc: 'How many clear reads a face needs before the app remembers it and clears it instantly next time.',
