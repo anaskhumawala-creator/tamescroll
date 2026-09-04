@@ -5209,3 +5209,157 @@ toward the hard cases, which is the safe direction for a claim that grey
 helps, and the unsafe direction for reading 7.6% as the absolute junk
 rate. And as with finding 35, all of it is conditional on detection: how
 often BlazeFace fires on text in the first place is still unmeasured.
+
+
+## 46. THE DESCRIPTOR AS A ONE-WAY VETO IS DEAD, AND THE REASON IS THAT IT IS THE SAME SIGNAL
+
+Finding 33 measured the linear probe on faceres' own [1024] descriptor
+losing as a REPLACEMENT for the gender head (9.4% wrong against 6.7%) but
+noted the two are wrong about different people, and lopsidedly:
+
+    women wrong    head 15.8%    probe  7.2%
+    men   wrong    head  0.4%    probe 11.0%
+
+That asymmetry is exactly the shape this app wants, because it does not
+need a balanced classifier -- it needs to not clear a woman. So the arm
+worth trying was never an average or a swap. It was a ONE-WAY VETO: the
+head proposes a clear, the fingerprint may only REFUSE it. The probe can
+never grant a clear the head did not, so its 11.0% error on men can only
+ever cost false cover and never exposure -- monotone toward covering, the
+same shape as every other guard this repo ships. It costs nothing at
+runtime either: the descriptor falls out of the same forward pass as the
+sigmoid and is already carried on the face object for the identity memory.
+
+`bench/desc-veto.mjs`, 2,385 banked reads (975 women / 1,410 men), the
+probe column already leave-one-video-out. SCORED AT MATCHED EXPOSURE,
+because a veto trivially lowers exposure by clearing less and a fixed-bar
+comparison would measure that and call it a win.
+
+    FALSE COVER ON MEN at a common exposure -- lower is better
+
+    arm                      <=2.4%   <=1.6%   <=1.0%   <=0.5%
+    head alone (SHIPS)         4.6%     7.4%    14.3%    30.4%
+    head AND probe >= 0.30     6.0%     8.1%    14.3%    30.4%
+    head AND probe >= 0.50    12.2%    12.7%    17.0%    30.6%
+    head AND probe >= 0.70    32.3%    32.3%    33.1%    45.5%
+    mean(head, probe)         10.6%    12.9%    27.2%    55.0%
+    probe alone               23.6%    26.6%    48.7%    80.8%
+
+**THE SHIPPED ARM WINS EVERY COLUMN.** Not narrowly and not at one
+operating point -- at all four, against all five alternatives. A veto
+tuned tight enough to rescue anybody costs more false cover than simply
+RAISING THE HEAD BAR to the same exposure, which is free and is one OTA
+number.
+
+The rescue table says the same thing in people rather than percentages,
+at the shipped-equivalent bar:
+
+    veto 0.30   rescues 0 women of 15 cleared   covers  10 extra men
+    veto 0.50   rescues 2 women                 covers  95 extra men
+    veto 0.70   rescues 6 women                 covers 376 extra men
+
+**AND THE MECHANISM IS MEASURED, WHICH IS WHY THIS WILL NOT COME BACK
+IN ANOTHER SHAPE.** A veto can only add something if it carries
+information the head does not. Pearson(head raw, probe) over all 2,385
+reads is **0.893**. It is not a second opinion; it is the same opinion
+read off an earlier layer of the same network. Finding 33's per-group
+error split made it look independent, and that was Simpson's paradox --
+inside each population the correlation is lower (women 0.669, men 0.586)
+because the between-group separation has been removed, and pooling
+restores it.
+
+CONSEQUENCE, and it narrows the search: **every remaining idea that reads
+another head, layer or view of faceres is drawing from one well.** Grey
+(finding 41) works precisely because it does NOT -- it changes the input
+distribution rather than re-reading the output. The next real accuracy
+gain has to come from outside this network's forward pass: a different
+model, a retrained head, or a different input.
+
+Per video the shipped arm loses to no veto on 6 of 8, ties on one and is
+beaten only on z86LGEFyQpo (1.8% -> 0.4% at veto 0.50) while that same
+setting costs Ary1gIbaOTc 18.8% -> 36.9%. One video is not a result.
+
+
+## 47. THE GPU, AND WHAT IT IMMEDIATELY CHANGED: MIRROR IS WORTH ~NOTHING ALONE AND STACKS SUPER-ADDITIVELY WITH GREY
+
+**Every bench before today ran on tfjs' pure-JS CPU backend at 0.15
+crops/second.** That is the whole reason rounds took nights and sample
+sizes were 140. `bench/gpu/` moves the inference into a headless Chrome
+page on the RTX 3060 Ti through ANGLE/D3D11 -- no CUDA toolkit, no
+`tfjs-node` (which does not build on node v24 here) -- and keeps the
+scoring in node off banked rows exactly as before. Full design and every
+gotcha: **`docs/gpu-bench.md`**.
+
+    tfjs CPU (pure JS)     0.15 crop/s     2,159 crops ~ 4 hours
+    WebGL, 3060 Ti        11.1-25.6 crop/s 2,159 crops = 139 seconds
+
+**127x, and it is the same arithmetic.** `bench/gpu/parity.mjs`, 60 crops,
+both backends, arms rgb+grey: raw |delta| p50 **2.4e-7**, p95 1.9e-6,
+and **0 of 60 decisions flip** at the label boundary OR at the shipped
+clear bar. The gate refuses to print a verdict if either arm's output
+spans under 0.2 -- the finding-43 saturation shape, where a dead constant
+agrees with itself perfectly.
+
+### THE HARNESS SHIPPED A BUG ON ITS FIRST RUN AND IT LOOKED LIKE A RESULT
+
+The first stack run reported mirror-averaging fixing **0 of 235** women
+the shipped arm gets wrong. That was an indexing bug, not a finding:
+**detector boxes are NORMALISED [0,1], not pixels** -- they go straight
+to `tf.image.cropAndResize`, whose rects are fractions of the source --
+and `mirrorBox` flipped by pixel width, so the mirrored crop landed off
+the face.
+
+**The tell generalises:** mirror read **66% of small women as male**
+against rgb's 36.9%. A crop of nothing reads as the model's prior, and
+this model's prior is male-leaning, so **A BAD CROP LOOKS EXACTLY LIKE A
+BAD ARM.** Any arm dramatically worse than control in one direction is a
+geometry bug until proven otherwise. What caught it: grey touches no box
+and reproduced finding 41's CPU numbers to the digit (25.8% of women
+wrong, 3.6 points), so one arm agreeing while the other collapsed pointed
+straight at the thing only one of them does.
+
+### THE CORRECTED STACK -- 2,159 labelled reads, matched exposure
+
+    FALSE COVER ON MEN at a common exposure -- lower is better
+
+    arm        <=3.0%   <=2.4%   <=1.6%   <=1.0%   <=0.5%
+    rgb         14.9%    19.2%    21.8%    26.0%    35.1%
+    grey        14.3%    15.5%    18.2%    22.1%    29.2%
+    rgbMir      13.9%    19.1%    21.5%    26.7%    30.7%
+    greyMir     13.6%    15.1%    17.2%    22.3%    30.3%
+
+At his operating point (exposure <= 1.6%):
+
+    grey alone      3.6 points of false cover
+    mirror alone    0.2 points          <-- essentially nothing
+    BOTH            4.6 points          <-- 119% of additive
+
+**MIRROR ALONE IS WORTH NOTHING ON HIS OWN FOOTAGE**, which is a partial
+retraction of finding 40's headline (18.0% -> 12.3%): that was measured
+on FairFace, and it does not carry to ten real videos. What survives is
+the marginal figure -- mirror adds **1.0 point on top of grey** and the
+two are genuinely independent:
+
+    women the shipped arm reads male     235 of 910 (25.8%)
+      grey fixes                          67   28.5%
+      mirror fixes                        20    8.5%
+      BOTH fix (overlap)                  13    5.5%
+      either fixes                        74   31.5%
+
+Only 13 of 74 overlap, which is why the stack beats the sum. HONEST
+LIMIT: mirror's whole contribution is **7 women** beyond grey's, so the
+1.0 point is a small-n number and should not be treated as firm. It costs
+1.4-1.6x of the gender inference. **Grey is free and does 78% of the
+combined win; mirror is the expensive quarter.** That is his trade, and
+the recommendation is grey first, alone.
+
+By band, at his player's 38-62px, the corrected mirror no longer hurts:
+32-48px reads rgb 36.9% / grey 24.8% / rgbMir 34.8% / greyMir **23.4%**.
+
+### WHAT THE GPU UNLOCKS, now that a full corpus pass is 139 seconds
+
+Full FairFace (1,348 usable) in **53 seconds** instead of a night. Whole-
+range dial sweeps in one run. Bootstrap confidence intervals, which need
+the population resampled and were simply unaffordable before. And
+descriptor banking for head-retraining work (`--desc=1`) -- the [1024]
+vector for every FairFace crop, banked in under a minute.
