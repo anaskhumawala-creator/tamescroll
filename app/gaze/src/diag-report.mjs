@@ -734,3 +734,35 @@ function str(x) {
   if (typeof x !== 'string' || !x) return null;
   return VERSIONISH.test(x) ? x : null;
 }
+
+/**
+ * ONE image-diagnostic read row, built the same way on both image paths.
+ *
+ * init-entry had two hand-written copies of this literal -- one for the
+ * worker reply, one for the in-page verdict -- and they had already
+ * drifted in the direction that matters least visibly: a field added to
+ * fix one path leaves the other reporting the old shape, so a probe or a
+ * Share reads a difference between two populations that is really a
+ * difference between two literals. Same remedy as `person-gate` and
+ * `crop-geometry`: one module, called from both sides.
+ *
+ * `n` is the descriptor magnitude, and it is here because the image null
+ * guard now DECIDES on it (finding 52: junk marks read nm p50 3.44
+ * against a floor of 5). R15 turned a size gate on and the artifact
+ * promptly lost the very quantity it decided on; this is that lesson
+ * applied before the fact rather than after.
+ */
+export function imgDiagRead(r, faceBox, naturalWidth) {
+  return {
+    g: r.gender,
+    s: Math.round((r.score || 0) * 100) / 100,
+    a: typeof r.age === 'number' ? Math.round(r.age) : null,
+    c: typeof r.childP === 'number' ? Math.round(r.childP * 100) / 100 : null,
+    // The DETECTOR's own confidence, and the native pixel size the
+    // gender head actually saw. A covered thumbnail with no person in it
+    // and one with a weakly-read man look identical without these two.
+    k: faceBox && typeof faceBox.confidence === 'number' ? Math.round(faceBox.confidence * 100) / 100 : null,
+    p: faceBox ? Math.round((faceBox.x2 - faceBox.x1) * (naturalWidth || 0)) : null,
+    n: r.shape && typeof r.shape.norm === 'number' ? Math.round(r.shape.norm * 100) / 100 : null,
+  };
+}

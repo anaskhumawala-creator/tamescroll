@@ -46,3 +46,6 @@ spikes/release/
 spikes/native/frames.npy
 spikes/native/__pycache__/
 app/gaze/bench/gpu/.bundle.js
+
+# Built APKs staged for a release upload (94MB each).
+dist-apk/

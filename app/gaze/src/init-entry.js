@@ -21,6 +21,7 @@ import * as cadence from './cadence.mjs';
 import * as detector from './detector.js';
 import {
   flaggedFaceIndices,
+  countRefusedByNullGuard,
   faceMeta,
   isNullRead,
   hasDescriptorSignal,
@@ -105,7 +106,7 @@ import {
 } from './region-blur.mjs';
 import * as videoRegion from './video-region.mjs';
 import { createTextMatcher } from './text-signals.mjs';
-import { buildReport, reportViolations, platformOf, pageKind } from './diag-report.mjs';
+import { buildReport, reportViolations, platformOf, pageKind, imgDiagRead } from './diag-report.mjs';
 import { planForMode, rotateBudget } from './pipeline-plan.mjs';
 import { createWorkerClient } from './worker-client.mjs';
 import { startWorker } from './worker-entry.js';
@@ -1256,16 +1257,13 @@ if (
             why: result.nsfw ? 'nsfw' : result.face ? 'face' : 'clear',
             faces: reads.length,
             flagged: flagBoxes.length,
+            // How many of those faces the null guard refused a mark. It
+            // is the ONLY number that says whether 1104's fix fires at
+            // all on his phone, and `faces` minus `flagged` cannot say
+            // it -- a same-gender clear subtracts there too.
+            nr: countRefusedByNullGuard(reads),
             reads: reads.map(function (r, ri) {
-              var fb = res.boxes && res.boxes[ri];
-              return {
-                g: r.gender,
-                s: Math.round((r.score || 0) * 100) / 100,
-                a: typeof r.age === 'number' ? Math.round(r.age) : null,
-                c: typeof r.childP === 'number' ? Math.round(r.childP * 100) / 100 : null,
-                k: fb && typeof fb.confidence === 'number' ? Math.round(fb.confidence * 100) / 100 : null,
-                p: fb ? Math.round((fb.x2 - fb.x1) * (img.naturalWidth || 0)) : null,
-              };
+              return imgDiagRead(r, res.boxes && res.boxes[ri], img.naturalWidth);
             }),
           });
           var tApply0 = performance.now();
@@ -1379,20 +1377,9 @@ if (
           why: result.nsfw ? 'nsfw' : result.face ? 'face' : 'clear',
           faces: result.reads ? result.reads.length : 0,
           flagged: result.flagBoxes ? result.flagBoxes.length : 0,
+          nr: countRefusedByNullGuard(result.reads),
           reads: (result.reads || []).map(function (r, ri) {
-            var fb = result.faces && result.faces[ri];
-            return {
-              g: r.gender,
-              s: Math.round((r.score || 0) * 100) / 100,
-              a: typeof r.age === 'number' ? Math.round(r.age) : null,
-              c: typeof r.childP === 'number' ? Math.round(r.childP * 100) / 100 : null,
-              // The DETECTOR's own confidence, and the native pixel size
-              // the gender head actually saw. A covered thumbnail with no
-              // person in it and one with a weakly-read man look
-              // identical without these two.
-              k: fb && typeof fb.confidence === 'number' ? Math.round(fb.confidence * 100) / 100 : null,
-              p: fb ? Math.round((fb.x2 - fb.x1) * (img.naturalWidth || 0)) : null,
-            };
+            return imgDiagRead(r, result.faces && result.faces[ri], img.naturalWidth);
           }),
         });
         verdictCache.set(ckey || imgKey(img), result);

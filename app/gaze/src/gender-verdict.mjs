@@ -820,6 +820,34 @@ export function faceMeta(userGender, faces) {
 // same-gender bar). Abstaining would produce the identical output, and
 // the only way to make it produce a DIFFERENT one is to stop flagging —
 // which is an exposure. Nothing to fix; do not "fix the class" here.
+/**
+ * Did the image null guard refuse this read a patch?
+ *
+ * ONE copy of the predicate, because the caller needs to COUNT what it
+ * refused and a second hand-written copy of a three-term rule is the
+ * crop-geometry defect that lived four days across three model swaps.
+ * `flaggedFaceIndices` asks it to decide; the image path asks it again
+ * only to report, and neither can drift from the other.
+ *
+ * ADULT FIRST -- the loop-37b ordering defect. A null read has its age
+ * head pinned at the training prior (~36.9), which is inside
+ * NULL_AGE_LO..HI by construction, so a CHILD carrying no signal reads
+ * as a null read and refusing her patch is the exposure that got the
+ * first version of the video-side gate reverted whole.
+ */
+export function refusedByNullGuard(face) {
+  return !!face && isAdultRead(face) && isNullRead(face) && mayNotMint(face);
+}
+
+/** How many of these reads the null guard refused a mark. Reporting only. */
+export function countRefusedByNullGuard(faces) {
+  var n = 0;
+  for (var i = 0; i < (faces ? faces.length : 0); i++) {
+    if (refusedByNullGuard(faces[i])) n++;
+  }
+  return n;
+}
+
 export function flaggedFaceIndices(userGender, faces) {
   if (!faces || faces.length === 0) return [];
   var opposite = OPPOSITE[userGender];
@@ -868,7 +896,7 @@ export function flaggedFaceIndices(userGender, faces) {
     //
     // REVERSIBLE WITHOUT AN INSTALL: `NULL_MINT_NM_FLOOR` is on the OTA
     // channel clamped [0, 5.5], and 0 refuses nothing at all.
-    if (adult && isNullRead(f) && mayNotMint(f)) continue;
+    if (refusedByNullGuard(f)) continue;
     if (!same || !adult || !(f.score >= GENDER_IMAGE_MIN_SCORE)) out.push(i);
   }
   return out;

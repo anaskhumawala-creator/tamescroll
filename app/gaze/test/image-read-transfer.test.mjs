@@ -26,7 +26,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import { imageRead } from '../src/face-decode.mjs';
-import { flaggedFaceIndices } from '../src/gender-verdict.mjs';
+import { flaggedFaceIndices, countRefusedByNullGuard, refusedByNullGuard } from '../src/gender-verdict.mjs';
+import { imgDiagRead } from '../src/diag-report.mjs';
 
 // A junk mark off finding 52's own table: `male s0.26`, nm 1.4, on a
 // minecraft-gameplay thumbnail where MoveNet admits nobody.
@@ -121,4 +122,62 @@ test('worker-entry trims image reads through the shared imageRead', () => {
     !/reads:\s*reads\.map\(function\s*\(r\)\s*\{\s*return\s*\{\s*gender:/.test(worker),
     'the hand-written read literal must be gone, not merely joined'
   );
+});
+
+// -- THE REPORTING HALF ------------------------------------------------
+//
+// `faces` minus `flagged` cannot say whether the new guard fired: a
+// same-gender CLEAR subtracts there too. `nr` is the only number that
+// separates them, and without it his Share cannot answer "did 1104 do
+// anything on my phone".
+
+test('the guard predicate has ONE implementation and both callers agree', () => {
+  const junk = imageRead(junkRead());
+  assert.equal(refusedByNullGuard(junk), true);
+  assert.equal(countRefusedByNullGuard([junk, imageRead(realWoman()), junk]), 2);
+  // and the decision it drives matches the count, on the same input
+  assert.deepEqual(flaggedFaceIndices('man', [junk]), []);
+});
+
+test('the guard refuses nothing it was never handed', () => {
+  assert.equal(refusedByNullGuard(null), false);
+  assert.equal(countRefusedByNullGuard(null), 0);
+  assert.equal(countRefusedByNullGuard([]), 0);
+});
+
+test('a child carrying no signal is NOT refused -- adult first', () => {
+  const kid = imageRead(junkRead());
+  kid.childP = 0.9;
+  assert.equal(refusedByNullGuard(kid), false, 'loop-37b: refusing her patch is the exposure that got reverted');
+  assert.deepEqual(flaggedFaceIndices('man', [kid]), [0], 'she stays covered');
+});
+
+test('imgDiagRead stamps the number the guard decided on', () => {
+  const row = imgDiagRead(junkRead(), { x1: 0.1, x2: 0.3, confidence: 0.63 }, 640);
+  assert.equal(row.n, 1.4, 'nm is what says graphic vs person');
+  assert.equal(row.g, 'male');
+  assert.equal(row.s, 0.26);
+  assert.equal(row.k, 0.63);
+  assert.equal(row.p, 128);
+});
+
+test('imgDiagRead reports absent rather than guessing', () => {
+  const row = imgDiagRead({ gender: 'unknown', score: 0 }, null, 0);
+  assert.equal(row.n, null);
+  assert.equal(row.k, null);
+  assert.equal(row.p, null);
+  assert.equal(row.a, null);
+});
+
+// The two image paths built this row from two hand-written literals, and
+// a field added to fix one left the other reporting the old shape -- so a
+// probe reads a difference between populations that is really a
+// difference between literals.
+test('both image paths build the diag row through the one mapper', () => {
+  const init = fs.readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
+  const calls = init.match(/imgDiagRead\(/g) || [];
+  assert.equal(calls.length, 2, 'worker path and in-page path, no third and no copy');
+  assert.ok(!/\bg:\s*r\.gender,/.test(init), 'the hand-written read literal must be gone from init-entry');
+  const nr = init.match(/nr:\s*countRefusedByNullGuard\(/g) || [];
+  assert.equal(nr.length, 2, 'both paths must report what the guard refused');
 });
