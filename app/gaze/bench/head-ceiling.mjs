@@ -82,192 +82,24 @@ const ff = load(FAIRFACE);
 const cp = load(CORPUS);
 
 // y = 1 for MAN. Clearing a man is the action; clearing a WOMAN is exposure.
-const yOf = r => (r.who === 'man' ? 1 : 0);
-const featOf = (r, kind) => kind === 'grey' ? r.greyDesc
-  : kind === 'both' ? r.rgbDesc.concat(r.greyDesc)
-    : r.rgbDesc;
+// The trainer, the packer, the face/label convention and the
+// matched-exposure scorer all live in head-train.mjs -- ONE copy, shared
+// with head-scale.mjs. Two copies would drift and the two benches would
+// stop being comparable, which is the phase-g G1 failure.
+import {
+  yOf, featOf, trainMlp, pack, split, scoreArm, TARGETS, rng,
+  fitBest as FITBEST_, FULL_GRID, QUICK_GRID,
+} from './head-train.mjs';
+
+const GRID = QUICK ? QUICK_GRID : FULL_GRID;
+const FITBEST = (rows, kind, seed, tag) =>
+  FITBEST_(rows, kind, seed, { epochs: EPOCHS, grid: GRID, tag });
 
 console.log(NL + 'CEILING PROBE -- can ANY head beat the shipped one on this descriptor?');
 console.log('  FairFace ' + ff.length + ' (train)   corpus ' + cp.length + ' (test)'
   + '   women ' + cp.filter(r => !yOf(r)).length + ' / men ' + cp.filter(yOf).length);
 
-function rng(seed) {
-  let s = seed >>> 0 || 1;
-  return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
-}
-
-// -------------------------------------------------------------- model
-// One hidden ReLU layer (hidden 0 = plain logistic), Adam, L2 weight decay,
-// early stopping on a held-out slice of the TRAINING domain.
-function trainMlp(X, Y, D, opts) {
-  const { hidden, epochs, seed, l2 = 1e-4, lr = 3e-3, batch = 64, val = null } = opts;
-  const rand = rng(seed);
-  const H = hidden | 0;
-  const n = Y.length;
-  const W1 = H ? new Float64Array(D * H) : null;
-  const b1 = H ? new Float64Array(H) : null;
-  if (H) { const s = Math.sqrt(2 / D); for (let i = 0; i < W1.length; i++) W1[i] = (rand() * 2 - 1) * s; }
-  const W2 = new Float64Array(H || D);
-  let b2 = 0;
-  { const s = Math.sqrt(1 / (H || D)); for (let i = 0; i < W2.length; i++) W2[i] = (rand() * 2 - 1) * s; }
-
-  const mk = a => (a ? new Float64Array(a.length) : null);
-  const mW1 = mk(W1), vW1 = mk(W1), mb1 = mk(b1), vb1 = mk(b1);
-  const mW2 = mk(W2), vW2 = mk(W2);
-  let mb2 = 0, vb2 = 0, t = 0;
-  const B1 = 0.9, B2 = 0.999, EPS = 1e-8;
-
-  const fwd = (arr, off) => {
-    let z = b2;
-    if (H) {
-      for (let j = 0; j < H; j++) {
-        let a = b1[j]; const w = j * D;
-        for (let d = 0; d < D; d++) a += W1[w + d] * arr[off + d];
-        if (a > 0) z += W2[j] * a;
-      }
-    } else {
-      for (let d = 0; d < D; d++) z += W2[d] * arr[off + d];
-    }
-    return 1 / (1 + Math.exp(-z));
-  };
-  const valLoss = () => {
-    let L = 0;
-    for (let i = 0; i < val.Y.length; i++) {
-      const p = Math.min(1 - 1e-9, Math.max(1e-9, fwd(val.X, i * D)));
-      L += -(val.Y[i] * Math.log(p) + (1 - val.Y[i]) * Math.log(1 - p));
-    }
-    return L / val.Y.length;
-  };
-  const snap = () => ({ W1: W1 && W1.slice(), b1: b1 && b1.slice(), W2: W2.slice(), b2 });
-
-  const idx = new Int32Array(n);
-  for (let i = 0; i < n; i++) idx[i] = i;
-  const h = H ? new Float64Array(H) : null;
-  const gh = H ? new Float64Array(H) : null;
-  let best = Infinity, bestW = null, bestEp = 0;
-
-  for (let ep = 0; ep < epochs; ep++) {
-    for (let i = n - 1; i > 0; i--) { const j = (rand() * (i + 1)) | 0; const q = idx[i]; idx[i] = idx[j]; idx[j] = q; }
-    for (let s = 0; s < n; s += batch) {
-      const end = Math.min(n, s + batch), m = end - s;
-      t++;
-      const gW1 = H ? new Float64Array(D * H) : null;
-      const gb1 = H ? new Float64Array(H) : null;
-      const gW2 = new Float64Array(W2.length);
-      let gb2 = 0;
-      for (let k = s; k < end; k++) {
-        const off = idx[k] * D;
-        let z = b2;
-        if (H) {
-          for (let j = 0; j < H; j++) {
-            let a = b1[j]; const w = j * D;
-            for (let d = 0; d < D; d++) a += W1[w + d] * X[off + d];
-            h[j] = a > 0 ? a : 0;
-            z += W2[j] * h[j];
-          }
-        } else {
-          for (let d = 0; d < D; d++) z += W2[d] * X[off + d];
-        }
-        const dz = (1 / (1 + Math.exp(-z)) - Y[idx[k]]) / m;
-        gb2 += dz;
-        if (H) {
-          for (let j = 0; j < H; j++) { gW2[j] += dz * h[j]; gh[j] = h[j] > 0 ? dz * W2[j] : 0; }
-          for (let j = 0; j < H; j++) {
-            const g = gh[j];
-            if (g === 0) continue;
-            const w = j * D;
-            gb1[j] += g;
-            for (let d = 0; d < D; d++) gW1[w + d] += g * X[off + d];
-          }
-        } else {
-          for (let d = 0; d < D; d++) gW2[d] += dz * X[off + d];
-        }
-      }
-      const bc1 = 1 - Math.pow(B1, t), bc2 = 1 - Math.pow(B2, t);
-      const step = (P, G, M, V, i, wd) => {
-        const g = G + wd * P[i];
-        M[i] = B1 * M[i] + (1 - B1) * g;
-        V[i] = B2 * V[i] + (1 - B2) * g * g;
-        P[i] -= lr * (M[i] / bc1) / (Math.sqrt(V[i] / bc2) + EPS);
-      };
-      for (let i = 0; i < W2.length; i++) step(W2, gW2[i], mW2, vW2, i, l2);
-      if (H) {
-        for (let i = 0; i < W1.length; i++) step(W1, gW1[i], mW1, vW1, i, l2);
-        for (let i = 0; i < H; i++) step(b1, gb1[i], mb1, vb1, i, 0);
-      }
-      mb2 = B1 * mb2 + (1 - B1) * gb2;
-      vb2 = B2 * vb2 + (1 - B2) * gb2 * gb2;
-      b2 -= lr * (mb2 / bc1) / (Math.sqrt(vb2 / bc2) + EPS);
-    }
-    if (val) { const L = valLoss(); if (L < best) { best = L; bestW = snap(); bestEp = ep + 1; } }
-  }
-  if (bestW) { if (W1) W1.set(bestW.W1); if (b1) b1.set(bestW.b1); W2.set(bestW.W2); b2 = bestW.b2; }
-  const f = x => fwd(x, 0);
-  f.valLoss = best;
-  f.epoch = bestEp;
-  return f;
-}
-
-function pack(rows, kind) {
-  const D = featOf(rows[0], kind).length;
-  const X = new Float64Array(rows.length * D);
-  const Y = new Float64Array(rows.length);
-  rows.forEach((r, i) => {
-    const ft = featOf(r, kind);
-    for (let d = 0; d < D; d++) X[i * D + d] = ft[d];
-    Y[i] = yOf(r);
-  });
-  return { X, Y, D };
-}
-
-// Stratified split of the TRAINING domain. Selection never touches the test set.
-function split(rows, frac, seed) {
-  const rand = rng(seed);
-  const by = { 0: [], 1: [] };
-  for (const r of rows) by[yOf(r)].push(r);
-  const tr = [], va = [];
-  for (const k of ['0', '1']) {
-    const a = by[k].slice();
-    for (let i = a.length - 1; i > 0; i--) { const j = (rand() * (i + 1)) | 0; const q = a[i]; a[i] = a[j]; a[j] = q; }
-    const cut = Math.round(a.length * frac);
-    va.push(...a.slice(0, cut));
-    tr.push(...a.slice(cut));
-  }
-  return [tr, va];
-}
-
 // ------------------------------------------------------- matched exposure
-const TARGETS = [0.030, 0.024, 0.016, 0.010, 0.005];
-
-function scoreArm(rows, score) {
-  const F = [], M = [];
-  for (const r of rows) (yOf(r) ? M : F).push(score(r));
-  const cells = TARGETS.map(target => {
-    let bar = null;
-    for (let b = 0; b <= 1.0001; b += 0.0005) {
-      let c = 0;
-      for (const s of F) if (s >= b) c++;
-      if (c / F.length <= target) { bar = b; break; }
-    }
-    if (bar === null) return null;
-    let cov = 0;
-    for (const s of M) if (!(s >= bar)) cov++;
-    return cov / M.length;
-  });
-  // AUC, threshold-free: P(a random man scores above a random woman).
-  const all = F.map(v => [v, 0]).concat(M.map(v => [v, 1])).sort((a, b) => a[0] - b[0]);
-  let rank = 0, sumR = 0;
-  for (let i = 0; i < all.length;) {
-    let j = i;
-    while (j < all.length && all[j][0] === all[i][0]) j++;
-    const avg = (i + j + 1) / 2;
-    for (let k = i; k < j; k++) if (all[k][1] === 1) sumR += avg;
-    i = j;
-  }
-  const auc = (sumR - M.length * (M.length + 1) / 2) / (M.length * F.length);
-  return { cells, auc };
-}
-
 const table = [];
 const row = (name, r, note) => table.push({ name, cells: r.cells, auc: r.auc, note });
 function printTable(title) {
@@ -281,31 +113,6 @@ function printTable(title) {
       + (r.note ? '   ' + r.note : ''));
   }
   table.length = 0;
-}
-
-// The ceiling sweep. Selection is by FairFace validation logloss ONLY.
-const GRID = QUICK
-  ? [{ hidden: 0, l2: 1e-3 }, { hidden: 64, l2: 1e-3 }]
-  : [
-    { hidden: 0, l2: 1e-4 }, { hidden: 0, l2: 1e-3 }, { hidden: 0, l2: 1e-2 },
-    { hidden: 32, l2: 1e-3 }, { hidden: 32, l2: 1e-2 },
-    { hidden: 128, l2: 1e-3 }, { hidden: 128, l2: 1e-2 },
-  ];
-
-function fitBest(trainRows, kind, seed, tag) {
-  const [tr, va] = split(trainRows, 0.2, 5150 + seed);
-  const P = pack(tr, kind), V = pack(va, kind);
-  let best = null;
-  for (const g of GRID) {
-    const f = trainMlp(P.X, P.Y, P.D, {
-      hidden: g.hidden, l2: g.l2, epochs: EPOCHS, seed, val: { X: V.X, Y: V.Y },
-    });
-    if (!best || f.valLoss < best.f.valLoss) best = { f, g };
-  }
-  if (tag) console.log('    ' + tag + ' picked hidden=' + best.g.hidden
-    + ' l2=' + best.g.l2 + ' epoch=' + best.f.epoch
-    + ' valLoss=' + best.f.valLoss.toFixed(4));
-  return best.f;
 }
 
 function armMean(runs) {
@@ -330,7 +137,7 @@ if (ARM === 'both' || ARM === 'transfer') {
   for (const kind of ['rgb', 'grey', 'both']) {
     const runs = [];
     for (let s = 0; s < SEEDS; s++) {
-      const f = fitBest(ff, kind, 1234 + s * 977, s === 0 ? kind : null);
+      const f = FITBEST(ff, kind, 1234 + s * 977, s === 0 ? kind : null);
       const cache = new Map();
       for (const r of cp) cache.set(r, f(featOf(r, kind)));
       runs.push(scoreArm(cp, r => cache.get(r)));
@@ -346,7 +153,7 @@ if (ARM === 'both' || ARM === 'transfer') {
     const lab = sh.map(yOf);
     for (let i = lab.length - 1; i > 0; i--) { const j = (rand() * (i + 1)) | 0; const q = lab[i]; lab[i] = lab[j]; lab[j] = q; }
     sh.forEach((r, i) => { r.who = lab[i] ? 'man' : 'woman'; });
-    const f = fitBest(sh, 'rgb', 7, 'shuffled');
+    const f = FITBEST(sh, 'rgb', 7, 'shuffled');
     const cache = new Map();
     for (const r of cp) cache.set(r, f(featOf(r, 'rgb')));
     row('CONTROL shuffled labels', scoreArm(cp, r => cache.get(r)), 'AUC must be ~0.5');
@@ -380,7 +187,7 @@ if (ARM === 'both' || ARM === 'curve') {
     for (const kind of ['rgb', 'grey']) {
       const runs = [];
       for (let s = 0; s < Math.min(2, SEEDS); s++) {
-        const f = fitBest(keep, kind, 808 + s * 131, null);
+        const f = FITBEST(keep, kind, 808 + s * 131, null);
         const cache = new Map();
         for (const r of cp) cache.set(r, f(featOf(r, kind)));
         runs.push(scoreArm(cp, r => cache.get(r)).auc);
@@ -402,7 +209,7 @@ if (ARM === 'both' || ARM === 'lovo') {
     const vids = [...new Set(cp.map(r => r.vid))];
     const cache = new Map();
     for (const v of vids) {
-      const f = fitBest(cp.filter(r => r.vid !== v), kind, 555, null);
+      const f = FITBEST(cp.filter(r => r.vid !== v), kind, 555, null);
       for (const r of cp) if (r.vid === v) cache.set(r, f(featOf(r, kind)));
     }
     row('LOVO CEILING on ' + kind + 'Desc', scoreArm(cp, r => cache.get(r)));
@@ -468,7 +275,7 @@ if (ARM === 'both' || ARM === 'race') {
   add('head alone (SHIPS)', r => r.rgb.raw, 'cf finding 31');
   add('grey head', r => r.grey.raw, '');
   for (const kind of ['rgb', 'grey']) {
-    const f = fitBest(tr, kind, 4711, 'race/' + kind);
+    const f = FITBEST(tr, kind, 4711, 'race/' + kind);
     const cache = new Map();
     for (const r of te) cache.set(r, f(featOf(r, kind)));
     add('RETRAINED head on ' + kind, r => cache.get(r), '');
