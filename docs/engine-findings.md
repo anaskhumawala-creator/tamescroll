@@ -5118,3 +5118,94 @@ answer is a measurement rather than a ranking inside noise.
 male-minus-female 0.519 in every run, so the degeneracy guard of finding
 43 is satisfied throughout and none of these numbers are the saturated
 kind.
+
+
+## 45 -- THE IMAGE PATH, MEASURED FOR THE FIRST TIME: GREY WINS HERE TOO, AND THE nm FLOOR IS ALL COST AND NO BENEFIT
+
+Every junk-patch number this repo owns -- finding 35 included -- was
+measured on the VIDEO rule. His complaint names THUMBNAILS: "randomly just
+blur some text". The image rule is a different function with the opposite
+failure direction and had never been measured at all:
+
+    flaggedFaceIndices: flag unless  same gender AND adult AND score >= 0.4
+
+On the video path a junk crop must EARN a clear to go away. On the image
+path it is patched unless it reads CONFIDENTLY as his own gender -- so the
+model shrugging IS a mark. Finding 35 measured that 89.2% of surviving
+junk is a weak male read; on thumbnails every one of those is a mark.
+
+`bench/image-junk.mjs` over the corpus: **79 junk crops** (hand-labelled
+`notperson`/`bodypart` -- things BlazeFace already reported in his own
+footage, not synthetic force-reads), against **135 men and 141 women** as
+the control, two arms.
+
+**AT THE SHIPPED BAR, GREY LOOKS LIKE A DISASTER.** Junk marked 7.6% ->
+16.5%, men marked 13.3% -> 18.5%. Read straight, that is grey doubling
+exactly the artifact he complains about, and it nearly went into the
+findings that way.
+
+**IT IS THE THRESHOLD ARTIFACT, AND THE MATCHED CONTROL REVERSES IT
+COMPLETELY.** Grey shifts reads toward female -- that is WHY it fixes
+women -- and in his man mode a global female shift marks more junk BY
+CONSTRUCTION. Comparing two arms at a FIXED bar measures the shift, not
+the arm. Solving each arm its own image bar so both protect the same share
+of real women:
+
+| women covered | arm | bar | JUNK MARKED | men marked |
+|---|---|---|---|---|
+| >= 98% | `rgb` | 0.390 | 93.7% | 15.6% |
+| >= 98% | **`grey`** | 0.215 | **50.6%** | **12.6%** |
+| >= 95% | `rgb` | 0.285 | 67.1% | 13.3% |
+| >= 95% | **`grey`** | 0.160 | **26.6%** | **11.1%** |
+| >= 90% | `rgb` | 0.195 | 32.9% | 11.1% |
+| >= 90% | **`grey`** | 0.090 | **11.4%** | **8.9%** |
+
+**At equal protection grey cuts junk marks by 2.5-3x and lowers false
+cover at the same time.** It is better on his own complaint, on the path
+he complains about, and it wins at every operating point -- the same
+shape finding 41 found on the video path.
+
+**AND IT IS NOT A UNIFORM SHIFT, which is the control for the control.**
+Mean grey-minus-rgb raw: **women -0.0401**, men -0.0115, junk -0.0105.
+A pure threshold move drags every population equally; this moves women
+roughly four times as far as it moves men or text. That is what a real
+improvement looks like and it is the first positive evidence about grey's
+mechanism -- everything in finding 42 was a refusal.
+
+**THE nm FLOOR IS THE OPPOSITE STORY ON THIS PATH, AND IT MATTERS FOR HIS
+PENDING RULING.** The descriptor norm separates cleanly here -- junk p05/
+p50/p95 **1.80 / 2.87 / 4.61** against men **3.96 / 9.83 / 12.73** and
+women **3.90 / 9.59 / 12.31** -- so the shipped floor of 5 already refuses
+almost everything it can:
+
+| floor | junk marked | men marked | women covered |
+|---|---|---|---|
+| 0 | 94.9% | 18.5% | 98.6% |
+| 4 | 16.5% | 14.1% | 95.0% |
+| **5 (ships)** | **7.6%** | 13.3% | 94.3% |
+| 5.5 | 7.6% | 12.6% | 94.3% |
+| 6 | 7.6% | 11.9% | 93.6% |
+| 8 | 7.6% | 11.1% | 92.9% |
+
+**Above 5 the junk column does not move at all.** The 7.6% that survives
+reads nm ABOVE the floor, so no reachable floor touches it, while every
+step costs women coverage. **Raising `NULL_MINT_NM_FLOOR` buys nothing on
+thumbnails and costs exposure there.** Finding 35 measured 19.1% -> 11.9%
+on the VIDEO path for the same push -- so the two paths disagree, and a
+single OTA number moves both. If he pushes 5 -> 5.5, video gains and
+images pay 0.7 points of woman coverage for zero junk benefit. That
+asymmetry was invisible until this run and it should be quoted whenever
+that dial is discussed.
+
+**WHY THE SURVIVING JUNK GETS MARKED:** of the 6 that do, **5 are weak
+reads under the 0.4 bar** and 1 read female. Confirms finding 35's
+mechanism on the other path: a shrug fails closed into a patch.
+
+**LIMIT, and it is large: 139 of 494 crops were skipped**, almost all
+because the detector did not re-fire on the banked crop. Junk detections
+are marginal by nature, so the 79 that survive re-detection are the
+STRONGEST junk -- the ones most face-like. That biases every rate here
+toward the hard cases, which is the safe direction for a claim that grey
+helps, and the unsafe direction for reading 7.6% as the absolute junk
+rate. And as with finding 35, all of it is conditional on detection: how
+often BlazeFace fires on text in the first place is still unmeasured.
