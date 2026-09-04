@@ -1,20 +1,76 @@
 ## Session state (update every session)
 
-**Last updated:** 2026-09-04 (**1103 PUBLISHED, sha 6de12c09** -- served
-APK re-downloaded and hashed against the raw manifest, isDraft false.
-**GREY IS ON**: `GENDER_GREY` ships 1 in both the source and
-rules/tuning.json, verified in the SHIPPED BINARY (`qh=1` and the luma
-line inside libapp_lib.so, not the source). His phone gets it in-app. A
-1102 phone refuses the unknown key, so the push is safe. HEAD pushed,
-tree clean. His phone still owes ONE SHARE on 1101/1102/1103 -- the
-`native.models.*.gpu` block is the only thing that says why his Adreno
-stayed on CPU.)
+**Last updated:** 2026-09-04 (**1103 IS STILL THE PUBLISHED RELEASE, sha
+6de12c09.** **1104 IS BUILT, TESTED AND STAGED BUT NOT SHIPPED AND NOT
+PUSHED -- THE NETWORK IS DOWN.** Outbound HTTPS fails from this machine
+AND from the Redmi on the same WiFi: `git push`, `gh release create` and
+`curl https://example.com` all time out at port 443, and the phone gets
+`000` on every host. Nothing is wrong with the repo. **FIRST ACTION NEXT
+SESSION: `git push`, then finish the release recipe from step 6.** The
+APK is at `dist-apk/tamescroll-v0.1.104.apk` (94,847,816 bytes,
+gitignored), installed and running clean on the Redmi as versionCode
+1104.)
 
-**WHAT TO READ OFF HIS NEXT SHARE, now that grey is live:** whether he
-still reports women missed and random marks. Grey is measured to help
-both, and finding 49 says it does NOT close the gap -- at 48px a Black
-woman still reads male 51.9% of the time. The 5x fix is finding 50 and
-it needs a student model.
+**WHAT 1104 IS:** the image path's null guard shipped DEAD and nobody
+noticed for five builds. `flaggedFaceIndices` has refused a no-signal
+read since finding 45 -- live on the in-page image path, dead on the
+WORKER one, because worker-entry trimmed each read to
+`{gender, score, age, childP, px}` and BOTH of the guard's predicates
+fail OPEN on a missing field (`isNullRead` trusts a read with no `raw`,
+`mayNotMint` refuses nothing with no `shape.norm`). No throw, no log.
+
+**REPLAYED ON FINDING 52'S OWN 370 THUMBNAILS**, through the SHIPPED rule
+(`bench/image-guard-shipped.mjs` imports from `src/`, so it cannot drift):
+
+    marks total   258 -> 198   -60  (-23.3%)
+      JUNK         47 ->  16   -31  (-66.0%)
+      real        211 -> 182   -29  (-13.7%)
+    thumbnails covered -> COMPLETELY UNCOVERED:  16 of 370  (4.3%)
+
+Finding 52 predicted -32 junk / -24 real and could NOT compute that last
+row. **That row is the exposure and it is his ruling.** 4.3% of
+thumbnails lose their only mark. `GENDER_IMAGE_NM_FLOOR` ships at 5 and
+is clamped [0, 6] on the OTA channel, so **0 reverts the thumbnail half
+alone without giving up the video path's guard** -- they used to share
+one number and they are not the same trade (the video floor refuses a
+BIRTH, so a face inside an admitted person box stays covered).
+
+**VERIFIED IN THE EMITTED BUNDLE, NOT THE SOURCE:** the trimmer is READ
+(`reads:P.map(RR)`), it carries `raw:t.raw,shape:t.shape?{norm:...}`, the
+guard is `function iZ(t){return!!t&&q_(t)&&iw(t)&&gve(t)}` and `gve`
+reads `.shape.norm` against the image floor `lw`. Bundle marker
+`869d457` is inside the stripped `libapp_lib.so` in the APK.
+
+**WHAT IS NOT VERIFIED:** the guard firing on live thumbnails on a phone.
+The Redmi cannot reach YouTube (same network fault), so
+`spikes/gauntlet/probe_imgnull_1104.py` and `probe_imgnull_slow.py` are
+written and unrun. They read `nr` (the guard's own count, new on both
+image paths) and `n` (nm) off `__TS_GAZE_IMGDIAG`. **`faces` minus
+`flagged` cannot substitute for `nr` -- a same-gender clear subtracts
+there too.**
+
+**HONEST LIMIT ON HIS SHARE:** `nr` and `n` land in the page-side ring a
+cabled probe reads. The Share report's image block carries only
+`faces`/`flagged` and no per-read data, so his Share still cannot show
+nm. Not widened this session.
+
+**WHAT TO READ OFF HIS NEXT SHARE:** whether he still reports women
+missed and random marks. Grey (1103) is measured to help both, and
+finding 49 says it does NOT close the gap -- at 48px a Black woman still
+reads male 51.9% of the time. The 5x fix is finding 50 and it needs a
+student model. His phone still owes ONE SHARE on 1101/1102/1103 -- the
+`native.models.*.gpu` block is the only thing that says why his Adreno
+stayed on CPU.
+
+**STILL NOT BUILT, and it is NOT a one-liner:** finding 48's sub-40px
+abstention floor (3.2% of video patches). A detection under
+`FACE_MIN_NATIVE_PX` 40 abstains WITHOUT running faceres
+(`init-entry.js:3019`), so there is no `nm` to test -- applying the floor
+there means running the gender model on the smallest faces purely to get
+one number. That is added per-frame compute on his phone, unmeasured,
+and it was deliberately not batched into 1104 rather than stacking an
+unpriced cost onto a clean win.
+
 ## HANDOFF 2026-09-04 (late) -- HIS TWO COMPLAINTS ARE ONE PROBLEM, AND
 ## THE MODEL THAT FIXES IT IS 5x BETTER AND CANNOT SHIP
 
