@@ -238,6 +238,63 @@ def auc(pos, neg):
     return (ranks[:len(pos)].sum() - len(pos) * (len(pos) + 1) / 2) / (len(pos) * len(neg))
 
 
+# HELD OUT FROM TRAINING, INSIDE THE TRAINING DOMAIN. This is what the
+# checkpoint is chosen on; his corpus is only ever read, never optimised
+# against.
+VAL_FRAC = 0.15
+_g = torch.Generator().manual_seed(20260905)
+_perm = torch.randperm(len(FX), generator=_g)
+VAL_IDX = _perm[:int(VAL_FRAC * len(FX))]
+TRAIN_IDX = _perm[int(VAL_FRAC * len(FX)):]
+
+
+def evaluate_val():
+    student.eval()
+    kw = {} if a.size == 224 else {'interpolate_pos_encoding': True}
+    out = []
+    with torch.no_grad():
+        for s in range(0, len(VAL_IDX), a.batch):
+            idx = VAL_IDX[s:s + a.batch]
+            x = norm(FX[idx], dev)
+            sz = np.random.RandomState(1234 + s).choice(NATIVE, size=len(idx), p=NATIVE_P)
+            x = degrade(x, sz)
+            if a.size != 224:
+                x = F.interpolate(x, size=(a.size, a.size), mode='bilinear', align_corners=False)
+            out.append(torch.softmax(student(pixel_values=x, **kw).logits, -1)[:, MALE].cpu().numpy())
+    student.train()
+    r = np.concatenate(out)
+    yv = fy[VAL_IDX].numpy()
+    return auc(r[yv == 1], r[yv == 0])
+
+
+# THE POPULATION MUST BE THE ONE THE BASELINE WAS MEASURED ON.
+#
+# The corpus loader here yields 2,385 crops; `gpu-grey-mirror.json`, the
+# bank grey's 0.9855 and finding 50's numbers come from, holds 2,159. The
+# first version of this bench printed `shipped grey 0.9855` beside a
+# number computed on the larger set. The same student model moves 0.013
+# AUC -- 2.8x the grey-over-rgb effect -- purely by which rows are scored.
+# So the join is computed and BOTH are printed, with grey and rgb
+# recomputed on the shared rows rather than quoted from memory.
+def cropkey(path):
+    """Bank rows are keyed by the crop path relative to bank/crops."""
+    return path.replace(os.sep, '/').split('/crops/')[-1]
+
+
+GREY_BANK = BANK + '/gpu-grey-mirror.json'
+JOIN = None
+try:
+    _g = json.load(open(GREY_BANK))
+    _by = {r['crop']: r for r in _g}
+    JOIN = np.array([cropkey(r['path']) in _by for r in crows])
+    _shared = [(_by[cropkey(r['path'])], r)
+               for r in crows if cropkey(r['path']) in _by]
+    print('join to the grey bank: %d of %d corpus rows, %d of %d bank rows'
+          % (JOIN.sum(), len(crows), len(_shared), len(_g)))
+except Exception as e:
+    print('no grey bank join (%s) -- baseline numbers cannot be quoted' % e)
+
+
 def evaluate():
     student.eval()
     kw = {} if a.size == 224 else {'interpolate_pos_encoding': True}
@@ -258,12 +315,13 @@ print('eval BEFORE any training: AUC %.4f' % evaluate()[0])
 print('(shipped grey 0.9855 | full teacher 0.9960 -- both on this population)')
 print('')
 
-best = {'auc': -1}
+best = {'valAuc': -1, 'auc': float('nan')}
+hist = []
 kw = {} if a.size == 224 else {'interpolate_pos_encoding': True}
-N = len(FX)
+N = len(TRAIN_IDX)
 for ep in range(a.epochs):
     student.train()
-    perm = torch.randperm(N)
+    perm = TRAIN_IDX[torch.randperm(len(TRAIN_IDX))]
     tot = 0.0
     t0 = time.time()
     for s in range(0, N, a.batch):
@@ -291,19 +349,48 @@ for ep in range(a.epochs):
         sched.step()
         tot += float(loss) * len(idx)
     A, ww, raw = evaluate()
-    print('epoch %d/%d  loss %.4f  corpus AUC %.4f  women wrong %.1f%%  (%.0fs)'
-          % (ep + 1, a.epochs, tot / N, A, ww, time.time() - t0))
-    if A > best['auc']:
-        best = {'auc': float(A), 'womenWrong': float(ww), 'epoch': ep + 1,
-                'raw': [float(x) for x in raw]}
+    V = evaluate_val()
+    hist.append({'epoch': ep + 1, 'auc': float(A), 'womenWrong': float(ww), 'valAuc': float(V)})
+    print('epoch %d/%d  loss %.4f  val(FairFace) AUC %.4f  corpus AUC %.4f  women wrong %.1f%%  (%.0fs)'
+          % (ep + 1, a.epochs, tot / N, V, A, ww, time.time() - t0))
+    # SELECTION NEVER TOUCHES THE TEST SET -- `head-train.mjs:22` states
+    # this rule and the first version of this bench broke it, picking the
+    # best CORPUS epoch and reporting it. That is worth +0.009 AUC of pure
+    # optimism here, twice the grey-over-rgb effect a whole build shipped
+    # for. The checkpoint is chosen on held-out FairFace, inside the
+    # training domain, and the corpus number is whatever that epoch gives.
+    if V > best['valAuc']:
+        best = {'valAuc': float(V), 'auc': float(A), 'womenWrong': float(ww),
+                'epoch': ep + 1, 'raw': [float(x) for x in raw]}
         os.makedirs(a.save, exist_ok=True)
         torch.save(student.state_dict(), os.path.join(
             a.save, 'student-d%d-s%d.pt' % (a.depth, a.size)))
 
 print('')
-print('BEST corpus AUC %.4f at epoch %d, women wrong %.1f%%'
-      % (best['auc'], best['epoch'], best['womenWrong']))
-print('shipped grey 0.9855 | full teacher 0.9960')
+print('SELECTED on held-out FairFace at epoch %d: val AUC %.4f'
+      % (best['epoch'], best['valAuc']))
+print('  its corpus AUC %.4f, women wrong %.1f%%' % (best['auc'], best['womenWrong']))
+# AND THE PLATEAU, because one epoch's corpus number is noise. Two honest
+# runs of the same experiment reproduced AUC to four decimals while the
+# matched-exposure cell moved 3.8 points -- larger than the entire
+# grey-over-rgb effect. Report the mean of the last five.
+tail = [h['auc'] for h in hist[-5:]]
+print('  plateau corpus AUC (last %d epochs) %.4f' % (len(tail), sum(tail) / len(tail)))
+if JOIN is not None and best.get('raw'):
+    rb = np.array(best['raw'])
+    print('  on the %d rows the baseline banks share: AUC %.4f'
+          % (JOIN.sum(), auc(rb[JOIN & (cy == 1)], rb[JOIN & (cy == 0)])))
+    # And the baselines RECOMPUTED on those same rows, never quoted.
+    _by = {r['crop']: r for r in json.load(open(GREY_BANK))}
+    for arm in ('rgb', 'grey'):
+        v, yy = [], []
+        for i, r in enumerate(crows):
+            k = cropkey(r['path'])
+            if k in _by and arm in _by[k]:
+                v.append(_by[k][arm]['raw'])
+                yy.append(cy[i])
+        v, yy = np.array(v), np.array(yy)
+        print('  baseline %-4s on those rows: AUC %.4f (n %d)' % (arm, auc(v[yy == 1], v[yy == 0]), len(v)))
 json.dump({'depth': a.depth, 'size': a.size, 'params': int(nparam),
            'rows': [{'who': r['who'], 'cid': r['cid'], 'vid': r['vid']} for r in crows],
            'best': best}, open(a.out.replace('.json', '-d%d-s%d.json' % (a.depth, a.size)), 'w'))
