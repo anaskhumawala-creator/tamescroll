@@ -56,7 +56,7 @@ def main():
     allrows = []
     for q in QUERIES:
         tab = youtube_tab()
-        url = "https://www.youtube.com/results?search_query=" + q.replace(" ", "+")
+        url = "https://m.youtube.com/results?search_query=" + q.replace(" ", "+")
         tab.cmd("Page.navigate", url=url)
         print("navigated:", q, "-- waiting %ds" % SETTLE_S)
         time.sleep(SETTLE_S)
