@@ -99,3 +99,71 @@ export const TRANSFORMS = {
   gammaUp: armGamma,
   invert: armInvert,
 };
+
+/**
+ * DEGRADE A CROP TO A NATIVE PIXEL SIZE AND BACK -- the augmentation the
+ * head retrain needs, and the reason the first retrained head did not
+ * transfer.
+ *
+ * FairFace crops are clean 224px aligned portraits. His faces reach
+ * faceres at 34-192 native px (corpus p05/p50/p95), pulled off a 640x360
+ * stream. A head trained on the former reads the latter as a different
+ * distribution: on held-out FairFace a retrained head took Indian women
+ * 44.4% -> 16.2% wrong, and the SAME head on his corpus was WORSE than
+ * the shipped one (23.8% against 21.8% false cover at matched exposure).
+ * The information was there; the head had learned ideal conditions.
+ *
+ * WHAT PRODUCTION ACTUALLY DOES, and this mimics exactly that: the
+ * detector box is cut from the frame at native resolution -- N x N real
+ * pixels -- and `tf.image.cropAndResize` then interpolates it up to
+ * faceres' 224. So the information content is N x N and the tensor is
+ * 224 x 224. Reproduce it by box-downsampling to N and bilinearly
+ * upsampling back.
+ *
+ * BOX FILTER DOWN, BILINEAR UP, and the pair matters. A nearest-neighbour
+ * downscale would ALIAS -- it samples one pixel per cell and throws the
+ * rest away, which is not what a real capture does and would make small
+ * sizes look artificially noisy rather than artificially soft. Bilinear
+ * up is what cropAndResize itself uses.
+ *
+ * NEVER TOUCHES THE DETECTOR BOX, same contract as every other transform
+ * here: detection runs once on the untouched crop and the box is reused,
+ * so a size result can never be confounded with a detector result.
+ * Finding 38 already priced detection separately (0.4% missed at 48px).
+ */
+export function degrade(d, w, h, n) {
+  if (!n || n >= Math.min(w, h)) return d;
+  // --- box-filter downscale to n x n
+  const small = new Float64Array(n * n * 3);
+  const cnt = new Float64Array(n * n);
+  for (let y = 0; y < h; y++) {
+    const ty = Math.min(n - 1, (y * n / h) | 0);
+    for (let x = 0; x < w; x++) {
+      const tx = Math.min(n - 1, (x * n / w) | 0);
+      const s = (y * w + x) * 3, t = (ty * n + tx) * 3;
+      small[t] += d[s]; small[t + 1] += d[s + 1]; small[t + 2] += d[s + 2];
+      cnt[ty * n + tx]++;
+    }
+  }
+  for (let p = 0; p < n * n; p++) {
+    const c = cnt[p] || 1;
+    small[p * 3] /= c; small[p * 3 + 1] /= c; small[p * 3 + 2] /= c;
+  }
+  // --- bilinear upscale back to w x h, matching cropAndResize
+  const out = new Uint8Array(w * h * 3);
+  const sx = n > 1 ? (n - 1) / (w - 1 || 1) : 0;
+  const sy = n > 1 ? (n - 1) / (h - 1 || 1) : 0;
+  for (let y = 0; y < h; y++) {
+    const fy = y * sy, y0 = Math.min(n - 1, fy | 0), y1 = Math.min(n - 1, y0 + 1), wy = fy - y0;
+    for (let x = 0; x < w; x++) {
+      const fx = x * sx, x0 = Math.min(n - 1, fx | 0), x1 = Math.min(n - 1, x0 + 1), wx = fx - x0;
+      const o = (y * w + x) * 3;
+      for (let c = 0; c < 3; c++) {
+        const a = small[(y0 * n + x0) * 3 + c] * (1 - wx) + small[(y0 * n + x1) * 3 + c] * wx;
+        const b = small[(y1 * n + x0) * 3 + c] * (1 - wx) + small[(y1 * n + x1) * 3 + c] * wx;
+        out[o + c] = Math.max(0, Math.min(255, Math.round(a * (1 - wy) + b * wy)));
+      }
+    }
+  }
+  return out;
+}

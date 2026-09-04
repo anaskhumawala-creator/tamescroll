@@ -24,8 +24,8 @@ import * as tf from '@tensorflow/tfjs-core';
 import '@tensorflow/tfjs-backend-webgl';
 import '@tensorflow/tfjs-backend-cpu';
 import * as tfconv from '@tensorflow/tfjs-converter';
-import { detectFaceBoxes, classifyFaceGenders } from '../.cache/shipped.mjs';
-import { readPPM, mirror, mirrorBox, TRANSFORMS } from './arms.mjs';
+import { detectFaceBoxes, classifyFaceGenders, detectPersons } from '../.cache/shipped.mjs';
+import { readPPM, mirror, mirrorBox, degrade, TRANSFORMS } from './arms.mjs';
 
 const say = (m) => {
   const el = document.getElementById('log');
@@ -76,6 +76,86 @@ async function main() {
   } finally { tf.dispose(warm); }
 
   const rows = [];
+  // ============================================ DETECTOR FALSE-FIRE MODE
+  // THE HALF NOBODY HAS EVER MEASURED. Findings 35, 38 and 45 each say the
+  // same sentence: every junk-patch number this repo owns is CONDITIONAL ON
+  // DETECTION, because the corpus holds only crops BlazeFace already fired
+  // on. 19.1% (video) and 7.6% (image) are lower bounds on a base rate
+  // nobody has measured. His loudest complaint -- 'randomly just blur some
+  // text' -- lives entirely in that gap.
+  //
+  // Finding 38 measured detector RECALL (0.4% missed at 48px, no bias) and
+  // says in its own words that it is 'structurally blind to FALSE
+  // POSITIVES', because one face was present in every frame it scored.
+  //
+  // So: run the FULL shipped chain over whole 640x360 frames -- the exact
+  // resolution his player decodes -- and record, per frame, what BlazeFace
+  // reported, what MoveNet reported, and what faceres then read on every
+  // box. A frame where BlazeFace fires and MoveNet admits NOBODY is the
+  // candidate false fire, and the gender read on it decides whether it
+  // would actually mint a patch under the shipped rules.
+  //
+  // MoveNet is the negative oracle, and that choice is defensible ONLY
+  // because findings 25 and 38 established it works on a real GPU (the
+  // Adreno blindness was the WebGL runtime, not the model). It is still an
+  // oracle and not ground truth -- crops are banked so a sample can be
+  // eyeballed rather than taken on trust.
+  if (job.mode === 'detect') {
+    const person = await tfconv.loadGraphModel('/models/movenet-multipose.json');
+    {
+      const w2 = tf.zeros([360, 640, 3], 'int32');
+      try { await detectPersons(person, null, 640 / 360, null, w2); } finally { tf.dispose(w2); }
+    }
+    const out = [];
+    const t0 = performance.now();
+    let noPPM = 0, k = 0;
+    for (const w of job.work) {
+      const ppm = await ppmAt('/crops/' + w.crop);
+      if (!ppm) { noPPM++; k++; continue; }
+      const img = tf.tensor3d(new Uint8Array(ppm.data), [ppm.h, ppm.w, 3], 'int32');
+      const row = Object.assign({}, w, { w: ppm.w, h: ppm.h });
+      try {
+        const persons = await detectPersons(person, null, ppm.w / ppm.h, null, img);
+        row.nPersons = persons.length;
+        row.maxKp = persons.maxKp;
+        row.noShape = !!persons.noHumanShape;
+        // The person object is FLAT (person-gate.mjs:1004), not {box:{...}}.
+        row.pboxes = persons.map((p) => [p.x1, p.y1, p.x2, p.y2, p.confidence]);
+
+        const boxes = await detectFaceBoxes(face, null, img);
+        row.faces = [];
+        if (boxes.length) {
+          const reads = await classifyFaceGenders(gen, null, boxes, img, { square: true });
+          for (let i = 0; i < boxes.length; i++) {
+            const b = boxes[i], g = reads[i] || {};
+            const cx = (b.x1 + b.x2) / 2, cy = (b.y1 + b.y2) / 2;
+            row.faces.push({
+              box: [b.x1, b.y1, b.x2, b.y2],
+              conf: b.confidence,
+              px: Math.round((b.x2 - b.x1) * ppm.w),
+              raw: g.gender === 'male' ? 0.5 + g.score / 2 : 0.5 - g.score / 2,
+              s: g.score, g: g.gender, age: g.age, childP: g.childP,
+              nm: g.shape ? g.shape.norm : null,
+              // Corroborated by MoveNet? A face inside an admitted person
+              // box is a person the other model also sees.
+              inP: row.pboxes.some((q) => cx >= q[0] && cx <= q[2] && cy >= q[1] && cy <= q[3]),
+            });
+          }
+        }
+      } finally { tf.dispose(img); }
+      out.push(row);
+      k++;
+      if (k % 25 === 0) {
+        const rate = k / ((performance.now() - t0) / 1000);
+        say('detect ' + k + '/' + job.work.length + '  ' + rate.toFixed(2) + ' frame/s');
+      }
+    }
+    const secs2 = (performance.now() - t0) / 1000;
+    await post('/done', { ok: true, backend: tf.getBackend(), renderer, secs: secs2,
+      rate: out.length / secs2, noPPM, noFace: 0, rows: out });
+    say('COMPLETE ' + out.length + ' frames in ' + secs2.toFixed(1) + 's');
+    return;
+  }
   let done = 0, noPPM = 0, noFace = 0;
   const t0 = performance.now();
 
@@ -94,11 +174,26 @@ async function main() {
     } finally { tf.dispose(base); }
     if (!box) { noFace++; done++; continue; }
 
+    // SIZE AUGMENTATION. `job.sizes` lists NATIVE pixel sizes; each one
+    // emits its own row, so 10,580 portraits become 10,580 x |sizes|
+    // training examples spanning his real 34-192px band instead of only
+    // FairFace's ideal 224. This is the fix for the transfer failure:
+    // a head trained on clean portraits alone was WORSE than the shipped
+    // one on his corpus (23.8% vs 21.8%) while beating it by 18 points
+    // on held-out FairFace.
+    //
+    // The box is detected once on the UNDEGRADED crop and reused at every
+    // size, so a size result can never be confounded with a detector
+    // result. Finding 38 already priced detection separately.
+    const sizes = (job.sizes && job.sizes.length) ? job.sizes : [0];
+    for (const px0 of sizes) {
+    const src = px0 ? degrade(ppm.data, ppm.w, ppm.h, px0) : ppm.data;
     const row = Object.assign({}, w);
+    if (px0) row.nativePx = px0;
     for (const a of job.arms) {
       const fn = TRANSFORMS[a];
       if (!fn) throw new Error('unknown arm ' + a);
-      const px = fn(ppm.data, n);
+      const px = fn(src, n);
 
       const img = tf.tensor3d(px, [ppm.h, ppm.w, 3], 'int32');
       let g;
@@ -130,9 +225,10 @@ async function main() {
     }
     rows.push(row);
     done++;
+    }
     if (done % 25 === 0) {
       const rate = done / ((performance.now() - t0) / 1000);
-      say('done ' + done + '/' + job.work.length + '  ' + rate.toFixed(2) + ' crop/s  noFace ' + noFace);
+      say('done ' + done + '/' + (job.work.length * ((job.sizes && job.sizes.length) || 1)) + '  ' + rate.toFixed(2) + ' crop/s  noFace ' + noFace);
     }
   }
 

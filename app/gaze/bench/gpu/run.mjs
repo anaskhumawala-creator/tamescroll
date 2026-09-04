@@ -39,6 +39,13 @@ const ARMS = arg('arms', 'rgb,grey').split(',');
 const LIMIT = Number(arg('limit', '0'));
 const MIRROR = arg('mirror', '0') === '1';
 const KEEPDESC = arg('desc', '0') === '1';
+// --sizes=24,32,40,48,64,96,128,224 emits one row per NATIVE pixel size,
+// degrading each crop to that size and back (arms.degrade). 0 or absent
+// means the crop is used untouched.
+const SIZES = arg('sizes', '').split(',').map(Number).filter((x) => x > 0);
+// --mode=detect runs the DETECTOR false-fire chain over whole frames
+// (BlazeFace + MoveNet + faceres) instead of the gender arms over crops.
+const MODE = arg('mode', 'arms');
 const OUT = arg('out', 'gpu-' + POP + '-' + BACKEND);
 const PORT = Number(arg('port', '8931'));
 
@@ -81,9 +88,81 @@ function fairfaceWork() {
   return { work, root: FAIR + '/sample' };
 }
 
-const { work: allWork, root: CROPROOT } = POP === 'fairface' ? fairfaceWork() : corpusWork();
+// THE FULL FairFace VALIDATION SPLIT -- 10,954 rows, not the 1,400 in
+// sample/. Extracted by bench/gpu/extract-fairface.py straight out of
+// val025.parquet, with the class names read from the parquet's own
+// metadata and cross-checked against sample/ by MD5 of decoded pixels
+// (60 of 60 agree on race AND gender), so rows from the two banks are
+// the same labelling and are comparable.
+//
+// WHY IT EXISTS: every head-retraining question is bounded by labels,
+// not by compute. 1,024 free parameters fitted on 1,348 rows overfits,
+// and the first ceiling probe did exactly that -- 60 epochs scored WORSE
+// than 6, which reads as 'the trunk is the wall' when it is a training
+// defect. 8x the rows is the cheapest way to remove that confound.
+//
+// Interleaved by (race,gender) for the same reason fairfaceWork() is:
+// the source is ordered, so a --limit slice must stay balanced or a
+// truncated run silently measures one group.
+function fairfaceFullWork() {
+  const meta = JSON.parse(fs.readFileSync(FAIR + '/full.json', 'utf8'));
+  const buckets = new Map();
+  for (const m of meta) {
+    const k = m.race + '|' + m.gender;
+    if (!buckets.has(k)) buckets.set(k, []);
+    buckets.get(k).push(m);
+  }
+  const keys = [...buckets.keys()].sort();
+  const work = [];
+  for (let i = 0; ; i++) {
+    let any = false;
+    for (const k of keys) {
+      const b = buckets.get(k);
+      if (i < b.length) {
+        any = true;
+        work.push({
+          who: b[i].gender === 'Male' ? 'man' : 'woman',
+          race: b[i].race, age: b[i].age, row: b[i].row, crop: b[i].file,
+        });
+      }
+    }
+    if (!any) break;
+  }
+  return { work, root: FAIR + '/full' };
+}
+// WHOLE VIDEO FRAMES, NOT CROPS -- the detector false-fire population.
+//
+// Every crop in bank/crops is a crop BlazeFace already fired on, so the
+// whole corpus is conditioned on detection and is structurally incapable
+// of measuring a false fire. Findings 35, 38 and 45 each say so in their
+// own words; finding 38 measured RECALL on frames that all contained a
+// face, which cannot see a false POSITIVE at all.
+//
+// These are ffmpeg frames at 1 per 4s off the ten corpus videos at their
+// production 640x360 -- the resolution his player actually decodes, so a
+// detection here is a detection he would get. 3,809 frames.
+//
+// Interleaved by video so a --limit slice does not become one video.
+function framesWork() {
+  const root = 'Z:/tamescroll-corpus/frames-scan';
+  const vids = fs.readdirSync(root).filter((d) => fs.statSync(path.join(root, d)).isDirectory()).sort();
+  const buckets = vids.map((v) => fs.readdirSync(path.join(root, v)).filter((f) => f.endsWith('.ppm')).sort()
+    .map((f) => ({ vid: v, frame: f, crop: v + '/' + f })));
+  const work = [];
+  for (let i = 0; ; i++) {
+    let any = false;
+    for (const b of buckets) if (i < b.length) { any = true; work.push(b[i]); }
+    if (!any) break;
+  }
+  return { work, root };
+}
+const { work: allWork, root: CROPROOT } =
+  POP === 'frames' ? framesWork()
+    : POP === 'fairfull' ? fairfaceFullWork()
+      : POP === 'fairface' ? fairfaceWork()
+        : corpusWork();
 const work = LIMIT ? allWork.slice(0, LIMIT) : allWork;
-const job = { backend: BACKEND, arms: ARMS, work, mirror: MIRROR, keepDesc: KEEPDESC };
+const job = { backend: BACKEND, arms: ARMS, work, mirror: MIRROR, keepDesc: KEEPDESC, sizes: SIZES, mode: MODE };
 
 // --------------------------------------------------------------- build
 process.stderr.write('bundling browser entry...\n');
@@ -126,6 +205,19 @@ const server = http.createServer((req, res) => {
   if (url === '/' || url === '/index.html') return send(200, 'text/html', HTML);
   if (url === '/job.json') return send(200, 'application/json', JSON.stringify(job));
   if (url === '/bundle.js') return send(200, 'text/javascript', fs.readFileSync(path.join(HERE, '.bundle.js')));
+
+  // movenet-multipose.json's weightsManifest names 'weights.bin' -- the app
+  // loads it through embeddedIoHandler, which never reads that field, so
+  // the mismatch has never mattered. A plain URL load DOES read it and
+  // fetches a file that is not there; the 404 body then decodes as a
+  // 3-value tensor and the failure reads like a corrupt model. Rewrite the
+  // path on serve rather than editing the shipped manifest -- the bench
+  // must load the same bytes the app does.
+  if (url === '/models/movenet-multipose.json') {
+    const m = JSON.parse(fs.readFileSync(path.join(GAZE, 'models', 'movenet-multipose.json'), 'utf8'));
+    for (const g of m.weightsManifest) g.paths = ['movenet-multipose.bin'];
+    return send(200, 'application/json', JSON.stringify(m));
+  }
 
   // Static, with the traversal guard stated rather than assumed: the
   // resolved path must still sit under the root it was resolved from.

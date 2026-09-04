@@ -1,0 +1,94 @@
+
+DETECTOR FALSE FIRES -- the base rate under every junk number
+  frames 3809   videos 10   user gender man
+
+  1. WHAT THE TWO MODELS SEE
+     frames with >=1 face detection      3435  (90.2%)
+     face detections total               5451
+     frames where MoveNet admits NOBODY  463  (12.2%)
+       ...of those, carrying a detection 388 detections
+     frames under PFF_FRAME_KP_FLOOR 0.1   22  (the ghost gate CAN fire only here)
+
+  2. WHERE THE DETECTIONS LAND
+     inside a MoveNet person             4793   px p50   94   conf p50 0.74   nm p50 8.68
+     outside, human shape in frame        653   px p50  144   conf p50 0.57   nm p50 6.31
+     outside, NO human shape maxKp<0.1      5   px p50   34   conf p50 0.37   nm p50 2.02
+     -> the last row is the false-fire candidate class:
+        5 of 5451 detections = 0.1% of everything the detector reports
+        0.001 per sampled frame
+
+  3. WHICH CANDIDATES BECOME A PATCH
+     VIDEO rule (null guard + clear bar)  4 of 5  (80.0% survive the guard)
+     IMAGE rule (a weak read IS a mark)   5 of 5  (100.0%)
+
+     *** THE NUMBER FINDING 35 COULD NOT PRODUCE ***
+     junk share of ALL video patches 4 / 2127 = 0.2%
+     junk share of ALL image patches 5 / 2694 = 0.2%
+     junk video patches per minute of playback: 0.02
+
+  4. WHAT THE nm FLOOR WOULD BUY ON THIS POPULATION
+     floor 0    junk marks     5   REAL people refused    0
+     floor 5    junk marks     4   REAL people refused  219   <- SHIPPED
+     floor 5.5  junk marks     4   REAL people refused  228
+     floor 6    junk marks     4   REAL people refused  240
+     floor 7    junk marks     4   REAL people refused  247
+     (a "real person refused" is a FACE-ONLY subject whose patch the
+      floor deletes -- the only case where the floor can uncover
+      anybody, because it refuses a BIRTH and never a refresh. This
+      is the column finding 35 never had.)
+
+  7. THE UNGATED CLASS -- outside every person box, human shape in frame
+     detections 653  (12.0% of all)
+     of those, MINT a video patch 294  = 13.8% of every video patch
+     px    p05/p50/p95  36 / 177 / 406
+     conf  p05/p50/p95  0.37 / 0.66 / 0.85
+     nm    p05/p50/p95  3.54 / 8.38 / 12.36
+     NO GATE TOUCHES THIS CLASS. Frames to open, biggest first:
+       KAWvDsghyc8/f00031.ppm   577px conf 0.82 male s0.41 nm10.2 maxKp 0.265 nP 0
+       KAWvDsghyc8/f00037.ppm   531px conf 0.86 female s0.92 nm11.0 maxKp 0.51 nP 0
+       RcGyVTAoXEU/f00135.ppm   435px conf 0.85 female s0.60 nm8.7 maxKp 0.565 nP 0
+       RcGyVTAoXEU/f00134.ppm   432px conf 0.85 female s0.83 nm12.2 maxKp 0.699 nP 0
+       RcGyVTAoXEU/f00136.ppm   426px conf 0.61 female s0.38 nm9.8 maxKp 0.472 nP 0
+       RcGyVTAoXEU/f00133.ppm   425px conf 0.75 female s0.25 nm8.4 maxKp 0.452 nP 0
+       RcGyVTAoXEU/f00186.ppm   415px conf 0.88 female s0.84 nm13.3 maxKp 0.67 nP 0
+       RcGyVTAoXEU/f00198.ppm   411px conf 0.84 female s0.86 nm11.9 maxKp 0.717 nP 0
+     ...and smallest, which is where a graphic is most likely:
+       eIho2S0ZahI/f00047.ppm    20px conf 0.37 male s0.27 nm0.5 maxKp 0.214 nP 0
+       eIho2S0ZahI/f00046.ppm    22px conf 0.40 male s0.24 nm1.0 maxKp 0.213 nP 0
+       eIho2S0ZahI/f00047.ppm    24px conf 0.37 male s0.25 nm0.4 maxKp 0.214 nP 0
+       eIho2S0ZahI/f00047.ppm    28px conf 0.36 male s0.22 nm1.1 maxKp 0.214 nP 0
+       KAWvDsghyc8/f00196.ppm    28px conf 0.37 male s0.40 nm4.8 maxKp 0.241 nP 0
+       4u3jS_cTHH0/f00272.ppm    30px conf 0.41 male s0.03 nm6.5 maxKp 0.685 nP 6
+
+  4b. THE GHOST-GATE BAR SWEPT (finding 21 refused 0.12 on 3 frames)
+     bar 0.05  junk marks refused    0   REAL faces refused    0
+     bar 0.08  junk marks refused    4   REAL faces refused    0
+     bar 0.1   junk marks refused    4   REAL faces refused    0   <- SHIPPED
+     bar 0.12  junk marks refused    4   REAL faces refused    0
+     bar 0.15  junk marks refused    8   REAL faces refused    0
+     bar 0.2   junk marks refused   16   REAL faces refused    0
+     bar 0.3   junk marks refused   37   REAL faces refused    0
+
+  5. PER VIDEO -- ten videos is the unit, not 3,809 frames.
+     A single video carrying the whole rate is the shape phase-g G2
+     and finding 21a were both caught by.
+     video          frames   dets   cand  vidMark  imgMark  cand/det
+     1L_R0MB2W5A        44     79      0        0        0      0.0%
+     4u3jS_cTHH0       460    912      0        0        0      0.0%
+     8R1hy3uHds0       429    402      0        0        0      0.0%
+     Ary1gIbaOTc      1166   1602      0        0        0      0.0%
+     H14bBuluwB8        93    103      0        0        0      0.0%
+     KAWvDsghyc8       636    948      1        0        1      0.1%
+     NWoT1ZVd1Lo       274    429      0        0        0      0.0%
+     RcGyVTAoXEU       217    283      0        0        0      0.0%
+     eIho2S0ZahI       150    177      4        4        4      2.3%
+     z86LGEFyQpo       340    516      0        0        0      0.0%
+
+  6. THE WORST CANDIDATES -- OPEN THESE BEFORE QUOTING ANYTHING ABOVE.
+     MoveNet is an oracle, not a label. A person it missed reads as a
+     false fire, and that error INFLATES every number in this file.
+     Z:/tamescroll-corpus/frames-scan/eIho2S0ZahI/f00049.ppm    34px conf 0.39 male s0.21 nm2.3 maxKp 0.068
+     Z:/tamescroll-corpus/frames-scan/eIho2S0ZahI/f00050.ppm    36px conf 0.37 male s0.20 nm2.0 maxKp 0.057
+     Z:/tamescroll-corpus/frames-scan/eIho2S0ZahI/f00050.ppm    26px conf 0.36 male s0.24 nm2.7 maxKp 0.057
+     Z:/tamescroll-corpus/frames-scan/eIho2S0ZahI/f00050.ppm    32px conf 0.35 male s0.15 nm1.7 maxKp 0.057
+

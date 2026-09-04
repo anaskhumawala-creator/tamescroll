@@ -5363,3 +5363,135 @@ range dial sweeps in one run. Bootstrap confidence intervals, which need
 the population resampled and were simply unaffordable before. And
 descriptor banking for head-retraining work (`--desc=1`) -- the [1024]
 vector for every FairFace crop, banked in under a minute.
+
+
+## 48. HIS RANDOM PATCHES ARE NOT THE DETECTOR. 46% OF THEM ARE THE GENDER MODEL SHRUGGING ON A REAL MAN, AND THAT MAKES HIS TWO COMPLAINTS ONE PROBLEM
+
+**He asked whether the accuracy problem and the random-patch problem are
+separate:** *"maybe I don't know if this is to be treated separately or
+together, the random mark patches."*
+
+**MEASURED, AND THEY ARE ONE PROBLEM.** Both are the gender head being
+uncertain. The detector is nearly innocent.
+
+### The gap this closes
+
+Every junk-mark number in this file was CONDITIONAL ON DETECTION.
+`bank/crops` holds only crops BlazeFace already fired on, so finding 35's
+19.1% and finding 45's 7.6% are shares *of detections* -- lower bounds on
+a base rate nobody had measured. Finding 38 measured detector RECALL and
+says in its own words that it is *"structurally blind to false
+positives"*, because a face was present in every frame it scored.
+
+The instrument: **3,809 whole frames**, one every 4 seconds across all
+ten corpus videos, at their production **640x360** -- the resolution his
+player actually decodes (finding 37), so a detection here is a detection
+he gets. The full shipped chain per frame: `detectFaceBoxes` +
+`detectPersons` + `classifyFaceGenders`. 235 seconds on the GPU. On the
+CPU backend this was ten hours and was never run.
+
+### WHAT MAKES A PATCH, in his own mode, over 5,451 detections
+
+| why the patch exists | n | share |
+|---|---|---|
+| read the OPPOSITE gender (female) | 1,000 | **47.0%** |
+| read HIS gender but too weakly to clear | 983 | **46.2%** |
+| under `FACE_MIN_NATIVE_PX` 40, abstains, fails closed | 144 | 6.8% |
+| detector fired where there is **no human shape at all** | 5 | **0.1%** |
+
+**THE DETECTOR HALLUCINATES 5 TIMES IN 5,451 DETECTIONS.** In the regime
+the ghost gate can see -- frame keypoint max under `PFF_FRAME_KP_FLOOR`
+0.1 -- there is essentially nothing there. 22 of 3,809 frames are in that
+regime at all.
+
+### The weak-male class, which is the answer
+
+1,775 detections read male below the clear bar:
+
+    inside a MoveNet person box   1,461 of 1,775 (82%)  -- a REAL man
+    px      p05/p50/p95    46 / 76 / 185
+    score   p05/p50/p95    0.058 / 0.269 / 0.432
+    nm      p05/p50/p95    2.06 / 4.97 / 9.45
+    isNullRead (the prior)  1,148 = 64.7%
+      ...of those, nm >= 5 so the guard does NOT refuse them: 356
+
+So the single largest source of the marks he complains about is **a real
+man, corroborated by the other model, at a perfectly ordinary 76px, that
+faceres cannot commit to.** Not text. Not a graphic. A person the
+pipeline should have cleared and did not.
+
+**CONSEQUENCE, AND IT REDIRECTS THE ROUND:** the random-patch problem and
+the accuracy problem are the same wall, so grey (findings 41/45/47) is
+aimed at both, and a better gender head fixes both. There is no separate
+"stop blurring text" project to do.
+
+### THREE INSTRUMENT DEFECTS IN ONE BENCH, ALL CAUGHT BY THE BENCH'S OWN "OPEN THESE FRAMES" SECTION
+
+Recorded because each produced a confident wrong number first, and the
+last one is the phase-g G1 class again.
+
+1. **`nPersons === 0` IS NOT "NOBODY IS HERE".** The first cut called a
+   detection a false fire when the person gate admitted nobody. It
+   reported **388 candidates, 7.1% of all detections** -- a headline. The
+   section that names the worst frames killed it in one read: the top
+   candidates are **385-435px faces at detector confidence 0.85-0.90 with
+   frame maxKp 0.67**. MoveNet plainly saw a human shape; the person
+   *gate* refused the slot, which is the CLOSE-UP regime `PFF_CLOSEUP_H`
+   and the whole face-fallback path exist for. Keyed on the quantity the
+   shipped gate actually uses, the class is **5, not 388.**
+2. **THE nm FLOOR'S COST COLUMN WAS OVERSTATED BY 572.** It counted every
+   corroborated face the floor would refuse as exposure. The floor
+   refuses a BIRTH and never a refresh (loop 37b), so a face inside an
+   admitted person box already has a person-derived track covering it and
+   refusing its face-derived mint costs nothing. The floor can only
+   uncover somebody where the FACE IS THE ONLY EVIDENCE: 219, not 791.
+3. The bench's own "OPEN THESE FRAMES BEFORE QUOTING ANYTHING ABOVE"
+   section is what caught (1). **A bench that reports a bound must name
+   the rows behind it** -- MoveNet is an oracle here, not a label, and a
+   person it misses reads as a hallucination.
+
+### The class no gate can touch, flagged and NOT claimed
+
+**653 detections (12.0% of all) land outside every admitted person box in
+a frame that DOES carry a human shape, and nothing in the pipeline can
+refuse them:** the ghost gate is FRAME-level and the frame has a person
+in it; the null guard only refuses a read with no descriptor signal; the
+person gate never saw that box. 294 of them mint a video patch = **13.8%
+of every video patch.**
+
+That is the shape of a tech video -- a presenter PLUS a product photo, a
+screen share, a title card -- where the presenter holds maxKp high and
+every graphic in the frame rides through on his keypoints.
+
+**IT IS NOT ALL JUNK AND IS DELIBERATELY NOT REPORTED AS SUCH.** px p50
+177, and the biggest are 411-577px at confidence 0.82-0.88: those are
+close-ups the person gate refused, i.e. real people. The small tail (20-30px
+at confidence 0.36-0.41, **nm 0.4-1.1**) is where a graphic is likely.
+Nobody has separated them and this bench cannot.
+
+### The one cheap fix this exposes, priced
+
+A detection under `FACE_MIN_NATIVE_PX` 40 is never asked, so `nm` -- the
+only signal in the pipeline that is about the CROP rather than the answer
+(finding 38's ground-truth arm: at 32px real faces read nm p05 **8.34**,
+non-faces p95 **4.56**) -- is never consulted, and the read fails closed
+into a patch. Applying the existing floor to that class as well:
+
+    floor  refuses  already covered by a person track  face-ONLY (the risk)
+      3      28                17                            11
+      5      68                41                            27
+      6      91                60                            31
+
+**The whole prize is 68 of 2,127 video patches = 3.2%.** Real, small, and
+nowhere near the 46%. Not built.
+
+### HONEST LIMIT, and it is the half his THUMBNAIL complaint lives in
+
+This population is video frames from videos **that contain people**. His
+words were *"randomly just blur some text"* on **thumbnails**, and a
+gaming or tech thumbnail often contains no person at all. That population
+is still unmeasured. Finding 45's image-path numbers remain conditional
+on detection exactly as before.
+
+Bench: `app/gaze/bench/false-fire.mjs`, frames
+`Z:/tamescroll-corpus/frames-scan/`, bank `gpu-frames-detect.json`.
