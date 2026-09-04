@@ -5830,3 +5830,126 @@ Bench `bench/gpu/fetch-thumbs.mjs` (`--pop=thumbs`), bank
 `gpu-thumbs-detect.json`, images `Z:/tamescroll-corpus/thumbs-ppm/`.
 Nothing was rendered and nothing published: public search HTML for the
 ids, public i.ytimg.com for the jpegs, straight to disk on Z:.
+
+
+## 53. FINDING 52'S FIX WAS ALREADY WRITTEN, ALREADY TESTED, AND HAD NEVER ONCE RUN -- AND THE EXPOSURE 52 COULD NOT COMPUTE IS 16 THUMBNAILS IN 370
+
+Finding 52 ended with *"the IMAGE path has no such guard"* and priced
+building one. **It has had one since 1079.** `flaggedFaceIndices` carries
+
+    if (adult && isNullRead(f) && mayNotMint(f)) continue;
+
+with forty lines of comment above it, twenty tests below it, and a
+measured justification (`bench/image-null.mjs`, 92.0% of non-face flags
+removed, 0 of 99 real faces). It was live on one image path and **dead on
+the other**, and nothing in the codebase could say so.
+
+### WHY IT WAS INVISIBLE, AND IT IS THE GENERAL SHAPE
+
+Two image paths reach the same rule. The in-page one hands it the
+verdicts straight off `classifyFaceGenders` (`init-entry.js:1029`). The
+WORKER one goes through a `postMessage`, and worker-entry trimmed each
+read to what it thought the verdict needed:
+
+    { gender, score, age, childP, px }
+
+Both of the guard's predicates read a field that trim dropped, and **both
+fail OPEN on a missing field, by deliberate design**:
+
+    isNullRead   needs `raw`         "with nothing to test, trust the read"
+    mayNotMint   needs `shape.norm`  "a MISSING norm never refuses"
+
+Each default is correct in isolation and each fails toward covering,
+which is this project's rule when it has no evidence. Composed across a
+boundary that silently removes the evidence, they produce a guard that
+**never throws, never logs, and never fires**. A dead constant announces
+itself eventually (`var IY;` took six rounds); a rule whose inputs are
+quietly absent announces nothing at all.
+
+**RED-PROVED BEFORE THE FIX**, on finding 52's own junk signature (`male
+s0.26`, raw 0.63, nm 1.4):
+
+    full read (in-page)     flaggedFaceIndices -> []     refused
+    the old worker trim     flaggedFaceIndices -> [0]     minted
+
+### WHAT IT COSTS, REPLAYED THROUGH THE SHIPPED RULE
+
+`bench/image-guard-shipped.mjs` replays finding 52's **own 370
+thumbnails** twice -- once through the 1103 trim literal, once through
+`imageRead` -- and imports `flaggedFaceIndices` from `src/`, so it cannot
+drift from what ships. 399 face reads, man mode.
+
+                        1103      1104     change
+    marks total          258       198     -60   (-23.3%)
+      JUNK marks          47        16     -31   (-66.0%)
+      real marks         211       182     -29   (-13.7%)
+
+Finding 52's floor sweep predicted **-32 junk / -24 real** at floor 5.
+This lands at **-31 / -29** from an entirely different mechanism -- a trim
+literal, not a threshold -- which is the independent confirmation that
+the boundary was the whole story.
+
+### THE NUMBER FINDING 52 SAID IT COULD NOT COMPUTE
+
+Finding 52 was explicit about its own limit: *"A 'real mark' lost is not
+automatically an exposure -- the subject may be covered by another mark on
+the same thumbnail -- but this bench cannot tell which."* Counting whole
+thumbnails instead of marks answers it:
+
+    thumbnails that go from covered to COMPLETELY UNCOVERED:  16 of 370
+
+**4.3%.** That is the exposure, not the 13.7%. Fourteen of the sixteen
+lose a single mark; one (`rFZHOHl-L8A`, lofi hip hop radio) loses three
+at once. Seven sit on searches that return people (`vlog daily` x4,
+`news anchor broadcast`, `reaction video`, `whiteboard math lecture`), so
+they are the ones most likely to be a real face going sharp.
+
+### CONSEQUENCE: THE TWO FLOORS ARE NOT THE SAME TRADE
+
+Both paths refused on `NULL_MINT_NM_FLOOR`, so a revert of one was a
+revert of both. They are not comparable:
+
+- **Video** refuses a BIRTH. A face inside an already-admitted person box
+  is still covered by that person's patch, so the floor's cost is bounded
+  by the association layer (this is the same error finding 48's own cost
+  column made, counting corroborated faces as exposure -- overstated by
+  572).
+- **Image** has no second chance and no tracker. One mark becomes zero
+  marks and the picture is sharp.
+
+`GENDER_IMAGE_NM_FLOOR` ships at 5 -- identical behaviour -- clamped
+[0, 6] on the OTA channel. 0 hands the thumbnail trade back without
+giving up the video guard. The range reaches 6 where the video floor
+stops at 5.5, because 6 is the exposure edge for a BIRTH (5 of 125 real
+faces refused) while here it is merely another point finding 52 priced
+(11 junk / 143 real).
+
+### THE INSTRUMENT WORK THIS FORCED
+
+- **`imageRead`** (face-decode) is the one definition of what an image
+  verdict carries across a boundary. The 1024-float descriptor is still
+  dropped -- only the video path's identity memory reads it -- and `raw`
+  plus `norm` are two numbers.
+- **`refusedByNullGuard` / `countRefusedByNullGuard`** (gender-verdict):
+  the three-term rule had to be COUNTED as well as obeyed, and a second
+  hand-written copy of a three-term rule is the crop-geometry defect.
+- **`imgDiagRead`** (diag-report): init-entry built the image diagnostic
+  row from **two** hand-written literals, one per image path. A field
+  added to fix one leaves the other reporting the old shape, so a probe
+  reads a difference between populations that is really a difference
+  between literals. One mapper, call sites counted by a test.
+- **`nr` and `n` on the diag row.** `nr` is the guard's own count;
+  `faces` minus `flagged` cannot substitute, because a same-gender clear
+  subtracts there too. `n` is nm, stamped because the guard now DECIDES
+  on it -- R15 turned a size gate on and the artifact promptly lost the
+  quantity it decided on.
+
+**HONEST LIMIT:** `nr` and `n` land in `__TS_GAZE_IMGDIAG`, which a
+cabled probe reads. The Share report's image ring carries `faces` and
+`flagged` and no per-read data, so **his Share still cannot show nm**.
+And nothing here was watched firing on a live phone: the smoke device
+could not reach YouTube on the day (`probe_imgnull_1104.py`,
+`probe_imgnull_slow.py` written, unrun).
+
+Bench `bench/image-guard-shipped.mjs`, bank `gpu-thumbs-detect.json`,
+tests `test/image-read-transfer.test.mjs` (16).
