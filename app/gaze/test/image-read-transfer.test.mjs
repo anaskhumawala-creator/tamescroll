@@ -211,3 +211,31 @@ test('the image floor is clamped like every other dial', () => {
   assert.ok(gv.GENDER_IMAGE_NM_FLOOR >= 0);
   applyTuning({ GENDER_IMAGE_NM_FLOOR: 5 });
 });
+
+// -- AND IT MUST SURVIVE THE ACTUAL BOUNDARY --------------------------
+//
+// Everything above tests the shape `imageRead` returns. The bug was not
+// a shape bug, it was a TRANSPORT bug, so assert the transport: the
+// worker's reply is structured-cloned, and structured clone copies an
+// array's elements but not properties hung on the array, drops
+// functions, and throws on anything unclonable. The vframe path already
+// carries a comment about exactly this (`noHumanShape` travels by name
+// because clone would drop it off the array), so the hazard is known
+// here and was simply never asserted for the image reply.
+test('an image read survives structuredClone with the guard intact', () => {
+  const sent = imageRead(junkRead());
+  const arrived = structuredClone(sent);
+  assert.deepEqual(arrived, sent, 'nothing is lost or transformed in transit');
+  assert.equal(arrived.shape.norm, 1.4);
+  assert.equal(arrived.raw, 0.63);
+  // the whole point: the rule still refuses it on the far side
+  assert.deepEqual(flaggedFaceIndices('man', [arrived]), []);
+});
+
+test('a whole reply array clones without losing a read', () => {
+  const reply = [junkRead(), realWoman()].map(imageRead);
+  const arrived = structuredClone(reply);
+  assert.equal(arrived.length, 2);
+  assert.equal(countRefusedByNullGuard(arrived), 1);
+  assert.deepEqual(flaggedFaceIndices('man', arrived), [1], 'only the real woman is marked');
+});
