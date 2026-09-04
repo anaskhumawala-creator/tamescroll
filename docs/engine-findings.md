@@ -5953,3 +5953,86 @@ could not reach YouTube on the day (`probe_imgnull_1104.py`,
 
 Bench `bench/image-guard-shipped.mjs`, bank `gpu-thumbs-detect.json`,
 tests `test/image-read-transfer.test.mjs` (16).
+
+
+## 54. FINDING 48's SUB-40px FLOOR IS HALF AS VALUABLE AS IT LOOKED, AND EVERY BIT OF WHAT REMAINS IS THE RISKY HALF -- BUT THE COMPUTE IS FREE
+
+Finding 48 left one item open: a detection under `FACE_MIN_NATIVE_PX` 40
+is never asked, so `nm` is never consulted and the read fails closed into
+a patch. It priced applying the existing floor there at **68 of 2,127
+video patches = 3.2%** and wrote *"Real, small, not built."*
+
+Two things were unpriced, and they point opposite ways.
+
+### THE COMPUTE IS NOT A PROJECT. IT IS 0.038 CROPS PER FRAME.
+
+To have an `nm` you must RUN faceres on crops the shipped code refuses to
+run it on, which is added inference on the phone whose smoothness is his
+other standing complaint. On finding 48's own 3,809 frames:
+
+    detections under the gate        144   (2.6% of all 5,451)
+    frames carrying at least one      81   (2.1% of frames)
+    most on any single frame          10
+    mean extra crops per frame     0.038
+    mean per AFFECTED frame        1.778
+
+**98% of frames pay nothing at all.** The gender pass is one batched
+call, so the cost on an affected frame is a batch of N+1.8 instead of N,
+and the worst frame in 3,809 is N+10. That kills the reason this was
+parked. It is not a compute project.
+
+### BUT THE BENEFIT COLUMN DOUBLE-COUNTS, AND FINDING 48 MADE THIS EXACT
+### ERROR ONCE ALREADY IN THE OTHER DIRECTION
+
+Split the 68 by whether the detection sits inside an admitted person box:
+
+    floor   refuses   already inside a person box   face-ONLY
+      3        28                17                     11
+      5        68                41                     27
+      6        91                60                     31
+
+**41 of the 68 are already covered by somebody's patch.** Refusing those
+changes NOTHING on screen -- the pixels stay blurred either way. So the
+patches that actually disappear are the **27 face-only** ones:
+
+    finding 48's number   68 of 2,127   3.2%
+    patches that MOVE     27 of 2,127   1.3%
+
+**And those 27 are exactly the risky class.** A face-only detection is
+one the person gate never corroborated, so refusing it is precisely the
+case where nobody can say whether it was a graphic or a real person that
+MoveNet missed. 100% of the remaining value is carried by 100% of the
+risk; there is no safe half to take first.
+
+This is finding 48's own cost-column defect, mirrored: that table counted
+corroborated faces as exposure and overstated by 572. This one counted
+them as benefit.
+
+### AND nm BARELY SEPARATES AT THIS SIZE
+
+Finding 38's ground-truth arm measured real faces at 32px reading nm p05
+**8.34** against non-faces p95 **4.56** -- a clean gap. That was a forced
+read on clean crops. On his player's actual frames, below 40px:
+
+    nm over every sub-gate read: p05 1.78  p25 3.79  p50 5.08  p75 6.84  p95 9.08
+    nm p50 INSIDE a person box  5.74 (n 108)
+    nm p50 outside one          4.12 (n  36)
+
+1.6 apart with both distributions spanning 2-9. The corroborated and
+uncorroborated populations overlap almost completely, so nm is a weak
+instrument down here, not the clean discriminator the 32px bench showed.
+
+The twelve highest-nm face-only refusals at floor 5 run nm 4.98 down to
+4.04 at px 28-39, confidence 0.35-0.71 -- sitting just under the bar
+rather than far below it, which is the shape of a threshold cutting
+through a population rather than separating two.
+
+### VERDICT
+
+Cheap to build and cheap to run, worth **1.3% of video patches** rather
+than 3.2%, and every one of those is a coin-flip on whether a real person
+goes sharp. It is an exposure trade with a thin instrument behind it, so
+it is his -- but it should be offered as what it is, not as the 3.2%
+finding 48 advertised.
+
+Bench `bench/sub40-floor-cost.mjs`, bank `gpu-frames-detect.json`.
