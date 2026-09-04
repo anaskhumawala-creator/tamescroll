@@ -1,10 +1,176 @@
 ## Session state (update every session)
 
-**Last updated:** 2026-09-04 09:40 (**1102 IS STILL THE RELEASE, sha
-0a495cfa. NOTHING SHIPPED AND NO CONSTANT MOVED.** HEAD pushed, tree
-clean. His phone still owes ONE SHARE on 1101/1102 -- the
-`native.models.*.gpu` block is the only thing that says why his Adreno
-stayed on CPU.)
+**Last updated:** 2026-09-04 late (**1102 IS STILL THE RELEASE, sha
+0a495cfa. NOTHING USER-VISIBLE CHANGED AND NO CONSTANT MOVED** -- grey
+shipped in SOURCE behind a dial at 0, so a build is needed before it can
+travel and the dial is still HIS. HEAD pushed, tree clean. His phone
+still owes ONE SHARE on 1101/1102 -- the `native.models.*.gpu` block is
+the only thing that says why his Adreno stayed on CPU.)
+
+## HANDOFF 2026-09-04 (late) -- HIS TWO COMPLAINTS ARE ONE PROBLEM, AND
+## THE MODEL THAT FIXES IT IS 5x BETTER AND CANNOT SHIP
+
+**HIS OPENING QUESTION, ANSWERED:** *"maybe I don't know if this is to be
+treated separately or together, the random mark patches."* **TOGETHER.
+They are the same wall.** Finding 48, over 3,809 whole frames at his
+player's own 640x360 through the full shipped chain:
+
+    read the OPPOSITE gender           47.0% of video patches
+    read HIS gender but too weakly     46.2%
+    too small to ask, fails closed      6.8%
+    detector fired on NO human shape    0.1%   <- 5 of 5,451
+
+**The detector is innocent.** The largest single source of his "random
+blur marks" is a REAL man, corroborated by MoveNet, at an ordinary 76px,
+that faceres cannot commit to. Not text, not a graphic. So there is no
+separate "stop blurring text" project -- accuracy work fixes both.
+
+### THE FOUR NUMBERS THAT MATTER, all on his own corpus, matched exposure
+
+    arm                    <=1.6%     AUC
+    SHIPPED head            21.8%   0.9808
+    SHIPPED + GREY          18.2%   0.9855
+    dima806 ViT-base         4.2%   0.9974   <- 5x, and it cannot ship
+    ours retrained          58-69%   0.92-0.94  <- dead, see 51
+
+**FINDING 50 IS THE ROUND'S RESULT.** dima806
+(`dima806/fairface_gender_image_detection`, **Apache-2.0 read from the
+repo's own metadata this session**) is 5x better than what ships, best or
+tied in 7 of 8 videos, and wins hardest exactly where finding 49 says
+ours collapses (32-48px: women wrong 36.9% -> 12.1%).
+
+**THE CONFOUND THAT HAD TO DIE FIRST, and it nearly took the round:** the
+model is *named* `fairface_gender_image_detection`, so FairFace is its
+TRAINING domain and its numbers there may be memorisation. **His corpus
+settles it** -- 52 identities, ten real videos, nothing in the comparison
+has ever seen it -- and it wins there by MORE. Also verified on DEGRADED
+crops before anything was built on it: better at 24px (20.0% women wrong)
+than ours at 224px (33.8%).
+
+**THIS CORRECTS THE EARLIER 2026-09-04 HANDOFF IN HIS FAVOUR.** That one
+wrote *"distillation CANNOT fix accuracy"*. True of faceres as teacher,
+and **that was the wrong teacher**. With a 5x-better Apache-2.0 teacher,
+distillation is exactly the accuracy fix -- which is what he asked about
+in his first message.
+
+**WHY IT CANNOT SHIP: ViT-base is ~86M parameters against faceres' 3.5M**,
+and finding 43 already refused a 1.96x speedup of the smaller model at 9.3%
+decision flips. **The route is a STUDENT** and none of that project is
+measured: architecture, size, in-domain data, per-frame cost, whether the
+win survives the shrink.
+
+### BOTH CHEAP ROUTES ARE DEAD, FROM OPPOSITE DIRECTIONS
+
+- **Finding 50's retrain arm:** 10,580 FairFace faces, TRUE labels, scale-
+  augmented to 24-192px through the player's own degradation, split BY
+  FACE. Wins on held-out FairFace at every size (AUC +0.025 at 24px) and
+  **loses on his corpus: 18.9% vs grey's 18.2%.** FairFace portraits are
+  not video frames; his corpus is the EASY domain (AUC 0.98 vs 0.89) and
+  a head tuned for the hard one gives back accuracy on the easy one.
+- **Finding 51's pseudo-label arm:** label his footage with dima806,
+  retrain our head on our descriptors, zero extra inference. **68.5% with
+  PERFECT labels, 58.0% with dima's** -- both far worse than shipped.
+  **The pseudo arm BEATING the true arm is the tell:** that is noise, not
+  a result about labels. Cause is countable -- 2,159 reads but only **51
+  clusters over ten videos, so each fold fits 1,024 inputs on ~46 distinct
+  people.** Written up as "his corpus cannot train a head", NOT "the trunk
+  is the ceiling"; those need opposite next steps and only the first is
+  supported.
+
+**A third attempt needs THOUSANDS of in-domain identities -- a labelling
+run over real video, not a re-slice of what is on disk. Do not start it
+until someone decides it is cheaper than the student.**
+
+### GREY IS IN THE SOURCE AT LAST, BEHIND `GENDER_GREY` AT 0
+
+Six independent confirmations (39, 41, 44, 45, 47, 49) and it had never
+shipped. One line after `cropAndResize` in `classifyFaceGenders`, covering
+the video AND thumbnail paths. **`GENDER_GREY` clamped [0,1], ships 0**, so
+the switch and the revert both travel over OTA -- but the whitelist is
+compiled in, **so 1102 will REFUSE the key and a build is needed before
+the dial can travel.** He is tired of installing, so batch it.
+
+**FINDING 49, why grey is not optional:** the full FairFace validation
+split (**10,580 faces -- the 1,400 we lived on was a CPU-era decision**)
+degraded to each native size:
+
+    women read as men, shipped head
+    size    Black  Indian   White
+    224px   53.6%   47.4%   29.8%
+     48px   64.9%   53.2%   37.3%
+     24px   90.5%   82.3%   64.9%
+
+His faces read px p50 76, so **a Black woman is read as a man about two
+times in three on his hardware.** And it is NOT a threshold effect -- AUC
+decays 0.8913 -> 0.7695, so no dial recovers it, which is why he was right
+to refuse *"blur everyone"*. **Grey is better in 35 of 35 (race x size)
+cells and worse in none**, helps most where it is worst (Black -15.4 pts
+at 24px), and its AUC gain GROWS as faces shrink. Grey at 48px still reads
+a Black woman wrong 51.9% -- ship it AND do not read it as a solution.
+
+### THE INSTRUMENT DEFECTS THIS ROUND, all self-caught, all recorded
+
+1. **`nPersons === 0` is not "nobody is here".** The false-fire bench
+   first reported **388 candidates (7.1% of detections)**; its own "open
+   these frames" section showed the worst were **385-435px faces at conf
+   0.85-0.90 with maxKp 0.67** -- close-ups the person GATE refused, which
+   is what `PFF_CLOSEUP_H` exists for. Keyed on the quantity the shipped
+   ghost gate uses it is **5, not 388**. *A bench reporting a bound must
+   name the rows behind it.*
+2. **The nm floor's cost column overstated by 572.** It counted
+   corroborated faces as exposure; the floor refuses a BIRTH, never a
+   refresh, so a face inside an admitted person box is already covered.
+3. **Per-race error read at the raw 0.5 boundary** made the augmented head
+   look 6.7 points WORSE on Black women while every other cell said
+   better. At each arm's own bar solved to a common cost it is 2.1 points
+   BETTER. *The matched-exposure rule, relearned for the sixth time.*
+4. **The ceiling probe overfit** (1,024 params on 1,348 rows; 60 epochs
+   scored worse than 6) and read as "the trunk is the wall". Fixed with a
+   validation split, early stopping and a grid selected on the TRAINING
+   domain only.
+
+### WHAT IS ON DISK NOW, and it makes the next round cheap
+
+    gpu-fairfull-desc.json        10,580 FairFace, descriptors + reads
+    gpu-ff-s{24..192}.json        the same faces at 8 native sizes
+    gpu-frames-detect.json        3,809 whole frames, full shipped chain
+    dima-degraded.json            76,678 dima806 reads, 7 sizes
+    dima-corpus.json              dima806 on his own corpus
+    frames-scan/                  3,809 ppm frames off the ten videos
+
+`bench/head-train.mjs` is now the ONE trainer, shared by `head-ceiling`,
+`head-scale` and `pseudo-label` -- two copies would drift, which is the
+phase-g G1 failure. **torch+CUDA and transformers live in a venv on
+`Z:/ml`** (C: is at 98%; HF cache is on Z: too).
+
+### NEXT, in order
+
+1. **His ruling on grey.** It is an exposure trade so it is his, and it
+   needs a build (1103) before the dial can travel.
+2. **The student**, if he wants the 5x. Nothing is measured; it is a real
+   project. dima806 is Apache-2.0 and the teacher is verified on degraded
+   in-domain crops, which is the part that is usually missing.
+3. **The thumbnail half of finding 48 is UNMEASURED.** That bench used
+   video frames from videos that CONTAIN people. His words were
+   *"randomly just blur some text"* on THUMBNAILS, and a gaming or tech
+   thumbnail often has no person at all. Finding 45's image numbers stay
+   conditional on detection.
+4. `NULL_MINT_NM_FLOOR` applied to sub-40px abstentions is worth **3.2%
+   of video patches** -- real, small, not built.
+
+**REFUSED ON PRINCIPLE, do not re-open:** per-race calibration. Inferring
+skin tone to correct the model is biometric categorisation on a sensitive
+characteristic -- the same clause (AI Hub Model License 2.c) that killed
+the Qualcomm NPU delegate in loop 47.
+
+**GOTCHAS THIS ROUND:** `movenet-multipose.json`'s weightsManifest names
+`weights.bin`, which the app never reads (it loads through
+`embeddedIoHandler`) but a plain URL load does -- the 404 body decodes as a
+3-value tensor and reads like a corrupt model; person objects are FLAT
+(`{x1,y1,x2,y2}`, person-gate.mjs:1004) not `{box:{...}}`; the Bash
+heredoc still breaks on long bench bodies (use the Write tool); `pip`
+ignores POSIX `TMPDIR` on Windows and spends C: (set `TEMP`); and two GPU
+jobs at once need different `--port`.
 
 ## HANDOFF 2026-09-04 -- THE BENCHES RUN ON THE GPU NOW (127x), AND
 ## THAT CHANGES WHAT IS WORTH TRYING NEXT
