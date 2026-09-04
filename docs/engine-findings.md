@@ -5685,3 +5685,65 @@ Benches `bench/dima-degraded.py`, `bench/dima-corpus.py`,
 `bench/dima-score.mjs`. Banks `dima-degraded.json` (76,678 rows),
 `dima-corpus.json`. torch+CUDA and transformers live in a venv on
 **Z:/ml** -- C: is at 98%.
+
+
+## 51. THE FREE VERSION OF FINDING 50 DOES NOT WORK, AND THE REASON IS 46 PEOPLE
+
+If our own trunk could absorb dima806's advantage, the whole student
+project in finding 50 would be unnecessary: run dima806 once, offline,
+over his footage; retrain OUR gender head on OUR [1024] descriptors using
+its labels; ship ~4KB of weights with **zero extra inference on the
+phone**. That is the cheapest possible version of a 5x accuracy win and
+it had to be tried before anything expensive.
+
+Leave-one-video-out on his corpus, so a head never sees the video it is
+judged on:
+
+    arm                    <=1.6%     AUC
+    SHIPPED head            21.8%   0.9808
+    SHIPPED + GREY          18.2%   0.9855
+    ours + TRUE labels      68.5%   0.9217   <- perfect in-domain labels
+    ours + dima PSEUDO      58.0%   0.9405
+    dima806 itself           4.2%   0.9974
+
+Both trained arms are **far worse than the head that already ships**.
+
+### THE PSEUDO ARM BEATS THE TRUE ARM, AND THAT IS THE TELL
+
+58.0% against 68.5%. An arm trained on *wrong* labels beating one trained
+on *right* labels is not a result about labels. It is the signature of a
+fit dominated by noise, and it is the reason this is not written up as
+"the trunk is the ceiling".
+
+**The cause is countable.** His corpus is 2,159 reads but only **51
+clusters over ten videos**, so each leave-one-video-out fit sees about
+**46 distinct people** and is then judged on people it has never seen.
+Fitting 1,024 inputs on 46 identities does not generalise, whoever wrote
+the labels. The instrument ran out of PEOPLE, not out of rows -- and rows
+are what a naive n would have counted.
+
+### WHY THIS MATTERS FOR WHAT COMES NEXT
+
+"His corpus cannot train a head" and "the trunk is the ceiling" need
+**opposite** next steps, and only the first is supported. What can be
+said, combining this with finding 50's own retrain arm:
+
+- our trunk + 46 identities: fails (this finding)
+- our trunk + 10,580 FairFace identities, TRUE labels, scale-augmented:
+  reaches 18.9% and still loses to grey's 18.2% (finding 50)
+- dima806: 4.2%
+
+So two independent label regimes -- tiny-and-in-domain, and
+large-and-out-of-domain -- both failed to beat simply feeding the
+existing head grey. That is not proof the trunk is the wall, but it is
+two attempts from opposite directions, and finding 46 already measured
+why to expect it (`pearson(head raw, descriptor probe) = 0.893`: the
+descriptor is the same signal read off an earlier layer, not a second
+opinion).
+
+**A third attempt would need thousands of IN-DOMAIN identities -- a
+labelling run over real video, not a re-slice of what is on disk.** That
+is a data project, and it should not start until someone decides it is
+cheaper than the student.
+
+Bench `app/gaze/bench/pseudo-label.mjs`.
