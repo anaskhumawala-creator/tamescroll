@@ -4847,3 +4847,109 @@ ONE:** right reads p50 0.063, wrong reads p50 0.101. Real separation,
 same order as everything finding 33 already priced and refused.
 
 **IT IS A COMPUTE-FOR-ACCURACY TRADE AND THEREFORE HIS CALL.**
+
+
+## 41 -- GREY HOLDS ON HIS OWN FOOTAGE: z 5.56, AND IT BUYS 3.7-5.8 POINTS OF FALSE COVER AT MATCHED EXPOSURE
+
+Findings 36 and 39 measured grey on FairFace -- 224px studio portraits.
+Finding 39 said plainly that a win there is a hypothesis about his phone,
+not a measurement of it, and named `bench/grey-corpus.mjs` as the run
+that decides. This is that run: four arms over the labelled corpus
+reads, real frames off ten videos, real sizes, real lighting, scored on
+the SHIPPED clear rule rather than on label accuracy.
+
+**2,159 reads scored (910 women, 1,249 men).** Detection runs ONCE on the
+untouched crop and the box is reused for every arm, so a gender number
+cannot carry a detection difference.
+
+| arm | wrong | women | men | EXPOSURE | FALSE COVER |
+|---|---|---|---|---|---|
+| `rgb` (ships) | 11.0% | 25.8% | 0.2% | 2.4% | 18.7% |
+| **`grey`** | 8.6% | **19.0%** | 1.0% | 1.4% | 20.6% |
+| `blueOnly` | 10.7% | 24.2% | 1.0% | 2.0% | 23.0% |
+| `gammaUp` | **7.2%** | **14.3%** | 2.1% | 1.0% | 25.4% |
+
+Paired: grey fixed **68** broke **16** (**z 5.56**); gammaUp fixed 113
+broke 31 (z 6.75); blueOnly net +6 (z 0.58, noise).
+
+**SO GREY SURVIVES THE DOMAIN GAP.** Finding 39's win transfers to his
+own footage at a stronger significance than it had on portraits, and the
+size split says it lands exactly where he needs it -- **32-48px: rgb
+36.9% -> grey 24.8%; 48-64px: 38.2% -> 32.5%**, and his faces read px p50
+38-62.
+
+**AND THE MATCHED-EXPOSURE CONTROL REVERSES THE gammaUp HEADLINE.** The
+raw table makes gammaUp look best by a distance. It is not: an arm can
+win the "wrong" column by simply leaning female, which is a threshold
+move in disguise, and finding 40 already caught that trap once. Tuning
+each arm's bar to a common exposure and reading false cover:
+
+| exposure target | rgb | grey | blueOnly | gammaUp |
+|---|---|---|---|---|
+| <= 2.4% (today) | 19.2% | **15.5%** | 20.3% | 14.1% |
+| <= 1.5% | 23.2% | **18.3%** | 23.8% | 20.7% |
+| <= 1.0% | 26.0% | **22.1%** | 25.5% | 25.4% |
+| <= 0.5% | 35.1% | 29.3% | **29.2%** | 34.8% |
+
+**Grey beats the shipped arm at every operating point and wins outright
+at three of the four. gammaUp only leads at today's loose target and
+collapses to a tie by 1.0% -- most of its apparent lead was the tilt.**
+Grey buys **3.7-5.8 points of false cover at equal exposure**, which is
+his random-blur-marks complaint measured in the currency it costs him.
+
+**THE COST IS MEN AND IT IS REAL: 0.2% -> 1.0% wrong.** Five times the
+rate, on a base so small it is 2 reads against 10. Read the aggregate,
+not the multiple.
+
+**IT NEEDS A BUILD.** Grey is a pixel transform inside the crop path, not
+a dial -- it cannot travel over OTA, and it changes who gets blurred. HIS
+CALL.
+
+## 42 -- THE BLUE-CHANNEL HYPOTHESIS IS REFUTED, AND THE REVERSAL IS THE INFORMATIVE PART
+
+Finding 36 could not explain WHY grey helps. The standing hypothesis was
+that blue carries the least melanin signal, so a blue-only greyscale
+should strip the most skin-tone information and win by the most.
+`bench/grey-variants.mjs` sweeps eleven arms over 202 FairFace faces --
+every grey arm through ONE `greyBy(d, n, f)` function, so a gap between
+two of them cannot be an implementation difference.
+
+**THE ORDERING IS THE EXACT REVERSE OF THE PREDICTION.**
+
+| arm | women wrong | vs rgb |
+|---|---|---|
+| `gammaUp` (gamma 0.7) | **22.3%** | best overall |
+| `redOnly` | 23.3% | best single channel |
+| `equal` (thirds) | -- | z 2.04 for |
+| `greenOnly` | 30.1% | neutral |
+| `rgb` (ships) | -- | baseline |
+| **`blueOnly`** | **40.8%** | **z 2.25 AGAINST** |
+| `invert` | **84.5%** | **z 7.12 against** |
+
+Blue-only is the WORST greyscale arm and is significantly worse than
+colour. Red-only -- the channel carrying the MOST melanin signal -- is the
+best single channel. **So grey is not helping by removing skin tone.**
+That is the third independent route to the same negative: finding 36's
+tone-equalisation arm made things worse, finding 39 showed the
+between-group gap does not move at all (27.3 -> 27.2), and now the
+channel that should strip tone best is the one that loses.
+
+**`invert` IS THE ROW THAT SAYS WHAT THE MODEL IS ACTUALLY USING.** A
+luma inversion preserves every edge, every shape and every spatial
+relationship, and destroys only polarity -- and it takes women from ~30%
+wrong to **84.5%**, an almost total collapse (z 7.12). A network reading
+structure would barely notice. **faceres is reading tone and polarity,
+not geometry**, which is consistent with gammaUp (a brightening curve)
+being the best arm in both this sweep and finding 41.
+
+**WHAT THIS DOES NOT EXPLAIN.** Why flattening three channels to one
+should help a network that reads tone remains open. The honest state is:
+grey wins, reproducibly, at z 4.16 on portraits and z 5.56 on his own
+footage, and NOBODY HAS A MECHANISM. Every mechanism proposed so far has
+been tested and refused. Ship it on the measurement or not at all -- do
+not ship it on a story.
+
+**LIMIT:** 202 faces, 14-15 per race-sex cell. The top of that table is
+ordered inside its own noise; the two significant rows (blueOnly against,
+invert catastrophic) are the load-bearing ones and they are the reason the
+hypothesis is closed.

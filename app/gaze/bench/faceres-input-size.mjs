@@ -141,7 +141,7 @@ async function main() {
   console.log('\nSPEED, warm, median of 12 (CPU JS -- read the RATIO, not the ms)');
   const speed = {};
   for (const S of live) {
-    const t = tf.zeros([1, S, S, 3]);
+    const t = tf.fill([1, S, S, 3], 128);
     for (let i = 0; i < 3; i++) tf.dispose(flex.execute(t));
     const ms = [];
     for (let i = 0; i < 12; i++) {
@@ -172,8 +172,14 @@ async function main() {
   const rows = [];
   for (const m of work) {
     const ppm = readPPM(path.join(DIR, 'sample', m.file));
+    // faceres takes a 0..255 FLOAT, NOT a 0..1 one -- detector.js:797/825
+    // build the crop with cropAndResize straight off a 0..255 float source
+    // and never divide. The first version of this bench divided by 255, the
+    // network saturated to a constant 0.627 on every face, and the run
+    // reported 100% agreement / 50% accuracy at every size. A constant
+    // output agrees with itself perfectly. Do not reintroduce the divide.
     const base = tf.tidy(() => tf.expandDims(
-      tf.div(tf.cast(tf.tensor3d(new Uint8Array(ppm.data), [ppm.h, ppm.w, 3], 'int32'), 'float32'), 255), 0));
+      tf.cast(tf.tensor3d(new Uint8Array(ppm.data), [ppm.h, ppm.w, 3], 'int32'), 'float32'), 0));
     const row = { truth: m.gender === 'Male' ? 'male' : 'female', race: m.race };
     try {
       // The shipped model at 224 is the reference, run through the
@@ -195,6 +201,24 @@ async function main() {
   }
 
   fs.writeFileSync(DIR + '/faceres-size-rows.json', JSON.stringify(rows));
+
+  // DEGENERACY GUARD. A constant output agrees with itself 100% of the time
+  // and scores exactly chance against a balanced label set, which is how the
+  // first run of this bench reported a 4x free speed win that did not exist.
+  // If the 224 reference does not SPREAD across faces, nothing below means
+  // anything and the run must say so rather than print a table.
+  const refs = rows.map(r => r.ref);
+  const spread = Math.max(...refs) - Math.min(...refs);
+  const sexGap = Math.abs(
+    refs.filter((_, i) => rows[i].truth === 'male').reduce((a, b) => a + b, 0) / Math.max(1, rows.filter(r => r.truth === 'male').length)
+    - refs.filter((_, i) => rows[i].truth === 'female').reduce((a, b) => a + b, 0) / Math.max(1, rows.filter(r => r.truth === 'female').length));
+  console.log(String.fromCharCode(10) + 'reference sanity: spread ' + spread.toFixed(3) + '   male-minus-female mean ' + sexGap.toFixed(3));
+  if (spread < 0.2 || sexGap < 0.05) {
+    console.log('REFERENCE IS DEGENERATE -- the 224 model is not responding to the input.');
+    console.log('Almost certainly a preprocessing mismatch (faceres wants 0..255 float, not 0..1).');
+    console.log('No accuracy number below is meaningful. Speed above still stands.');
+    return;
+  }
   const pct = (a, b) => (b ? (100 * a / b).toFixed(1) + '%' : '--');
   const q = (arr, p) => { const s = arr.slice().sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; };
   console.log('\nACCURACY, ' + rows.length + ' faces');
