@@ -18,6 +18,7 @@
 // next to its tests (gender-verdict.mjs), and duplicating it here is how
 // the two would drift.
 import * as detector from './detector.js';
+import { imageRead } from './face-decode.mjs';
 
 // Exported, not self-starting: this file is bundled INTO the page
 // bundle, which is also what gets served as the worker script. One
@@ -197,12 +198,15 @@ export function startWorker() {
         type: 'verdict',
         id: msg.id,
         boxes: boxes,
-        // The identity descriptor is 1024 floats per face and only the
-        // video path's memory uses it. Sending it would cost more than
-        // the inference saved.
-        reads: reads.map(function (r) {
-          return { gender: r.gender, score: r.score, age: r.age, childP: r.childP, px: r.px };
-        }),
+        // face-decode owns what an image verdict carries across a
+        // boundary. It was an object literal here, and what the literal
+        // left out (`raw`, `shape.norm`) made `flaggedFaceIndices`' null
+        // guard DEAD on this path while it stayed live in-page -- both of
+        // that guard's predicates fail open on a missing field, so it
+        // never fired and never logged. Finding 52 priced it at 48 junk
+        // marks over 370 thumbnails. The 1024-float descriptor is still
+        // dropped; see imageRead.
+        reads: reads.map(imageRead),
         nsfw: !!nsfw,
         ms: Math.round(performance.now() - t0),
       });

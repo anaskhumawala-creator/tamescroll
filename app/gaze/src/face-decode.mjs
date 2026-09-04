@@ -245,3 +245,35 @@ export function genderReadsFromOutputs(genderData, ageData, descData, boxes, had
 // native path alike) uses the one aspect-preserving implementation --
 // see crop-geometry.mjs for why this exists and what it cost to find.
 export { squareBox };
+
+/**
+ * ONE image verdict, trimmed for a boundary crossing.
+ *
+ * The worker's image reply used to build this object inline, and what it
+ * left out made `flaggedFaceIndices`' null guard DEAD on that path while
+ * it stayed live on the in-page one (init-entry.js:1029 vs :1234). Both
+ * of the guard's predicates fail OPEN on a missing field by design --
+ * `isNullRead` trusts a read carrying no `raw`, `mayNotMint` refuses
+ * nothing without `shape.norm` -- so the rule did not throw and did not
+ * log. It simply never fired, and finding 52 priced the result: 48 image
+ * marks on person-free thumbnails, nm p50 3.44 against a floor of 5.
+ *
+ * `raw` and `shape.norm` are two numbers. THE DESCRIPTOR STAYS DROPPED:
+ * it is 1024 floats per face and only the video path's identity memory
+ * reads it, so sending it would cost more than the inference saved. The
+ * rest of `shape` (the age-head diagnostics) has no image-side reader.
+ *
+ * Called from BOTH sides so the two image paths cannot answer differently
+ * again -- the crop-geometry defect is what this shape exists to prevent.
+ */
+export function imageRead(r) {
+  return {
+    gender: r.gender,
+    score: r.score,
+    age: r.age,
+    childP: r.childP,
+    px: r.px,
+    raw: r.raw,
+    shape: r.shape ? { norm: r.shape.norm } : null,
+  };
+}
