@@ -1,12 +1,20 @@
 ## Session state (update every session)
 
-**Last updated:** 2026-09-04 late (**1102 IS STILL THE RELEASE, sha
-0a495cfa. NOTHING USER-VISIBLE CHANGED AND NO CONSTANT MOVED** -- grey
-shipped in SOURCE behind a dial at 0, so a build is needed before it can
-travel and the dial is still HIS. HEAD pushed, tree clean. His phone
-still owes ONE SHARE on 1101/1102 -- the `native.models.*.gpu` block is
-the only thing that says why his Adreno stayed on CPU.)
+**Last updated:** 2026-09-04 (**1103 PUBLISHED, sha 6de12c09** -- served
+APK re-downloaded and hashed against the raw manifest, isDraft false.
+**GREY IS ON**: `GENDER_GREY` ships 1 in both the source and
+rules/tuning.json, verified in the SHIPPED BINARY (`qh=1` and the luma
+line inside libapp_lib.so, not the source). His phone gets it in-app. A
+1102 phone refuses the unknown key, so the push is safe. HEAD pushed,
+tree clean. His phone still owes ONE SHARE on 1101/1102/1103 -- the
+`native.models.*.gpu` block is the only thing that says why his Adreno
+stayed on CPU.)
 
+**WHAT TO READ OFF HIS NEXT SHARE, now that grey is live:** whether he
+still reports women missed and random marks. Grey is measured to help
+both, and finding 49 says it does NOT close the gap -- at 48px a Black
+woman still reads male 51.9% of the time. The 5x fix is finding 50 and
+it needs a student model.
 ## HANDOFF 2026-09-04 (late) -- HIS TWO COMPLAINTS ARE ONE PROBLEM, AND
 ## THE MODEL THAT FIXES IT IS 5x BETTER AND CANNOT SHIP
 
