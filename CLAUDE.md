@@ -2,14 +2,19 @@
 
 **Last updated:** 2026-09-04 (**1103 IS STILL THE PUBLISHED RELEASE, sha
 6de12c09.** **1104 IS BUILT, TESTED AND STAGED BUT NOT SHIPPED AND NOT
-PUSHED -- THE NETWORK IS DOWN.** Outbound HTTPS fails from this machine
-AND from the Redmi on the same WiFi: `git push`, `gh release create` and
-`curl https://example.com` all time out at port 443, and the phone gets
-`000` on every host. Nothing is wrong with the repo. **FIRST ACTION NEXT
-SESSION: `git push`, then finish the release recipe from step 6.** The
-APK is at `dist-apk/tamescroll-v0.1.104.apk` (94,847,816 bytes,
-gitignored), installed and running clean on the Redmi as versionCode
-1104.)
+PUSHED -- THE NETWORK IS DOWN.** Outbound 443 fails from this machine
+AND from the Redmi on the same WiFi; DNS resolves (github.com ->
+20.207.73.82) and it fails the same way with the sandbox disabled, so it
+is the network, not the harness. `git push`, `gh release create` and a
+plain `curl https://example.com` all time out. **FIRST ACTION NEXT
+SESSION: check `.overnight/push.log` -- a watcher
+(`.overnight/push-when-up.sh`) retries the push every 30s for an hour and
+writes PUSHED there if it got through. If not, `git push` by hand, then
+the release recipe from step 6.** The APK is at
+`dist-apk/tamescroll-v0.1.104.apk` (94,847,816 bytes, gitignored), bundle
+marker **c8201db** verified inside its stripped `libapp_lib.so`,
+installed and running clean on the Redmi as versionCode 1104, zero
+crashes in logcat.)
 
 **WHAT 1104 IS:** the image path's null guard shipped DEAD and nobody
 noticed for five builds. `flaggedFaceIndices` has refused a no-signal
@@ -49,10 +54,14 @@ image paths) and `n` (nm) off `__TS_GAZE_IMGDIAG`. **`faces` minus
 `flagged` cannot substitute for `nr` -- a same-gender clear subtracts
 there too.**
 
-**HONEST LIMIT ON HIS SHARE:** `nr` and `n` land in the page-side ring a
-cabled probe reads. The Share report's image block carries only
-`faces`/`flagged` and no per-read data, so his Share still cannot show
-nm. Not widened this session.
+**HIS SHARE NOW ANSWERS IT.** The image block carries two aggregates,
+no per-read data: `nullRefused` (the guard's own count over the ring) and
+`nmP50` (median descriptor magnitude, one decimal -- NOT through `pctl`,
+which rounds to an integer and would send 3.44 to 3 and 4.6 to 5, across
+the very bar it reports on). `faces` minus `flagged` cannot substitute
+for `nullRefused`: a same-gender clear subtracts there too. Read
+`nullRefused` > 0 as "it fired", and `nmP50` near 3-4 as "on graphics"
+against finding 52's junk median of 3.44.
 
 **WHAT TO READ OFF HIS NEXT SHARE:** whether he still reports women
 missed and random marks. Grey (1103) is measured to help both, and
