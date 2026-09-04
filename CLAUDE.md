@@ -1,20 +1,25 @@
 ## Session state (update every session)
 
-**Last updated:** 2026-09-04 (**1103 IS STILL THE PUBLISHED RELEASE, sha
-6de12c09.** **1104 IS BUILT, TESTED AND STAGED BUT NOT SHIPPED AND NOT
-PUSHED -- THE NETWORK IS DOWN.** Outbound 443 fails from this machine
-AND from the Redmi on the same WiFi; DNS resolves (github.com ->
-20.207.73.82) and it fails the same way with the sandbox disabled, so it
-is the network, not the harness. `git push`, `gh release create` and a
-plain `curl https://example.com` all time out. **FIRST ACTION NEXT
-SESSION: check `.overnight/push.log` -- a watcher
-(`.overnight/push-when-up.sh`) retries the push every 30s for an hour and
-writes PUSHED there if it got through. If not, `git push` by hand, then
-the release recipe from step 6.** The APK is at
-`dist-apk/tamescroll-v0.1.104.apk` (94,847,816 bytes, gitignored), bundle
-marker **c8201db** verified inside its stripped `libapp_lib.so`,
-installed and running clean on the Redmi as versionCode 1104, zero
-crashes in logcat.)
+**Last updated:** 2026-09-04 (**1104 PUBLISHED, sha 83815234** -- served
+APK re-downloaded and hashed against the RAW manifest, isDraft false,
+94,847,816 bytes. HEAD pushed, tree clean. Bundle marker **c8201db**
+verified inside the stripped `libapp_lib.so` in that APK and read live
+off the Redmi's own page. His phone gets it in-app.
+
+**A 1103 PHONE IS SAFE:** its compiled whitelist has no
+`GENDER_IMAGE_NM_FLOOR`, and an unknown key is dropped WITHOUT poisoning
+the rest of the payload -- verified by running `applyTuning` with an
+unknown key beside a real one and watching the real one still land.
+
+**THE NETWORK WENT DOWN MID-SESSION** and cost most of it: outbound 443
+died from this machine and from the Redmi, DNS still resolving, same
+failure with the sandbox disabled. The PC recovered; **THE REDMI STILL
+HAS NO INTERNET AT ALL** -- HTTP and HTTPS both return 000 from adb
+shell and the app shows its own "No connection" card, while the PC on
+the SAME subnet (192.168.99.x) reaches GitHub fine. Not chased further:
+the fix is a device network setting and that is not mine to change.
+`.overnight/push-when-up.sh` is the watcher that got the push out; it
+logs to `.overnight/push.log`.)
 
 **WHAT 1104 IS:** the image path's null guard shipped DEAD and nobody
 noticed for five builds. `flaggedFaceIndices` has refused a no-signal
@@ -46,13 +51,17 @@ guard is `function iZ(t){return!!t&&q_(t)&&iw(t)&&gve(t)}` and `gve`
 reads `.shape.norm` against the image floor `lw`. Bundle marker
 `869d457` is inside the stripped `libapp_lib.so` in the APK.
 
-**WHAT IS NOT VERIFIED:** the guard firing on live thumbnails on a phone.
-The Redmi cannot reach YouTube (same network fault), so
+**WHAT IS STILL NOT VERIFIED, and it is the only gap:** the guard firing
+on live thumbnails on a phone. The Redmi has no internet (above), so
 `spikes/gauntlet/probe_imgnull_1104.py` and `probe_imgnull_slow.py` are
-written and unrun. They read `nr` (the guard's own count, new on both
-image paths) and `n` (nm) off `__TS_GAZE_IMGDIAG`. **`faces` minus
-`flagged` cannot substitute for `nr` -- a same-gender clear subtracts
-there too.**
+written and UNRUN. They read `nr` and `n` off `__TS_GAZE_IMGDIAG`.
+
+What IS verified in place of it: the shipped rule replayed over finding
+52's 370 real thumbnails with real banked reads; the transport asserted
+through `structuredClone` (the bug was a transport bug, so the test has
+to cross the boundary); and the guard read out of the stripped binary --
+`function iZ(t){return!!t&&q_(t)&&iw(t)&&gve(t)}`, `gve` testing
+`.shape.norm` against the image floor.
 
 **HIS SHARE NOW ANSWERS IT.** The image block carries two aggregates,
 no per-read data: `nullRefused` (the guard's own count over the ring) and
