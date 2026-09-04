@@ -124,7 +124,9 @@ async function main() {
         s: g.score, g: g.gender, age: g.age, childP: g.childP,
         nm: g.shape ? g.shape.norm : null,
       };
-      if (job.keepDesc && g.descriptor) row[a + 'Desc'] = Array.from(g.descriptor);
+      // The field is `desc`, not `descriptor` -- face-decode.mjs:237.
+      // It is already L2-normalised there, so a cosine is a dot product.
+      if (job.keepDesc && g.desc) row[a + 'Desc'] = Array.from(g.desc);
     }
     rows.push(row);
     done++;

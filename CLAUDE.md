@@ -1,5 +1,148 @@
 ## Session state (update every session)
 
+**Last updated:** 2026-09-04 09:40 (**1102 IS STILL THE RELEASE, sha
+0a495cfa. NOTHING SHIPPED AND NO CONSTANT MOVED.** HEAD pushed, tree
+clean. His phone still owes ONE SHARE on 1101/1102 -- the
+`native.models.*.gpu` block is the only thing that says why his Adreno
+stayed on CPU.)
+
+## HANDOFF 2026-09-04 -- THE BENCHES RUN ON THE GPU NOW (127x), AND
+## THAT CHANGES WHAT IS WORTH TRYING NEXT
+
+**READ `docs/gpu-bench.md` BEFORE RUNNING ANY BENCH.** Every bench in
+this repo before today ran on tfjs' pure-JS CPU backend at **0.15
+crops/second** -- that is why rounds took nights and samples were 140
+instead of 1,400.
+
+    node app/gaze/bench/gpu/run.mjs --pop=corpus --backend=webgl --arms=rgb,grey --out=NAME
+
+`bench/gpu/` runs the SHIPPED `detectFaceBoxes`/`classifyFaceGenders` in
+a headless Chrome page on the RTX 3060 Ti through ANGLE/D3D11 and keeps
+the scoring in node off banked rows, exactly as before. **No CUDA
+toolkit** (there is none on this machine and `tfjs-node` does not build
+on node v24 here). No CDP -- the page fetches its own job and POSTs its
+own rows, so a page-side failure arrives as `ok:false` with a stack.
+Nothing is ever shown on his screen: `--headless=new` against 127.0.0.1,
+local crops and models only.
+
+    tfjs CPU (pure JS)      0.15 crop/s     2,159 crops ~ 4 hours
+    WebGL, 3060 Ti         11-26 crop/s     2,159 crops = 139 seconds
+
+**PARITY IS GATED, NOT ASSUMED** (`bench/gpu/parity.mjs`): 60 crops both
+backends, raw |delta| p50 **2.4e-7**, and **0 of 60 decisions flip** at
+the label boundary or the shipped clear bar. The gate REFUSES to print a
+verdict if an arm's output spans under 0.2 -- the finding-43 saturation
+shape. Findings 25 is why: tfjs-WebGL on an Adreno read MoveNet at 0.03
+where every other backend read 0.8, and six loops described a regime
+that did not exist.
+
+**THE HARNESS SHIPPED A BUG ON ITS FIRST RUN AND IT READ AS A RESULT.**
+**Detector boxes are NORMALISED [0,1], not pixels** -- they go straight
+to `tf.image.cropAndResize`. `mirrorBox` flipped by pixel width, so the
+mirrored crop landed off the face and mirror "fixed 0 of 235 women".
+**The tell generalises: a bad crop looks exactly like a bad arm**,
+because a crop of nothing reads as the model's male-leaning prior
+(mirror read 66% of small women male against rgb's 36.9%). Caught
+because grey touches no box and reproduced finding 41 to the digit.
+
+**FINDING 47, the corrected stack** (2,159 labelled reads, matched
+exposure, false cover on men at exposure <= 1.6%):
+
+    rgb 21.8%   grey 18.2% (-3.6)   rgbMir 21.5% (-0.2)   greyMir 17.2% (-4.6)
+
+- **MIRROR ALONE IS WORTH ~NOTHING ON HIS OWN FOOTAGE** -- a partial
+  retraction of finding 40's 18.0% -> 12.3%, which was FairFace.
+- It adds **1.0 point on top of grey** and they overlap on only 13 of 74
+  women, so the stack is SUPER-additive (119%). But that 1.0 point is
+  **seven women** and costs 1.4-1.6x of the gender inference.
+- **GREY IS FREE AND DOES 78% OF THE COMBINED WIN. Ship grey alone.**
+
+**FINDING 46: THE DESCRIPTOR VETO IS DEAD.** The one-way veto finding 33
+flagged (head proposes a clear, the [1024] fingerprint may only refuse
+it -- monotone toward covering, zero runtime cost) **loses at every
+matched-exposure operating point to the shipped head alone** (4.6% vs
+6.0/12.2/32.3% false cover). The mechanism is measured:
+**pearson(head raw, probe) = 0.893** -- it is the same signal read off an
+earlier layer, not a second opinion. Finding 33's per-group error split
+looked independent and that was Simpson's paradox.
+**CONSEQUENCE THAT NARROWS THE SEARCH: every remaining idea that
+re-reads another head, layer or view of faceres is drawing from one
+well. Grey works precisely because it changes the INPUT instead.**
+
+### HIS QUESTION ABOUT DISTILLATION, ANSWERED -- AND IT IS TWO DIFFERENT
+### PROJECTS WEARING ONE NAME
+
+1. **"Distill all three models into one" is a LATENCY project and
+   CANNOT fix accuracy.** A student trained on teacher outputs
+   reproduces the teacher's errors -- it would inherit faceres' 25.8%
+   error on women exactly. Findings 37/38/43 are three independent
+   routes to "the gender model is the wall". Distillation makes the wall
+   cheaper to hit, not further away.
+2. **The accuracy route is NOT distillation -- it is supervised
+   fine-tuning of the gender head on FairFace's REAL LABELS, trunk
+   frozen.** No backprop through the trunk, same single forward pass,
+   ~4KB of changed weights, zero extra inference. That is the one-day
+   job he was asking about, and it only became one-day because banking
+   descriptors is now minutes.
+3. **HONEST CAVEAT, and it is finding 46:** a LINEAR head on this
+   descriptor is 0.893 correlated with the head that ships, so it may
+   not beat it. FairFace is far better powered (thousands of identities
+   against the corpus' 52) and a non-linear head is untested, so it is
+   worth the run -- but it is a TEST, not a plan.
+
+**READY FOR THAT TEST, banked this session, 141 seconds of GPU:**
+`Z:/tamescroll-corpus/bank/gpu-fairface-desc.json` (1,348 rows) and
+`gpu-corpus-desc.json` (2,159 rows), each carrying `rgbDesc`/`greyDesc`
+[1024] L2-normalised vectors plus who/race/px. **The decisive experiment
+is train on FairFace, evaluate on HIS corpus at matched exposure** --
+different people, different footage, so it cannot flatter itself.
+
+**WHAT THE GPU UNLOCKS, all previously unaffordable:** full FairFace in
+53s instead of a night; whole-range dial sweeps in one run; bootstrap
+confidence intervals (they need the population resampled); descriptor
+banking for head work.
+
+**FIELD NAMES THAT COST TIME:** the descriptor is `face.desc` (NOT
+`descriptor`) and nm is `face.shape.norm` (NOT `face.nm`) --
+`face-decode.mjs:237`.
+
+**HIS OPEN RULINGS, none pushed, all exposure trades:** grey (build,
+recommended); mirror (compute, marginal); `NULL_MINT_NM_FLOOR` 5 -> 5.5
+(OTA) or 6 (build); `GENDER_IMAGE_MIN_SCORE` 0.40 -> 0.35; decision
+boundary 0.50 -> 0.65; `PTRACK_MIN_COAST_PASSES` 2 -> 1.33; `DELAY_MS`
+1500 -> 0; 720p; the child gate by policy.
+
+**IF GREY SHIPS (44), READ THIS FIRST.** One line after `cropAndResize`
+in `classifyFaceGenders`, covering video AND thumbnail paths for ~zero
+compute. Ship it the 1098 way: `GENDER_GREY` at 0, clamped [0,1], so the
+switch and the revert travel over OTA. **AND IT SILENTLY CHANGES THE
+IDENTITY MEMORY** -- the same pass produces the [1024] descriptor matched
+at `MEM_SIM` 0.6, already near its edge. A grey build owes a
+descriptor-separability bench first, and both descriptor banks above now
+make that a ten-minute job.
+
+**THE RULE THAT INVALIDATES MOST NAIVE BENCHES:** the clear bar sits far
+above the label boundary -- `GENDER_CLEAR_SCORE` 0.45 male means **raw
+>= 0.725** -- so a label flip between 0.50 and 0.725 changes NOTHING that
+ships. And any arm wins an accuracy column by leaning female, which is a
+threshold move in disguise. **Tune each arm's own bar to a COMMON
+EXPOSURE and read false cover.** Findings 29, 40, 41, 45 and 47 all turn
+on this.
+
+**REFUSED ON PRINCIPLE, do not re-open:** per-race calibration.
+Inferring skin tone to correct the model is biometric categorisation on
+a sensitive characteristic -- the same clause (AI Hub Model License 2.c)
+that killed the Qualcomm NPU delegate in loop 47.
+
+**GOTCHAS:** `execFileSync` cannot spawn a `.cmd` on Windows without a
+shell (use esbuild's JS API); repo files are CRLF so a python patch must
+normalise before matching; the Bash heredoc breaks on long bench bodies
+-- use the Write tool; two GPU jobs at once need different `--port`;
+FairFace `sample.json` is GROUPED BY RACE so a head-N slice is one race
+(run.mjs interleaves); and **re-read a bank after a re-run** -- scoring a
+still-running job silently reports the previous run's numbers, which
+happened once today.
+
 **Last updated:** 2026-09-04 07:10 (**1102 IS STILL THE RELEASE, sha
 0a495cfa. NOTHING SHIPPED OVERNIGHT AND NO CONSTANT MOVED.** HEAD
 pushed, tree clean. The deliverable is eleven findings, 34-44, in
