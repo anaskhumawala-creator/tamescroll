@@ -389,6 +389,32 @@ export function buildReport(snap) {
       gapsP95: pctl(gaps, 0.95),
       msP50: pctl(pluck(imgs, 'ms'), 0.5),
       msP95: pctl(pluck(imgs, 'ms'), 0.95),
+      // DID THE THUMBNAIL NULL GUARD FIRE ON HIS PHONE, AND ON WHAT.
+      //
+      // Two aggregates, no per-read data. `nullRefused` is the guard's
+      // own count summed over the ring; `faces` minus `flagged` cannot
+      // substitute for it, because a same-gender clear subtracts there
+      // too. `nmP50` is the median descriptor magnitude, which says
+      // whether the refusals are landing on GRAPHICS (finding 52: junk
+      // p50 3.44 against a floor of 5) or on people.
+      //
+      // Without these his Share cannot answer whether 1104 did anything,
+      // and his phone is the only phone that matters and reports only
+      // this way. Aggregates deliberately -- the ring stays free of
+      // per-face rows.
+      nullRefused: sum(pluck(imgs, 'nr')),
+      // NOT `pctl`, deliberately: it rounds to an integer, which is
+      // right for milliseconds and destroys this number. The floor is 5
+      // and finding 52's junk median is 3.44 -- rounding sends 3.44 to 3
+      // and 4.6 to 5, i.e. across the very bar this reports on. One
+      // decimal.
+      nmP50: median1(imgs.reduce(function (a, r) {
+        var rs = r.reads || [];
+        for (var i = 0; i < rs.length; i++) {
+          if (typeof rs[i].n === 'number') a.push(rs[i].n);
+        }
+        return a;
+      }, [])),
       // The ring itself, minus the one field that identifies the video.
       ring: imgs.map(function (r) {
         return {
@@ -542,6 +568,23 @@ export function buildReport(snap) {
       longTaskOursMaxMs: num(s.longTaskOursMaxMs),
     },
   };
+}
+
+// A count, not a percentile: how many times a rule fired across the
+// ring. Absent stays 0 rather than null -- "the guard never fired" and
+// "no images yet" are told apart by `n`/`shown` right beside it.
+function sum(values) {
+  var t = 0;
+  for (var i = 0; i < values.length; i++) t += values[i];
+  return t;
+}
+
+// A median kept to one decimal. See `nmP50` for why `pctl` cannot be
+// used here.
+function median1(values) {
+  if (!values || !values.length) return null;
+  var a = values.slice().sort(function (x, y) { return x - y; });
+  return Math.round(a[Math.floor((a.length - 1) / 2)] * 10) / 10;
 }
 
 function pluck(rows, key) {

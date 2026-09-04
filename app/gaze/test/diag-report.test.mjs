@@ -339,3 +339,35 @@ test('the render counters are not a whitelist either', () => {
   assert.equal(r.render.clipRebuilt, 7);
   assert.equal(d.reportViolations(JSON.parse(JSON.stringify(r))).length, 0);
 });
+
+// THE TWO NUMBERS THAT SAY WHETHER 1104's THUMBNAIL GUARD FIRED.
+//
+// His phone reports only through Share, so a rule that changes what the
+// feed looks like and reports nothing is a rule nobody can evaluate.
+// `faces` minus `flagged` cannot substitute for `nullRefused` -- a
+// same-gender clear subtracts there too -- and `nmP50` is what separates
+// "refusing graphics" (finding 52: junk nm p50 3.44) from "refusing
+// people".
+test('the image block reports what the null guard refused, and on what nm', () => {
+  const r = d.buildReport({
+    imgTotal: 4,
+    imgdiag: [
+      { t: 10, ms: 50, w: 320, where: 'worker', why: 'face', faces: 2, flagged: 1, nr: 1,
+        reads: [{ g: 'male', s: 0.26, n: 2.1 }, { g: 'female', s: 0.9, n: 11.4 }] },
+      { t: 20, ms: 50, w: 320, where: 'worker', why: 'clear', faces: 1, flagged: 0, nr: 1,
+        reads: [{ g: 'male', s: 0.3, n: 3.9 }] },
+      { t: 30, ms: 50, w: 320, where: 'page', why: 'clear', faces: 0, flagged: 0, nr: 0, reads: [] },
+    ],
+  });
+  assert.equal(r.images.nullRefused, 2, 'the guard fired twice across the ring');
+  assert.equal(r.images.nmP50, 3.9, 'median nm over every read that carried one');
+});
+
+test('a ring with no guard data reports zero refusals, not null', () => {
+  const r = d.buildReport({
+    imgTotal: 1,
+    imgdiag: [{ t: 10, ms: 50, w: 320, where: 'worker', why: 'face', faces: 1, flagged: 1 }],
+  });
+  assert.equal(r.images.nullRefused, 0, '"never fired" must not read as "no data"');
+  assert.equal(r.images.shown, 1, 'and shown is what tells them apart');
+});
