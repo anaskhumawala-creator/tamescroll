@@ -155,3 +155,26 @@ Reverses the morning's "drop them, elect EasyList": the YouTube ad rules
 live only there. Lists are filter data consumed by the engine, same
 stance as Brave/AdGuard (rules/vendor/README.md). Applies to the Play
 build too. No code change.
+
+## 2026-09-05 18:05 -- his direction change: app first, stores later (manual)
+Play work paused on his word. Direction memo published (artifact
+30a38158): no URL bar, yes a paste-a-link field; extension stays dead
+unless he reopens it; iOS groundwork without a Mac; web page honest.
+
+## 2026-09-05 18:10 -- e: startup stutter, MEASURED, shipping at 1
+DELAY_LATE_ATTACH: the presenter waits for the first verdict, the whole
+video wears the flagged class until then (stricter, not exposure). His
+phone, cold launches, NWoT1ZVd1Lo, 2 rounds each arm (run_startup_ab.py):
+  control  first10s 11.9%  60s 5.6%
+  late     first10s  1.8%  60s 0.9%
+Handover watched live: verdict 1 at ~1s, presenter attached by 3s, patch
+painted at 35s. Ships 1 in tuning.json; needs 1110 (1109 refuses the key).
+- [x] e. startup stutter (1110)
+
+## 2026-09-05 18:12 -- also this hour
+Open-a-link field on home (YouTube hosts only, Rust re-checks). Web page:
+dead github.com/tamescroll links fixed, Android APK is the download,
+credits link. Core ML: all three models convert (neuralnetwork format,
+iOS14 target; mlprogram's BlobWriter is macOS-only) --
+spikes/native/coreml/, parity check needs a Mac. Desktop Windows build
+runs; welcome screen fine at 1442px; copy made device-neutral.
