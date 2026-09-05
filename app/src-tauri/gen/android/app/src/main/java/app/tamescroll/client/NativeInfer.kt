@@ -247,6 +247,31 @@ class NativeInfer(private val ctx: Context) {
   // shadow interpreters never build at once on one device.
   private var npuScheduled = false
 
+  // STARVATION IS NOT A LOSS, AND 1104 SHIPPED IT AS ONE.
+  //
+  // `snapshotInput` waits for a real frame OF THAT MODEL. faceres is
+  // only ever invoked once BlazeFace has found a face
+  // (classifyFaceGenders returns early on an empty box list), while
+  // BlazeFace and MoveNet run on every frame -- so on a feed page, or a
+  // video whose first 30s hold no face, faceres' trial times out having
+  // measured NOTHING. 1104 then ran `lost.add("gpu:2")`, which is never
+  // cleared, and the most expensive model stayed on CPU for the life of
+  // the process.
+  //
+  // Measured on his own Adreno 613 the moment a face arrived in time:
+  // faceres gpu=12.1ms cpu=48.8ms, agree=true. A 4x speedup he was
+  // getting only by luck.
+  //
+  // So a starved trial is now RE-ARMED rather than buried: the trial
+  // interpreter is closed (holding one open for minutes is the memory
+  // cost that made the timeout look reasonable), the id is left
+  // eligible, and a fresh attempt is posted. Capped, because a page that
+  // never shows a face must not retry forever.
+  private val starveCount = HashMap<String, Int>()
+  private val npuWhy = HashMap<Int, String>()
+  private val MAX_STARVE_RETRIES = 3
+  private val STARVE_RETRY_MS = 20000L
+
   /** What happened to this model's GPU, for the report. Every field is
    * a number, a boolean or an `R` (redacted) string, because
    * `reportViolations` walks the serialized report and rejects anything
@@ -719,11 +744,19 @@ class NativeInfer(private val ctx: Context) {
   private fun snapshotInput(kind: String, id: Int, assetBase: String, nn: LoadedModel, gen: Int, tries: Int) {
     val candidate = models[id]
     if (closed || gen != configGen || candidate == null) {
-      decide(kind, id, assetBase, nn, false, gen)
+      decide(kind, id, assetBase, nn, false, gen, "page changed before a frame arrived")
       return
     }
     if (!candidate.realInput) {
-      if (tries >= NPU_SNAPSHOT_TRIES) { decide(kind, id, assetBase, nn, false, gen); return }
+      // THE STARVED PATH. Before 1105 this fell into a plain loss with
+      // no reason written, producing a report row byte-identical to
+      // "never scheduled" -- which is why five builds went by with
+      // nobody able to say why his gender model was on CPU.
+      if (tries >= NPU_SNAPSHOT_TRIES) {
+        decide(kind, id, assetBase, nn, false, gen,
+          "no real frame in ${NPU_SNAPSHOT_TRIES}s", starved = true)
+        return
+      }
       handler.postDelayed({ snapshotInput(kind, id, assetBase, nn, gen, tries + 1) }, 1000L)
       return
     }
@@ -732,7 +765,9 @@ class NativeInfer(private val ctx: Context) {
     val input = ByteArray(ib.remaining())
     ib.get(input)
     val th = trialHandler
-    if (th == null || !th.post { arbitrate(kind, id, assetBase, nn, input, gen) }) decide(kind, id, assetBase, nn, false, gen)
+    if (th == null || !th.post { arbitrate(kind, id, assetBase, nn, input, gen) }) {
+      decide(kind, id, assetBase, nn, false, gen, "trial thread gone")
+    }
   }
 
   /** On the trial thread: a SHADOW copy of the shipping candidate (its
@@ -746,6 +781,7 @@ class NativeInfer(private val ctx: Context) {
     var agree = false
     var trialMs = -1.0
     var shadowMs = -1.0
+    var threw = false
     try {
       shadow = loadModel(id, assetBase, allowGpu = kind != "gpu", record = false)
       val sb = shadow.inputBuffer; sb.rewind(); sb.put(input)
@@ -757,27 +793,69 @@ class NativeInfer(private val ctx: Context) {
       Log.i(TAG, "$kind arbiter $assetBase: $kind=${"%.1f".format(trialMs)}ms ${shadow.backend}=${"%.1f".format(shadowMs)}ms agree=$agree -> " + (if (win) kind else shadow.backend))
     } catch (e: Throwable) {
       Log.w(TAG, "$kind arbitration failed for $assetBase: " + e.message)
-      if (kind == "gpu") handler.post { gpuNotes[id]?.trialThrewR = e.message ?: e.toString() }
+      val m = e.message ?: e.toString()
+      handler.post { noteWhy(kind, id, m) }
       win = false
+      threw = true
     }
     if (shadow != null) closeModel(shadow)
     val fAgree = agree; val fTrial = trialMs; val fShadow = shadowMs
     if (kind == "gpu") handler.post {
       gpuNotes[id]?.let { it.trialRan = true; it.trialAgree = fAgree; it.trialGpuMs = fTrial; it.trialCpuMs = fShadow }
     }
-    handler.post { decide(kind, id, assetBase, nn, win, gen) }
+    // A MEASURED LOSS MUST SAY WHICH KIND OF LOSS IT WAS. "disagreed"
+    // and "slower" want opposite responses -- the first is a driver
+    // returning different numbers and is a real finding, the second is
+    // a timing call that this arbiter is known to take on a cold shader
+    // cache. Before 1105 both reported an empty whyR.
+    val why = when {
+      threw -> null                                   // already noted above
+      win -> null
+      !fAgree -> "disagreed with the shadow beyond 2%"
+      else -> "slower: $kind ${"%.1f".format(fTrial)}ms vs ${"%.1f".format(fShadow)}ms"
+    }
+    handler.post { decide(kind, id, assetBase, nn, win, gen, why) }
+  }
+
+  /** Record why an arm lost, for the report. The GPU side has per-model
+   * notes; the NNAPI side had NOWHERE to put a reason before 1105 --
+   * `npuState()` collapsed "refused to construct", "took no nodes",
+   * "disagreed" and "slower" into the single word `failed`. */
+  private fun starves(kind: String, id: Int): Int = starveCount["$kind:$id"] ?: 0
+
+  private fun noteWhy(kind: String, id: Int, why: String) {
+    if (kind == "gpu") gpuNotes[id]?.trialThrewR = why else npuWhy[id] = why
   }
 
   /** On ts-infer: swap or drop. The only arbiter work on this thread. */
-  private fun decide(kind: String, id: Int, assetBase: String, nn: LoadedModel?, win: Boolean, gen: Int) {
+  private fun decide(
+    kind: String, id: Int, assetBase: String, nn: LoadedModel?, win: Boolean, gen: Int,
+    whyLost: String? = null, starved: Boolean = false,
+  ) {
     if (gen == configGen) trialsPending--
     val candidate = models[id]
     val stillWanted = !closed && gen == configGen && candidate != null && !forceCpuFor(id) &&
       (kind != "npu" || npuAllowedByFlags())
+    if (whyLost != null && !win) noteWhy(kind, id, whyLost)
     if (!stillWanted) {
       if (nn != null) closeModel(nn)
+    } else if (starved && (starves(kind, id) < MAX_STARVE_RETRIES)) {
+      // NOT A LOSS. The trial never measured anything, so burying the id
+      // in `lost` would answer a question that was never asked. Free the
+      // interpreter, leave the id eligible, and come back once the page
+      // has had time to put a face on screen.
+      if (nn != null) closeModel(nn)
+      val n = starves(kind, id) + 1
+      starveCount["$kind:$id"] = n
+      Log.i(TAG, "$kind arbiter $assetBase: starved, retry $n/$MAX_STARVE_RETRIES")
+      handler.postDelayed({
+        if (!closed && gen == configGen) {
+          if (kind == "gpu") scheduleGpuTrials() else scheduleNpuTrials()
+        }
+      }, STARVE_RETRY_MS)
     } else if (nn == null || !win) {
       if (nn != null) closeModel(nn)
+      if (starved) noteWhy(kind, id, "starved ${MAX_STARVE_RETRIES}x, giving up")
       lost.add("$kind:$id")
     } else {
       nn.realInput = candidate!!.realInput
@@ -1038,6 +1116,26 @@ class NativeInfer(private val ctx: Context) {
   // CPU, else 'gpu' (an 'npu' backend counts as gpu-or-better here).
   private fun worstBackend(): String = if (models.values.any { it.backend == "cpu" }) "cpu" else "gpu"
 
+  // HOW MANY MODELS ARE OFF THE CPU, because `backend` above is the
+  // WORST of the three and one straggler paints the whole field "cpu".
+  // On his 1104 share face (16 vs 20ms) and person (48 vs 68ms) were
+  // both on the GPU and only faceres was not -- and the field he reads
+  // said "cpu", which is why he reported the app was ignoring his GPU.
+  // Worst-of stays (it is the conservative reading and older builds are
+  // compared against it); this says how much of the engine it hides.
+  private fun offCpuCount(): Int = models.values.count { it.backend != "cpu" }
+
+  // The NNAPI arm's reasons. `npuState()` collapses "refused to
+  // construct", "took no nodes", "disagreed" and "merely slower" into
+  // the one word `failed`, which reads like a broken delegate when on
+  // his phone it means NNAPI ran, agreed on every head, and lost the
+  // race fairly (26.8/48.3/91.3ms against the GPU's 17.9/12.4/43.4).
+  private fun npuWhyJson(): JSONObject {
+    val j = JSONObject()
+    for ((id, why) in npuWhy) MODEL_REPORT_NAME[id]?.let { j.put(id.toString(), why) }
+    return j
+  }
+
   private fun postReady() {
     val p = port ?: return
     val modelsJson = JSONArray()
@@ -1055,6 +1153,8 @@ class NativeInfer(private val ctx: Context) {
       .put("backend", worstBackend())
       .put("backends", backendsJson())
       .put("npu", npuState())
+      .put("npuWhy", npuWhyJson())
+      .put("nGpu", offCpuCount())
       .put("gpu", gpuJson())
       .put("models", modelsJson)
       .put("initMs", initMs)
@@ -1069,6 +1169,8 @@ class NativeInfer(private val ctx: Context) {
       .put("backend", worstBackend())
       .put("backends", backendsJson())
       .put("npu", npuState())
+      .put("npuWhy", npuWhyJson())
+      .put("nGpu", offCpuCount())
       .put("gpu", gpuJson())
     try { p.postMessage(WebMessageCompat(msg.toString())) } catch (e: Throwable) { Log.w(TAG, "backends post failed: " + e.message) }
   }

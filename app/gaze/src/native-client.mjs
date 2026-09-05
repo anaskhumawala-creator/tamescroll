@@ -261,6 +261,8 @@ export function createNativeClient(port, opts) {
         if (msg.backends) state.backends = msg.backends;
         if (typeof msg.npu === 'string') state.npu = msg.npu;
         if (msg.gpu) state.gpu = msg.gpu;
+        if (msg.npuWhy) state.npuWhy = msg.npuWhy;
+        if (typeof msg.nGpu === 'number') state.nGpu = msg.nGpu;
         return;
       }
       clearTimeout(readyTimer);
@@ -270,6 +272,8 @@ export function createNativeClient(port, opts) {
         state.backends = msg.backends || null;
         state.npu = typeof msg.npu === 'string' ? msg.npu : 'absent';
         state.gpu = msg.gpu || null;
+        state.npuWhy = msg.npuWhy || null;
+        state.nGpu = typeof msg.nGpu === 'number' ? msg.nGpu : -1;
         // ALWAYS sent (phase-n, the CONFIG leak): the engine outlives
         // the document, so a mask one page set stays set until another
         // page says otherwise -- the 1098 smoke's cpumask1 arm left the
@@ -583,6 +587,8 @@ export function createNativeClient(port, opts) {
         npu: state.npu,
         backends: state.backends,
         gpu: state.gpu,
+        npuWhy: state.npuWhy,
+        nGpu: state.nGpu,
         dead: state.dead,
       };
     },

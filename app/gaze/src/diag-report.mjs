@@ -446,18 +446,26 @@ export function buildReport(snap) {
     native: {
       nativeBackend: enumOr('nativeBackend', s.native && s.native.backend, 'none'),
       npu: enumOr('npu', s.native && s.native.npu, 'none'),
+      // HOW MUCH of the engine the worst-of `nativeBackend` above is
+      // hiding. One model on CPU paints that field 'cpu', which on his
+      // 1104 share meant "faceres alone is on CPU" and read as "nothing
+      // is on the GPU". -1 = an engine too old to say.
+      nGpu: num(s.native && s.native.nGpu),
       models: {
         face: {
           nativeBackend: enumOr('nativeBackend', s.native && s.native.backends && s.native.backends['1'], 'none'),
           gpu: gpuNote(s.native && s.native.gpu, '1'),
+          npuWhyR: npuWhy(s.native && s.native.npuWhy, '1'),
         },
         gender: {
           nativeBackend: enumOr('nativeBackend', s.native && s.native.backends && s.native.backends['2'], 'none'),
           gpu: gpuNote(s.native && s.native.gpu, '2'),
+          npuWhyR: npuWhy(s.native && s.native.npuWhy, '2'),
         },
         person: {
           nativeBackend: enumOr('nativeBackend', s.native && s.native.backends && s.native.backends['3'], 'none'),
           gpu: gpuNote(s.native && s.native.gpu, '3'),
+          npuWhyR: npuWhy(s.native && s.native.npuWhy, '3'),
         },
       },
       dead: !!(s.native && s.native.dead),
@@ -743,6 +751,15 @@ function tuneBlock(t) {
  * was built at load, and `ran`/`agree`/`won`/`gpuMs`/`cpuMs` what the
  * post-ready trial measured. Null when the engine never reported --
  * an older build, or native never came up. -1 ms means not measured. */
+/** WHY the NNAPI arm did not take this model (1105). `npu` alone is
+ * one word for four different outcomes, and "lost the race fairly" is
+ * not the same fact as "the delegate refused to build". Null when the
+ * arm never ran or the engine predates the field. */
+export function npuWhy(why, id) {
+  var w = why && typeof why === 'object' ? why[id] : null;
+  return typeof w === 'string' ? redactFreeText(w) : null;
+}
+
 export function gpuNote(gpu, id) {
   var g = gpu && typeof gpu === 'object' ? gpu[id] : null;
   if (!g || typeof g !== 'object') return null;

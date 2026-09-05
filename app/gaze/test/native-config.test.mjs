@@ -44,8 +44,14 @@ test('defaults: ONE CONFIG (mask 0, NPU off) is sent after ready, and the ready 
   assert.deepEqual(header(port.sent[0]), { reqId: 1, modelId: 0, w: 0, h: 0, bytes: 16 });
   // gpu: 1101's per-model "why this backend" note -- null here because
   // this fixture's ready message predates it, which is exactly what an
-  // older engine build sends.
-  assert.deepEqual(client.snapshot(), { backend: 'gpu', npu: 'absent', backends: { 1: 'gpu', 2: 'gpu', 3: 'gpu' }, gpu: null, dead: false });
+  // older engine build sends. npuWhy and nGpu are 1105's and are absent
+  // from the same fixture for the same reason: nGpu reads -1 rather than
+  // 0, because "this engine cannot say" and "nothing is off the CPU" are
+  // different facts and 0 would read as the alarming one.
+  assert.deepEqual(client.snapshot(), {
+    backend: 'gpu', npu: 'absent', backends: { 1: 'gpu', 2: 'gpu', 3: 'gpu' },
+    gpu: null, npuWhy: null, nGpu: -1, dead: false,
+  });
 });
 
 test('NATIVE_CPU_MASK > 0 sends one CONFIG (modelId 0, w = mask, h = flags) right after ready', async () => {
