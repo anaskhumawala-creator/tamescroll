@@ -131,3 +131,10 @@ override). `[profile.dev] opt-level = 3`: engine warm-up on his phone
 Serialised engine cache also in (key = crate+version+list bytes). Play
 variant plumbing rides along, inert in this build. sha256 c50453522394fce4bbfaf9f66053b909c88ee1d55b35d68d602ee9fe5260bc64.
 - [x] h. engine warm-up (1109)   - [x] j. Play variant built, unsigned; list question open
+
+## 2026-09-05 17:25 -- d: image budgets on the OTA whitelist (manual)
+`src/image-budget.mjs` holds IMG_BUDGET_SPEND/SCROLL/IDLE (0.05-0.8) and
+IMAGE_LANES (1-3) with setters; init-entry reads them; tuning.mjs SPEC +
+GETTERS, overlay labels, tuning.json, rules manifest regenerated. gaze
+902/902. Ships in the next build (1109 refuses the keys harmlessly).
+- [x] d. image budgets on OTA (next build)

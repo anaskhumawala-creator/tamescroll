@@ -23,6 +23,7 @@ import * as perf from '../src/perf.mjs';
 import * as glPresenter from '../src/gl-presenter.mjs';
 import * as videoRegion from '../src/video-region.mjs';
 import * as codecProbe from '../src/codec-probe.mjs';
+import * as imageBudget from '../src/image-budget.mjs';
 
 // Every test restores the shipped values, because these modules hold
 // module-global state and a leaked dial would silently rebase every
@@ -62,6 +63,10 @@ const SHIPPED = {
   BLUR_IN_FRAME: videoRegion.BLUR_IN_FRAME,
   PRESENTER_GL: glPresenter.PRESENTER_GL,
   CODEC_PROBE: codecProbe.CODEC_PROBE,
+  IMG_BUDGET_SPEND: imageBudget.IMG_BUDGET_SPEND,
+  IMG_BUDGET_SCROLL: imageBudget.IMG_BUDGET_SCROLL,
+  IMG_BUDGET_IDLE: imageBudget.IMG_BUDGET_IDLE,
+  IMAGE_LANES: imageBudget.IMAGE_LANES,
 };
 const restore = () => applyTuning(SHIPPED);
 

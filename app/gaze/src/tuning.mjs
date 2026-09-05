@@ -36,6 +36,7 @@ import * as videoRegion from './video-region.mjs';
 import * as perf from './perf.mjs';
 import * as glPresenter from './gl-presenter.mjs';
 import * as codecProbe from './codec-probe.mjs';
+import * as imageBudget from './image-budget.mjs';
 
 export var TUNED = null;      // what actually took effect, for the report
 export var TUNE_REFUSED = 0;  // keys refused outright
@@ -399,6 +400,17 @@ var SPEC = {
   // batch with no way off short of an install). 1 = installed at bundle
   // boot; 0 = the player's API is untouched. Next document.
   CODEC_PROBE: [0, 1, function (v) { codecProbe.setCodecProbe(v); }],
+  // THE THUMBNAIL DRAIN'S NUMBERS (queue item d). Fractions of a 1s
+  // rolling main-thread window; the ceilings keep the drain from owning
+  // the thread a scroll needs (0.8 is the probe override's own cap), the
+  // floors keep it from starving (0.05 of a second is one image per
+  // several seconds on his phone). Lanes 1-3: BlazeFace's graph is fixed
+  // to one image, so a fourth lane only queues. Not exposure: nothing
+  // here changes what a verdict says, only when it arrives.
+  IMG_BUDGET_SPEND: [0.05, 0.8, function (v) { imageBudget.setImgBudgetSpend(v); }],
+  IMG_BUDGET_SCROLL: [0.05, 0.8, function (v) { imageBudget.setImgBudgetScroll(v); }],
+  IMG_BUDGET_IDLE: [0.05, 0.8, function (v) { imageBudget.setImgBudgetIdle(v); }],
+  IMAGE_LANES: [1, 3, function (v) { imageBudget.setImageLanes(v); }],
   // ADPF performance-hint session over the inference thread (perf.mjs).
   PERF_HINT: [0, 1, function (v) { perf.setPerfHint(v); }],
   // Inference thread priority: 0 default, 1 below the compositor,
@@ -461,6 +473,10 @@ var GETTERS = {
   NO_AV1: function () { return perf.NO_AV1; },
   NATIVE_NPU: function () { return nativeClient.NATIVE_NPU; },
   CODEC_PROBE: function () { return codecProbe.CODEC_PROBE; },
+  IMG_BUDGET_SPEND: function () { return imageBudget.IMG_BUDGET_SPEND; },
+  IMG_BUDGET_SCROLL: function () { return imageBudget.IMG_BUDGET_SCROLL; },
+  IMG_BUDGET_IDLE: function () { return imageBudget.IMG_BUDGET_IDLE; },
+  IMAGE_LANES: function () { return imageBudget.IMAGE_LANES; },
   PERF_HINT: function () { return perf.PERF_HINT; },
   INFER_PRIO: function () { return perf.INFER_PRIO; },
   PLAYBACK_SLOW: function () { return perf.PLAYBACK_SLOW; },

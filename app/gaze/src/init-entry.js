@@ -113,6 +113,7 @@ import { createWorkerClient } from './worker-client.mjs';
 import { startWorker } from './worker-entry.js';
 import { installMiniplayer } from './miniplayer.mjs';
 import { makeVerdictCache, verdictKey } from './verdict-cache.mjs';
+import * as imageBudget from './image-budget.mjs';
 import { applyTuningFromWindow, TUNED, TUNE_REFUSED, TUNE_CLAMPED, tunableNames, currentValue } from './tuning.mjs';
 import { applyOverrides, overrideBlock, setToken as setOverrideToken } from './tuning-override.mjs';
 import * as autoTest from './auto-test.mjs';
@@ -454,7 +455,6 @@ if (
   }
 
   var SPEND_WINDOW_MS = 1000;
-  var SPEND_BUDGET_FRAC = 0.25;
   var spends = [];
   function noteSpend(at, ms) {
     spends.push(at, ms);
@@ -465,7 +465,7 @@ if (
     for (var i = 0; i < spends.length; i += 2) {
       if (now - spends[i] <= SPEND_WINDOW_MS) total += spends[i + 1];
     }
-    return total > SPEND_WINDOW_MS * (frac > 0 ? frac : SPEND_BUDGET_FRAC);
+    return total > SPEND_WINDOW_MS * (frac > 0 ? frac : imageBudget.IMG_BUDGET_SPEND);
   }
 
   // THE BUDGET WAS SIZED FOR THE WRONG MOMENT (owner 2026-08-27, phone
@@ -491,7 +491,6 @@ if (
   // pass has run recently, because the pool is shared and the comments
   // starvation this budget fixed was the player's inference queued
   // ahead of YouTube's own callbacks.
-  var IDLE_BUDGET_FRAC = 0.6;
   // A SCROLL USED TO STOP THE QUEUE DEAD (owner 2026-08-27, on the phone:
   // "it processes some, then it halts, then it takes time to process the
   // next ... the speed is still much less compared to the speed that
@@ -508,7 +507,6 @@ if (
   // So the scroll now caps the drain instead of stopping it: one image at
   // a time, at a fraction small enough that the work cannot own the
   // thread the scroll needs. The still-page budget is untouched.
-  var SCROLL_BUDGET_FRAC = 0.15;
   var SCROLL_BATCH_MAX = 1;
   var IDLE_QUIET_MS = 1000;
   var lastPlayerPassAt = -1e9;
@@ -522,16 +520,15 @@ if (
     // page could do with it is spend a little more of its own thread.
     var over = window.__TS_IMG_BUDGET;
     if (typeof over === 'number' && over > 0) return over > 0.8 ? 0.8 : over;
-    if (now - lastPlayerPassAt < PLAYER_ACTIVE_MS) return SPEND_BUDGET_FRAC;
-    if (scrolling(now)) return SCROLL_BUDGET_FRAC;
-    if (now - lastScrollAt < IDLE_QUIET_MS) return SPEND_BUDGET_FRAC;
-    return IDLE_BUDGET_FRAC;
+    if (now - lastPlayerPassAt < PLAYER_ACTIVE_MS) return imageBudget.IMG_BUDGET_SPEND;
+    if (scrolling(now)) return imageBudget.IMG_BUDGET_SCROLL;
+    if (now - lastScrollAt < IDLE_QUIET_MS) return imageBudget.IMG_BUDGET_SPEND;
+    return imageBudget.IMG_BUDGET_IDLE;
   }
 
   var IMAGE_BATCH_MAX = 4;
-  // How many images may be in flight at once. See the lanes comment in
-  // drainImages; __TS_IMG_LANES overrides it for A/B.
-  var IMAGE_LANES = 2;
+  // How many images may be in flight at once: imageBudget.IMAGE_LANES (OTA);
+  // __TS_IMG_LANES overrides it for A/B.
   // How far below the fold an image can be and still be worth spending
   // the thread on: two viewports, i.e. roughly what a flick brings up
   // next. imagePriority returns 0 for anything on screen, the distance
@@ -1592,7 +1589,7 @@ if (
       // image's readbacks with the other's work, and cap how far behind
       // any single image can fall.
       if (batch.length) bootMark('firstBatch');
-      var lanes = typeof window.__TS_IMG_LANES === 'number' ? window.__TS_IMG_LANES : IMAGE_LANES;
+      var lanes = typeof window.__TS_IMG_LANES === 'number' ? window.__TS_IMG_LANES : imageBudget.IMAGE_LANES;
       if (lanes < 1) lanes = 1;
       var runners = [];
       for (var li = 0; li < lanes && li < batch.length; li++) {

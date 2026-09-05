@@ -240,6 +240,26 @@ var META = {
     desc: 'Watch which video codec YouTube hands the player. Read-only; nothing is changed.',
     bool: true, nextDoc: true,
   },
+  IMG_BUDGET_SPEND: {
+    group: 'advanced', label: 'Thumbnail time, still page',
+    desc: 'Share of each second the page may spend checking thumbnails while nothing scrolls and the player was just active.',
+    dp: 2, step: 0.05,
+  },
+  IMG_BUDGET_SCROLL: {
+    group: 'advanced', label: 'Thumbnail time, scrolling',
+    desc: 'Share of each second spent on thumbnails while you scroll. Higher clears faster and can stutter the scroll.',
+    dp: 2, step: 0.05,
+  },
+  IMG_BUDGET_IDLE: {
+    group: 'advanced', label: 'Thumbnail time, idle',
+    desc: 'Share of each second spent on thumbnails when the page is still and the player is quiet.',
+    dp: 2, step: 0.05,
+  },
+  IMAGE_LANES: {
+    group: 'advanced', label: 'Thumbnails at once',
+    desc: 'How many thumbnails are checked in parallel.',
+    dp: 0, step: 1,
+  },
 };
 
 function metaFor(key) {
