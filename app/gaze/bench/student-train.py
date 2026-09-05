@@ -529,7 +529,43 @@ for fold in (0, 1):
     vrng = np.random.default_rng(20260905)
     # Videos in the SCORING half, minus the two held back to validate on.
     score_vids = [v for v in vids if FOLD[v] != fold]
-    val_vids = set(score_vids[:2])
+    # PICKED BY CROP COUNT, NOT BY LIST ORDER, and this is a correction
+    # rather than a tidy-up. Taking the first two alphabetically gave
+    # fold A 15,327 validation crops and fold B 3,818, and on fold B the
+    # signal ANTI-CORRELATED with the corpus in three separate runs --
+    # val fell to 0.621 while corpus rose to 0.818, and corpus swung
+    # 0.911 -> 0.856 across five epochs while val moved 0.02. It then
+    # restored epoch 5 (corpus 0.7731) when the peak was epoch 15
+    # (0.8792). The bad selection cost 0.106 of AUC on that fold, which
+    # is seven times the effect the run was measuring.
+    # PICKED BY MINORITY-CLASS COUNT. Not by list order, and not by total
+    # crops either -- both were tried and both produced a validation AUC
+    # that ANTI-CORRELATED with the corpus.
+    #
+    # THE CAUSE, measured on the teacher's own labels per video:
+    #
+    #   1L_R0MB2W5A     630 male,     0 female    0.0% female
+    #   Ary1gIbaOTc   7,985 male,    42 female    0.5% female
+    #   KAWvDsghyc8   5,081 male, 2,382 female   31.9%
+    #   RcGyVTAoXEU     884 male, 1,547 female   63.6%
+    #
+    # An AUC over a set that is 99.5% one gender is decided by 42 rows,
+    # and over one that is 100% one gender is undefined. Ordering by
+    # TOTAL crops picked Ary1gIbaOTc precisely BECAUSE it is the biggest
+    # -- 8,027 crops of which 42 carry the minority class. Fold B's
+    # original pick was worse: 1L_R0MB2W5A has no women at all. That is
+    # why the signal anti-correlated in every run so far, and on fold B
+    # it cost 0.106 of AUC by restoring epoch 5 over epoch 15.
+    #
+    # min(male, female) is the quantity an AUC is actually powered by.
+    lab = tgt >= 0.5
+    bal = {}
+    for v_, p_, l_ in zip(vid, pool, lab):
+        if p_ != 'domain':
+            continue
+        b = bal.setdefault(v_, [0, 0])
+        b[0 if l_ else 1] += 1
+    val_vids = set(sorted(score_vids, key=lambda v_: -min(bal.get(v_, [0, 0])))[:2])
     dom_of = pool[trn_idx] == 'domain'
     # in-domain crops from the validation videos -- these are in the
     # scoring half, so they were never in `tr`; pull them in explicitly
@@ -545,7 +581,8 @@ for fold in (0, 1):
     te = te & ~np.isin(evid, list(val_vids))
     fit_idx = trn_idx
     print('  validate on %s (%d in-domain crops); score on %s'
-          % (', '.join(sorted(val_vids)), len(val_dom),
+          % (', '.join('%s(m%d/f%d)' % (v_, bal.get(v_, [0, 0])[0], bal.get(v_, [0, 0])[1])
+                       for v_ in sorted(val_vids)), len(val_dom),
              ', '.join(v for v in score_vids if v not in val_vids)))
     # OVERSAMPLE THE IN-DOMAIN POOL. FairFace outnumbers his footage
     # heavily once the train split is in; finding 50 measured what a
@@ -669,7 +706,16 @@ for fold in (0, 1):
                     'params': nparam, 'n': int(te.sum()),
                     'raw': [float(x) for x in r],
                     'who': [int(x) for x in ey[te]],
-                    'cid': [str(x) for x in ecid[te]]})
+                    'cid': [str(x) for x in ecid[te]],
+                    # THE CROP KEY, so a later bench can join these rows
+                    # to the shipped model's banked run READ FOR READ.
+                    # Without it a comparison has to assume two row
+                    # orders match, which is the class of assumption
+                    # behind four retracted tables here -- and scoring
+                    # 2,385 rows against a baseline measured on 2,159
+                    # already drifted more than the effect once today.
+                    'crop': [_cropkey(ev[i]['path'])
+                             for i in np.where(te)[0]]})
     torch.save(model.state_dict(), CORPUS + '/student/model-%s-fold%s.pt' % (TAG, 'AB'[fold]))
 
 print('')
