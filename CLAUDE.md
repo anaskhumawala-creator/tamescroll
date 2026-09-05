@@ -1,10 +1,61 @@
 ## Session state (update every session)
 
-**Last updated:** 2026-09-04 (**1104 PUBLISHED, sha 83815234** -- served
-APK re-downloaded and hashed against the RAW manifest, isDraft false,
-94,847,816 bytes. HEAD pushed, tree clean. Bundle marker **c8201db**
-verified inside the stripped `libapp_lib.so` in that APK and read live
-off the Redmi's own page. His phone gets it in-app.
+**Last updated:** 2026-09-05 15:10 (**1107 PUBLISHED, sha 23eab0c2** --
+served APK re-downloaded and hashed against the RAW manifest, isDraft
+false, 94,864,540 bytes. HEAD pushed. Installed on HIS phone
+(`e3d369ee`, Redmi 13 / Adreno 613 / Android 16 -- ON THE CABLE NOW, use
+`-s e3d369ee`; the old Redmi `1ec2c48e0621` is still attached too).
+
+**AN AUTONOMOUS 30-MINUTE LOOP IS RUNNING** (cron `9a4ac51e`,
+session-only, expires 2026-09-12). Its queue, its log and its "For the
+owner" questions live in `docs/autonomy-log.md` -- read that before
+doing anything, and append there. It never takes an exposure trade.
+
+**WHAT 1105-1107 ARE:** (1105) the GPU trial for faceres STARVED on any
+page without a face, was treated as a permanent loss, and wrote no
+reason -- on his Adreno faceres does 12.1ms GPU vs 48.8ms CPU and only
+got it by luck; now it retries, every losing path says why, and the
+report carries `nGpu` beside the worst-of `nativeBackend`. (1106) three
+dials on OTA at today's values: `GENDER_IMAGE_MIN_SCORE` (the bearded-
+men bar -- finding 55: 80.3% of wrong blurs on labelled men are WEAK
+male reads, only 2.2% read female; face SIZE predicts it, beards do
+not), `STATIC_VERDICT_MS` (still-scene verdict clock, ships 0),
+`STATIC_DELTA`. (1107) **YouTube links open inside tamescroll** --
+VIEW/BROWSABLE on youtube.com/www/m/youtu.be + SEND share target,
+routed through the launcher as `?open=youtube&url=`, youtu.be resolved
+to m.youtube.com/watch BEFORE the webview; and the launcher no longer
+awaits `rules_summary` (which built the 152k-rule engine synchronously
+-- a cold link sat on the launcher 20s). All verified on his phone:
+cold/warm/SEND land on the watch page, example.com is refused.
+
+**THE OTA CHANNEL'S REAL BEHAVIOUR, measured for the first time on a
+device:** `refresh()` sleeps 24h after a success; rules are rebuilt from
+CACHE at startup before the refresh thread runs, so a pushed value
+reaches the NEXT document; raw.githubusercontent caches for minutes.
+**A pushed dial is "the second cold start, up to a day later", never
+live.** Every earlier "shipped over OTA" claim was verified on GitHub,
+never on a phone.
+
+**OPEN PERF ITEM, unstarted:** the adblock engine warm-up is **3-25s**
+on his phone and every cold start pays it. The crate can serialise a
+built engine; that is queue item h.
+
+**STORE ROUTE, researched 2026-09-05** (`docs/portable-engine.md` and the
+"Both Stores, Browser Shape" report): Tahir Browser, HaramBlur and Kahf
+Browser ship this exact product on both stores. HaramBlur names YouTube/
+FB/IG/X in its listing WITHOUT a URL bar -- so the tile launcher is
+fine; what kills listings is LOGOS/impersonation (Vanced's own words),
+not filtering. Two blockers before Play: the APK self-updater must be
+off in that build (JSON rules + injected JS are exempt), and the three
+uBO lists are GPLv3-only (elect EasyList's CC BY-SA arm). Sideloading
+tightens 2026-09-30 (BR/ID/SG/TH), global 2027, 20-device hobbyist cap.
+
+---
+
+**Previous state (2026-09-04, 1104, sha 83815234):** served APK
+re-downloaded and hashed against the RAW manifest, isDraft false,
+94,847,816 bytes. Bundle marker **c8201db** verified inside the stripped
+`libapp_lib.so` in that APK and read live off the Redmi's own page.
 
 **A 1103 PHONE IS SAFE:** its compiled whitelist has no
 `GENDER_IMAGE_NM_FLOOR`, and an unknown key is dropped WITHOUT poisoning
