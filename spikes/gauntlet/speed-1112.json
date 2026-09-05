@@ -1,0 +1,21 @@
+{
+ "label": "1112",
+ "open_home_s": 1.15,
+ "nav_subs_s": 1.36,
+ "scroll": {
+  "frames": 795,
+  "dropped": 0,
+  "dropped_pct": 0.0,
+  "worst_frame_ms": 27,
+  "long_tasks": 0,
+  "long_total_ms": 0,
+  "long_worst_ms": 0,
+  "img_per_s_scrolling": 0.0,
+  "img_per_s_after": 0.0
+ },
+ "image_ms_p50": 481,
+ "image_ms_p95": 481,
+ "images_n": 2,
+ "nav_watch_s": 4.55,
+ "nav_search_s": 1.71
+}

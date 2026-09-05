@@ -208,3 +208,12 @@ not gated on the Shorts toggle. gaze 906/906, cargo 66/66. 1112 building.
 
 ## 2026-09-05 19:15 -- 1112 shipped
 Shorts asks, verified on his phone (intent, in-page, channel tab). sha256 da34319317582ec3ad8d4c27259fe81cd68f4c399ddfcd50f2be5211b832ad0b.
+
+## 2026-09-05 19:30 -- speed pass, first numbers (his "blazing fast")
+probe_speed.py on his phone, smart mode, 1112: home open 1.15s from the
+tile, Subscriptions 1.36s, search 1.71s, 8 real flicks on Subscriptions
+0 dropped of 795 frames, 0 long tasks. Watch page (full navigation,
+3 videos x 2 rounds): off 2.3-3.0s, smart 2.1-2.8s to playing --
+identical; YouTube's own responseEnd is 1.3-1.7s of it. Our injected
+code adds nothing measurable to a page load. Image-clear timing not
+captured (IMGDIAG ring empty in this run; needs the probe flag).
