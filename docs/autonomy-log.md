@@ -205,3 +205,6 @@ Channel page: `yt-tab-shape[tab-title="Shorts"]` joins the shorts surface
 for links from outside, shorts-redirect.mjs in the bundle for in-page
 clicks (capture-phase) and any other arrival (500ms tick). Unconditional,
 not gated on the Shorts toggle. gaze 906/906, cargo 66/66. 1112 building.
+
+## 2026-09-05 19:15 -- 1112 shipped
+Shorts asks, verified on his phone (intent, in-page, channel tab). sha256 da34319317582ec3ad8d4c27259fe81cd68f4c399ddfcd50f2be5211b832ad0b.
