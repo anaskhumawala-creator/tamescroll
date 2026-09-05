@@ -281,9 +281,13 @@ updateBtn.addEventListener("click", () => {
   }
 });
 
+// A Play build has no installer bridge and must never point at the
+// releases page either: the store is the only update path there.
+const isAndroid = /Android/i.test(navigator.userAgent);
+
 invoke<UpdateStatus>("app_update_check")
   .then((s) => {
-    if (!s.available) return;
+    if (!s.available || (isAndroid && !hasInstaller)) return;
     updateNotes.textContent = s.notes
       ? `Version ${s.versionName} is available. ${s.notes}`
       : `Version ${s.versionName} is available.`;

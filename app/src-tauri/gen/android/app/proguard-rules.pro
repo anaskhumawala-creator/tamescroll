@@ -19,3 +19,11 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+# tamescroll: every WebView bridge (TsLinks, TsDiag, TsPerf, ...) is an
+# inner class of MainActivity reached by name from page JS. Release
+# minification must keep those methods or the launcher silently loses
+# its bridges.
+-keepclassmembers class app.tamescroll.client.MainActivity$* {
+  @android.webkit.JavascriptInterface <methods>;
+}
+-keepattributes JavascriptInterface

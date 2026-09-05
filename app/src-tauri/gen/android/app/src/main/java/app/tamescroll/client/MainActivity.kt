@@ -1386,7 +1386,9 @@ class MainActivity : TauriActivity() {
     // itself and hash-pins the download, so a hostile platform page
     // poking it can at most trigger a user-confirmed install of the
     // real app (see UpdateBridge).
-    webView.addJavascriptInterface(UpdateBridge(), "TsUpdater")
+    // Play flavor: no updater at all -- the store delivers builds, and
+    // the bridge's absence is what hides the card (main.ts).
+    if (BuildConfig.UPDATER) webView.addJavascriptInterface(UpdateBridge(), "TsUpdater")
     // Diagnostics: write-mostly, local-only. See DiagBridge for why a
     // hostile page cannot turn it into anything but a wasted disk write.
     webView.addJavascriptInterface(DiagBridge(), "TsDiag")

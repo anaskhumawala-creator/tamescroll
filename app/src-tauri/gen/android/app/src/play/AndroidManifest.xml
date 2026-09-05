@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Play flavor: no self-updater, so no install permission. Play delivers
+     updates itself, and a listing that asks for REQUEST_INSTALL_PACKAGES
+     is a policy violation. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />
+    <!-- Implied by a dependency AAR with no <uses-sdk> (manifest merger
+         adds these three for legacy minSdk). None is used; READ_PHONE_STATE
+         alone would need a Play declaration form. -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove" />
+</manifest>

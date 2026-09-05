@@ -50,3 +50,13 @@ windows = { version = "0.61", features = [
   # WebResourceRequested handler answers with a body of its own.
   "Win32_UI_Shell",
 ] }
+
+# THE SHIPPED .so WAS opt-level 0 (found 2026-09-05, queue item h). Every
+# release is `tauri android build --debug` (debug signing installs
+# without a key), and no profile override existed, so the adblock engine,
+# the cosmetic lookups and every injection path ran unoptimised on every
+# phone: the engine warm-up measured 4s on his Redmi against 100ms for
+# the same work in a release build on the host. Optimise the dev profile;
+# debug_assertions and the debug signing path are untouched.
+[profile.dev]
+opt-level = 3

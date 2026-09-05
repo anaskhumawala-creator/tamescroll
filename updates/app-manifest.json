@@ -1,7 +1,7 @@
 {
-  "versionCode": 1108,
-  "versionName": "0.1.108",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.108/tamescroll-v0.1.108.apk",
-  "sha256": "a613bb22470068b20c1bd9b976e05ef396775528abbb83f239ee93c820ecccc9",
-  "notes": "New onboarding, guided 'make tamescroll your YouTube' link setup, and a cleaner home and settings."
+  "versionCode": 1109,
+  "versionName": "0.1.109",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.109/tamescroll-v0.1.109.apk",
+  "sha256": "c50453522394fce4bbfaf9f66053b909c88ee1d55b35d68d602ee9fe5260bc64",
+  "notes": "Much faster start: the app's native code now ships optimised. Smaller download."
 }

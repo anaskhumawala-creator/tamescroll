@@ -190,23 +190,91 @@ const SCRIPTLETS: &[(&str, &[&str], &str)] = &[
 /// compiled in, plus the scriptlet resources those lists' `+js(...)`
 /// filters need to actually produce injectable JavaScript.
 pub fn build_engine() -> Engine {
-    let mut set = FilterSet::new(false);
-    for list in [
-        "scriptlets.txt",
-        "vendor/easylist.txt",
-        "vendor/easyprivacy.txt",
-        "vendor/ubo-filters.txt",
-        "vendor/ubo-quick-fixes.txt",
-        "vendor/ubo-unbreak.txt",
-    ] {
-        // Through the OTA layer: an updated list snapshot wins over the
-        // embedded one on the next rebuild.
-        set.add_filter_list(crate::ota::rules_text(list), ParseOptions::default());
-    }
+    load_or_build_engine(crate::ota::cache_dir().as_deref())
+}
 
+/// The lists the engine is compiled from, in order. Through the OTA
+/// layer: an updated list snapshot wins over the embedded one on the
+/// next rebuild.
+const ENGINE_LISTS: [&str; 6] = [
+    "scriptlets.txt",
+    "vendor/easylist.txt",
+    "vendor/easyprivacy.txt",
+    "vendor/ubo-filters.txt",
+    "vendor/ubo-quick-fixes.txt",
+    "vendor/ubo-unbreak.txt",
+];
+
+fn build_engine_from_lists(lists: &[String]) -> Engine {
+    let mut set = FilterSet::new(false);
+    for text in lists {
+        set.add_filter_list(text.clone(), ParseOptions::default());
+    }
     let mut engine = Engine::new_with_filter_set(set);
     engine.use_resources(resources());
     engine
+}
+
+/// THE COLD START PAID 3-25 SECONDS FOR THIS ON HIS PHONE (queue item h),
+/// and paid it TWICE: the warm-up thread in `run()` and the rebuild after
+/// the OTA cache loads each parse 152k rules from text. The engine can
+/// serialise its compiled form, so a build is written next to the OTA
+/// cache under a key that names exactly what went into it -- the crate
+/// version, our version and the bytes of every list -- and the next
+/// start deserialises instead. A key mismatch (new build, new OTA list)
+/// falls through to a full build and replaces the file; a corrupt file
+/// does the same. Resources are not part of the serialised form and are
+/// re-attached either way.
+pub(crate) fn load_or_build_engine(cache_dir: Option<&std::path::Path>) -> Engine {
+    let lists: Vec<String> = ENGINE_LISTS.iter().map(|l| crate::ota::rules_text(l)).collect();
+    let key = engine_key(&lists);
+    let file = cache_dir.map(|d| d.join(format!("engine-{key}.bin")));
+
+    if let Some(path) = &file {
+        if let Ok(bytes) = std::fs::read(path) {
+            let mut engine = Engine::default();
+            if engine.deserialize(&bytes).is_ok() {
+                engine.use_resources(resources());
+                return engine;
+            }
+            let _ = std::fs::remove_file(path);
+        }
+    }
+
+    let engine = build_engine_from_lists(&lists);
+    if let (Some(path), Some(dir)) = (&file, cache_dir) {
+        // Atomic: a half-written file must never be picked up by the
+        // next start. Stale keys are pruned so the directory holds one.
+        let tmp = path.with_extension("tmp");
+        if std::fs::create_dir_all(dir).is_ok()
+            && std::fs::write(&tmp, engine.serialize()).is_ok()
+            && std::fs::rename(&tmp, path).is_ok()
+        {
+            if let Ok(entries) = std::fs::read_dir(dir) {
+                for e in entries.flatten() {
+                    let name = e.file_name();
+                    let name = name.to_string_lossy();
+                    if name.starts_with("engine-") && name.ends_with(".bin") && e.path() != *path {
+                        let _ = std::fs::remove_file(e.path());
+                    }
+                }
+            }
+        }
+    }
+    engine
+}
+
+fn engine_key(lists: &[String]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(env!("CARGO_PKG_VERSION").as_bytes());
+    h.update(b"|adblock-0.13.2|");
+    for text in lists {
+        h.update((text.len() as u64).to_le_bytes());
+        h.update(text.as_bytes());
+    }
+    let digest = h.finalize();
+    digest.iter().take(8).map(|b| format!("{b:02x}")).collect()
 }
 
 /// All scriptlet/redirect resources available to `+js(...)` filters:
@@ -572,5 +640,92 @@ mod preview_surface_tests {
         // Scoped to the browse page: search has its own chip bar and this
         // surface has nothing to say about it.
         assert!(sels[0].contains("ytm-browse "), "must stay scoped to browse");
+    }
+}
+
+#[cfg(test)]
+mod engine_cache_tests {
+    use super::*;
+    use adblock::request::Request;
+
+    fn blocks(engine: &Engine) -> bool {
+        let req = Request::new(
+            "https://googleads.g.doubleclick.net/pagead/id",
+            "https://m.youtube.com/watch?v=x",
+            "script",
+            "GET",
+        )
+        .unwrap();
+        engine.check_network_request(&req).should_block()
+    }
+
+    /// Queue item h: the second start must READ the compiled engine, not
+    /// rebuild it, and the read engine must decide like the built one.
+    #[test]
+    fn serialised_engine_is_reused_and_decides_the_same() {
+        let dir = std::env::temp_dir().join(format!("ts-engine-cache-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+
+        let built = load_or_build_engine(Some(&dir));
+        let files: Vec<_> = std::fs::read_dir(&dir).unwrap().flatten().collect();
+        assert_eq!(files.len(), 1, "one engine file, no tmp left behind");
+        let path = files[0].path();
+        assert!(path.file_name().unwrap().to_string_lossy().starts_with("engine-"));
+        let written = std::fs::metadata(&path).unwrap().modified().unwrap();
+
+        let loaded = load_or_build_engine(Some(&dir));
+        assert_eq!(
+            std::fs::metadata(&path).unwrap().modified().unwrap(),
+            written,
+            "second call must not rewrite the file"
+        );
+        assert!(blocks(&built), "the built engine blocks a doubleclick script");
+        assert_eq!(blocks(&loaded), blocks(&built));
+
+        // A corrupt file is replaced, not trusted.
+        std::fs::write(&path, b"garbage").unwrap();
+        let rebuilt = load_or_build_engine(Some(&dir));
+        assert!(std::fs::metadata(&path).unwrap().len() > 1000);
+        assert_eq!(blocks(&rebuilt), blocks(&built));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod engine_timing_probe {
+    use super::*;
+    #[test]
+    #[ignore]
+    fn where_the_seconds_go() {
+        let t = std::time::Instant::now();
+        let lists: Vec<String> = ENGINE_LISTS.iter().map(|l| crate::ota::rules_text(l)).collect();
+        eprintln!("lists      {:?}", t.elapsed());
+        let t = std::time::Instant::now();
+        let _k = engine_key(&lists);
+        eprintln!("key        {:?}", t.elapsed());
+        let t = std::time::Instant::now();
+        let r = resources();
+        eprintln!("resources  {:?} ({} entries)", t.elapsed(), r.len());
+        let t = std::time::Instant::now();
+        let mut set = FilterSet::new(false);
+        for text in &lists { set.add_filter_list(text.clone(), ParseOptions::default()); }
+        eprintln!("parse      {:?}", t.elapsed());
+        let t = std::time::Instant::now();
+        let mut e = Engine::new_with_filter_set(set);
+        eprintln!("compile    {:?}", t.elapsed());
+        let t = std::time::Instant::now();
+        e.use_resources(r);
+        eprintln!("use_res    {:?}", t.elapsed());
+        let t = std::time::Instant::now();
+        let bytes = e.serialize();
+        eprintln!("serialize  {:?} ({} bytes)", t.elapsed(), bytes.len());
+        let t = std::time::Instant::now();
+        let mut d = Engine::default();
+        d.deserialize(&bytes).unwrap();
+        eprintln!("deserialize{:?}", t.elapsed());
+        let t = std::time::Instant::now();
+        d.use_resources(resources());
+        eprintln!("use_res2   {:?}", t.elapsed());
     }
 }
