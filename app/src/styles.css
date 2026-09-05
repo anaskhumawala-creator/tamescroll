@@ -107,6 +107,7 @@ b { font-weight: 600; }
 .tile:hover:not(:disabled) { border-color: var(--line); transform: translateY(-1px); }
 .tile:active:not(:disabled) { transform: scale(0.985); }
 .tile:disabled { opacity: 0.45; cursor: default; }
+.tile.opening { opacity: 0.55; transform: scale(0.985); border-color: var(--line); }
 .tile .dot {
   display: flex; align-items: center; justify-content: center;
   width: 44px; height: 44px; margin-bottom: auto;

@@ -580,7 +580,7 @@ function tile(platform: Platform): HTMLButtonElement {
 
   if (platform.ready) {
     el.addEventListener("click", () => {
-      void open(platform);
+      void open(platform, undefined, el);
     });
   }
 
@@ -631,7 +631,16 @@ function matchRow(platform: Platform, query: string, onAdd: () => void): HTMLEle
 let restingStatus = "";
 const NEWLINE = String.fromCharCode(10);
 
-async function open(platform: Platform, url?: string) {
+async function open(platform: Platform, url?: string, tile?: HTMLElement) {
+  // Instant feedback: the webview keeps the launcher painted ~0.5s after
+  // navigate() until YouTube commits (probe_open_frames.py, his phone),
+  // so without this a tap looks ignored for half a second.
+  tile?.classList.add("opening");
+  status.textContent = `Opening ${platform.name}…`;
+  // The document is torn down ~50ms after navigate() and its pending
+  // frame with it (measured: #status is null by 55ms), so give the
+  // feedback two frames to reach the screen before asking for the page.
+  await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
   try {
     await invoke("open_platform", {
       strength: getStrength(),
@@ -642,9 +651,17 @@ async function open(platform: Platform, url?: string) {
       // The page a link asked for (1107); Rust re-checks the host.
       url: url ?? null,
     });
-    status.textContent = restingStatus;
+    // Android navigates this very document away: restoring here would
+    // paint the un-dimmed tile as the LAST frame before teardown (measured,
+    // the feedback never reached the screen). Desktop keeps the launcher,
+    // so it restores once the new window is up.
+    if (!isAndroid) {
+      status.textContent = restingStatus;
+      tile?.classList.remove("opening");
+    }
   } catch (error) {
     status.textContent = `Could not open ${platform.name}: ${String(error)}`;
+    tile?.classList.remove("opening");
   }
 }
 
