@@ -30,6 +30,35 @@
                 <!-- AndroidTV support -->
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
+            <!-- tamescroll (1107): OWN THE LINK. The owner's test for
+                 whether the app is useful at all: "someone sends a link
+                 on WhatsApp and we open it and the normal YouTube opens,
+                 so there is no point." No autoVerify: that needs an
+                 assetlinks.json on youtube.com, which is not ours, so on
+                 Android 12+ the user enables it once under Open by
+                 default and the launcher walks them there
+                 (TsLinks.openDefaultApps). Hosts are the set the YouTube
+                 app itself claims; anything else stays with the browser. -->
+            <intent-filter android:label="@string/main_activity_title">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:scheme="http" />
+                <data android:host="youtube.com" />
+                <data android:host="www.youtube.com" />
+                <data android:host="m.youtube.com" />
+                <data android:host="youtu.be" />
+            </intent-filter>
+            <!-- Share-sheet target. Works with NO default-app setting:
+                 YouTube -> Share -> tamescroll, or a chat link shared.
+                 The reliable fallback for a user who never finds Open by
+                 default. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
             <!-- tamescroll: per-platform home-screen shortcuts -->
             <meta-data
                 android:name="android.app.shortcuts"

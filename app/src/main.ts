@@ -624,8 +624,9 @@ function matchRow(platform: Platform, query: string, onAdd: () => void): HTMLEle
 // ---------- launcher rendering ----------
 
 let restingStatus = "";
+const NEWLINE = String.fromCharCode(10);
 
-async function open(platform: Platform) {
+async function open(platform: Platform, url?: string) {
   try {
     await invoke("open_platform", {
       strength: getStrength(),
@@ -633,6 +634,8 @@ async function open(platform: Platform) {
       mode: getMode(),
       gender: getGender(),
       shown: getShown(platform.id),
+      // The page a link asked for (1107); Rust re-checks the host.
+      url: url ?? null,
     });
     status.textContent = restingStatus;
   } catch (error) {
@@ -872,6 +875,20 @@ function runOnboarding(platforms: Platform[], done: () => void) {
   });
 
   // Step 5: commit everything and land on the launcher.
+  // "Open YouTube links here" (1107). Android only: the bridge is the
+  // only way to reach the OS's Open-by-default page, and no API sets it
+  // for the user. Hidden where the bridge is absent (desktop).
+  const links = (window as unknown as { TsLinks?: { openDefaultApps(): void } }).TsLinks;
+  const linksBtn = document.querySelector<HTMLButtonElement>("#ob-links");
+  if (linksBtn) {
+    if (links) {
+      linksBtn.addEventListener("click", () => {
+        try { links.openDefaultApps(); } catch { /* settings page unavailable */ }
+      });
+    } else {
+      linksBtn.hidden = true;
+    }
+  }
   document.querySelector<HTMLButtonElement>("#ob-open")!.addEventListener("click", () => {
     writeChosen([...chosen]);
     setGender(obGender);
@@ -928,10 +945,23 @@ async function start() {
       refreshAll();
     }
 
-    const counts = await invoke<Record<string, number>>("rules_summary");
-    const active = Object.values(counts).reduce((sum, n) => sum + n, 0);
-    restingStatus = `${active} rules active`;
-    status.textContent = restingStatus;
+    // THE RULE COUNT MUST NOT GATE THE APP (1107). rules_summary calls
+    // engine() per platform, and engine() BUILDS the 152k-rule adblock
+    // engine synchronously if it is not warm yet -- measured on his
+    // phone: a cold youtu.be link sat on this launcher for 20 seconds
+    // (page start :13, open_platform :33, "adblock engine warmed in
+    // 25.3s" at :33). Every line below this one -- the shortcut, the
+    // link -- waited on a caption. So the count is requested and the
+    // caption fills in when it arrives; nothing waits for it.
+    restingStatus = "";
+    status.textContent = "";
+    void invoke<Record<string, number>>("rules_summary")
+      .then((counts) => {
+        const active = Object.values(counts).reduce((sum, n) => sum + n, 0);
+        restingStatus = `${active} rules active`;
+        if (!status.textContent) status.textContent = restingStatus;
+      })
+      .catch(() => { /* the caption is decoration; the app is not */ });
 
     // Home-screen shortcut launch (Android). Cold start: MainActivity
     // can't win the URL race against wry's initial load, so the pending
@@ -947,8 +977,19 @@ async function start() {
     } catch {
       // bridge absent (desktop) or blocked — fall through to the param
     }
+    // A link (1107) rides beside the id: cold start as "id" + newline +
+    // url from the bridge, warm start as ?open=id&url=... The url is
+    // optional and Rust decides whether it belongs to the platform.
+    let requestedUrl = "";
+    if (requested.includes(NEWLINE)) {
+      const [id, u] = requested.split(NEWLINE);
+      requested = id;
+      requestedUrl = u ?? "";
+    }
     if (!requested) {
-      requested = new URLSearchParams(location.search).get("open") ?? "";
+      const params = new URLSearchParams(location.search);
+      requested = params.get("open") ?? "";
+      requestedUrl = params.get("url") ?? "";
     }
     if (requested) {
       history.replaceState(null, "", location.pathname);
@@ -962,7 +1003,7 @@ async function start() {
         }
         showView("launcher");
         refreshAll();
-        void open(target);
+        void open(target, requestedUrl || undefined);
       }
     }
   } catch (error) {

@@ -74,21 +74,59 @@ class MainActivity : TauriActivity() {
   // could legally read a stale null on weaker ARM memory models.
   @Volatile
   private var pendingPlatform: String? = null
+  // The exact page a LINK asked for (1107), carried beside the platform
+  // id so the launcher opens the watch page rather than the home feed.
+  // Null for a shortcut or a plain launch.
+  @Volatile
+  private var pendingUrl: String? = null
 
   // Only ids our shortcuts.xml can send; anything else is dropped so an
   // arbitrary external intent can't steer the launcher.
   private fun platformFromIntent(intent: Intent?): String? {
     val id = intent?.getStringExtra("ts_platform") ?: return null
-    return if (id in setOf("youtube", "reddit", "x", "tiktok")) id else null
+    return if (id in setOf("youtube", "reddit", "x", "tiktok", "instagram", "facebook")) id else null
+  }
+
+  // A LINK IS A REQUEST FOR ONE PAGE ON ONE PLATFORM (1107). Two ways
+  // in: the system handing us a VIEW intent because the user picked
+  // tamescroll for youtube links, or a SEND (share sheet) whose text
+  // carries a url. Either way the HOST decides the platform against the
+  // same whitelist the manifest claims, and anything else is refused --
+  // an external intent may pick a page on a platform we ship, never
+  // steer the webview somewhere arbitrary.
+  private val linkHosts = mapOf(
+    "youtube.com" to "youtube", "www.youtube.com" to "youtube",
+    "m.youtube.com" to "youtube", "youtu.be" to "youtube",
+  )
+
+  private fun urlFromIntent(intent: Intent?): Uri? {
+    if (intent == null) return null
+    if (intent.action == Intent.ACTION_VIEW) return intent.data
+    if (intent.action != Intent.ACTION_SEND) return null
+    val text = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return null
+    val m = Regex("https?://[^\\s]+").find(text) ?: return null
+    return try { Uri.parse(m.value) } catch (_: Throwable) { null }
+  }
+
+  /** (platform id, url) for a link intent, or null when the intent is
+   * not a link we own. */
+  private fun linkFromIntent(intent: Intent?): Pair<String, String>? {
+    val u = urlFromIntent(intent) ?: return null
+    val scheme = u.scheme?.lowercase() ?: return null
+    if (scheme != "https" && scheme != "http") return null
+    val host = u.host?.lowercase() ?: return null
+    val id = linkHosts[host] ?: return null
+    return id to u.toString()
   }
 
   // The shortcut lands on the LAUNCHER with ?open=<id>, not directly on
   // the platform URL: the launcher frontend owns mode/prefs sync and
   // calls open_platform itself (main.ts reads the param), so a shortcut
-  // launch behaves exactly like a tile tap.
-  private fun launcherUrl(platform: String?) =
+  // launch behaves exactly like a tile tap. A link adds &url=<page>.
+  private fun launcherUrl(platform: String?, url: String? = null) =
     if (platform == null) "http://tauri.localhost/"
-    else "http://tauri.localhost/?open=$platform"
+    else if (url == null) "http://tauri.localhost/?open=$platform"
+    else "http://tauri.localhost/?open=$platform&url=" + Uri.encode(url)
 
   override fun onCreate(savedInstanceState: Bundle?) {
     // Edge-to-edge is enforced anyway at targetSdk 35+; dark() forces
@@ -97,7 +135,9 @@ class MainActivity : TauriActivity() {
       statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
       navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
     )
-    pendingPlatform = platformFromIntent(intent)
+    val coldLink = linkFromIntent(intent)
+    pendingPlatform = coldLink?.first ?: platformFromIntent(intent)
+    pendingUrl = coldLink?.second
     super.onCreate(savedInstanceState)
     // Owner report 2026-08-20 (Redmi test): page content drew under the
     // phone's status bar — the template's edge-to-edge ships no inset
@@ -127,13 +167,17 @@ class MainActivity : TauriActivity() {
     // process death restore) would then replay a stale shortcut extra
     // and the app would yank itself to that platform out of nowhere.
     setIntent(intent)
-    // Warm shortcut tap (singleTask): the activity already runs, so
-    // navigate the live webview straight to the launcher+param.
-    platformFromIntent(intent)?.let { id ->
+    // Warm shortcut tap OR a warm link (singleTask): the activity
+    // already runs, so navigate the live webview straight to the
+    // launcher+params.
+    val link = linkFromIntent(intent)
+    val id = link?.first ?: platformFromIntent(intent)
+    if (id != null) {
       if (this::webView.isInitialized) {
-        webView.loadUrl(launcherUrl(id))
+        webView.loadUrl(launcherUrl(id, link?.second))
       } else {
         pendingPlatform = id
+        pendingUrl = link?.second
       }
     }
   }
@@ -148,7 +192,9 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun consume(): String {
       val p = pendingPlatform
+      val u = pendingUrl
       pendingPlatform = null
+      pendingUrl = null
       // The bridge exists for one moment: the launcher's first read on
       // a cold start. Every page in this webview — including remote
       // platform pages and their ad iframes — can see the interface
@@ -162,7 +208,36 @@ class MainActivity : TauriActivity() {
           webView.removeJavascriptInterface("TsShortcuts")
         }
       }
-      return p ?: ""
+      // Bare id for a shortcut (unchanged wire format); id + newline +
+      // url for a link. main.ts splits on the newline.
+      return if (p == null) "" else if (u == null) p else p + "\n" + u
+    }
+  }
+
+  // THE ONE SCREEN THE APP HAS TO WALK THE USER TO (1107). Without
+  // "Open by default -> Open supported links" the manifest filter only
+  // ever offers tamescroll in a chooser, and on many launchers not even
+  // that. There is no API to set it for them; there is one to open the
+  // exact page. Gated to the launcher: the interface is visible to every
+  // page in the webview, and while popping the user's own settings
+  // screen is not dangerous, a platform page has no business doing it.
+  inner class LinksBridge {
+    @JavascriptInterface
+    fun openDefaultApps() {
+      runOnUiThread {
+        val here = if (this@MainActivity::webView.isInitialized) webView.url ?: "" else ""
+        if (!here.startsWith("http://tauri.localhost/")) return@runOnUiThread
+        val intent = if (android.os.Build.VERSION.SDK_INT >= 31) {
+          Intent(android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS,
+            Uri.parse("package:" + packageName))
+        } else {
+          Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.parse("package:" + packageName))
+        }
+        try { startActivity(intent) } catch (e: Throwable) {
+          Log.w("TsLinks", "open-by-default settings failed: " + e.message)
+        }
+      }
     }
   }
 
@@ -1188,6 +1263,7 @@ class MainActivity : TauriActivity() {
   override fun onWebViewCreate(webView: WebView) {
     this.webView = webView
     webView.addJavascriptInterface(ShortcutBridge(), "TsShortcuts")
+    webView.addJavascriptInterface(LinksBridge(), "TsLinks")
     // Updater bridge: only ever reachable from the launcher's About
     // pane. It takes NO url from JS — it re-fetches the fixed manifest
     // itself and hash-pins the download, so a hostile platform page

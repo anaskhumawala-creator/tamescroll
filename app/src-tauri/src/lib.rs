@@ -934,6 +934,64 @@ pub(crate) fn rebuild_rules() {
     rules::rebuild_surfaces();
 }
 
+/// Which hosts a link may open inside which platform tile (1107).
+/// Mirrors the manifest's intent-filter and MainActivity's `linkHosts`.
+/// A host here the manifest does not claim is harmless (the intent never
+/// arrives); a manifest host missing here falls back to the front page.
+pub(crate) fn link_host_belongs(platform: &str, host: &str) -> bool {
+    let h = host.to_ascii_lowercase();
+    match platform {
+        "youtube" => matches!(
+            h.as_str(),
+            "youtube.com" | "www.youtube.com" | "m.youtube.com" | "youtu.be"
+        ),
+        _ => false,
+    }
+}
+
+/// THE SHORT LINK IS RESOLVED HERE, NOT BY THE WEBVIEW (1107). Measured
+/// on his phone: a cold `youtu.be/<id>` intent reached open_platform,
+/// navigated, and the native layer logged `page start host=youtu.be
+/// youtube=false` twice before the app fell back to the launcher -- the
+/// redirect ran inside a webview that does not treat youtu.be as
+/// YouTube, so none of the cleaned-YouTube treatment applied and the
+/// watch page never arrived. The warm path happened to survive because
+/// its redirect completed as a plain HTTP 3xx. Rewriting to the mobile
+/// watch URL up front makes both paths the same path, and the first
+/// page start is already `m.youtube.com youtube=true`.
+///
+/// Only youtube is rewritten; www/m hosts pass through untouched (they
+/// are already the platform's own pages). Query params other than the
+/// id are carried across -- `t=` for a timestamp matters to the user.
+pub(crate) fn canonical_link_url(platform: &str, u: tauri::Url) -> tauri::Url {
+    if platform != "youtube" {
+        return u;
+    }
+    let host = u.host_str().unwrap_or("").to_ascii_lowercase();
+    if host != "youtu.be" {
+        return u;
+    }
+    let id = u.path().trim_start_matches('/');
+    let id = id.split('/').next().unwrap_or("");
+    let ok = !id.is_empty()
+        && id.len() <= 32
+        && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+    if !ok {
+        return u;
+    }
+    let mut out = tauri::Url::parse("https://m.youtube.com/watch").expect("static url");
+    {
+        let mut q = out.query_pairs_mut();
+        q.append_pair("v", id);
+        for (k, v) in u.query_pairs() {
+            if k != "v" {
+                q.append_pair(&k, &v);
+            }
+        }
+    }
+    out
+}
+
 #[derive(Serialize, Clone)]
 pub struct Platform {
     id: &'static str,
@@ -1733,11 +1791,23 @@ async fn open_platform(
     strength: u32,
     gender: String,
     shown: Vec<String>,
+    url: Option<String>,
 ) -> Result<(), String> {
     let platform = PLATFORMS
         .iter()
         .find(|p| p.id == id)
         .ok_or_else(|| format!("unknown platform: {id}"))?;
+    // A LINK MAY PICK THE PAGE, NEVER THE PLATFORM (1107). The launcher
+    // passes the url a VIEW/SEND intent carried; it is honoured only if
+    // its host belongs to the platform the tile names. Anything else
+    // falls back to the platform's front page, so a crafted intent can
+    // at most open a YouTube page inside the YouTube tile.
+    let requested: Option<tauri::Url> = url
+        .as_deref()
+        .and_then(|u| u.parse::<tauri::Url>().ok())
+        .filter(|u| matches!(u.scheme(), "https" | "http"))
+        .filter(|u| link_host_belongs(platform.id, u.host_str().unwrap_or("")))
+        .map(|u| canonical_link_url(platform.id, u));
 
     #[cfg(debug_assertions)]
     eprintln!("open_platform id={id}");
@@ -1751,10 +1821,13 @@ async fn open_platform(
     set_user_gender_state(&gender);
     set_shown_state(shown.clone());
 
-    let url: tauri::Url = platform
-        .url
-        .parse()
-        .map_err(|_| format!("bad platform url: {}", platform.url))?;
+    let url: tauri::Url = match requested {
+        Some(u) => u,
+        None => platform
+            .url
+            .parse()
+            .map_err(|_| format!("bad platform url: {}", platform.url))?,
+    };
 
     // Android is a single-webview platform: never create or focus a
     // second window. The old label-reuse guard called set_focus() and
@@ -1943,6 +2016,63 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 1107: a link may pick the PAGE, never the PLATFORM. Red-proved by
+    /// adding "example.com" to the youtube arm and watching the last
+    /// assertion fail.
+    #[test]
+    fn link_host_belongs_is_a_whitelist_per_platform() {
+        for h in ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "YOUTU.BE"] {
+            assert!(link_host_belongs("youtube", h), "{h} is a youtube host");
+        }
+        // A look-alike must not pass: the manifest never claims it and a
+        // crafted intent must not be able to steer the youtube tile.
+        for h in ["youtube.com.evil.example", "notyoutube.com", "example.com", ""] {
+            assert!(!link_host_belongs("youtube", h), "{h} must be refused");
+        }
+        // No other platform accepts links yet; the manifest claims none.
+        assert!(!link_host_belongs("reddit", "www.reddit.com"));
+        assert!(!link_host_belongs("nope", "youtube.com"));
+    }
+
+    /// 1107: a youtu.be short link becomes the mobile watch page BEFORE
+    /// the webview sees it. Red-proved by pointing the rewrite at
+    /// www.youtube.com and watching the first assertion fail.
+    #[test]
+    fn short_links_are_resolved_before_navigation() {
+        let u = |s: &str| tauri::Url::parse(s).unwrap();
+        assert_eq!(
+            canonical_link_url("youtube", u("https://youtu.be/NWoT1ZVd1Lo")).as_str(),
+            "https://m.youtube.com/watch?v=NWoT1ZVd1Lo"
+        );
+        // a timestamp rides along; the id wins over any v= in the query
+        assert_eq!(
+            canonical_link_url("youtube", u("https://youtu.be/abc_-9?t=42&v=zzz")).as_str(),
+            "https://m.youtube.com/watch?v=abc_-9&t=42"
+        );
+        // already a platform page: untouched
+        for s in [
+            "https://m.youtube.com/watch?v=x",
+            "https://www.youtube.com/watch?v=x",
+            "https://youtube.com/shorts/x",
+        ] {
+            assert_eq!(canonical_link_url("youtube", u(s)).as_str(), s);
+        }
+        // junk ids are left alone rather than turned into a bogus watch url
+        assert_eq!(
+            canonical_link_url("youtube", u("https://youtu.be/")).as_str(),
+            "https://youtu.be/"
+        );
+        assert_eq!(
+            canonical_link_url("youtube", u("https://youtu.be/a%20b")).as_str(),
+            "https://youtu.be/a%20b"
+        );
+        // other platforms never rewrite
+        assert_eq!(
+            canonical_link_url("reddit", u("https://youtu.be/x")).as_str(),
+            "https://youtu.be/x"
+        );
+    }
 
     /// The gap the owner hit 2026-08-25: the engine held EasyList,
     /// EasyPrivacy and the uBO lists all along and was never asked about
