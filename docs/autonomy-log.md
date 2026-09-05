@@ -228,3 +228,28 @@ probe_speed.py. Real flicks on Subscriptions, smart mode: 887 frames,
 Nothing in our code shows up in the page-load numbers; YouTube's own
 responseEnd is 1.3-1.7s. The "feel" levers left are UX ones (skeletons,
 what the launcher shows while a page loads), not engine ones.
+
+## 2026-09-05 19:05 -- 1113: the tile tap answers at once (manual)
+probe_open_frames.py (screencap every ~500ms across a real tile tap, his
+phone): launcher frozen 0-0.5s, YouTube skeleton 1.1s, then a BLANK black
+home for 9s+ because the home feed is hidden by design. The freeze: the
+launcher document is torn down ~50ms after navigate() and its pending
+frame with it, and open()'s success path restored the tile BEFORE that,
+so the last painted frame was the un-dimmed one (a manual invoke with no
+restore painted fine at 51ms -- that was the tell). Fix: two rAFs before
+the invoke, and on Android the feedback is kept (document dies anyway);
+desktop restores. Verified: tile dimmed + "Opening YouTube..." at 121ms
+and 688ms. Search path (probe_search_frames.py): box 0.09s, suggestions
+~0.5s, results ~1.0s, thumbnails load blurred ~1.6s, clear after verdict.
+Nothing of ours in it except the verdict delay (p50 248ms). The "ts" text
+at the bottom-left of every YouTube page is our #tamescroll-home button.
+sha256 0119d88ae4d32aa54876d64896b9db4109bd6c97e5cbbde2590f1ce96493efc6.
+
+### For the owner
+- The first thing a user sees after the tile is an EMPTY home (feed
+  hidden by default). Land on /feed/subscriptions when home is hidden?
+  Saves one tap + 1.4s on every open. Product call, not made.
+- His 19:00 asks: (1) most-used points -- search measured above, watch
+  tap-to-playing 1.1-1.6s from the earlier pass; (2) YouTube updates:
+  no per-surface breakage signal exists today; probe_bringback.py is the
+  manual canary. Proposal below in the session summary, needs his shape.

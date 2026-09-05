@@ -1,5 +1,19 @@
 ## Session state (update every session)
 
+**Last updated:** 2026-09-05 19:10 (**1113 IS THE RELEASE, sha 0119d88a**,
+hash-verified. His phone `e3d369ee` and the old Redmi on the cable.)
+
+**1113:** tile tap feedback. The launcher document dies ~50ms after
+`navigate()` and takes its pending frame with it; `open()` restored the
+tile before that, so the last painted frame was the un-dimmed one. Two
+rAFs before the invoke, feedback kept on Android. `probe_open_frames.py`
+/ `probe_search_frames.py` are the frame-timeline probes (adb screencap
+~2/s, stamped from the tap). Search path: box 0.09s, results ~1.0s,
+thumbs load blurred ~1.6s. **Home after the tile is BLANK by design**
+(feed hidden) -- landing on Subscriptions is his call, asked. His 19:00
+asks: most-used paths (search done), and a mechanism against YouTube
+updates (no per-surface breakage signal exists; proposal pending).
+
 **Last updated:** 2026-09-05 19:15 (**1112 IS THE RELEASE, sha da343193**,
 hash-verified. His phone `e3d369ee` and the old Redmi on the cable.
 HIS DIRECTION 18:00: app improvement first, stores later WITH him. The
