@@ -138,3 +138,14 @@ IMAGE_LANES (1-3) with setters; init-entry reads them; tuning.mjs SPEC +
 GETTERS, overlay labels, tuning.json, rules manifest regenerated. gaze
 902/902. Ships in the next build (1109 refuses the keys harmlessly).
 - [x] d. image budgets on OTA (next build)
+
+## 2026-09-05 17:45 -- c: still-scene clock measured, no win found (manual)
+`probe_static_rate.py` on his phone, video Ary1gIbaOTc, 60s windows:
+clock off 2.18 passes/s, 1.53 verdicts/s, still<=3 41%; clock 3000 (via
+his local override store, restored after) 3.10 passes/s, 1.60 verdicts/s,
+still<=3 32%. No saving visible; the scene was still under half the
+time, and the report's `applied` shows the OTA value, so the override's
+reach is not proven by this run. Not worth a build. Parked.
+Also seen: 1109 refuses the 4 new image-budget keys (tuning.refused=4),
+as designed, until the next build.
+- [~] c. still-scene clock: measured, no win, parked
