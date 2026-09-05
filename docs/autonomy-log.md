@@ -71,3 +71,9 @@ served APK re-downloaded and hash-matched against the raw manifest.**
 - [x] f. instagram/facebook in the intent whitelist (done inside a.)
 - [ ] g. Play-build updater kill-switch: design only
 - [ ] NEW h. serialise the adblock engine (cold warm-up 3–25s)
+
+## 2026-09-05 15:30 -- sign-in verified (manual)
+Owner asked whether he needs to sign in; he was already signed in. Read
+live off his phone via CDP (`probe_signin.py`, scratch): `LOGGED_IN:
+true`, avatar present, `/feed/library`, SID cookie set. The
+disallowed_useragent risk named in the replacement report is CLOSED.
