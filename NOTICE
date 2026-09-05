@@ -127,6 +127,12 @@ uBlock Origin filter lists — GNU GPLv3
   https://github.com/uBlockOrigin/uAssets
   Same treatment: vendored data snapshots under rules/vendor/, their
   licence intact.
+  Owner ruling 2026-09-05: these stay in every build, store builds
+  included. They are filter DATA the engine reads at runtime, not code
+  compiled into the binary -- the same relationship Brave and AdGuard
+  have with the same files -- and every YouTube ad-strip rule the app
+  relies on lives here (68 rules against 1 in EasyList). uBlock's
+  scriptlet CODE is a different matter and is never used; see below.
 
 Brave adblock resources (resources.json) — Mozilla Public License 2.0
   https://github.com/brave/adblock-resources
