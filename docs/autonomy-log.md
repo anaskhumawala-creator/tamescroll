@@ -217,3 +217,14 @@ tile, Subscriptions 1.36s, search 1.71s, 8 real flicks on Subscriptions
 identical; YouTube's own responseEnd is 1.3-1.7s of it. Our injected
 code adds nothing measurable to a page load. Image-clear timing not
 captured (IMGDIAG ring empty in this run; needs the probe flag).
+
+## 2026-09-05 19:50 -- speed pass, corrected (manual)
+The first scroll figure was invalid: synthesizeScrollGesture coordinates
+were outside the 406x816 CSS viewport, nothing scrolled. Fixed in
+probe_speed.py. Real flicks on Subscriptions, smart mode: 887 frames,
+13 dropped (1%), worst 116ms; thumbnails processed as they scroll in
+(ring total 14 -> 32 over six flicks), cleared ones lose their class
+(that is the design, not a miss). In-app tap to playing video 1.1-1.6s.
+Nothing in our code shows up in the page-load numbers; YouTube's own
+responseEnd is 1.3-1.7s. The "feel" levers left are UX ones (skeletons,
+what the launcher shows while a page loads), not engine ones.

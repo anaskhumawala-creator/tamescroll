@@ -103,7 +103,7 @@ time.sleep(0.5)
 t.eval("window.__F=[]; window.__LT=[]")
 s0 = t.eval('performance.now()')
 for i in range(8):
-    t.cmd('Input.synthesizeScrollGesture', x=540, y=1400, yDistance=-1200, speed=2500)
+    t.cmd('Input.synthesizeScrollGesture', x=200, y=600, yDistance=-500, speed=1500)
     time.sleep(0.9)
 s1 = t.eval('performance.now()')
 time.sleep(6)
