@@ -648,7 +648,55 @@ async function open(platform: Platform, url?: string) {
   }
 }
 
+// ---------- open a link ----------
+// The one place a pasted link can go. Hosts mirror MainActivity's
+// linkHosts and Rust's link_host_belongs; Rust re-checks before it
+// navigates, so this list can only be stricter than the app, never looser.
+const LINK_HOSTS: Record<string, string> = {
+  "youtube.com": "youtube", "www.youtube.com": "youtube",
+  "m.youtube.com": "youtube", "youtu.be": "youtube",
+};
+
+function platformForLink(raw: string): { platform: Platform; url: string } | null {
+  let u: URL;
+  try {
+    u = new URL(raw.trim().match(/^https?:\/\//i) ? raw.trim() : `https://${raw.trim()}`);
+  } catch {
+    return null;
+  }
+  const id = LINK_HOSTS[u.hostname.toLowerCase()];
+  if (!id) return null;
+  const platform = allPlatforms.find((p) => p.id === id && p.ready);
+  if (!platform) return null;
+  return { platform, url: u.toString() };
+}
+
+const openLinkForm = document.querySelector<HTMLFormElement>("#open-link")!;
+const openLinkInput = document.querySelector<HTMLInputElement>("#open-link-input")!;
+openLinkForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const raw = openLinkInput.value;
+  if (!raw.trim()) return;
+  const hit = platformForLink(raw);
+  if (!hit) {
+    status.textContent = "Only links to platforms you've added open here. YouTube for now.";
+    return;
+  }
+  if (!(readChosen() ?? []).includes(hit.platform.id)) {
+    writeChosen([...(readChosen() ?? []), hit.platform.id]);
+    refreshAll();
+  }
+  openLinkInput.value = "";
+  void open(hit.platform, hit.url);
+});
+
+function renderOpenLink(chosen: string[]) {
+  // Shown once a platform that owns any link host is in the grid.
+  openLinkForm.hidden = !chosen.some((id) => Object.values(LINK_HOSTS).includes(id));
+}
+
 function renderTiles(platforms: Platform[], chosen: string[]) {
+  renderOpenLink(chosen);
   tiles.textContent = "";
   platforms
     .filter((p) => chosen.includes(p.id))

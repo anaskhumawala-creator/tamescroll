@@ -29,6 +29,19 @@ export function setDelayMs(v) {
   DELAY_MS = v;
 }
 
+// THE STARTUP-STUTTER LEVER (queue item e, designed 2026-09-03, built
+// 2026-09-05). At 1 the presenter is not attached when a video starts:
+// the whole video is covered by the flagged class until the FIRST
+// verdict lands, and only then does the ring start filling. Nothing is
+// exposed -- a whole-video blur is the strictest state there is -- and
+// the ring's per-frame copies stop competing with YouTube's own start
+// and the pipeline's warm-up for the first second. Ships 0; measured
+// on his phone before it moves.
+export var DELAY_LATE_ATTACH = 0; // OTA [0, 1]
+export function setDelayLateAttach(v) {
+  DELAY_LATE_ATTACH = v;
+}
+
 // 96MB: the arm64 Redmi held a 66-frame 1280x720 ring (~244MB of bitmaps)
 // with zero capture failures (spikes/delay-line/FINDINGS.md), so this is a
 // comfortable ceiling, not a measured limit. `bytes` is always the REAL

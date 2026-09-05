@@ -4852,6 +4852,15 @@ if (
                 // Same defect the image ring already carries a total for.
                 dbgSt.passesTotal = (dbgSt.passesTotal || 0) + 1;
                 if (wasVerdict) dbgSt.verdictsTotal = (dbgSt.verdictsTotal || 0) + 1;
+                if (wasVerdict && lateAttachPending) {
+                  // First verdict: hand the video to the presenter. Its
+                  // refill starts covered, so the only state between the
+                  // whole-video blur and the first patch is another blur.
+                  lateAttachPending = false;
+                  delayAttach();
+                  if (!presenter) uncoverVideo();
+                  dbgSt.lateAttachAt = (dbgSt.lateAttachAt || 0) + 1;
+                }
                 // A COUNTER THAT DOES NOT EXIST UNTIL IT FIRES CANNOT BE
                 // READ AS ZERO. Every one of these is written as
                 // `(x || 0) + 1` at its own site, so an absent key is
@@ -5002,9 +5011,19 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
       });
     }
 
+    // Late attach (DELAY_LATE_ATTACH): the presenter waits for the first
+    // verdict; until then the whole video wears the flagged class.
+    var lateAttachPending = false;
     function start() {
       if (failed || dead) return;
-      if (playerBlurOn) delayAttach();
+      if (playerBlurOn) {
+        if (delayCore.DELAY_LATE_ATTACH === 1 && !presenter && delayWanted()) {
+          lateAttachPending = true;
+          coverVideo();
+        } else {
+          delayAttach();
+        }
+      }
       // A played video can't wait for post-load idle to bring the models
       // — the deferral would hold it blur-first forever on a busy watch
       // page. Kick the loads now (both idempotent).

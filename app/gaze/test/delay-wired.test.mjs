@@ -104,7 +104,10 @@ test('the seeked handler resets the timeline beside the tracker wipe', () => {
 
 test('start attaches (pill on), pill off and giveUp detach, loadstart restarts the timeline covered', () => {
   const start = between('function start() {', 'function stop() {');
-  assert.match(start, /if \(playerBlurOn\) delayAttach\(\);/);
+  // Late attach (item e) covers first and attaches at the first verdict;
+  // the default arm still attaches at start.
+  assert.match(start, /if \(playerBlurOn\) \{[\s\S]{0,400}?delayAttach\(\);/);
+  assert.match(start, /DELAY_LATE_ATTACH === 1[\s\S]{0,200}?coverVideo\(\);/);
   const giveUp = between('function giveUp(reason, err)', 'identityMem = createIdentityMemory();');
   assert.match(giveUp, /delayDetach\(\);/);
   assert.match(SRC, /timeline = makeTimeline\(delayCore\.DELAY_MS \+ 2000\);\s*presenter\.cover\(true\);/);

@@ -28,6 +28,15 @@
         <p class="eyebrow">Your platforms</p>
         <div id="tiles" class="tiles" aria-label="Your platforms"></div>
 
+        <!-- Open a link (direction memo, 2026-09-05): NOT a URL bar. It
+             takes a link to a platform you have added and nothing else,
+             for the copy-pasted link that never came through a share
+             sheet, and for desktop, which has no share sheet at all. -->
+        <form class="open-link" id="open-link" hidden autocomplete="off">
+          <input id="open-link-input" type="url" inputmode="url" placeholder="Paste a YouTube link" aria-label="Paste a link to open here" />
+          <button type="submit" class="btn-ghost small">Open</button>
+        </form>
+
         <!-- Link ownership (1108). Android + YouTube chosen only; main.ts
              hides it otherwise. -->
         <section class="card links-card" id="links-card" hidden aria-label="YouTube links">

@@ -157,7 +157,7 @@ test('the dials that only take effect on the next video say so', () => {
   // native-client.mjs only rebuilds a model's backend and reads NPU
   // eligibility once, at the next ready.
   const nextDoc = to.rows().filter((r) => r.nextDoc).map((r) => r.key).sort();
-  assert.deepEqual(nextDoc, ['CODEC_PROBE', 'DELAY_MS', 'NATIVE_CPU_MASK', 'NATIVE_NPU', 'PRESENTER_GL'].sort());
+  assert.deepEqual(nextDoc, ['CODEC_PROBE', 'DELAY_MS', 'DELAY_LATE_ATTACH', 'NATIVE_CPU_MASK', 'NATIVE_NPU', 'PRESENTER_GL'].sort());
 });
 
 test('a value is shown with its unit, never as a bare machine number', () => {

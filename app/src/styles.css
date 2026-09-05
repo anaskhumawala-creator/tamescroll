@@ -318,3 +318,11 @@ b { font-weight: 600; }
   font-family: var(--font-display); font-size: 19px;
   border: 1px solid var(--hairline); background: linear-gradient(150deg, #242424, #131313);
 }
+
+/* ---------- open a link ---------- */
+.open-link { display: flex; gap: var(--s2); margin: 0 0 var(--s4); }
+.open-link input {
+  flex: 1; min-width: 0; padding: var(--s2) var(--s3); border-radius: var(--r-sm);
+  border: 1px solid var(--hairline); background: var(--elev); outline: none; font-size: var(--t-md);
+}
+.open-link input:focus { border-color: var(--gold); }
