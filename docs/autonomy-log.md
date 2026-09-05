@@ -178,3 +178,6 @@ credits link. Core ML: all three models convert (neuralnetwork format,
 iOS14 target; mlprogram's BlobWriter is macOS-only) --
 spikes/native/coreml/, parity check needs a Mac. Desktop Windows build
 runs; welcome screen fine at 1442px; copy made device-neutral.
+
+## 2026-09-05 18:20 -- 1110 shipped
+DELAY_LATE_ATTACH 1, open-a-link, image-budget dials, credits. sha256 9807fcdc87ed226006019ece0f84f347498c9a362dc60c5f6226e3ad78c7185f.

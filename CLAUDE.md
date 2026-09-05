@@ -1,8 +1,17 @@
 ## Session state (update every session)
 
-**Last updated:** 2026-09-05 17:05 (**1109 IS THE RELEASE** -- see the
-autonomy log for the hash once the release step below has run. His
-phone `e3d369ee` and the old Redmi on the cable.)
+**Last updated:** 2026-09-05 18:20 (**1110 IS THE RELEASE, sha 9807fcdc**,
+hash-verified. His phone `e3d369ee` and the old Redmi on the cable.
+HIS DIRECTION 18:00: app improvement first, stores later WITH him. The
+direction memo is artifact 30a38158; his five calls are listed there.)
+
+**1110:** DELAY_LATE_ATTACH ships 1 -- presenter attaches after the
+first verdict, whole video blurred until then; measured on his phone
+first-10s drops 11.9% -> 1.8%, 60s 5.6% -> 0.9% (run_startup_ab.py).
+Paste-a-link field on home (YouTube hosts only). Image-budget dials on
+OTA. Credits card. Core ML conversions of the three models exist
+(spikes/native/coreml, neuralnetwork/iOS14; parity needs a Mac).
+Desktop Windows build runs and renders at width.
 
 **THE BIGGEST FINDING OF THE DAY, queue item h:** every shipped .so was
 **opt-level 0**. Releases are `tauri android build --debug` (debug
