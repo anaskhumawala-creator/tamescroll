@@ -471,6 +471,13 @@ export function makeArms(mod) {
     signal: f.nm >= NM_FLOOR,
     flagged: m.flagged, certain: m.certain, abstained: m.abstained,
     instant: m.instant, weak: m.weak, nullMint: !!m.nullRead,
+    // THE RAW SIGMOID, so the tracker's GENDER_TRACK_MEAN sees the
+    // same field the shipped observation builder puts on it
+    // (init-entry.js). An arm that omits it does not disable the
+    // dial loudly -- it disables it SILENTLY, and the sweep prints
+    // two identical rows, which is the harness failure this file
+    // has already recorded three times.
+    raw: typeof f.raw === 'number' ? f.raw : null,
     faceFound: true, verdictDt: dt, desc: desc || null,
   });
   // `_labelFaces` carries the ground truth on a frame the ARM was given

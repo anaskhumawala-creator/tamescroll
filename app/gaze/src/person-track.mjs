@@ -80,6 +80,7 @@
 // woman's observation onto a man's CLEARED track -- and only wrong that
 // the first step costs anything worth having.
 import { greedyAssign, optimalAssign } from './assign.mjs';
+import { metaFromMean, trackMeanOn, trackMeanRaw } from './gender-verdict.mjs';
 
 export var PTRACK_IOU_MIN = 0.15;
 
@@ -100,6 +101,96 @@ export function setIouMin(v) { PTRACK_IOU_MIN = v; }
 // blurred track, or a recently-refreshed cleared one, does not.
 export var GENDER_REFRESH_MS = 0;
 export function setGenderRefreshMs(v) { GENDER_REFRESH_MS = v; }
+
+// THE DECLARED USER GENDER, needed only by the track-mean rewrite below.
+// Set once at boot from launcher state, exactly like the value
+// init-entry hands faceMeta on every read -- this is the same constant,
+// parked where a pure module can reach it rather than threaded through
+// updatePersonTracks' signature and every one of its callers.
+//
+// It is NOT a second copy of a RULE: the ladder that turns a read into a
+// verdict stays in gender-verdict.mjs and is called, never reimplemented
+// (see meanRewrite).
+var PTRACK_USER_GENDER = 'unset';
+export function setUserGender(g) {
+  PTRACK_USER_GENDER = g === 'man' || g === 'woman' ? g : 'unset';
+}
+
+/**
+ * TRACK-MEAN. Accumulate this track's raw gender sigmoids and re-derive
+ * the verdict from their shrunk mean instead of from the latest read.
+ *
+ * Returns `{ obs, gSum, gN }` -- a REWRITTEN observation plus the
+ * accumulator the caller must carry onto the track. The observation is
+ * copied, never mutated: callers upstream keep theirs, and the benches
+ * hand the same object to two arms.
+ *
+ * WHAT IT REFUSES TO AVERAGE, and each is a deliberate hole:
+ *
+ *  - the dial off (GENDER_TRACK_MEAN 0, which is what ships)
+ *  - a position-only pass, which paid for no read
+ *  - a read with no numeric `raw` -- older callers, the native path
+ *    before it carried the field, and any test that hands verdict
+ *    booleans straight in. Those keep today's behaviour exactly.
+ *  - an ABSTENTION. A null read is the model's prior (v ~ 0.62 on this
+ *    model), not evidence, and averaging a prior in would drag every
+ *    track toward male at the rate the device produces null reads --
+ *    which on his phone was 42% of reads. A child abstention is refused
+ *    for the same reason plus a harder one: the age gate must not be
+ *    forgiven by an adult pass on the same track.
+ *
+ * AND WHAT IT REFUSES TO OUTPUT: if the mean itself lands in the null
+ * band, the ORIGINAL observation stands. A mean cannot manufacture an
+ * abstention -- an abstention revokes an earned clear (abstainStreak)
+ * and a running average that happens to sit near 0.5 is not the same
+ * event as a face the model could not read.
+ */
+/**
+ * May this observation enter a track's gender mean? ONE copy, called by
+ * both `meanRewrite` (which averages it) and `newTrack` (which seeds
+ * from it) -- two hand-written copies of a four-term rule is the
+ * crop-geometry defect this repo spent four days on.
+ */
+function meanUsable(obs) {
+  if (!trackMeanOn() || !obs || obs.positionOnly) return false;
+  if (typeof obs.raw !== 'number' || !isFinite(obs.raw)) return false;
+  return !obs.abstained && !obs.childAbstain;
+}
+
+function meanRewrite(t, obs) {
+  var gSum = t && typeof t.gSum === 'number' ? t.gSum : 0;
+  var gN = t && typeof t.gN === 'number' ? t.gN : 0;
+  if (!meanUsable(obs)) return { obs: obs, gSum: gSum, gN: gN };
+  gSum += obs.raw;
+  gN += 1;
+  var mean = trackMeanRaw(gSum, gN);
+  // NULL FACE, DELIBERATELY. faceMeta's age gate and its descriptor
+  // floor are questions about the CURRENT crop, and the guard above has
+  // already answered both for this frame: reaching here means the read
+  // was a directed ADULT read carrying signal, because any other kind
+  // sets `abstained` or `childAbstain` and returns above. Handing the
+  // synthetic face no age makes faceMeta trust it as an adult, which is
+  // exactly what this frame established -- and handing it no `shape`
+  // leaves the null-mint floor inert, which is right because a mean
+  // cannot mint anything: births happen before a track has one.
+  var m = metaFromMean(PTRACK_USER_GENDER, mean, null);
+  if (!m || m.abstained) return { obs: obs, gSum: gSum, gN: gN };
+  bump('trackMean');
+  if (!!m.flagged !== !!obs.flagged) bump('trackMeanFlip');
+  var out = {};
+  for (var k in obs) if (Object.prototype.hasOwnProperty.call(obs, k)) out[k] = obs[k];
+  out.flagged = !!m.flagged;
+  out.certain = !!m.certain;
+  out.instant = !!m.instant;
+  out.weak = !!m.weak;
+  // `abstained`, `childAbstain`, `nullMint` and `signal` are carried
+  // through UNTOUCHED. They are facts about this frame's crop, and the
+  // branch above already refused to run at all when any abstention is
+  // set -- so reaching here means the current read is a directed adult
+  // read and those flags are false.
+  out.meanRaw = mean;
+  return { obs: out, gSum: gSum, gN: gN };
+}
 /**
  * Does this track need a gender read on this pass? A read costs ~536ms
  * of faceres on the arm64 Redmi and a track whose verdict is settled
@@ -1065,6 +1156,15 @@ function graceSpend(obs, t, clearStreak) {
 }
 
 function matchedStep(t, obs, dt) {
+  // TRACK-MEAN FIRST, so everything below -- the clear ladder, the weak
+  // streak, the life counters, the returned verdict -- sees ONE
+  // observation and cannot disagree with itself about which read it is
+  // acting on. Off by default: with GENDER_TRACK_MEAN at 0 this returns
+  // the caller's own object, unchanged and uncopied.
+  var mr = meanRewrite(t, obs);
+  obs = mr.obs;
+  var gSum = mr.gSum;
+  var gN = mr.gN;
   // Did this pass change WHICH detector is describing the person? See the
   // note on vw/vh below -- a source flip is a representation change, not
   // motion, and must not become a size velocity.
@@ -1186,6 +1286,14 @@ function matchedStep(t, obs, dt) {
       // on a mechanism that could not run, so a future round sizing that
       // population gets a real number instead of a structural zero.
       weakStreak: t.weakStreak || 0,
+      // TRACK-MEAN accumulator (GENDER_TRACK_MEAN, off by default).
+      // CARRIED, not recomputed -- this is the field-dropping trap this
+      // file warns about on `weakStreak` and `abstained`: a builder that
+      // omits a field makes its consumer silently inert and no unit test
+      // can see it, because the tests hand observations straight to
+      // updatePersonTracks.
+      gSum: t.gSum || 0,
+      gN: t.gN || 0,
       desc: t.desc || null,
       // The head hole rides the position pass so it stays on the face
       // between gender reads, but its AGE still advances: a position
@@ -1633,6 +1741,10 @@ function matchedStep(t, obs, dt) {
     abstainStreak: obs.flagged && (obs.certain || obs.abstained) ? Math.min(2, abstainStreak) : 0,
     // Already clamped and reset above; carried so the next pass sees it.
     weakStreak: weakStreak,
+    // TRACK-MEAN accumulator, advanced by meanRewrite at the top of
+    // this function (and left untouched when the dial is off).
+    gSum: gSum,
+    gN: gN,
     desc: obs.desc || t.desc || null,
     lastVerdict: obs.flagged && obs.certain ? 'flag-certain' : !obs.flagged && obs.certain ? 'clear-certain' : 'uncertain',
     // Was there CERTAIN evidence for covering since the last certain
@@ -1923,6 +2035,14 @@ function coastStep(t, dt) {
     // CARRIED rather than zeroed — same treatment clearStreak gets. The
     // TTL above is what bounds an unrefreshed weak clear.
     weakStreak: t.weakStreak || 0,
+    // TRACK-MEAN accumulator (GENDER_TRACK_MEAN, off by default).
+    // CARRIED, not recomputed -- this is the field-dropping trap this
+    // file warns about on `weakStreak` and `abstained`: a builder that
+    // omits a field makes its consumer silently inert and no unit test
+    // can see it, because the tests hand observations straight to
+    // updatePersonTracks.
+    gSum: t.gSum || 0,
+    gN: t.gN || 0,
     desc: t.desc || null,
     // Coasting moves the box by velocity, so the head moves with it —
     // and ages, which is what eventually retires the hole.
@@ -2062,6 +2182,14 @@ export function demoteTracks(tracks) {
       // A cut means these pixels are a different shot: every accumulated
       // verdict, weak or not, is about a frame that no longer exists.
       weakStreak: 0,
+      // RESET, for the identical reason `weakStreak` resets one line up:
+      // a cut means these pixels are a different shot, so every read
+      // averaged into this track is about a person who may not be the
+      // one in front of the camera now. A mean that survives a cut is
+      // the mis-association failure this dial exists to measure, handed
+      // to itself for free.
+      gSum: 0,
+      gN: 0,
       // R23 PROPOSED AND REFUSED: keep a SEPARATE `clearedDesc` here (not
       // `desc`, so `identityBroken` stays inert across a cut as designed)
       // and let a demoted track re-clear on the FIRST certain-clear read
@@ -2188,6 +2316,13 @@ function newTrack(obs) {
     // first read already pointed same-direction, so the streak does not
     // restart from zero on the churn a wide shot produces.
     weakStreak: obs.weak ? 1 : 0,
+    // SEED THE MEAN WITH THE BIRTH READ, when there is one to seed with.
+    // A birth verdict is decided by `bornCleared`/blur-first before any
+    // mean exists, so this only sets up the SECOND read -- which is the
+    // first one the mean can move. Refuses the same reads meanRewrite
+    // refuses: no raw, or an abstention, contributes nothing.
+    gSum: meanUsable(obs) ? obs.raw : 0,
+    gN: meanUsable(obs) ? 1 : 0,
     desc: obs.desc || null,
     flagEvidence: !!(obs.flagged && obs.certain),
     lastVerdict:

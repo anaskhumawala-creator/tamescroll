@@ -935,3 +935,128 @@ export function setClearScore(v) { GENDER_CLEAR_SCORE = v; }
 export function setClearScoreFemale(v) { GENDER_CLEAR_SCORE_FEMALE = v; }
 export function setNmFloor(v) { NULL_MINT_NM_FLOOR = v; }
 export function setImageNmFloor(v) { GENDER_IMAGE_NM_FLOOR = v; }
+
+// ---------------------------------------------------------------------
+// TRACK-MEAN: average a person's gender reads instead of trusting the
+// latest one.
+//
+// WHY IT IS WORTH A DIAL. Offline, over the 2,159 labelled reads on his
+// own corpus regrouped by identity, averaging a track's raw sigmoids
+// takes false cover on men from 18.2% to 5.9% at matched exposure and
+// AUC from 0.9855 to 0.9964 -- a bigger win than grey, than mirror, and
+// than every head retrain this repo has tried, for ZERO extra inference.
+// faceres reads the same face at 0.31, 0.88, 0.44, 0.79 across four
+// passes; the mean of those is the answer and every single one of them
+// is noise.
+//
+// WHY IT IS OFF BY DEFAULT. That regrouping used the LABELS to decide
+// which reads belong to one person. The shipped tracker uses IoU, and it
+// mis-associates -- every mis-associated read pollutes a mean that then
+// persists for the life of the track, where a single bad read today is
+// forgotten on the next pass. The offline arm breaks even at roughly 10%
+// mis-association and nobody has measured the real rate. This ships at 0
+// so the measurement can be made with the REAL association, on the real
+// tracker, by flipping one dial.
+//
+// THE PRIOR IS NOT DECORATION. `m0` pseudo-observations at 0.5 are what
+// stop the first read of a track becoming the whole mean. Without it a
+// track's first read carries the same weight it does today AND becomes
+// permanent, which measured as a 9.1% exposure leak: one weak
+// same-direction read on a new subject clears her for the life of the
+// track. At m0 = 1 the first read is halved toward the coin flip and it
+// takes two agreeing reads to reach where one read sits today.
+//
+// MEASURED AND REFUSED, 2026-09-05, on two independent instruments.
+// NOT on the OTA channel and it must not be put there: it is a REFUSED
+// arm kept as an instrument, and a tunable is a promise that a pushed
+// number is safe. `bench/track-mean-ab.mjs` runs it end to end through
+// the shipped tracker at matched exposure, and it loses on both arms:
+//
+//   man   : false cover 117.5s -> 175.5s  (at 16.0s exposure vs 13.5s)
+//   woman : false cover 181.0s -> 307.5s  (exposure matched exactly)
+//
+// The cause is measured too, in a clean worktree, against the hand
+// clusters: the shipped IoU association is 27.9% MIS-ASSOCIATED per
+// read (95% CI over identities [19.3%, 39.1%]), nearly three times the
+// ~10% the offline arm breaks even at. 43 of 107 tracks mix identities
+// and one carries nine distinct people over 43 reads. AUC falls
+// monotonically as the window grows -- 0.9843 single read, 0.9806 at
+// K=2, 0.9594 at K=all -- while the ORACLE grouping's rises, which is
+// the whole story in one line: the grouping degrades with exactly the
+// window length that makes averaging valuable, and the curves cross
+// below K=2.
+//
+// It gets worse, not better, with track age (31.2% at age 15+ against
+// 20.0% at birth): a long-lived track here is not an established
+// identity, it is a track that has been absorbing whoever stands in
+// that part of the frame. `demoteTracks` keeps the id across a scene
+// cut, so a mean rides straight through a shot change; resetting on the
+// cut moves K=all from 44.9% to 31.9% and still loses.
+//
+// AND THE OFFLINE HEADLINE WAS OVERSTATED BEFORE ANY OF THAT. The
+// 18.2% -> 5.9% that motivated this was ACAUSAL (it averaged a person's
+// whole run, including frames the tracker has not seen yet) and fitted
+// a bar to 51 numbers. The causal trailing mean an app can actually
+// compute buys 5.4 points, saturating at K=4 -- which the read noise's
+// own autocorrelation predicts, since it decorrelates by lag 4.
+export var GENDER_TRACK_MEAN = 0;
+export var GENDER_TRACK_MEAN_M0 = 1;
+
+/** Is the dial on? Clamped [0,1] by tuning.mjs; >= 0.5 is on. */
+export function trackMeanOn() {
+  return GENDER_TRACK_MEAN >= 0.5;
+}
+
+/**
+ * The shrunk mean. `sum`/`n` are the track's accumulated raw sigmoids;
+ * the prior adds GENDER_TRACK_MEAN_M0 pseudo-reads at 0.5.
+ *
+ * Returns null when there is nothing to average, so a caller cannot
+ * mistake the bare prior (0.5, which is the null read's own value) for
+ * evidence.
+ */
+export function trackMeanRaw(sum, n) {
+  if (!(n > 0) || typeof sum !== 'number' || !isFinite(sum)) return null;
+  var m0 = GENDER_TRACK_MEAN_M0;
+  return (sum + 0.5 * m0) / (n + m0);
+}
+
+/**
+ * Re-derive a verdict from a track's mean raw sigmoid.
+ *
+ * ONE COPY OF THE BARS. This does NOT re-implement the clear bar, the
+ * weak bar, the child gate or the null band -- it synthesises the face
+ * the mean describes and hands it to faceMeta, which is the same
+ * function the single-read path calls. A second hand-written copy of
+ * that ladder is the crop-geometry defect, and this file's own history
+ * says every field a builder drops makes its consumer unreachable.
+ *
+ * `face` supplies AGE and DESCRIPTOR MAGNITUDE from the CURRENT read,
+ * deliberately: the mean is evidence about this person's GENDER across
+ * passes, while whether the face in front of the camera right now is a
+ * child, or carries any descriptor signal at all, is a fact about this
+ * frame. Averaging those would let one adult pass forgive a child read.
+ */
+export function metaFromMean(userGender, mean, face) {
+  if (typeof mean !== 'number' || !isFinite(mean)) return null;
+  var syn = {
+    gender: mean > 0.5 ? 'male' : 'female',
+    // The same transform face-decode applies to a real read, so the
+    // synthetic score lands on the same scale the bars were calibrated
+    // on. Capped at 0.99 there; capped here.
+    score: Math.min(0.99, 2 * Math.abs(mean - 0.5)),
+    age: face ? face.age : undefined,
+    childP: face ? face.childP : undefined,
+    raw: mean,
+    shape: face ? face.shape : null,
+  };
+  return faceMeta(userGender, [syn])[0];
+}
+
+// BENCH-ONLY, like person-track's `setAssign`. See the refusal above.
+export function setTrackMean(v) { GENDER_TRACK_MEAN = v; }
+
+// BENCH-ONLY, and deliberately NOT on the OTA channel. m0 is the shape
+// of an estimator, not an exposure dial, and the tuning whitelist exists
+// so a pushed number cannot change what the code does -- only how far.
+export function _setTrackMeanM0(v) { GENDER_TRACK_MEAN_M0 = v; }

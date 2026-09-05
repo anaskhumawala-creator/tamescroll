@@ -91,6 +91,7 @@ import {
   iou,
   PTRACK_IOU_MIN,
   trackNeedsRead,
+  setUserGender,
 } from './person-track.mjs';
 import * as sceneGate from './scene-gate.mjs';
 import { fitBox } from './crop-geometry.mjs';
@@ -346,6 +347,12 @@ if (
     window.__TS_GAZE_GENDER === 'man' || window.__TS_GAZE_GENDER === 'woman'
       ? window.__TS_GAZE_GENDER
       : 'unset';
+
+  // person-track needs it too: GENDER_TRACK_MEAN re-derives a verdict
+  // from a track's mean sigmoid, and that ladder lives in
+  // gender-verdict.mjs and is CALLED, never reimplemented -- so the
+  // pure tracker module has to be able to name the declared gender.
+  setUserGender(userGender);
 
   // 64 -> 120 2026-08-24 (owner: "why are all the logos blurred — the
   // LTT tab, my own channel avatar"): sub-120px images are UI chrome
@@ -3507,6 +3514,24 @@ if (
               // on `abstained` above: a builder that drops a field makes
               // its consumer unreachable and no unit test can see it.
               // `clampFired` is the life counter that proves it alive.
+              // THE RAW GENDER SIGMOID (P(male)), for GENDER_TRACK_MEAN.
+              // person-track averages these across a track's reads and
+              // re-derives the verdict from the mean; `score` cannot be
+              // averaged in its place because it is folded around 0.5
+              // and has already thrown the direction away.
+              //
+              // Added HERE and not only in person-track, per the warning
+              // on `abstained` above: a builder that drops a field makes
+              // its consumer unreachable and no unit test can see it,
+              // because the tests hand observations straight to
+              // updatePersonTracks. `trackMean` is the life counter that
+              // proves this line is alive in a real run.
+              raw:
+                genderReads &&
+                genderReads[own] &&
+                typeof genderReads[own].raw === 'number'
+                  ? genderReads[own].raw
+                  : null,
               signal: hasDescriptorSignal(genderReads && genderReads[own]),
               faceFound: true,
               desc: faceDesc,
