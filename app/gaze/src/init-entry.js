@@ -108,6 +108,7 @@ import {
 import * as videoRegion from './video-region.mjs';
 import { createTextMatcher } from './text-signals.mjs';
 import { buildReport, reportViolations, platformOf, pageKind, imgDiagRead } from './diag-report.mjs';
+import { watchUrlForShorts, watchUrlForShortsHref } from './shorts-redirect.mjs';
 import { planForMode, rotateBudget } from './pipeline-plan.mjs';
 import { createWorkerClient } from './worker-client.mjs';
 import { startWorker } from './worker-entry.js';
@@ -154,7 +155,29 @@ if (
   try {
     var tsPagePlatform = platformOf(location.hostname);
     var tsPageLast = null;
+    // A SHORT IS A VIDEO: /shorts/<id> becomes /watch?v=<id> before the
+    // swipe feed can draw (see shorts-redirect.mjs). The click hook
+    // catches the in-page route; the tick catches everything else.
+    var shortsToWatch = function () {
+      if (tsPagePlatform !== 'youtube') return false;
+      var w = watchUrlForShorts(location.pathname, location.search);
+      if (!w) return false;
+      location.replace(w);
+      return true;
+    };
+    if (tsPagePlatform === 'youtube') {
+      document.addEventListener('click', function (ev) {
+        var a = ev.target && ev.target.closest ? ev.target.closest('a[href]') : null;
+        if (!a) return;
+        var w = watchUrlForShortsHref(a.getAttribute('href'), location.origin);
+        if (!w) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        location.assign(w);
+      }, true);
+    }
     var syncTsPage = function () {
+      if (shortsToWatch()) return;
       var k = pageKind(tsPagePlatform, location.pathname);
       if (k === tsPageLast) return;
       tsPageLast = k;

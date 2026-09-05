@@ -197,3 +197,11 @@ grid rule is scoped `html:not([data-ts-page="feed"]):not([data-ts-page=
 Subscriptions/channel fix. sha256 7ba59c78527e89375034e95894863cf53ed179607891396e6c86926e361f5a5d. His asks 18:45: Shorts off should
 also clear channel pages; a /shorts/ link should open in the normal
 player; YouTube must feel blazing fast (speed pass next).
+
+## 2026-09-05 19:00 -- his two Shorts asks, built (manual)
+Channel page: `yt-tab-shape[tab-title="Shorts"]` joins the shorts surface
+(the reel shelf and lockups were already hidden). A short is a video:
+/shorts/<id> -> /watch?v=<id> on every route -- Rust canonical_link_url
+for links from outside, shorts-redirect.mjs in the bundle for in-page
+clicks (capture-phase) and any other arrival (500ms tick). Unconditional,
+not gated on the Shorts toggle. gaze 906/906, cargo 66/66. 1112 building.

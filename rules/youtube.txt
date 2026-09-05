@@ -273,6 +273,9 @@ youtube.com##yt-lockup-view-model:has(a[href^="/shorts/"])
 ! with class pivot-shorts. Shelf/search rules still [unverified]
 ! (logged-out empty feed rendered neither).
 ! test: no Shorts tab in the pivot bar; no Shorts shelf in search
+! The channel page's Shorts tab (owner 2026-09-05: hiding Shorts should
+! clear channel pages too). yt-tab-shape is shared by m. and www.
+youtube.com##yt-tab-shape[tab-title="Shorts"]
 m.youtube.com##ytm-pivot-bar-item-renderer:has(> .pivot-shorts)
 m.youtube.com##ytm-reel-shelf-renderer
 m.youtube.com##ytm-rich-section-renderer:has(a[href^="/shorts/"])

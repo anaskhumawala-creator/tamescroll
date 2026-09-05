@@ -968,10 +968,16 @@ pub(crate) fn canonical_link_url(platform: &str, u: tauri::Url) -> tauri::Url {
         return u;
     }
     let host = u.host_str().unwrap_or("").to_ascii_lowercase();
-    if host != "youtu.be" {
+    // A SHORT IS A VIDEO (owner 2026-09-05): /shorts/<id> on any youtube
+    // host lands on the watch page, never the swipe feed. In-page routes
+    // are handled by the gaze bundle (shorts-redirect.mjs); this is the
+    // door for links that arrive from outside.
+    let path = u.path();
+    let is_short = host.ends_with("youtube.com") && path.starts_with("/shorts/");
+    if host != "youtu.be" && !is_short {
         return u;
     }
-    let id = u.path().trim_start_matches('/');
+    let id = if is_short { path.trim_start_matches("/shorts/") } else { path.trim_start_matches('/') };
     let id = id.split('/').next().unwrap_or("");
     let ok = !id.is_empty()
         && id.len() <= 32
@@ -2054,7 +2060,7 @@ mod tests {
         for s in [
             "https://m.youtube.com/watch?v=x",
             "https://www.youtube.com/watch?v=x",
-            "https://youtube.com/shorts/x",
+            "https://youtube.com/channel/x",
         ] {
             assert_eq!(canonical_link_url("youtube", u(s)).as_str(), s);
         }
@@ -2062,6 +2068,19 @@ mod tests {
         assert_eq!(
             canonical_link_url("youtube", u("https://youtu.be/")).as_str(),
             "https://youtu.be/"
+        );
+        // A short is a video: the watch page, not the swipe feed.
+        assert_eq!(
+            canonical_link_url("youtube", u("https://www.youtube.com/shorts/jNQXAC9IVRw")).as_str(),
+            "https://m.youtube.com/watch?v=jNQXAC9IVRw"
+        );
+        assert_eq!(
+            canonical_link_url("youtube", u("https://m.youtube.com/shorts/abc_-9?feature=share")).as_str(),
+            "https://m.youtube.com/watch?v=abc_-9&feature=share"
+        );
+        assert_eq!(
+            canonical_link_url("youtube", u("https://www.youtube.com/shorts/")).as_str(),
+            "https://www.youtube.com/shorts/"
         );
         assert_eq!(
             canonical_link_url("youtube", u("https://youtu.be/a%20b")).as_str(),
@@ -2525,7 +2544,9 @@ mod tests {
             (
                 "home",
                 r#"ytd-browse[page-subtype="home"] ytd-rich-grid-renderer"#,
-                "ytm-browse ytm-rich-grid-renderer",
+                // Scoped on the page attribute since 2026-09-05: the same
+                // grid is the Subscriptions feed and the channel page.
+                r#"html:not([data-ts-page="feed"]):not([data-ts-page="channel"]) ytm-browse ytm-rich-grid-renderer"#,
             ),
             (
                 "shorts",
