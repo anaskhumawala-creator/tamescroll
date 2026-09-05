@@ -1,6 +1,6 @@
 ## Session state (update every session)
 
-**Last updated:** 2026-09-05 18:20 (**1110 IS THE RELEASE, sha 9807fcdc**,
+**Last updated:** 2026-09-05 18:45 (**1111 IS THE RELEASE, sha 7ba59c78**,
 hash-verified. His phone `e3d369ee` and the old Redmi on the cable.
 HIS DIRECTION 18:00: app improvement first, stores later WITH him. The
 direction memo is artifact 30a38158; his five calls are listed there.)

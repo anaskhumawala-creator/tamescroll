@@ -1,7 +1,7 @@
 {
-  "versionCode": 1110,
-  "versionName": "0.1.110",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.110/tamescroll-v0.1.110.apk",
-  "sha256": "9807fcdc87ed226006019ece0f84f347498c9a362dc60c5f6226e3ad78c7185f",
-  "notes": "Smoother video starts. Paste a YouTube link on the home screen to open it here."
+  "versionCode": 1111,
+  "versionName": "0.1.111",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.111/tamescroll-v0.1.111.apk",
+  "sha256": "7ba59c78527e89375034e95894863cf53ed179607891396e6c86926e361f5a5d",
+  "notes": "Subscriptions works again with the home feed hidden."
 }

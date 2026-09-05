@@ -192,3 +192,8 @@ grid rule is scoped `html:not([data-ts-page="feed"]):not([data-ts-page=
 "channel"])` -- fails closed on old bundles. pageKind gains 'feed' for
 /feed/*. DELAY_LATE_ATTACH code default now 1 (tuning test insists json
 == code). 1111 building.
+
+## 2026-09-05 18:45 -- 1111 shipped
+Subscriptions/channel fix. sha256 7ba59c78527e89375034e95894863cf53ed179607891396e6c86926e361f5a5d. His asks 18:45: Shorts off should
+also clear channel pages; a /shorts/ link should open in the normal
+player; YouTube must feel blazing fast (speed pass next).
