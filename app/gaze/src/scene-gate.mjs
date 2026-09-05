@@ -140,3 +140,10 @@ export function classifyScene(delta) {
 // of his footage's ordinary motion (28.2), which is what made 28 fire on
 // 10.2% of samples and cost a cleared man his clear 39 times in 90s.
 export function setCutDelta(v) { CUT_DELTA = v; }
+// STATIC_DELTA on a dial (1106). It was argued to be unreachable, from a
+// median of 8.7 -- but a median bounds nothing on the LEFT tail. Read
+// directly off his phone's ring, 600 samples: 10.3% of ticks sit at or
+// under 2, 17.3% under 3, 32.0% under 5. It fires, and the curve is the
+// reason it is worth a dial rather than a new constant.
+export function setStaticDelta(v) { STATIC_DELTA = v; }
+export function setStaticIntervalMs(v) { STATIC_INTERVAL_MS = v; }

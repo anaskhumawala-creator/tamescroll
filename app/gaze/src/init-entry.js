@@ -3836,6 +3836,17 @@ if (
       var effZoom = Math.min(cadence.VERDICT_MAX_INTERVAL_MS,
         Math.max(ZOOM_INTERVAL_MS, lastVerdictMs * cadence.VERDICT_DUTY));
       if (isPlayer && scrolling(now)) effZoom = Math.max(effZoom, cadence.VERDICT_MAX_INTERVAL_MS);
+      // A STILL SCENE WITH NOTHING COVERED RELAXES THE EXPENSIVE CLOCK
+      // (1106). `static` has reached `floor` above -- the POSITION pass
+      // -- since blur-v2, and never this one, so a locked-off shot ran
+      // crop+gender at full rate. Deliberately ABOVE the cap: the cap
+      // bounds how long a MOVING scene may go unread, and this is the
+      // case where nothing is moving. Same `!anyBlurredTrack()` gate as
+      // the position floor, and see cadence.mjs for why that gate stays.
+      if (isPlayer && cadence.STATIC_VERDICT_MS > 0 && sceneState === 'static'
+        && !anyBlurredTrack()) {
+        effZoom = Math.max(effZoom, cadence.STATIC_VERDICT_MS);
+      }
       var verdictDue = isPlayer && !verdictBusy && now - lastZoomAt >= effZoom;
       if (now - lastSample < effInterval && !verdictDue) return;
       if (sampling) return;

@@ -113,6 +113,36 @@ export function setVerdictMaxInterval(ms) {
 // VERDICT_MAX_INTERVAL_MS floor already exists to avoid -- §10i
 // measured the freed GPU going to the render loop, not to more
 // verdicts than the page can afford.
+// THE STILL-SCENE VERDICT CLOCK (1106). scene-gate.mjs has classified
+// every 100ms tick as cut / static / motion since blur-v2, and `static`
+// only ever reached the POSITION clock (init-entry `floor`). The
+// EXPENSIVE pass -- crop plus gender -- ran at full rate through a
+// locked-off shot.
+//
+// MEASURED on his own phone, 600 ring samples: 17.3% of ticks sit at or
+// under STATIC_DELTA 3, 32.0% under 5. A reviewer had argued the
+// threshold never fires, inferring it from a median of 8.7; a median
+// bounds nothing on the left tail and the tail is where this lives.
+//
+// 0 SHIPS, so nothing changes until it is pushed. Above 0 it is a FLOOR
+// on effZoom while the scene is still.
+//
+// WHY IT KEEPS THE `!anyBlurredTrack()` GATE, against the review that
+// asked for it to be dropped: extending the verdict clock while somebody
+// is COVERED keeps them covered longer, and false cover on men is his
+// single most-reported complaint. With nothing blurred and nothing
+// moving, a longer clock costs nothing anyone can see. Dropping the gate
+// would buy perf with the one column he has ruled on twice.
+//
+// HONEST LIMIT: the gate reads a 16x16 luma grid, so a small face
+// entering a still frame moves few pixels. This is free UP TO the gate's
+// resolution, not free absolutely.
+export var STATIC_VERDICT_MS = 0;
+
+export function setStaticVerdictMs(ms) {
+  STATIC_VERDICT_MS = ms;
+}
+
 export var VERDICT_DUTY = 2;
 
 /** OTA tuning entry point; the whitelist clamps before this is called. */

@@ -101,6 +101,33 @@ var SPEC = {
   // whose cost is a lost birth. Here the same 6 is still inside what
   // finding 52 priced (11 junk / 143 real), so the dial may reach it.
   GENDER_IMAGE_NM_FLOOR: [0, 6, function (v) { genderVerdict.setImageNmFloor(v); }],
+
+  // THE THUMBNAIL BAR (1106). The image rule is INVERTED relative to the
+  // video one: `flaggedFaceIndices` marks unless a read is CONFIDENTLY
+  // his gender, so a weak read IS a patch, where on video a weak read
+  // is evidence toward a clear. Finding 55, on 1,249 hand-labelled MAN
+  // reads through the shipped rule: 80.3% of wrong blurs are a WEAK MALE
+  // read and only 2.2% actually read female. The model is not calling
+  // his men women -- this bar is discarding correct answers.
+  //
+  // 0.40 -> 0.35 measured: 137 -> 105 blurred men (-2.6 pts) for 57 -> 69
+  // uncovered women (+1.3 pts). AN EXPOSURE TRADE, so it ships UNCHANGED
+  // at 0.40 and the dial exists so the ruling no longer needs a build.
+  // The floor stops at 0.25 because below that the band starts admitting
+  // reads the video path itself calls no-signal.
+  GENDER_IMAGE_MIN_SCORE: [0.25, 0.60, function (v) { genderVerdict.setImageMinScore(v); }],
+
+  // THE STILL-SCENE VERDICT CLOCK (1106) -- see cadence.mjs for the
+  // measurement and for why it keeps the `!anyBlurredTrack()` gate.
+  // 0 ships and is inert. The ceiling is 4000 for the same reason
+  // VERDICT_MAX_INTERVAL_MS stops there.
+  STATIC_VERDICT_MS: [0, 4000, function (v) { cadence.setStaticVerdictMs(v); }],
+  // What counts as still. His phone's own ring: 10.3% of ticks at or
+  // under 2, 17.3% under 3 (ships), 32.0% under 5. Raising it classifies
+  // more of a moving scene as still, which is why it stops at 6 -- p50
+  // on that same ring is 6.8, and a threshold at the median would call
+  // half of ordinary camera motion static.
+  STATIC_DELTA: [1, 6, function (v) { sceneGate.setStaticDelta(v); }],
   // GREY: feed faceres luma instead of colour. 0 is today's behaviour and
   // is what ships, so 1098-style the switch and the revert both travel
   // over OTA. It is a straight [0,1] switch rather than a blend -- there
@@ -410,6 +437,9 @@ var GETTERS = {
   GENDER_CLEAR_SCORE_FEMALE: function () { return genderVerdict.GENDER_CLEAR_SCORE_FEMALE; },
   NULL_MINT_NM_FLOOR: function () { return genderVerdict.NULL_MINT_NM_FLOOR; },
   GENDER_IMAGE_NM_FLOOR: function () { return genderVerdict.GENDER_IMAGE_NM_FLOOR; },
+  GENDER_IMAGE_MIN_SCORE: function () { return genderVerdict.GENDER_IMAGE_MIN_SCORE; },
+  STATIC_VERDICT_MS: function () { return cadence.STATIC_VERDICT_MS; },
+  STATIC_DELTA: function () { return sceneGate.STATIC_DELTA; },
   GENDER_GREY: function () { return genderInput.GENDER_GREY; },
   MEM_TRUST_MAN: function () { return identityMemory.MEM_TRUST_MAN; },
   MEM_TRUST_WOMAN: function () { return identityMemory.MEM_TRUST_WOMAN; },

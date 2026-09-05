@@ -163,6 +163,26 @@ var META = {
       + ' fewer real faces. Set it to 0 to mark every face the model reports.',
     dp: 1, step: 0.5, zero: 'off',
   },
+  GENDER_IMAGE_MIN_SCORE: {
+    group: 'advanced', label: 'Thumbnail certainty needed',
+    desc: 'How sure the app must be that a face in the feed is your gender'
+      + ' before it leaves it alone. Lower blurs fewer men it was only'
+      + ' half-sure about, and misses slightly more women.',
+    dp: 2, step: 0.05,
+  },
+  STATIC_VERDICT_MS: {
+    group: 'advanced', label: 'Still-scene slowdown',
+    desc: 'When the picture stops changing and nothing is blurred, wait this'
+      + ' long between checks instead of the usual gap. Saves work on locked-off'
+      + ' shots. Set it to 0 to check just as often as always.',
+    dp: 0, step: 250, zero: 'off',
+  },
+  STATIC_DELTA: {
+    group: 'advanced', label: 'What counts as still',
+    desc: 'How little the picture has to change to be called a still scene.'
+      + ' Higher treats more gentle camera movement as still.',
+    dp: 0, step: 1,
+  },
   MEM_TRUST_MAN: {
     group: 'advanced', label: 'Memory trust (man)',
     desc: 'How many clear reads a face needs before the app remembers it and clears it instantly next time.',

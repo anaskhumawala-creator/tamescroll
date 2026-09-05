@@ -946,6 +946,13 @@ export function setClearScore(v) { GENDER_CLEAR_SCORE = v; }
 export function setClearScoreFemale(v) { GENDER_CLEAR_SCORE_FEMALE = v; }
 export function setNmFloor(v) { NULL_MINT_NM_FLOOR = v; }
 export function setImageNmFloor(v) { GENDER_IMAGE_NM_FLOOR = v; }
+// THE THUMBNAIL BAR, now dialable (1106). Finding 55: on 1,249 hand-
+// labelled MAN reads through the shipped image rule, 80.3% of wrong
+// blurs are a WEAK MALE read and only 2.2% actually read female -- the
+// model rarely thinks his men are women, the bar throws away correct
+// answers. It had no setter, no whitelist entry and no gear label, so
+// moving it took a build and could not be reverted without another.
+export function setImageMinScore(v) { GENDER_IMAGE_MIN_SCORE = v; }
 
 // ---------------------------------------------------------------------
 // TRACK-MEAN: average a person's gender reads instead of trusting the
