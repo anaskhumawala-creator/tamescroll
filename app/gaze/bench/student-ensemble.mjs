@@ -167,3 +167,89 @@ console.log('');
 console.log('If ONLY STUDENT is near zero the student adds nothing anywhere and the');
 console.log('rank-average above is noise. If it is large, the two models fail in');
 console.log('different places and the combination is worth an exposure trade.');
+
+// ---------------------------------------------------------------------
+// MATCHED EXPOSURE, because AUC cannot decide an exposure trade.
+//
+// This repo's standing rule: the shipped clear bar sits far above the
+// label boundary, so a label flip between 0.50 and 0.725 changes nothing
+// that ships, and any arm wins an accuracy column by leaning female --
+// which is a threshold move in disguise. Each arm solves ITS OWN bar to
+// a common woman-exposure and only then is false cover on men read.
+// Findings 29, 40, 41, 45, 47 and 50 each turned on exactly this.
+function matched(score, target) {
+  const women = score.filter((_, i) => Y[i] === 0);
+  const men = score.filter((_, i) => Y[i] === 1);
+  const bars = [...new Set(score)].sort((a, b) => a - b);
+  let bar = bars[bars.length - 1];
+  for (const b of bars) {
+    if (women.filter((v) => v >= b).length / women.length <= target) { bar = b; break; }
+  }
+  return {
+    bar,
+    expo: women.filter((v) => v >= bar).length / women.length,
+    fc: men.filter((v) => v < bar).length / men.length,
+  };
+}
+console.log('');
+console.log('MATCHED EXPOSURE (women cleared <= 1.6%), false cover on men:');
+console.log('arm                       bar   exposure   FALSE COVER');
+const arms = [['faceres (shipped)', F], ['student', S],
+  ['rank-avg 50/50', rankAvg]];
+for (const w of [0.1, 0.2, 0.3]) {
+  arms.push([`mix ${(w * 100).toFixed(0)}% student`,
+    S.map((_, i) => ((1 - w) * rf[i] + w * rs[i]) / n)]);
+}
+for (const [name, v] of arms) {
+  const m = matched(v, 0.016);
+  console.log(name.padEnd(24)
+    + m.bar.toFixed(3).padStart(7)
+    + (100 * m.expo).toFixed(1).padStart(9) + '%'
+    + (100 * m.fc).toFixed(1).padStart(12) + '%');
+}
+console.log('');
+console.log('THIS is the column that decides whether HIS OWN GENDER gets blurred,');
+console.log('and it is his ruling rather than a judgement call. A mix that wins on');
+console.log('AUC and loses here is not an improvement.');
+
+// ---------------------------------------------------------------------
+// THE ONLY MIXES THAT CAN ACTUALLY SHIP.
+//
+// Everything above rank-mixes, and A RANK IS NOT COMPUTABLE AT RUNTIME.
+// Ranks need the whole population; his phone has one face and two
+// numbers. A bench that reports a gain only reachable in rank space has
+// measured something the app can never do -- which is the same class of
+// error as a bench that re-derives a shipped rule, and it would have
+// been quoted as a shippable 44% cut.
+//
+// A shippable rule is a pure function of the two raw scores. Two are
+// tested: a weighted average of the probabilities, and a weighted
+// average in LOGIT space, which is the natural one for two independent
+// opinions (adding logits is multiplying odds) and is what a naive
+// probability average approximates badly near 0 and 1.
+const logit = (p) => Math.log(Math.max(1e-6, Math.min(1 - 1e-6, p))
+  / (1 - Math.max(1e-6, Math.min(1 - 1e-6, p))));
+console.log('');
+console.log('RUNTIME-IMPLEMENTABLE MIXES (a function of the two raw scores only):');
+console.log('rule                      bar   exposure   FALSE COVER      AUC');
+const shippable = [['faceres alone', F]];
+for (const w of [0.1, 0.2, 0.3, 0.5]) {
+  shippable.push([`prob  ${(w * 100).toFixed(0)}% student`,
+    S.map((_, i) => (1 - w) * F[i] + w * S[i])]);
+}
+for (const w of [0.1, 0.2, 0.3, 0.5]) {
+  shippable.push([`logit ${(w * 100).toFixed(0)}% student`,
+    S.map((_, i) => (1 - w) * logit(F[i]) + w * logit(S[i]))]);
+}
+for (const [name, v] of shippable) {
+  const m = matched(v, 0.016);
+  console.log(name.padEnd(24)
+    + m.bar.toFixed(3).padStart(7)
+    + (100 * m.expo).toFixed(1).padStart(9) + '%'
+    + (100 * m.fc).toFixed(1).padStart(12) + '%'
+    + A(v).toFixed(4).padStart(9));
+}
+console.log('');
+console.log('If a row here matches the rank-mix gain, the combination ships. If the');
+console.log('gain lives only in rank space, it is a property of the bench and not');
+console.log('of anything the phone can compute.');
