@@ -1,0 +1,96 @@
+{
+  "coremltools": "9.0",
+  "models": {
+    "blazeface": {
+      "ok": true,
+      "path": "Z:\\Apps\\Disconnect\\spikes\\native\\coreml\\blazeface.mlmodel",
+      "inputs": [
+        [
+          "input",
+          "multiArrayType"
+        ]
+      ],
+      "outputs": [
+        [
+          "Identity",
+          "multiArrayType"
+        ],
+        [
+          "Identity_1",
+          "multiArrayType"
+        ],
+        [
+          "Identity_2",
+          "multiArrayType"
+        ],
+        [
+          "Identity_3",
+          "multiArrayType"
+        ]
+      ],
+      "seconds": 3.1
+    },
+    "faceres": {
+      "ok": true,
+      "path": "Z:\\Apps\\Disconnect\\spikes\\native\\coreml\\faceres.mlmodel",
+      "inputs": [
+        [
+          "input_1",
+          "multiArrayType"
+        ]
+      ],
+      "outputs": [
+        [
+          "Identity",
+          "multiArrayType"
+        ],
+        [
+          "Identity_1",
+          "multiArrayType"
+        ],
+        [
+          "Identity_2",
+          "multiArrayType"
+        ]
+      ],
+      "seconds": 3.4
+    },
+    "movenet-heads": {
+      "ok": true,
+      "path": "Z:\\Apps\\Disconnect\\spikes\\native\\coreml\\movenet-heads.mlmodel",
+      "inputs": [
+        [
+          "input",
+          "multiArrayType"
+        ]
+      ],
+      "outputs": [
+        [
+          "Identity",
+          "multiArrayType"
+        ],
+        [
+          "Identity_1",
+          "multiArrayType"
+        ],
+        [
+          "Identity_2",
+          "multiArrayType"
+        ],
+        [
+          "Identity_3",
+          "multiArrayType"
+        ],
+        [
+          "Identity_4",
+          "multiArrayType"
+        ],
+        [
+          "Identity_5",
+          "multiArrayType"
+        ]
+      ],
+      "seconds": 5.0
+    }
+  }
+}

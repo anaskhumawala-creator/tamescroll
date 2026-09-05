@@ -50,3 +50,7 @@ app/gaze/bench/gpu/.bundle.js
 # Built APKs staged for a release upload (94MB each).
 dist-apk/
 .overnight/*.png
+
+# Core ML conversions (33MB, regenerate with spikes/native/convert_coreml.py)
+spikes/native/coreml/*.mlmodel
+spikes/native/coreml/*.npz
