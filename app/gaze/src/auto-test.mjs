@@ -85,6 +85,17 @@ export var PROTECTION_DIALS = [
   'PERSON_SKIP_EVERY', 'PTRACK_MIN_COAST_PASSES', 'PTRACK_IOU_MIN',
   'VERDICT_MAX_INTERVAL_MS', 'VERDICT_DUTY', 'GENDER_REFRESH_MS',
   'CUT_PERSON_LOOK', 'DELAY_MS', 'NATIVE_INFER',
+  // 1106's three. Each decides coverage, so none of them may ever be an
+  // arm, however perf-shaped two of them look:
+  //   GENDER_IMAGE_MIN_SCORE is the thumbnail bar itself.
+  //   STATIC_VERDICT_MS delays a VERDICT -- the same class as
+  //     VERDICT_MAX_INTERVAL_MS and VERDICT_DUTY above. Its
+  //     !anyBlurredTrack() gate means it cannot extend the cover on
+  //     someone already blurred, but it CAN delay noticing a person who
+  //     walks into a still scene, and that is exposure.
+  //   STATIC_DELTA decides what counts as still, so raising it feeds
+  //     more of a moving scene to the dial above.
+  'GENDER_IMAGE_MIN_SCORE', 'STATIC_VERDICT_MS', 'STATIC_DELTA',
 ];
 
 function store(g, which) {

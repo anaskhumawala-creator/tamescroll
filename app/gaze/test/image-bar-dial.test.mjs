@@ -28,6 +28,7 @@ import {
 import * as cadence from '../src/cadence.mjs';
 import * as sceneGate from '../src/scene-gate.mjs';
 import { applyTuning } from '../src/tuning.mjs';
+import { PROTECTION_DIALS, ARMS } from '../src/auto-test.mjs';
 
 const SHIPPED_BAR = 0.4;
 
@@ -113,5 +114,24 @@ test('STATIC_VERDICT_MS is allowed ABOVE the moving-scene cap', () => {
       'a still scene may relax past the moving-scene cap');
   } finally {
     applyTuning({ STATIC_VERDICT_MS: 0 });
+  }
+});
+
+test('all three new dials are protected from page-triggered A/B arms', () => {
+  // auto-test.mjs lets a PAGE flip which fixed arm runs next. That is
+  // safe only while no arm can reach a dial that decides who gets
+  // covered. Two of 1106's three look perf-shaped and are not:
+  // STATIC_VERDICT_MS delays a VERDICT (the same class as
+  // VERDICT_MAX_INTERVAL_MS, already on the list) and STATIC_DELTA feeds
+  // it. Adding a dial without classifying it is the actual hazard here.
+  for (const k of ['GENDER_IMAGE_MIN_SCORE', 'STATIC_VERDICT_MS', 'STATIC_DELTA']) {
+    assert.ok(PROTECTION_DIALS.includes(k), `${k} must be a protection dial`);
+  }
+  // And the guard is only worth anything if no shipped arm violates it.
+  for (const arm of ARMS) {
+    for (const k of Object.keys(arm.over || {})) {
+      assert.ok(!PROTECTION_DIALS.includes(k),
+        `arm "${arm.name}" reaches protection dial ${k}`);
+    }
   }
 });
