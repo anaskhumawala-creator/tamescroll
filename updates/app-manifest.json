@@ -1,7 +1,7 @@
 {
-  "versionCode": 1112,
-  "versionName": "0.1.112",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.112/tamescroll-v0.1.112.apk",
-  "sha256": "da34319317582ec3ad8d4c27259fe81cd68f4c399ddfcd50f2be5211b832ad0b",
-  "notes": "A Shorts link now plays in the normal player. Hiding Shorts clears channel pages too."
+  "versionCode": 1113,
+  "versionName": "0.1.113",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.113/tamescroll-1113.apk",
+  "sha256": "0119d88ae4d32aa54876d64896b9db4109bd6c97e5cbbde2590f1ce96493efc6",
+  "notes": "Tapping a platform tile now responds instantly instead of freezing for half a second while the page loads."
 }
