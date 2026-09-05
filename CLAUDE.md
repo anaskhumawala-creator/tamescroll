@@ -5,6 +5,18 @@ hash-verified. His phone `e3d369ee` and the old Redmi on the cable.
 HIS DIRECTION 18:00: app improvement first, stores later WITH him. The
 direction memo is artifact 30a38158; his five calls are listed there.)
 
+**1111/1112 (evening):** Subscriptions was BLANK with the default
+settings -- the mobile home grid IS the Subscriptions grid; fixed with
+`html[data-ts-page]` written by the bundle and a scoped rule (fails
+closed on old bundles). Shorts: channel tab hidden with the surface;
+/shorts/<id> always opens /watch (Rust for outside links, shorts-
+redirect.mjs in-page). Speed pass (probe_speed.py, coordinates must be
+CSS px inside 406x816): home 1.15s, subs 1.36s, search 1.7s, watch
+2.1-3.0s to playing with blur off OR smart (YouTube's responseEnd is
+1.3-1.7s of it), tap-to-playing 1.1-1.6s, scroll 1% dropped frames,
+thumbnail appear-to-verdict p50 248ms p95 629ms. Our code is not the
+slow part; remaining "feel" levers are UX (skeletons, launcher wait).
+
 **1110:** DELAY_LATE_ATTACH ships 1 -- presenter attaches after the
 first verdict, whole video blurred until then; measured on his phone
 first-10s drops 11.9% -> 1.8%, 60s 5.6% -> 0.9% (run_startup_ab.py).
