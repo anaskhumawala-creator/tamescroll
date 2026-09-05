@@ -69,7 +69,10 @@ youtube.com##ytd-browse[page-subtype="home"] ytd-feed-filter-chip-bar-renderer
 ! works before trusting this beyond the home page.
 ! test: on m.youtube.com home in the Android app ->
 !   the feed grid is empty; search and subscriptions still render
-m.youtube.com##ytm-browse ytm-rich-grid-renderer
+! Scoped on the page attribute the gaze bundle writes (init-entry,
+! 2026-09-05): the same grid IS the Subscriptions feed and the channel
+! page, and this rule blanked both. Fails closed until the attribute lands.
+m.youtube.com##html:not([data-ts-page="feed"]):not([data-ts-page="channel"]) ytm-browse ytm-rich-grid-renderer
 m.youtube.com##ytm-single-column-browse-results-renderer ytm-rich-section-renderer
 
 ! THE HOME FEED IS NOT ONLY A GRID. Owner 2026-08-30, on his phone with

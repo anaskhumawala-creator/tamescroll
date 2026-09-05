@@ -181,3 +181,14 @@ runs; welcome screen fine at 1442px; copy made device-neutral.
 
 ## 2026-09-05 18:20 -- 1110 shipped
 DELAY_LATE_ATTACH 1, open-a-link, image-budget dials, credits. sha256 9807fcdc87ed226006019ece0f84f347498c9a362dc60c5f6226e3ad78c7185f.
+
+## 2026-09-05 18:35 -- bring-back sweep found Subscriptions blank (manual)
+probe_bringback.py, every YouTube surface shown alone on his phone: all
+toggles do what their label says. BUG: m.youtube's Subscriptions feed
+is the same ytm-rich-grid-renderer as the home feed, so the default
+(home hidden) blanked Subscriptions and channel pages. Fix: the bundle
+writes html[data-ts-page] from pageKind() (feed/channel/home/...), the
+grid rule is scoped `html:not([data-ts-page="feed"]):not([data-ts-page=
+"channel"])` -- fails closed on old bundles. pageKind gains 'feed' for
+/feed/*. DELAY_LATE_ATTACH code default now 1 (tuning test insists json
+== code). 1111 building.

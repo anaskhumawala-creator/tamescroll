@@ -225,6 +225,7 @@ export function pageKind(platform, path) {
     if (/^\/watch/.test(p)) return 'watch';
     if (/^\/results/.test(p)) return 'search';
     if (/^\/(@|channel|c|user)/.test(p)) return 'channel';
+    if (/^\/feed\//.test(p)) return 'feed';
     if (p === '/' || p === '') return 'home';
     return 'other';
   }

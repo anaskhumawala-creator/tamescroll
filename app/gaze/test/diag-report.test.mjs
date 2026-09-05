@@ -371,3 +371,10 @@ test('a ring with no guard data reports zero refusals, not null', () => {
   assert.equal(r.images.nullRefused, 0, '"never fired" must not read as "no data"');
   assert.equal(r.images.shown, 1, 'and shown is what tells them apart');
 });
+
+test('youtube /feed/* is its own page kind, so the home rule can leave Subscriptions alone', () => {
+  assert.equal(d.pageKind('youtube', '/feed/subscriptions'), 'feed');
+  assert.equal(d.pageKind('youtube', '/feed/you'), 'feed');
+  assert.equal(d.pageKind('youtube', '/'), 'home');
+  assert.equal(d.pageKind('youtube', '/@LinusTechTips'), 'channel');
+});

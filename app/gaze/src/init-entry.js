@@ -144,6 +144,26 @@ if (
   startWorker();
 } else
 (function () {
+  // THE PAGE KIND, ON <html>, FOR THE RULES TO SCOPE ON (2026-09-05).
+  // m.youtube uses the same ytm-rich-grid-renderer on the home feed AND
+  // on Subscriptions, and the home-feed rule hid both: with the shipped
+  // defaults the Subscriptions tab was a blank page. CSS cannot see the
+  // URL, so this writes `data-ts-page` from pageKind() at start and on
+  // every navigation, and rules/youtube.txt scopes the grid rule on it.
+  // Fails CLOSED: until the attribute lands the rule still hides.
+  try {
+    var tsPagePlatform = platformOf(location.hostname);
+    var tsPageLast = null;
+    var syncTsPage = function () {
+      var k = pageKind(tsPagePlatform, location.pathname);
+      if (k === tsPageLast) return;
+      tsPageLast = k;
+      document.documentElement.setAttribute('data-ts-page', k);
+    };
+    syncTsPage();
+    window.addEventListener('popstate', syncTsPage);
+    setInterval(syncTsPage, 500);
+  } catch (e) { /* a missing attribute only keeps the feed hidden */ }
   // Distinctive, minification-proof marker (property assignment with a
   // string literal — esbuild won't rename it) so the Rust side can prove
   // this exact bundle is what got injected. See lib.rs gaze tests.

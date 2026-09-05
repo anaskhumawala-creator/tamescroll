@@ -37,7 +37,7 @@ export function setDelayMs(v) {
 // the ring's per-frame copies stop competing with YouTube's own start
 // and the pipeline's warm-up for the first second. Ships 0; measured
 // on his phone before it moves.
-export var DELAY_LATE_ATTACH = 0; // OTA [0, 1]
+export var DELAY_LATE_ATTACH = 1; // OTA [0, 1]; measured 2026-09-05, ships 1
 export function setDelayLateAttach(v) {
   DELAY_LATE_ATTACH = v;
 }
