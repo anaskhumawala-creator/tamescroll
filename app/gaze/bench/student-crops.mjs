@@ -30,9 +30,19 @@ import fs from 'fs';
 import path from 'path';
 import { squareBox } from '../src/crop-geometry.mjs';
 
+// `--dense` cuts from the 2fps bank instead of frames-scan's one frame
+// every four seconds. The student's domain gap is why: at 1 frame per 4s
+// his own footage was 1.3% of the training set, against 0.9435 AUC on
+// FairFace and 0.7891 on his corpus. Same function, two roots -- a second
+// copy of the crop loop would drift from `squareBox`, which is the exact
+// defect crop-geometry.mjs exists to prevent.
+const DENSE = process.argv.includes('--dense');
 const CORPUS = 'Z:/tamescroll-corpus';
-const OUT = `${CORPUS}/student`;
-const DET = JSON.parse(fs.readFileSync(`${CORPUS}/bank/gpu-frames-detect.json`, 'utf8'));
+const OUT = DENSE ? `${CORPUS}/student-dense` : `${CORPUS}/student`;
+const FRAMES = DENSE ? `${CORPUS}/frames-dense` : `${CORPUS}/frames-scan`;
+const DET = JSON.parse(fs.readFileSync(DENSE
+  ? `${CORPUS}/bank/dense-detect.json`
+  : `${CORPUS}/bank/gpu-frames-detect.json`, 'utf8'));
 
 function readPpm(file) {
   const buf = fs.readFileSync(file);
@@ -100,7 +110,7 @@ let frames = 0;
 let noFile = 0;
 let empty = 0;
 for (const fr of DET) {
-  const src = `${CORPUS}/frames-scan/${fr.crop}`;
+  const src = `${FRAMES}/${fr.crop}`;
   if (!fs.existsSync(src)) { noFile++; continue; }
   if (!fr.faces || !fr.faces.length) { empty++; continue; }
   const frame = readPpm(src);

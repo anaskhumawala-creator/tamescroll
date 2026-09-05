@@ -51,7 +51,15 @@ MODEL = 'dima806/fairface_gender_image_detection'
 ap = argparse.ArgumentParser()
 ap.add_argument('--batch', type=int, default=64)
 ap.add_argument('--out', default=CORPUS + '/student/teacher.json')
+# `--dense` labels the 2fps bank (39,186 crops) instead of the 1-per-4s
+# one (5,451). The student's own numbers are why: AUC 0.9435 on held-out
+# FairFace against 0.7891 on his corpus, with his footage at 1.3% of the
+# training set.
+ap.add_argument('--dense', action='store_true')
 a = ap.parse_args()
+DOM = CORPUS + ('/student-dense' if a.dense else '/student')
+if a.dense and a.out.endswith('/teacher.json'):
+    a.out = CORPUS + '/student/teacher-dense.json'
 
 
 def read_ppm(path):
@@ -69,9 +77,9 @@ def read_ppm(path):
 rows = []
 
 # --- pool 1: his own frames, native resolution -----------------------
-idx = json.load(open(CORPUS + '/student/index.json'))
+idx = json.load(open(DOM + '/index.json'))
 for r in idx:
-    rows.append({'pool': 'domain', 'path': CORPUS + '/student/crops/' + r['crop'],
+    rows.append({'pool': 'domain', 'path': DOM + '/crops/' + r['crop'],
                  # `crop` STAYS, not just `path`. The first run dropped it
                  # with the absolute path and the trainer could not find a
                  # single file -- a bank that cannot be joined back to its
@@ -81,7 +89,10 @@ for r in idx:
                  'faceresRaw': r['raw'], 'faceresAge': r['age'], 'faceresNm': r['nm']})
 
 # --- pool 2: FairFace, identity diversity ----------------------------
-ff = json.load(open(CORPUS + '/fairface/full.json'))
+# Skipped on a --dense run: the validation split's soft targets are
+# already in teacher.json and re-running dima over them would spend four
+# minutes to reproduce numbers byte for byte.
+ff = [] if a.dense else json.load(open(CORPUS + '/fairface/full.json'))
 for r in ff:
     p = os.path.join(CORPUS, 'fairface', 'full', r['file'])
     if os.path.exists(p):

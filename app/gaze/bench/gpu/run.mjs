@@ -191,10 +191,49 @@ function thumbsWork() {
   }
   return { work, root };
 }
+// THE STUDENT'S TRAINING CROPS, for FEATURE DISTILLATION.
+//
+// The from-scratch student learns gender well on portraits (held-out
+// FairFace AUC 0.9435) and does not transfer to his video (corpus
+// 0.7891). That is the classic symptom of a trunk too small and a
+// dataset too narrow to LEARN A FACE REPRESENTATION -- faceres does not
+// have that problem because it is a face-RECOGNITION trunk trained on
+// millions of identities, and gender falls out of the representation.
+//
+// So the student should not have to invent one. `--pop=student --desc=1`
+// banks faceres' 1024-d descriptor for every training crop, and the
+// student's trunk is then trained to REPRODUCE it while dima supplies
+// the gender labels. Two teachers, each for the thing it is actually
+// good at. Nothing in this repo has tried it; finding 46 measured that
+// the descriptor is 0.893 correlated with faceres' own gender head,
+// which is a reason a LINEAR probe on it cannot beat faceres -- and no
+// reason at all that a student trunk cannot be taught the same features.
+function studentWork() {
+  const roots = ['Z:/tamescroll-corpus/student-dense', 'Z:/tamescroll-corpus/student'];
+  const root = roots.find((r) => fs.existsSync(r + '/index.json'));
+  if (!root) throw new Error('no student crop bank -- run student-crops.mjs first');
+  const idx = JSON.parse(fs.readFileSync(root + '/index.json', 'utf8'));
+  // Interleaved by video, same reason framesWork interleaves: a --limit
+  // slice of a per-video listing is one video.
+  const by = new Map();
+  for (const r of idx) {
+    if (!by.has(r.vid)) by.set(r.vid, []);
+    by.get(r.vid).push({ vid: r.vid, crop: r.crop, px: r.px, frame: r.frame });
+  }
+  const buckets = [...by.values()];
+  const work = [];
+  for (let i = 0; ; i++) {
+    let any = false;
+    for (const b of buckets) if (i < b.length) { any = true; work.push(b[i]); }
+    if (!any) break;
+  }
+  return { work, root: root + '/crops' };
+}
 const { work: allWork, root: CROPROOT } =
   POP === 'thumbs' ? thumbsWork()
     : POP === 'frames' ? framesWork()
       : POP === 'dense' ? framesWork('Z:/tamescroll-corpus/frames-dense')
+      : POP === 'student' ? studentWork()
       : POP === 'fairfull' ? fairfaceFullWork()
         : POP === 'fairface' ? fairfaceWork()
           : corpusWork();

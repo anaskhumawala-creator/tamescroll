@@ -79,9 +79,25 @@ ap.add_argument('--temp', type=float, default=1.0)
 # LOST on his videos.
 ap.add_argument('--domain-oversample', type=int, default=1)
 ap.add_argument('--val-frac', type=float, default=0.10)
+# FEATURE DISTILLATION. Weight on the loss that makes the student's trunk
+# reproduce faceres' 1024-d descriptor, alongside dima's gender targets.
+#
+# WHY IT IS THE LAST STRUCTURAL IDEA. A 140k-parameter net is being asked
+# to learn a FACE REPRESENTATION from 137k pictures. faceres does not
+# have that problem: it is a face-RECOGNITION trunk trained on millions
+# of identities, and gender falls out of the representation it already
+# has. The student does not need to invent one -- it can be taught to
+# copy the one that ships, for free, from crops we already own.
+#
+# Finding 46 measured pearson(faceres head, descriptor probe) = 0.893,
+# which is why a LINEAR probe on that descriptor cannot beat faceres.
+# It says nothing about a student TRUNK taught the same features and
+# then given a better gender teacher, which is a different experiment.
+ap.add_argument('--feat', type=float, default=0.0)
 ap.add_argument('--out', default=None)
 a = ap.parse_args()
-TAG = 'w%g-s%d-%s' % (a.width, a.size, a.input)
+TAG = 'w%g-s%d-%s%s' % (a.width, a.size, a.input,
+                        ('-feat%g' % a.feat) if a.feat > 0 else '')
 OUT = a.out or (CORPUS + '/student/run-%s.json' % TAG)
 
 dev = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -191,6 +207,22 @@ rows = json.load(open(CORPUS + '/student/teacher.json'))
 # with training loss falling to 0.16 while held-out AUC decayed from
 # epoch 15. That is a memorised training set, not a wrong idea, and 8x
 # the data is the first thing to try against it.
+# THE DENSE IN-DOMAIN BANK REPLACES THE SPARSE ONE. 39,186 crops off the
+# same ten videos at 2fps against 5,451 at one frame per four seconds --
+# the same faces, the same sizes (p50 99px against 97px), seven times as
+# many. It is a REPLACEMENT and not an addition: the two banks overlap in
+# content and training on both would weight whatever the 4-second grid
+# happened to land on.
+DENSE = CORPUS + '/student/teacher-dense.json'
+if os.path.exists(DENSE):
+    rows = [r for r in rows if r['pool'] != 'domain']
+    rows += json.load(open(DENSE))
+    print('dense in-domain bank present: %d crops (was 5,451 at 1 per 4s)'
+          % sum(r['pool'] == 'domain' for r in rows))
+    DOMROOT = CORPUS + '/student-dense/crops/'
+else:
+    DOMROOT = CORPUS + '/student/crops/'
+
 FFT = CORPUS + '/student/teacher-fftrain.json'
 if os.path.exists(FFT):
     rows += json.load(open(FFT))
@@ -203,7 +235,7 @@ print('teacher rows %d  (domain %d, fairface %d)'
 paths, tgt, pool, vid = [], [], [], []
 for r in rows:
     if r['pool'] == 'domain':
-        paths.append(CORPUS + '/student/crops/' + r['crop'])
+        paths.append(DOMROOT + r['crop'])
     elif r['pool'] == 'fftrain':
         paths.append(CORPUS + '/fairface-train/ppm/' + r['file'])
     else:
@@ -243,6 +275,43 @@ else:
     open(DONE, 'w').write(str(len(paths)))
     print('decoded in %.0fs, %.1f GB' % (time.time() - T0, X.nbytes / 1e9))
 
+# --- faceres descriptors for the in-domain crops, for --feat ---------
+# Only the in-domain pool has them, and that is the pool that matters:
+# the representation the student is missing is the one for HIS frames.
+# FairFace rows carry no descriptor and simply skip the feature term --
+# mixed supervision, which is normal for this technique.
+DESCF = CORPUS + '/bank/student-desc.json'
+DESC = None
+if a.feat > 0:
+    if not os.path.exists(DESCF):
+        raise SystemExit('--feat needs %s; run:'
+                         '  node app/gaze/bench/gpu/run.mjs --pop=student '
+                         '--backend=webgl --arms=grey --desc=1 --out=student-desc' % DESCF)
+    print('loading faceres descriptors...', flush=True)
+    drows = json.load(open(DESCF))
+    dmap = {r['crop']: r for r in drows if r.get('greyDesc')}
+    DESC = np.zeros((len(paths), 1024), dtype=np.float32)
+    HASD = np.zeros(len(paths), bool)
+    for i, r in enumerate(rows):
+        if r['pool'] != 'domain':
+            continue
+        d = dmap.get(r['crop'])
+        if d:
+            DESC[i] = d['greyDesc']
+            HASD[i] = True
+    print('  %d of %d in-domain crops carry a descriptor'
+          % (HASD.sum(), sum(r['pool'] == 'domain' for r in rows)))
+    # THE SPREAD CHECK, on the TEACHER'S FEATURES this time. A descriptor
+    # bank that came back constant would train the student to emit a
+    # constant vector and the feature loss would fall beautifully to zero
+    # while teaching nothing -- the same shape as the saturated-model
+    # failure this repo shipped once already.
+    dspread = float(DESC[HASD].std(0).mean())
+    print('  mean per-dimension std %.4f' % dspread)
+    if dspread < 1e-3:
+        raise SystemExit('*** DESCRIPTOR BANK IS CONSTANT -- the feature loss would '
+                         'teach a constant vector and look like success.')
+
 # --- the evaluation corpus: HIS labelled reads, never trained on -----
 labels = json.load(open(CORPUS + '/bank/label/labels.json'))
 clusters = json.load(open(CORPUS + '/bank/label/clusters.json'))
@@ -271,7 +340,7 @@ print('fold A videos: %s' % ', '.join(v for v in vids if FOLD[v] == 0))
 print('fold B videos: %s' % ', '.join(v for v in vids if FOLD[v] == 1))
 
 # --- the scale distribution the augmentation samples from ------------
-idx = json.load(open(CORPUS + '/student/index.json'))
+idx = json.load(open(CORPUS + ('/student-dense' if os.path.exists(DENSE) else '/student') + '/index.json'))
 NATIVE = np.array(sorted(max(r['w'], r['h']) for r in idx))
 print('native crop size p05 %d p50 %d p95 %d'
       % (NATIVE[int(0.05 * len(NATIVE))], NATIVE[len(NATIVE) // 2],
@@ -435,14 +504,49 @@ for fold in (0, 1):
     #
     # The slice is FairFace only. Holding out in-domain crops instead
     # would validate on the same people the corpus scores on.
+    # THREE-WAY SPLIT BY VIDEO, and the two-way one it replaces was
+    # actively choosing the wrong model.
+    #
+    # With a FairFace-only validation set the stopping rule watched a
+    # curve that RISES while the one that matters FALLS. Measured on this
+    # very run (fold A, 39k in-domain crops, oversample 3):
+    #
+    #   ep  5   val(FairFace) 0.8678   corpus 0.8476
+    #   ep 10   val           0.9145   corpus 0.8370
+    #   ep 15   val           0.9407   corpus 0.7822
+    #
+    # The model trades his domain for portrait accuracy, and "best
+    # validation epoch" would have picked epoch 25. Selecting on the
+    # corpus instead is test-set selection -- the defect this session
+    # already caught in dima-distil.py, worth +0.009 of pure optimism.
+    #
+    # So the validation set is IN-DOMAIN and comes from videos that are
+    # in neither the training half nor the scoring half. It carries
+    # TEACHER labels, not human ones, so it costs nothing to build and
+    # cannot leak the hand-labelled corpus. Ten videos: five train, two
+    # validate, three score.
     trn_idx = np.where(tr)[0]
-    ff_of = pool[trn_idx] != 'domain'
     vrng = np.random.default_rng(20260905)
-    vmask = np.zeros(len(trn_idx), bool)
-    ffpos = np.where(ff_of)[0]
-    vmask[vrng.choice(ffpos, int(a.val_frac * len(ffpos)), replace=False)] = True
-    va_idx = trn_idx[vmask]
-    fit_idx = trn_idx[~vmask]
+    # Videos in the SCORING half, minus the two held back to validate on.
+    score_vids = [v for v in vids if FOLD[v] != fold]
+    val_vids = set(score_vids[:2])
+    dom_of = pool[trn_idx] == 'domain'
+    # in-domain crops from the validation videos -- these are in the
+    # scoring half, so they were never in `tr`; pull them in explicitly
+    val_dom = np.where((pool == 'domain') & np.isin(vid, list(val_vids)))[0]
+    # a FairFace slice rides along so the curve can still be read on
+    # portraits, but the STOPPING signal below is the in-domain one
+    ffpos = trn_idx[~dom_of]
+    val_ff = vrng.choice(ffpos, int(a.val_frac * len(ffpos)), replace=False)
+    va_idx = val_dom
+    va_ff_idx = val_ff
+    # and the scoring set loses those two videos, or the number would be
+    # read on footage the stopping rule watched
+    te = te & ~np.isin(evid, list(val_vids))
+    fit_idx = trn_idx
+    print('  validate on %s (%d in-domain crops); score on %s'
+          % (', '.join(sorted(val_vids)), len(val_dom),
+             ', '.join(v for v in score_vids if v not in val_vids)))
     # OVERSAMPLE THE IN-DOMAIN POOL. FairFace outnumbers his footage
     # heavily once the train split is in; finding 50 measured what a
     # FairFace-tuned head does on his videos and the answer was "loses".
@@ -455,15 +559,23 @@ for fold in (0, 1):
     Tfit = tgt[fit_idx]
     Xva = np.ascontiguousarray(X[va_idx])
     Tva = tgt[va_idx]
+    Xvf = np.ascontiguousarray(X[va_ff_idx])
+    Tvf = tgt[va_ff_idx]
     print('  fit %d (%d domain, oversample x%d)   val %d fairface'
           % (len(fit_idx), (pool[fit_idx] == 'domain').sum(),
              a.domain_oversample, len(va_idx)))
 
     torch.manual_seed(20260905 + fold)
     model = Student(a.width).to(dev)
+    # THE PROJECTION. The student's pooled trunk is 256-d at width 1.0
+    # and faceres' descriptor is 1024-d, so the feature loss goes through
+    # one linear layer. It is TRAINING-ONLY scaffolding: it is never
+    # exported, so the shipped model carries not one extra byte for it.
+    proj = torch.nn.Linear(spec(a.width)[-1][1], 1024).to(dev) if a.feat > 0 else None
     nparam = sum(p.numel() for p in model.parameters())
     print('  params %d  (faceres 3.5M, dima 85.8M)' % nparam)
-    opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=1e-4)
+    params = list(model.parameters()) + (list(proj.parameters()) if proj else [])
+    opt = torch.optim.AdamW(params, lr=a.lr, weight_decay=1e-4)
     steps = a.epochs * max(1, len(fit_idx) // a.batch)
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=a.lr, total_steps=steps)
     rng = np.random.default_rng(7 + fold)
@@ -483,8 +595,31 @@ for fold in (0, 1):
             # another image's target. Random-order paging is slower and
             # correct.
             x = prep(np.ascontiguousarray(X[fit_idx[sel]]), True, rng)
-            loss = nn.functional.binary_cross_entropy_with_logits(
-                model(x).squeeze(1), Tt[torch.from_numpy(sel).to(dev)])
+            if proj is None:
+                loss = nn.functional.binary_cross_entropy_with_logits(
+                    model(x).squeeze(1), Tt[torch.from_numpy(sel).to(dev)])
+            else:
+                # One forward pass, two heads off the SAME pooled trunk:
+                # dima's gender target and faceres' descriptor.
+                h = model.body(x).mean((2, 3))
+                logit = model.head(h).squeeze(1)
+                loss = nn.functional.binary_cross_entropy_with_logits(
+                    logit, Tt[torch.from_numpy(sel).to(dev)])
+                rows_sel = fit_idx[sel]
+                m = HASD[rows_sel]
+                if m.any():
+                    # COSINE, not L2. faceres' descriptor is matched
+                    # downstream by cosine similarity (identity-memory's
+                    # MEM_SIM 0.6 is a dot product on L2-normalised
+                    # vectors), so the DIRECTION is the thing that
+                    # carries meaning and its magnitude is the null test
+                    # the pipeline reads separately as `nm`. An L2 loss
+                    # would spend the student's capacity on reproducing a
+                    # magnitude nothing downstream compares.
+                    tgt_d = torch.from_numpy(DESC[rows_sel][m]).to(dev)
+                    pred_d = proj(h[torch.from_numpy(m).to(dev)])
+                    fl = 1 - nn.functional.cosine_similarity(pred_d, tgt_d, dim=1).mean()
+                    loss = loss + a.feat * fl
             opt.zero_grad()
             loss.backward()
             opt.step()
@@ -496,9 +631,16 @@ for fold in (0, 1):
         # VALIDATION AUC against the TEACHER's own ordering, which is what
         # the student is being asked to reproduce. Using the hard labels
         # here would score the student on the teacher's 6.5% error too.
+        # THE STOPPING SIGNAL IS THE IN-DOMAIN ONE. The FairFace column
+        # is printed beside it because the two disagree, and watching
+        # only the one that rises is how the previous rule picked the
+        # worst epoch for his footage.
         vr = infer(model, Xva)
         vlab = (Tva >= 0.5).astype(int)
         vA = auc(vr[vlab == 1], vr[vlab == 0])
+        vf = infer(model, Xvf)
+        vflab = (Tvf >= 0.5).astype(int)
+        vfA = auc(vf[vflab == 1], vf[vflab == 0])
         if vA > best['val']:
             best = {'val': float(vA), 'ep': ep + 1,
                     'state': {k: v.detach().clone() for k, v in model.state_dict().items()}}
@@ -508,8 +650,9 @@ for fold in (0, 1):
             r = infer(model, EX[te])
             A = auc(r[ey[te] == 1], r[ey[te] == 0])
             fc, bar = matched(r, ey[te], ecid[te])
-            print('  ep %2d  loss %.4f   val AUC %.4f   [corpus AUC %.4f  fc %.1f%%]'
-                  % (ep + 1, tot / max(1, nb), vA, A, fc), flush=True)
+            print('  ep %2d  loss %.4f   val(in-domain) %.4f  val(fairface) %.4f'
+                  '   [corpus AUC %.4f  fc %.1f%%]'
+                  % (ep + 1, tot / max(1, nb), vA, vfA, A, fc), flush=True)
     print('  best validation epoch %d (val AUC %.4f) -- restoring it'
           % (best['ep'], best['val']))
     model.load_state_dict(best['state'])
