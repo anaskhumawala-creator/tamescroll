@@ -1,5 +1,52 @@
 ## Session state (update every session)
 
+**Last updated:** 2026-09-05 16:40 (**1107 IS THE RELEASE, sha 23eab0c2**,
+hash-verified. HEAD pushed, tree clean. His phone `e3d369ee` on the cable.
+Context was cleared at his request right after this block was written.)
+
+**THE 30-MINUTE LOOP (cron `9a4ac51e`) WAS SESSION-ONLY.** After a /clear,
+run CronList; if it is gone, re-create it (every 30 min, expires 2026-09-12)
+with the brief "work `docs/autonomy-log.md`'s queue top-down, append a tick,
+never take an exposure trade". Its log and queue live in that file.
+
+**HIS RULING THIS SESSION, in his words:** *"what's the point of leaving
+out the main features and just building in a hurry"* -- **build the front
+door FIRST, then the Play closed test.** The plumbing shipped (1107 links
+open here, sign-in verified live: `LOGGED_IN: true`); the guided flow did
+not. Queue is reordered: (i) the guided "make tamescroll your YouTube"
+onboarding, (j) the Play build variant, then the old c-h perf items.
+
+**MEASURED ON HIS PHONE, and it dictates the onboarding design:** the
+YouTube app's links are `system_configured` (OEM pre-verified), and a bare
+`youtu.be` tap opens the YouTube app in EVERY state we can set on our own
+package -- enabling ours changes nothing, and per-host `set-app-links-
+user-selection false` on YouTube changes nothing. **The one recipe that
+works: YouTube's MASTER "Open supported links" toggle OFF
+(`pm set-app-links-allowed ... false`) + ours ON -> tamescroll wins.**
+`pm disable-user` on YouTube is refused by MIUI (no result, not a finding).
+All of it reverted; YouTube enabled, our selection back to Disabled. So the
+flow is: (1) open YouTube's own Open-by-default page and have the user flip
+its master toggle off, (2) open ours and flip on, (3) pin a YouTube
+shortcut via `requestPinShortcut`, (4) offer YouTube's app-info page for
+uninstall. Whether `DomainVerificationManager.getDomainVerificationUserState`
+can READ YouTube's state (to show a "done" tick) is unverified.
+
+**Store decisions this session:** YouTube-first listing; other tiles stay
+in the app, each earns its name after a measured pass. Tauri stays (his
+question, answered: correct). Licences: everything is store-safe except
+the three uBO GPLv3 lists -- drop them, elect EasyList CC BY-SA; one
+unverified item is faceres' upstream HSE licence (check before Apple).
+Reports: "The replacement app" (artifact 51c8b82b) and "What Hijri First
+already paid for" (artifact 3e1aaa17). Hijri gives us the Apple team,
+the personal Play account (=> 12 testers x 14 days for any new app),
+EU non-trader; not EAS (Tauri). Play build must drop the updater AND
+`REQUEST_INSTALL_PACKAGES`; new apps need an AAB. Upload key: waits for
+his "make the key"; keep it on Z:. iOS: needs a cloud Mac (GH Actions
+macOS / Codemagic) plus the Core ML port; his cousin's iPhone for
+TestFlight later.
+
+---
+
 **Last updated:** 2026-09-05 15:10 (**1107 PUBLISHED, sha 23eab0c2** --
 served APK re-downloaded and hashed against the RAW manifest, isDraft
 false, 94,864,540 bytes. HEAD pushed. Installed on HIS phone

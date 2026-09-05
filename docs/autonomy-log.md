@@ -77,3 +77,21 @@ Owner asked whether he needs to sign in; he was already signed in. Read
 live off his phone via CDP (`probe_signin.py`, scratch): `LOGGED_IN:
 true`, avatar present, `/feed/library`, SID cookie set. The
 disallowed_useragent risk named in the replacement report is CLOSED.
+
+## 2026-09-05 16:40 -- his ruling: front door first (manual)
+He asked whether his list was implemented. Honest tally: link plumbing
+shipped (1107), guided onboarding NOT built. Measured on his phone: the
+YouTube app wins a bare tap in every state of OUR package; only YouTube's
+master "Open supported links" OFF + ours ON hands the tap to tamescroll.
+`pm disable-user` refused by MIUI. All settings reverted.
+
+## Queue state (reordered on his ruling)
+- [ ] i. guided "make tamescroll your YouTube" onboarding: open YouTube's
+      Open-by-default page (master toggle off) -> ours (on) -> pin YouTube
+      shortcut (requestPinShortcut) -> offer YouTube app-info for uninstall;
+      show a done-state if DomainVerificationManager can read it
+- [ ] j. Play build variant: updater + REQUEST_INSTALL_PACKAGES out, AAB,
+      drop the 3 GPLv3 uBO lists; upload key waits for his "make the key"
+- [ ] c. still-scene clock (local build)   - [ ] d. image budgets on OTA
+- [ ] e. delay-presenter cover dial        - [ ] h. serialise adblock engine
+- [x] g. updater kill-switch design -> folded into j
