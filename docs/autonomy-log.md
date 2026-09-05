@@ -149,3 +149,9 @@ reach is not proven by this run. Not worth a build. Parked.
 Also seen: 1109 refuses the 4 new image-budget keys (tuning.refused=4),
 as designed, until the next build.
 - [~] c. still-scene clock: measured, no win, parked
+
+## 2026-09-05 17:55 -- his ruling: uBO lists stay, as data
+Reverses the morning's "drop them, elect EasyList": the YouTube ad rules
+live only there. Lists are filter data consumed by the engine, same
+stance as Brave/AdGuard (rules/vendor/README.md). Applies to the Play
+build too. No code change.
