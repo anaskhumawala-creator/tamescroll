@@ -62,74 +62,112 @@ ap.add_argument('--size', type=int, default=112)
 ap.add_argument('--width', type=float, default=1.0)
 ap.add_argument('--probe', type=int, default=32)
 ap.add_argument('--outdir', default='Z:/tamescroll-corpus/student/export')
+# TWO STAGES, TWO INTERPRETERS, AND THAT IS NOT A WORKAROUND -- IT IS THE
+# MACHINE. torch+CUDA lives in Z:/ml/venv; tensorflow lives in
+# spikes/native/venv; neither has the other and installing torch into the
+# TF venv would put 200MB somewhere for one function call. The proven
+# bridge in spikes/torch-keras-bridge already worked this way.
+#
+#   Z:/ml/venv/Scripts/python.exe        ... --stage torch
+#   spikes/native/venv/Scripts/python.exe ... --stage keras
+#
+# The torch stage writes the weights AND the probe AND torch's own
+# outputs; the keras stage reads all three and gates on them. The probe
+# outputs cross the boundary deliberately: a gate that re-ran the torch
+# model on the keras side would not be a cross-framework check at all.
+ap.add_argument('--stage', choices=['torch', 'keras'], required=True)
 a = ap.parse_args()
+BRIDGE = os.path.join(a.outdir, os.path.basename(a.model).replace('.pt', '') + '.npz')
 
-from student_arch import spec  # noqa: E402  (one spec, both frameworks)
+from student_spec import spec  # noqa: E402  (torch-free; both stages)
 
 # --- torch side -------------------------------------------------------
-import torch  # noqa: E402
-import torch.nn as nn  # noqa: E402
-from student_arch import Student  # noqa: E402
+if a.stage == 'torch':
+  import torch  # noqa: E402
+  from student_arch import Student  # noqa: E402
 
-model = Student(a.width)
-model.load_state_dict(torch.load(a.model, map_location='cpu'))
-model.eval()
-NP = sum(p.numel() for p in model.parameters())
-print('torch params %d   %s' % (NP, os.path.basename(a.model)))
+  model = Student(a.width)
+  model.load_state_dict(torch.load(a.model, map_location='cpu'))
+  model.eval()
+  NP = sum(p.numel() for p in model.parameters())
+  print('torch params %d   %s' % (NP, os.path.basename(a.model)))
 
-# THE PROBE IS REAL PIXELS, NOT NOISE. A random tensor lands nowhere near
-# the manifold the net was trained on, and a net evaluated off-manifold
-# can produce a narrow output range for reasons that have nothing to do
-# with the port. These are the first `--probe` crops of his own corpus.
-import json  # noqa: E402
-from PIL import Image  # noqa: E402
+  # THE PROBE IS REAL PIXELS, NOT NOISE. A random tensor lands nowhere near
+  # the manifold the net was trained on, and a net evaluated off-manifold
+  # can produce a narrow output range for reasons that have nothing to do
+  # with the port. These are the first `--probe` crops of his own corpus.
+  import json  # noqa: E402
+  from PIL import Image  # noqa: E402
 
-CORPUS = 'Z:/tamescroll-corpus'
-idx = json.load(open(CORPUS + '/student/index.json'))[:a.probe]
-
-
-def read_ppm(path):
-    with open(path, 'rb') as fh:
-        assert fh.readline().strip() == b'P6'
-        line = fh.readline()
-        while line.startswith(b'#'):
-            line = fh.readline()
-        w, h = [int(x) for x in line.split()]
-        fh.readline()
-        return np.frombuffer(fh.read(w * h * 3), dtype=np.uint8).reshape(h, w, 3)
+  CORPUS = 'Z:/tamescroll-corpus'
+  idx = json.load(open(CORPUS + '/student/index.json'))[:a.probe]
 
 
-X = np.stack([
-    np.asarray(Image.fromarray(read_ppm(CORPUS + '/student/crops/' + r['crop']))
-               .resize((a.size, a.size), Image.BILINEAR), dtype=np.float32) / 255.0
-    for r in idx])
-X = (X - 0.5) / 0.5
-X = X.astype(np.float32)
+  def read_ppm(path):
+      with open(path, 'rb') as fh:
+          assert fh.readline().strip() == b'P6'
+          line = fh.readline()
+          while line.startswith(b'#'):
+              line = fh.readline()
+          w, h = [int(x) for x in line.split()]
+          fh.readline()
+          return np.frombuffer(fh.read(w * h * 3), dtype=np.uint8).reshape(h, w, 3)
 
-with torch.no_grad():
-    yt = torch.sigmoid(model(torch.from_numpy(X).permute(0, 3, 1, 2).contiguous())).numpy()
 
-spread_t = float(yt.max() - yt.min())
-print('torch output   min %.4f  max %.4f  SPREAD %.4f' % (yt.min(), yt.max(), spread_t))
-if spread_t < 0.05:
-    raise SystemExit(
-        '*** REFUSING TO GATE: the probe outputs span %.4f. A parity check on a\n'
-        '*** model that answers the same thing to every input cannot fail, which\n'
-        '*** is how this bridge shipped a broken padding rule that read as 6.4e-04.'
-        % spread_t)
+  X = np.stack([
+      np.asarray(Image.fromarray(read_ppm(CORPUS + '/student/crops/' + r['crop']))
+                 .resize((a.size, a.size), Image.BILINEAR), dtype=np.float32) / 255.0
+      for r in idx])
+  X = (X - 0.5) / 0.5
+  X = X.astype(np.float32)
 
-# --- weights, in Keras order -----------------------------------------
-W = {}
-for k, v in model.state_dict().items():
-    arr = v.detach().cpu().numpy()
-    if arr.ndim == 4:
-        # depthwise [C,1,kh,kw] -> [kh,kw,C,1]; conv [O,I,kh,kw] -> [kh,kw,I,O]
-        arr = arr.transpose(2, 3, 0, 1) if arr.shape[1] == 1 else arr.transpose(2, 3, 1, 0)
-    elif arr.ndim == 2:
-        arr = arr.T
-    W[k] = arr
+  with torch.no_grad():
+      yt = torch.sigmoid(model(torch.from_numpy(X).permute(0, 3, 1, 2).contiguous())).numpy()
+
+  spread_t = float(yt.max() - yt.min())
+  print('torch output   min %.4f  max %.4f  SPREAD %.4f' % (yt.min(), yt.max(), spread_t))
+  if spread_t < 0.05:
+      raise SystemExit(
+          '*** REFUSING TO GATE: the probe outputs span %.4f. A parity check on a\n'
+          '*** model that answers the same thing to every input cannot fail, which\n'
+          '*** is how this bridge shipped a broken padding rule that read as 6.4e-04.'
+          % spread_t)
+
+  # --- weights, in Keras order -----------------------------------------
+  W = {}
+  for k, v in model.state_dict().items():
+      arr = v.detach().cpu().numpy()
+      if arr.ndim == 4:
+          # depthwise [C,1,kh,kw] -> [kh,kw,C,1]; conv [O,I,kh,kw] -> [kh,kw,I,O]
+          arr = arr.transpose(2, 3, 0, 1) if arr.shape[1] == 1 else arr.transpose(2, 3, 1, 0)
+      elif arr.ndim == 2:
+          arr = arr.T
+      W[k] = arr
+
+  if a.stage == 'torch':
+      os.makedirs(a.outdir, exist_ok=True)
+      np.savez(BRIDGE, X=X, yt=yt, **{('w_' + k): v for k, v in W.items()})
+      print('')
+      print('stage 1 done: %s' % BRIDGE)
+      print('now run the SAME command with spikes/native/venv and --stage keras')
+      raise SystemExit(0)
 
 # --- keras side -------------------------------------------------------
+# NO TORCH BEYOND THIS LINE. Everything the gate compares against -- the
+# probe pixels, torch's own outputs, and the weights already transposed
+# into Keras order -- crossed the boundary as a .npz. Re-running the
+# torch model here would not be a cross-framework check.
+_b = np.load(BRIDGE)
+X = _b['X']
+yt = _b['yt']
+W = {k[2:]: _b[k] for k in _b.files if k.startswith('w_')}
+NP = int(sum(v.size for k, v in W.items() if not k.endswith(('running_mean', 'running_var', 'num_batches_tracked'))))
+spread_t = float(yt.max() - yt.min())
+print('bridge %s   probe %d   torch spread %.4f' % (os.path.basename(BRIDGE), len(X), spread_t))
+if spread_t < 0.05:
+    raise SystemExit('*** REFUSING TO GATE: probe spread %.4f -- a check that cannot fail.'
+                     % spread_t)
+
 import tensorflow as tf  # noqa: E402
 from tensorflow import keras  # noqa: E402
 from tensorflow.keras import layers as L  # noqa: E402

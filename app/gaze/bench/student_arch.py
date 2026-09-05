@@ -17,17 +17,9 @@
 import torch
 import torch.nn as nn
 
-
-def spec(w=1.0):
-    """(kind, filters, stride) per block. 'cbr' full conv, 'dw' separable.
-
-    Filters are rounded to a multiple of 8 -- both TFLite's GPU delegate
-    and the tfjs WebGL backend pack channels in fours, and an odd channel
-    count costs a padded texture for nothing.
-    """
-    base = [('cbr', 16, 2), ('dw', 32, 2), ('dw', 64, 2), ('dw', 64, 1),
-            ('dw', 128, 2), ('dw', 128, 1), ('dw', 256, 2), ('dw', 256, 1)]
-    return [(k, max(8, int(round(f * w / 8)) * 8), s) for k, f, s in base]
+# ONE COPY, and it lives in a module with no imports so the Keras side
+# (which has no torch) can read the same stack. See student_spec.py.
+from student_spec import spec
 
 
 class TFPad(nn.Module):

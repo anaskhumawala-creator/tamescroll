@@ -222,7 +222,13 @@ vid = np.array([v or '' for v in vid])
 # on the previous pool -- which is the "re-read a bank after a re-run"
 # rule this repo learned the hard way.
 CACHE = CORPUS + '/student/X-%d-%d.npy' % (a.size, len(paths))
-if os.path.exists(CACHE):
+# A STAMP FILE, WRITTEN ONLY AFTER THE LAST ROW. `open_memmap` PREALLOCATES
+# the whole file, so an interrupted decode leaves a full-size .npy whose
+# tail is zeros -- and `os.path.exists` cannot tell that from a finished
+# one. A killed run left exactly that here, and the next arm would have
+# trained on 33,000 black images and reported the result as a finding.
+DONE = CACHE + '.done'
+if os.path.exists(CACHE) and os.path.exists(DONE):
     X = np.load(CACHE, mmap_mode='r')
     print('decoded cache %s  %.1f GB' % (os.path.basename(CACHE), X.nbytes / 1e9))
 else:
@@ -234,6 +240,7 @@ else:
         if i % 10000 == 0:
             print('  %d (%.0fs)' % (i, time.time() - T0), flush=True)
     X.flush()
+    open(DONE, 'w').write(str(len(paths)))
     print('decoded in %.0fs, %.1f GB' % (time.time() - T0, X.nbytes / 1e9))
 
 # --- the evaluation corpus: HIS labelled reads, never trained on -----
@@ -401,7 +408,12 @@ for f in (0, 1):
 results = []
 for fold in (0, 1):
     # TRAIN on FairFace + the in-domain crops of ONE half of the videos.
-    tr = (pool == 'fairface') | np.array([v != '' and FOLD[v] == fold for v in vid])
+    # EVERY FAIRFACE POOL, not just the validation split. This read
+    # `pool == 'fairface'` and silently excluded all 86,744 rows of the
+    # TRAIN split -- the run would have trained on the same 16k as the
+    # two failed ones and reported it as the answer to "does more data
+    # help". Caught by reading the fold's own printed counts.
+    tr = (pool != 'domain') | np.array([v != '' and FOLD[v] == fold for v in vid])
     # SCORE on his labelled reads from the OTHER half.
     te = np.array([FOLD.get(v, 1 - fold) != fold for v in evid])
     Xtr = X[tr]

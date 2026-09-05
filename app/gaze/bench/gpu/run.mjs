@@ -143,8 +143,15 @@ function fairfaceFullWork() {
 // detection here is a detection he would get. 3,809 frames.
 //
 // Interleaved by video so a --limit slice does not become one video.
-function framesWork() {
-  const root = 'Z:/tamescroll-corpus/frames-scan';
+// `--pop=dense` is the SAME function over the 2fps bank. The student's
+// domain gap (FairFace AUC 0.94 against his corpus 0.785) is the reason
+// it exists: `frames-scan` samples one frame every FOUR SECONDS, so the
+// in-domain half of the student's training set was 1.3% of it. One
+// function, two roots -- a second copy of the interleave would drift,
+// and the interleave is load-bearing (a --limit slice of a per-video
+// listing is one video).
+function framesWork(root) {
+  root = root || 'Z:/tamescroll-corpus/frames-scan';
   const vids = fs.readdirSync(root).filter((d) => fs.statSync(path.join(root, d)).isDirectory()).sort();
   const buckets = vids.map((v) => fs.readdirSync(path.join(root, v)).filter((f) => f.endsWith('.ppm')).sort()
     .map((f) => ({ vid: v, frame: f, crop: v + '/' + f })));
@@ -187,6 +194,7 @@ function thumbsWork() {
 const { work: allWork, root: CROPROOT } =
   POP === 'thumbs' ? thumbsWork()
     : POP === 'frames' ? framesWork()
+      : POP === 'dense' ? framesWork('Z:/tamescroll-corpus/frames-dense')
       : POP === 'fairfull' ? fairfaceFullWork()
         : POP === 'fairface' ? fairfaceWork()
           : corpusWork();
