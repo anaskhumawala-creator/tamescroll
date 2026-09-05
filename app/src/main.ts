@@ -20,6 +20,7 @@ const views = {
   launcher: document.querySelector<HTMLElement>("#view-launcher")!,
   settings: document.querySelector<HTMLElement>("#view-settings")!,
   onboard: document.querySelector<HTMLElement>("#view-onboard")!,
+  links: document.querySelector<HTMLElement>("#view-links")!,
 };
 
 function showView(name: keyof typeof views) {
@@ -739,6 +740,148 @@ function renderManage(platforms: Platform[]) {
   host.append(details);
 }
 
+// ---------- links: make tamescroll your YouTube (1108) ----------
+//
+// MEASURED ON HIS PHONE: YouTube's links are system_configured, so a
+// bare youtu.be tap opens the YouTube app in every state of OUR package.
+// The one recipe that works is YouTube's master "Open supported links"
+// OFF plus ours ON. Android gives no API to set either; it gives one to
+// open the exact page. So this screen walks the user through both
+// switches, then proves it with a real link. State comes from the OS
+// where it will say (DomainVerificationManager, API 31+) and from the
+// probe otherwise; a field the OS refuses is null, never guessed.
+
+type LinksBridge = {
+  openDefaultApps(pkg: string | null): void;
+  openAppInfo(pkg: string): void;
+  probe(): void;
+  pinShortcut(id: string): void;
+  state(): string;
+};
+type PkgLinkState = { allowed?: boolean; hosts?: Record<string, number> };
+type LinksState = {
+  probed?: boolean;
+  youtubeInstalled?: boolean;
+  ours?: PkgLinkState;
+  youtube?: PkgLinkState;
+};
+
+const YOUTUBE_PKG = "com.google.android.youtube";
+const linksBridge = (window as unknown as { TsLinks?: LinksBridge }).TsLinks;
+const linksCard = document.querySelector<HTMLElement>("#links-card")!;
+let linksReturn: () => void = () => showView("launcher");
+
+function readLinksState(): LinksState {
+  if (!linksBridge) return {};
+  try {
+    const parsed = JSON.parse(linksBridge.state());
+    return parsed && typeof parsed === "object" ? (parsed as LinksState) : {};
+  } catch {
+    return {};
+  }
+}
+
+// Ours "on" = the master switch allowed AND youtu.be selected (1) or
+// verified (2). Unknown when the OS would not say.
+function oursOn(s: LinksState): boolean | null {
+  if (!s.ours || typeof s.ours.allowed !== "boolean") return null;
+  const v = s.ours.hosts?.["youtu.be"] ?? 0;
+  return s.ours.allowed && v > 0;
+}
+function youtubeOff(s: LinksState): boolean | null {
+  if (s.youtubeInstalled === false) return true;
+  if (!s.youtube || typeof s.youtube.allowed !== "boolean") return null;
+  return !s.youtube.allowed;
+}
+function linksOwned(s: LinksState): boolean {
+  if (s.probed) return true;
+  return oursOn(s) === true && youtubeOff(s) === true;
+}
+
+function linksApplicable(): boolean {
+  return !!linksBridge && (readChosen() ?? []).includes("youtube");
+}
+
+function renderLinksCard() {
+  if (!linksApplicable()) {
+    linksCard.hidden = true;
+    return;
+  }
+  const s = readLinksState();
+  const owned = linksOwned(s);
+  linksCard.hidden = false;
+  document.querySelector<HTMLElement>("#links-card-tick")!.className = owned ? "tick on" : "tick warn";
+  document.querySelector<HTMLElement>("#links-card-title")!.textContent = owned
+    ? "YouTube links open here"
+    : "YouTube links still open in the YouTube app";
+  document.querySelector<HTMLElement>("#links-card-body")!.textContent = owned
+    ? "A link from WhatsApp or mail lands in tamescroll, cleaned."
+    : "Two switches and a test. Takes a minute.";
+  const btn = document.querySelector<HTMLButtonElement>("#links-card-btn")!;
+  btn.textContent = owned ? "Review" : "Set up";
+}
+
+function renderLinksView() {
+  const s = readLinksState();
+  const rows: Record<string, boolean | null> = {
+    "yt-off": youtubeOff(s),
+    "ours-on": oursOn(s),
+    probe: s.probed ? true : null,
+  };
+  document.querySelectorAll<HTMLElement>("#links-steps .step").forEach((li) => {
+    const done = rows[li.dataset.step ?? ""] === true;
+    li.classList.toggle("done", done);
+  });
+  const uninstall = document.querySelector<HTMLElement>('.step[data-step="uninstall"]')!;
+  uninstall.hidden = s.youtubeInstalled === false;
+  const note = document.querySelector<HTMLElement>("#links-note")!;
+  if (linksOwned(s)) {
+    note.textContent = "Done. YouTube links open in tamescroll.";
+  } else if (rows["yt-off"] === null && rows["ours-on"] === null) {
+    note.textContent = "This phone won't report the switches, so the test is the proof.";
+  } else {
+    note.textContent = "";
+  }
+}
+
+function openLinksView(returnTo: () => void) {
+  linksReturn = returnTo;
+  renderLinksView();
+  showView("links");
+}
+
+document.querySelectorAll<HTMLButtonElement>("#view-links [data-act]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    if (!linksBridge) return;
+    try {
+      switch (btn.dataset.act) {
+        case "yt-off": linksBridge.openDefaultApps(YOUTUBE_PKG); break;
+        case "ours-on": linksBridge.openDefaultApps(null); break;
+        case "probe": linksBridge.probe(); break;
+        case "pin": linksBridge.pinShortcut("youtube"); break;
+        case "uninstall": linksBridge.openAppInfo(YOUTUBE_PKG); break;
+      }
+    } catch {
+      document.querySelector<HTMLElement>("#links-note")!.textContent =
+        "That page wouldn't open. Find it under Settings, Apps.";
+    }
+  });
+});
+// The user comes back from a system page: re-read what the OS says.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  if (!views.links.hidden) renderLinksView();
+  if (!views.launcher.hidden) renderLinksCard();
+});
+document.querySelector<HTMLButtonElement>("#links-done")!.addEventListener("click", () => linksReturn());
+document.querySelector<HTMLButtonElement>("#links-back")!.addEventListener("click", () => linksReturn());
+document.querySelector<HTMLButtonElement>("#links-card-btn")!.addEventListener("click", () => {
+  openLinksView(() => {
+    showView("launcher");
+    renderLinksCard();
+  });
+});
+
 // ---------- settings view ----------
 
 const PANES = ["bringback", "filters", "blur", "protection", "about"] as const;
@@ -770,20 +913,25 @@ document.querySelector<HTMLButtonElement>("#settings-back")!.addEventListener("c
 function runOnboarding(platforms: Platform[], done: () => void) {
   showView("onboard");
   const steps = document.querySelectorAll<HTMLElement>(".ob-step");
-  const dots = document.querySelectorAll<HTMLElement>(".ob-dots i");
   const chosen = new Set<string>();
   let obGender: UserGender = "unset";
   let obMode: GazeMode = "smart";
 
+  const count = document.querySelector<HTMLElement>("#ob-count")!;
+  const back = document.querySelector<HTMLButtonElement>("#ob-back")!;
+  let current = 1;
+
   function goto(step: number) {
+    current = step;
     steps.forEach((el) => {
       el.hidden = Number(el.dataset.step) !== step;
     });
-    dots.forEach((el) => {
-      el.classList.toggle("on", Number(el.dataset.dot) <= step);
-    });
+    // Step 1 is the welcome, not a question; the counter starts after it.
+    count.textContent = step > 1 ? `${step - 1} of ${steps.length - 1}` : "";
+    back.hidden = step <= 1;
   }
 
+  back.addEventListener("click", () => goto(Math.max(1, current - 1)));
   document.querySelector<HTMLButtonElement>("#ob-start")!.addEventListener("click", () => goto(2));
 
   // Step 2: type-to-match platform entry.
@@ -870,31 +1018,26 @@ function runOnboarding(platforms: Platform[], done: () => void) {
         const p = platforms.find((x) => x.id === id);
         if (p) glyphs.append(glyphFor(p));
       });
+      // COMMIT HERE, not on the last button: the link flow's self-test
+      // reloads this page (a link arrival navigates the webview), and
+      // an uncommitted onboarding would start over.
+      writeChosen([...chosen]);
+      setGender(obGender);
+      setMode(obMode);
+      const linksBtn = document.querySelector<HTMLButtonElement>("#ob-links")!;
+      const linksNote = document.querySelector<HTMLElement>("#ob-links-note")!;
+      const offerLinks = linksApplicable();
+      linksBtn.hidden = !offerLinks;
+      linksNote.hidden = !offerLinks;
       goto(5);
     });
   });
 
-  // Step 5: commit everything and land on the launcher.
-  // "Open YouTube links here" (1107). Android only: the bridge is the
-  // only way to reach the OS's Open-by-default page, and no API sets it
-  // for the user. Hidden where the bridge is absent (desktop).
-  const links = (window as unknown as { TsLinks?: { openDefaultApps(): void } }).TsLinks;
-  const linksBtn = document.querySelector<HTMLButtonElement>("#ob-links");
-  if (linksBtn) {
-    if (links) {
-      linksBtn.addEventListener("click", () => {
-        try { links.openDefaultApps(); } catch { /* settings page unavailable */ }
-      });
-    } else {
-      linksBtn.hidden = true;
-    }
-  }
-  document.querySelector<HTMLButtonElement>("#ob-open")!.addEventListener("click", () => {
-    writeChosen([...chosen]);
-    setGender(obGender);
-    setMode(obMode);
-    done();
+  // Step 5: the handover (Android + YouTube chosen), or straight in.
+  document.querySelector<HTMLButtonElement>("#ob-links")!.addEventListener("click", () => {
+    openLinksView(done);
   });
+  document.querySelector<HTMLButtonElement>("#ob-open")!.addEventListener("click", () => done());
 
   goto(1);
 }
@@ -926,6 +1069,7 @@ function refreshAll() {
   const chosen = readChosen() ?? [];
   renderTiles(allPlatforms, chosen);
   renderManage(allPlatforms);
+  renderLinksCard();
   void renderBringBack(allPlatforms.filter((p) => p.ready && chosen.includes(p.id)));
 }
 

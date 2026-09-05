@@ -64,6 +64,12 @@ class MainActivity : TauriActivity() {
     // A dial JSON blob is a few dozen small numbers -- this is generous
     // headroom against a corrupted or hostile write, not a real budget.
     private const val TUNE_MAX_BYTES = 8 * 1024
+    // Link ownership (1108). The probe is a real public video; the
+    // ts_probe marker is what tells us the system chose us for it.
+    private const val YOUTUBE_PKG = "com.google.android.youtube"
+    private const val PROBE_URL = "https://youtu.be/jNQXAC9IVRw?ts_probe=1"
+    private const val LINKS_PREFS = "tamescroll.links"
+    private const val LINKS_PROBED = "probed"
   }
 
   // Platform requested by a home-screen shortcut before the webview
@@ -116,6 +122,11 @@ class MainActivity : TauriActivity() {
     if (scheme != "https" && scheme != "http") return null
     val host = u.host?.lowercase() ?: return null
     val id = linkHosts[host] ?: return null
+    // The self-test link came back to us: the system hands us youtu.be.
+    // Only a VIEW counts -- a SEND of the same url proves nothing.
+    if (intent?.action == Intent.ACTION_VIEW && u.getQueryParameter("ts_probe") == "1") {
+      getSharedPreferences(LINKS_PREFS, MODE_PRIVATE).edit().putBoolean(LINKS_PROBED, true).apply()
+    }
     return id to u.toString()
   }
 
@@ -221,23 +232,129 @@ class MainActivity : TauriActivity() {
   // exact page. Gated to the launcher: the interface is visible to every
   // page in the webview, and while popping the user's own settings
   // screen is not dangerous, a platform page has no business doing it.
+  //
+  // 1108, MEASURED ON HIS PHONE: YouTube's links are system_configured,
+  // so a bare youtu.be tap opens the YouTube app in every state of OUR
+  // package. The one recipe that hands the tap to tamescroll is
+  // YouTube's master "Open supported links" OFF plus ours ON. So the
+  // bridge can open the Open-by-default page for EITHER package (never
+  // a third), read both states back where the OS allows it, fire a
+  // self-test link, pin our YouTube shortcut, and open YouTube's
+  // app-info page for the user who wants it gone. `pm disable-user`
+  // is refused by MIUI, so nothing here tries to disable anything.
   inner class LinksBridge {
+    private fun fromLauncher(): Boolean {
+      val here = if (this@MainActivity::webView.isInitialized) webView.url ?: "" else ""
+      return here.startsWith("http://tauri.localhost/")
+    }
+
+    private fun allowedPkg(pkg: String?): String? =
+      if (pkg == null || pkg == packageName) packageName
+      else if (pkg == YOUTUBE_PKG) YOUTUBE_PKG else null
+
+    private fun launch(intent: Intent, what: String) {
+      try { startActivity(intent) } catch (e: Throwable) {
+        Log.w("TsLinks", "$what failed: " + e.message)
+      }
+    }
+
+    /** Open-by-default page for our package (pkg null) or YouTube. */
     @JavascriptInterface
-    fun openDefaultApps() {
+    fun openDefaultApps(pkg: String?) {
+      val target = allowedPkg(pkg) ?: return
       runOnUiThread {
-        val here = if (this@MainActivity::webView.isInitialized) webView.url ?: "" else ""
-        if (!here.startsWith("http://tauri.localhost/")) return@runOnUiThread
-        val intent = if (android.os.Build.VERSION.SDK_INT >= 31) {
+        if (!fromLauncher()) return@runOnUiThread
+        val intent = if (Build.VERSION.SDK_INT >= 31) {
           Intent(android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS,
-            Uri.parse("package:" + packageName))
+            Uri.parse("package:$target"))
         } else {
           Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-            Uri.parse("package:" + packageName))
+            Uri.parse("package:$target"))
         }
-        try { startActivity(intent) } catch (e: Throwable) {
-          Log.w("TsLinks", "open-by-default settings failed: " + e.message)
+        launch(intent, "open-by-default($target)")
+      }
+    }
+
+    /** Kept for the 1107 launcher bundle; same as openDefaultApps(null). */
+    @JavascriptInterface
+    fun openDefaultApps() = openDefaultApps(null)
+
+    /** YouTube's app-info page, where Uninstall / Disable live. */
+    @JavascriptInterface
+    fun openAppInfo(pkg: String?) {
+      val target = allowedPkg(pkg) ?: return
+      if (target == packageName) return
+      runOnUiThread {
+        if (!fromLauncher()) return@runOnUiThread
+        launch(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+          Uri.parse("package:$target")), "app-info($target)")
+      }
+    }
+
+    /** Fire a real youtu.be link through the system resolver. If the
+     * user's settings hand it to tamescroll it comes back through
+     * onNewIntent carrying ts_probe=1, and linkFromIntent records the
+     * win. If YouTube wins, the user sees YouTube and nothing is
+     * recorded -- which is the honest answer. */
+    @JavascriptInterface
+    fun probe() {
+      runOnUiThread {
+        if (!fromLauncher()) return@runOnUiThread
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(PROBE_URL))
+        intent.addCategory(Intent.CATEGORY_BROWSABLE)
+        launch(intent, "probe")
+      }
+    }
+
+    /** Pin one of our static shortcuts (shortcuts.xml ids only). */
+    @JavascriptInterface
+    fun pinShortcut(id: String?) {
+      if (id == null || id !in setOf("youtube", "reddit", "x", "tiktok", "instagram", "facebook")) return
+      runOnUiThread {
+        if (!fromLauncher()) return@runOnUiThread
+        if (Build.VERSION.SDK_INT < 26) return@runOnUiThread
+        try {
+          val sm = getSystemService(android.content.pm.ShortcutManager::class.java)
+          if (sm == null || !sm.isRequestPinShortcutSupported) return@runOnUiThread
+          val existing = sm.manifestShortcuts.firstOrNull { it.id == id } ?: return@runOnUiThread
+          sm.requestPinShortcut(existing, null)
+        } catch (e: Throwable) {
+          Log.w("TsLinks", "pin($id) failed: " + e.message)
         }
       }
+    }
+
+    /** What the OS says about both packages, plus whether a probe ever
+     * landed here. Fields the OS refuses to tell us are null, never
+     * guessed. Readable from any page but says nothing a page could
+     * not learn by firing a link itself. */
+    @JavascriptInterface
+    fun state(): String {
+      val o = JSONObject()
+      o.put("probed", getSharedPreferences(LINKS_PREFS, MODE_PRIVATE).getBoolean(LINKS_PROBED, false))
+      o.put("youtubeInstalled", try {
+        packageManager.getPackageInfo(YOUTUBE_PKG, 0); true
+      } catch (_: Throwable) { false })
+      if (Build.VERSION.SDK_INT >= 31) {
+        val dvm = getSystemService(android.content.pm.verify.domain.DomainVerificationManager::class.java)
+        for ((key, pkg) in listOf("ours" to packageName, "youtube" to YOUTUBE_PKG)) {
+          try {
+            val st = dvm.getDomainVerificationUserState(pkg) ?: continue
+            val j = JSONObject()
+            j.put("allowed", st.isLinkHandlingAllowed)
+            val hosts = JSONObject()
+            for ((host, v) in st.hostToStateMap) {
+              // 0 none, 1 selected (user), 2 verified
+              hosts.put(host, v)
+            }
+            j.put("hosts", hosts)
+            o.put(key, j)
+          } catch (e: Throwable) {
+            Log.w("TsLinks", "state($pkg): " + e.message)
+          }
+        }
+      }
+      return o.toString()
     }
   }
 

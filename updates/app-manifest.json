@@ -1,7 +1,7 @@
 {
-  "versionCode": 1107,
-  "versionName": "0.1.107",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.107/tamescroll-v0.1.107.apk",
-  "sha256": "23eab0c2ca8f26261b01f16ccbfb1bb497eceabb66543c71973382ebedc01e2e",
-  "notes": "YouTube links open inside tamescroll: share a link (or set Open by default) and the watch page opens here, with youtu.be short links resolved up front. The launcher no longer waits on the rule count before opening anything. GPU: the gender model's trial retries instead of dying silent (4x on Adreno), every losing path says why, and the report says how many models are off CPU. Three dials now travel over OTA: thumbnail certainty, still-scene slowdown, what counts as still."
+  "versionCode": 1108,
+  "versionName": "0.1.108",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.108/tamescroll-v0.1.108.apk",
+  "sha256": "a613bb22470068b20c1bd9b976e05ef396775528abbb83f239ee93c820ecccc9",
+  "notes": "New onboarding, guided 'make tamescroll your YouTube' link setup, and a cleaner home and settings."
 }

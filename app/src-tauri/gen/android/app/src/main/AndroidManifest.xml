@@ -9,6 +9,13 @@
     <!-- AndroidTV support -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
 
+    <!-- 1108: the link-ownership flow reads YouTube's Open-by-default
+         state and opens its settings pages. Package visibility (API 30+)
+         is needed for both; no other package is ever queried. -->
+    <queries>
+        <package android:name="com.google.android.youtube" />
+    </queries>
+
     <application
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"

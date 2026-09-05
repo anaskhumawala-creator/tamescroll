@@ -1,5 +1,39 @@
 ## Session state (update every session)
 
+**Last updated:** 2026-09-05 16:45 (**1108 IS THE RELEASE, sha a613bb22**.
+Installed on HIS phone `e3d369ee` and the old Redmi, both on the cable.)
+
+**WHAT 1108 IS -- the front door, his ruling of 16:40.** Grilled and
+specced (`docs/superpowers/specs/2026-09-05-front-door.md`): full reskin
+on the same identity (one type/spacing scale, tiles, cards, segmented
+settings nav, onboarding with a step counter and Back); onboarding opens
+with the four perks and closes with how to use it; a **links view**
+(`#view-links`) reached from onboarding and from a home card that shows
+ownership state. `TsLinks` grew `openDefaultApps(pkg)`, `openAppInfo`,
+`probe()`, `pinShortcut(id)`, `state()`; manifest gained `<queries>` for
+YouTube. No Rust change. cargo 65/65, gaze suite green, tsc clean.
+
+**MEASURED ON HIS PHONE THIS SESSION, and it settles the open question:**
+`DomainVerificationManager.getDomainVerificationUserState` READS
+YouTube's state (allowed + hosts=2) as well as ours, so the ticks are
+real, not guessed. The Android 16 page has NO "Open supported links"
+switch: it is **"In the app / In your browser"** plus **"Add link"** for
+ours -- copy says both phrasings. Self-test link: with YouTube allowed
+false + ours selected (set by `pm --user 0`, REVERTED after, probe pref
+deleted) the probe landed in tamescroll on the watch page and the card
+flipped to owned; with settings untouched it opened YouTube and recorded
+nothing. Both verified live. `pm set-app-links-*` needs `--user 0`.
+
+**NOT VERIFIED:** the pin-shortcut prompt (needs a finger; MIUI refuses
+adb input on his phone -- `INJECT_EVENTS`), the uninstall row beyond the
+page opening, desktop layout at width. `probe_frontdoor.py` drives the
+rest over CDP.
+
+**QUEUE:** j (Play build variant) next, then c/d/e/h. The 30-min loop
+was not re-created this session.
+
+---
+
 **Last updated:** 2026-09-05 16:40 (**1107 IS THE RELEASE, sha 23eab0c2**,
 hash-verified. HEAD pushed, tree clean. His phone `e3d369ee` on the cable.
 Context was cleared at his request right after this block was written.)

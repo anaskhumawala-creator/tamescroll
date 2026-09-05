@@ -95,3 +95,11 @@ master "Open supported links" OFF + ours ON hands the tap to tamescroll.
 - [ ] c. still-scene clock (local build)   - [ ] d. image budgets on OTA
 - [ ] e. delay-presenter cover dial        - [ ] h. serialise adblock engine
 - [x] g. updater kill-switch design -> folded into j
+
+## 2026-09-05 16:45 -- 1108 shipped: the front door (manual)
+Grilled (7 rulings), spec + plan in docs/superpowers. Reskin, new
+onboarding, links view + home card, TsLinks bridge extended. Verified
+on his phone: DomainVerificationManager reads YouTube's state; self-test
+link lands here when YouTube allowed=false + ours selected, opens
+YouTube otherwise. Settings reverted. Release a613bb22, hash-verified.
+- [x] i. guided onboarding (1108)
