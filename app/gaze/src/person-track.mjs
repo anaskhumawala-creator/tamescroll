@@ -1822,7 +1822,12 @@ export var PTRACK_MAX_COAST_MS = 2000;
 // is 800, well under 2000, so the desktop-measured ghost tuning is
 // untouched — the change only opens up where the pass is genuinely slow,
 // which is where the exposure was.
-export var PTRACK_MIN_COAST_PASSES = 2;
+// 2 -> 1.75 2026-09-05, from `bench/dial-sweep.mjs`. Free on both arms
+// alongside GENDER_CLEAR_SCORE 0.40 -- exposure unchanged, false cover
+// flat or better, and phantom (patch-seconds with nobody under them)
+// down ~10% on both. See gender-verdict.mjs's note for the numbers and
+// the by-video fold check.
+export var PTRACK_MIN_COAST_PASSES = 1.75;
 
 // The CLEARED limit needs exactly the same treatment, and not giving it
 // the same treatment was the mirror of the bug above (R9 critic). `dt` is

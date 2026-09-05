@@ -67,7 +67,15 @@ const D = 1024;
 // a value fitted here, and it sits one notch above an 8x exposure cliff
 // at 0.40, so it must be treated as a risk and not as a precedent.
 export const SIM = 0.60;
-export const NM_FLOOR = 5;      // NULL_MINT_NM_FLOOR, shipped
+// NULL_MINT_NM_FLOOR, READ LIVE. It was `= 5`, a hardcoded copy of the
+// shipped constant, in eight places -- so `bench/dial-sweep.mjs` sweeping
+// that dial moved the shipped `hasDescriptorSignal` and left every nm
+// gate in this file pinned at 5, and the resulting rows were half real.
+// Caught by the sweep's own dead-column check on its first run, which is
+// the third time this repo has found a bench re-deriving a shipped rule.
+// A getter, not a const: the value is read at CALL time so a setter
+// between two arms actually lands.
+const nmFloor = () => SHIPPED.NULL_MINT_NM_FLOOR;
 export const MIN_VOTES = 3;
 export const POOL_BAR = 0.40;
 
@@ -179,11 +187,11 @@ export const thinFrames = (win, e) => ({ ...win, frames: win.frames.map((fr, i) 
  * 22.5/136.5/547.5, woman 25.5/201.5/628.0.
  */
 export const CONTROL = {
-  config: 'PTRACK_IOU_MIN 0.15, CUT_DELTA 60, PTRACK_ASSIGN optimal, PTRACK_MIN_COAST_PASSES 2',
-  since: 1091,
+  config: 'PTRACK_IOU_MIN 0.15, CUT_DELTA 60, PTRACK_ASSIGN optimal, PTRACK_MIN_COAST_PASSES 1.75',
+  since: 1105,
   regime: 'his-regime.json (derived HIS_EFFZOOM/K_HIS, phase-i I1)',
-  man: { exposureS: 13.5, falseCoverS: 117.5, phantomS: 477.5 },
-  woman: { exposureS: 15.0, falseCoverS: 181.0, phantomS: 569.5 },
+  man: { exposureS: 13.5, falseCoverS: 115.5, phantomS: 439.0 },
+  woman: { exposureS: 15.0, falseCoverS: 180.0, phantomS: 522.5 },
 };
 
 export function hisRegimeOpts(g, told) {
@@ -193,7 +201,15 @@ export function hisRegimeOpts(g, told) {
     cut: true,
     inertNoSignal: true,
     memSignal: true,
-    mem: g === 'man' ? 'loose2' : 'loose',
+    // `mem` IS NOW A BOOLEAN. It used to name 'loose'/'loose2', and
+    // those were exactly MEM_TRUST_WOMAN and MEM_TRUST_MAN -- two
+    // hardcoded copies of shipped constants. The arm reads
+    // trustNeeded(g) now, so a pushed MEM_TRUST_* actually reaches it.
+    // The field itself STAYS, because it is also the on/off gate for
+    // the whole identity-memory block (`if (o.mem)`) -- deleting it
+    // turned identity memory off and moved the control triple to
+    // 12.5 / 172.0 / 513.5, which is what caught it.
+    mem: true,
     fixedCadence: typeof told === 'number' ? told : HIS_EFFZOOM,
   };
 }
@@ -468,7 +484,7 @@ export function makeArms(mod) {
     positionOnly: true, faceFound: true, verdictDt: dt, desc: null,
   } : {
     box: box || personFromFace(f, ASPECT),
-    signal: f.nm >= NM_FLOOR,
+    signal: f.nm >= nmFloor(),
     flagged: m.flagged, certain: m.certain, abstained: m.abstained,
     instant: m.instant, weak: m.weak, nullMint: !!m.nullRead,
     // THE RAW SIGMOID, so the tracker's GENDER_TRACK_MEAN sees the
@@ -676,7 +692,7 @@ export function makeArms(mod) {
         if (o.inertNoSignal) {
           base = base.map((b, i) => {
             const f = fr.faces[i];
-            if (!f || f._noRead || typeof f.nm !== 'number' || f.nm >= NM_FLOOR) return b;
+            if (!f || f._noRead || typeof f.nm !== 'number' || f.nm >= nmFloor()) return b;
             return { ...b, positionOnly: true, abstained: false, certain: false,
                      instant: false, weak: false };
           });
@@ -718,8 +734,17 @@ export function makeArms(mod) {
               readClear: b.flagged === false && b.certain === true,
               certainOpposite: b.flagged === true && b.certain === true,
               leansOwn: g === 'man' ? f.raw >= 0.5 : f.raw < 0.5,
-              hasSignal: f.nm >= NM_FLOOR,
-              need: o.mem === 'loose' ? 1 : (o.mem === 'loose2' ? 2 : modTrust(g)),
+              hasSignal: f.nm >= nmFloor(),
+              // `modTrust(g)`, ALWAYS. This read `o.mem === 'loose' ? 1 :
+              // o.mem === 'loose2' ? 2 : modTrust(g)` -- and 1 and 2 are
+              // exactly MEM_TRUST_WOMAN and MEM_TRUST_MAN, i.e. two
+              // hardcoded copies of shipped constants wearing option
+              // names. `bench/dial-sweep.mjs` swept MEM_TRUST_MAN across
+              // its whole OTA range and the column did not move by a
+              // hundredth, which is how this was found. Same class as the
+              // nmFloor copy above and the crop-geometry defect before
+              // both: one copy, called from both sides.
+              need: modTrust(g),
             }));
             if (memMark[i] && o.memAudit)
               o.memAudit.push({ crop: f.crop, sim: 0, raw: f.raw, px: f.px, nm: f.nm });
@@ -734,7 +759,7 @@ export function makeArms(mod) {
           for (const s of subs) { const c = cos(d, s.proto); if (c > bs) { bs = c; best = s; } }
           if (best) for (let k = 0; k < D; k++) best.proto[k] = best.proto[k] * 0.9 + d[k] * 0.1;
           else { best = { proto: Float32Array.from(d), votes: 0, sumLogit: 0, decided: null }; subs.push(best); }
-          if (f.nm >= NM_FLOOR) {
+          if (f.nm >= nmFloor()) {
             best.sumLogit += logit(g === 'man' ? 1 - f.raw : f.raw);
             best.votes++;
           }
@@ -764,7 +789,7 @@ export function makeArms(mod) {
             // to one constant plus a clamp") deleted the behaviour and
             // left the labels behind. So:
             //
-            //   nmWeight is now UNCONDITIONAL -- the `f.nm >= NM_FLOOR`
+            //   nmWeight is now UNCONDITIONAL -- the `f.nm >= nmFloor()`
             //   guard eleven lines below has no option gate, so the pool
             //   ALWAYS drops signal-free reads and the published rung
             //   "A1 per-subject window + hold" (a pool WITHOUT the nm
@@ -883,7 +908,7 @@ export function makeArms(mod) {
           const adjacent = !o.ssdAdjacentOnly || fr.faces.some((h, hi) => {
             if (hi === i) return false;
             const hb = base[hi] || {};
-            return hb.flagged === false && h.nm >= NM_FLOOR;
+            return hb.flagged === false && h.nm >= nmFloor();
           });
           // MEASURED EDGE, GUESSED BODY. Replacing the body outright
           // costs 7.5s of exposure, because the guess was covering
@@ -913,7 +938,7 @@ export function makeArms(mod) {
               for (let hi = 0; hi < fr.faces.length; hi++) {
                 if (hi === i) continue;
                 const hb = base[hi] || {}, h = fr.faces[hi];
-                if (!(hb.flagged === false && h.nm >= NM_FLOOR)) continue;
+                if (!(hb.flagged === false && h.nm >= nmFloor())) continue;
                 elig++;
                 const hcx = (h.x1 + h.x2) / 2;
                 if (hcx > fcx) x2 = Math.min(x2, Math.max(meas.x2, f.x2));
@@ -986,7 +1011,7 @@ export function makeArms(mod) {
           // phone. So on the passes where faceres failed, the man
           // standing beside her could not push her patch off his own
           // face. The trust counter is the evidence the guard wanted:
-          // it only rises on reads that carried nm >= NM_FLOOR.
+          // it only rises on reads that carried nm >= nmFloor().
           const mm = memMark[i]
             ? { ...m, flagged: false, certain: true, abstained: false, instant: true,
                 ...(o.memSignal ? { signal: true } : {}) }

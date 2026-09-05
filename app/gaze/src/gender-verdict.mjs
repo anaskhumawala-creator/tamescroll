@@ -107,6 +107,17 @@ export var GENDER_IMAGE_MIN_SCORE = 0.4;
 // conviction -- so lowering CERTAINTY does not let the opposite gender
 // through, it lets the SAME gender through at the sizes his player
 // actually produces.
+// 0.40 WAS PROPOSED AND REFUSED, 2026-09-05. `bench/dial-sweep.mjs`
+// found it free on the corpus -- exposure unchanged on both arms, false
+// cover 117.5 -> 114.0s in man mode -- and it BREAKS THE INVARIANT in
+// test/gender-verdict.test.mjs: the null band tops out at 2*(NULL_V_HI
+// - 0.5) = 0.440, so at a bar of 0.40 an ABSTAINED read is one that
+// would have cleared the owner. Man mode would silently start refusing
+// reads that lift blur off him -- the exact opposite of what the corpus
+// number looked like it was buying. The sweep reads the OTA clamp
+// [0.36, 0.90] and cannot see that floor, so its grid is pinned at 0.45
+// there; the clamp itself is now the wider of the two and should be
+// tightened the next time it is touched.
 export var GENDER_CLEAR_SCORE = 0.45;
 // ...but 0.6 was calibrated on MALE faces, and faceres is not equally
 // confident about the two genders. Measured in gauntlet R6 on a 3-person

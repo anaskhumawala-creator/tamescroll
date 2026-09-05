@@ -306,7 +306,7 @@ test('a pushed coast value re-derives the window immediately', () => {
   // not in.
   personTrack.setVerdictCadence(2000);
   const before = personTrack.blurredCoastBudgetMs();
-  assert.equal(before, 4000, 'precondition: the shipped cap binds at 2000ms');
+  assert.equal(before, 3500, 'precondition: 1.75 passes at told 2000');
 
   applyTuning({ PTRACK_MIN_COAST_PASSES: 1.33 });
   const after = personTrack.blurredCoastBudgetMs();
@@ -314,7 +314,7 @@ test('a pushed coast value re-derives the window immediately', () => {
 
   // and back, because a dial that cannot be un-pushed is not a dial
   restore();
-  assert.equal(personTrack.blurredCoastBudgetMs(), 4000);
+  assert.equal(personTrack.blurredCoastBudgetMs(), 3500);
 });
 
 test('the coast dial is clamped, and the floor only bites above told 1504', () => {
@@ -332,11 +332,16 @@ test('the coast dial is clamped, and the floor only bites above told 1504', () =
   // -- keeping the coast above that cap -- is cadence-dependent, and
   // this table is what tuning.mjs's comment is built from.
   const expect = {
-    1200: [2400, 2000, 2000],   // told: [shipped 2, floor 1.33, raw 1.0]
-    1500: [3000, 2000, 2000],
-    1600: [3200, 2128, 2000],
-    2000: [4000, 2660, 2000],
-    3000: [6000, 3990, 3000],
+    // SHIPPED IS 1.75 SINCE 2026-09-05 (bench/dial-sweep.mjs found it
+    // free: exposure unchanged on both arms, false cover flat or better,
+    // phantom down ~9%). These preconditions are the shipped value's
+    // derived window, not the property under test -- the property is the
+    // clamp, and its two columns are unchanged.
+    1200: [2100, 2000, 2000],   // told: [shipped 1.75, floor 1.33, raw 1.0]
+    1500: [2625, 2000, 2000],
+    1600: [2800, 2128, 2000],
+    2000: [3500, 2660, 2000],
+    3000: [5250, 3990, 3000],
   };
   for (const told of Object.keys(expect).map(Number)) {
     const [shipped, floor, raw] = expect[told];
