@@ -339,6 +339,16 @@ youtube.com##.ytp-ce-element
 !   document.querySelectorAll('ytm-single-column-watch-next-results-renderer ytm-video-with-context-renderer').length >= 1
 !   and /results search items stay visible
 m.youtube.com##ytm-single-column-watch-next-results-renderer ytm-video-with-context-renderer
+! AND THE WHOLE related-items SECTION, not only its items (2026-09-10).
+! Hiding the items one by one left YouTube's load-more sentinel "in
+! view" forever: his phone fetched 62 /youtubei/v1/next pages and 643
+! related items into a hidden column in ~20s, with a spinner ring
+! spinning under the actions row. With the section hidden: 0 fetches in
+! 12s against 13, and 12 items against 144. Comments are a separate
+! section (comments-entry-point) and survive; verified by screenshot.
+! test: on m.youtube.com /watch, 12s after load ->
+!   performance.getEntriesByType('resource').filter(e=>/youtubei\/v1\/next/.test(e.name)).length === 0
+m.youtube.com##ytm-item-section-renderer[section-identifier="related-items"]
 
 
 ! ============================================================
