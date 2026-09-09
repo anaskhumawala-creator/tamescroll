@@ -1,5 +1,29 @@
 ## Session state (update every session)
 
+**Last updated:** 2026-09-10 01:45 (**1114 IS THE RELEASE, sha 821f0a2a**,
+hash-verified. **1115 is BUILT and installed on his phone, NOT released**:
+the link-handoff fix needs its cold-link frames (`probe_link_frames.py`)
+once his phone `e3d369ee` is back on the cable; then release recipe 6-8.
+Old Redmi `1ec2c48e0621` is PIN-locked and its CDP touch injection times
+out; HyperOS on his phone ignores injected Back entirely -- Back cannot
+be driven from here on either device.)
+
+**Today's rulings:** NULL_MINT_NM_FLOOR stays 5 (6 = corpus exposure
++30%, refused); extension stays dead; mobile first; student model is the
+real fix for the remaining patches (his go/no-go open). Map with all his
+calls: artifact e198a03e.
+
+**1114:** GPU breadcrumb counts three strikes (a kill during shader
+compile used to lock a model on CPU for the build); `NULL_HOLD_PASSES`
+dial ships 1 (bench/null-hold-ab.mjs: 0 -> phantom +43%, 2-3 buy
+nothing); nm clamp [0,7]. **Rules OTA pushed:** the watch-next
+related-items SECTION is hidden (per-item hiding fetched 643 related
+videos into a hidden column). **1115:** launcher no longer paints before
+a link/shortcut is consumed (`pendingRequest()` + `#handoff`).
+
+**Open, needs him:** one Back press on a watch page while I watch (the
+"reload" complaint); a screenshot of the "recommendation bar on scroll".
+
 **Last updated:** 2026-09-05 19:10 (**1113 IS THE RELEASE, sha 0119d88a**,
 hash-verified. His phone `e3d369ee` and the old Redmi on the cable.)
 

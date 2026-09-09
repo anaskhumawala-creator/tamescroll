@@ -294,3 +294,33 @@ buy ~nothing on the corpus. What he still sees is PERSISTENT weak reads
 -> student model. Thumbnails have no temporal state; their levers are
 GENDER_IMAGE_NM_FLOOR and the unmeasured detector-on-text rate (finding
 48's thumbnail half) -- next.
+
+## 2026-09-10 -- 1114 shipped; his watch-page complaints, measured
+1114 sha 821f0a2ab5c1faa01f08dd7192943a3f93dc21e492967a7ff9a23df035bbc756:
+three-strike GPU breadcrumb (his phone now gpu x3, gender 12ms vs
+57ms), NULL_HOLD_PASSES dial, nm clamp 7.
+probe_watch_ux.py on his phone: the watch page below the actions is
+EMPTY with a spinner ring, and YouTube kept fetching related videos
+into the hidden column -- 62 /youtubei/v1/next pages, 643 items in ~20s,
+because per-item hiding leaves the load-more sentinel in view. Rule
+change (OTA, pushed): hide `ytm-item-section-renderer[section-identifier=
+"related-items"]`; 0 fetches in 12s vs 13; comments survive (screenshot).
+Back from a watch page: NOT reproducible from here -- HyperOS ignores
+injected KEYCODE_BACK and nav-bar taps even in Settings; the old Redmi's
+CDP touch injection times out and it is PIN-locked. Needs one press
+from him while I watch. "Recommendation bar on scroll": the watch page
+does not scroll at all with related hidden; needs his screenshot.
+The "ts" bottom-left is #tamescroll-home (ours).
+
+## 2026-09-10 -- 1115 built, NOT yet released: link handoff flash
+His: "opening a YouTube link first shows the tamescroll page". Cause:
+start() painted the launcher before consuming the bridge/?open request.
+Now pendingRequest() runs first and the page holds a dark "Opening
+YouTube..." line (#handoff) until YouTube replaces the document; desktop
+restores the launcher after open() resolves. tsc clean, gaze 907/907.
+Verification (probe_link_frames.py, cold VIEW intent + screencaps)
+blocked: his phone left the cable mid-run. Release after the frames.
+Pin-to-home and uninstall-YouTube steps ALREADY exist in the links
+setup (data-step pin/uninstall); the icon is ours by design (logo
+impersonation is the store killer) -- his design call, in the map.
+Map published: artifact e198a03e.
