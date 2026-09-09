@@ -1,7 +1,7 @@
 {
-  "versionCode": 1113,
-  "versionName": "0.1.113",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.113/tamescroll-1113.apk",
-  "sha256": "0119d88ae4d32aa54876d64896b9db4109bd6c97e5cbbde2590f1ce96493efc6",
-  "notes": "Tapping a platform tile now responds instantly instead of freezing for half a second while the page loads."
+  "versionCode": 1114,
+  "versionName": "0.1.114",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.114/tamescroll-1114.apk",
+  "sha256": "821f0a2ab5c1faa01f08dd7192943a3f93dc21e492967a7ff9a23df035bbc756",
+  "notes": "The blur engine now uses your phone's GPU for all three models even if an earlier launch was interrupted mid-setup. New advanced dial: weak-face patience."
 }
