@@ -1142,13 +1142,58 @@ function refreshAll() {
   void renderBringBack(allPlatforms.filter((p) => p.ready && chosen.includes(p.id)));
 }
 
+// Home-screen shortcut or link launch (Android). Cold start: MainActivity
+// can't win the URL race against wry's initial load, so the pending
+// platform is PULLED from a one-shot JavascriptInterface bridge. Warm
+// start (onNewIntent) navigates here with ?open=<id> instead. A link
+// (1107) rides beside the id: cold start as "id" + newline + url from the
+// bridge, warm start as ?open=id&url=... Rust decides whether the url
+// belongs to the platform. Read ONCE, before any view is painted.
+function pendingRequest(): { id: string; url: string } | null {
+  const bridge = (window as unknown as { TsShortcuts?: { consume(): string } })
+    .TsShortcuts;
+  let requested = "";
+  try {
+    requested = bridge?.consume() ?? "";
+  } catch {
+    // bridge absent (desktop) or blocked — fall through to the param
+  }
+  let url = "";
+  if (requested.includes(NEWLINE)) {
+    const [id, u] = requested.split(NEWLINE);
+    requested = id;
+    url = u ?? "";
+  }
+  if (!requested) {
+    const params = new URLSearchParams(location.search);
+    requested = params.get("open") ?? "";
+    url = params.get("url") ?? "";
+  }
+  return requested ? { id: requested, url } : null;
+}
+
+const handoff = document.querySelector<HTMLElement>("#handoff")!;
+
 async function start() {
   try {
     allPlatforms = await invokeStartup<Platform[]>("platforms");
     await seedDefaultShown(allPlatforms.map((p) => p.id));
 
+    // A LINK OR SHORTCUT MUST NOT SHOW THE LAUNCHER FIRST (his 2026-09-10:
+    // "it first shows the tamescroll page and then gets me to YouTube").
+    // The pending request is read BEFORE any view is painted; when there
+    // is one, the page stays on the dark handoff line until the platform
+    // document replaces it.
+    const pending = pendingRequest();
+    const handoffTarget = pending
+      ? allPlatforms.find((p) => p.id === pending.id && p.ready)
+      : undefined;
+
     const chosen = readChosen();
-    if (chosen === null) {
+    if (handoffTarget) {
+      handoff.hidden = false;
+      handoff.textContent = `Opening ${handoffTarget.name}…`;
+    } else if (chosen === null) {
       runOnboarding(allPlatforms, () => {
         showView("launcher");
         refreshAll();
@@ -1176,47 +1221,26 @@ async function start() {
       })
       .catch(() => { /* the caption is decoration; the app is not */ });
 
-    // Home-screen shortcut launch (Android). Cold start: MainActivity
-    // can't win the URL race against wry's initial load, so the pending
-    // platform is PULLED from a one-shot JavascriptInterface bridge.
-    // Warm start (onNewIntent) navigates here with ?open=<id> instead.
-    // Either way this page's mode/prefs sync ran first, so a shortcut
-    // behaves exactly like a tile tap.
-    const bridge = (window as unknown as { TsShortcuts?: { consume(): string } })
-      .TsShortcuts;
-    let requested = "";
-    try {
-      requested = bridge?.consume() ?? "";
-    } catch {
-      // bridge absent (desktop) or blocked — fall through to the param
-    }
-    // A link (1107) rides beside the id: cold start as "id" + newline +
-    // url from the bridge, warm start as ?open=id&url=... The url is
-    // optional and Rust decides whether it belongs to the platform.
-    let requestedUrl = "";
-    if (requested.includes(NEWLINE)) {
-      const [id, u] = requested.split(NEWLINE);
-      requested = id;
-      requestedUrl = u ?? "";
-    }
-    if (!requested) {
-      const params = new URLSearchParams(location.search);
-      requested = params.get("open") ?? "";
-      requestedUrl = params.get("url") ?? "";
-    }
-    if (requested) {
+    if (pending) {
       history.replaceState(null, "", location.pathname);
-      const target = allPlatforms.find((p) => p.id === requested && p.ready);
-      if (target) {
-        // The user created this platform's home-screen icon — that is
-        // an explicit choice, so it also brings the platform in.
+      if (handoffTarget) {
+        // The user created this platform's home-screen icon or sent it a
+        // link — an explicit choice, so it also brings the platform in.
         const current = readChosen() ?? [];
-        if (!current.includes(target.id)) {
-          writeChosen([...current, target.id]);
+        if (!current.includes(handoffTarget.id)) {
+          writeChosen([...current, handoffTarget.id]);
         }
+        // The launcher is rendered underneath so a failed open lands on
+        // a real page; it stays hidden while the handoff line shows.
+        refreshAll();
+        void open(handoffTarget, pending.url || undefined).finally(() => {
+          // Desktop keeps this document; Android replaces it. Either way
+          // the line has done its job once open() has resolved.
+          if (!isAndroid) { handoff.hidden = true; showView("launcher"); }
+        });
+      } else {
         showView("launcher");
         refreshAll();
-        void open(target, requestedUrl || undefined);
       }
     }
   } catch (error) {
