@@ -82,8 +82,10 @@ var SPEC = {
   // Descriptor magnitude below which a read carries no signal. 0 is the
   // control and refuses nothing; at 6 the ground-truth arm refused 5 of
   // 125 REAL FACES, four of them the same woman, whose lowest nm was
-  // 5.11. So 6 is the exposure edge and the range stops before it.
-  NULL_MINT_NM_FLOOR: [0, 5.5, function (v) { genderVerdict.setNmFloor(v); }],
+  // 5.11. So 6 is the exposure edge. 2026-09-10: 6 was tried and refused
+  // (corpus exposure +30%, control-triple.test); ships 5, and the range
+  // reaches 7 so a retry travels over OTA without a build.
+  NULL_MINT_NM_FLOOR: [0, 7, function (v) { genderVerdict.setNmFloor(v); }],
   // THE SAME FLOOR FOR THUMBNAILS, ON ITS OWN DIAL, because the two are
   // not the same trade and a shared number made a revert of one a revert
   // of both. The video path refuses a BIRTH, so a face inside an
@@ -223,6 +225,9 @@ var SPEC = {
   // IT IS AN EXPOSURE TRADE, so it ships at the measured value and moves
   // only when he says so.
   PTRACK_MIN_COAST_PASSES: [1.33, 3.0, function (v) { personTrack.setCoastPasses(v); }],
+  // Sightings a weak (null) read must survive before it mints. 0 is the
+  // pre-hold behaviour; 1 shipped; above that is his testing range.
+  NULL_HOLD_PASSES: [0, 3, function (v) { personTrack.setNullHoldPasses(v); }],
 
   // THE ASSOCIATION THRESHOLD. Below this overlap an observation is not
   // the same person and a new track is born. Moved 0.20 -> 0.15 on
@@ -460,6 +465,7 @@ var GETTERS = {
   MEM_SIM: function () { return identityMemory.MEM_SIM; },
   PERSON_SKIP_EVERY: function () { return personSkip.PERSON_SKIP_EVERY; },
   PTRACK_MIN_COAST_PASSES: function () { return personTrack.PTRACK_MIN_COAST_PASSES; },
+  NULL_HOLD_PASSES: function () { return personTrack.NULL_HOLD_PASSES; },
   PTRACK_IOU_MIN: function () { return personTrack.PTRACK_IOU_MIN; },
   VERDICT_MAX_INTERVAL_MS: function () { return cadence.VERDICT_MAX_INTERVAL_MS; },
   VERDICT_DUTY: function () { return cadence.VERDICT_DUTY; },

@@ -156,6 +156,10 @@ var META = {
       + ' Measured to miss fewer women, and to leave fewer marks on things that'
       + ' are not people. Costs nothing and takes effect on the next check.',
     dp: 0, step: 1, zero: 'off',
+  },  NULL_HOLD_PASSES: {
+    group: 'advanced', label: 'Weak-face patience',
+    desc: 'How many checks in a row a doubtful face must show up before it gets a patch. Higher leaves fewer stray patches, and a real person with a doubtful face waits that many checks.',
+    unit: 'checks', dp: 0, step: 1, zero: 'off',
   },  NULL_MINT_NM_FLOOR: {
     group: 'advanced', label: 'Face signal floor',
     desc: 'How much the model must have found in a crop before it is allowed to start a new patch there.',

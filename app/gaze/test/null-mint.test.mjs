@@ -25,6 +25,7 @@ import {
 } from '../src/person-track.mjs';
 import { faceMeta, isNullRead } from '../src/gender-verdict.mjs';
 import { readFileSync } from 'node:fs';
+import * as personTrack from '../src/person-track.mjs';
 
 const page = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
 
@@ -300,4 +301,25 @@ test('THE HOLD IS THREADED, NEVER A MODULE GLOBAL', () => {
   assert.match(page, /var nullHeld = \[\];/);
   assert.match(page, /updatePersonTracks\(videoTracks, observations, dt, nullHeld\)/);
   assert.match(page, /nullHeld = videoTracks\.nullHeld \|\| \[\];/);
+});
+
+test('NULL_HOLD_PASSES: 0 mints at once, 2 needs a third sighting, 1 is the shipped hold', () => {
+  const obs = () => ({ box: box(0.1, 0.1, 0.4, 0.9), flagged: true, certain: false, abstained: true, nullMint: true });
+  const mintsOnPass = () => {
+    let t = [], hold = [];
+    for (let i = 1; i <= 5; i++) {
+      t = updatePersonTracks(t, [obs()], 300, hold); hold = t.nullHeld;
+      if (t.length) return i;
+    }
+    return 0;
+  };
+  const was = personTrack.NULL_HOLD_PASSES;
+  try {
+    assert.equal(was, 1, 'ships 1: the one-pass hold');
+    assert.equal(mintsOnPass(), 2);
+    personTrack.setNullHoldPasses(0);
+    assert.equal(mintsOnPass(), 1, '0 is the pre-hold behaviour');
+    personTrack.setNullHoldPasses(2);
+    assert.equal(mintsOnPass(), 3, 'two refusals, then the patch');
+  } finally { personTrack.setNullHoldPasses(was); }
 });

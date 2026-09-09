@@ -253,3 +253,44 @@ sha256 0119d88ae4d32aa54876d64896b9db4109bd6c97e5cbbde2590f1ce96493efc6.
   tap-to-playing 1.1-1.6s from the earlier pass; (2) YouTube updates:
   no per-surface breakage signal exists today; probe_bringback.py is the
   manual canary. Proposal below in the session summary, needs his shape.
+
+## 2026-09-10 -- his direction (his words, 09-09 evening), NOTED FOR THE RECORD
+Mobile first; desktop and extension after. Extension: my pick NO (MV3,
+uBO already better at ads, second product) -- he accepted. Play: listing
+pack is his-only work (key, copy, 3 screenshots, privacy page); AAB
+exists. Blur patches: the student model is the real fix (finding 50).
+
+## 2026-09-10 -- NULL_MINT_NM_FLOOR 6 tried and REFUSED (manual)
+He ruled 6 on my "+1.1 pts" quote. The control-triple bench then said:
+ten-video corpus exposure man 13.5s -> 17.5s, woman 15.0s -> 20.5s
+(+30-37%) for a junk cut worth ~0.3% of detections. Told him; my pick
+keep 5; he agreed ("Fine then"). Ships 5. Clamp widened [0,7] so 6 can
+be tried over OTA without a build. Two test defects fixed on the way:
+the image-path floor test read the VIDEO constant; the clamp test now
+pins <= 7.
+
+## 2026-09-10 -- why his phone said CPU: the breadcrumb one-strike (manual)
+probe_gpu_note.py on his phone, 1113: face gpu, person gpu, gender CPU
+with whyR "previous trial did not return", gpuMs -1. The crash breadcrumb
+is written before the shader compile (1.4-3.9s); a swipe-away or a
+probe force-stop in that window reads as a driver crash and locks the
+model on CPU for the whole build. faceres compiles longest, so it is
+the one that gets caught. Fix: strikes counter, three launches that never
+return before giving up. The pill shows worst-of, so one CPU model reads
+"CPU". 1114 building.
+
+## 2026-09-10 -- bounded refusal: ALREADY SHIPPED, and its length is now a dial
+He asked for "refuse the first sighting, cover on the second". It has
+been in person-track.mjs since the unbounded gate was reverted, and his
+phone's live counters prove it working: nullDropped 24, nullMintedHeld 4.
+Added NULL_HOLD_PASSES (OTA, [0,3], ships 1 = unchanged; gear label
+"Weak-face patience"). bench/null-hold-ab.mjs over the ten-video corpus:
+  hold 0  man 12/137/627.5   woman 14.5/187.5/720.5   (phantom +43%)
+  hold 1  man 13.5/115.5/439 woman 15/180/522.5       (= CONTROL)
+  hold 2  man 13.5/115.5/435 woman 15/179/516.5
+  hold 3  same as 2
+So one pass already takes the transient junk; longer holds are free but
+buy ~nothing on the corpus. What he still sees is PERSISTENT weak reads
+-> student model. Thumbnails have no temporal state; their levers are
+GENDER_IMAGE_NM_FLOOR and the unmeasured detector-on-text rate (finding
+48's thumbnail half) -- next.

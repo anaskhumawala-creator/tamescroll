@@ -982,16 +982,21 @@ export function updatePersonTracks(tracks, observations, dtMs, hold) {
     // uses, so "the same thing again" means the same thing it means
     // everywhere else in this file.
     if (observations[j].nullMint) {
-      var seen = false;
+      // How many consecutive passes this box has already been refused.
+      // NULL_HOLD_PASSES is the dial: 1 is the one-pass hold above, 0
+      // turns the hold off, 2-3 ask a weak read to persist longer before
+      // it earns a patch (his testing dial, 2026-09-10).
+      var seenN = 0;
       for (var h = 0; h < held.length; h++) {
-        if (iou(held[h], observations[j].box) >= PTRACK_IOU_MIN) { seen = true; break; }
+        if (iou(held[h], observations[j].box) >= PTRACK_IOU_MIN) { seenN = held[h].n || 1; break; }
       }
-      if (!seen) {
-        // Carried forward so the NEXT pass mints it. Copied, because the
+      if (seenN < NULL_HOLD_PASSES) {
+        // Carried forward so a LATER pass mints it. Copied, because the
         // caller's observation objects are not ours to retain.
         nextHeld.push({
           x1: observations[j].box.x1, y1: observations[j].box.y1,
           x2: observations[j].box.x2, y2: observations[j].box.y2,
+          n: seenN + 1,
         });
         bump('nullDropped');
         continue;
@@ -1913,6 +1918,14 @@ var lastCadenceMs = 0;
  * somebody he asked to cover was left sharp. So the value that SHIPS is
  * 2 and the decision to push is his.
  */
+// How many consecutive sightings a null read (see NULL_MINT_NM_FLOOR)
+// must survive before it may mint a patch. 1 = refuse the first sighting
+// only (the bounded refusal, shipped); 0 = no hold; each extra pass is
+// ~250-500ms more first exposure for a real person whose face reads weak,
+// against one more pass a graphic must persist. OTA dial, his call.
+export var NULL_HOLD_PASSES = 1;
+export function setNullHoldPasses(v) { NULL_HOLD_PASSES = v; }
+
 export function setCoastPasses(v) {
   PTRACK_MIN_COAST_PASSES = v;
   if (lastCadenceMs > 0) setVerdictCadence(lastCadenceMs);

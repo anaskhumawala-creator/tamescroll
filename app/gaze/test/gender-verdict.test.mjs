@@ -272,6 +272,9 @@ test('the mint refusal needs BOTH the band and a dead descriptor', () => {
   //
   // The tag no longer refuses a birth (person-track.mjs), so this pins
   // what the COUNTERS see, not what the tracker does.
+  // 2026-09-10: floor 6 was tried and REFUSED -- on the ten-video corpus
+  // it costs exposure man 13.5s -> 17.5s, woman 15.0s -> 20.5s for ~0.3%
+  // of detections' worth of junk. Stays at 5; the clamp allows 6 over OTA.
   for (const [norm, refused] of [[0, true], [4.9, true], [5, false], [5.11, false], [12.4, false]]) {
     assert.equal(
       gv.faceMeta('man', [{ ...inBand, shape: { norm } }])[0].nullRead, refused,
@@ -515,11 +518,12 @@ test('image path: the nm FLOOR is what does the work, not the band', () => {
   // Same read, but the crop carried real descriptor magnitude. The band
   // alone must not be enough to refuse a patch -- loop 38 measured a real
   // woman landing in the band at 32px and 48px.
-  const withSignal = nullRead({ shape: { norm: gv.NULL_MINT_NM_FLOOR } });
+  // The IMAGE floor, not the video one: they parted in 1104.
+  const withSignal = nullRead({ shape: { norm: gv.GENDER_IMAGE_NM_FLOOR } });
   assert.ok(gv.isNullRead(withSignal), 'still in the band');
   assert.deepEqual(flaggedFaceIndices('man', [withSignal]), [0],
     'at or above the floor the read still mints');
-  const under = nullRead({ shape: { norm: gv.NULL_MINT_NM_FLOOR - 0.01 } });
+  const under = nullRead({ shape: { norm: gv.GENDER_IMAGE_NM_FLOOR - 0.01 } });
   assert.deepEqual(flaggedFaceIndices('man', [under]), []);
 });
 

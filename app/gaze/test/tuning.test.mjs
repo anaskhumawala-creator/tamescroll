@@ -45,6 +45,7 @@ const SHIPPED = {
   VERDICT_MAX_INTERVAL_MS: cadence.VERDICT_MAX_INTERVAL_MS,
   VERDICT_DUTY: cadence.VERDICT_DUTY,
   PTRACK_MIN_COAST_PASSES: personTrack.PTRACK_MIN_COAST_PASSES,
+  NULL_HOLD_PASSES: personTrack.NULL_HOLD_PASSES,
   PTRACK_IOU_MIN: personTrack.PTRACK_IOU_MIN,
   GENDER_REFRESH_MS: personTrack.GENDER_REFRESH_MS,
   CUT_PERSON_LOOK: personSkip.CUT_PERSON_LOOK,
@@ -102,12 +103,13 @@ test('a value past its exposure floor is clamped, never applied', () => {
   restore();
 });
 
-test('the nm floor cannot be pushed to where it refuses real faces', () => {
+test('the nm floor cannot be pushed past one step above his ruling', () => {
   applyTuning({ NULL_MINT_NM_FLOOR: 99 });
-  // Ground truth, both arms: at 6 the floor refused 5 of 125 real
-  // faces, four of them one woman whose lowest nm was 5.11.
-  assert.ok(genderVerdict.NULL_MINT_NM_FLOOR < 6,
-    'a floor at or above 6 refuses real faces measured in this repo');
+  // Ground truth: at 6 the floor refused 5 of 125 real faces (finding
+  // 35). He ruled 6 on 2026-09-09 for junk 19.1% -> 11.9%; the clamp
+  // leaves one step above it and no more.
+  assert.ok(genderVerdict.NULL_MINT_NM_FLOOR <= 7,
+    'a floor above 7 is an exposure trade nobody has measured');
   restore();
 });
 

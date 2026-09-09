@@ -333,13 +333,25 @@ class NativeInfer(private val ctx: Context) {
   // trial writes a breadcrumb BEFORE it touches the driver and removes
   // it after -- `commit`, not `apply`, because a crash must not lose the
   // write. A breadcrumb still there at the next launch means the last
-  // attempt did not come back, and this model never tries again on this
-  // build. Worst case is therefore one bad launch, not a crash loop.
+  // attempt did not come back. BUT A KILL IS NOT A CRASH: the mark sits
+  // through the shader compile (1.4-3.9s), and a swipe-away or a
+  // force-stop in that window left his own phone's faceres on CPU for a
+  // whole build (measured 2026-09-10: `whyR` "previous trial did not
+  // return", gpuMs -1). So it counts strikes: GPU_TRIAL_STRIKES launches
+  // that never came back, then this model stops trying on this build.
+  // Worst case is a few bad launches, not a crash loop, and one unlucky
+  // kill costs nothing.
+  private val GPU_TRIAL_STRIKES = 3
+
+  private fun gpuTrialStrikes(assetBase: String, bytes: ByteBuffer): Int =
+    try { gpuPrefs().getInt("gpuTrying:" + gpuToken(assetBase, bytes), 0) } catch (_: Throwable) { 0 }
+
   private fun gpuTrialStarted(assetBase: String, bytes: ByteBuffer): Boolean =
-    try { gpuPrefs().getBoolean("gpuTrying:" + gpuToken(assetBase, bytes), false) } catch (_: Throwable) { false }
+    gpuTrialStrikes(assetBase, bytes) >= GPU_TRIAL_STRIKES
 
   private fun markGpuTrialStart(assetBase: String, bytes: ByteBuffer) {
-    try { gpuPrefs().edit().putBoolean("gpuTrying:" + gpuToken(assetBase, bytes), true).commit() } catch (_: Throwable) {}
+    val n = gpuTrialStrikes(assetBase, bytes) + 1
+    try { gpuPrefs().edit().putInt("gpuTrying:" + gpuToken(assetBase, bytes), n).commit() } catch (_: Throwable) {}
   }
 
   private fun clearGpuTrialMark(assetBase: String, bytes: ByteBuffer) {
@@ -656,8 +668,8 @@ class NativeInfer(private val ctx: Context) {
     try {
       val bytes = loadAssetModel("$assetBase.tflite")
       if (gpuTrialStarted(assetBase, bytes)) {
-        Log.w(TAG, "GPU trial for $assetBase did not survive a previous launch, not retrying on this build")
-        handler.post { gpuNotes[id]?.trialThrewR = "previous trial did not return" }
+        Log.w(TAG, "GPU trial for $assetBase did not return $GPU_TRIAL_STRIKES times, not retrying on this build")
+        handler.post { gpuNotes[id]?.trialThrewR = "previous trials did not return x$GPU_TRIAL_STRIKES" }
         handler.post { decide("gpu", id, assetBase, null, false, gen) }
         return
       }
