@@ -1,7 +1,7 @@
 {
-  "versionCode": 1118,
-  "versionName": "0.1.118",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.118/tamescroll-1118.apk",
-  "sha256": "0794cea61bed3cde47087dde19fa48f15c082122e94bd41437773683aa7c09c1",
-  "notes": "YouTube now opens on Subscriptions instead of an empty home page. Onboarding offers the home-screen icon. Fewer stray blur marks on thumbnails."
+  "versionCode": 1119,
+  "versionName": "0.1.119",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.119/tamescroll-1119.apk",
+  "sha256": "f82b24b8d4fdb3ed012ef23b095760cec416d93cf44220be59acaca306052ee2",
+  "notes": "YouTube opens on its home page again, feed hidden, as designed."
 }
