@@ -631,16 +631,10 @@ function matchRow(platform: Platform, query: string, onAdd: () => void): HTMLEle
 let restingStatus = "";
 const NEWLINE = String.fromCharCode(10);
 
-// HOME IS EMPTY WHEN THE FEED IS HIDDEN (his ruling 2026-09-10): a tile
-// tap lands on Subscriptions unless the user brought the home feed back.
-// In-page routes to "/" are handled by the bundle (home-redirect.mjs).
-function landingUrl(platform: Platform): string | undefined {
-  if (platform.id !== "youtube") return undefined;
-  return getShown("youtube").includes("home") ? undefined : "https://m.youtube.com/feed/subscriptions";
-}
-
+// A BLANK HOME IS THE DESIGN (his ruling 2026-09-10, reversing the
+// morning's Subscriptions landing an hour after it shipped): the tile
+// opens the platform's front page, feed hidden, nothing else.
 async function open(platform: Platform, url?: string, tile?: HTMLElement) {
-  url = url ?? landingUrl(platform);
   // Instant feedback: the webview keeps the launcher painted ~0.5s after
   // navigate() until YouTube commits (probe_open_frames.py, his phone),
   // so without this a tap looks ignored for half a second.
