@@ -1,12 +1,11 @@
 ## Session state (update every session)
 
-**Last updated:** 2026-09-10 01:45 (**1114 IS THE RELEASE, sha 821f0a2a**,
-hash-verified. **1115 is BUILT and installed on his phone, NOT released**:
-the link-handoff fix needs its cold-link frames (`probe_link_frames.py`)
-once his phone `e3d369ee` is back on the cable; then release recipe 6-8.
+**Last updated:** 2026-09-10 10:30 (**1115 IS THE RELEASE, sha dbd3fb32**,
+hash-verified, verified on his phone `e3d369ee` by cold-link frames.
 Old Redmi `1ec2c48e0621` is PIN-locked and its CDP touch injection times
 out; HyperOS on his phone ignores injected Back entirely -- Back cannot
-be driven from here on either device.)
+be driven from here on either device; he never pressed it during two
+watch windows, so the "reload on close" complaint is still unreproduced.)
 
 **Today's rulings:** NULL_MINT_NM_FLOOR stays 5 (6 = corpus exposure
 +30%, refused); extension stays dead; mobile first; student model is the
