@@ -1,7 +1,7 @@
 {
-  "versionCode": 1115,
-  "versionName": "0.1.115",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.115/tamescroll-1115.apk",
-  "sha256": "dbd3fb32e238d6004c466bb67ce1f7259af0f16dda375be4534e913dddb80c20",
-  "notes": "Opening a YouTube link no longer flashes the tamescroll home screen first."
+  "versionCode": 1116,
+  "versionName": "0.1.116",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.116/tamescroll-1116.apk",
+  "sha256": "97cf70d972acc53b36dc01048cfe40d74806a35bf17e5f9d11ce7f88d11ed4d5",
+  "notes": "The YouTube home-screen shortcut now wears a red play tile."
 }
