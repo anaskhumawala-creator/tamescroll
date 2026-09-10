@@ -631,7 +631,16 @@ function matchRow(platform: Platform, query: string, onAdd: () => void): HTMLEle
 let restingStatus = "";
 const NEWLINE = String.fromCharCode(10);
 
+// HOME IS EMPTY WHEN THE FEED IS HIDDEN (his ruling 2026-09-10): a tile
+// tap lands on Subscriptions unless the user brought the home feed back.
+// In-page routes to "/" are handled by the bundle (home-redirect.mjs).
+function landingUrl(platform: Platform): string | undefined {
+  if (platform.id !== "youtube") return undefined;
+  return getShown("youtube").includes("home") ? undefined : "https://m.youtube.com/feed/subscriptions";
+}
+
 async function open(platform: Platform, url?: string, tile?: HTMLElement) {
+  url = url ?? landingUrl(platform);
   // Instant feedback: the webview keeps the launcher painted ~0.5s after
   // navigate() until YouTube commits (probe_open_frames.py, his phone),
   // so without this a tap looks ignored for half a second.
@@ -1137,6 +1146,11 @@ function runOnboarding(platforms: Platform[], done: () => void) {
       const offerLinks = linksApplicable();
       linksBtn.hidden = !offerLinks;
       linksNote.hidden = !offerLinks;
+      let pin: { supported?: boolean; pinned?: boolean } = {};
+      try { pin = JSON.parse(linksBridge?.pinState?.("youtube") ?? "{}"); } catch { /* the OS would not say */ }
+      const pinBtn = document.querySelector<HTMLButtonElement>("#ob-pin")!;
+      pinBtn.hidden = !(offerLinks && pin.supported === true && pin.pinned !== true);
+      document.querySelector<HTMLElement>("#ob-pin-note")!.hidden = true;
       goto(5);
     });
   });
@@ -1146,6 +1160,19 @@ function runOnboarding(platforms: Platform[], done: () => void) {
     openLinksView(done);
   });
   document.querySelector<HTMLButtonElement>("#ob-open")!.addEventListener("click", () => done());
+  // The home-screen icon, offered here too (his ruling 2026-09-10: it
+  // was only under the links Set up card). Shown when the launcher can
+  // take a shortcut and does not already have it.
+  const pinBtn = document.querySelector<HTMLButtonElement>("#ob-pin")!;
+  const pinNote = document.querySelector<HTMLElement>("#ob-pin-note")!;
+  pinBtn.addEventListener("click", () => {
+    if (!linksBridge) return;
+    let r = "refused";
+    try { r = String(linksBridge.pinShortcut("youtube")); } catch { /* bridge refused */ }
+    pinNote.textContent = PIN_WORDS[r] ?? "";
+    pinNote.hidden = false;
+    if (r === "pinned" || r === "requested") pinBtn.hidden = true;
+  });
 
   goto(1);
 }

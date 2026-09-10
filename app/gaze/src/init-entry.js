@@ -109,6 +109,7 @@ import * as videoRegion from './video-region.mjs';
 import { createTextMatcher } from './text-signals.mjs';
 import { buildReport, reportViolations, platformOf, pageKind, imgDiagRead } from './diag-report.mjs';
 import { watchUrlForShorts, watchUrlForShortsHref } from './shorts-redirect.mjs';
+import { subscriptionsForHome } from './home-redirect.mjs';
 import { planForMode, rotateBudget } from './pipeline-plan.mjs';
 import { createWorkerClient } from './worker-client.mjs';
 import { startWorker } from './worker-entry.js';
@@ -176,8 +177,24 @@ if (
         location.assign(w);
       }, true);
     }
+    // HOME IS EMPTY WHEN THE FEED IS HIDDEN: the logo and the Home tab
+    // land on "/", and with the shipped defaults that page is blank.
+    // Read whether the grid on the page is drawn and go to Subscriptions
+    // when it is not (home-redirect.mjs). Once per document per arrival.
+    var homeSent = '';
+    var homeToSubs = function () {
+      if (tsPagePlatform !== 'youtube') return false;
+      var grid = document.querySelector('ytm-browse ytm-rich-grid-renderer');
+      var hidden = grid ? getComputedStyle(grid).display === 'none' : null;
+      var s = subscriptionsForHome(location.pathname, hidden);
+      if (!s || homeSent === location.href) return false;
+      homeSent = location.href;
+      location.replace(s);
+      return true;
+    };
     var syncTsPage = function () {
       if (shortsToWatch()) return;
+      if (homeToSubs()) return;
       var k = pageKind(tsPagePlatform, location.pathname);
       if (k === tsPageLast) return;
       tsPageLast = k;

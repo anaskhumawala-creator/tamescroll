@@ -677,7 +677,7 @@ export var NULL_MINT_NM_FLOOR = 5;
 // it. 4.3% of thumbnails. It is a protection trade, so it is his, and
 // this dial is how he takes it back without also giving up the video
 // path's guard.
-export var GENDER_IMAGE_NM_FLOOR = 5;
+export var GENDER_IMAGE_NM_FLOOR = 6;
 
 /**
  * May this read create a patch? False for everything except a null read
