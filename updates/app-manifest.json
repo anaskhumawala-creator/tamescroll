@@ -1,7 +1,7 @@
 {
-  "versionCode": 1119,
-  "versionName": "0.1.119",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.119/tamescroll-1119.apk",
-  "sha256": "f82b24b8d4fdb3ed012ef23b095760cec416d93cf44220be59acaca306052ee2",
-  "notes": "YouTube opens on its home page again, feed hidden, as designed."
+  "versionCode": 1120,
+  "versionName": "0.1.120",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.120/tamescroll-1120.apk",
+  "sha256": "4ff41572be2f771ab79e20e85b2dd338118e4f9c647737853698bb745e74473a",
+  "notes": "Mini player: the video title no longer hides under the top bar and the topic chips bar no longer floats mid-screen while the player is minimised."
 }
