@@ -324,3 +324,16 @@ Pin-to-home and uninstall-YouTube steps ALREADY exist in the links
 setup (data-step pin/uninstall); the icon is ours by design (logo
 impersonation is the store killer) -- his design call, in the map.
 Map published: artifact e198a03e.
+
+## 2026-09-10 -- 1115 shipped; the thumbnail rate was already on disk
+1115 sha dbd3fb32e238d6001d... (manifest): cold youtu.be link on his
+phone, frames: no launcher, "Opening YouTube..." at 1.2-2.0s, watch page
+at 2.6s (1114 baseline showed the full launcher 1.9-2.4s). OTA rule
+verified live on his phone: related section display none, 0 /next.
+Back press: two watch windows, he never pressed; still open.
+Thumbnail "text marks": NOT unmeasured -- finding 52's bank answers it.
+Person-free-search thumbnails with nobody admitted: 129; detector fires
+on 39 (30.2%); after the shipped image guard 16 junk marks remain
+(~12%), all weak male reads nm 1.4-5. Next cut is GENDER_IMAGE_NM_FLOOR
+6 (OTA, clamp [0,6]): -5 junk / -4 real per finding 52's table. His
+call. Map artifact e198a03e corrected.
