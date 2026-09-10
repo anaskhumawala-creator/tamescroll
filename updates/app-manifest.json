@@ -1,7 +1,7 @@
 {
-  "versionCode": 1114,
-  "versionName": "0.1.114",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.114/tamescroll-1114.apk",
-  "sha256": "821f0a2ab5c1faa01f08dd7192943a3f93dc21e492967a7ff9a23df035bbc756",
-  "notes": "The blur engine now uses your phone's GPU for all three models even if an earlier launch was interrupted mid-setup. New advanced dial: weak-face patience."
+  "versionCode": 1115,
+  "versionName": "0.1.115",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.115/tamescroll-1115.apk",
+  "sha256": "dbd3fb32e238d6004c466bb67ce1f7259af0f16dda375be4534e913dddb80c20",
+  "notes": "Opening a YouTube link no longer flashes the tamescroll home screen first."
 }
