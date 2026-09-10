@@ -306,22 +306,48 @@ class MainActivity : TauriActivity() {
       }
     }
 
-    /** Pin one of our static shortcuts (shortcuts.xml ids only). */
+    /** Pin one of our static shortcuts (shortcuts.xml ids only) and SAY
+     * WHAT HAPPENED. The first version returned nothing, and on his own
+     * phone (olauncher, 2026-09-10) the launcher refuses pin requests, so
+     * the "Add" button did nothing at all with no word to the user.
+     * Returns: pinned | requested | unsupported | unavailable | refused. */
     @JavascriptInterface
-    fun pinShortcut(id: String?) {
-      if (id == null || id !in setOf("youtube", "reddit", "x", "tiktok", "instagram", "facebook")) return
-      runOnUiThread {
-        if (!fromLauncher()) return@runOnUiThread
-        if (Build.VERSION.SDK_INT < 26) return@runOnUiThread
-        try {
-          val sm = getSystemService(android.content.pm.ShortcutManager::class.java)
-          if (sm == null || !sm.isRequestPinShortcutSupported) return@runOnUiThread
-          val existing = sm.manifestShortcuts.firstOrNull { it.id == id } ?: return@runOnUiThread
-          sm.requestPinShortcut(existing, null)
-        } catch (e: Throwable) {
-          Log.w("TsLinks", "pin($id) failed: " + e.message)
-        }
+    fun pinShortcut(id: String?): String {
+      if (id == null || id !in setOf("youtube", "reddit", "x", "tiktok", "instagram", "facebook")) return "refused"
+      // JavascriptInterface runs off the UI thread and WebView.getUrl()
+      // throws there (measured 1117 first cut: "Java exception was raised").
+      val onLauncher = java.util.concurrent.FutureTask<Boolean> { fromLauncher() }
+      runOnUiThread(onLauncher)
+      val ok = try { onLauncher.get(2, java.util.concurrent.TimeUnit.SECONDS) } catch (_: Throwable) { false }
+      if (!ok) return "refused"
+      if (Build.VERSION.SDK_INT < 26) return "unavailable"
+      return try {
+        val sm = getSystemService(android.content.pm.ShortcutManager::class.java) ?: return "unavailable"
+        if (sm.pinnedShortcuts.any { it.id == id }) return "pinned"
+        if (!sm.isRequestPinShortcutSupported) return "unsupported"
+        val existing = sm.manifestShortcuts.firstOrNull { it.id == id } ?: return "unavailable"
+        if (sm.requestPinShortcut(existing, null)) "requested" else "unsupported"
+      } catch (e: Throwable) {
+        Log.w("TsLinks", "pin($id) failed: " + e.message)
+        "refused"
       }
+    }
+
+    /** Is the platform's shortcut on the home screen, and can this
+     * launcher take one at all. Null where the OS will not say. */
+    @JavascriptInterface
+    fun pinState(id: String?): String {
+      val o = JSONObject()
+      try {
+        if (Build.VERSION.SDK_INT >= 26 && id != null) {
+          val sm = getSystemService(android.content.pm.ShortcutManager::class.java)
+          if (sm != null) {
+            o.put("supported", sm.isRequestPinShortcutSupported)
+            o.put("pinned", sm.pinnedShortcuts.any { it.id == id })
+          }
+        }
+      } catch (_: Throwable) {}
+      return o.toString()
     }
 
     /** What the OS says about both packages, plus whether a probe ever

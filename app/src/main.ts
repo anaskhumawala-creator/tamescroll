@@ -824,7 +824,8 @@ type LinksBridge = {
   openDefaultApps(pkg: string | null): void;
   openAppInfo(pkg: string): void;
   probe(): void;
-  pinShortcut(id: string): void;
+  pinShortcut(id: string): string;
+  pinState?(id: string): string;
   state(): string;
 };
 type PkgLinkState = { allowed?: boolean; hosts?: Record<string, number> };
@@ -903,6 +904,7 @@ function renderLinksView() {
   });
   const uninstall = document.querySelector<HTMLElement>('.step[data-step="uninstall"]')!;
   uninstall.hidden = s.youtubeInstalled === false;
+  renderPinStep();
   const note = document.querySelector<HTMLElement>("#links-note")!;
   if (linksOwned(s)) {
     note.textContent = "Done. YouTube links open in tamescroll.";
@@ -910,6 +912,37 @@ function renderLinksView() {
     note.textContent = "This phone won't report the switches, so the test is the proof.";
   } else {
     note.textContent = "";
+  }
+}
+
+// What the launcher said when asked to pin, in the user's words. On a
+// launcher that refuses pin requests (olauncher on his own phone) the
+// long-press route still works on most of them, so it is offered.
+const PIN_WORDS: Record<string, string> = {
+  pinned: "Already on your home screen.",
+  requested: "Confirm on the dialog that just opened.",
+  unsupported: "Your launcher doesn't take shortcuts from apps. Long-press the tamescroll icon and drag YouTube out, or pick another launcher.",
+  unavailable: "This phone can't add shortcuts.",
+  refused: "That didn't work. Try from the home screen instead.",
+};
+
+function renderPinStep() {
+  const li = document.querySelector<HTMLElement>('.step[data-step="pin"]');
+  if (!li || !linksBridge?.pinState) return;
+  let st: { supported?: boolean; pinned?: boolean } = {};
+  try { st = JSON.parse(linksBridge.pinState("youtube")); } catch { /* the OS would not say */ }
+  li.classList.toggle("done", st.pinned === true);
+  const body = li.querySelector<HTMLElement>(".step-body")!;
+  const btn = li.querySelector<HTMLButtonElement>("button")!;
+  if (st.pinned) {
+    body.textContent = "On your home screen.";
+    btn.hidden = true;
+  } else if (st.supported === false) {
+    body.textContent = "Your launcher won't take it from here: long-press the tamescroll icon and drag YouTube out.";
+    btn.hidden = true;
+  } else {
+    body.textContent = "A tamescroll icon that opens YouTube, cleaned.";
+    btn.hidden = false;
   }
 }
 
@@ -927,7 +960,13 @@ document.querySelectorAll<HTMLButtonElement>("#view-links [data-act]").forEach((
         case "yt-off": linksBridge.openDefaultApps(YOUTUBE_PKG); break;
         case "ours-on": linksBridge.openDefaultApps(null); break;
         case "probe": linksBridge.probe(); break;
-        case "pin": linksBridge.pinShortcut("youtube"); break;
+        case "pin": {
+          const r = String(linksBridge.pinShortcut("youtube"));
+          const note = document.querySelector<HTMLElement>("#links-note")!;
+          note.textContent = PIN_WORDS[r] ?? "";
+          renderPinStep();
+          break;
+        }
         case "uninstall": linksBridge.openAppInfo(YOUTUBE_PKG); break;
       }
     } catch {

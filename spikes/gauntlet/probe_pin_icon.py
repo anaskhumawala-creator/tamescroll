@@ -32,7 +32,12 @@ sock = [l.split('@')[-1].strip() for l in adb('shell', 'cat /proc/net/unix').std
 adb('forward', '--remove', 'tcp:%d' % PORT)
 adb('forward', 'tcp:%d' % PORT, 'localabstract:%s' % sock)
 t = Tab(page(port=PORT, want='tauri.localhost')); t.cmd('Runtime.enable')
-print('bridge', t.eval("(function(){try{ window.TsLinks.pinShortcut('youtube'); return 'called' }catch(e){ return 'ERR '+e }})()"))
+print('state', t.eval("(function(){try{ return window.TsLinks.pinState ? window.TsLinks.pinState('youtube') : 'no pinState' }catch(e){ return 'ERR '+e }})()"))
+print('pin ->', t.eval("(function(){try{ return String(window.TsLinks.pinShortcut('youtube')) }catch(e){ return 'ERR '+e }})()"))
 time.sleep(2.5)
+open(OUT.replace('.png', '-dialog.png'), 'wb').write(adb('exec-out', 'screencap', '-p').stdout)
+# the links setup view, where the step now explains itself
+t.eval("(function(){var b=document.querySelector('#links-card-btn'); b&&b.click(); return !!b})()")
+time.sleep(1.5)
 open(OUT, 'wb').write(adb('exec-out', 'screencap', '-p').stdout)
 print('shot', OUT)
