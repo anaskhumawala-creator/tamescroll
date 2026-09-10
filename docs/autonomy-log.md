@@ -392,3 +392,20 @@ Verified on his phone: tile -> m.youtube.com/, logo -> m.youtube.com/.
 Lesson for the record: he said "of course yes" to the landing at 19:55
 and reversed at 20:15 once he saw it; a landing change is visible
 enough to deserve a one-line "you sure" before a build.
+
+## 2026-09-10 -- 1120: his watch-page report, reproduced and fixed
+His words: scrolling overlaps the video, a bar with "From the series"
+shows, mini player misbehaves. probe_watch_scroll.py (recs shown, the
+page must scroll): the docked player is YouTube's own sticky player and
+paints the video correctly with blur on and off -- not a bug. The mini
+player is OURS (miniplayer.mjs, html.ts-mini). In mini: (1) the video
+title sat at y=12 UNDER the top bar because .related-chips-slot-wrapper
+carries translateY(-48px) while its slot is open; (2) the chips bar
+(ytm-related-chip-cloud-renderer, position:fixed top=324.75px = band
+height, z 20) floated mid-screen over the recommendations. Fix in the
+ts-mini sheet: wrapper transform none; chips container static, 48px,
+transform none (pinning it at top:48 still drew over the top bar --
+YouTube's translate again). Verified (probe_mini.py): title y 60, chips
+in flow at 277 and scrolling away, restore by drag-up or tap works.
+Two false starts: python cannot open a /z/ path (use Z:/), and a chain
+that `cd`s then uses relative paths.

@@ -1,6 +1,6 @@
 ## Session state (update every session)
 
-**Last updated:** 2026-09-10 20:20 (**1119 IS THE RELEASE**, Subscriptions landing REVERTED on his word -- the blank home is the design;
+**Last updated:** 2026-09-10 20:35 (**1120 IS THE RELEASE**: mini-player layout fixes, see the log; 1119 reverted the Subscriptions landing on his word -- the blank home is the design;
 served hash verified, manifest verified via the contents API. His phone
 `e3d369ee` on the cable, runs 1118, launcher olauncher. Old Redmi
 PIN-locked. Injected Back is dead on his phone.)
