@@ -337,3 +337,16 @@ on 39 (30.2%); after the shipped image guard 16 junk marks remain
 (~12%), all weak male reads nm 1.4-5. Next cut is GENDER_IMAGE_NM_FLOOR
 6 (OTA, clamp [0,6]): -5 junk / -4 real per finding 52's table. His
 call. Map artifact e198a03e corrected.
+
+## 2026-09-10 -- CORRECTION: the student model WAS tried, and lost round one
+His question exposed it. Sept 5 overnight (student-queue/queue2/sweep3,
+student-w1-s112-*): MobileNetV3 students at 112-192px on dima806's
+labels over 16,405 teacher rows (5,451 in-domain + 10,954 FairFace).
+Held-out corpus AUC: best 0.9769 (d4-s176), most 0.80-0.97; shipped
+grey is 0.9855 on the same 2,159 rows. sweep3 pooled false cover
+76-83%. The one run that printed "women wrong 1.5%" (queue, epoch 5)
+scored rows it trained on. One config crashed (KeyError 'crop'). No
+finding was written; CLAUDE.md said "nothing measured". So: the student
+is NOT a pending free win, it is a research bet that lost its first
+round. Map corrected. The remaining accuracy levers are the dials he
+already has and grey (shipped behind GENDER_GREY).
