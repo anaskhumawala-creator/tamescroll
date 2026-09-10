@@ -350,3 +350,23 @@ finding was written; CLAUDE.md said "nothing measured". So: the student
 is NOT a pending free win, it is a research bet that lost its first
 round. Map corrected. The remaining accuracy levers are the dials he
 already has and grey (shipped behind GENDER_GREY).
+
+## 2026-09-10 -- 1116 + 1117: the home-screen icon and an honest pin step
+1116 sha 97cf70d972acc53b...: shortcut_youtube.png is now a red
+rounded tile with a white play triangle (our own red, our glyph, label
+"YouTube" unchanged) -- his ruling, the only shape that survives a
+store review. Verified as bytes in the APK and iconRes in dumpsys
+shortcut; the system pin dialog could not be screenshotted because...
+his launcher is olauncher, and the FIRST pinShortcut returned nothing.
+1117 sha e597798dd53786ac...: pinShortcut returns pinned | requested |
+unsupported | unavailable | refused; pinState reports {supported,
+pinned}; the links step shows "On your home screen." (button hidden),
+the long-press route when the launcher refuses, or the Add button.
+First cut threw: WebView.getUrl() off the UI thread from a
+JavascriptInterface -- now a FutureTask on the UI thread. On his phone:
+state {supported:true, pinned:true}, pin -> "pinned". Raw manifest CDN
+lagged 5+ min behind the push; verified through the contents API.
+Left for the icon mechanism (map): the ONBOARDING never mentions the
+home icon -- it lives only under the links "Set up" card -- and a
+launcher that hides app shortcuts (olauncher and kin) has no route but
+"switch launcher". Both are his to shape.

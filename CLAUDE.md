@@ -1,11 +1,16 @@
 ## Session state (update every session)
 
-**Last updated:** 2026-09-10 10:30 (**1115 IS THE RELEASE, sha dbd3fb32**,
-hash-verified, verified on his phone `e3d369ee` by cold-link frames.
-Old Redmi `1ec2c48e0621` is PIN-locked and its CDP touch injection times
-out; HyperOS on his phone ignores injected Back entirely -- Back cannot
-be driven from here on either device; he never pressed it during two
-watch windows, so the "reload on close" complaint is still unreproduced.)
+**Last updated:** 2026-09-10 20:00 (**1117 IS THE RELEASE, sha e597798d**,
+served hash verified, manifest verified via the contents API (raw CDN
+lags minutes). His phone `e3d369ee` on the cable, runs 1117, launcher is
+**olauncher** (pin supported, YouTube shortcut already pinned). Old
+Redmi `1ec2c48e0621` PIN-locked. Injected Back is dead on his phone.)
+
+**1116/1117:** shortcut icon is a red play tile (his ruling); pin step
+reports what the launcher did (`pinShortcut` returns a status,
+`pinState` reports support + pinned). **1115:** link/shortcut launch
+never paints the launcher. **Student model: PARKED (his word)** -- it
+was tried 5 Sept and lost round one (best 0.977 vs shipped 0.986).
 
 **Today's rulings:** NULL_MINT_NM_FLOOR stays 5 (6 = corpus exposure
 +30%, refused); extension stays dead; mobile first; student model is the
