@@ -1,12 +1,19 @@
 ## Session state (update every session)
 
-**Last updated:** 2026-09-10 20:00 (**1117 IS THE RELEASE, sha e597798d**,
-served hash verified, manifest verified via the contents API (raw CDN
-lags minutes). His phone `e3d369ee` on the cable, runs 1117, launcher is
-**olauncher** (pin supported, YouTube shortcut already pinned). Old
-Redmi `1ec2c48e0621` PIN-locked. Injected Back is dead on his phone.)
+**Last updated:** 2026-09-10 20:10 (**1118 IS THE RELEASE, sha 0794cea6**,
+served hash verified, manifest verified via the contents API. His phone
+`e3d369ee` on the cable, runs 1118, launcher olauncher. Old Redmi
+PIN-locked. Injected Back is dead on his phone.)
 
-**1116/1117:** shortcut icon is a red play tile (his ruling); pin step
+**His rulings today:** Subscriptions landing (1118), image floor 6
+(1118 + OTA), home icon in onboarding (1118), grey stays ON (it already
+was: GENDER_GREY 1 in tuning.json -- tell him, he thought it was off),
+student model PARKED, extension dead, mobile first, NULL_MINT_NM_FLOOR
+stays 5. Map: artifact e198a03e.
+
+**1118:** `landingUrl()` + `home-redirect.mjs` (home is empty when the
+feed is hidden, so "/" goes to /feed/subscriptions; a page with NO grid
+yet must not redirect); onboarding step 5 `#ob-pin`. **1116/1117:** shortcut icon is a red play tile (his ruling); pin step
 reports what the launcher did (`pinShortcut` returns a status,
 `pinState` reports support + pinned). **1115:** link/shortcut launch
 never paints the launcher. **Student model: PARKED (his word)** -- it

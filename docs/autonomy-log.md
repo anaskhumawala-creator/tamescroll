@@ -370,3 +370,17 @@ Left for the icon mechanism (map): the ONBOARDING never mentions the
 home icon -- it lives only under the links "Set up" card -- and a
 launcher that hides app shortcuts (olauncher and kin) has no route but
 "switch launcher". Both are his to shape.
+
+## 2026-09-10 -- 1118: his four rulings, shipped
+Rulings (his words): Subscriptions landing YES; image floor 6 "fine";
+grey -- ALREADY ON (tuning.json GENDER_GREY 1 over OTA; he did not know);
+home icon into onboarding YES; student PARKED.
+1118 sha 0794cea61bed3cde...: landingUrl() in the launcher opens
+/feed/subscriptions unless the home surface is in his shown list;
+home-redirect.mjs sends any in-page "/" with a hidden grid there
+(no grid yet = no redirect, once per href); onboarding step 5 offers
+"Put YouTube on your home screen" when pinState says supported and not
+pinned; GENDER_IMAGE_NM_FLOOR 6 in code and tuning.json. gaze 910/910.
+Verified on his phone (probe_1118.py): tile -> subs 0.92s, logo ->
+subs 0.55s with 16 items, step 5 reached with the button present
+(hidden on his phone: already pinned).
