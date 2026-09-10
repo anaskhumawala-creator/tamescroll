@@ -245,6 +245,21 @@ var CSS =
   // still measured 223 tall.
   'html.ts-mini .player-placeholder{height:0 !important;min-height:0 !important;' +
   'padding:0 !important;overflow:hidden !important;}' +
+  // YOUTUBE LAYS THE WATCH PAGE OUT AROUND THE PLAYER BAND, and two of
+  // its pieces keep doing so after the band is gone (his report
+  // 2026-09-10, measured on his phone): the related-chips slot wrapper
+  // carries translateY(-48px) while the slot is open, which put the
+  // video title under the top bar; and ytm-related-chip-cloud-renderer
+  // is position:fixed at top = band height (324.75px), which parked the
+  // chips bar in the middle of the screen over the recommendations.
+  // With the band collapsed the wrapper's shift goes, and the chips bar
+  // stops being fixed at all: it flows where its slot is, at its own
+  // 48px, because its container is 0 tall and it also carries YouTube's
+  // translateY(-48px) -- pinned at top:48 it still drew over the top bar
+  // (measured, first cut of this rule).
+  'html.ts-mini .related-chips-slot-wrapper{transform:none !important;}' +
+  'html.ts-mini ytm-related-chip-cloud-renderer{position:static !important;top:auto !important;' +
+  'transform:none !important;height:48px !important;}' +
   'html.ts-mini .ts-gaze-pill,html.ts-mini .ts-gaze-gear,' +
   // The tuning panel is a sheet the width of the player; at 0.56
   // scale it would be the only thing left in a 231px box.
