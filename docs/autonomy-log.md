@@ -384,3 +384,11 @@ pinned; GENDER_IMAGE_NM_FLOOR 6 in code and tuning.json. gaze 910/910.
 Verified on his phone (probe_1118.py): tile -> subs 0.92s, logo ->
 subs 0.55s with 16 items, step 5 reached with the button present
 (hidden on his phone: already pinned).
+
+## 2026-09-10 -- 1119: Subscriptions landing REVERTED on his word
+"I wanted a blank homepage anyways." landingUrl() and home-redirect.mjs
+(and its test) removed; onboarding icon step and image floor 6 stay.
+Verified on his phone: tile -> m.youtube.com/, logo -> m.youtube.com/.
+Lesson for the record: he said "of course yes" to the landing at 19:55
+and reversed at 20:15 once he saw it; a landing change is visible
+enough to deserve a one-line "you sure" before a build.
