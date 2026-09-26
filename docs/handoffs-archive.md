@@ -6399,3 +6399,874 @@ The cost is accepted and must not be re-litigated: a cleared person
 inside someone else's patch gets covered. Fix that upstream — better
 association, refusing a merge, tighter observation geometry — never by
 cutting a window in the blur.
+
+
+---
+
+# Moved from CLAUDE.md on 2026-09-26 (session-state blocks 2026-09-03 .. 2026-09-10)
+
+## Session state (update every session)
+
+**Last updated:** 2026-09-10 20:35 (**1120 IS THE RELEASE**: mini-player layout fixes, see the log; 1119 reverted the Subscriptions landing on his word -- the blank home is the design;
+served hash verified, manifest verified via the contents API. His phone
+`e3d369ee` on the cable, runs 1118, launcher olauncher. Old Redmi
+PIN-locked. Injected Back is dead on his phone.)
+
+**His rulings today:** blank home stays (1119 reverted 1118's landing), image floor 6
+(1118 + OTA), home icon in onboarding (1118), grey stays ON (it already
+was: GENDER_GREY 1 in tuning.json -- tell him, he thought it was off),
+student model PARKED, extension dead, mobile first, NULL_MINT_NM_FLOOR
+stays 5. Map: artifact e198a03e.
+
+**1118:** `landingUrl()` + `home-redirect.mjs` (home is empty when the
+feed is hidden, so "/" goes to /feed/subscriptions; a page with NO grid
+yet must not redirect); onboarding step 5 `#ob-pin`. **1116/1117:** shortcut icon is a red play tile (his ruling); pin step
+reports what the launcher did (`pinShortcut` returns a status,
+`pinState` reports support + pinned). **1115:** link/shortcut launch
+never paints the launcher. **Student model: PARKED (his word)** -- it
+was tried 5 Sept and lost round one (best 0.977 vs shipped 0.986).
+
+**Today's rulings:** NULL_MINT_NM_FLOOR stays 5 (6 = corpus exposure
++30%, refused); extension stays dead; mobile first; student model is the
+real fix for the remaining patches (his go/no-go open). Map with all his
+calls: artifact e198a03e.
+
+**1114:** GPU breadcrumb counts three strikes (a kill during shader
+compile used to lock a model on CPU for the build); `NULL_HOLD_PASSES`
+dial ships 1 (bench/null-hold-ab.mjs: 0 -> phantom +43%, 2-3 buy
+nothing); nm clamp [0,7]. **Rules OTA pushed:** the watch-next
+related-items SECTION is hidden (per-item hiding fetched 643 related
+videos into a hidden column). **1115:** launcher no longer paints before
+a link/shortcut is consumed (`pendingRequest()` + `#handoff`).
+
+**Open, needs him:** one Back press on a watch page while I watch (the
+"reload" complaint); a screenshot of the "recommendation bar on scroll".
+
+**Last updated:** 2026-09-05 19:10 (**1113 IS THE RELEASE, sha 0119d88a**,
+hash-verified. His phone `e3d369ee` and the old Redmi on the cable.)
+
+**1113:** tile tap feedback. The launcher document dies ~50ms after
+`navigate()` and takes its pending frame with it; `open()` restored the
+tile before that, so the last painted frame was the un-dimmed one. Two
+rAFs before the invoke, feedback kept on Android. `probe_open_frames.py`
+/ `probe_search_frames.py` are the frame-timeline probes (adb screencap
+~2/s, stamped from the tap). Search path: box 0.09s, results ~1.0s,
+thumbs load blurred ~1.6s. **Home after the tile is BLANK by design**
+(feed hidden) -- landing on Subscriptions is his call, asked. His 19:00
+asks: most-used paths (search done), and a mechanism against YouTube
+updates (no per-surface breakage signal exists; proposal pending).
+
+**Last updated:** 2026-09-05 19:15 (**1112 IS THE RELEASE, sha da343193**,
+hash-verified. His phone `e3d369ee` and the old Redmi on the cable.
+HIS DIRECTION 18:00: app improvement first, stores later WITH him. The
+direction memo is artifact 30a38158; his five calls are listed there.)
+
+**1111/1112 (evening):** Subscriptions was BLANK with the default
+settings -- the mobile home grid IS the Subscriptions grid; fixed with
+`html[data-ts-page]` written by the bundle and a scoped rule (fails
+closed on old bundles). Shorts: channel tab hidden with the surface;
+/shorts/<id> always opens /watch (Rust for outside links, shorts-
+redirect.mjs in-page). Speed pass (probe_speed.py, coordinates must be
+CSS px inside 406x816): home 1.15s, subs 1.36s, search 1.7s, watch
+2.1-3.0s to playing with blur off OR smart (YouTube's responseEnd is
+1.3-1.7s of it), tap-to-playing 1.1-1.6s, scroll 1% dropped frames,
+thumbnail appear-to-verdict p50 248ms p95 629ms. Our code is not the
+slow part; remaining "feel" levers are UX (skeletons, launcher wait).
+
+**1110:** DELAY_LATE_ATTACH ships 1 -- presenter attaches after the
+first verdict, whole video blurred until then; measured on his phone
+first-10s drops 11.9% -> 1.8%, 60s 5.6% -> 0.9% (run_startup_ab.py).
+Paste-a-link field on home (YouTube hosts only). Image-budget dials on
+OTA. Credits card. Core ML conversions of the three models exist
+(spikes/native/coreml, neuralnetwork/iOS14; parity needs a Mac).
+Desktop Windows build runs and renders at width.
+
+**THE BIGGEST FINDING OF THE DAY, queue item h:** every shipped .so was
+**opt-level 0**. Releases are `tauri android build --debug` (debug
+signing installs without a key) and no `[profile.dev]` override existed.
+`Cargo.toml` now sets `opt-level = 3` for dev. On his phone the adblock
+warm-up went **4.0s -> 0.23s**, the APK shrank 12MB, a cold youtu.be
+link goes launcher -> open_platform in 112ms and lands on the watch page
+0.75s later. The "3-25s engine warm-up" was never the parser; it was an
+unoptimised binary. The serialised engine cache (`rules-cache/engine-
+<key>.bin`, key = crate + version + list bytes, atomic write, stale keys
+pruned) shipped too and is now a small win on top; host numbers in
+release: compile 82ms, deserialize 26ms.
+
+**1108 (this session, earlier):** the front door -- reskin, new
+onboarding, links view + home card, `TsLinks` bridge (`openDefaultApps(
+pkg)`, `openAppInfo`, `probe`, `pinShortcut`, `state`), `<queries>` for
+YouTube. `DomainVerificationManager` READS YouTube's state on his phone;
+the Android 16 page is "In the app / In your browser" + "Add link", no
+"Open supported links" switch. Self-test link verified both ways;
+settings reverted. `pm set-app-links-*` needs `--user 0`.
+
+**j, Play variant, built:** build TYPE `play` (a flavor dimension would
+break the autogenerated rust plugin's task names); `src/play/
+AndroidManifest.xml` removes REQUEST_INSTALL_PACKAGES and three implied
+legacy permissions; `BuildConfig.UPDATER=false` drops the TsUpdater
+bridge; release minify keeps `@JavascriptInterface` methods.
+`gradlew :app:bundleArm64Play` -> unsigned `app-arm64-play.aab`, only
+INTERNET requested. **BLOCKER FOR HIM: the uBO GPLv3 lists carry EVERY
+YouTube ad-strip rule (26 + 42 + 1 in EasyList, 0 in ours) -- dropping
+them ends YouTube ad blocking.** Options in the autonomy log.
+
+**QUEUE:** c (still-scene clock), d (image budgets on OTA), e (delay-
+presenter dial). The 30-min loop was not re-created.
+
+---
+
+**Last updated:** 2026-09-05 16:40 (**1107 IS THE RELEASE, sha 23eab0c2**,
+hash-verified. HEAD pushed, tree clean. His phone `e3d369ee` on the cable.
+Context was cleared at his request right after this block was written.)
+
+**THE 30-MINUTE LOOP (cron `9a4ac51e`) WAS SESSION-ONLY.** After a /clear,
+run CronList; if it is gone, re-create it (every 30 min, expires 2026-09-12)
+with the brief "work `docs/autonomy-log.md`'s queue top-down, append a tick,
+never take an exposure trade". Its log and queue live in that file.
+
+**HIS RULING THIS SESSION, in his words:** *"what's the point of leaving
+out the main features and just building in a hurry"* -- **build the front
+door FIRST, then the Play closed test.** The plumbing shipped (1107 links
+open here, sign-in verified live: `LOGGED_IN: true`); the guided flow did
+not. Queue is reordered: (i) the guided "make tamescroll your YouTube"
+onboarding, (j) the Play build variant, then the old c-h perf items.
+
+**MEASURED ON HIS PHONE, and it dictates the onboarding design:** the
+YouTube app's links are `system_configured` (OEM pre-verified), and a bare
+`youtu.be` tap opens the YouTube app in EVERY state we can set on our own
+package -- enabling ours changes nothing, and per-host `set-app-links-
+user-selection false` on YouTube changes nothing. **The one recipe that
+works: YouTube's MASTER "Open supported links" toggle OFF
+(`pm set-app-links-allowed ... false`) + ours ON -> tamescroll wins.**
+`pm disable-user` on YouTube is refused by MIUI (no result, not a finding).
+All of it reverted; YouTube enabled, our selection back to Disabled. So the
+flow is: (1) open YouTube's own Open-by-default page and have the user flip
+its master toggle off, (2) open ours and flip on, (3) pin a YouTube
+shortcut via `requestPinShortcut`, (4) offer YouTube's app-info page for
+uninstall. Whether `DomainVerificationManager.getDomainVerificationUserState`
+can READ YouTube's state (to show a "done" tick) is unverified.
+
+**Store decisions this session:** YouTube-first listing; other tiles stay
+in the app, each earns its name after a measured pass. Tauri stays (his
+question, answered: correct). Licences: everything is store-safe except
+the three uBO GPLv3 lists -- drop them, elect EasyList CC BY-SA; one
+unverified item is faceres' upstream HSE licence (check before Apple).
+Reports: "The replacement app" (artifact 51c8b82b) and "What Hijri First
+already paid for" (artifact 3e1aaa17). Hijri gives us the Apple team,
+the personal Play account (=> 12 testers x 14 days for any new app),
+EU non-trader; not EAS (Tauri). Play build must drop the updater AND
+`REQUEST_INSTALL_PACKAGES`; new apps need an AAB. Upload key: waits for
+his "make the key"; keep it on Z:. iOS: needs a cloud Mac (GH Actions
+macOS / Codemagic) plus the Core ML port; his cousin's iPhone for
+TestFlight later.
+
+---
+
+**Last updated:** 2026-09-05 15:10 (**1107 PUBLISHED, sha 23eab0c2** --
+served APK re-downloaded and hashed against the RAW manifest, isDraft
+false, 94,864,540 bytes. HEAD pushed. Installed on HIS phone
+(`e3d369ee`, Redmi 13 / Adreno 613 / Android 16 -- ON THE CABLE NOW, use
+`-s e3d369ee`; the old Redmi `1ec2c48e0621` is still attached too).
+
+**AN AUTONOMOUS 30-MINUTE LOOP IS RUNNING** (cron `9a4ac51e`,
+session-only, expires 2026-09-12). Its queue, its log and its "For the
+owner" questions live in `docs/autonomy-log.md` -- read that before
+doing anything, and append there. It never takes an exposure trade.
+
+**WHAT 1105-1107 ARE:** (1105) the GPU trial for faceres STARVED on any
+page without a face, was treated as a permanent loss, and wrote no
+reason -- on his Adreno faceres does 12.1ms GPU vs 48.8ms CPU and only
+got it by luck; now it retries, every losing path says why, and the
+report carries `nGpu` beside the worst-of `nativeBackend`. (1106) three
+dials on OTA at today's values: `GENDER_IMAGE_MIN_SCORE` (the bearded-
+men bar -- finding 55: 80.3% of wrong blurs on labelled men are WEAK
+male reads, only 2.2% read female; face SIZE predicts it, beards do
+not), `STATIC_VERDICT_MS` (still-scene verdict clock, ships 0),
+`STATIC_DELTA`. (1107) **YouTube links open inside tamescroll** --
+VIEW/BROWSABLE on youtube.com/www/m/youtu.be + SEND share target,
+routed through the launcher as `?open=youtube&url=`, youtu.be resolved
+to m.youtube.com/watch BEFORE the webview; and the launcher no longer
+awaits `rules_summary` (which built the 152k-rule engine synchronously
+-- a cold link sat on the launcher 20s). All verified on his phone:
+cold/warm/SEND land on the watch page, example.com is refused.
+
+**THE OTA CHANNEL'S REAL BEHAVIOUR, measured for the first time on a
+device:** `refresh()` sleeps 24h after a success; rules are rebuilt from
+CACHE at startup before the refresh thread runs, so a pushed value
+reaches the NEXT document; raw.githubusercontent caches for minutes.
+**A pushed dial is "the second cold start, up to a day later", never
+live.** Every earlier "shipped over OTA" claim was verified on GitHub,
+never on a phone.
+
+**OPEN PERF ITEM, unstarted:** the adblock engine warm-up is **3-25s**
+on his phone and every cold start pays it. The crate can serialise a
+built engine; that is queue item h.
+
+**STORE ROUTE, researched 2026-09-05** (`docs/portable-engine.md` and the
+"Both Stores, Browser Shape" report): Tahir Browser, HaramBlur and Kahf
+Browser ship this exact product on both stores. HaramBlur names YouTube/
+FB/IG/X in its listing WITHOUT a URL bar -- so the tile launcher is
+fine; what kills listings is LOGOS/impersonation (Vanced's own words),
+not filtering. Two blockers before Play: the APK self-updater must be
+off in that build (JSON rules + injected JS are exempt), and the three
+uBO lists are GPLv3-only (elect EasyList's CC BY-SA arm). Sideloading
+tightens 2026-09-30 (BR/ID/SG/TH), global 2027, 20-device hobbyist cap.
+
+---
+
+**Previous state (2026-09-04, 1104, sha 83815234):** served APK
+re-downloaded and hashed against the RAW manifest, isDraft false,
+94,847,816 bytes. Bundle marker **c8201db** verified inside the stripped
+`libapp_lib.so` in that APK and read live off the Redmi's own page.
+
+**A 1103 PHONE IS SAFE:** its compiled whitelist has no
+`GENDER_IMAGE_NM_FLOOR`, and an unknown key is dropped WITHOUT poisoning
+the rest of the payload -- verified by running `applyTuning` with an
+unknown key beside a real one and watching the real one still land.
+
+**THE NETWORK WENT DOWN MID-SESSION** and cost most of it: outbound 443
+died from this machine and from the Redmi, DNS still resolving, same
+failure with the sandbox disabled. The PC recovered; **THE REDMI STILL
+HAS NO INTERNET AT ALL** -- HTTP and HTTPS both return 000 from adb
+shell and the app shows its own "No connection" card, while the PC on
+the SAME subnet (192.168.99.x) reaches GitHub fine. Not chased further:
+the fix is a device network setting and that is not mine to change.
+`.overnight/push-when-up.sh` is the watcher that got the push out; it
+logs to `.overnight/push.log`.)
+
+**WHAT 1104 IS:** the image path's null guard shipped DEAD and nobody
+noticed for five builds. `flaggedFaceIndices` has refused a no-signal
+read since finding 45 -- live on the in-page image path, dead on the
+WORKER one, because worker-entry trimmed each read to
+`{gender, score, age, childP, px}` and BOTH of the guard's predicates
+fail OPEN on a missing field (`isNullRead` trusts a read with no `raw`,
+`mayNotMint` refuses nothing with no `shape.norm`). No throw, no log.
+
+**REPLAYED ON FINDING 52'S OWN 370 THUMBNAILS**, through the SHIPPED rule
+(`bench/image-guard-shipped.mjs` imports from `src/`, so it cannot drift):
+
+    marks total   258 -> 198   -60  (-23.3%)
+      JUNK         47 ->  16   -31  (-66.0%)
+      real        211 -> 182   -29  (-13.7%)
+    thumbnails covered -> COMPLETELY UNCOVERED:  16 of 370  (4.3%)
+
+Finding 52 predicted -32 junk / -24 real and could NOT compute that last
+row. **That row is the exposure and it is his ruling.** 4.3% of
+thumbnails lose their only mark. `GENDER_IMAGE_NM_FLOOR` ships at 5 and
+is clamped [0, 6] on the OTA channel, so **0 reverts the thumbnail half
+alone without giving up the video path's guard** -- they used to share
+one number and they are not the same trade (the video floor refuses a
+BIRTH, so a face inside an admitted person box stays covered).
+
+**VERIFIED IN THE EMITTED BUNDLE, NOT THE SOURCE:** the trimmer is READ
+(`reads:P.map(RR)`), it carries `raw:t.raw,shape:t.shape?{norm:...}`, the
+guard is `function iZ(t){return!!t&&q_(t)&&iw(t)&&gve(t)}` and `gve`
+reads `.shape.norm` against the image floor `lw`. Bundle marker
+`869d457` is inside the stripped `libapp_lib.so` in the APK.
+
+**WHAT IS STILL NOT VERIFIED, and it is the only gap:** the guard firing
+on live thumbnails on a phone. The Redmi has no internet (above), so
+`spikes/gauntlet/probe_imgnull_1104.py` and `probe_imgnull_slow.py` are
+written and UNRUN. They read `nr` and `n` off `__TS_GAZE_IMGDIAG`.
+
+What IS verified in place of it: the shipped rule replayed over finding
+52's 370 real thumbnails with real banked reads; the transport asserted
+through `structuredClone` (the bug was a transport bug, so the test has
+to cross the boundary); and the guard read out of the stripped binary --
+`function iZ(t){return!!t&&q_(t)&&iw(t)&&gve(t)}`, `gve` testing
+`.shape.norm` against the image floor.
+
+**HIS SHARE NOW ANSWERS IT.** The image block carries two aggregates,
+no per-read data: `nullRefused` (the guard's own count over the ring) and
+`nmP50` (median descriptor magnitude, one decimal -- NOT through `pctl`,
+which rounds to an integer and would send 3.44 to 3 and 4.6 to 5, across
+the very bar it reports on). `faces` minus `flagged` cannot substitute
+for `nullRefused`: a same-gender clear subtracts there too. Read
+`nullRefused` > 0 as "it fired", and `nmP50` near 3-4 as "on graphics"
+against finding 52's junk median of 3.44.
+
+**WHAT TO READ OFF HIS NEXT SHARE:** whether he still reports women
+missed and random marks. Grey (1103) is measured to help both, and
+finding 49 says it does NOT close the gap -- at 48px a Black woman still
+reads male 51.9% of the time. The 5x fix is finding 50 and it needs a
+student model. His phone still owes ONE SHARE on 1101/1102/1103 -- the
+`native.models.*.gpu` block is the only thing that says why his Adreno
+stayed on CPU.
+
+**FINDING 54 ANSWERS THE SUB-40px ITEM AND IT IS SMALLER THAN ADVERTISED.**
+Finding 48 offered it as 3.2% of video patches for an unpriced compute
+cost. Both halves are now measured on its own 3,809 frames
+(`bench/sub40-floor-cost.mjs`):
+
+- **The compute is free.** 144 sub-gate detections in 5,451; only 2.1% of
+  frames carry one; mean **0.038 extra crops per frame**, 1.78 on an
+  affected frame, worst frame 10. The gender pass is one batched call, so
+  98% of frames pay nothing. That kills the reason it was parked.
+- **The benefit halves.** 41 of the 68 refusals sit INSIDE an admitted
+  person box and are already covered, so nothing moves on screen. The
+  patches that actually disappear are **27 of 2,127 = 1.3%**, not 3.2% --
+  and all 27 are face-only, which is exactly the class nobody can call
+  graphic-or-person. There is no safe half to take first.
+- **nm barely separates down here:** p50 5.74 inside a person box against
+  4.12 outside, both spanning 2-9. Finding 38's clean 8.34-vs-4.56 gap was
+  a forced read on clean crops, not his frames.
+
+So it is cheap, small, and thin -- offer it as 1.3%, never as 3.2%.
+
+## HANDOFF 2026-09-04 (late) -- HIS TWO COMPLAINTS ARE ONE PROBLEM, AND
+## THE MODEL THAT FIXES IT IS 5x BETTER AND CANNOT SHIP
+
+**HIS OPENING QUESTION, ANSWERED:** *"maybe I don't know if this is to be
+treated separately or together, the random mark patches."* **TOGETHER.
+They are the same wall.** Finding 48, over 3,809 whole frames at his
+player's own 640x360 through the full shipped chain:
+
+    read the OPPOSITE gender           47.0% of video patches
+    read HIS gender but too weakly     46.2%
+    too small to ask, fails closed      6.8%
+    detector fired on NO human shape    0.1%   <- 5 of 5,451
+
+**The detector is innocent.** The largest single source of his "random
+blur marks" is a REAL man, corroborated by MoveNet, at an ordinary 76px,
+that faceres cannot commit to. Not text, not a graphic. So there is no
+separate "stop blurring text" project -- accuracy work fixes both.
+
+### THE FOUR NUMBERS THAT MATTER, all on his own corpus, matched exposure
+
+    arm                    <=1.6%     AUC
+    SHIPPED head            21.8%   0.9808
+    SHIPPED + GREY          18.2%   0.9855
+    dima806 ViT-base         4.2%   0.9974   <- 5x, and it cannot ship
+    ours retrained          58-69%   0.92-0.94  <- dead, see 51
+
+**FINDING 50 IS THE ROUND'S RESULT.** dima806
+(`dima806/fairface_gender_image_detection`, **Apache-2.0 read from the
+repo's own metadata this session**) is 5x better than what ships, best or
+tied in 7 of 8 videos, and wins hardest exactly where finding 49 says
+ours collapses (32-48px: women wrong 36.9% -> 12.1%).
+
+**THE CONFOUND THAT HAD TO DIE FIRST, and it nearly took the round:** the
+model is *named* `fairface_gender_image_detection`, so FairFace is its
+TRAINING domain and its numbers there may be memorisation. **His corpus
+settles it** -- 52 identities, ten real videos, nothing in the comparison
+has ever seen it -- and it wins there by MORE. Also verified on DEGRADED
+crops before anything was built on it: better at 24px (20.0% women wrong)
+than ours at 224px (33.8%).
+
+**THIS CORRECTS THE EARLIER 2026-09-04 HANDOFF IN HIS FAVOUR.** That one
+wrote *"distillation CANNOT fix accuracy"*. True of faceres as teacher,
+and **that was the wrong teacher**. With a 5x-better Apache-2.0 teacher,
+distillation is exactly the accuracy fix -- which is what he asked about
+in his first message.
+
+**WHY IT CANNOT SHIP: ViT-base is ~86M parameters against faceres' 3.5M**,
+and finding 43 already refused a 1.96x speedup of the smaller model at 9.3%
+decision flips. **The route is a STUDENT** and none of that project is
+measured: architecture, size, in-domain data, per-frame cost, whether the
+win survives the shrink.
+
+### BOTH CHEAP ROUTES ARE DEAD, FROM OPPOSITE DIRECTIONS
+
+- **Finding 50's retrain arm:** 10,580 FairFace faces, TRUE labels, scale-
+  augmented to 24-192px through the player's own degradation, split BY
+  FACE. Wins on held-out FairFace at every size (AUC +0.025 at 24px) and
+  **loses on his corpus: 18.9% vs grey's 18.2%.** FairFace portraits are
+  not video frames; his corpus is the EASY domain (AUC 0.98 vs 0.89) and
+  a head tuned for the hard one gives back accuracy on the easy one.
+- **Finding 51's pseudo-label arm:** label his footage with dima806,
+  retrain our head on our descriptors, zero extra inference. **68.5% with
+  PERFECT labels, 58.0% with dima's** -- both far worse than shipped.
+  **The pseudo arm BEATING the true arm is the tell:** that is noise, not
+  a result about labels. Cause is countable -- 2,159 reads but only **51
+  clusters over ten videos, so each fold fits 1,024 inputs on ~46 distinct
+  people.** Written up as "his corpus cannot train a head", NOT "the trunk
+  is the ceiling"; those need opposite next steps and only the first is
+  supported.
+
+**A third attempt needs THOUSANDS of in-domain identities -- a labelling
+run over real video, not a re-slice of what is on disk. Do not start it
+until someone decides it is cheaper than the student.**
+
+### GREY IS IN THE SOURCE AT LAST, BEHIND `GENDER_GREY` AT 0
+
+Six independent confirmations (39, 41, 44, 45, 47, 49) and it had never
+shipped. One line after `cropAndResize` in `classifyFaceGenders`, covering
+the video AND thumbnail paths. **`GENDER_GREY` clamped [0,1], ships 0**, so
+the switch and the revert both travel over OTA -- but the whitelist is
+compiled in, **so 1102 will REFUSE the key and a build is needed before
+the dial can travel.** He is tired of installing, so batch it.
+
+**FINDING 49, why grey is not optional:** the full FairFace validation
+split (**10,580 faces -- the 1,400 we lived on was a CPU-era decision**)
+degraded to each native size:
+
+    women read as men, shipped head
+    size    Black  Indian   White
+    224px   53.6%   47.4%   29.8%
+     48px   64.9%   53.2%   37.3%
+     24px   90.5%   82.3%   64.9%
+
+His faces read px p50 76, so **a Black woman is read as a man about two
+times in three on his hardware.** And it is NOT a threshold effect -- AUC
+decays 0.8913 -> 0.7695, so no dial recovers it, which is why he was right
+to refuse *"blur everyone"*. **Grey is better in 35 of 35 (race x size)
+cells and worse in none**, helps most where it is worst (Black -15.4 pts
+at 24px), and its AUC gain GROWS as faces shrink. Grey at 48px still reads
+a Black woman wrong 51.9% -- ship it AND do not read it as a solution.
+
+### THE INSTRUMENT DEFECTS THIS ROUND, all self-caught, all recorded
+
+1. **`nPersons === 0` is not "nobody is here".** The false-fire bench
+   first reported **388 candidates (7.1% of detections)**; its own "open
+   these frames" section showed the worst were **385-435px faces at conf
+   0.85-0.90 with maxKp 0.67** -- close-ups the person GATE refused, which
+   is what `PFF_CLOSEUP_H` exists for. Keyed on the quantity the shipped
+   ghost gate uses it is **5, not 388**. *A bench reporting a bound must
+   name the rows behind it.*
+2. **The nm floor's cost column overstated by 572.** It counted
+   corroborated faces as exposure; the floor refuses a BIRTH, never a
+   refresh, so a face inside an admitted person box is already covered.
+3. **Per-race error read at the raw 0.5 boundary** made the augmented head
+   look 6.7 points WORSE on Black women while every other cell said
+   better. At each arm's own bar solved to a common cost it is 2.1 points
+   BETTER. *The matched-exposure rule, relearned for the sixth time.*
+4. **The ceiling probe overfit** (1,024 params on 1,348 rows; 60 epochs
+   scored worse than 6) and read as "the trunk is the wall". Fixed with a
+   validation split, early stopping and a grid selected on the TRAINING
+   domain only.
+
+### WHAT IS ON DISK NOW, and it makes the next round cheap
+
+    gpu-fairfull-desc.json        10,580 FairFace, descriptors + reads
+    gpu-ff-s{24..192}.json        the same faces at 8 native sizes
+    gpu-frames-detect.json        3,809 whole frames, full shipped chain
+    dima-degraded.json            76,678 dima806 reads, 7 sizes
+    dima-corpus.json              dima806 on his own corpus
+    frames-scan/                  3,809 ppm frames off the ten videos
+
+`bench/head-train.mjs` is now the ONE trainer, shared by `head-ceiling`,
+`head-scale` and `pseudo-label` -- two copies would drift, which is the
+phase-g G1 failure. **torch+CUDA and transformers live in a venv on
+`Z:/ml`** (C: is at 98%; HF cache is on Z: too).
+
+### NEXT, in order
+
+1. **His ruling on grey.** It is an exposure trade so it is his, and it
+   needs a build (1103) before the dial can travel.
+2. **The student**, if he wants the 5x. Nothing is measured; it is a real
+   project. dima806 is Apache-2.0 and the teacher is verified on degraded
+   in-domain crops, which is the part that is usually missing.
+3. **The thumbnail half of finding 48 is UNMEASURED.** That bench used
+   video frames from videos that CONTAIN people. His words were
+   *"randomly just blur some text"* on THUMBNAILS, and a gaming or tech
+   thumbnail often has no person at all. Finding 45's image numbers stay
+   conditional on detection.
+4. `NULL_MINT_NM_FLOOR` applied to sub-40px abstentions is worth **3.2%
+   of video patches** -- real, small, not built.
+
+**REFUSED ON PRINCIPLE, do not re-open:** per-race calibration. Inferring
+skin tone to correct the model is biometric categorisation on a sensitive
+characteristic -- the same clause (AI Hub Model License 2.c) that killed
+the Qualcomm NPU delegate in loop 47.
+
+**GOTCHAS THIS ROUND:** `movenet-multipose.json`'s weightsManifest names
+`weights.bin`, which the app never reads (it loads through
+`embeddedIoHandler`) but a plain URL load does -- the 404 body decodes as a
+3-value tensor and reads like a corrupt model; person objects are FLAT
+(`{x1,y1,x2,y2}`, person-gate.mjs:1004) not `{box:{...}}`; the Bash
+heredoc still breaks on long bench bodies (use the Write tool); `pip`
+ignores POSIX `TMPDIR` on Windows and spends C: (set `TEMP`); and two GPU
+jobs at once need different `--port`.
+
+## HANDOFF 2026-09-04 -- THE BENCHES RUN ON THE GPU NOW (127x), AND
+## THAT CHANGES WHAT IS WORTH TRYING NEXT
+
+**READ `docs/gpu-bench.md` BEFORE RUNNING ANY BENCH.** Every bench in
+this repo before today ran on tfjs' pure-JS CPU backend at **0.15
+crops/second** -- that is why rounds took nights and samples were 140
+instead of 1,400.
+
+    node app/gaze/bench/gpu/run.mjs --pop=corpus --backend=webgl --arms=rgb,grey --out=NAME
+
+`bench/gpu/` runs the SHIPPED `detectFaceBoxes`/`classifyFaceGenders` in
+a headless Chrome page on the RTX 3060 Ti through ANGLE/D3D11 and keeps
+the scoring in node off banked rows, exactly as before. **No CUDA
+toolkit** (there is none on this machine and `tfjs-node` does not build
+on node v24 here). No CDP -- the page fetches its own job and POSTs its
+own rows, so a page-side failure arrives as `ok:false` with a stack.
+Nothing is ever shown on his screen: `--headless=new` against 127.0.0.1,
+local crops and models only.
+
+    tfjs CPU (pure JS)      0.15 crop/s     2,159 crops ~ 4 hours
+    WebGL, 3060 Ti         11-26 crop/s     2,159 crops = 139 seconds
+
+**PARITY IS GATED, NOT ASSUMED** (`bench/gpu/parity.mjs`): 60 crops both
+backends, raw |delta| p50 **2.4e-7**, and **0 of 60 decisions flip** at
+the label boundary or the shipped clear bar. The gate REFUSES to print a
+verdict if an arm's output spans under 0.2 -- the finding-43 saturation
+shape. Findings 25 is why: tfjs-WebGL on an Adreno read MoveNet at 0.03
+where every other backend read 0.8, and six loops described a regime
+that did not exist.
+
+**THE HARNESS SHIPPED A BUG ON ITS FIRST RUN AND IT READ AS A RESULT.**
+**Detector boxes are NORMALISED [0,1], not pixels** -- they go straight
+to `tf.image.cropAndResize`. `mirrorBox` flipped by pixel width, so the
+mirrored crop landed off the face and mirror "fixed 0 of 235 women".
+**The tell generalises: a bad crop looks exactly like a bad arm**,
+because a crop of nothing reads as the model's male-leaning prior
+(mirror read 66% of small women male against rgb's 36.9%). Caught
+because grey touches no box and reproduced finding 41 to the digit.
+
+**FINDING 47, the corrected stack** (2,159 labelled reads, matched
+exposure, false cover on men at exposure <= 1.6%):
+
+    rgb 21.8%   grey 18.2% (-3.6)   rgbMir 21.5% (-0.2)   greyMir 17.2% (-4.6)
+
+- **MIRROR ALONE IS WORTH ~NOTHING ON HIS OWN FOOTAGE** -- a partial
+  retraction of finding 40's 18.0% -> 12.3%, which was FairFace.
+- It adds **1.0 point on top of grey** and they overlap on only 13 of 74
+  women, so the stack is SUPER-additive (119%). But that 1.0 point is
+  **seven women** and costs 1.4-1.6x of the gender inference.
+- **GREY IS FREE AND DOES 78% OF THE COMBINED WIN. Ship grey alone.**
+
+**FINDING 46: THE DESCRIPTOR VETO IS DEAD.** The one-way veto finding 33
+flagged (head proposes a clear, the [1024] fingerprint may only refuse
+it -- monotone toward covering, zero runtime cost) **loses at every
+matched-exposure operating point to the shipped head alone** (4.6% vs
+6.0/12.2/32.3% false cover). The mechanism is measured:
+**pearson(head raw, probe) = 0.893** -- it is the same signal read off an
+earlier layer, not a second opinion. Finding 33's per-group error split
+looked independent and that was Simpson's paradox.
+**CONSEQUENCE THAT NARROWS THE SEARCH: every remaining idea that
+re-reads another head, layer or view of faceres is drawing from one
+well. Grey works precisely because it changes the INPUT instead.**
+
+### HIS QUESTION ABOUT DISTILLATION, ANSWERED -- AND IT IS TWO DIFFERENT
+### PROJECTS WEARING ONE NAME
+
+1. **"Distill all three models into one" is a LATENCY project and
+   CANNOT fix accuracy.** A student trained on teacher outputs
+   reproduces the teacher's errors -- it would inherit faceres' 25.8%
+   error on women exactly. Findings 37/38/43 are three independent
+   routes to "the gender model is the wall". Distillation makes the wall
+   cheaper to hit, not further away.
+2. **The accuracy route is NOT distillation -- it is supervised
+   fine-tuning of the gender head on FairFace's REAL LABELS, trunk
+   frozen.** No backprop through the trunk, same single forward pass,
+   ~4KB of changed weights, zero extra inference. That is the one-day
+   job he was asking about, and it only became one-day because banking
+   descriptors is now minutes.
+3. **HONEST CAVEAT, and it is finding 46:** a LINEAR head on this
+   descriptor is 0.893 correlated with the head that ships, so it may
+   not beat it. FairFace is far better powered (thousands of identities
+   against the corpus' 52) and a non-linear head is untested, so it is
+   worth the run -- but it is a TEST, not a plan.
+
+**READY FOR THAT TEST, banked this session, 141 seconds of GPU:**
+`Z:/tamescroll-corpus/bank/gpu-fairface-desc.json` (1,348 rows) and
+`gpu-corpus-desc.json` (2,159 rows), each carrying `rgbDesc`/`greyDesc`
+[1024] L2-normalised vectors plus who/race/px. **The decisive experiment
+is train on FairFace, evaluate on HIS corpus at matched exposure** --
+different people, different footage, so it cannot flatter itself.
+
+**WHAT THE GPU UNLOCKS, all previously unaffordable:** full FairFace in
+53s instead of a night; whole-range dial sweeps in one run; bootstrap
+confidence intervals (they need the population resampled); descriptor
+banking for head work.
+
+**FIELD NAMES THAT COST TIME:** the descriptor is `face.desc` (NOT
+`descriptor`) and nm is `face.shape.norm` (NOT `face.nm`) --
+`face-decode.mjs:237`.
+
+**HIS OPEN RULINGS, none pushed, all exposure trades:** grey (build,
+recommended); mirror (compute, marginal); `NULL_MINT_NM_FLOOR` 5 -> 5.5
+(OTA) or 6 (build); `GENDER_IMAGE_MIN_SCORE` 0.40 -> 0.35; decision
+boundary 0.50 -> 0.65; `PTRACK_MIN_COAST_PASSES` 2 -> 1.33; `DELAY_MS`
+1500 -> 0; 720p; the child gate by policy.
+
+**IF GREY SHIPS (44), READ THIS FIRST.** One line after `cropAndResize`
+in `classifyFaceGenders`, covering video AND thumbnail paths for ~zero
+compute. Ship it the 1098 way: `GENDER_GREY` at 0, clamped [0,1], so the
+switch and the revert travel over OTA. **AND IT SILENTLY CHANGES THE
+IDENTITY MEMORY** -- the same pass produces the [1024] descriptor matched
+at `MEM_SIM` 0.6, already near its edge. A grey build owes a
+descriptor-separability bench first, and both descriptor banks above now
+make that a ten-minute job.
+
+**THE RULE THAT INVALIDATES MOST NAIVE BENCHES:** the clear bar sits far
+above the label boundary -- `GENDER_CLEAR_SCORE` 0.45 male means **raw
+>= 0.725** -- so a label flip between 0.50 and 0.725 changes NOTHING that
+ships. And any arm wins an accuracy column by leaning female, which is a
+threshold move in disguise. **Tune each arm's own bar to a COMMON
+EXPOSURE and read false cover.** Findings 29, 40, 41, 45 and 47 all turn
+on this.
+
+**REFUSED ON PRINCIPLE, do not re-open:** per-race calibration.
+Inferring skin tone to correct the model is biometric categorisation on
+a sensitive characteristic -- the same clause (AI Hub Model License 2.c)
+that killed the Qualcomm NPU delegate in loop 47.
+
+**GOTCHAS:** `execFileSync` cannot spawn a `.cmd` on Windows without a
+shell (use esbuild's JS API); repo files are CRLF so a python patch must
+normalise before matching; the Bash heredoc breaks on long bench bodies
+-- use the Write tool; two GPU jobs at once need different `--port`;
+FairFace `sample.json` is GROUPED BY RACE so a head-N slice is one race
+(run.mjs interleaves); and **re-read a bank after a re-run** -- scoring a
+still-running job silently reports the previous run's numbers, which
+happened once today.
+
+**Last updated:** 2026-09-04 07:10 (**1102 IS STILL THE RELEASE, sha
+0a495cfa. NOTHING SHIPPED OVERNIGHT AND NO CONSTANT MOVED.** HEAD
+pushed, tree clean. The deliverable is eleven findings, 34-44, in
+`docs/engine-findings.md`. His phone still owes ONE SHARE on 1101/1102
+-- the `native.models.*.gpu` block is the only thing that says why his
+Adreno stayed on CPU.)
+
+## HANDOFF 2026-09-04 -- THE ACCURACY ROUND: GREY WINS, THE CROP IS
+## ALREADY RIGHT, AND THE BIGGEST PERF LEVER IS DEAD
+
+**HIS STANDING COMPLAINT, and it is what the round was aimed at:** "the
+random blur marks are pretty pretty annoying on random places on random
+thumbnails, like randomly just blur some text."
+
+**THE ONE RULE THAT INVALIDATES MOST NAIVE BENCHES, and it caught two
+of mine:** the clear bar sits far above the label boundary --
+`GENDER_CLEAR_SCORE` 0.45 male means **raw >= 0.725** -- so a label flip
+anywhere between 0.50 and 0.725 changes NOTHING that ships. And an arm
+can win any accuracy column by simply leaning female, which is a
+threshold move in disguise. **Every comparison must tune each arm's own
+bar to a COMMON EXPOSURE and read false cover.** Findings 29, 40 and 41
+were each nearly reported wrong for exactly this.
+
+**WHAT WON:**
+- **GREY (41, 42).** Rec.601 luma into faceres. FairFace 1,348 faces:
+  women 36.0% -> 30.0% wrong, z 4.16. **HIS OWN CORPUS, 2,159 labelled
+  reads off ten real videos: 25.8% -> 19.0%, z 5.56**, and it lands in
+  his own 38-62px band (32-48px: 36.9% -> 24.8%). At matched exposure it
+  buys **3.7-5.8 points of false cover** and beats rgb at every operating
+  point. Costs men 0.2% -> 1.0%. **NOBODY HAS A MECHANISM** -- every one
+  proposed has been tested and refused (tone equalisation worse; the
+  between-group gap does not move, 27.3 -> 27.2; and blueOnly, which
+  should strip tone best, is the WORST arm at z 2.25 AGAINST while
+  redOnly is the best single channel). `invert` collapses women to 84.5%
+  wrong while preserving all structure, so **faceres reads tone and
+  polarity, not geometry**. Ship it on the measurement or not at all.
+- **MIRROR-AVERAGING (40).** 18.0% -> 12.3% false cover at matched
+  exposure. Zoom and rotate are worse; if it ships it is MIRROR ONLY.
+  Costs ~1.4-1.6x of the gender inference (one batch of 2N crops, not
+  two calls -- readback count unchanged).
+
+**WHAT DIED, all cleanly:**
+- **CROP ALIGNMENT (34).** Shipped 15.8% wrong on women against 29.1%
+  eye-rect and 28.8% full-align; loses on 8 of 10 videos, z ~8.5.
+  `src/face-align.mjs` is dead code. The eye-target sweep is CANCELLED.
+- **FACERES AT A SMALLER INPUT (43).** Runs at 160/112/96 for
+  1.96x/3.82x/5.38x and flips 9.3% / 10.7% / 28.6% of decisions. Loop 34
+  refused a requant of this model at 8 flips per 100. Refused.
+- **THE DETECTOR AS THE CULPRIT (38).** 0.4% missed at 48px, under 2%
+  across his whole band, no race or sex bias. The gender model is the
+  wall -- third independent route to that.
+- **RESOLUTION (37).** 720p buys 4.7 points; the model costs 34.3.
+
+**HIS BLUR MARKS, MEASURED AT LAST (35):** 194 non-person reads, 96.9%
+would mint, the null guard refuses 77.8%, **19.1% still get through**.
+Escapees read nm p50 5.11 against a floor of 5, and **89.2% are WEAK
+MALE reads** -- the model shrugging, and a shrug fails closed into a
+patch. Floor 5 -> 6 cuts junk 19.1% -> 11.9% for +1.1 pts woman exposure.
+**The OTA clamp stops at 5.5 (`tuning.mjs:84`), so 6 needs a build.**
+From the labels: 3.90% of everything BlazeFace reports is not a person,
+so **junk patches are ~0.74% of all detections** -- that bounds the win.
+HONEST: all of it is conditional on detection; how often the detector
+fires on text in the first place is still unmeasured.
+
+**THE INSTRUMENT FAILURE WORTH CARRYING (43), because it looked exactly
+like success:** the size bench fed faceres `x/255` where it wants a
+**0..255 float** (`detector.js:797`, `:825`). The network saturated to
+0.6262-0.6284 across 140 faces -- three distinct values -- and the run
+printed **100.0% agreement at every size** beside **50.0% accuracy at
+the 224 reference that ships**. A constant output agrees with itself
+perfectly and scores exactly chance. **ANY AGREEMENT METRIC NEEDS A
+SPREAD CHECK BESIDE IT** or 100% means "identical" and "dead"
+indistinguishably; the bench now refuses to print a table below spread
+0.2. This repo shipped a saturated gender model once already
+(mini-Xception, 2026-08-23).
+
+**IF GREY SHIPS (44), READ THIS FIRST.** It is one line after
+`cropAndResize` in `classifyFaceGenders`, so it covers the video AND
+thumbnail paths at once for essentially no compute. Ship it the 1098
+way: `GENDER_GREY` at 0, clamped [0,1], so the switch and the revert
+travel over OTA. **AND IT SILENTLY CHANGES THE IDENTITY MEMORY** --
+faceres is multi-head, the same pass produces the [1024] descriptor
+matched at `MEM_SIM` 0.6, which that module records as already close to
+its edge. A grey build owes a descriptor-separability bench first.
+
+**RUNNING AT HANDOFF, results NOT yet read** (logs in
+`Z:/Apps/Disconnect/.overnight/`): `grey-mirror-stack.mjs` (do grey and
+mirror ADD UP, or attack the same errors -- 2,159 reads x 4),
+`image-junk.mjs` (his blur marks on the IMAGE rule, never measured:
+`flaggedFaceIndices` patches unless a read is CONFIDENTLY his gender, so
+a weak read IS a mark -- the opposite direction to the video rule), and
+`faceres-input-size` re-swept at 208/192/176/160 for a usable knee
+(speed 1.19x / 1.41x / 1.68x / 2.08x).
+
+**GOTCHAS THIS ROUND:** the Bash heredoc broke on long bench bodies
+twice -- use the Write tool; a python-injected `\n` lands as a real
+newline and splits a JS string literal -- use `String.fromCharCode(10)`;
+`sample.json` in the FairFace bank is GROUPED BY RACE so any subset run
+is biased; tfjs here is the pure-JS CPU backend, so run benches SERIALLY
+-- five in parallel only divide the same cores; and piping a background
+job to `| tail` swallows every live progress line.
+
+**HIS OPEN RULINGS, none pushed, all exposure trades:**
+`NULL_MINT_NM_FLOOR` 5 -> 5.5 (OTA) or 6 (build); grey (build); mirror
+(compute); `GENDER_IMAGE_MIN_SCORE` 0.40 -> 0.35; the decision boundary
+0.50 -> 0.65; the coast dial `PTRACK_MIN_COAST_PASSES` 2 -> 1.33;
+`DELAY_MS` 1500 -> 0; 720p; the child gate by policy.
+
+**REFUSED ON PRINCIPLE, do not re-open:** per-race calibration. Inferring
+skin tone to correct the model is biometric categorisation on a sensitive
+characteristic -- the same clause (AI Hub Model License 2.c) that killed
+the Qualcomm NPU delegate in loop 47.
+
+**Last updated:** 2026-09-03 17:20 (**1102 IS THE RELEASE, sha
+0a495cfa**, served APK re-downloaded and hashed against the raw
+manifest, isDraft false. HEAD pushed, tree clean. The old Redmi runs
+1102. HIS phone: installed 1101, reports "still using the CPU" but "the
+video somehow feels smoother" -- STILL OWES ONE SHARE; the gpu block is
+the only thing that says why his Adreno stayed on CPU.)
+
+## HANDOFF 2026-09-03 17:20 -- 1102: THE PILL AND GEAR STOP RIDING THE FEED
+
+**HIS REPORT:** "turn on the home screen and try to scroll down ... each
+of the videos just when I am just scrolling it gets highlighted and
+whatnot."
+
+**WHAT IT ACTUALLY WAS, found by screenshotting the Redmi's home feed:**
+our own blur pill ("Blur on", 99x36) and the tuning gear (36x36) sitting
+at the top right of the FEED with no player behind them, so every
+thumbnail scrolling under them wore the badge in turn. m.youtube SHARES
+`#player-container-id` between the watch player and the feed's autoplay
+previews, and an SPA nav off /watch collapses it to **823x0** at the top
+of the feed instead of removing it -- the `<video>` inside stays
+CONNECTED, so the pill teardown (which only fires on a disconnected or
+failed video) never ran.
+
+**FIXED:** `setChrome(feedPreview())` at attach and on a 250ms tick
+(was 1000ms, teardown-only). Hidden, not destroyed -- the same player
+returns on the next watch page and rebuilding the panel would drop his
+overrides. Gate is `feedPreview()`, the ONE copy of that rule already in
+scope, and it fails SHOWN so an unreadable path cannot take his escape
+hatch away. **`installTuneUi` now returns its `gear` element**: a class
+query against the separately-resolved host read NULL on the device and
+the gear rode the feed while the pill hid correctly -- caught only
+because the device probe checked both.
+
+**VERIFIED ON THE REDMI, five states** (`spikes/gauntlet/probe_pill_scope.py`):
+cold home both hidden; /watch both visible, panel opens; SPA off /watch
+both hidden and an open panel closes; SPA back both return; pill still
+toggles Blur on/off/on. Home screenshot clean (deleted).
+
+**THREE THINGS RULED OUT ON THE WAY, do not re-chase:** (1) no
+non-passive listener touches the feed -- 18 touchmoves, `prevented 0`,
+scroll started at 91ms and ran 240px; (2) YouTube's own
+`yt-touch-feedback-shape` adds `...ShapeDown` for ~80ms on touchstart
+and removes it when the scroll is recognised, and its fill measured
+**opacity 0 on every one of 122 frames** -- their ripple does NOT fire
+on a scroll; (3) `filter: brightness(0.9)` on every feed thumbnail is
+YOUTUBE'S, not ours (grep: we ship no brightness anywhere).
+
+**PROBES ADDED:** `probe_home_highlight.py` (per-frame :active +
+defaultPrevented + scroll offset + mutation log under a driven touch
+scroll), `probe_feed_wash.py` (per-item filter/class/patch changes
+during a scroll), `probe_pill_scope.py`, `probe_feedpill.py`,
+`probe_touchfb.py`, `probe_flash.py`.
+
+gaze **863/863** (5 new in `test/pill-watch-scope.test.mjs`, red-proved
+3/4 against the pre-fix source), cargo 63/63.
+
+
+
+**Last updated:** 2026-09-03 16:55 (**1101 IS THE RELEASE, sha
+2b2cce27**, served APK re-downloaded and hashed against the raw
+manifest, isDraft false. HEAD pushed, tree clean. The old Redmi runs
+1101; HIS phone gets it in-app and OWES ONE SHARE -- that report answers
+whether his Adreno 613 now runs on GPU.)
+
+## HANDOFF 2026-09-03 16:55 -- 1101: THE GPU IS MEASURED, NOT ASSUMED
+
+**HIS RULING:** "I want it so that any mobile would work fine with this,
+instead of it missing my phone's GPU completely."
+
+**THE DEFECT.** `CompatibilityList.isDelegateSupportedOnThisDevice`
+answers out of `gpu_compatibility.bin`, a device database frozen when
+tensorflow-lite-gpu 2.16.1 was built. His Redmi 13 (SM4450 / Adreno 613,
+2023) is absent, so every model landed on CPU with **no throw and no log
+line** -- invisible in the report, and the same silent fallback awaits
+every phone newer than that database.
+
+**WHAT SHIPPED** (plan: `docs/superpowers/plans/2026-09-03-gpu-delegate-measured.md`):
+an unlisted device is refused a GPU at LOAD (three cold delegates are
+1.4-3.9s of shader compile each; that is the 1098 NNAPI-in-loadAll
+defect) and given a MEASURED trial after ready on the trial thread --
+agree with a shadow CPU copy on every output head within 2% AND beat it
+by 10% on the last real frame, or CPU stays. `shouldSwap` is in the
+companion object and JVM-tested. A win is remembered per
+asset+versionCode+bytes, so only the first launch on a build pays. The
+NNAPI arm now waits for the GPU arm. A driver segfault is not catchable
+from Kotlin, so a breadcrumb (`commit`, not `apply`) is written before
+the driver is touched and cleared after; still there next launch = that
+model never tries again on this build.
+
+**THE REPORT NOW SAYS WHY:** `native.models.*.gpu {listed, remembered,
+tried, ran, agree, won, gpuMs, cpuMs, whyR}`. One Share from any phone
+answers "why is this phone on this backend" with no cable.
+
+**REDMI SMOKE** (`spikes/gauntlet/probe_gpu_note.py`, ~40s, banked
+`gpu-note-*.json`). Listed path UNCHANGED: gpu x3, `ran` false -- a
+listed device still takes the fast load and pays for no trial. Forced
+unlisted (`adb shell touch
+/sdcard/Android/data/app.tamescroll.client/files/force-gpu-unlisted` --
+a debug switch that exists because the only phone on a cable here IS
+listed, so the new path could not otherwise be exercised):
+
+  | model | gpu ms | cpu ms | agree | outcome |
+  |---|---|---|---|---|
+  | blazeface (cold) | 80.1 | 67.3 | yes | **CPU kept** -- GPU was slower |
+  | faceres | 52.3 | 141.3 | yes | swapped to gpu |
+  | movenet-heads | 140.6 | 254.8 | yes | swapped to gpu |
+  | blazeface (2nd launch, warm shader cache) | 30 | 67 | yes | swapped to gpu |
+
+  Ready **2597ms** on the trial path against **6816ms** loading GPU up
+  front -- the page gets a working engine 4s sooner, then upgrades,
+  which also helps the 15s ready timeout. Second launch: the two winners
+  loaded straight on GPU (`remembered` true, `ran` false). **The arbiter
+  refuses a GPU that would have been SLOWER, which the listed path never
+  checked** -- 1100 put BlazeFace on GPU at 80ms where CPU does 67.
+
+**CORRECTIONS TO THE 16:30 HANDOFF, both from re-reading
+`phone-diag-1100.jsonl`:** (1) native never came ready in **4 of 9**
+distinct 1100 watch documents, not 3 of 11. (2) **"dead native = the
+slow path" is NOT supported**: verdict p50 on native-cpu documents
+611/657/760/763/805 against dead-native documents 478/531/584/828 --
+overlapping, and the worker was sometimes faster. n=5 vs 4, different
+videos, uncontrolled. So the native engine on CPU was buying close to
+nothing on his phone and the GPU is its whole remaining value.
+
+**WHAT HIS SHARE ANSWERS NEXT:** `native.models.*.gpu` on 1101. `won`
+true = fixed. `agree` false = his driver returns different numbers (the
+arbiter did its job, and the reason is a real finding). `whyR` set = the
+delegate refused, with the message. `ran` false with `listed` false =
+the trial never got a real frame.
+
+**STILL NOT STARTED, his call each:** the "native never came ready"
+reason field (step 2, needs the page-side failure reason, not the
+engine's); the startup-stutter lever (attach the delay presenter after
+the FIRST verdict); 1101-era thumbnail hide + stricter image bars;
+single-frame crops; HaramBlur side-by-side on the old Redmi; coast dial
+2 -> 1.33. He also asked for "the mode the other apps use" (video
+untouched, boxes on top) -- **that is DELAY_MS 0 and already shipped**:
+gear -> Blur delay -> 0, no build needed.
+
+---
+
