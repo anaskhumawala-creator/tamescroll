@@ -1234,17 +1234,53 @@ function pendingRequest(): { id: string; url: string } | null {
 
 const handoff = document.querySelector<HTMLElement>("#handoff")!;
 
+// THE LAUNCHER PAINTS FROM THE LAST RUN, THEN CATCHES UP (his 2026-10-22:
+// "instead of that loading, if we could have already preloaded the
+// screen ... that would make it feel more instantaneous"). The tiles used
+// to wait on the `platforms` invoke, which on a cold start rides out the
+// bridge-registration retry above, so he looked at an empty dark page
+// first. The platform list only changes with a build, so the copy from
+// the last run is the right picture; the real list replaces it the
+// moment Rust answers.
+const PLATFORMS_CACHE_KEY = "tamescroll.platforms";
+
+function readCachedPlatforms(): Platform[] | null {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PLATFORMS_CACHE_KEY) ?? "null");
+    return Array.isArray(parsed) && parsed.length ? (parsed as Platform[]) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function start() {
+  // A LINK OR SHORTCUT MUST NOT SHOW THE LAUNCHER FIRST (his 2026-09-10:
+  // "it first shows the tamescroll page and then gets me to YouTube").
+  // The pending request is read BEFORE any view is painted; when there
+  // is one, the page stays on the dark handoff line until the platform
+  // document replaces it.
+  const pending = pendingRequest();
+
+  // Only the plain launch paints early: a link or shortcut keeps its
+  // handoff line, and a first run goes to onboarding, which needs the
+  // real list.
+  const cached = pending ? null : readCachedPlatforms();
+  const chosenAtStart = readChosen();
+  if (cached && chosenAtStart !== null) {
+    allPlatforms = cached;
+    showView("launcher");
+    renderTiles(allPlatforms, chosenAtStart);
+  }
+
   try {
     allPlatforms = await invokeStartup<Platform[]>("platforms");
+    try {
+      localStorage.setItem(PLATFORMS_CACHE_KEY, JSON.stringify(allPlatforms));
+    } catch {
+      /* the early paint is a nicety; the launcher works without it */
+    }
     await seedDefaultShown(allPlatforms.map((p) => p.id));
 
-    // A LINK OR SHORTCUT MUST NOT SHOW THE LAUNCHER FIRST (his 2026-09-10:
-    // "it first shows the tamescroll page and then gets me to YouTube").
-    // The pending request is read BEFORE any view is painted; when there
-    // is one, the page stays on the dark handoff line until the platform
-    // document replaces it.
-    const pending = pendingRequest();
     const handoffTarget = pending
       ? allPlatforms.find((p) => p.id === pending.id && p.ready)
       : undefined;

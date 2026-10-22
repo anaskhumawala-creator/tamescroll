@@ -1861,6 +1861,27 @@ if (
     return videoCanvas;
   }
 
+  // THE PLAYER SWITCH BELONGS TO THE VIDEO HE IS WATCHING, NOT TO A
+  // STREAM OR AN ELEMENT. It used to live per <video> and loadstart forced
+  // it back on, and YouTube fires loadstart on the SAME watch page for an
+  // ad handing over to the video, a quality switch and a fullscreen
+  // toggle -- his 2026-10-22 report: "when I turn it off or make the
+  // screen bigger or smaller, then again the blur shows up". So "off" is
+  // remembered here, by watch id, and only a DIFFERENT watch id re-arms
+  // blur-first (the pill watcher below checks every 250ms).
+  var playerBlurOffFor = null;
+  function watchVideoId() {
+    try {
+      if (location.pathname.indexOf('/watch') !== 0) return null;
+      return new URLSearchParams(location.search).get('v') || null;
+    } catch (e) {
+      return null;
+    }
+  }
+  function playerBlurKeptOff() {
+    return playerBlurOffFor !== null && playerBlurOffFor === watchVideoId();
+  }
+
   function attachVideo(video) {
     // Video sampling is face/gender-driven — smart mode only. In
     // blur-all the Stage A sheet covers feed videos; in off, videos are
@@ -1914,10 +1935,12 @@ if (
     if (video.__tsGazeAttached) return;
     video.__tsGazeAttached = true;
     anyVideoAttached = true;
-    // One tap off, one tap back on — per player video. While off, the
+    // One tap off, one tap back on — per watched video. While off, the
     // video is cleared and sampling halts entirely (no spent frames).
-    var playerBlurOn = true;
-    markPending(video);
+    // A player element that attaches while he has this video switched
+    // off (YouTube rebuilt it) starts off too.
+    var playerBlurOn = !(isPlayer && playerBlurKeptOff());
+    if (playerBlurOn) markPending(video);
     // PiP surfaces the RAW stream in a window our overlays can't follow
     // (review C8) — close the hole where supported.
     if (isPlayer && 'disablePictureInPicture' in video) {
@@ -2110,6 +2133,10 @@ if (
       }
     }
     function coverVideo() {
+      // Every whole-cover decision comes through here, including a pass
+      // that was already in flight when the pill went off: it must not
+      // put the blur back under a switch that reads "Blur off".
+      if (isPlayer && !playerBlurOn) return;
       markFlagged(video);
       if (presenter) presenter.cover(true);
     }
@@ -5213,10 +5240,14 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
       // so it would have armed itself the moment the dial was pushed.
       resetPersonSkip();
       passEpoch++;
-      if (!playerBlurOn) {
-        playerBlurOn = true;
+      // Same watch id = the same video reloading its stream (an ad
+      // ending, a quality or fullscreen switch): his "off" stands.
+      var keepOff = isPlayer && playerBlurKeptOff();
+      if (playerBlurOn === keepOff) {
+        playerBlurOn = !keepOff;
         if (pillRefresh) pillRefresh();
       }
+      if (keepOff) return;
       markPending(video);
       if (!video.paused) start();
     });
@@ -5324,9 +5355,11 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
       };
       pillPaint();
       pillRefresh = pillPaint;
-      pill.addEventListener('click', function (e) {
-        e.stopPropagation();
-        playerBlurOn = !playerBlurOn;
+      var setPlayerBlur = function (on) {
+        playerBlurOn = on;
+        playerBlurOffFor = on ? null : watchVideoId();
+        // A pass in flight was judged for the old state: drop it.
+        passEpoch++;
         pillPaint();
         if (playerBlurOn) {
           cleanStreak = 0;
@@ -5346,6 +5379,10 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
           heldPersons = [];
           lastPassAt = 0;
         }
+      };
+      pill.addEventListener('click', function (e) {
+        e.stopPropagation();
+        setPlayerBlur(!playerBlurOn);
       });
       pillHost.appendChild(pill);
       // THE TUNING PANEL, behind a gear of our own beside the switch.
@@ -5442,6 +5479,10 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
           return;
         }
         setChrome(feedPreview());
+        // He switched blur off and the page has moved on to a DIFFERENT
+        // video (an SPA watch->watch whose loadstart came before the URL
+        // changed): the new video gets blur-first like any other.
+        if (!playerBlurOn && !playerBlurKeptOff() && watchVideoId() !== null) setPlayerBlur(true);
       }, 250);
     }
 
