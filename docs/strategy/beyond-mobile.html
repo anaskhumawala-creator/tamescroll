@@ -1,0 +1,434 @@
+<title>Tame Scroll Beyond Mobile</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Layout: one reading column (66ch) that widens to full-bleed frames for the mockups.
+     Identity is the app's own: warm near-black, gold accent, Spectral display, Inter UI. */
+  :root {
+    --bg: #faf9f5; --bg-2: #f2f0ea; --line: #e2ded4; --ink: #1d1c19;
+    --muted: #625e55; --faint: #8f8a80; --accent: #9a7a3e; --accent-soft: rgba(154,122,62,.12);
+    --ok: #4f7a5f; --warn: #a3702a; --gap: #a24a3c;
+    /* Mockup tokens: the app is dark in both themes, so these do not flip. */
+    --m-bg: #141414; --m-surface: #1c1c1c; --m-elev: #232323; --m-line: #343434;
+    --m-ink: #e7e5e1; --m-muted: #a8a49d; --m-faint: #6f6b64; --m-gold: #c9a45e;
+    --m-yt: #d29a8a; --m-rd: #cf9a6c; --m-x: #e7e5e1; --m-ig: #c5a3c9; --m-fb: #8fa6c9;
+    --font-display: "Spectral", Georgia, "Times New Roman", serif;
+    --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #121211; --bg-2: #1a1918; --line: #2e2c29; --ink: #e9e6df;
+    --muted: #aaa59b; --faint: #7d786f; --accent: #c9a45e; --accent-soft: rgba(201,164,94,.14);
+    --ok: #86a893; --warn: #d1a35c; --gap: #d68676; color-scheme: dark; } }
+  :root[data-theme="dark"] {
+    --bg: #121211; --bg-2: #1a1918; --line: #2e2c29; --ink: #e9e6df;
+    --muted: #aaa59b; --faint: #7d786f; --accent: #c9a45e; --accent-soft: rgba(201,164,94,.14);
+    --ok: #86a893; --warn: #d1a35c; --gap: #d68676; color-scheme: dark; }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--ink); font-family: var(--font-ui);
+    font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 0 72px;
+  }
+  .col { max-width: 700px; margin: 0 auto; }
+  .wide { max-width: 1060px; margin: 0 auto; }
+  h1, h2, h3 { font-family: var(--font-display); font-weight: 500; text-wrap: balance; line-height: 1.15; margin: 0; }
+  h1 { font-size: clamp(36px, 6vw, 56px); letter-spacing: -.01em; }
+  h2 { font-size: clamp(26px, 3.6vw, 34px); margin-top: 72px; }
+  h3 { font-size: 21px; margin-top: 32px; }
+  p { margin: 14px 0 0; }
+  a { color: var(--accent); }
+  code { font-family: var(--font-mono); font-size: .86em; background: var(--bg-2); padding: 1px 5px; border-radius: 4px; }
+  .eyebrow { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+  .muted { color: var(--muted); }
+  small, .small { font-size: 13.5px; color: var(--muted); }
+
+  header.top { padding-block: 56px 8px; }
+  header.top .meta { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13.5px; color: var(--faint); }
+  .answer {
+    margin-top: 32px; padding: 22px 24px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg-2);
+  }
+  .answer p:first-child { margin-top: 0; font-family: var(--font-display); font-size: 21px; line-height: 1.4; }
+  .answer ul { margin: 14px 0 0; padding-left: 20px; }
+  .answer li { margin-top: 6px; }
+
+  /* positioning grid */
+  .neighbours { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 24px; }
+  .nb { border-top: 2px solid var(--line); padding-top: 12px; min-width: 0; }
+  .nb.us { border-top-color: var(--accent); }
+  .nb h4 { margin: 0; font-size: 15px; font-weight: 600; }
+  .nb .ex { font-size: 13px; color: var(--faint); margin-top: 2px; }
+  .nb p { font-size: 14.5px; margin-top: 8px; color: var(--muted); }
+  .nb.us p { color: var(--ink); }
+
+  /* status table */
+  .tablewrap { overflow-x: auto; margin-top: 22px; }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14.5px; }
+  th { text-align: left; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); font-weight: 600; padding: 0 12px 8px 0; border-bottom: 1px solid var(--line); }
+  td { padding: 12px 12px 12px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child { font-weight: 500; width: 30%; }
+  .chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; border: 1px solid currentColor; }
+  .chip.ok { color: var(--ok); } .chip.warn { color: var(--warn); } .chip.gap { color: var(--gap); }
+
+  /* mockup frames */
+  figure { margin: 36px 0 0; }
+  figcaption { margin-top: 12px; font-size: 14px; color: var(--muted); max-width: 700px; }
+  figcaption b { color: var(--ink); }
+  .scroller { overflow-x: auto; padding-bottom: 6px; }
+  .win {
+    min-width: 760px; background: var(--m-bg); color: var(--m-ink); border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--m-line); box-shadow: 0 30px 60px -30px rgba(0,0,0,.45);
+    font-family: var(--font-ui); font-size: 13px; line-height: 1.4;
+  }
+  .titlebar { height: 30px; display: flex; align-items: center; gap: 7px; padding: 0 12px; background: #0f0f0f; border-bottom: 1px solid var(--m-line); }
+  .titlebar i { width: 10px; height: 10px; border-radius: 50%; background: #3a3a3a; }
+  .titlebar span { margin-left: auto; margin-right: auto; color: var(--m-faint); font-size: 12px; }
+  .shell { display: grid; grid-template-columns: 64px 1fr; height: 470px; }
+  .rail { background: #101010; border-right: 1px solid var(--m-line); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 0; }
+  .rail .glyph { width: 30px; height: 30px; margin-bottom: 8px; }
+  .rt { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; background: var(--m-elev); position: relative; font-weight: 600; font-size: 14px; }
+  .rt.on::before { content: ""; position: absolute; left: -12px; top: 9px; bottom: 9px; width: 3px; border-radius: 3px; background: var(--m-gold); }
+  .rt.on { outline: 1px solid rgba(201,164,94,.45); }
+  .rt.add { background: none; border: 1px dashed var(--m-line); color: var(--m-faint); }
+  .rail .sp { flex: 1; }
+  .rt.gear { background: none; color: var(--m-muted); }
+  .main { display: flex; flex-direction: column; min-width: 0; }
+  .bar { height: 46px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-bottom: 1px solid var(--m-line); background: var(--m-surface); }
+  .nav { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--m-muted); }
+  .nav.dim { color: var(--m-faint); opacity: .5; }
+  .crumb { margin-left: 8px; font-weight: 600; }
+  .crumb small { font-weight: 400; color: var(--m-faint); margin-left: 6px; font-size: 12px; }
+  .bar .sp { flex: 1; }
+  .blurctl { display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 10px; border: 1px solid var(--m-line); border-radius: 999px; }
+  .blurctl .lbl { color: var(--m-muted); font-size: 12px; }
+  .seg { display: flex; background: #111; border-radius: 999px; padding: 2px; }
+  .seg b { font-weight: 500; font-size: 12px; padding: 3px 10px; border-radius: 999px; color: var(--m-faint); }
+  .seg b.sel { background: var(--m-gold); color: #2a2110; font-weight: 600; }
+  .canvas { flex: 1; position: relative; overflow: hidden; }
+  .ann { position: absolute; font-family: var(--font-mono); font-size: 11px; color: var(--m-gold); background: rgba(20,20,20,.92); border: 1px solid rgba(201,164,94,.5); padding: 3px 7px; border-radius: 6px; white-space: nowrap; }
+
+  /* youtube blank home */
+  .ythome { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+  .ytlogo { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 18px; }
+  .ytlogo i { width: 26px; height: 18px; border-radius: 5px; background: var(--m-yt); position: relative; }
+  .ytlogo i::after { content: ""; position: absolute; left: 10px; top: 5px; border-left: 7px solid var(--m-bg); border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
+  .search { width: 420px; height: 40px; border-radius: 999px; border: 1px solid var(--m-line); background: #101010; display: flex; align-items: center; padding: 0 16px; color: var(--m-faint); }
+  .quiet { display: flex; gap: 18px; color: var(--m-faint); font-size: 12.5px; }
+  .quiet s { text-decoration-color: var(--m-gold); }
+
+  /* watch page */
+  .watch { display: grid; grid-template-columns: 1fr 230px; gap: 18px; padding: 16px 18px; height: 100%; }
+  .player { position: relative; aspect-ratio: 16/9; border-radius: 10px; overflow: hidden; background: linear-gradient(160deg, #2b3138, #1d2024 60%, #23201c); }
+  .player .floor { position: absolute; left: 0; right: 0; bottom: 0; height: 28%; background: linear-gradient(#2a2622, #1e1b18); }
+  .fig { position: absolute; bottom: 0; }
+  .fig .h { width: 34px; height: 34px; border-radius: 50%; background: #8d7a6b; margin: 0 auto; }
+  .fig .b { width: 64px; height: 120px; border-radius: 22px 22px 6px 6px; background: #556070; margin-top: 4px; }
+  .patch { position: absolute; border-radius: 14px; background: rgba(150,150,150,.38); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.08); }
+  .ctrl { position: absolute; left: 0; right: 0; bottom: 0; height: 30px; background: linear-gradient(transparent, rgba(0,0,0,.65)); display: flex; align-items: flex-end; padding: 0 10px 8px; }
+  .ctrl .prog { height: 3px; flex: 1; background: rgba(255,255,255,.25); border-radius: 2px; position: relative; }
+  .ctrl .prog::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 34%; background: var(--m-yt); border-radius: 2px; }
+  .vt { font-weight: 600; font-size: 15px; margin-top: 12px; }
+  .vm { color: var(--m-faint); font-size: 12px; margin-top: 4px; }
+  .desc { margin-top: 12px; background: var(--m-surface); border-radius: 10px; padding: 10px 12px; color: var(--m-muted); font-size: 12.5px; }
+  .side { border: 1px dashed var(--m-line); border-radius: 10px; padding: 14px; color: var(--m-faint); font-size: 12.5px; display: flex; flex-direction: column; gap: 10px; }
+  .side .row { display: flex; justify-content: space-between; align-items: center; }
+  .side .row b { color: var(--m-muted); font-weight: 500; }
+  .tog { width: 28px; height: 16px; border-radius: 999px; background: #3a3a3a; position: relative; }
+  .tog::after { content: ""; position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: #888; }
+
+  /* settings mock */
+  .settings { display: grid; grid-template-columns: 190px 1fr; height: 100%; }
+  .snav { border-right: 1px solid var(--m-line); padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .snav div { padding: 7px 10px; border-radius: 8px; color: var(--m-muted); }
+  .snav div.sel { background: var(--m-elev); color: var(--m-ink); }
+  .sbody { padding: 20px 26px; overflow: hidden; }
+  .sbody h5 { font-family: var(--font-display); font-weight: 500; font-size: 20px; margin: 0; }
+  .sbody .sub { color: var(--m-faint); margin-top: 4px; }
+  .srow { display: flex; align-items: center; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--m-line); gap: 20px; }
+  .srow .t b { display: block; font-weight: 500; }
+  .srow .t span { color: var(--m-faint); font-size: 12px; }
+  .lock { font-size: 11.5px; color: var(--m-faint); border: 1px solid var(--m-line); padding: 2px 8px; border-radius: 999px; }
+  .tog.on { background: var(--m-gold); } .tog.on::after { left: 14px; background: #2a2110; }
+  .grp { margin-top: 18px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--m-faint); font-weight: 600; }
+
+  /* device strip */
+  .devices { display: flex; align-items: flex-end; gap: 28px; min-width: 760px; padding: 10px 4px; }
+  .dev { background: var(--m-bg); border: 6px solid #0b0b0b; border-radius: 22px; color: var(--m-ink); overflow: hidden; box-shadow: 0 20px 40px -24px rgba(0,0,0,.5); flex: none; }
+  .dev.phone { width: 150px; height: 300px; padding: 18px 12px; }
+  .dev.tab { width: 330px; height: 240px; border-radius: 18px; display: grid; grid-template-columns: 40px 1fr; }
+  .dev.desk { width: 360px; height: 225px; border-radius: 10px; border-width: 4px; display: grid; grid-template-columns: 44px 1fr; }
+  .dev .mini-rail { background: #101010; border-right: 1px solid var(--m-line); display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 10px; }
+  .dev .mini-rail i { width: 22px; height: 22px; border-radius: 7px; background: var(--m-elev); display: block; }
+  .dev .mini-rail i.on { outline: 1px solid var(--m-gold); }
+  .dev .pane { display: flex; align-items: center; justify-content: center; color: var(--m-faint); font-size: 11px; }
+  .pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+  .pgrid i { aspect-ratio: 1; border-radius: 12px; background: var(--m-elev); display: grid; place-items: center; font-style: normal; font-weight: 600; font-size: 13px; }
+  .devlbl { text-align: center; margin-top: 10px; font-size: 13px; color: var(--muted); }
+
+  /* ladder */
+  ol.ladder { list-style: none; counter-reset: s; padding: 0; margin: 26px 0 0; display: grid; gap: 0; }
+  ol.ladder > li { counter-increment: s; display: grid; grid-template-columns: 44px 1fr; gap: 14px; padding: 18px 0; border-top: 1px solid var(--line); }
+  ol.ladder > li::before { content: counter(s); font-family: var(--font-display); font-size: 28px; color: var(--accent); line-height: 1; }
+  ol.ladder h4 { margin: 0; font-size: 17px; font-weight: 600; }
+  ol.ladder p { margin-top: 6px; font-size: 15px; color: var(--muted); }
+  ol.ladder .now { font-size: 11.5px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: 999px; margin-left: 8px; vertical-align: 2px; }
+
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-top: 22px; }
+  .opt { border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0; }
+  .opt h4 { margin: 0; font-size: 15px; font-weight: 600; }
+  .opt p { font-size: 14.5px; color: var(--muted); margin-top: 6px; }
+  .opt .dev-tag { font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+
+  ul.plain { padding-left: 20px; margin: 14px 0 0; }
+  ul.plain li { margin-top: 8px; }
+  .decide { counter-reset: d; list-style: none; padding: 0; margin: 20px 0 0; }
+  .decide li { counter-increment: d; padding: 14px 0 14px 40px; border-top: 1px solid var(--line); position: relative; }
+  .decide li::before { content: counter(d); position: absolute; left: 0; top: 12px; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--accent); color: var(--accent); display: grid; place-items: center; font-size: 13px; font-weight: 600; }
+  .decide b { display: block; }
+  .decide span { color: var(--muted); font-size: 15px; }
+  footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--faint); }
+</style>
+
+<header class="top col">
+  <div class="eyebrow">Strategy · October 2026</div>
+  <h1>Tame Scroll beyond the phone</h1>
+  <div class="meta"><span>For ZV</span><span>Based on the code at release 1120 (v0.1.120)</span><span>Desktop = the same Tauri app, Windows build</span></div>
+
+  <div class="answer">
+    <p>Grow as one calm app on every screen people scroll on, and never as a browser. The phone stays the product. The desktop becomes the place where the full protection runs comfortably, video blur included.</p>
+    <ul>
+      <li><b>Order:</b> Android on Play first, then a refined Windows desktop 1.0, then iOS and macOS together, with tablets getting the desktop layout for free.</li>
+      <li><b>Desktop change that matters most:</b> one window with a rail of platforms and an app-owned top bar, instead of a separate OS window per platform. The blur switch moves into that bar so YouTube can't reset it.</li>
+      <li><b>The real limit on scale</b> is keeping rules alive, not writing code. Desktop doubles the layouts to maintain, so the YouTube-change canary comes before any new platform.</li>
+    </ul>
+  </div>
+</header>
+
+<section class="col">
+  <h2>What Tame Scroll is, next to its neighbours</h2>
+  <p>Your website already has the line: <i>the same platforms, none of the machinery.</i> It holds up on every device because it describes what is removed, not where it runs. The three things people will compare us to each do a different job.</p>
+  <div class="neighbours">
+    <div class="nb"><h4>Privacy browsers</h4><div class="ex">Brave, DuckDuckGo</div><p>Hide you from trackers while you browse anywhere. The feed, Shorts and recommendations are untouched.</p></div>
+    <div class="nb"><h4>Blocker extensions</h4><div class="ex">uBlock Origin, Unhook</div><p>Tools you install and tune inside your own browser. Mostly absent on phones, where most scrolling happens.</p></div>
+    <div class="nb"><h4>Screen-time apps</h4><div class="ex">Digital Wellbeing, parental controls</div><p>Limit, lock and nag. They fight the habit and feel like supervision.</p></div>
+    <div class="nb us"><h4>Tame Scroll</h4><div class="ex">one install, five platforms</div><p>Opens only the platforms you use, already cleaned: no ads, no Shorts, no algorithmic feed, optional blur. No address bar, no locks, no nags.</p></div>
+  </div>
+  <p class="small">So the pitch on desktop is the same as on the phone. We are a front door to social media, not a way onto the web. Not having an address bar is the product, and it is also what keeps the legal story simple (that part sits with the legal thread).</p>
+</section>
+
+<section class="col">
+  <h2>Where the desktop app stands today</h2>
+  <p>The desktop version is the same codebase as the phone app: the same rules, the same blur engine, the same launcher. What differs is the window model and the release plumbing. Read from <code>app/src-tauri/src/lib.rs</code>, <code>WORKLIST.md</code> and the findings docs.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Area</th><th>Today</th><th>State</th></tr></thead>
+    <tbody>
+      <tr><td>Shared core</td><td>Rules, scriptlets, pre-roll removal and the gaze bundle are identical to Android. Blur logic is already iterated on desktop first.</td><td><span class="chip ok">Working</span></td></tr>
+      <tr><td>Window model</td><td>A 980×720 launcher plus a separate 1200×860 OS window per platform. Re-tapping a tile focuses the old window; a page that closes itself needed a guard.</td><td><span class="chip warn">Feels like six apps</span></td></tr>
+      <tr><td>Ad request blocking</td><td>WebView2 hook answers ad requests with an empty 204 (verified: 7 blocked, player kept playing). Compiled for Windows only; a Mac or Linux build has no network blocking.</td><td><span class="chip warn">Windows only</span></td></tr>
+      <tr><td>Video blur</td><td>Runs. Measured on the dev desktop: 19.6 ms face and 17.1 ms NSFW per frame. Verdict pass p95 2,048 ms in gauntlet R4. Never had a measured desktop pass.</td><td><span class="chip warn">Feasible, unmeasured</span></td></tr>
+      <tr><td>Navigation</td><td>No Back, Forward or Home in the window frame. The home pill inside the page is the way back to the launcher.</td><td><span class="chip warn">Rough edge</span></td></tr>
+      <tr><td>Rules refresh</td><td>CSS is baked when a window opens, so new rules need a relaunch.</td><td><span class="chip warn">Rough edge</span></td></tr>
+      <tr><td>Updates</td><td>Desktop is only told an update exists. Only Android installs in place.</td><td><span class="chip gap">Gap</span></td></tr>
+      <tr><td>Release</td><td>The release recipe is Android-only. No signed Windows installer has been published.</td><td><span class="chip gap">Gap</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="wide">
+  <div class="col">
+    <h2>Direction: one window, a rail, and controls the page can't reset</h2>
+    <p>Three mockups in the app's own look. They show the shape, not final pixels.</p>
+  </div>
+
+  <figure>
+    <div class="scroller"><div class="win">
+      <div class="titlebar"><i></i><i></i><i></i><span>Tame Scroll</span></div>
+      <div class="shell">
+        <div class="rail">
+          <svg class="glyph" viewBox="0 0 48 40" aria-hidden="true"><path d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke="#e7e5e1" stroke-width="3.6" stroke-linecap="round"/></svg>
+          <div class="rt on" style="color:var(--m-yt)">▶</div>
+          <div class="rt" style="color:var(--m-rd)">r</div>
+          <div class="rt" style="color:var(--m-x)">X</div>
+          <div class="rt" style="color:var(--m-ig)">◎</div>
+          <div class="rt" style="color:var(--m-fb)">f</div>
+          <div class="rt add">+</div>
+          <div class="sp"></div>
+          <div class="rt gear">⚙</div>
+        </div>
+        <div class="main">
+          <div class="bar">
+            <div class="nav dim">←</div><div class="nav dim">→</div><div class="nav">⌂</div>
+            <div class="crumb">YouTube<small>Home</small></div>
+            <div class="sp"></div>
+            <div class="blurctl"><span class="lbl">Blur</span><div class="seg"><b>Off</b><b>Thumbnails</b><b class="sel">Smart</b></div></div>
+          </div>
+          <div class="canvas">
+            <div class="ythome">
+              <div class="ytlogo"><i></i>YouTube</div>
+              <div class="search">Search YouTube</div>
+              <div class="quiet"><s>Home feed</s><s>Shorts</s><s>Trending</s></div>
+            </div>
+            <div class="ann" style="left:14px;top:14px">Ctrl+1–5 switches platform</div>
+            <div class="ann" style="right:14px;bottom:14px">opens on the blank home, per your 1119 ruling</div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <figcaption><b>1 · The home.</b> One window. Platforms live in a rail on the left, each keeping its own page and sign-in behind it, so switching is instant. The top bar belongs to the app: Back, Forward, Home and the blur mode. YouTube opens on its blank home with search, never on Subscriptions.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="scroller"><div class="win">
+      <div class="titlebar"><i></i><i></i><i></i><span>Tame Scroll</span></div>
+      <div class="shell">
+        <div class="rail">
+          <svg class="glyph" viewBox="0 0 48 40" aria-hidden="true"><path d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke="#e7e5e1" stroke-width="3.6" stroke-linecap="round"/></svg>
+          <div class="rt on" style="color:var(--m-yt)">▶</div>
+          <div class="rt" style="color:var(--m-rd)">r</div>
+          <div class="rt" style="color:var(--m-x)">X</div>
+          <div class="rt" style="color:var(--m-ig)">◎</div>
+          <div class="rt" style="color:var(--m-fb)">f</div>
+          <div class="sp"></div>
+          <div class="rt gear">⚙</div>
+        </div>
+        <div class="main">
+          <div class="bar">
+            <div class="nav">←</div><div class="nav dim">→</div><div class="nav">⌂</div>
+            <div class="crumb">YouTube<small>Watching</small></div>
+            <div class="sp"></div>
+            <div class="blurctl"><span class="lbl">This video</span><div class="seg"><b class="sel">Blur on</b><b>Off</b></div></div>
+          </div>
+          <div class="canvas">
+            <div class="watch">
+              <div>
+                <div class="player">
+                  <div class="floor"></div>
+                  <div class="fig" style="left:22%"><div class="h"></div><div class="b"></div></div>
+                  <div class="fig" style="left:62%"><div class="h"></div><div class="b"></div></div>
+                  <div class="patch" style="left:calc(62% - 22px);top:22%;width:108px;bottom:-4px"></div>
+                  <div class="ctrl"><div class="prog"></div></div>
+                </div>
+                <div class="vt">How a Roman aqueduct carried water 90 km</div>
+                <div class="vm">History Atlas · 1.2M views</div>
+                <div class="desc">Description and comments stay. Comments start folded on desktop too.</div>
+              </div>
+              <div class="side">
+                <div class="row"><b>Up next</b><span>hidden</span></div>
+                <div class="row"><b>End screen cards</b><span>hidden</span></div>
+                <div class="row"><b>Autoplay</b><div class="tog"></div></div>
+                <span style="margin-top:auto">The empty column is deliberate. Bring any of these back in Settings.</span>
+              </div>
+            </div>
+            <div class="ann" style="right:14px;top:10px">held by the app, survives resize and fullscreen</div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <figcaption><b>2 · Watching.</b> Live blur draws solid patches, never cut-outs. The per-video switch sits in the app bar, not inside YouTube's player. Today's in-player toggle is reset on every stream reload (<code>init-entry.js</code>, the <code>loadstart</code> handler sets <code>playerBlurOn</code> back to true). That is the likely cause of "I turn it off, resize, and the blur is back" on the phone. I've passed this to the thread working on video blur.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="scroller"><div class="win">
+      <div class="titlebar"><i></i><i></i><i></i><span>Tame Scroll · Settings</span></div>
+      <div class="shell">
+        <div class="rail">
+          <svg class="glyph" viewBox="0 0 48 40" aria-hidden="true"><path d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke="#e7e5e1" stroke-width="3.6" stroke-linecap="round"/></svg>
+          <div class="rt" style="color:var(--m-yt)">▶</div>
+          <div class="rt" style="color:var(--m-rd)">r</div>
+          <div class="rt" style="color:var(--m-x)">X</div>
+          <div class="rt" style="color:var(--m-ig)">◎</div>
+          <div class="rt" style="color:var(--m-fb)">f</div>
+          <div class="sp"></div>
+          <div class="rt gear on">⚙</div>
+        </div>
+        <div class="settings">
+          <div class="snav">
+            <div class="sel">YouTube</div><div>Reddit</div><div>X</div><div>Instagram</div><div>Facebook</div>
+            <div style="margin-top:14px">Blur</div><div>Words to hide</div><div>Updates</div><div>About</div>
+          </div>
+          <div class="sbody">
+            <h5>YouTube</h5>
+            <div class="sub">Everything starts hidden. Bring back only what you want.</div>
+            <div class="grp">Can come back</div>
+            <div class="srow"><div class="t"><b>Up next</b><span>Recommendations beside the video</span></div><div class="tog"></div></div>
+            <div class="srow"><div class="t"><b>Comments</b><span>Folded under the description</span></div><div class="tog on"></div></div>
+            <div class="srow"><div class="t"><b>Home feed</b><span>The algorithmic front page</span></div><div class="tog"></div></div>
+            <div class="grp">Always off</div>
+            <div class="srow"><div class="t"><b>Ads and sponsored items</b><span>Not a setting, on any device</span></div><span class="lock">always off</span></div>
+            <div class="srow"><div class="t"><b>Shorts</b><span>Shelves, tab and player</span></div><span class="lock">always off</span></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <figcaption><b>3 · Settings.</b> The same "bring back" model as the phone, laid out wide. Same surfaces, same always-on list, so a person who uses both devices learns it once. Which items sit under "Always off" stays as the rules files define them today.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="scroller"><div class="devices">
+      <div><div class="dev phone"><div style="font-family:var(--font-display);font-size:15px">tamescroll</div><div class="pgrid"><i style="color:var(--m-yt)">▶</i><i style="color:var(--m-rd)">r</i><i style="color:var(--m-x)">X</i><i style="color:var(--m-ig)">◎</i></div></div><div class="devlbl">Phone: launcher grid (today)</div></div>
+      <div><div class="dev tab"><div class="mini-rail"><i class="on"></i><i></i><i></i><i></i></div><div class="pane">platform page</div></div><div class="devlbl">Tablet, wide: rail layout</div></div>
+      <div><div class="dev desk"><div class="mini-rail"><i class="on"></i><i></i><i></i><i></i><i></i></div><div class="pane">platform page + app bar</div></div><div class="devlbl">Desktop: rail layout</div></div>
+    </div></div>
+    <figcaption><b>4 · One layout rule for every screen.</b> Narrow screens get the launcher grid people already know. Wide screens (tablets in landscape, laptops, desktops) get the rail. It is the same app deciding by width, so tablets need no separate design.</figcaption>
+  </figure>
+</section>
+
+<section class="col">
+  <h3>What building this means</h3>
+  <ul class="plain">
+    <li><b>One window with several pages inside.</b> Tauri 2 can host more than one webview in a window, but only behind its <code>unstable</code> flag, so this starts with a short spike. If it misbehaves, the fallback is today's per-platform windows with the same rail and bar drawn in each.</li>
+    <li><b>The app bar owns the blur state.</b> The Rust side already holds the gaze mode (<code>set_gaze_state</code>), so the bar writes there and each page reads it, the same way Android page loads do now.</li>
+    <li><b>Wide pages get a centred column.</b> With YouTube's feed and sidebar hidden, the desktop page has empty space. Centring the content looks finished instead of broken.</li>
+    <li><b>In-place updates and a signed installer.</b> Tauri's updater plugin covers the first. An unsigned Windows installer triggers SmartScreen warnings, so it needs a code-signing certificate, a Microsoft Store listing, or both.</li>
+    <li><b>A measured desktop pass</b>, the same way YouTube earned its name on the phone. That is already item 2 on your open list.</li>
+  </ul>
+</section>
+
+<section class="col">
+  <h2>Video blur, by device</h2>
+  <p>You said live video blur on the phone is more hassle than help and you turn it off on most videos, while thumbnail blur works fine. Desktops have the headroom for it. Since this trades exposure, the defaults are your call; here is the split I'd suggest.</p>
+  <div class="two">
+    <div class="opt"><div class="dev-tag">Phone</div><h4>Thumbnails blurred, video blur opt-in</h4><p>Thumbnails and feed images stay blurred. The player starts clear and has one switch to turn blur on for that video. Shorts and the algorithmic feed are already gone, so the phone stays protective without the lag.</p></div>
+    <div class="opt"><div class="dev-tag">Desktop</div><h4>Smart blur on, including video</h4><p>Live video blur runs by default. The app-bar switch turns it off for one video and the choice sticks through resize, fullscreen and quality changes.</p></div>
+  </div>
+  <p class="small">Either way the "blur comes back" bug should be fixed first, because it makes video blur feel worse than it is. The video blur thread is on the phone side of this.</p>
+</section>
+
+<section class="col">
+  <h2>The scaling ladder</h2>
+  <p>Each step rests on the one before it, so the order matters.</p>
+  <ol class="ladder">
+    <li><div><h4>Android on Play <span class="now">now</span></h4><p>The listing pack in your hands (upload key, copy, three screenshots, privacy page) plus the legal page the legal thread is writing. The AAB build already exists.</p></div></li>
+    <li><div><h4>Windows desktop 1.0</h4><p>The one-window shell, the app-owned blur switch, in-place updates, a signed installer, and a measured desktop pass. Most users of a desktop social app are on Windows, and the ad hook already works there.</p></div></li>
+    <li><div><h4>iOS and macOS together</h4><p>One Apple Developer account covers both, and both use the same WebKit engine, so the work is shared. macOS needs its own ad request blocking first, because today's hook is Windows-only. The Core ML parity check that is waiting on a Mac happens here too.</p></div></li>
+    <li><div><h4>Tablets</h4><p>Android tablets and iPads in landscape get the rail layout from step 2. No separate design.</p></div></li>
+    <li><div><h4>More platforms, one at a time</h4><p>Reddit and X get their measured passes before anything new is added. Each platform on each layout (mobile web and desktop web) is a rule set that YouTube or Meta can break with a deploy, so the canary from your open list has to cover desktop layouts as well.</p></div></li>
+  </ol>
+</section>
+
+<section class="col">
+  <h2>What stays out</h2>
+  <ul class="plain">
+    <li><b>A browser extension.</b> Your standing ruling, and it would split the product into two installs.</li>
+    <li><b>An address bar or general browsing.</b> The moment we open the web, we are a privacy browser competing with Brave, and the calm is gone.</li>
+    <li><b>Accounts, sync or telemetry.</b> Cut in the original plan, and it keeps a solo project maintainable. If people want settings on two devices, an export file does that.</li>
+    <li><b>Our own recommendations.</b> Building a feed would recreate what we remove.</li>
+    <li><b>Linux, for now.</b> My suggestion: there is no ad hook there either, and the audience is small. Revisit if people ask.</li>
+  </ul>
+</section>
+
+<section class="col">
+  <h2>Decisions for you</h2>
+  <ol class="decide">
+    <li><b>Video blur defaults per device.</b><span>Phone opt-in and desktop on, as above, or one default everywhere.</span></li>
+    <li><b>One-window desktop with a rail.</b><span>I recommend it. The alternative is to keep separate windows and only add the app bar.</span></li>
+    <li><b>Windows distribution.</b><span>A signed download from the website, a Microsoft Store listing, or both. The Store listing helps with trust and updates; the direct download keeps you independent.</span></li>
+    <li><b>Whether macOS waits for iOS.</b><span>I recommend shipping them together since they share an account and an engine.</span></li>
+  </ol>
+  <footer>Sources in the repo: <code>app/src-tauri/src/lib.rs</code> (window model, request blocker), <code>app/gaze/src/init-entry.js</code> (player toggle), <code>WORKLIST.md</code>, <code>docs/owner-issues.md</code>, <code>docs/plan.md</code>, <code>docs/VISION.md</code>, <code>CLAUDE.md</code>. Mockups are illustrations, not screenshots of a build.</footer>
+</section>
