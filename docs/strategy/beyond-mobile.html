@@ -183,7 +183,7 @@
     <tbody>
       <tr><td>Clean feeds on every major platform<span class="src">handoff §1</span></td><td>YouTube is measured and solid. Reddit and X ship but haven't had measured passes. Instagram and Facebook are partial, and TikTok is still undecided.</td><td><span class="chip warn">Only YouTube measured</span></td></tr>
       <tr><td>Ads gone<span class="src">VISION, owner issue 23</span></td><td>Network blocking, pre-roll scriptlets and cosmetic rules all ship. The new switch makes showing ads a choice, and blocking stays the default.</td><td><span class="chip ok">Working</span></td></tr>
-      <tr><td>Guard the gaze, both directions, on-device<span class="src">handoff §1, §5</span></td><td>Thumbnail blur works well. PR #18 fixes the video blur that kept coming back, and the phone default for video blur is being settled in the video blur thread.</td><td><span class="chip warn">Video being fixed</span></td></tr>
+      <tr><td>Guard the gaze, both directions, on-device<span class="src">handoff §1, §5</span></td><td>Thumbnail blur works well, and feed previews stay blurred. On phones, you chose that each video you open starts with blur off, and a "Beta" switch turns it on for that video only (PR #18). Desktop still starts with blur on.</td><td><span class="chip ok">Decided</span></td></tr>
       <tr><td>Instant by default<span class="src">handoff §2</span></td><td>The loading screen is being replaced in the instant launch thread.</td><td><span class="chip warn">In progress</span></td></tr>
       <tr><td>Doesn't look like a parental control, no nags<span class="src">plan, VISION</span></td><td>The launcher and onboarding follow this today. It also shapes the "pause before switching off" idea below.</td><td><span class="chip ok">Holding</span></td></tr>
       <tr><td>Native sign-in and password autofill<span class="src">handoff §3a</span></td><td>Sign-in works. Nothing in the repo records autofill with Google Password Manager or passkeys as tested. Worth one check on your phone before the Play release.</td><td><span class="chip warn">Unverified</span></td></tr>
@@ -213,7 +213,7 @@
   <p>Grouped by what a person notices. Items already being worked on in other threads are marked.</p>
   <div class="groups">
     <div class="grp-item"><h4>Feels instant <span class="now">instant launch thread</span></h4><p>Opening the app shows your platforms straight away, with no loading screen.</p></div>
-    <div class="grp-item"><h4>Blur behaves <span class="now">video blur thread</span></h4><p>Thumbnail blur stays. Turning video blur off sticks for that video (PR #18). The phone default is your call there.</p></div>
+    <div class="grp-item"><h4>Blur behaves <span class="now">video blur thread</span></h4><p>Thumbnail blur stays. Each video starts with blur off, and the "Beta" switch turns it on for that video only. The next video starts off again (PR #18).</p></div>
     <div class="grp-item"><h4>A real browser</h4><p>A start page with big platform tiles and one "search or type a site" box above them. While browsing, the address sits at the bottom where a thumb reaches, with big Back and Home buttons. No tabs in 1.0: they add a concept a grandparent doesn't need. Today a link is accepted only when it belongs to the tile's platform (<code>link_host_belongs</code>). That becomes "any link opens, platforms get cleaned".</p></div>
     <div class="grp-item"><h4>Default browser</h4><p>The Android manifest already registers the app for http and https links. Becoming the default browser mostly means accepting the links it currently turns away.</p></div>
     <div class="grp-item"><h4>Ads as a choice</h4><p>Blocked by default. "Show ads" turns off network blocking, pre-roll scriptlets and the ads rules, which already sit apart from the cleaning rules in the code.</p></div>
@@ -265,16 +265,16 @@
           </div>
           <div class="vt">How a Roman aqueduct carried water 90 km</div>
           <div class="vm">History Atlas · 1.2M views</div>
-          <div class="vrow"><span>Blur this video</span><div class="seg"><b class="sel">On</b><b>Off</b></div></div>
+          <div class="vrow"><span>Blur this video · Beta</span><div class="seg"><b>Off</b><b class="sel">On</b></div></div>
           <div class="hid">Up next and Shorts are hidden</div>
-          <div class="ann" style="right:8px;top:136px">stays off once you turn it off</div>
+          <div class="ann" style="right:8px;top:136px">tapped on; next video starts off</div>
         </div>
         <div class="bot">
           <div class="omni"><span class="host">youtube.com</span><span>/watch</span><span class="tag">cleaned</span></div>
           <div class="navrow"><span>‹ Back</span><span>⌂ Home</span><span>⋯</span></div>
         </div>
       </div>
-      <div class="phcap"><b>2 · Watching</b>Solid blur patches. The switch sits under the player and is held by the app, so resizing can't flip it back.</div>
+      <div class="phcap"><b>2 · Watching</b>Videos start clear. One tap on the "Beta" switch draws solid blur patches for this video, and resizing can't undo the choice.</div>
     </div>
 
     <div class="phwrap">
@@ -329,7 +329,7 @@
   <h2>The mobile ladder</h2>
   <p>Each step rests on the one before it.</p>
   <ol class="ladder">
-    <li><div><h4>Finish what you noticed <span class="now">in progress</span></h4><p>Instant launch, the video blur fix in PR #18, and the phone default for video blur. These are the things you feel every day.</p></div></li>
+    <li><div><h4>Finish what you noticed <span class="now">in progress</span></h4><p>Instant launch, and video blur starting off with the "Beta" switch (PR #18). These are the things you feel every day.</p></div></li>
     <li><div><h4>Android becomes a browser</h4><p>The start page with one search box above the tiles, any link, default browser, search engine choice, Focus mode, the ads switch, and the switching-off pause if you want it.</p></div></li>
     <li><div><h4>Play Store release</h4><p>The listing pack in your hands (upload key, copy, three screenshots, privacy page), the legal page the legal thread is writing, an autofill check, and the first version of the playbook on the website.</p></div></li>
     <li><div><h4>iPhone</h4><p>Needs a Mac to build and an Apple Developer account. Every iOS browser uses Apple's WebKit, which Tauri uses there anyway. Safari-style content blockers can't stop YouTube's ads because they come from youtube.com itself, so the scriptlet approach you already use is the one that works. It ships as our own app, not a Safari extension, which would be too fiddly for this audience. The Core ML parity check that is waiting on a Mac happens here too.</p></div></li>
