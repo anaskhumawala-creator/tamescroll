@@ -54,3 +54,9 @@ dist-apk/
 # Core ML conversions (33MB, regenerate with spikes/native/convert_coreml.py)
 spikes/native/coreml/*.mlmodel
 spikes/native/coreml/*.npz
+
+# Built APKs belong on GitHub Releases, not in the tree; probe
+# screenshots stay local (both were committed before 2026-10-22).
+*.apk
+*.aab
+spikes/*.png
