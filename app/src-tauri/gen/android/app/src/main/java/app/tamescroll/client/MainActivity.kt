@@ -1405,6 +1405,10 @@ class MainActivity : TauriActivity() {
 
   override fun onWebViewCreate(webView: WebView) {
     this.webView = webView
+    // A WebView paints WHITE until its first document draws, which on a
+    // cold start is the frame between the dark window and the launcher.
+    // Launcher --bg instead; every platform page paints its own body.
+    webView.setBackgroundColor(0xFF141414.toInt())
     webView.addJavascriptInterface(ShortcutBridge(), "TsShortcuts")
     webView.addJavascriptInterface(LinksBridge(), "TsLinks")
     // Updater bridge: only ever reachable from the launcher's About

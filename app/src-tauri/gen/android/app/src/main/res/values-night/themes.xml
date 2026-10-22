@@ -1,6 +1,9 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Theme.app" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <!-- Customize your theme here. -->
+        <!-- The launcher's own --bg, so a cold start goes dark -> launcher
+             with no white window or white splash in between (2026-10-22).
+             Android 12+ builds its splash from this too. -->
+        <item name="android:windowBackground">@color/launcher_bg</item>
     </style>
 </resources>
