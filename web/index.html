@@ -156,6 +156,18 @@
   .card h3 { font-size: 17.5px; margin-bottom: 10px; }
   .card p { color: var(--paper-muted); font-size: 14.5px; }
 
+  /* ---- how it works with the platforms ---- */
+  section.terms { max-width: 760px; margin: 72px auto 0; padding: 0 24px; }
+  .terms h2 {
+    font-family: var(--font-display); font-weight: 500; font-size: clamp(26px, 3.6vw, 34px);
+    margin-bottom: 14px;
+  }
+  .terms > p { color: var(--paper-muted); font-size: 15.5px; margin-bottom: 18px; }
+  .terms ul { list-style: none; display: grid; gap: 12px; }
+  .terms li { color: var(--paper-muted); font-size: 15px; padding-left: 16px; border-left: 2px solid var(--paper-line); }
+  .terms li b { color: var(--paper-ink); font-weight: 600; }
+  .terms .small { font-size: 13.5px; color: var(--paper-faint); margin-top: 20px; }
+
   /* ---- quote ---- */
   .quote {
     text-align: center; font-family: var(--font-display); font-style: italic;
@@ -287,6 +299,20 @@
     </div>
   </section>
 
+  <section class="terms" id="platforms">
+    <div class="sec-label">How tamescroll works with the platforms</div>
+    <h2>Your view of their site, on your device</h2>
+    <p>tamescroll shows you a platform's own website, the same page your phone's browser would load, and changes how that page looks on your screen. Like a browser's reader mode or a content blocker, it hides parts of the page before you see them: Shorts, Reels, recommendation feeds, autoplay and ads.</p>
+    <ul>
+      <li><b>Every change happens on your phone.</b> Nothing is copied, saved, re-uploaded or sent to us. We have no server, no account system and no analytics.</li>
+      <li><b>We never touch the platforms' apps or their code.</b> tamescroll does not modify YouTube's or anyone else's app, does not use their APIs, and does not download videos.</li>
+      <li><b>Creators' videos play as published.</b> Blur is a layer drawn over your screen, never an edit of the video, and the video you choose to play is never altered.</li>
+      <li><b>The image filter keeps nothing.</b> It looks at what is on screen, decides whether to blur it, and forgets it. It does not identify anyone, store faces, or guess anything about a person beyond the single filter you chose.</li>
+      <li><b>You sign in with your own account,</b> on the platform's own sign-in page, and its terms apply to your account as they always have.</li>
+    </ul>
+    <p class="small">tamescroll is an independent, open-source project. It is not affiliated with or endorsed by Google, YouTube, Reddit, X, Meta or TikTok; their names are used only to say which sites tamescroll works with. If you represent a platform and have a concern, <a href="https://github.com/anaskhumawala-creator/tamescroll/issues/new">write to us</a> and we will answer. See also our <a href="privacy.html">privacy policy</a>.</p>
+  </section>
+
   <div class="quote">The platforms stay useful. The pull is gone.</div>
 
   <section class="download" id="download">
@@ -303,7 +329,7 @@
 <footer>
   <div class="row">
     <div>© 2026 the tamescroll contributors · MPL-2.0</div>
-    <div><a href="https://github.com/anaskhumawala-creator/tamescroll">GitHub</a> &nbsp;·&nbsp; <a href="https://github.com/anaskhumawala-creator/tamescroll/releases/latest">Releases</a> &nbsp;·&nbsp; <a href="https://github.com/anaskhumawala-creator/tamescroll/blob/main/NOTICE">Credits</a></div>
+    <div><a href="https://github.com/anaskhumawala-creator/tamescroll">GitHub</a> &nbsp;·&nbsp; <a href="https://github.com/anaskhumawala-creator/tamescroll/releases/latest">Releases</a> &nbsp;·&nbsp; <a href="https://github.com/anaskhumawala-creator/tamescroll/blob/main/NOTICE">Credits</a> &nbsp;·&nbsp; <a href="privacy.html">Privacy</a></div>
   </div>
 </footer>
 
