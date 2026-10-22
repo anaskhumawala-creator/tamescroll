@@ -95,6 +95,9 @@
   .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 8px; padding: 22px 16px 0; }
   .tiles div { display: flex; flex-direction: column; align-items: center; gap: 5px; color: var(--m-muted); font-size: 10.5px; }
   .tiles b { width: 50px; height: 50px; border-radius: 14px; background: var(--m-elev); display: grid; place-items: center; font-size: 17px; }
+  .tiles.big { grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 16px 18px 0; }
+  .tiles.big b { width: 64px; height: 64px; border-radius: 18px; font-size: 22px; }
+  .tiles.big div { font-size: 12px; }
   .tiles .add b { background: none; border: 1px dashed var(--m-line); color: var(--m-faint); }
   .clean { text-align: center; color: var(--m-faint); font-size: 10.5px; margin-top: 18px; }
   .ann { position: absolute; font-family: var(--font-mono); font-size: 9.5px; color: var(--m-gold); background: rgba(20,20,20,.94); border: 1px solid rgba(201,164,94,.5); padding: 2px 6px; border-radius: 6px; white-space: nowrap; z-index: 2; }
@@ -163,7 +166,7 @@
   <div class="meta"><span>For ZV</span><span>Based on the code at release 1120 (v0.1.120)</span><span>Checked against the goals in VISION, plan and the original handoff</span></div>
 
   <div class="answer">
-    <p>Get the phone app fully right first: Android, then iPhone. Desktop waits. When it comes, it is probably an extension or a short guide to tools that already work, not a second app.</p>
+    <p>The goal, in your words: an app even grandparents can use, that removes the doom scroll and the algorithms pushing filthy content. Get the phone app fully right first: Android, then iPhone. Desktop waits. When it comes, it is probably an extension or a short guide to tools that already work, not a second app.</p>
     <ul>
       <li><b>On the phone, Tame Scroll becomes a calm browser.</b> The address bar is visible by default, the platforms open already cleaned, and Focus mode hides the address bar for people who only want their platforms. Ads are blocked by default, with a switch to show them.</li>
       <li><b>"Done correctly" means</b> it opens instantly, video blur behaves, any link works, it can be your default browser, sign-in and autofill work, and onboarding takes under a minute. Then it gets proper Play Store and App Store releases.</li>
@@ -211,7 +214,7 @@
   <div class="groups">
     <div class="grp-item"><h4>Feels instant <span class="now">instant launch thread</span></h4><p>Opening the app shows your platforms straight away, with no loading screen.</p></div>
     <div class="grp-item"><h4>Blur behaves <span class="now">video blur thread</span></h4><p>Thumbnail blur stays. Turning video blur off sticks for that video (PR #18). The phone default is your call there.</p></div>
-    <div class="grp-item"><h4>A real browser</h4><p>Address bar at the bottom where a thumb reaches, search engine choice, Back and Forward, a simple tab switcher. Today a link is accepted only when it belongs to the tile's platform (<code>link_host_belongs</code>). That becomes "any link opens, platforms get cleaned".</p></div>
+    <div class="grp-item"><h4>A real browser</h4><p>A start page with big platform tiles and one "search or type a site" box above them. While browsing, the address sits at the bottom where a thumb reaches, with big Back and Home buttons. No tabs in 1.0: they add a concept a grandparent doesn't need. Today a link is accepted only when it belongs to the tile's platform (<code>link_host_belongs</code>). That becomes "any link opens, platforms get cleaned".</p></div>
     <div class="grp-item"><h4>Default browser</h4><p>The Android manifest already registers the app for http and https links. Becoming the default browser mostly means accepting the links it currently turns away.</p></div>
     <div class="grp-item"><h4>Ads as a choice</h4><p>Blocked by default. "Show ads" turns off network blocking, pre-roll scriptlets and the ads rules, which already sit apart from the cleaning rules in the code.</p></div>
     <div class="grp-item"><h4>Safe to type any address</h4><p>Android's WebView has Google Safe Browsing built in, so a phishing warning comes almost free. Check that the app doesn't turn it off.</p></div>
@@ -231,8 +234,9 @@
       <div class="ph">
         <div class="sb"><span>9:41</span><span>●●● ▮</span></div>
         <div class="content">
-          <div class="wm">tamescroll</div>
-          <div class="tiles">
+          <div class="wm" style="margin-top:18px">tamescroll</div>
+          <div class="omni" style="margin:14px 14px 0;height:38px;font-size:12.5px">Search or type a site</div>
+          <div class="tiles big">
             <div><b style="color:var(--m-yt)">▶</b>YouTube</div>
             <div><b style="color:var(--m-rd)">r</b>Reddit</div>
             <div><b style="color:var(--m-x)">X</b>X</div>
@@ -240,15 +244,13 @@
             <div><b style="color:var(--m-fb)">f</b>Facebook</div>
             <div class="add"><b>+</b>Add</div>
           </div>
-          <div class="clean">No feed · No Shorts · No ads</div>
-          <div class="ann" style="left:10px;bottom:10px">launcher = new tab page</div>
+          <div class="ann" style="left:10px;bottom:10px">one box, big tiles, nothing else</div>
         </div>
         <div class="bot">
-          <div class="omni">Search or type an address</div>
-          <div class="navrow"><span class="dim">‹</span><span class="dim">›</span><span>⌂</span><span class="tabs">1</span><span>⋯</span></div>
+          <div class="navrow"><span class="dim">‹ Back</span><span>⌂ Home</span><span>⋯</span></div>
         </div>
       </div>
-      <div class="phcap"><b>1 · New tab</b>Your platforms as before, with the address bar at the bottom. Visible by default.</div>
+      <div class="phcap"><b>1 · Start page</b>Big platform tiles with one "search or type a site" box above them. Simple enough for a grandparent: tap a tile, or type.</div>
     </div>
 
     <div class="phwrap">
@@ -269,7 +271,7 @@
         </div>
         <div class="bot">
           <div class="omni"><span class="host">youtube.com</span><span>/watch</span><span class="tag">cleaned</span></div>
-          <div class="navrow"><span>‹</span><span class="dim">›</span><span>⌂</span><span class="tabs">2</span><span>⋯</span></div>
+          <div class="navrow"><span>‹ Back</span><span>⌂ Home</span><span>⋯</span></div>
         </div>
       </div>
       <div class="phcap"><b>2 · Watching</b>Solid blur patches. The switch sits under the player and is held by the app, so resizing can't flip it back.</div>
@@ -328,9 +330,9 @@
   <p>Each step rests on the one before it.</p>
   <ol class="ladder">
     <li><div><h4>Finish what you noticed <span class="now">in progress</span></h4><p>Instant launch, the video blur fix in PR #18, and the phone default for video blur. These are the things you feel every day.</p></div></li>
-    <li><div><h4>Android becomes a browser</h4><p>Bottom address bar, any link, default browser, search engine choice, Focus mode, the ads switch, and the switching-off pause if you want it.</p></div></li>
+    <li><div><h4>Android becomes a browser</h4><p>The start page with one search box above the tiles, any link, default browser, search engine choice, Focus mode, the ads switch, and the switching-off pause if you want it.</p></div></li>
     <li><div><h4>Play Store release</h4><p>The listing pack in your hands (upload key, copy, three screenshots, privacy page), the legal page the legal thread is writing, an autofill check, and the first version of the playbook on the website.</p></div></li>
-    <li><div><h4>iPhone</h4><p>Needs a Mac to build and an Apple Developer account. Every iOS browser uses Apple's WebKit, which Tauri uses there anyway. Safari-style content blockers can't stop YouTube's ads because they come from youtube.com itself, so the scriptlet approach you already use is the one that works. The Core ML parity check that is waiting on a Mac happens here too.</p></div></li>
+    <li><div><h4>iPhone</h4><p>Needs a Mac to build and an Apple Developer account. Every iOS browser uses Apple's WebKit, which Tauri uses there anyway. Safari-style content blockers can't stop YouTube's ads because they come from youtube.com itself, so the scriptlet approach you already use is the one that works. It ships as our own app, not a Safari extension, which would be too fiddly for this audience. The Core ML parity check that is waiting on a Mac happens here too.</p></div></li>
     <li><div><h4>Earn the other platforms</h4><p>Measured passes for Reddit and X, and the rules watcher, so a platform update doesn't quietly break a rule.</p></div></li>
     <li><div><h4>Reach more people</h4><p>Translations of the app and the playbook, starting with Urdu and Arabic. Tablets get a wide layout from the same app.</p></div></li>
   </ol>
