@@ -329,7 +329,7 @@
         </div>
       </div>
     </div></div>
-    <figcaption><b>2 · Watching.</b> Live blur draws solid patches, never cut-outs. The per-video switch sits in the app bar, not inside YouTube's player. Today's in-player toggle is reset on every stream reload (<code>init-entry.js</code>, the <code>loadstart</code> handler sets <code>playerBlurOn</code> back to true). That is the likely cause of "I turn it off, resize, and the blur is back" on the phone. I've passed this to the thread working on video blur.</figcaption>
+    <figcaption><b>2 · Watching.</b> Live blur draws solid patches, never cut-outs. The per-video switch sits in the app bar, not inside YouTube's player. Today's in-player toggle is reset on every stream reload (<code>init-entry.js</code>, the <code>loadstart</code> handler sets <code>playerBlurOn</code> back to true). That is the likely cause of "I turn it off, resize, and the blur is back" on the phone. PR #18 now remembers "off" for the same video, and the desktop bar would follow the same rule.</figcaption>
   </figure>
 
   <figure>
@@ -396,7 +396,7 @@
     <div class="opt"><div class="dev-tag">Phone</div><h4>Thumbnails blurred, video blur opt-in</h4><p>Thumbnails and feed images stay blurred. The player starts clear and has one switch to turn blur on for that video. Shorts and the algorithmic feed are already gone, so the phone stays protective without the lag.</p></div>
     <div class="opt"><div class="dev-tag">Desktop</div><h4>Smart blur on, including video</h4><p>Live video blur runs by default. The app-bar switch turns it off for one video and the choice sticks through resize, fullscreen and quality changes.</p></div>
   </div>
-  <p class="small">Either way the "blur comes back" bug should be fixed first, because it makes video blur feel worse than it is. The video blur thread is on the phone side of this.</p>
+  <p class="small">Either way the "blur comes back" bug had to be fixed first, because it makes video blur feel worse than it is. That fix is in PR #18, and whatever you choose for the phone, desktop will match its switch behaviour.</p>
 </section>
 
 <section class="col">
