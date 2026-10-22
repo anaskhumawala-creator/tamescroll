@@ -192,33 +192,52 @@
   .decide b { display: block; }
   .decide span { color: var(--muted); font-size: 15px; }
   footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--faint); }
+
+  /* browser chrome additions */
+  .omni { flex: 1; max-width: 520px; height: 30px; border-radius: 999px; background: #101010; border: 1px solid var(--m-line); display: flex; align-items: center; gap: 8px; padding: 0 12px; color: var(--m-muted); font-size: 12.5px; min-width: 0; }
+  .omni .lockic { color: var(--m-faint); font-size: 11px; }
+  .omni .host { color: var(--m-ink); }
+  .omni .tag { margin-left: auto; font-size: 10.5px; color: var(--m-gold); border: 1px solid rgba(201,164,94,.45); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+  .tabs { height: 32px; display: flex; align-items: flex-end; gap: 2px; padding: 0 10px; background: #0f0f0f; border-bottom: 1px solid var(--m-line); }
+  .tab { height: 26px; padding: 0 12px; display: flex; align-items: center; gap: 7px; border-radius: 8px 8px 0 0; color: var(--m-faint); font-size: 12px; max-width: 170px; white-space: nowrap; overflow: hidden; }
+  .tab.sel { background: var(--m-surface); color: var(--m-ink); }
+  .tab i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+  .focuspill { font-size: 11.5px; color: var(--m-muted); border: 1px solid var(--m-line); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+  .focuspill.on { color: #2a2110; background: var(--m-gold); border-color: var(--m-gold); font-weight: 600; }
+  .bm { display: grid; grid-template-columns: repeat(5, 92px); gap: 14px; }
+  .bm div { display: flex; flex-direction: column; align-items: center; gap: 7px; color: var(--m-muted); font-size: 12px; }
+  .bm b { width: 52px; height: 52px; border-radius: 14px; background: var(--m-elev); display: grid; place-items: center; font-size: 18px; }
+  .cleanlbl { font-size: 10.5px; color: var(--m-gold); }
+  .newtab { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; }
+  .newtab .search { width: 460px; }
 </style>
 
 <header class="top col">
-  <div class="eyebrow">Strategy · October 2026</div>
+  <div class="eyebrow">Strategy · October 2026 · revised</div>
   <h1>Tame Scroll beyond the phone</h1>
-  <div class="meta"><span>For ZV</span><span>Based on the code at release 1120 (v0.1.120)</span><span>Desktop = the same Tauri app, Windows build</span></div>
+  <div class="meta"><span>For ZV</span><span>Based on the code at release 1120 (v0.1.120)</span><span>Revised after your call to become a real browser</span></div>
 
   <div class="answer">
-    <p>Grow as one calm app on every screen people scroll on, and never as a browser. The phone stays the product. The desktop becomes the place where the full protection runs comfortably, video blur included.</p>
+    <p>Tame Scroll becomes a calm browser. It opens any site, while the social platforms open already cleaned. The address bar is there, and Focus mode hides it for people who want only their platforms.</p>
     <ul>
-      <li><b>Order:</b> Android on Play first, then a refined Windows desktop 1.0, then iOS and macOS together, with tablets getting the desktop layout for free.</li>
-      <li><b>Desktop change that matters most:</b> one window with a rail of platforms and an app-owned top bar, instead of a separate OS window per platform. The blur switch moves into that bar so YouTube can't reset it.</li>
-      <li><b>The real limit on scale</b> is keeping rules alive, not writing code. Desktop doubles the layouts to maintain, so the YouTube-change canary comes before any new platform.</li>
+      <li><b>What sets it apart from Brave and others:</b> they block trackers and ads. We remove the feed, Shorts and recommendations, and add blur, on the platforms where scrolling actually happens. Platforms are cleaned bookmarks on the new tab page, so the old launcher is still the first thing you see.</li>
+      <li><b>Ads become a choice:</b> blocked by default, with a "Show ads" switch. The pieces that block them are already separate in the code, so the switch can turn them off cleanly.</li>
+      <li><b>Order:</b> Android first (as a browser it can also be set as the default browser), then Windows desktop 1.0, then iOS and macOS together. Tablets reuse the desktop layout.</li>
+      <li><b>The cost:</b> a browser is expected to have tabs, history, downloads and a search engine choice. That is new work, so the ladder below adds those pieces in stages.</li>
     </ul>
   </div>
 </header>
 
 <section class="col">
   <h2>What Tame Scroll is, next to its neighbours</h2>
-  <p>Your website already has the line: <i>the same platforms, none of the machinery.</i> It holds up on every device because it describes what is removed, not where it runs. The three things people will compare us to each do a different job.</p>
+  <p>Your website line still fits: <i>the same platforms, none of the machinery.</i> As a browser, the pitch gets one extra clause: it goes anywhere, and the platforms come cleaned.</p>
   <div class="neighbours">
-    <div class="nb"><h4>Privacy browsers</h4><div class="ex">Brave, DuckDuckGo</div><p>Hide you from trackers while you browse anywhere. The feed, Shorts and recommendations are untouched.</p></div>
-    <div class="nb"><h4>Blocker extensions</h4><div class="ex">uBlock Origin, Unhook</div><p>Tools you install and tune inside your own browser. Mostly absent on phones, where most scrolling happens.</p></div>
+    <div class="nb"><h4>Privacy browsers</h4><div class="ex">Brave, DuckDuckGo</div><p>Block trackers and ads everywhere. The feed, Shorts and recommendations are untouched.</p></div>
+    <div class="nb"><h4>Blocker extensions</h4><div class="ex">uBlock Origin, Unhook</div><p>Tools you install and tune inside another browser. Mostly missing on phones, where most scrolling happens.</p></div>
     <div class="nb"><h4>Screen-time apps</h4><div class="ex">Digital Wellbeing, parental controls</div><p>Limit, lock and nag. They fight the habit and feel like supervision.</p></div>
-    <div class="nb us"><h4>Tame Scroll</h4><div class="ex">one install, five platforms</div><p>Opens only the platforms you use, already cleaned: no ads, no Shorts, no algorithmic feed, optional blur. No address bar, no locks, no nags.</p></div>
+    <div class="nb us"><h4>Tame Scroll</h4><div class="ex">a calm browser</div><p>Browses anything. YouTube, Reddit, X, Instagram and Facebook open with no feed, no Shorts, no recommendations and optional blur. Focus mode hides the address bar. It never locks and never nags.</p></div>
   </div>
-  <p class="small">So the pitch on desktop is the same as on the phone. We are a front door to social media, not a way onto the web. Not having an address bar is the product, and it is also what keeps the legal story simple (that part sits with the legal thread).</p>
+  <p class="small">Calling it a browser on the website and in the store listings is now accurate rather than a framing, which is the point you made in the legal thread. That thread owns the wording.</p>
 </section>
 
 <section class="col">
@@ -228,10 +247,11 @@
     <thead><tr><th>Area</th><th>Today</th><th>State</th></tr></thead>
     <tbody>
       <tr><td>Shared core</td><td>Rules, scriptlets, pre-roll removal and the gaze bundle are identical to Android. Blur logic is already iterated on desktop first.</td><td><span class="chip ok">Working</span></td></tr>
+      <tr><td>Browsing</td><td>Not possible yet. Links are allowed only when they belong to the tile's platform (<code>link_host_belongs</code>), and nothing lets you type a URL.</td><td><span class="chip gap">New work</span></td></tr>
       <tr><td>Window model</td><td>A 980×720 launcher plus a separate 1200×860 OS window per platform. Re-tapping a tile focuses the old window; a page that closes itself needed a guard.</td><td><span class="chip warn">Feels like six apps</span></td></tr>
-      <tr><td>Ad request blocking</td><td>WebView2 hook answers ad requests with an empty 204 (verified: 7 blocked, player kept playing). Compiled for Windows only; a Mac or Linux build has no network blocking.</td><td><span class="chip warn">Windows only</span></td></tr>
+      <tr><td>Ad blocking</td><td>Three layers: network blocking (WebView2 hook on Windows, a WebViewClient on Android), scriptlets that strip pre-rolls, and an always-on "ads" surface in the rules. The network hook is Windows-only on desktop.</td><td><span class="chip warn">Windows only</span></td></tr>
       <tr><td>Video blur</td><td>Runs. Measured on the dev desktop: 19.6 ms face and 17.1 ms NSFW per frame. Verdict pass p95 2,048 ms in gauntlet R4. Never had a measured desktop pass.</td><td><span class="chip warn">Feasible, unmeasured</span></td></tr>
-      <tr><td>Navigation</td><td>No Back, Forward or Home in the window frame. The home pill inside the page is the way back to the launcher.</td><td><span class="chip warn">Rough edge</span></td></tr>
+      <tr><td>Navigation</td><td>No Back, Forward or Home in the window frame. The home pill inside the page is the way back.</td><td><span class="chip warn">Rough edge</span></td></tr>
       <tr><td>Rules refresh</td><td>CSS is baked when a window opens, so new rules need a relaunch.</td><td><span class="chip warn">Rough edge</span></td></tr>
       <tr><td>Updates</td><td>Desktop is only told an update exists. Only Android installs in place.</td><td><span class="chip gap">Gap</span></td></tr>
       <tr><td>Release</td><td>The release recipe is Android-only. No signed Windows installer has been published.</td><td><span class="chip gap">Gap</span></td></tr>
@@ -241,13 +261,83 @@
 
 <section class="wide">
   <div class="col">
-    <h2>Direction: one window, a rail, and controls the page can't reset</h2>
-    <p>Three mockups in the app's own look. They show the shape, not final pixels.</p>
+    <h2>Direction: a calm browser with cleaned platforms</h2>
+    <p>Four mockups in the app's own look. They show the shape, not final pixels.</p>
   </div>
 
   <figure>
     <div class="scroller"><div class="win">
       <div class="titlebar"><i></i><i></i><i></i><span>Tame Scroll</span></div>
+      <div class="tabs"><div class="tab sel">New tab</div><div class="tab"><i style="background:var(--m-yt)"></i>YouTube</div><div class="tab">+</div></div>
+      <div class="main" style="height:470px">
+        <div class="bar">
+          <div class="nav dim">←</div><div class="nav dim">→</div><div class="nav">⌂</div>
+          <div class="omni"><span>Search or type an address</span></div>
+          <div class="sp"></div>
+          <div class="focuspill">Focus mode</div>
+        </div>
+        <div class="canvas">
+          <div class="newtab">
+            <svg viewBox="0 0 560 140" width="210" aria-label="tamescroll"><g transform="translate(40 42) scale(1.28)"><path d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke="#e7e5e1" stroke-width="3.6" stroke-linecap="round"/></g><text x="146" y="88" font-family="Spectral, Georgia, serif" font-size="58" font-weight="600" fill="#e7e5e1">tamescroll</text></svg>
+            <div class="bm">
+              <div><b style="color:var(--m-yt)">▶</b>YouTube<span class="cleanlbl">cleaned</span></div>
+              <div><b style="color:var(--m-rd)">r</b>Reddit<span class="cleanlbl">cleaned</span></div>
+              <div><b style="color:var(--m-x)">X</b>X<span class="cleanlbl">cleaned</span></div>
+              <div><b style="color:var(--m-ig)">◎</b>Instagram<span class="cleanlbl">cleaned</span></div>
+              <div><b style="color:var(--m-fb)">f</b>Facebook<span class="cleanlbl">cleaned</span></div>
+            </div>
+            <div class="quiet">No feed · No Shorts · No recommendations</div>
+          </div>
+          <div class="ann" style="right:14px;top:10px">hides the address bar and tabs</div>
+          <div class="ann" style="left:14px;bottom:14px">your launcher, now the new tab page</div>
+        </div>
+      </div>
+    </div></div>
+    <figcaption><b>1 · New tab.</b> The launcher becomes the new tab page: the five platforms as cleaned bookmarks, with the address bar above for anything else. People who never want the address bar turn on Focus mode.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="scroller"><div class="win">
+      <div class="titlebar"><i></i><i></i><i></i><span>Tame Scroll</span></div>
+      <div class="tabs"><div class="tab"><i style="background:var(--m-rd)"></i>r/history</div><div class="tab sel"><i style="background:var(--m-yt)"></i>How a Roman aqueduct…</div><div class="tab">+</div></div>
+      <div class="main" style="height:470px">
+        <div class="bar">
+          <div class="nav">←</div><div class="nav dim">→</div><div class="nav">⌂</div>
+          <div class="omni"><span class="lockic">🔒</span><span class="host">youtube.com</span><span>/watch?v=…</span><span class="tag">cleaned · ads blocked</span></div>
+          <div class="sp"></div>
+          <div class="blurctl"><span class="lbl">This video</span><div class="seg"><b class="sel">Blur on</b><b>Off</b></div></div>
+        </div>
+        <div class="canvas">
+          <div class="watch">
+            <div>
+              <div class="player">
+                <div class="floor"></div>
+                <div class="fig" style="left:22%"><div class="h"></div><div class="b"></div></div>
+                <div class="fig" style="left:62%"><div class="h"></div><div class="b"></div></div>
+                <div class="patch" style="left:calc(62% - 22px);top:22%;width:108px;bottom:-4px"></div>
+                <div class="ctrl"><div class="prog"></div></div>
+              </div>
+              <div class="vt">How a Roman aqueduct carried water 90 km</div>
+              <div class="vm">History Atlas · 1.2M views</div>
+              <div class="desc">Description and comments stay. Comments start folded.</div>
+            </div>
+            <div class="side">
+              <div class="row"><b>Up next</b><span>hidden</span></div>
+              <div class="row"><b>End screen cards</b><span>hidden</span></div>
+              <div class="row"><b>Autoplay</b><div class="tog"></div></div>
+              <span style="margin-top:auto">The empty column is deliberate. Bring any of these back in Settings.</span>
+            </div>
+          </div>
+          <div class="ann" style="right:14px;top:10px">held by the browser, survives resize and fullscreen</div>
+        </div>
+      </div>
+    </div></div>
+    <figcaption><b>2 · Watching.</b> The address bar tells you a page is cleaned and whether ads are blocked. The per-video blur switch belongs to the browser, not to YouTube's player, so it can't be reset by the page. PR #18 already makes "off" stick for the same video on the phone, and desktop follows the same rule.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="scroller"><div class="win">
+      <div class="titlebar"><i></i><i></i><i></i><span>Tame Scroll · Focus mode</span></div>
       <div class="shell">
         <div class="rail">
           <svg class="glyph" viewBox="0 0 48 40" aria-hidden="true"><path d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke="#e7e5e1" stroke-width="3.6" stroke-linecap="round"/></svg>
@@ -256,7 +346,6 @@
           <div class="rt" style="color:var(--m-x)">X</div>
           <div class="rt" style="color:var(--m-ig)">◎</div>
           <div class="rt" style="color:var(--m-fb)">f</div>
-          <div class="rt add">+</div>
           <div class="sp"></div>
           <div class="rt gear">⚙</div>
         </div>
@@ -265,6 +354,7 @@
             <div class="nav dim">←</div><div class="nav dim">→</div><div class="nav">⌂</div>
             <div class="crumb">YouTube<small>Home</small></div>
             <div class="sp"></div>
+            <div class="focuspill on">Focus mode</div>
             <div class="blurctl"><span class="lbl">Blur</span><div class="seg"><b>Off</b><b>Thumbnails</b><b class="sel">Smart</b></div></div>
           </div>
           <div class="canvas">
@@ -273,63 +363,13 @@
               <div class="search">Search YouTube</div>
               <div class="quiet"><s>Home feed</s><s>Shorts</s><s>Trending</s></div>
             </div>
-            <div class="ann" style="left:14px;top:14px">Ctrl+1–5 switches platform</div>
+            <div class="ann" style="left:14px;top:14px">no address bar, no tabs: only your platforms</div>
             <div class="ann" style="right:14px;bottom:14px">opens on the blank home, per your 1119 ruling</div>
           </div>
         </div>
       </div>
     </div></div>
-    <figcaption><b>1 · The home.</b> One window. Platforms live in a rail on the left, each keeping its own page and sign-in behind it, so switching is instant. The top bar belongs to the app: Back, Forward, Home and the blur mode. YouTube opens on its blank home with search, never on Subscriptions.</figcaption>
-  </figure>
-
-  <figure>
-    <div class="scroller"><div class="win">
-      <div class="titlebar"><i></i><i></i><i></i><span>Tame Scroll</span></div>
-      <div class="shell">
-        <div class="rail">
-          <svg class="glyph" viewBox="0 0 48 40" aria-hidden="true"><path d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke="#e7e5e1" stroke-width="3.6" stroke-linecap="round"/></svg>
-          <div class="rt on" style="color:var(--m-yt)">▶</div>
-          <div class="rt" style="color:var(--m-rd)">r</div>
-          <div class="rt" style="color:var(--m-x)">X</div>
-          <div class="rt" style="color:var(--m-ig)">◎</div>
-          <div class="rt" style="color:var(--m-fb)">f</div>
-          <div class="sp"></div>
-          <div class="rt gear">⚙</div>
-        </div>
-        <div class="main">
-          <div class="bar">
-            <div class="nav">←</div><div class="nav dim">→</div><div class="nav">⌂</div>
-            <div class="crumb">YouTube<small>Watching</small></div>
-            <div class="sp"></div>
-            <div class="blurctl"><span class="lbl">This video</span><div class="seg"><b class="sel">Blur on</b><b>Off</b></div></div>
-          </div>
-          <div class="canvas">
-            <div class="watch">
-              <div>
-                <div class="player">
-                  <div class="floor"></div>
-                  <div class="fig" style="left:22%"><div class="h"></div><div class="b"></div></div>
-                  <div class="fig" style="left:62%"><div class="h"></div><div class="b"></div></div>
-                  <div class="patch" style="left:calc(62% - 22px);top:22%;width:108px;bottom:-4px"></div>
-                  <div class="ctrl"><div class="prog"></div></div>
-                </div>
-                <div class="vt">How a Roman aqueduct carried water 90 km</div>
-                <div class="vm">History Atlas · 1.2M views</div>
-                <div class="desc">Description and comments stay. Comments start folded on desktop too.</div>
-              </div>
-              <div class="side">
-                <div class="row"><b>Up next</b><span>hidden</span></div>
-                <div class="row"><b>End screen cards</b><span>hidden</span></div>
-                <div class="row"><b>Autoplay</b><div class="tog"></div></div>
-                <span style="margin-top:auto">The empty column is deliberate. Bring any of these back in Settings.</span>
-              </div>
-            </div>
-            <div class="ann" style="right:14px;top:10px">held by the app, survives resize and fullscreen</div>
-          </div>
-        </div>
-      </div>
-    </div></div>
-    <figcaption><b>2 · Watching.</b> Live blur draws solid patches, never cut-outs. The per-video switch sits in the app bar, not inside YouTube's player. Today's in-player toggle is reset on every stream reload (<code>init-entry.js</code>, the <code>loadstart</code> handler sets <code>playerBlurOn</code> back to true). That is the likely cause of "I turn it off, resize, and the blur is back" on the phone. PR #18 now remembers "off" for the same video, and the desktop bar would follow the same rule.</figcaption>
+    <figcaption><b>3 · Focus mode.</b> The same browser with the address bar and tabs hidden. Platforms move into a rail and the app looks like the launcher it is today. A link to another site opens normally, or in Focus mode asks once before leaving the platforms (your call). YouTube still opens on its blank home with search.</figcaption>
   </figure>
 
   <figure>
@@ -348,66 +388,66 @@
         </div>
         <div class="settings">
           <div class="snav">
-            <div class="sel">YouTube</div><div>Reddit</div><div>X</div><div>Instagram</div><div>Facebook</div>
-            <div style="margin-top:14px">Blur</div><div>Words to hide</div><div>Updates</div><div>About</div>
+            <div>Browser</div><div class="sel">Ads</div><div>Blur</div><div>Words to hide</div>
+            <div style="margin-top:14px">YouTube</div><div>Reddit</div><div>X</div><div>Instagram</div><div>Facebook</div>
           </div>
           <div class="sbody">
-            <h5>YouTube</h5>
-            <div class="sub">Everything starts hidden. Bring back only what you want.</div>
-            <div class="grp">Can come back</div>
-            <div class="srow"><div class="t"><b>Up next</b><span>Recommendations beside the video</span></div><div class="tog"></div></div>
-            <div class="srow"><div class="t"><b>Comments</b><span>Folded under the description</span></div><div class="tog on"></div></div>
-            <div class="srow"><div class="t"><b>Home feed</b><span>The algorithmic front page</span></div><div class="tog"></div></div>
-            <div class="grp">Always off</div>
-            <div class="srow"><div class="t"><b>Ads and sponsored items</b><span>Not a setting, on any device</span></div><span class="lock">always off</span></div>
+            <h5>Ads</h5>
+            <div class="sub">Blocked by default, on every site. You can choose to see them.</div>
+            <div class="grp">Everywhere</div>
+            <div class="srow"><div class="t"><b>Show ads</b><span>Turns off ad blocking, including video pre-rolls</span></div><div class="tog"></div></div>
+            <div class="srow"><div class="t"><b>Block trackers</b><span>Separate from ads, stays on unless you turn it off</span></div><div class="tog on"></div></div>
+            <div class="grp">Per platform</div>
+            <div class="srow"><div class="t"><b>Show ads on YouTube</b><span>Support creators you watch</span></div><div class="tog"></div></div>
             <div class="srow"><div class="t"><b>Shorts</b><span>Shelves, tab and player</span></div><span class="lock">always off</span></div>
           </div>
         </div>
       </div>
     </div></div>
-    <figcaption><b>3 · Settings.</b> The same "bring back" model as the phone, laid out wide. Same surfaces, same always-on list, so a person who uses both devices learns it once. Which items sit under "Always off" stays as the rules files define them today.</figcaption>
-  </figure>
-
-  <figure>
-    <div class="scroller"><div class="devices">
-      <div><div class="dev phone"><div style="font-family:var(--font-display);font-size:15px">tamescroll</div><div class="pgrid"><i style="color:var(--m-yt)">▶</i><i style="color:var(--m-rd)">r</i><i style="color:var(--m-x)">X</i><i style="color:var(--m-ig)">◎</i></div></div><div class="devlbl">Phone: launcher grid (today)</div></div>
-      <div><div class="dev tab"><div class="mini-rail"><i class="on"></i><i></i><i></i><i></i></div><div class="pane">platform page</div></div><div class="devlbl">Tablet, wide: rail layout</div></div>
-      <div><div class="dev desk"><div class="mini-rail"><i class="on"></i><i></i><i></i><i></i><i></i></div><div class="pane">platform page + app bar</div></div><div class="devlbl">Desktop: rail layout</div></div>
-    </div></div>
-    <figcaption><b>4 · One layout rule for every screen.</b> Narrow screens get the launcher grid people already know. Wide screens (tablets in landscape, laptops, desktops) get the rail. It is the same app deciding by width, so tablets need no separate design.</figcaption>
+    <figcaption><b>4 · Ads as a choice.</b> Ad blocking stays on by default, with a global switch and optional per-platform switches. Shorts and the other algorithmic surfaces keep their current rules. Splitting trackers from ads is optional; it lets someone support creators without being tracked.</figcaption>
   </figure>
 </section>
 
 <section class="col">
-  <h3>What building this means</h3>
+  <h2>How the ads switch would work</h2>
+  <p>Today ads are blocked in three places. All three already sit apart from the cleaning rules, so a switch can turn each of them off on its own:</p>
   <ul class="plain">
-    <li><b>One window with several pages inside.</b> Tauri 2 can host more than one webview in a window, but only behind its <code>unstable</code> flag, so this starts with a short spike. If it misbehaves, the fallback is today's per-platform windows with the same rail and bar drawn in each.</li>
-    <li><b>The app bar owns the blur state.</b> The Rust side already holds the gaze mode (<code>set_gaze_state</code>), so the bar writes there and each page reads it, the same way Android page loads do now.</li>
-    <li><b>Wide pages get a centred column.</b> With YouTube's feed and sidebar hidden, the desktop page has empty space. Centring the content looks finished instead of broken.</li>
-    <li><b>In-place updates and a signed installer.</b> Tauri's updater plugin covers the first. An unsigned Windows installer triggers SmartScreen warnings, so it needs a code-signing certificate, a Microsoft Store listing, or both.</li>
-    <li><b>A measured desktop pass</b>, the same way YouTube earned its name on the phone. That is already item 2 on your open list.</li>
+    <li><b>Network blocking.</b> <code>blocks_request()</code> in <code>lib.rs</code>, called by the Windows hook and the Android <code>nativeShouldBlock</code>. With ads shown, it answers "allow" for ad lists while still applying tracker lists if trackers stay blocked.</li>
+    <li><b>Pre-roll scriptlets.</b> The engine's <code>injected_script</code>, including the one that prunes <code>adSlots</code> from YouTube's player data. With ads shown, it isn't injected.</li>
+    <li><b>The "ads" surface in the rules.</b> <code>rules/youtube.txt</code> and <code>rules/reddit.txt</code> mark it always-on. It becomes a surface you can bring back, and <code>always_on_ads_surface_cannot_be_shown</code> in <code>lib.rs</code> changes with it, along with the "always-on" wording in <code>CONTEXT.md</code>.</li>
   </ul>
+  <p class="small">Whether a visible ads option strengthens the legal position is for the legal thread to judge. On the product side, the default stays ads blocked, so nobody who installs it today gets a worse app.</p>
+</section>
+
+<section class="col">
+  <h2>What being a browser adds</h2>
+  <p>A browser has to work with any link, so these move from "not needed" to "expected". Only the first group is needed to call it a browser honestly. The rest can follow.</p>
+  <div class="two">
+    <div class="opt"><div class="dev-tag">Needed for 1.0</div><h4>The basics</h4><p>Address bar with a search engine choice, Back and Forward, tabs on desktop, a short history, and opening any link. On Android, registering as a browser so it can be the default. A phishing and malware check (such as Google Safe Browsing) is expected once people can type any address.</p></div>
+    <div class="opt"><div class="dev-tag">Later</div><h4>Comfort</h4><p>Downloads, bookmarks beyond the five platforms, reader view, saved passwords. Each is a feature people will ask for, but none is needed at launch.</p></div>
+  </div>
+  <h3>Protection outside the five platforms</h3>
+  <p>Ad and tracker blocking works on any site, because the lists are general. Cleaning rules (no feed, no Shorts) stay platform-specific. Blur outside the platforms is open: thumbnail blur could run anywhere, while live video blur is heavy enough that it probably belongs only on the platforms. That is a protection decision, so it's listed for you below.</p>
 </section>
 
 <section class="col">
   <h2>Video blur, by device</h2>
-  <p>You said live video blur on the phone is more hassle than help and you turn it off on most videos, while thumbnail blur works fine. Desktops have the headroom for it. Since this trades exposure, the defaults are your call; here is the split I'd suggest.</p>
+  <p>You said live video blur on the phone is more hassle than help, while thumbnail blur works fine. Desktops have the headroom for it. The phone default is being settled in the video blur thread, and desktop will mirror whatever switch behaviour you choose there.</p>
   <div class="two">
-    <div class="opt"><div class="dev-tag">Phone</div><h4>Thumbnails blurred, video blur opt-in</h4><p>Thumbnails and feed images stay blurred. The player starts clear and has one switch to turn blur on for that video. Shorts and the algorithmic feed are already gone, so the phone stays protective without the lag.</p></div>
-    <div class="opt"><div class="dev-tag">Desktop</div><h4>Smart blur on, including video</h4><p>Live video blur runs by default. The app-bar switch turns it off for one video and the choice sticks through resize, fullscreen and quality changes.</p></div>
+    <div class="opt"><div class="dev-tag">Phone</div><h4>Your call, in the video blur thread</h4><p>Thumbnails only, video blur starting off, or video blur on. The "blur comes back" bug is fixed in PR #18 either way.</p></div>
+    <div class="opt"><div class="dev-tag">Desktop</div><h4>Smart blur on, including video</h4><p>My suggestion. Live video blur runs by default, and the browser's switch turns it off for one video. The choice sticks through resize, fullscreen and quality changes.</p></div>
   </div>
-  <p class="small">Either way the "blur comes back" bug had to be fixed first, because it makes video blur feel worse than it is. That fix is in PR #18, and whatever you choose for the phone, desktop will match its switch behaviour.</p>
 </section>
 
 <section class="col">
   <h2>The scaling ladder</h2>
   <p>Each step rests on the one before it, so the order matters.</p>
   <ol class="ladder">
-    <li><div><h4>Android on Play <span class="now">now</span></h4><p>The listing pack in your hands (upload key, copy, three screenshots, privacy page) plus the legal page the legal thread is writing. The AAB build already exists.</p></div></li>
-    <li><div><h4>Windows desktop 1.0</h4><p>The one-window shell, the app-owned blur switch, in-place updates, a signed installer, and a measured desktop pass. Most users of a desktop social app are on Windows, and the ad hook already works there.</p></div></li>
-    <li><div><h4>iOS and macOS together</h4><p>One Apple Developer account covers both, and both use the same WebKit engine, so the work is shared. macOS needs its own ad request blocking first, because today's hook is Windows-only. The Core ML parity check that is waiting on a Mac happens here too.</p></div></li>
-    <li><div><h4>Tablets</h4><p>Android tablets and iPads in landscape get the rail layout from step 2. No separate design.</p></div></li>
-    <li><div><h4>More platforms, one at a time</h4><p>Reddit and X get their measured passes before anything new is added. Each platform on each layout (mobile web and desktop web) is a rule set that YouTube or Meta can break with a deploy, so the canary from your open list has to cover desktop layouts as well.</p></div></li>
+    <li><div><h4>Android browser on Play <span class="now">now</span></h4><p>The address bar, Focus mode, opening any link, the default-browser registration and the ads switch, on top of today's app. Then the listing pack in your hands (upload key, copy, screenshots, privacy page) and the legal page. Play reviews browsers under its normal rules; the legal thread is covering the listing.</p></div></li>
+    <li><div><h4>Windows desktop 1.0</h4><p>Tabs, the new tab page, Focus mode with the rail, the browser-owned blur switch, in-place updates, a signed installer, and a measured desktop pass. The network ad hook already works there.</p></div></li>
+    <li><div><h4>iOS and macOS together</h4><p>One Apple Developer account covers both. Every iOS browser must use Apple's WebKit, which is what Tauri uses there anyway. macOS needs its own network blocking, because today's hook is Windows-only. The Core ML parity check that is waiting on a Mac happens here too.</p></div></li>
+    <li><div><h4>Tablets</h4><p>Android tablets and iPads in landscape get the desktop layout from step 2. No separate design.</p></div></li>
+    <li><div><h4>More cleaned platforms, one at a time</h4><p>Reddit and X get their measured passes before anything new is added. Each platform on each layout (mobile web and desktop web) is a rule set that a platform deploy can break, so the YouTube-change canary from your open list has to cover desktop layouts too.</p></div></li>
   </ol>
 </section>
 
@@ -415,20 +455,22 @@
   <h2>What stays out</h2>
   <ul class="plain">
     <li><b>A browser extension.</b> Your standing ruling, and it would split the product into two installs.</li>
-    <li><b>An address bar or general browsing.</b> The moment we open the web, we are a privacy browser competing with Brave, and the calm is gone.</li>
+    <li><b>Our own browser engine.</b> We use the system web view on each platform (WebView2, Android WebView, WebKit). Forking Chromium is a team-sized job.</li>
     <li><b>Accounts, sync or telemetry.</b> Cut in the original plan, and it keeps a solo project maintainable. If people want settings on two devices, an export file does that.</li>
     <li><b>Our own recommendations.</b> Building a feed would recreate what we remove.</li>
-    <li><b>Linux, for now.</b> My suggestion: there is no ad hook there either, and the audience is small. Revisit if people ask.</li>
+    <li><b>Linux, for now.</b> My suggestion: no network ad hook there either, and the audience is small. Revisit if people ask.</li>
   </ul>
 </section>
 
 <section class="col">
   <h2>Decisions for you</h2>
   <ol class="decide">
-    <li><b>Video blur defaults per device.</b><span>Phone opt-in and desktop on, as above, or one default everywhere.</span></li>
-    <li><b>One-window desktop with a rail.</b><span>I recommend it. The alternative is to keep separate windows and only add the app bar.</span></li>
-    <li><b>Windows distribution.</b><span>A signed download from the website, a Microsoft Store listing, or both. The Store listing helps with trust and updates; the direct download keeps you independent.</span></li>
-    <li><b>Whether macOS waits for iOS.</b><span>I recommend shipping them together since they share an account and an engine.</span></li>
+    <li><b>Focus mode on or off by default.</b><span>On keeps first launch looking like today's launcher. Off makes it obvious it's a browser. I lean towards off by default, with Focus mode offered in onboarding.</span></li>
+    <li><b>Ads switch scope.</b><span>One global switch, or global plus per platform. Per platform lets people support creators on YouTube and nowhere else.</span></li>
+    <li><b>Blur outside the five platforms.</b><span>Thumbnail blur on every site, or only on the platforms.</span></li>
+    <li><b>Default search engine.</b><span>A privacy-respecting default (DuckDuckGo, Brave Search) or the user picks on first launch.</span></li>
+    <li><b>Windows distribution.</b><span>A signed download from the website, a Microsoft Store listing, or both.</span></li>
   </ol>
-  <footer>Sources in the repo: <code>app/src-tauri/src/lib.rs</code> (window model, request blocker), <code>app/gaze/src/init-entry.js</code> (player toggle), <code>WORKLIST.md</code>, <code>docs/owner-issues.md</code>, <code>docs/plan.md</code>, <code>docs/VISION.md</code>, <code>CLAUDE.md</code>. Mockups are illustrations, not screenshots of a build.</footer>
+  <p class="small">Becoming a browser reverses two lines in <code>docs/VISION.md</code> and <code>docs/plan.md</code> ("no general-purpose browsing", ads "never user-toggleable"). They should be updated once the legal thread settles the wording, so later sessions don't argue against your decision.</p>
+  <footer>Sources in the repo: <code>app/src-tauri/src/lib.rs</code> (window model, request blocker, link whitelist), <code>app/gaze/src/init-entry.js</code> (player toggle), <code>rules/*.txt</code>, <code>WORKLIST.md</code>, <code>docs/owner-issues.md</code>, <code>docs/plan.md</code>, <code>docs/VISION.md</code>, <code>CONTEXT.md</code>. Mockups are illustrations, not screenshots of a build.</footer>
 </section>
