@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gaze:
+    name: Gaze engine tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/gaze
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/gaze/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  rust:
+    name: Rust tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/src-tauri
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tauri system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+      # generate_context! needs frontendDist to exist; the tests do not
+      # touch the frontend, so an empty folder is enough.
+      - run: mkdir -p ../dist
+      - run: cargo test --lib
+
+  rules:
+    name: Rules manifest is current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # A rules/ edit without a regenerated manifest never reaches shipped
+      # apps (CLAUDE.md, Rules OTA). Regenerate and fail on any difference.
+      - run: node scripts/gen-rules-manifest.mjs
+      - run: git diff --exit-code -- rules/manifest.json
