@@ -1,0 +1,9 @@
+# Store text as LF in the repo whatever the checkout platform. The tests
+# read source files and must not depend on the line endings of the clone.
+* text=auto
+*.apk binary
+*.aab binary
+*.bin binary
+*.tflite binary
+*.png binary
+*.jpg binary
