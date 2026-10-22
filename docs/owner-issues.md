@@ -1,5 +1,10 @@
 # Owner-reported issues — live tracker
 
+> **FROZEN 2026-10-22.** New owner asks go to GitHub Issues
+> (https://github.com/anaskhumawala-creator/tamescroll/issues). The rows
+> still open below were carried over as #11, #12, #13 and #17. This
+> table stays as the record of what was asked and how it was answered.
+
 Owner order 2026-08-23: "keep track of all the issues I am mentioning and
 take upon them". Restated harder 2026-08-25: "everything I tell you, I
 need you to consider it and have a place for it, and never skip it".

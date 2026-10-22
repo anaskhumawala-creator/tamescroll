@@ -109,10 +109,11 @@ test('effInterval falls back to POSITION_MAX_INTERVAL_MS, not a frozen lastPassM
 // engine. Both must reach the same diagnostic bag the coast/told numbers
 // already ride (dbgC.tuning), numeric, seeded per pass.
 test('the pass throttle banks lastPassMs and effInterval for the cadence probe to read', () => {
-  const src = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8');
+  // Normalised so the anchor holds on a CRLF (Windows) and an LF (CI) checkout.
+  const src = readFileSync(new URL('../src/init-entry.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   const i = src.indexOf('if (wasVerdict) lastVerdictMs = cost;');
   assert.ok(i > 0, 'the cost-write site moved -- re-anchor this test');
-  const end = src.indexOf('sampling = false;\r\n            });', i);
+  const end = src.indexOf('sampling = false;\n            });', i);
   assert.ok(end > i, 'the finally block end moved -- re-anchor this test');
   const region = src.slice(i, end)
     .replace(/\/\*[\s\S]*?\*\//g, '')

@@ -28,19 +28,16 @@ junk); grey is ON over OTA (`GENDER_GREY` 1); NULL_HOLD_PASSES ships 1
 (weak read refused once, then covered); home icon must be OUR glyph,
 never YouTube's logo.
 
-**OPEN, in order:**
-1. **YouTube-change canary** -- nothing says when a YouTube deploy breaks
-   a rule. Grill him briefly first (what counts as broken, how he wants
-   to hear), then build: daily run counting matches per surface rule +
-   a per-surface count in the share report.
-2. Reddit and X measured passes (each tile earns its name the way
-   YouTube did). Desktop Windows app pass after.
-3. **His hands:** the Play listing pack -- upload key ("make the key"),
-   listing copy, three phone screenshots, privacy page. AAB variant
-   exists (`gradlew :app:bundleArm64Play`). uBO lists stay as data.
-4. **Unreproduced, needs one sentence or screenshot from him:** "Back
-   from a video reloads the page"; anything left on the mini player
-   after 1120.
+**OPEN WORK LIVES IN GITHUB ISSUES** (since 2026-10-22), not in this
+file, WORKLIST.md or docs/owner-issues.md:
+https://github.com/anaskhumawala-creator/tamescroll/issues
+In order: #2 YouTube-change canary (ask him first: what counts as
+broken, how he wants to hear) · #3 Reddit pass · #4 X pass · #5 Windows
+pass · #6 Play listing pack (his hands) · #7 and #8 need a repro from
+him. Label `needs-owner` = his call or his hands; never push those
+without his word. A new ask from him becomes an issue before work
+starts. Work lands through pull requests; CI (`.github/workflows/ci.yml`)
+runs the gaze tests, the Rust tests and the rules-manifest check.
 
 **DEVICE FACTS THAT COST TIME:** his launcher is olauncher; HyperOS
 ignores injected Back (keyevent and nav-bar taps) -- Back cannot be
