@@ -125,7 +125,12 @@ function renderBlurToggle() {
     btn.classList.toggle("active", active);
     btn.setAttribute("aria-checked", String(active));
   });
-  blurCaption.textContent = CAPTIONS[mode];
+  // Video blur on a phone is beta and starts off (his 2026-10-22 ruling,
+  // gaze player-switch.mjs); the caption is where he learns the switch is.
+  blurCaption.textContent =
+    mode === "smart" && /Android/i.test(navigator.userAgent)
+      ? `${CAPTIONS[mode]} Video blur is in beta: videos start unblurred, and the Blur switch on the player turns it on.`
+      : CAPTIONS[mode];
   const px = getStrength();
   strengthRow.hidden = mode === "off";
   strengthToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {

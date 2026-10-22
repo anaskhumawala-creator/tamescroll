@@ -18,6 +18,7 @@ import * as personSkip from '../src/person-skip.mjs';
 import * as cadence from '../src/cadence.mjs';
 import * as personTrack from '../src/person-track.mjs';
 import * as delayCore from '../src/delay-core.mjs';
+import * as playerSwitch from '../src/player-switch.mjs';
 import * as nativeClient from '../src/native-client.mjs';
 import * as perf from '../src/perf.mjs';
 import * as glPresenter from '../src/gl-presenter.mjs';
@@ -51,6 +52,7 @@ const SHIPPED = {
   CUT_PERSON_LOOK: personSkip.CUT_PERSON_LOOK,
   DELAY_MS: delayCore.DELAY_MS,
   DELAY_LATE_ATTACH: delayCore.DELAY_LATE_ATTACH,
+  PLAYER_BLUR_START_OFF: playerSwitch.PLAYER_BLUR_START_OFF,
   NATIVE_INFER: nativeClient.NATIVE_INFER,
   RENDER_EVERY: videoRegion.RENDER_EVERY,
   SUSTAINED_PERF: perf.SUSTAINED_PERF,

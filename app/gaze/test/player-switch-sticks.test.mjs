@@ -17,17 +17,19 @@ function between(from, to, start = 0) {
   return src.slice(a, b);
 }
 
-test('"off" is remembered by watch id, outside the per-element attach', () => {
-  const head = between('var playerBlurOffFor', 'function attachVideo(video) {');
+test('his tap is remembered by watch id, outside the per-element attach', () => {
+  const head = between('var playerBlurChoice', 'function attachVideo(video) {');
   assert.ok(head.includes("get('v')"), 'keyed on the watch id');
-  assert.ok(src.indexOf('var playerBlurOffFor') < src.indexOf('function attachVideo(video) {'),
+  assert.ok(head.includes('playerBlurWanted(watchVideoId(), playerBlurChoice, onPhone)'),
+    'the decision is player-switch.mjs, not a copy here');
+  assert.ok(src.indexOf('var playerBlurChoice') < src.indexOf('function attachVideo(video) {'),
     'per-element state is what YouTube rebuilding the player reset');
 });
 
 test('a reloading stream on the same video keeps the switch off', () => {
   const load = between("video.addEventListener('loadstart'", "markPending(video);",
     src.indexOf("video.addEventListener('loadstart'"));
-  assert.ok(load.includes('playerBlurKeptOff()'), 'loadstart must ask before re-arming');
+  assert.ok(load.includes('playerBlurWantedNow()'), 'loadstart must ask before re-arming');
   assert.ok(!/playerBlurOn = true;/.test(load), 'an unconditional re-arm is the bug');
   assert.ok(load.includes('if (keepOff) return;'), 'and must not blur-first a kept-off video');
 });
@@ -35,12 +37,19 @@ test('a reloading stream on the same video keeps the switch off', () => {
 test('a pass in flight when the pill goes off cannot put the blur back', () => {
   const cover = between('function coverVideo() {', 'markFlagged(video);');
   assert.ok(cover.includes('isPlayer && !playerBlurOn) return'), 'the cover door is shut while off');
-  const set = between('var setPlayerBlur = function (on) {', 'pillPaint();');
+  const set = between('var setPlayerBlur = function (on, tapped) {', 'pillPaint();');
   assert.ok(set.includes('passEpoch++'), 'the in-flight person pass is dropped');
 });
 
-test('a different video re-arms blur-first', () => {
+test('a different video goes back to its default', () => {
   const tick = between('var pillWatch', '}, 250);');
-  assert.ok(/!playerBlurOn && !playerBlurKeptOff\(\)[^\n]*setPlayerBlur\(true\)/.test(tick),
-    'a watch->watch swap must not inherit the last video\'s "off"');
+  assert.ok(tick.includes('var wantOn = playerBlurWantedNow();'), 'the watcher asks what is wanted');
+  assert.ok(tick.includes('setPlayerBlur(wantOn, false)'), 'and follows it without recording a tap');
+  const click = between("pill.addEventListener('click'", 'pillHost.appendChild(pill);');
+  assert.ok(click.includes('setPlayerBlur(!playerBlurOn, true)'), 'only a tap is remembered');
+});
+
+test('the pill says Beta on a phone', () => {
+  const pill = between('pill.appendChild(pillLabel);', 'pill.appendChild(pillTrack);');
+  assert.ok(pill.includes('if (onPhone)') && pill.includes("'Beta'"));
 });
