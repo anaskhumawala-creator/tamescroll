@@ -1,7 +1,7 @@
 {
-  "versionCode": 1120,
-  "versionName": "0.1.120",
-  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.120/tamescroll-1120.apk",
-  "sha256": "4ff41572be2f771ab79e20e85b2dd338118e4f9c647737853698bb745e74473a",
-  "notes": "Mini player: the video title no longer hides under the top bar and the topic chips bar no longer floats mid-screen while the player is minimised."
+  "versionCode": 1121,
+  "versionName": "0.1.121",
+  "apkUrl": "https://github.com/anaskhumawala-creator/tamescroll/releases/download/app-v0.1.121/tamescroll-1121.apk",
+  "sha256": "8bbc20386d71f1fd7c5ea7104bd4d2b98903ff70f50b509ac4497f95122f997f",
+  "notes": "Opens straight to your home screen. Video blur on phones is now Beta: videos start unblurred, tap Blur on the player to turn it on, and it stays as you set it through fullscreen and ads."
 }
