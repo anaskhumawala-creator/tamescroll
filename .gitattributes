@@ -7,3 +7,5 @@
 *.tflite binary
 *.png binary
 *.jpg binary
+*.sh text eol=lf
+*.bat text eol=crlf
