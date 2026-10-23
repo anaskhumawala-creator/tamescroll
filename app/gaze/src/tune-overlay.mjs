@@ -73,6 +73,11 @@ var META = {
     desc: 'How long to wait between checks, as a multiple of what the last check cost. Higher is smoother and slower to react.',
     unit: '×', dp: 1, step: 0.5,
   },
+  PLAYER_BLUR_START_OFF: {
+    group: 'blur', label: 'Phone videos start unblurred',
+    desc: 'On a phone, each video starts with blur off and the switch on the player turns it on. Off: every video starts blurred.',
+    bool: true,
+  },
   DELAY_LATE_ATTACH: {
     group: 'speed', label: 'Start blurred, delay later',
     desc: 'A video starts fully blurred and the delay line only begins after the first check. Smoother starts on slow phones.',

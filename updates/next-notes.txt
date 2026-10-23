@@ -1,0 +1,1 @@
+Opens straight to your home screen. Video blur on phones is now Beta: videos start unblurred, tap Blur on the player to turn it on, and it stays as you set it through fullscreen and ads.

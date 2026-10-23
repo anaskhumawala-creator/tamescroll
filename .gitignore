@@ -60,3 +60,6 @@ spikes/native/coreml/*.npz
 *.apk
 *.aab
 spikes/*.png
+# scripts/release.sh output
+release.log
+release-out/

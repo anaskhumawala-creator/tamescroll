@@ -30,6 +30,7 @@ import * as personSkip from './person-skip.mjs';
 import * as cadence from './cadence.mjs';
 import * as personTrack from './person-track.mjs';
 import * as delayCore from './delay-core.mjs';
+import * as playerSwitch from './player-switch.mjs';
 import * as nativeClient from './native-client.mjs';
 import * as genderInput from './gender-input.mjs';
 import * as videoRegion from './video-region.mjs';
@@ -357,6 +358,10 @@ var SPEC = {
   DELAY_MS: [0, 2500, function (v) { delayCore.setDelayMs(v); }],
   // Not exposure: the video is whole-blurred until the first verdict.
   DELAY_LATE_ATTACH: [0, 1, function (v) { delayCore.setDelayLateAttach(v); }],
+  // EXPOSURE, his ruling 2026-10-22: on a phone the watch player starts
+  // with video blur OFF (the pill turns it on). 0 restores blur-first on
+  // phones. Read at each new video; desktop ignores it (player-switch.mjs).
+  PLAYER_BLUR_START_OFF: [0, 1, function (v) { playerSwitch.setPlayerBlurStartOff(v); }],
   // NATIVE INFERENCE (plan 2026-09-02-native-inference). 1 = the player
   // runs its models through the TFLite engine Kotlin hands the page a
   // port for (Redmi: 255ms a verdict against 922 on WebGL); 0 = that port
@@ -482,6 +487,7 @@ var GETTERS = {
   NATIVE_NPU: function () { return nativeClient.NATIVE_NPU; },
   CODEC_PROBE: function () { return codecProbe.CODEC_PROBE; },
   DELAY_LATE_ATTACH: function () { return delayCore.DELAY_LATE_ATTACH; },
+  PLAYER_BLUR_START_OFF: function () { return playerSwitch.PLAYER_BLUR_START_OFF; },
   IMG_BUDGET_SPEND: function () { return imageBudget.IMG_BUDGET_SPEND; },
   IMG_BUDGET_SCROLL: function () { return imageBudget.IMG_BUDGET_SCROLL; },
   IMG_BUDGET_IDLE: function () { return imageBudget.IMG_BUDGET_IDLE; },
