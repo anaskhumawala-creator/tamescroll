@@ -55,5 +55,6 @@ A change that crosses one needs the owner's word first.
    Samsung (7th Cir., 2026).
 
 The public statement lives in `web/index.html` (#platforms) and the
-privacy policy in `web/privacy.html`. Keep both true: when the app's data
+privacy policy in `web/privacy.html`, the terms of use in `web/terms.html`.
+Keep them true: when the app's data
 flows change, change `web/privacy.html` in the same PR.
