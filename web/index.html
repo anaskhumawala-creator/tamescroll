@@ -156,6 +156,18 @@
   .card h3 { font-size: 17.5px; margin-bottom: 10px; }
   .card p { color: var(--paper-muted); font-size: 14.5px; }
 
+  /* ---- how it works with the platforms ---- */
+  section.terms { max-width: 760px; margin: 72px auto 0; padding: 0 24px; }
+  .terms h2 {
+    font-family: var(--font-display); font-weight: 500; font-size: clamp(26px, 3.6vw, 34px);
+    margin-bottom: 14px;
+  }
+  .terms > p { color: var(--paper-muted); font-size: 15.5px; margin-bottom: 18px; }
+  .terms ul { list-style: none; display: grid; gap: 12px; }
+  .terms li { color: var(--paper-muted); font-size: 15px; padding-left: 16px; border-left: 2px solid var(--paper-line); }
+  .terms li b { color: var(--paper-ink); font-weight: 600; }
+  .terms .small { font-size: 13.5px; color: var(--paper-faint); margin-top: 20px; }
+
   /* ---- quote ---- */
   .quote {
     text-align: center; font-family: var(--font-display); font-style: italic;
@@ -210,7 +222,7 @@
   <div class="hero">
     <div class="kicker">Free · open source · Android now, desktop next</div>
     <h1>The same platforms.<br>None of the machinery.</h1>
-    <p class="lead">tamescroll opens the platforms you already use as cleaned versions of themselves — no ads, no Shorts, no algorithmic feeds. You type which ones; it never suggests one.</p>
+    <p class="lead">tamescroll opens the platforms you already use as cleaned versions of themselves — ads blocked, no Shorts, no algorithmic feeds, and thumbnails blurred to protect your gaze. You type which ones; it never suggests one.</p>
     <div class="dl-row">
       <a class="btn primary" href="#download">Download for Android</a>
     </div>
@@ -260,7 +272,7 @@
       <div>
         <div class="num">02</div>
         <h3>Everything starts hidden</h3>
-        <p>Ads, promoted posts, Shorts, Reels, For You, trending, autoplay — gone by default. The ads never come back; there is no setting for them.</p>
+        <p>Ads, promoted posts, Shorts, Reels, For You, trending, autoplay — gone by default. Ads stay blocked.</p>
       </div>
       <div>
         <div class="num">03</div>
@@ -274,11 +286,11 @@
     <div class="grid">
       <div class="card">
         <h3>Cleaned platforms</h3>
-        <p>Each platform opens as itself, minus what it uses to hold you. You add only the platforms you already use — tamescroll never suggests another.</p>
+        <p>Each platform opens as itself, minus what it uses to hold you: recommendations, feeds, Shorts and Reels. You add only the platforms you already use — tamescroll never suggests another.</p>
       </div>
       <div class="card">
-        <h3>On-device privacy</h3>
-        <p>Image blur and keyword filters run on your device. No account, no telemetry, no server of ours in the middle. What you read and watch stays yours.</p>
+        <h3>Protects your gaze</h3>
+        <p>Thumbnails and images are blurred on your phone before you see them. Video blur is in beta and starts off; turn it on from the player. Nothing you see is sent anywhere.</p>
       </div>
       <div class="card">
         <h3>Free and open source</h3>
@@ -287,13 +299,27 @@
     </div>
   </section>
 
+  <section class="terms" id="platforms">
+    <div class="sec-label">How tamescroll works with the platforms</div>
+    <h2>Your view of their site, on your device</h2>
+    <p>tamescroll shows you a platform's own website, the same page your phone's browser would load, and changes how that page looks on your screen. Like a browser's reader mode or a content blocker, it hides parts of the page before you see them: Shorts, Reels, recommendation feeds, autoplay and ads.</p>
+    <ul>
+      <li><b>Every change happens on your phone.</b> Nothing is copied, saved, re-uploaded or sent to us. We have no server, no account system and no analytics.</li>
+      <li><b>We never touch the platforms' apps or their code.</b> tamescroll does not modify YouTube's or anyone else's app, does not use their APIs, and does not download videos.</li>
+      <li><b>Creators' videos play as published.</b> Blur is a layer drawn over your screen, never an edit of the video, and the video you choose to play is never altered.</li>
+      <li><b>The image filter keeps nothing.</b> It looks at what is on screen, decides whether to blur it, and forgets it. It does not identify anyone, store faces, or guess anything about a person beyond the single filter you chose.</li>
+      <li><b>You sign in with your own account,</b> on the platform's own sign-in page, and its terms apply to your account as they always have.</li>
+    </ul>
+    <p class="small">tamescroll is an independent, open-source project. It is not affiliated with or endorsed by Google, YouTube, Reddit, X, Meta or TikTok; their names are used only to say which sites tamescroll works with. If you represent a platform and have a concern, <a href="https://github.com/anaskhumawala-creator/tamescroll/issues/new">write to us</a> and we will answer. See also our <a href="privacy.html">privacy policy</a> and <a href="terms.html">terms of use</a>.</p>
+  </section>
+
   <div class="quote">The platforms stay useful. The pull is gone.</div>
 
   <section class="download" id="download">
     <h2>Download tamescroll</h2>
     <div class="plat">Android today, as an APK you install yourself. It updates itself from inside the app. Desktop and iPhone are being built.</div>
     <div class="dl-row">
-      <a class="btn primary" href="https://github.com/anaskhumawala-creator/tamescroll/releases/latest/download/tamescroll-v0.1.109.apk">Download for Android (APK)</a>
+      <a class="btn primary" id="apk" href="https://github.com/anaskhumawala-creator/tamescroll/releases/latest">Download for Android (APK)</a>
       <a class="btn" href="https://github.com/anaskhumawala-creator/tamescroll/releases/latest">All releases</a>
     </div>
     <p class="sub">Android 7 and newer. Your phone will ask once to allow installs from this source.</p>
@@ -303,9 +329,17 @@
 <footer>
   <div class="row">
     <div>© 2026 the tamescroll contributors · MPL-2.0</div>
-    <div><a href="https://github.com/anaskhumawala-creator/tamescroll">GitHub</a> &nbsp;·&nbsp; <a href="https://github.com/anaskhumawala-creator/tamescroll/releases/latest">Releases</a> &nbsp;·&nbsp; <a href="https://github.com/anaskhumawala-creator/tamescroll/blob/main/NOTICE">Credits</a></div>
+    <div><a href="https://github.com/anaskhumawala-creator/tamescroll">GitHub</a> &nbsp;·&nbsp; <a href="https://github.com/anaskhumawala-creator/tamescroll/releases/latest">Releases</a> &nbsp;·&nbsp; <a href="https://github.com/anaskhumawala-creator/tamescroll/blob/main/NOTICE">Credits</a> &nbsp;·&nbsp; <a href="privacy.html">Privacy</a> &nbsp;·&nbsp; <a href="terms.html">Terms</a></div>
   </div>
 </footer>
 
+<script>
+  // The APK's file name changes with every release, so ask the update
+  // manifest the app itself reads; the releases page is the fallback.
+  fetch("https://raw.githubusercontent.com/anaskhumawala-creator/tamescroll/main/updates/app-manifest.json")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (m) { if (m && m.apkUrl) document.getElementById("apk").href = m.apkUrl; })
+    .catch(function () {});
+</script>
 </body>
 </html>
