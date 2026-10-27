@@ -50,6 +50,9 @@ so the store build should not go up without them.
   organization, or older, means no. Check Settings → Developer account.
   If it applies, recruit testers who never installed the sideloaded APK.
   The app can move to its own account later with Play's app transfer.
+  The developer name can be changed any time and applies to every app on
+  the account (ZV keeps the shared identity, 2026-10-27). When it
+  changes, update "published by Hijri First" in `web/privacy.html`.
 - [ ] **Upload key.** Make it once and keep two backups off this
   machine; losing it means a key-reset request to Google:
   `keytool -genkeypair -v -keystore tamescroll-upload.jks -alias upload -keyalg RSA -keysize 4096 -validity 10000`
