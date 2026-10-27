@@ -1,7 +1,7 @@
 name: iOS TestFlight
 
 # Builds a signed iPhone build and uploads it to TestFlight (#16). Run it
-# by hand from the Actions tab ("Run workflow"). Nothing here needs a Mac:
+# by hand from the Actions tab ("Run workflow"), or push an ios-* tag. Nothing here needs a Mac:
 # signing is done by Xcode on the runner with an App Store Connect API
 # key, which creates and renews the certificate and profile itself.
 #
@@ -13,6 +13,11 @@ name: iOS TestFlight
 
 on:
   workflow_dispatch:
+  # Or push a tag like ios-b1. A tag works from any branch, so a build
+  # can go out before the workflow reaches main (workflow_dispatch only
+  # sees workflows on the default branch).
+  push:
+    tags: ['ios-*']
 
 jobs:
   testflight:
