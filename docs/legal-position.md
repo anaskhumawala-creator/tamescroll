@@ -13,6 +13,9 @@ It is not legal advice.
   WebView, the same engine DuckDuckGo and Kahf ship on in both stores.
 - A per-platform "Block ads" setting, on by default, that users can turn
   off. This replaces the earlier rule that ads never come back.
+  (2026-10-27, ZV: YouTube's starts OFF, so blocking ads there is the
+  user's act; the other platforms keep it on by default. Never say "no
+  YouTube ads" in public text.)
 - Our own icon and palette in store builds: no red play tile, no brand
   colours.
 - Launch under the owner's own name on personal store accounts; form a

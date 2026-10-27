@@ -146,11 +146,22 @@ fn set_shown_platform(id: &'static str) {
 /// Ads used to be always-on hidden with no setting. Store review reads an
 /// app that blocks a platform's ads with no user choice as interfering
 /// with that platform, so each platform's Bring back list now carries an
-/// `ads` entry, Hidden by default. Shown turns off, for that platform
+/// `ads` entry. Shown turns off, for that platform
 /// only: network blocking, the vendor cosmetic lists, the ad scriptlets,
 /// and our own `ads` and `promoted` surfaces. Feeds, Shorts and nags
 /// stay hidden either way.
+///
+/// YouTube's switch starts SHOWN (ZV, 2026-10-27, after the legal plan:
+/// "Ship YouTube with ads shown by default, so blocking is something the
+/// user turns on ... yes better"). YouTube is the platform that fights ad
+/// blockers, so there blocking is the user's act from the first tap. Every
+/// other platform starts Hidden. Seeded once per install like every
+/// default, so a choice already stored is never changed.
 pub(crate) const ADS_SURFACE: &str = "ads";
+
+fn ads_default_shown(platform_id: &str) -> bool {
+    platform_id == "youtube"
+}
 
 fn ads_shown(shown: &[String]) -> bool {
     shown.iter().any(|id| id == ADS_SURFACE)
@@ -1273,7 +1284,7 @@ fn surfaces(id: String) -> Vec<SurfaceInfo> {
                 .chain(std::iter::once(SurfaceInfo {
                     id: ADS_SURFACE.to_string(),
                     label: "Ads".to_string(),
-                    default_shown: false,
+                    default_shown: ads_default_shown(&id),
                 }))
                 .collect()
         })
@@ -2417,14 +2428,19 @@ mod tests {
         );
     }
 
-    /// Every platform offers the switch, Hidden by default, even one
-    /// whose rules file has no ads surface of its own.
+    /// Every platform offers the switch, even one whose rules file has no
+    /// ads surface of its own. YouTube's starts Shown, every other Hidden.
     #[test]
-    fn every_platform_offers_the_ads_switch_hidden_by_default() {
+    fn every_platform_offers_the_ads_switch_youtube_shown_others_hidden() {
         for p in PLATFORMS.iter().filter(|p| rules::platform_surfaces(p.id).is_some()) {
             let list = surfaces(p.id.to_string());
             let ads = list.iter().find(|s| s.id == ADS_SURFACE);
-            assert!(ads.is_some_and(|s| !s.default_shown), "{}: no Hidden ads switch", p.id);
+            let want = p.id == "youtube";
+            assert!(
+                ads.is_some_and(|s| s.default_shown == want),
+                "{}: ads switch missing or default_shown != {want}",
+                p.id
+            );
         }
     }
 

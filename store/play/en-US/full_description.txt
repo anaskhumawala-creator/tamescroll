@@ -3,10 +3,10 @@ tamescroll is a calm web browser for the sites you already use. It opens them as
 WHAT IT REMOVES
 • Short-video feeds, recommended feeds, trending and autoplay
 • Sign-in nags and pop-ups
-• Ads, blocked by default (you can turn ad blocking off per site)
+• Ads, if you choose: one switch per site blocks them
 
 PROTECTS YOUR GAZE
-Thumbnails and images are blurred on your phone before you see them. Video blur is in beta and starts off. Nothing you see is sent anywhere: the filtering runs entirely on your device.
+Thumbnails, images and video previews are blurred on your phone before you see them. The video you choose to watch plays normally. Nothing you see is sent anywhere: the filtering runs entirely on your device.
 
 YOU CHOOSE THE SITES
 Type the sites you already use, or search the web from the box at the top. tamescroll never lists or suggests a site to you. Each removed part of a page has one plain switch, so you bring back only what you want, like comments or subscriptions.
