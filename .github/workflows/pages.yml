@@ -1,7 +1,7 @@
 # Publishes web/ (the site, privacy policy and terms) to GitHub Pages, so
 # Play Console has a public privacy-policy URL before tamescroll.com is
 # redeployed (#15). Needs Settings -> Pages -> Source: GitHub Actions,
-# once, by the owner. Then: https://anaskhumawala-creator.github.io/tamescroll/privacy.html
+# once, by the owner. Then: https://tamescroll.github.io/tamescroll/privacy.html
 name: Site
 
 on:

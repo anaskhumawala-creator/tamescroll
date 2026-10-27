@@ -213,7 +213,7 @@
   <nav class="top">
     <a href="#how">How it works</a>
     <a href="#features">Features</a>
-    <a href="https://github.com/anaskhumawala-creator/tamescroll">Source</a>
+    <a href="https://github.com/tamescroll/tamescroll">Source</a>
     <a class="cta" href="#download">Download</a>
   </nav>
 </header>
@@ -310,7 +310,7 @@
       <li><b>The image filter keeps nothing.</b> It looks at what is on screen, decides whether to blur it, and forgets it. It does not identify anyone, store faces, or guess anything about a person beyond the single filter you chose.</li>
       <li><b>You sign in with your own account,</b> on the platform's own sign-in page, and its terms apply to your account as they always have.</li>
     </ul>
-    <p class="small">tamescroll is an independent, open-source project. It is not affiliated with or endorsed by Google, YouTube, Reddit, X, Meta or TikTok; their names are used only to say which sites tamescroll works with. If you represent a platform and have a concern, <a href="https://github.com/anaskhumawala-creator/tamescroll/issues/new">write to us</a> and we will answer. See also our <a href="privacy.html">privacy policy</a> and <a href="terms.html">terms of use</a>.</p>
+    <p class="small">tamescroll is an independent, open-source project. It is not affiliated with or endorsed by Google, YouTube, Reddit, X, Meta or TikTok; their names are used only to say which sites tamescroll works with. If you represent a platform and have a concern, <a href="https://github.com/tamescroll/tamescroll/issues/new">write to us</a> and we will answer. See also our <a href="privacy.html">privacy policy</a> and <a href="terms.html">terms of use</a>.</p>
   </section>
 
   <div class="quote">The platforms stay useful. The pull is gone.</div>
@@ -319,8 +319,8 @@
     <h2>Download tamescroll</h2>
     <div class="plat">Android today, as an APK you install yourself. It updates itself from inside the app. Desktop and iPhone are being built.</div>
     <div class="dl-row">
-      <a class="btn primary" id="apk" href="https://github.com/anaskhumawala-creator/tamescroll/releases/latest">Download for Android (APK)</a>
-      <a class="btn" href="https://github.com/anaskhumawala-creator/tamescroll/releases/latest">All releases</a>
+      <a class="btn primary" id="apk" href="https://github.com/tamescroll/tamescroll/releases/latest">Download for Android (APK)</a>
+      <a class="btn" href="https://github.com/tamescroll/tamescroll/releases/latest">All releases</a>
     </div>
     <p class="sub">Android 7 and newer. Your phone will ask once to allow installs from this source.</p>
   </section>
@@ -329,14 +329,14 @@
 <footer>
   <div class="row">
     <div>© 2026 the tamescroll contributors · MPL-2.0</div>
-    <div><a href="https://github.com/anaskhumawala-creator/tamescroll">GitHub</a> &nbsp;·&nbsp; <a href="https://github.com/anaskhumawala-creator/tamescroll/releases/latest">Releases</a> &nbsp;·&nbsp; <a href="https://github.com/anaskhumawala-creator/tamescroll/blob/main/NOTICE">Credits</a> &nbsp;·&nbsp; <a href="privacy.html">Privacy</a> &nbsp;·&nbsp; <a href="terms.html">Terms</a></div>
+    <div><a href="https://github.com/tamescroll/tamescroll">GitHub</a> &nbsp;·&nbsp; <a href="https://github.com/tamescroll/tamescroll/releases/latest">Releases</a> &nbsp;·&nbsp; <a href="https://github.com/tamescroll/tamescroll/blob/main/NOTICE">Credits</a> &nbsp;·&nbsp; <a href="privacy.html">Privacy</a> &nbsp;·&nbsp; <a href="terms.html">Terms</a></div>
   </div>
 </footer>
 
 <script>
   // The APK's file name changes with every release, so ask the update
   // manifest the app itself reads; the releases page is the fallback.
-  fetch("https://raw.githubusercontent.com/anaskhumawala-creator/tamescroll/main/updates/app-manifest.json")
+  fetch("https://raw.githubusercontent.com/tamescroll/tamescroll/main/updates/app-manifest.json")
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (m) { if (m && m.apkUrl) document.getElementById("apk").href = m.apkUrl; })
     .catch(function () {});
