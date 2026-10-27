@@ -22,7 +22,7 @@ die() { printf '\nRELEASE STOPPED: %s\n' "$*" >&2; exit 1; }
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-REPO=anaskhumawala-creator/tamescroll
+REPO=tamescroll/tamescroll
 LOG="$ROOT/release.log"
 : > "$LOG"
 

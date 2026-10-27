@@ -65,7 +65,7 @@ so the store build should not go up without them.
 - [ ] **Privacy policy URL.** Play needs a public URL. Turn on GitHub
   Pages once (repo Settings → Pages → Source: **GitHub Actions**); the
   `Site` workflow then publishes `web/` and the URL is
-  `https://anaskhumawala-creator.github.io/tamescroll/privacy.html`.
+  `https://tamescroll.github.io/tamescroll/privacy.html`.
   tamescroll.com (#15) can replace it later.
 - [x] **Contact email**: tamescroll@proton.me (2026-10-27), for the
   listing (Play shows it publicly), the privacy page and the terms.
