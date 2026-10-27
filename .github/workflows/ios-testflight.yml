@@ -6,11 +6,11 @@ name: iOS TestFlight
 # signing is done by Xcode on the runner with an App Store Connect API
 # key, which creates and renews the certificate and profile itself.
 #
-# Repository secrets it needs (Settings -> Secrets and variables -> Actions):
 # The key must have the ADMIN role. Xcode's cloud-managed signing refuses
 # an App Manager key ("Cloud signing permission error"), and a key's role
 # cannot be changed after it is made (first run, 2026-10-27).
 #
+# Repository secrets it needs (Settings -> Secrets and variables -> Actions):
 #   APPLE_API_KEY_ID      the key's ID, e.g. 2X9R4HXF34
 #   APPLE_API_ISSUER      the issuer ID shown above the keys list
 #   APPLE_API_KEY_P8      the contents of the downloaded AuthKey_<ID>.p8
@@ -50,6 +50,18 @@ jobs:
           for v in APPLE_API_KEY APPLE_API_ISSUER APPLE_DEVELOPMENT_TEAM; do
             [ -n "${!v}" ] || { echo "missing secret for $v (see the top of this file)"; exit 1; }
           done
+
+      # App Store Connect refuses uploads built with an SDK older than
+      # iOS 26 (first upload, 2026-10-27), so use the newest Xcode 26
+      # on the runner. The simulator job uses the same one, so what CI
+      # tests is what ships.
+      - name: Xcode 26
+        working-directory: .
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          [ -n "$X" ] || { echo "no Xcode 26 on this runner:"; ls /Applications | grep -i xcode; exit 1; }
+          sudo xcode-select -s "$X"
+          xcodebuild -version
 
       - uses: pnpm/action-setup@v4
         with:
