@@ -156,6 +156,16 @@ genderToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) =>
   btn.addEventListener("click", () => setGender(btn.dataset.value as UserGender));
 });
 
+// No blur on iPhone yet (the iOS port, #16: its model bundle cannot load
+// in WKWebView until the blur phase). A switch that does nothing would
+// promise protection the app does not give, so the controls are hidden.
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+if (IOS) {
+  blurToggle.closest<HTMLElement>(".card")!.hidden = true;
+  document.querySelector<HTMLElement>('.nav-item[data-pane="blur"]')!.hidden = true;
+}
+
 renderBlurToggle();
 // Sync stored state into Rust at startup too, not just on change —
 // otherwise a relaunch would leave Rust at defaults until first touch.

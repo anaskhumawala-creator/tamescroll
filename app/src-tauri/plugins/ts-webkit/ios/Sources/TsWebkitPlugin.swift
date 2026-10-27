@@ -41,7 +41,8 @@ class TsWebkitPlugin: Plugin {
   /// bar drew under the clock and the camera cut-out (CI screenshot,
   /// 2026-10-27). Safari never lets a page reach that area either: the
   /// web view starts below the status bar, and the band above it takes
-  /// the system background so the clock stays readable in light and dark.
+  /// the page's own colour, as Safari's does (a white band over our dark
+  /// launcher looked broken, 2026-10-27 mockup).
   func keepBelowStatusBar(_ webview: WKWebView) {
     DispatchQueue.main.async {
       guard let superview = webview.superview else { return }
@@ -53,7 +54,33 @@ class TsWebkitPlugin: Plugin {
         webview.leadingAnchor.constraint(equalTo: superview.leadingAnchor),
         webview.trailingAnchor.constraint(equalTo: superview.trailingAnchor),
       ])
+      self.bandObservers = [
+        webview.observe(\.themeColor, options: [.initial, .new]) { [weak self] wv, _ in
+          self?.paintBand(wv)
+        },
+        webview.observe(\.underPageBackgroundColor, options: [.initial, .new]) { [weak self] wv, _ in
+          self?.paintBand(wv)
+        },
+      ]
     }
+  }
+
+  var bandObservers: [NSKeyValueObservation] = []
+
+  /// The band takes the page's theme colour, else its background, and the
+  /// clock turns light or dark to stay readable on it. Only the window's
+  /// style is overridden; the web view keeps the phone's own setting, so
+  /// pages still see the user's light or dark mode.
+  func paintBand(_ webview: WKWebView) {
+    guard let superview = webview.superview, let window = webview.window else { return }
+    let color = webview.themeColor ?? webview.underPageBackgroundColor ?? .systemBackground
+    superview.backgroundColor = color
+    var white: CGFloat = 1
+    var alpha: CGFloat = 1
+    color.resolvedColor(with: window.traitCollection).getWhite(&white, alpha: &alpha)
+    let system = window.windowScene?.screen.traitCollection.userInterfaceStyle ?? .unspecified
+    webview.overrideUserInterfaceStyle = system
+    window.overrideUserInterfaceStyle = white < 0.5 ? .dark : .light
   }
 
   /// Home-screen quick actions (Info.ios.plist UIApplicationShortcutItems).
