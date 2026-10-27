@@ -40,15 +40,16 @@ so the store build should not go up without them.
 
 ## Owner only
 
-- [ ] **Play Console account: a NEW one, just for tamescroll** (ZV,
-  2026-10-27). The existing console belongs to Hijri First, and a strike
-  on tamescroll must not reach its apps. Fresh Gmail (doubles as the
-  public contact email), sign up as "Yourself", developer name
-  tamescroll. A personal account costs a one-time
-  US$25 and needs ID verification. If it was created after 13 Nov 2023,
-  Google requires a **closed test with at least 12 testers for 14 days
-  in a row** before production access. Start recruiting testers early:
-  family and friends with Android phones and a Gmail address.
+- [ ] **Play Console account: the existing Hijri First one** (ZV,
+  2026-10-27; the same account goes to the App Store). Accepted risk: a
+  policy strike on tamescroll can reach that account's other apps, which
+  is why the lines in `docs/legal-position.md` matter. tamescroll shows
+  under that account's developer name; its contact email can be set per
+  app. Whether the **12 testers for 14 days** rule applies depends on the
+  account: personal and created after 13 Nov 2023 means yes;
+  organization, or older, means no. Check Settings → Developer account.
+  If it applies, recruit testers who never installed the sideloaded APK.
+  The app can move to its own account later with Play's app transfer.
 - [ ] **Upload key.** Make it once and keep two backups off this
   machine; losing it means a key-reset request to Google:
   `keytool -genkeypair -v -keystore tamescroll-upload.jks -alias upload -keyalg RSA -keysize 4096 -validity 10000`
