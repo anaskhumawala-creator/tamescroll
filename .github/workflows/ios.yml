@@ -1,0 +1,89 @@
+name: iOS
+
+# The iPhone build (#16). Runs on GitHub's macOS runners so nobody needs a
+# Mac: it generates the Xcode project, builds the app for the iPhone
+# simulator, launches it, and uploads a screenshot as proof it starts.
+#
+# The Xcode project (app/src-tauri/gen/apple) is regenerated on every run
+# by `tauri ios init` rather than committed, so everything iOS-specific
+# lives in tauri.conf.json, Info.ios.plist and our own plugin code, where
+# a reviewer can read it.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulator:
+    name: iOS simulator build
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios-sim,aarch64-apple-ios
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+          key: ios-sim
+
+      - name: Tools
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodebuild -version
+          xcrun simctl list runtimes | grep -i ios
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate the Xcode project
+        run: pnpm tauri ios init --ci
+
+      - name: Build for the simulator
+        run: pnpm tauri ios build --debug --target aarch64-sim --ci
+
+      - name: Launch in the simulator and take a screenshot
+        run: |
+          APP=$(find src-tauri/gen/apple -name '*.app' -type d -path '*sim*' | head -1)
+          [ -n "$APP" ] || APP=$(find src-tauri/gen/apple -name '*.app' -type d | head -1)
+          echo "app bundle: $APP"
+          [ -n "$APP" ] || { echo "no .app produced"; find src-tauri/gen/apple -maxdepth 4 -type d | head -80; exit 1; }
+          DEVICE=$(xcrun simctl list devices available | grep -m1 -E 'iPhone 1[5-7]' | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')
+          echo "device: $DEVICE"
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" "$APP"
+          BUNDLE=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Info.plist")
+          xcrun simctl launch "$DEVICE" "$BUNDLE"
+          sleep 20
+          mkdir -p ../ios-proof
+          xcrun simctl io "$DEVICE" screenshot ../ios-proof/launcher.png
+          # The app must still be running: a crash at start would leave
+          # the home screen in the screenshot and nothing else to say so.
+          xcrun simctl spawn "$DEVICE" launchctl list | grep -i "$BUNDLE"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-simulator-proof
+          path: ios-proof/
+          if-no-files-found: ignore
