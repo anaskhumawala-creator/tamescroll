@@ -162,8 +162,15 @@ jobs:
           APPETIZE_PUBLIC_KEY: ${{ secrets.APPETIZE_PUBLIC_KEY }}
         run: |
           [ -n "$APPETIZE_API_TOKEN" ] || { echo "no APPETIZE_API_TOKEN secret, skipping"; exit 0; }
-          APP=$(find src-tauri/gen/apple -name '*.app' -type d -path '*sim*' | head -1)
-          [ -n "$APP" ] || APP=$(find src-tauri/gen/apple -name '*.app' -type d | head -1)
+          # A release build: the debug one stops right after launch on
+          # Appetize, before any of our code runs (2026-10-27 log), most
+          # likely waiting for the CLI's dev log server that only CI has.
+          touch "$RUNNER_TEMP/release-marker"
+          pnpm tauri ios build --target aarch64-sim --ci
+          APP=$(find src-tauri/gen/apple ~/Library/Developer/Xcode/DerivedData -name '*.app' -type d -path '*elease*' -newer "$RUNNER_TEMP/release-marker" 2>/dev/null | grep -v '/PlugIns/' | head -1)
+          [ -n "$APP" ] || APP=$(find src-tauri/gen/apple -name '*.app' -type d -newer "$RUNNER_TEMP/release-marker" | head -1)
+          [ -n "$APP" ] || { echo "no release .app found"; exit 1; }
+          echo "release app: $APP"
           (cd "$(dirname "$APP")" && ditto -c -k --keepParent "$(basename "$APP")" "$RUNNER_TEMP/app.zip")
           # Update the app already there for this bundle id, so the link
           # stays the same build after build.
