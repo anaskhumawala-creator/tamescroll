@@ -703,25 +703,37 @@ openLinkForm.addEventListener("submit", (e) => {
   const raw = openLinkInput.value;
   if (!raw.trim()) return;
   const hit = platformForLink(raw);
-  if (!hit) {
-    status.textContent = "Only links to platforms you've added open here. YouTube for now.";
+  openLinkInput.value = "";
+  if (hit) {
+    if (!(readChosen() ?? []).includes(hit.platform.id)) {
+      writeChosen([...(readChosen() ?? []), hit.platform.id]);
+      refreshAll();
+    }
+    void open(hit.platform, hit.url);
     return;
   }
-  if (!(readChosen() ?? []).includes(hit.platform.id)) {
-    writeChosen([...(readChosen() ?? []), hit.platform.id]);
-    refreshAll();
-  }
-  openLinkInput.value = "";
-  void open(hit.platform, hit.url);
+  // Anything else is an address or a search; Rust decides which and only
+  // ever opens http(s).
+  void openAddress(raw);
 });
 
-function renderOpenLink(chosen: string[]) {
-  // Shown once a platform that owns any link host is in the grid.
-  openLinkForm.hidden = !chosen.some((id) => Object.values(LINK_HOSTS).includes(id));
+async function openAddress(raw: string) {
+  status.textContent = "Opening…";
+  await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+  try {
+    await invoke("open_address", {
+      input: raw,
+      mode: getMode(),
+      strength: getStrength(),
+      gender: getGender(),
+    });
+    if (!isAndroid) status.textContent = restingStatus;
+  } catch (error) {
+    status.textContent = `Could not open that: ${String(error)}`;
+  }
 }
 
 function renderTiles(platforms: Platform[], chosen: string[]) {
-  renderOpenLink(chosen);
   tiles.textContent = "";
   platforms
     .filter((p) => chosen.includes(p.id))

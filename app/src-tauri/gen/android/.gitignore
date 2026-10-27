@@ -21,3 +21,4 @@ keystore.properties
 # Rust dylib is copied in from cargo target/ by the build workaround
 # (see docs/android-research.md) - generated, 142MB, never committed.
 app/src/main/jniLibs/
+*.jks

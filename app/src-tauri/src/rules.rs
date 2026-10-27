@@ -344,9 +344,10 @@ pub struct Surface {
     pub rules: Vec<(&'static str, &'static str)>,
 }
 
-/// Ad/promo surface ids across all three files. Kept as one list rather
-/// than per-file because the marker convention and the rule this encodes
-/// (ads are never user-toggleable) are the same everywhere.
+/// Ad/promo/nag surface ids across all files. Kept as one list rather
+/// than per-file because the marker convention is the same everywhere.
+/// None has a toggle of its own: nags never come back, and `ads` and
+/// `promoted` follow the per-platform ads switch (lib.rs ADS_SURFACE).
 fn is_always_on(id: &str) -> bool {
     matches!(id, "ads" | "mobile_nags" | "promoted")
 }
@@ -486,8 +487,10 @@ mod tests {
                 }
             }
             assert!(orphans.is_empty(), "{file}: rules before any !surface: marker are dropped: {orphans:?}");
-            let surfaces = platform_surfaces(id).unwrap_or_else(|| panic!("{id} surfaces"));
-            let parsed: usize = surfaces.iter().map(|s| s.rules.len()).sum();
+            // Parse the embedded file itself, not the process-wide set: the
+            // OTA test swaps a youtube.txt with one extra rule into that set
+            // while this runs (CI, 2026-10-27: "51 declared, 52 reached").
+            let parsed: usize = parse_surfaces(text).iter().map(|s| s.rules.len()).sum();
             let declared = text
                 .lines()
                 .map(str::trim)

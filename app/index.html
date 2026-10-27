@@ -28,17 +28,18 @@
           </button>
         </header>
 
+        <!-- Search or type a site (decided 2026-10-22, #22; replaces the
+             2026-09-05 links-only box). The store builds are a browser,
+             so this is visible by default. A link to a platform still
+             opens through that platform's tile; anything else becomes an
+             address or a strict-safe-search query (Rust resolve_address). -->
+        <form class="open-link" id="open-link" autocomplete="off" role="search">
+          <input id="open-link-input" type="search" inputmode="url" enterkeyhint="go" autocapitalize="off" spellcheck="false" placeholder="Search or type a site" aria-label="Search or type a site" />
+          <button type="submit" class="btn-ghost small">Go</button>
+        </form>
+
         <p class="eyebrow">Your platforms</p>
         <div id="tiles" class="tiles" aria-label="Your platforms"></div>
-
-        <!-- Open a link (direction memo, 2026-09-05): NOT a URL bar. It
-             takes a link to a platform you have added and nothing else,
-             for the copy-pasted link that never came through a share
-             sheet, and for desktop, which has no share sheet at all. -->
-        <form class="open-link" id="open-link" hidden autocomplete="off">
-          <input id="open-link-input" type="url" inputmode="url" placeholder="Paste a YouTube link" aria-label="Paste a link to open here" />
-          <button type="submit" class="btn-ghost small">Open</button>
-        </form>
 
         <!-- Link ownership (1108). Android + YouTube chosen only; main.ts
              hides it otherwise. -->
@@ -165,10 +166,8 @@
               <div id="bring-back"></div>
               <section class="card" aria-label="Always hidden">
                 <div class="eyebrow in-card">Always hidden</div>
-                <div class="always-row">Ads <span class="pill">Always</span></div>
-                <div class="always-row">Promoted and sponsored posts <span class="pill">Always</span></div>
                 <div class="always-row">Sign-in and app-install nags <span class="pill">Always</span></div>
-                <p class="setting-caption">These never come back. There is no setting for them.</p>
+                <p class="setting-caption">These never come back. Ads and promoted posts are hidden too; each platform above has its own Ads switch.</p>
               </section>
               <div id="manage-platforms"></div>
             </section>

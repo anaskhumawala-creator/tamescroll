@@ -13,6 +13,17 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Play upload key. keystore.properties (gitignored) sits next to
+// settings.gradle and names storeFile, storePassword, keyAlias and
+// keyPassword; the .jks lives outside the repo. Without the file the
+// play build is left unsigned and Play Console refuses the upload.
+val keystoreProperties = Properties().apply {
+    val propFile = rootProject.file("keystore.properties")
+    if (propFile.exists()) {
+        propFile.inputStream().use { load(it) }
+    }
+}
+
 android {
     compileSdk = 36
     namespace = "app.tamescroll.client"
@@ -25,6 +36,16 @@ android {
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
     androidResources { noCompress += "tflite" }
+    signingConfigs {
+        if (keystoreProperties.containsKey("storeFile")) {
+            create("upload") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
     buildTypes {
         getByName("debug") {
             manifestPlaceholders["usesCleartextTraffic"] = "true"
@@ -56,6 +77,7 @@ android {
             initWith(getByName("release"))
             matchingFallbacks += listOf("release")
             buildConfigField("boolean", "UPDATER", "false")
+            signingConfig = signingConfigs.findByName("upload")
         }
     }
     defaultConfig.buildConfigField("boolean", "UPDATER", "true")
