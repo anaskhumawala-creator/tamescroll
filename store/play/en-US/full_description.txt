@@ -1,7 +1,7 @@
 tamescroll is a calm web browser for the sites you already use. It opens them as cleaned versions of themselves, so you can watch, read and reply without being pulled into an endless feed.
 
 WHAT IT REMOVES
-• Short-video feeds, recommended feeds, trending and autoplay
+• Endless and recommended feeds, trending and autoplay
 • Sign-in nags and pop-ups
 • Ads, if you choose: one switch per site blocks them
 
