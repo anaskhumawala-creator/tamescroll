@@ -171,13 +171,18 @@
             <section class="pane" id="pane-blur" hidden>
               <h2>Blur</h2>
               <p class="pane-sub">Covers pictures and video previews as you browse. The video you choose to watch plays normally. Runs on this device &mdash; nothing you view leaves it.</p>
-              <section class="card" aria-label="Image blur">
+              <section class="card" aria-label="What to blur">
                 <div class="setting-row">
-                  <span class="setting-label">Image blur</span>
-                  <div class="toggle" id="blur-toggle" role="radiogroup" aria-label="Image blur">
-                    <button type="button" class="toggle-opt" role="radio" data-value="off">Off</button>
-                    <button type="button" class="toggle-opt" role="radio" data-value="blur">Blur all</button>
-                    <button type="button" class="toggle-opt" role="radio" data-value="smart">Smart</button>
+                  <span class="setting-label">Blur</span>
+                  <!-- One question, asked the way the stores already accept
+                       it (HaramBlur, Haya Shield, Tahir Browser): what to
+                       blur, never the user's own gender. Each answer is a
+                       stored mode + gender pair; coverage is unchanged. -->
+                  <div class="toggle" id="blur-toggle" role="radiogroup" aria-label="What to blur">
+                    <button type="button" class="toggle-opt" role="radio" data-value="all">Every picture</button>
+                    <button type="button" class="toggle-opt" role="radio" data-value="women">Women</button>
+                    <button type="button" class="toggle-opt" role="radio" data-value="men">Men</button>
+                    <button type="button" class="toggle-opt" role="radio" data-value="none">Nothing</button>
                   </div>
                 </div>
                 <div class="setting-row" id="blur-strength-row" hidden>
@@ -189,17 +194,6 @@
                   </div>
                 </div>
                 <p class="setting-caption" id="blur-caption"></p>
-              </section>
-              <section class="card">
-                <div class="setting-row" id="gender-row">
-                  <span class="setting-label">You are</span>
-                  <div class="toggle" id="gender-toggle" role="radiogroup" aria-label="Your gender">
-                    <button type="button" class="toggle-opt" role="radio" data-value="man">Male</button>
-                    <button type="button" class="toggle-opt" role="radio" data-value="woman">Female</button>
-                    <button type="button" class="toggle-opt" role="radio" data-value="unset">Not set</button>
-                  </div>
-                </div>
-                <p class="setting-caption">Smart blur clears faces of your own gender and keeps the other covered. Stored only on this device.</p>
               </section>
             </section>
 
@@ -269,28 +263,16 @@
 
         <div class="ob-step" data-step="blur" hidden>
           <div class="ob-center">
-            <h1 class="display">How should pictures look?</h1>
+            <h1 class="display">What should be blurred?</h1>
             <div class="ob-cards col" id="ob-blur-cards">
-              <button type="button" class="ob-card wide" data-mode="smart"><b>Smart</b><span>Faces of the other gender blurred. Runs on this device.</span></button>
-              <button type="button" class="ob-card wide" data-mode="blur"><b>Blur all</b><span>Every picture and preview blurred. The video you watch plays normally.</span></button>
-              <button type="button" class="ob-card wide" data-mode="off"><b>Off</b><span>No blur. Feeds are still hidden.</span></button>
+              <button type="button" class="ob-card wide" data-choice="all"><b>Every picture</b><span>All pictures and previews. The video you open plays normally.</span></button>
+              <button type="button" class="ob-card wide" data-choice="women"><b>Women only</b><span>Women in pictures are covered. Faces it can't place stay covered too.</span></button>
+              <button type="button" class="ob-card wide" data-choice="men"><b>Men only</b><span>Men in pictures are covered. Faces it can't place stay covered too.</span></button>
+              <button type="button" class="ob-card wide" data-choice="none"><b>Nothing</b><span>No blur. Feeds and ads are still hidden.</span></button>
             </div>
-            <p class="setting-caption center">Change it any time in Settings, under Blur.</p>
+            <p class="setting-caption center">Runs on this device and isn't perfect. No picture leaves your phone. Change it any time in Settings, under Blur.</p>
           </div>
         </div>
-
-        <div class="ob-step" data-step="gender" hidden>
-          <div class="ob-center">
-            <h1 class="display">Are you male or female?</h1>
-            <p class="lede">Smart blur keeps faces of the other gender covered. Stored only on this device.</p>
-            <div class="ob-cards">
-              <button type="button" class="ob-card" data-gender="man">Male</button>
-              <button type="button" class="ob-card" data-gender="woman">Female</button>
-            </div>
-            <button type="button" class="link-btn" id="ob-skip-gender">Skip, decide later in Settings</button>
-          </div>
-        </div>
-
         <div class="ob-step" data-step="done" hidden>
           <div class="ob-center">
             <h1 class="display">That's it.</h1>

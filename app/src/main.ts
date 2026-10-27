@@ -36,7 +36,6 @@ const blurCaption = document.querySelector<HTMLElement>("#blur-caption")!;
 const bringBack = document.querySelector<HTMLElement>("#bring-back")!;
 const strengthRow = document.querySelector<HTMLElement>("#blur-strength-row")!;
 const strengthToggle = document.querySelector<HTMLElement>("#blur-strength")!;
-const genderToggle = document.querySelector<HTMLElement>("#gender-toggle")!;
 
 // Design tints (board 1A): muted warm letter glyphs, never platform
 // brand colors. Falls back to the Rust-side tint for new platforms.
@@ -61,12 +60,6 @@ const TILE_NOTES: Record<string, string> = {
 
 type GazeMode = "off" | "blur" | "smart";
 const BLUR_KEY = "tamescroll.blur";
-
-const CAPTIONS: Record<GazeMode, string> = {
-  off: "",
-  blur: "Blurs every picture and preview on the pages you browse.",
-  smart: "Blurs faces in pictures and previews, by your choice below.",
-};
 
 function migrate(raw: string | null): GazeMode {
   if (raw === "off" || raw === "blur" || raw === "smart") return raw;
@@ -117,16 +110,48 @@ function setGender(g: UserGender) {
   renderBlurToggle();
 }
 
+// What to blur (his 2026-10-27): the one question the user answers,
+// asked as the store-approved apps ask it. Each answer is a stored
+// mode + gender pair, so coverage is exactly what Smart gave before:
+// "women" is Smart for a man, "men" is Smart for a woman. Smart with
+// no gender (an older first-run skip, or Settings' old "Not set") has
+// no answer of its own and keeps covering every face until changed.
+type BlurChoice = "all" | "women" | "men" | "none";
+
+function getChoice(): BlurChoice | null {
+  const mode = getMode();
+  if (mode === "blur") return "all";
+  if (mode === "off") return "none";
+  const g = getGender();
+  return g === "man" ? "women" : g === "woman" ? "men" : null;
+}
+
+function setChoice(c: BlurChoice) {
+  if (c === "women") setGender("man");
+  if (c === "men") setGender("woman");
+  setMode(c === "all" ? "blur" : c === "none" ? "off" : "smart");
+}
+
+const CAPTIONS: Record<BlurChoice, string> = {
+  all: "Blurs every picture and preview on the pages you browse.",
+  women: "Blurs women in pictures and previews. Faces it can't place stay covered.",
+  men: "Blurs men in pictures and previews. Faces it can't place stay covered.",
+  none: "",
+};
+
 function renderBlurToggle() {
   const mode = getMode();
+  const choice = getChoice();
   blurToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
-    const active = btn.dataset.value === mode;
+    const active = btn.dataset.value === choice;
     btn.classList.toggle("active", active);
     btn.setAttribute("aria-checked", String(active));
   });
   // The watch player is not blurred (his 2026-10-27 ruling, gaze
   // PLAYER_VIDEO_BLUR); the pane's own line says so.
-  blurCaption.textContent = CAPTIONS[mode];
+  blurCaption.textContent = choice
+    ? CAPTIONS[choice]
+    : "Every face is blurred until you choose. Pick one above to change it.";
   const px = getStrength();
   strengthRow.hidden = mode === "off";
   strengthToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
@@ -134,22 +159,13 @@ function renderBlurToggle() {
     btn.classList.toggle("active", active);
     btn.setAttribute("aria-checked", String(active));
   });
-  const gender = getGender();
-  genderToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
-    const active = btn.dataset.value === gender;
-    btn.classList.toggle("active", active);
-    btn.setAttribute("aria-checked", String(active));
-  });
 }
 
 blurToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
-  btn.addEventListener("click", () => setMode(btn.dataset.value as GazeMode));
+  btn.addEventListener("click", () => setChoice(btn.dataset.value as BlurChoice));
 });
 strengthToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
   btn.addEventListener("click", () => setStrength(Number(btn.dataset.value)));
-});
-genderToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
-  btn.addEventListener("click", () => setGender(btn.dataset.value as UserGender));
 });
 
 renderBlurToggle();
@@ -1156,8 +1172,8 @@ document.querySelector<HTMLButtonElement>("#settings-back")!.addEventListener("c
 });
 
 // ---------- onboarding (his 2026-10-27, #35: three steps) ----------
-// Welcome, how pictures look, done -- with the gender question in
-// between only when Smart is picked, because nothing else reads it. No
+// Welcome, what to blur, done. The blur step asks what to blur (his
+// 2026-10-27), never the user's own gender: no fourth step. No
 // platform picker: the home screen's "Add a site" is where sites come in,
 // so the first thing the app teaches is the browser, not one platform.
 // The YouTube links and home-icon offers live in Settings -> Sites.
@@ -1165,7 +1181,6 @@ document.querySelector<HTMLButtonElement>("#settings-back")!.addEventListener("c
 function runOnboarding(done: () => void) {
   showView("onboard");
   const steps = document.querySelectorAll<HTMLElement>(".ob-step");
-  let obGender: UserGender = "unset";
 
   const count = document.querySelector<HTMLElement>("#ob-count")!;
   const back = document.querySelector<HTMLButtonElement>("#ob-back")!;
@@ -1189,31 +1204,14 @@ function runOnboarding(done: () => void) {
 
   // COMMIT ON REACHING "done", not on its button, so a reload there
   // (an Android link arrival navigates the webview) does not start over.
-  function finish(mode: GazeMode) {
+  function finish(choice: BlurChoice) {
     writeChosen(readChosen() ?? []);
-    setGender(obGender);
-    setMode(mode);
+    setChoice(choice);
     goto("done");
   }
 
   document.querySelectorAll<HTMLButtonElement>("#ob-blur-cards .ob-card").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const mode = btn.dataset.mode as GazeMode;
-      if (mode === "smart") goto("gender");
-      else finish(mode);
-    });
-  });
-
-  // Smart only: the gender question (skippable, set later in Settings).
-  document.querySelectorAll<HTMLButtonElement>(".ob-card[data-gender]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      obGender = btn.dataset.gender as UserGender;
-      finish("smart");
-    });
-  });
-  document.querySelector<HTMLButtonElement>("#ob-skip-gender")!.addEventListener("click", () => {
-    obGender = "unset";
-    finish("smart");
+    btn.addEventListener("click", () => finish(btn.dataset.choice as BlurChoice));
   });
 
   document.querySelector<HTMLButtonElement>("#ob-open")!.addEventListener("click", () => done());
