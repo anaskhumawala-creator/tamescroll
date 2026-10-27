@@ -72,6 +72,18 @@ jobs:
       - name: Generate the Xcode project
         run: pnpm tauri ios init --ci
 
+      # tauri ios init writes Tauri's own placeholder icon; ours lives in
+      # icons/ios (full-bleed and opaque, iOS rounds the corners itself).
+      - name: Our app icon
+        run: |
+          SET=src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset
+          for f in "$SET"/*.png; do
+            n=$(basename "$f")
+            [ -f "src-tauri/icons/ios/$n" ] || { echo "no icons/ios/$n"; exit 1; }
+            cp "src-tauri/icons/ios/$n" "$f"
+          done
+          ls "$SET"
+
       - name: Build for the simulator
         run: pnpm tauri ios build --debug --target aarch64-sim --ci
 
