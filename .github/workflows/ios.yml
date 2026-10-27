@@ -96,9 +96,9 @@ jobs:
         # reading the log alone (artifacts need a signed-in download).
         run: |
           for f in *.png; do
-            sips -Z 520 "$f" --out "small-$f" >/dev/null
+            sips -s format jpeg -s formatOptions 40 -Z 420 "$f" --out "small-$f.jpg" >/dev/null
             echo "SHOT-BEGIN $f"
-            base64 -i "small-$f" | fold -w 4000 | sed 's/^/SHOT /'
+            base64 -i "small-$f.jpg" | fold -w 4000 | sed 's/^/SHOT /'
             echo "SHOT-END $f"
           done
 
