@@ -80,6 +80,7 @@ class MainActivity : TauriActivity() {
     private const val LINKS_PROBED = "probed"
     // Height of the top bar above every site (installTopBar).
     private const val TOP_BAR_DP = 52
+    private const val STATS_PREFS = "tamescroll.stats"
   }
 
   // Platform requested by a home-screen shortcut before the webview
@@ -913,14 +914,120 @@ class MainActivity : TauriActivity() {
     }
     bar.addView(icon(R.drawable.ic_bar_home, "Home") { webView.loadUrl(launcherUrl(null)) })
     bar.addView(address)
-    bar.addView(icon(R.drawable.ic_bar_shield, "This site's settings") {
-      webView.loadUrl("http://tauri.localhost/?settings=" + Uri.encode(topBarUrl))
-    })
+    bar.addView(icon(R.drawable.ic_bar_shield, "What was tamed on this page") { showShieldSheet() })
     content.addView(bar, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(TOP_BAR_DP), Gravity.TOP))
     topBar = bar
     topBarAddress = address
     topBarHost = host
     updateTopBar(webView.url)
+  }
+
+  // THE SHIELD SHEET (2026-10-27 redesign, #39): the receipt for this
+  // page. One number we actually know, the requests the block rules
+  // stopped since this page's main-frame load, and the way into this
+  // site's switches. Over the page, so looking costs nothing.
+  private val blockedOnPage = java.util.concurrent.atomic.AtomicInteger(0)
+
+  // Today's total for the launcher's "today" line. Kept on this phone
+  // only, saved at each page load, and reset when the date changes.
+  // -1 until read back from prefs on the first page load.
+  private val stoppedToday = java.util.concurrent.atomic.AtomicInteger(-1)
+  @Volatile private var statsDay = ""
+
+  private fun statsToday(): String =
+    java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+
+  @Synchronized private fun rollStatsDay() {
+    val day = statsToday()
+    if (stoppedToday.get() < 0) {
+      val prefs = getSharedPreferences(STATS_PREFS, MODE_PRIVATE)
+      val saved = prefs.getString("day", "") ?: ""
+      stoppedToday.set(if (saved == day) prefs.getInt("stopped", 0) else 0)
+      statsDay = day
+    } else if (statsDay != day) {
+      statsDay = day
+      stoppedToday.set(0)
+    }
+  }
+
+  private fun saveStats() {
+    getSharedPreferences(STATS_PREFS, MODE_PRIVATE).edit()
+      .putString("day", statsDay)
+      .putInt("stopped", stoppedToday.get().coerceAtLeast(0))
+      .apply()
+  }
+
+  /** A count, never a url or a host: every page can see this bridge. */
+  inner class StatsBridge {
+    @JavascriptInterface
+    fun stoppedToday(): Int {
+      rollStatsDay()
+      return stoppedToday.get().coerceAtLeast(0)
+    }
+  }
+
+  private fun showShieldSheet() {
+    val dp = resources.displayMetrics.density
+    val px = { v: Int -> (v * dp).toInt() }
+    val host = (Uri.parse(topBarUrl).host ?: "").removePrefix("www.").removePrefix("m.")
+    val stopped = blockedOnPage.get()
+    val sheet = com.google.android.material.bottomsheet.BottomSheetDialog(this)
+    fun text(value: String, sp: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
+      text = value
+      setTextColor(color)
+      setTextSize(TypedValue.COMPLEX_UNIT_SP, sp)
+      if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD)
+    }
+    val box = LinearLayout(this).apply {
+      orientation = LinearLayout.VERTICAL
+      setPadding(px(24), px(12), px(24), px(28))
+      background = GradientDrawable().apply {
+        val r = px(20).toFloat()
+        cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
+        setColor(0xFF1C1C1C.toInt())
+      }
+    }
+    box.addView(View(this).apply {
+      background = GradientDrawable().apply { cornerRadius = px(2).toFloat(); setColor(0xFF363636.toInt()) }
+      layoutParams = LinearLayout.LayoutParams(px(36), px(4)).apply {
+        gravity = Gravity.CENTER_HORIZONTAL
+        bottomMargin = px(16)
+      }
+    })
+    box.addView(text(host, 17f, 0xFFE7E5E1.toInt(), bold = true))
+    box.addView(text("$stopped", 34f, 0xFFE7E5E1.toInt()).apply {
+      setPadding(0, px(12), 0, 0)
+    })
+    box.addView(text(
+      when (stopped) {
+        0 -> "ads and trackers stopped on this page. A quiet one."
+        1 -> "ad or tracker stopped on this page."
+        else -> "ads and trackers stopped on this page."
+      },
+      14f, 0xFFA8A49D.toInt(),
+    ))
+    box.addView(text(
+      "Pictures follow your blur choice. On the sites we tame, feeds and short videos are hidden too.",
+      13f, 0xFF7A766E.toInt(),
+    ).apply { setPadding(0, px(12), 0, 0) })
+    box.addView(text("Change what's hidden here", 14f, 0xFF141414.toInt(), bold = true).apply {
+      gravity = Gravity.CENTER
+      background = GradientDrawable().apply { cornerRadius = px(10).toFloat(); setColor(0xFFE7E5E1.toInt()) }
+      layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(48)).apply {
+        topMargin = px(20)
+      }
+      setOnClickListener {
+        sheet.dismiss()
+        webView.loadUrl("http://tauri.localhost/?settings=" + Uri.encode(topBarUrl))
+      }
+    })
+    sheet.setContentView(box)
+    sheet.setOnShowListener {
+      // Our rounded box is the sheet; the library's own surface stays clear.
+      sheet.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+        ?.setBackgroundColor(Color.TRANSPARENT)
+    }
+    sheet.show()
   }
 
   /** Shows the bar on a web page and hides it on the launcher. UI thread. */
@@ -970,7 +1077,12 @@ class MainActivity : TauriActivity() {
         // document (override not read, Reset refused). And a reset that
         // lands AFTER the stash claimed would re-open the door to a page
         // script, which is the N8 exposure back again.
-        if (request.isForMainFrame) perfTokenServed = false
+        if (request.isForMainFrame) {
+          perfTokenServed = false
+          blockedOnPage.set(0)
+          rollStatsDay()
+          saveStats()
+        }
         try {
           val url = request.url.toString()
           // Never evaluate our own surfaces: a false positive there
@@ -994,6 +1106,8 @@ class MainActivity : TauriActivity() {
           // and the request counter stayed at 0 across three page loads.
           // The page url is recorded on the main thread instead.
           if (nativeShouldBlock(url, pageUrlForBlocking, resourceTypeOf(request))) {
+            blockedOnPage.incrementAndGet()
+            if (stoppedToday.get() >= 0) stoppedToday.incrementAndGet()
             return blockedResponse()
           }
         } catch (e: Throwable) {
@@ -1527,6 +1641,7 @@ class MainActivity : TauriActivity() {
     // Diagnostics: write-mostly, local-only. See DiagBridge for why a
     // hostile page cannot turn it into anything but a wasted disk write.
     webView.addJavascriptInterface(DiagBridge(), "TsDiag")
+    webView.addJavascriptInterface(StatsBridge(), "TsStats")
     webView.addJavascriptInterface(NativePortBridge(), "TsNativePort")
     // Perf dials (PerfBridge): reachable from every platform page like
     // any @JavascriptInterface, so every method is gated on the

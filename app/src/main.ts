@@ -1262,9 +1262,41 @@ let allPlatforms: Platform[] = [];
 // a second one that would interleave its rows with this one's.
 let bringBackReady: Promise<void> = Promise.resolve();
 
+// THE TODAY LINE (2026-10-27 redesign): the calm made visible. The count
+// is the requests the block rules stopped today, kept by MainActivity on
+// this phone; where there is no such bridge (desktop) the card stays out.
+const today = document.querySelector<HTMLElement>("#today")!;
+
+function renderToday(chosen: string[]) {
+  const stats = (window as unknown as { TsStats?: { stoppedToday(): number } }).TsStats;
+  if (!stats) {
+    today.hidden = true;
+    return;
+  }
+  let n = 0;
+  try {
+    n = Number(stats.stoppedToday()) || 0;
+  } catch {
+    today.hidden = true;
+    return;
+  }
+  const tamed = allPlatforms.filter((p) => p.ready && chosen.includes(p.id)).length;
+  today.querySelector(".today-num")!.textContent = n.toLocaleString();
+  today.querySelector(".today-text")!.textContent =
+    n === 1 ? "ad or tracker stopped today" : "ads and trackers stopped today";
+  today.querySelector(".today-sub")!.textContent =
+    n === 0
+      ? "Open a site and watch this climb."
+      : tamed > 0
+        ? `Feeds hidden on ${tamed} of your sites.`
+        : "Add a site to tame its feeds too.";
+  today.hidden = false;
+}
+
 function refreshAll() {
   const chosen = readChosen() ?? [];
   renderTiles(allPlatforms, chosen);
+  renderToday(chosen);
   renderManage(allPlatforms);
   renderLinksCard();
   bringBackReady = renderBringBack(allPlatforms.filter((p) => p.ready && chosen.includes(p.id)));
@@ -1471,17 +1503,13 @@ async function start() {
     // phone: a cold youtu.be link sat on this launcher for 20 seconds
     // (page start :13, open_platform :33, "adblock engine warmed in
     // 25.3s" at :33). Every line below this one -- the shortcut, the
-    // link -- waited on a caption. So the count is requested and the
-    // caption fills in when it arrives; nothing waits for it.
+    // link -- waited on a caption. So the count is requested and nothing
+    // waits for it. The "N rules active" caption it fed is gone (his
+    // 2026-10-27: it read like a log line); the call stays because it
+    // warms the engine before the first site is opened.
     restingStatus = "";
     status.textContent = "";
-    void invoke<Record<string, number>>("rules_summary")
-      .then((counts) => {
-        const active = Object.values(counts).reduce((sum, n) => sum + n, 0);
-        restingStatus = `${active} rules active`;
-        if (!status.textContent) status.textContent = restingStatus;
-      })
-      .catch(() => { /* the caption is decoration; the app is not */ });
+    void invoke<Record<string, number>>("rules_summary").catch(() => {});
 
     if (pending) {
       history.replaceState(null, "", location.pathname);

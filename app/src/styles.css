@@ -390,3 +390,12 @@ b { font-weight: 600; }
 @media (prefers-reduced-motion: reduce) {
   .demo.play .demo-fold, .demo.play .blur-in, .demo.play .demo-toast { animation-delay: 0s !important; }
 }
+
+/* ---------- today (2026-10-27) ---------- */
+.today {
+  margin-top: var(--s4); padding: var(--s4); border-radius: var(--r);
+  background: var(--elev); border: 1px solid var(--hairline);
+}
+.today-line { color: var(--muted); font-size: var(--t-md); }
+.today-num { font-family: var(--font-display); font-size: var(--t-2xl); color: var(--ink); font-variant-numeric: tabular-nums; margin-right: 4px; }
+.today-sub { color: var(--faint); font-size: var(--t-sm); margin-top: 2px; }
