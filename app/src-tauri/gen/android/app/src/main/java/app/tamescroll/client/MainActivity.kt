@@ -1007,7 +1007,7 @@ class MainActivity : TauriActivity() {
       14f, 0xFFA8A49D.toInt(),
     ))
     box.addView(text(
-      "Pictures follow your blur choice. On the sites we tame, feeds and short videos are hidden too.",
+      "Pictures follow your blur choice. On the sites we tame, feeds are hidden too.",
       13f, 0xFF7A766E.toInt(),
     ).apply { setPadding(0, px(12), 0, 0) })
     box.addView(text("Change what's hidden here", 14f, 0xFF141414.toInt(), bold = true).apply {
