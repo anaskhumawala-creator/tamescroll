@@ -556,7 +556,7 @@ function writeChosen(ids: string[]) {
 }
 
 // ANY SITE CAN BE A TILE (his 2026-10-27, #35: a calm browser, YouTube is
-// one site). The platforms we tidy stay in CHOSEN_KEY; every other site
+// one site). The platforms we tame stay in CHOSEN_KEY; every other site
 // the user adds is a bare address here and opens like the search box.
 type Site = { host: string; name: string; url: string };
 const SITES_KEY = "tamescroll.sites";
@@ -648,10 +648,10 @@ function tile(platform: Platform): HTMLButtonElement {
 
   const note = document.createElement("span");
   note.className = "note";
-  // "Tidied" marks the sites we clean specially, so the care shows
+  // "Tamed" marks the sites we clean specially, so the care shows
   // without making them the point of the app.
   note.textContent = platform.ready
-    ? `Tidied · ${TILE_NOTES[platform.id] ?? "feeds hidden"}`
+    ? `Tamed · ${TILE_NOTES[platform.id] ?? "feeds hidden"}`
     : "Not ready yet";
 
   el.append(glyphFor(platform), name, note);
@@ -813,7 +813,7 @@ function renderTiles(platforms: Platform[], chosen: string[]) {
     .forEach((platform) => tiles.append(tile(platform)));
   readSites().forEach((site) => tiles.append(siteTile(site)));
 
-  // "Add a site" tile: expands into a box that takes a tidied site's
+  // "Add a site" tile: expands into a box that takes a tamed site's
   // name or any address.
   const add = document.createElement("button");
   add.className = "tile add";
@@ -849,20 +849,20 @@ function addMatchBox(platforms: Platform[]): HTMLElement {
     result.textContent = "";
     const chosen = readChosen() ?? [];
     const q = input.value;
-    // A tidied site's own address adds that site, not a bare tile.
+    // A tamed site's own address adds that site, not a bare tile.
     const site = siteFromInput(q);
-    const tidied = site ? platformForPage(site.url) : undefined;
-    const matches = tidied
-      ? chosen.includes(tidied.id) ? [] : [tidied]
+    const tamed = site ? platformForPage(site.url) : undefined;
+    const matches = tamed
+      ? chosen.includes(tamed.id) ? [] : [tamed]
       : matchPlatforms(platforms, q, chosen);
     if (matches.length) {
       result.append(
-        matchRow(matches[0], tidied ? matches[0].name : q, () => {
+        matchRow(matches[0], tamed ? matches[0].name : q, () => {
           writeChosen([...chosen, matches[0].id]);
           refreshAll();
         })
       );
-    } else if (site && !tidied) {
+    } else if (site && !tamed) {
       result.append(siteRow(site, () => {
         addSite(site);
         refreshAll();
@@ -1300,7 +1300,7 @@ async function openSiteSettings(page: string) {
     details.scrollIntoView({ block: "start" });
     return;
   }
-  // A site we don't tidy: say what still works there, and offer it as a tile.
+  // A site we don't tame: say what still works there, and offer it as a tile.
   const site = siteFromInput(page);
   if (site && !platform) renderSiteHere(site);
 }
@@ -1395,7 +1395,7 @@ async function start() {
   // The pending request is read BEFORE any view is painted; when there
   // is one, the page stays on the dark handoff line until the platform
   // document replaces it.
-  // A link shared from another app (not a site we tidy) arrives as
+  // A link shared from another app (not a site we tame) arrives as
   // ?open=search&url=<link> and fills the address box like the top bar.
   const request = pendingRequest();
   const shared = request?.id === "search" ? request : null;
