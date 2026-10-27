@@ -1,4 +1,5 @@
 import Foundation
+import ObjectiveC
 import SwiftRs
 import Tauri
 import UIKit
@@ -32,6 +33,32 @@ class TsWebkitPlugin: Plugin {
     // iPhone has no Back button. The edge swipe is how people expect to
     // go back, including from a platform to the launcher.
     webview.allowsBackForwardNavigationGestures = true
+    installQuickActions()
+  }
+
+  /// Home-screen quick actions (Info.ios.plist UIApplicationShortcutItems).
+  /// The app's scene delegate belongs to tao and has no handler for them,
+  /// so one is added at runtime. It re-opens the app through its own
+  /// tamescroll:// address, which keeps a single, validated way in
+  /// (launcher_query_for_open in lib.rs).
+  ///
+  /// Known gap: a quick action that LAUNCHES the app (rather than
+  /// returning to it) arrives in the scene's connection options before
+  /// this plugin loads, so that one opens the launcher instead.
+  func installQuickActions() {
+    guard let cls: AnyClass = NSClassFromString("TaoSceneDelegate") else { return }
+    let sel = NSSelectorFromString("windowScene:performActionForShortcutItem:completionHandler:")
+    let handler: @convention(block) (AnyObject, UIWindowScene, UIApplicationShortcutItem, @escaping (Bool) -> Void) -> Void = {
+      _, _, item, done in
+      let id = item.type.hasPrefix("open.") ? String(item.type.dropFirst(5)) : ""
+      guard !id.isEmpty, let url = URL(string: "tamescroll://open/\(id)") else {
+        done(false)
+        return
+      }
+      UIApplication.shared.open(url)
+      done(true)
+    }
+    class_addMethod(cls, sel, imp_implementationWithBlock(handler), "v@:@@@?")
   }
 
   @objc public func setPageScript(_ invoke: Invoke) throws {

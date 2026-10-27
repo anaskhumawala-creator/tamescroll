@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyLists-1.0.dtd">
+<!-- Merged into the generated iOS Info.plist by `tauri ios init/build` (#16). -->
+<plist version="1.0">
+<dict>
+	<!-- tamescroll://open/<platform>[?url=<link>]: how links, the
+	     Shortcuts app and the quick actions below reach the launcher
+	     (launcher_query_for_open in lib.rs). -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>app.tamescroll.client</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>tamescroll</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Long-press on the app icon. Plain titles, no platform logos (#24).
+	     The type after "open." is the platform id. -->
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>open.youtube</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>YouTube</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>open.reddit</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Reddit</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>open.x</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>X</string>
+		</dict>
+	</array>
+</dict>
+</plist>

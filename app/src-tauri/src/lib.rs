@@ -1013,6 +1013,44 @@ pub(crate) fn link_host_belongs(platform: &str, host: &str) -> bool {
     }
 }
 
+/// THE iOS DOOR IN (#16). iPhone lets no app claim youtube.com links, so
+/// links and shortcuts arrive as our own scheme instead:
+///
+/// - `tamescroll://open/youtube`: a platform, as a tile tap opens it
+///   (home-screen quick actions, a Shortcuts-app icon);
+/// - `tamescroll://open/youtube?url=<link>`: one page on that platform;
+/// - `tamescroll://open?url=<link>`: the platform is read off the link.
+///
+/// The answer is the launcher query Android's MainActivity builds
+/// (`?open=<id>&url=<page>`), so the launcher frontend opens it exactly
+/// like a tile tap. Same rule as 1107: a link may pick the page, never
+/// the platform, and anything that is not ours is refused.
+#[cfg_attr(not(any(target_os = "ios", test)), allow(dead_code))]
+fn launcher_query_for_open(url: &tauri::Url) -> Option<String> {
+    if url.scheme() != "tamescroll" || url.host_str() != Some("open") {
+        return None;
+    }
+    let link = url
+        .query_pairs()
+        .find(|(k, _)| k == "url")
+        .and_then(|(_, v)| v.parse::<tauri::Url>().ok())
+        .filter(|l| matches!(l.scheme(), "https" | "http"));
+    let named = url.path().trim_matches('/');
+    let id = if named.is_empty() {
+        let host = link.as_ref()?.host_str()?.to_string();
+        PLATFORMS.iter().find(|p| link_host_belongs(p.id, &host))?.id
+    } else {
+        PLATFORMS.iter().find(|p| p.id == named)?.id
+    };
+    let link = link.filter(|l| link_host_belongs(id, l.host_str().unwrap_or("")));
+    let mut query = tauri::Url::parse("tauri://localhost/").ok()?;
+    query.query_pairs_mut().append_pair("open", id);
+    if let Some(l) = link {
+        query.query_pairs_mut().append_pair("url", l.as_str());
+    }
+    query.query().map(|q| format!("?{q}"))
+}
+
 /// THE SHORT LINK IS RESOLVED HERE, NOT BY THE WEBVIEW (1107). Measured
 /// on his phone: a cold `youtu.be/<id>` intent reached open_platform,
 /// navigated, and the native layer logged `page start host=youtu.be
@@ -2287,8 +2325,22 @@ pub fn run() {
             app_update_check,
             should_block_request
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tamescroll");
+        .build(tauri::generate_context!())
+        .expect("error while building tamescroll")
+        .run(|_app, _event| {
+            // iOS: our tamescroll:// links and the home-screen quick
+            // actions (launcher_query_for_open). The launcher reloads
+            // with the query, which is how Android's shortcuts land.
+            #[cfg(target_os = "ios")]
+            if let tauri::RunEvent::Opened { urls } = _event {
+                let query = urls.iter().find_map(launcher_query_for_open);
+                if let (Some(q), Some(main)) = (query, _app.get_webview_window("main")) {
+                    if let Ok(target) = format!("tauri://localhost/{q}").parse() {
+                        let _ = main.navigate(target);
+                    }
+                }
+            }
+        });
 }
 
 #[cfg(test)]
@@ -2325,6 +2377,33 @@ mod tests {
     /// 1107: a link may pick the PAGE, never the PLATFORM. Red-proved by
     /// adding "example.com" to the youtube arm and watching the last
     /// assertion fail.
+    #[test]
+    fn ios_open_links_land_on_the_launcher_like_a_tile() {
+        let q = |u: &str| launcher_query_for_open(&u.parse().unwrap());
+        assert_eq!(q("tamescroll://open/youtube").as_deref(), Some("?open=youtube"));
+        assert_eq!(q("tamescroll://open/reddit/").as_deref(), Some("?open=reddit"));
+        assert_eq!(
+            q("tamescroll://open?url=https%3A%2F%2Fyoutu.be%2Fabc").as_deref(),
+            Some("?open=youtube&url=https%3A%2F%2Fyoutu.be%2Fabc")
+        );
+        assert_eq!(
+            q("tamescroll://open/youtube?url=https://m.youtube.com/watch?v=1").as_deref(),
+            Some("?open=youtube&url=https%3A%2F%2Fm.youtube.com%2Fwatch%3Fv%3D1")
+        );
+        // A link may pick the page, never the platform: a foreign url
+        // keeps the named platform's front page, and with no platform
+        // named it opens nothing.
+        assert_eq!(
+            q("tamescroll://open/youtube?url=https://evil.example/").as_deref(),
+            Some("?open=youtube")
+        );
+        assert_eq!(q("tamescroll://open?url=https://evil.example/"), None);
+        assert_eq!(q("tamescroll://open/youtube?url=javascript:alert(1)").as_deref(), Some("?open=youtube"));
+        assert_eq!(q("tamescroll://open/nope"), None);
+        assert_eq!(q("tamescroll://settings/youtube"), None);
+        assert_eq!(q("https://open/youtube"), None);
+    }
+
     #[test]
     fn link_host_belongs_is_a_whitelist_per_platform() {
         for h in ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "YOUTU.BE"] {
