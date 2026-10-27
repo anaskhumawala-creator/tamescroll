@@ -34,6 +34,26 @@ class TsWebkitPlugin: Plugin {
     // go back, including from a platform to the launcher.
     webview.allowsBackForwardNavigationGestures = true
     installQuickActions()
+    keepBelowStatusBar(webview)
+  }
+
+  /// m.youtube asks for the whole screen (viewport-fit=cover), so its top
+  /// bar drew under the clock and the camera cut-out (CI screenshot,
+  /// 2026-10-27). Safari never lets a page reach that area either: the
+  /// web view starts below the status bar, and the band above it takes
+  /// the system background so the clock stays readable in light and dark.
+  func keepBelowStatusBar(_ webview: WKWebView) {
+    DispatchQueue.main.async {
+      guard let superview = webview.superview else { return }
+      superview.backgroundColor = .systemBackground
+      webview.translatesAutoresizingMaskIntoConstraints = false
+      NSLayoutConstraint.activate([
+        webview.topAnchor.constraint(equalTo: superview.safeAreaLayoutGuide.topAnchor),
+        webview.bottomAnchor.constraint(equalTo: superview.bottomAnchor),
+        webview.leadingAnchor.constraint(equalTo: superview.leadingAnchor),
+        webview.trailingAnchor.constraint(equalTo: superview.trailingAnchor),
+      ])
+    }
   }
 
   /// Home-screen quick actions (Info.ios.plist UIApplicationShortcutItems).

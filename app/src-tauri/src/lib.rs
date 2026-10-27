@@ -1956,8 +1956,25 @@ fn prepare_ios_blocker(app: tauri::AppHandle) {
             id,
             path.to_string_lossy().into_owned(),
         );
-        eprintln!("content blocker ({count} rules): {result:?}");
+        // A plain-text record next to the list: what a support report or
+        // the CI job reads to know whether WebKit took it.
+        let _ = std::fs::write(
+            dir.join("content-blocker-status.txt"),
+            format!("{count} rules: {result:?}\n"),
+        );
     });
+}
+
+/// iOS: a tamescroll:// link reloads the launcher with the query that
+/// launcher_query_for_open allows, and the launcher opens it like a tile.
+#[cfg(target_os = "ios")]
+fn open_launcher_link(app: &tauri::AppHandle, url: &tauri::Url) {
+    let Some(q) = launcher_query_for_open(url) else { return };
+    if let (Some(main), Ok(target)) =
+        (app.get_webview_window("main"), format!("tauri://localhost/{q}").parse())
+    {
+        let _ = main.navigate(target);
+    }
 }
 
 /// CI only (debug builds on iOS): `simctl launch <app> --ts-open=youtube`
@@ -1966,6 +1983,18 @@ fn prepare_ios_blocker(app: tauri::AppHandle) {
 /// read their arguments.
 #[cfg(all(target_os = "ios", debug_assertions))]
 fn ios_ci_open(app: tauri::AppHandle) {
+    // `--ts-url=tamescroll://...` goes through the same door as a link
+    // from another app (RunEvent::Opened); simctl's own openurl stops at
+    // a system "Open in tamescroll?" prompt that CI cannot tap.
+    if let Some(link) = std::env::args().find_map(|a| a.strip_prefix("--ts-url=").map(String::from)) {
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(4));
+            if let Ok(url) = link.parse() {
+                open_launcher_link(&app, &url);
+            }
+        });
+        return;
+    }
     let Some(id) = std::env::args().find_map(|a| a.strip_prefix("--ts-open=").map(String::from))
     else {
         return;
@@ -2333,11 +2362,8 @@ pub fn run() {
             // with the query, which is how Android's shortcuts land.
             #[cfg(target_os = "ios")]
             if let tauri::RunEvent::Opened { urls } = _event {
-                let query = urls.iter().find_map(launcher_query_for_open);
-                if let (Some(q), Some(main)) = (query, _app.get_webview_window("main")) {
-                    if let Ok(target) = format!("tauri://localhost/{q}").parse() {
-                        let _ = main.navigate(target);
-                    }
+                if let Some(url) = urls.first() {
+                    open_launcher_link(_app, url);
                 }
             }
         });
