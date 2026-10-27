@@ -7,6 +7,10 @@ name: iOS TestFlight
 # key, which creates and renews the certificate and profile itself.
 #
 # Repository secrets it needs (Settings -> Secrets and variables -> Actions):
+# The key must have the ADMIN role. Xcode's cloud-managed signing refuses
+# an App Manager key ("Cloud signing permission error"), and a key's role
+# cannot be changed after it is made (first run, 2026-10-27).
+#
 #   APPLE_API_KEY_ID      the key's ID, e.g. 2X9R4HXF34
 #   APPLE_API_ISSUER      the issuer ID shown above the keys list
 #   APPLE_API_KEY_P8      the contents of the downloaded AuthKey_<ID>.p8
