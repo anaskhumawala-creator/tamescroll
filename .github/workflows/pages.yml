@@ -1,0 +1,35 @@
+# Publishes web/ (the site, privacy policy and terms) to GitHub Pages, so
+# Play Console has a public privacy-policy URL before tamescroll.com is
+# redeployed (#15). Needs Settings -> Pages -> Source: GitHub Actions,
+# once, by the owner. Then: https://anaskhumawala-creator.github.io/tamescroll/privacy.html
+name: Site
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@v4
