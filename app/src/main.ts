@@ -638,6 +638,7 @@ function siteTile(site: Site): HTMLButtonElement {
   note.className = "note";
   note.textContent = site.host;
   el.append(dot, name, note);
+  el.setAttribute("aria-label", `${site.name}, ${site.host}`);
   el.addEventListener("click", () => {
     el.classList.add("opening");
     void openAddress(site.url);
@@ -671,6 +672,9 @@ function tile(platform: Platform): HTMLButtonElement {
     : "Not ready yet";
 
   el.append(glyphFor(platform), name, note);
+  // The note is hidden in the compact grid; the label still reads it out.
+  el.classList.toggle("is-tamed", platform.ready);
+  el.setAttribute("aria-label", `${platform.name}, ${note.textContent}`);
 
   if (platform.ready) {
     el.addEventListener("click", () => {
@@ -1172,7 +1176,7 @@ document.querySelector<HTMLButtonElement>("#settings-back")!.addEventListener("c
 });
 
 // ---------- onboarding (his 2026-10-27, #35: three steps) ----------
-// Welcome, what to blur, done. The blur step asks what to blur (his
+// Welcome, the demo (skippable), what to blur, done. The blur step asks what to blur (his
 // 2026-10-27), never the user's own gender: no fourth step. No
 // platform picker: the home screen's "Add a site" is where sites come in,
 // so the first thing the app teaches is the browser, not one platform.
@@ -1200,7 +1204,20 @@ function runOnboarding(done: () => void) {
     const prev = trail.pop();
     if (prev) goto(prev, false);
   });
-  document.querySelector<HTMLButtonElement>("#ob-start")!.addEventListener("click", () => goto("blur"));
+  // The demo replays from its busy state each time it is shown.
+  const demo = document.querySelector<HTMLElement>("#ob-demo")!;
+  function playDemo() {
+    demo.classList.remove("play");
+    void demo.offsetWidth;
+    demo.classList.add("play");
+  }
+  document.querySelector<HTMLButtonElement>("#ob-start")!.addEventListener("click", () => {
+    goto("demo");
+    playDemo();
+  });
+  document.querySelector<HTMLButtonElement>("#ob-skip-demo")!.addEventListener("click", () => goto("blur"));
+  document.querySelector<HTMLButtonElement>("#ob-demo-next")!.addEventListener("click", () => goto("blur"));
+  document.querySelector<HTMLButtonElement>("#ob-demo-replay")!.addEventListener("click", playDemo);
 
   // COMMIT ON REACHING "done", not on its button, so a reload there
   // (an Android link arrival navigates the webview) does not start over.

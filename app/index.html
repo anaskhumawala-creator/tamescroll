@@ -33,12 +33,13 @@
              so this is visible by default. A link to a platform still
              opens through that platform's tile; anything else becomes an
              address or a strict-safe-search query (Rust resolve_address). -->
+        <h1 class="home-q">What are you here for?</h1>
         <form class="open-link" id="open-link" autocomplete="off" role="search">
-          <input id="open-link-input" type="search" inputmode="url" enterkeyhint="go" autocapitalize="off" spellcheck="false" placeholder="Search or type a site" aria-label="Search or type a site" />
+          <input id="open-link-input" type="search" inputmode="url" enterkeyhint="go" autocapitalize="off" spellcheck="false" placeholder="Search privately or type a site" aria-label="Search privately or type a site" />
           <button type="submit" class="btn-ghost small">Go</button>
         </form>
 
-        <p class="eyebrow">Your sites</p>
+        <p class="eyebrow tiles-head">Your sites <span class="legend"><i aria-hidden="true"></i>tamed</span></p>
         <div id="tiles" class="tiles" aria-label="Your sites"></div>
 
         <p id="status" role="status"></p>
@@ -248,16 +249,43 @@
 
         <div class="ob-step" data-step="welcome">
           <div class="ob-center">
-            <svg class="ob-wordmark" viewBox="0 0 420 300" role="img" aria-label="tamescroll"><g transform="translate(140 74) scale(3)"><path d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke="#e7e5e1" stroke-width="3.6" stroke-linecap="round"/></g><text x="210" y="248" text-anchor="middle" font-family="Spectral, Georgia, 'Times New Roman', serif" font-size="54" font-weight="600" letter-spacing="-0.6" fill="#e7e5e1">tamescroll</text></svg>
-            <p class="lede">A calm browser. The web, without the feeds.</p>
-            <ul class="perks">
-              <li><b>Feeds and short videos hidden</b> on the sites that have them. You open what you came for and leave.</li>
-              <li><b>Pictures blurred, your rules.</b> Runs on this device. Nothing leaves it.</li>
-              <li><b>Ads blocked.</b> Ads and sponsored posts don't load, unless you switch them back on for a site.</li>
-              <li><b>Links open here.</b> Share a link to tamescroll from any app.</li>
-            </ul>
-            <div class="actions center"><button type="button" class="btn-solid" id="ob-start">Get started</button></div>
+            <svg class="ob-wordmark" viewBox="0 0 420 300" role="img" aria-label="tamescroll"><g transform="translate(140 74) scale(3)"><path d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke="#c9a45e" stroke-width="3.6" stroke-linecap="round"/></g><text x="210" y="248" text-anchor="middle" font-family="Spectral, Georgia, 'Times New Roman', serif" font-size="54" font-weight="600" letter-spacing="-0.6" fill="#e7e5e1">tamescroll</text></svg>
+            <h1 class="display">The web, without the feeds.</h1>
+            <p class="lede">A browser for what you came for. Everything else stays quiet.</p>
+            <div class="actions center col narrow-actions">
+              <button type="button" class="btn-solid" id="ob-start">Show me</button>
+              <button type="button" class="link-btn center" id="ob-skip-demo">Skip the demo</button>
+            </div>
             <p class="setting-caption center">Free, open source, no account.</p>
+          </div>
+        </div>
+
+        <!-- The calm-down, shown rather than described (his 2026-10-27):
+             a made-up page, never a real site or its logo, so it works
+             offline and shows nobody's content. -->
+        <div class="ob-step" data-step="demo" hidden>
+          <div class="ob-center">
+            <h1 class="display">Watch a busy page calm down</h1>
+            <p class="lede">A made-up page, so you can see what happens before you open a real one.</p>
+            <div class="demo" id="ob-demo" aria-hidden="true">
+              <div class="demo-bar">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                <span>videos.example</span>
+              </div>
+              <div class="demo-feed">
+                <div class="demo-row"><span class="demo-thumb t1 blur-in"></span><span class="demo-lines"><i></i><i class="short"></i></span></div>
+                <div class="demo-fold"><div class="demo-row"><span class="demo-thumb t2"><b>Sponsored</b></span><span class="demo-lines"><i></i><i class="short"></i></span></div></div>
+                <div class="demo-fold"><div class="demo-shorts"><span class="demo-thumb t3"></span><span class="demo-thumb t4"></span><span class="demo-thumb t1"></span><span class="demo-thumb t2"></span></div></div>
+                <div class="demo-row"><span class="demo-thumb t4 blur-in"></span><span class="demo-lines"><i></i><i class="short"></i></span></div>
+                <div class="demo-fold"><div class="demo-label">Recommended for you</div><div class="demo-row"><span class="demo-thumb t3"></span><span class="demo-lines"><i></i><i class="short"></i></span></div></div>
+              </div>
+              <div class="demo-toast"><b>Tamed.</b> Feed gone · 1 ad · 4 short videos · pictures blurred</div>
+            </div>
+            <p class="setting-caption center">Every site gets this. The shield in the top bar shows what's hidden there.</p>
+            <div class="actions center col narrow-actions">
+              <button type="button" class="btn-solid" id="ob-demo-next">Next</button>
+              <button type="button" class="link-btn center" id="ob-demo-replay">Watch again</button>
+            </div>
           </div>
         </div>
 
