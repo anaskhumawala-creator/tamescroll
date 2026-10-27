@@ -6,7 +6,7 @@ let package = Package(
   name: "tauri-plugin-ts-webkit",
   platforms: [
     .macOS(.v10_13),
-    .iOS(.v14),
+    .iOS(.v15),
   ],
   products: [
     .library(
