@@ -62,4 +62,5 @@ spikes/native/coreml/*.npz
 spikes/*.png
 # scripts/release.sh output
 release.log
+play-build.log
 release-out/
