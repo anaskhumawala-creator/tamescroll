@@ -363,7 +363,6 @@ b { font-weight: 600; }
 .demo-lines i { display: block; height: 7px; border-radius: 4px; background: #333; }
 .demo-lines i.short { width: 55%; }
 .demo-thumb { flex: none; position: relative; width: 104px; height: 58px; border-radius: 8px; }
-.demo-thumb b { position: absolute; left: 5px; top: 5px; font-size: 9px; padding: 1px 4px; border-radius: 3px; background: #e8d36a; color: #222; }
 .t1 { background: linear-gradient(135deg, #6d5a3f, #2f3f4c 60%, #4c3a3a); }
 .t2 { background: linear-gradient(135deg, #3f5a4c, #4c3f2f); }
 .t3 { background: linear-gradient(135deg, #5a3f5a, #2f3f4c); }
