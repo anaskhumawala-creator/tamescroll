@@ -25,7 +25,7 @@ so the store build should not go up without them.
   default, #22 (Play Webviews policy, Apple 4.2 and 5.2.2: we are a browser,
   not a wrapper for someone else's site).
 - [x] A per-site ads switch, #23 (Play Device and Network Abuse: the
-  user, not the app, decides to block ads). Settings → Bring back →
+  user, not the app, decides to block ads). Settings → Sites →
   (platform) → Ads, Hidden by default. Shown turns off network blocking,
   the vendor cosmetic lists, the ad scriptlets and our ad and promo
   surfaces for that platform only.
@@ -152,13 +152,16 @@ forms are needed.
 ## Reviewer notes (App access → instructions)
 
 > tamescroll is a web browser. The box at the top searches the web or
-> opens any address, and the tiles below are sites the user has added.
+> opens any address, the tiles below are sites the user has added (any
+> site), and every page has our own bar on top: home, the address, and
+> that site's settings.
 > Each site opens its own public mobile website in Android System
 > WebView; tamescroll hides parts of the page (feeds, short-video shelves,
 > autoplay) and blurs images on the device. It does not use any site's
 > API, does not download or save media, and does not modify any other
 > app. Ad blocking is on by default and can be turned off per site in
-> Settings → Bring back → (the site) → Ads. No account is needed to
+> Settings → Sites → (the site) → Ads, or the shield in the top bar
+> while on that site. No account is needed to
 > review the app. To see
 > the image blur, open any site from the tiles and scroll a page of
 > thumbnails.

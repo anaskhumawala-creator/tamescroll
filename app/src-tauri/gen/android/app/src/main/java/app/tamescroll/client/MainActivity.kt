@@ -131,7 +131,12 @@ class MainActivity : TauriActivity() {
     val scheme = u.scheme?.lowercase() ?: return null
     if (scheme != "https" && scheme != "http") return null
     val host = u.host?.lowercase() ?: return null
-    val id = linkHosts[host] ?: return null
+    // A link SHARED to us from any other site lands in the launcher's
+    // address box, filled and selected; the user taps Go. A share is the
+    // user's own act, and nothing loads until they confirm it. VIEW stays
+    // limited to the hosts the manifest claims.
+    val id = linkHosts[host]
+      ?: return if (intent?.action == Intent.ACTION_SEND) "search" to u.toString() else null
     // The self-test link came back to us: the system hands us youtu.be.
     // Only a VIEW counts -- a SEND of the same url proves nothing.
     if (intent?.action == Intent.ACTION_VIEW && u.getQueryParameter("ts_probe") == "1") {
