@@ -23,6 +23,8 @@ jobs:
   simulator:
     name: iOS simulator build
     runs-on: macos-15
+    permissions:
+      contents: write
     timeout-minutes: 60
     defaults:
       run:
@@ -95,24 +97,26 @@ jobs:
           sleep 25
           xcrun simctl io "$DEVICE" screenshot ../ios-proof/reddit-link.png
 
-          echo "--- Info.plist URL types and quick actions"
-          /usr/libexec/PlistBuddy -c 'Print CFBundleURLTypes' "$APP/Info.plist" || true
-          /usr/libexec/PlistBuddy -c 'Print UIApplicationShortcutItems' "$APP/Info.plist" || true
+          {
+            echo "--- Info.plist URL types and quick actions"
+            /usr/libexec/PlistBuddy -c 'Print CFBundleURLTypes' "$APP/Info.plist" || true
+            /usr/libexec/PlistBuddy -c 'Print UIApplicationShortcutItems' "$APP/Info.plist" || true
+          } | tee ../ios-proof/info-plist.txt
           echo "--- app stderr"
           cat ../ios-proof/app-stderr.txt || true
 
-      - name: Print the screenshots into the log
-        if: always()
+      # The proof goes to a throwaway branch as well as the artifact, so
+      # it can be opened without signing in to download an artifact.
+      - name: Publish the proof to the ci/ios-proof branch
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         working-directory: ios-proof
-        # Small copies, base64 in the log, so the run can be checked by
-        # reading the log alone (artifacts need a signed-in download).
         run: |
-          for f in *.png; do
-            sips -s format jpeg -s formatOptions 40 -Z 420 "$f" --out "small-$f.jpg" >/dev/null
-            echo "SHOT-BEGIN $f"
-            base64 -i "small-$f.jpg" | fold -w 4000 | sed 's/^/SHOT /'
-            echo "SHOT-END $f"
-          done
+          for f in *.png; do sips -Z 700 "$f" >/dev/null; done
+          echo "${{ github.event.pull_request.head.sha }}" > SHA
+          git init -q -b ci/ios-proof
+          git -c user.name=ci -c user.email=ci@localhost add -A
+          git -c user.name=ci -c user.email=ci@localhost commit -qm "iOS proof for ${{ github.event.pull_request.head.sha }}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci/ios-proof
 
       - uses: actions/upload-artifact@v4
         if: always()
