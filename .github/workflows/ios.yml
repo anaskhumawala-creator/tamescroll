@@ -147,7 +147,23 @@ jobs:
           [ -n "$APPETIZE_API_TOKEN" ] || { echo "no APPETIZE_API_TOKEN secret, skipping"; exit 0; }
           APP=$(find src-tauri/gen/apple -name '*.app' -type d -path '*sim*' | head -1)
           [ -n "$APP" ] || APP=$(find src-tauri/gen/apple -name '*.app' -type d | head -1)
-          (cd "$(dirname "$APP")" && ditto -c -k --keepParent "$(basename "$APP")" "$RUNNER_TEMP/app.zip")
+          # Appetize runs Intel simulators: an arm64-only build starts to a
+          # blank white screen there (2026-10-27). Build the x86_64 slice
+          # too and join the two into one universal app.
+          rm -rf "$RUNNER_TEMP/u" && mkdir -p "$RUNNER_TEMP/u"
+          cp -R "$APP" "$RUNNER_TEMP/u/"
+          U="$RUNNER_TEMP/u/$(basename "$APP")"
+          EXE=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$U/Info.plist")
+          touch "$RUNNER_TEMP/u/marker"
+          rustup target add x86_64-apple-ios
+          pnpm tauri ios build --debug --target x86_64 --ci
+          X86=$(find src-tauri/gen/apple ~/Library/Developer/Xcode/DerivedData -name "$(basename "$APP")" -type d -newer "$RUNNER_TEMP/u/marker" 2>/dev/null | head -1)
+          [ -n "$X86" ] || { echo "no x86_64 app found"; exit 1; }
+          lipo -create "$U/$EXE" "$X86/$EXE" -output "$U/$EXE.universal"
+          mv "$U/$EXE.universal" "$U/$EXE"
+          lipo -info "$U/$EXE"
+          codesign --force --sign - --timestamp=none "$U"
+          (cd "$RUNNER_TEMP/u" && ditto -c -k --keepParent "$(basename "$U")" "$RUNNER_TEMP/app.zip")
           # Update the app already there for this bundle id, so the link
           # stays the same build after build.
           KEY="$APPETIZE_PUBLIC_KEY"
