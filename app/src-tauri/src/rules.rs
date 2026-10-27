@@ -521,8 +521,10 @@ mod tests {
                 }
             }
             assert!(orphans.is_empty(), "{file}: rules before any !surface: marker are dropped: {orphans:?}");
-            let surfaces = platform_surfaces(id).unwrap_or_else(|| panic!("{id} surfaces"));
-            let parsed: usize = surfaces.iter().map(|s| s.rules.len()).sum();
+            // Parse the embedded file itself, not the process-wide set: the
+            // OTA test swaps a youtube.txt with one extra rule into that set
+            // while this runs (CI, 2026-10-27: "51 declared, 52 reached").
+            let parsed: usize = parse_surfaces(text).iter().map(|s| s.rules.len()).sum();
             let declared = text
                 .lines()
                 .map(str::trim)

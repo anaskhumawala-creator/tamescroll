@@ -30,7 +30,7 @@ never YouTube's logo.
 
 **OPEN WORK LIVES IN GITHUB ISSUES** (since 2026-10-22), not in this
 file, WORKLIST.md or docs/owner-issues.md:
-https://github.com/anaskhumawala-creator/tamescroll/issues
+https://github.com/tamescroll/tamescroll/issues
 In order: #2 YouTube-change canary (ask him first: what counts as
 broken, how he wants to hear) · #3 Reddit pass · #4 X pass · #5 Windows
 pass · #6 Play listing pack (his hands) · #7 and #8 need a repro from
@@ -172,7 +172,7 @@ cutting a window in the blur.
    **gradlew exits 0 on that task failing -- check the APK mtime, never
    the exit code.** Check APK size against the entry sum: incremental
    packaging has shipped an orphaned duplicate .so.
-6. `gh release create app-vX.Y.Z <apk> --repo anaskhumawala-creator/tamescroll`.
+6. `gh release create app-vX.Y.Z <apk> --repo tamescroll/tamescroll`.
    The asset is named after the FILE -- do not upload from a temp path.
 7. `node scripts/gen-app-manifest.mjs <apk> <releaseDownloadURL> "<notes>"`,
    commit and push `updates/app-manifest.json`.

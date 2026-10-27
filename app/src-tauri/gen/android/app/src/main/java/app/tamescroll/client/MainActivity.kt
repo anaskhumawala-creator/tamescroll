@@ -53,7 +53,7 @@ class MainActivity : TauriActivity() {
     // Kept in lockstep with appupdate.rs DEFAULT_MANIFEST_URL. Fixed so
     // no page-supplied URL is ever fetched by the installer.
     private const val UPDATE_MANIFEST_URL =
-      "https://raw.githubusercontent.com/anaskhumawala-creator/tamescroll/main/updates/app-manifest.json"
+      "https://raw.githubusercontent.com/tamescroll/tamescroll/main/updates/app-manifest.json"
     private const val TAG_PERF = "TsPerf"
     // One frame at ~30fps -- the target the ADPF session in PerfBridge.hint
     // asks the scheduler to keep ts-infer's inferences under.

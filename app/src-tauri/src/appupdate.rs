@@ -18,7 +18,7 @@
 use serde::Serialize;
 
 const DEFAULT_MANIFEST_URL: &str =
-    "https://raw.githubusercontent.com/anaskhumawala-creator/tamescroll/main/updates/app-manifest.json";
+    "https://raw.githubusercontent.com/tamescroll/tamescroll/main/updates/app-manifest.json";
 
 fn manifest_url() -> String {
     std::env::var("TAMESCROLL_UPDATE_URL").unwrap_or_else(|_| DEFAULT_MANIFEST_URL.to_string())

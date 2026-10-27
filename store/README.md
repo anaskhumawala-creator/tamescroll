@@ -40,28 +40,33 @@ so the store build should not go up without them.
 
 ## Owner only
 
-- [ ] **Play Console account: a NEW one, just for tamescroll** (ZV,
-  2026-10-27). The existing console belongs to Hijri First, and a strike
-  on tamescroll must not reach its apps. Fresh Gmail (doubles as the
-  public contact email), sign up as "Yourself", developer name
-  tamescroll. A personal account costs a one-time
-  US$25 and needs ID verification. If it was created after 13 Nov 2023,
-  Google requires a **closed test with at least 12 testers for 14 days
-  in a row** before production access. Start recruiting testers early:
-  family and friends with Android phones and a Gmail address.
+- [ ] **Play Console account: the existing Hijri First one** (ZV,
+  2026-10-27; the same account goes to the App Store). Accepted risk: a
+  policy strike on tamescroll can reach that account's other apps, which
+  is why the lines in `docs/legal-position.md` matter. tamescroll shows
+  under that account's developer name; its contact email can be set per
+  app. Whether the **12 testers for 14 days** rule applies depends on the
+  account: personal and created after 13 Nov 2023 means yes;
+  organization, or older, means no. Check Settings → Developer account.
+  If it applies, recruit testers who never installed the sideloaded APK.
+  The app can move to its own account later with Play's app transfer.
+  The developer name can be changed any time and applies to every app on
+  the account (ZV keeps the shared identity, 2026-10-27). When it
+  changes, update "published by Hijri First" in `web/privacy.html`.
 - [ ] **Upload key.** Make it once and keep two backups off this
   machine; losing it means a key-reset request to Google:
   `keytool -genkeypair -v -keystore tamescroll-upload.jks -alias upload -keyalg RSA -keysize 4096 -validity 10000`
   Keep the .jks outside the repo, then create
   `app/src-tauri/gen/android/keystore.properties` (gitignored) with four
-  lines: `storeFile=` (full path to the .jks), `storePassword=`,
+  lines: `storeFile=` (full path to the .jks, with forward slashes:
+  `C:/Users/you/keys/tamescroll-upload.jks`), `storePassword=`,
   `keyAlias=upload`, `keyPassword=`. The `play` build signs with it.
   Opt in to Play App Signing (Google holds the app signing key).
-- [ ] **Privacy policy URL.** Play needs a public URL. Either redeploy
-  tamescroll.com (#15) or turn on GitHub Pages for `web/`.
-- [ ] **Contact email** for the listing (Play shows it publicly) and for
-  the website's contact line. A dedicated address is better than a
-  personal one.
+- [x] **Privacy policy URL**: `https://tamescroll.com/privacy.html`. The
+  `Site` workflow publishes `web/` to GitHub Pages (repo Settings → Pages:
+  Source **GitHub Actions**, custom domain tamescroll.com).
+- [x] **Contact email**: tamescroll@proton.me (2026-10-27), for the
+  listing (Play shows it publicly), the privacy page and the terms.
 - [ ] **Screenshots**: 2 to 8 phone screenshots, taken on the store
   build. Suggested set: the home tiles with the search box; a cleaned
   YouTube home; a watch page without the related column; the blur on a
@@ -72,6 +77,42 @@ so the store build should not go up without them.
   Thailand from 30 Sep 2026, worldwide in 2027). Register the package
   name `app.tamescroll.client` with the same identity as the Play
   account so the website APK keeps installing.
+
+## Building and uploading
+
+1. Double-click **`play-build.bat`** in the repo root. It builds the
+   gaze bundle, the Rust library and the signed `.aab`, checks it, and
+   prints the file to upload (`release-out/tamescroll-play-<code>.aab`).
+   It publishes nothing.
+2. Play Console → Testing → **Internal testing** first: no review wait,
+   up to 100 testers, and it is the first time the minified (R8) build
+   runs on a phone. Check the launcher, a tile, the blur, the search box
+   and the Ads switch on it before anything else.
+3. Then **Closed testing** with the 12 testers for 14 days, then
+   **Production**.
+
+## Roadblocks we already hit, and what stops them now
+
+| Hit before | What happened | Now |
+| --- | --- | --- |
+| Models missing on a fresh clone | Engine reported `native-failed` and everything quietly ran on the slow worker | `play-build.sh` refuses to start without `assets/models/*.tflite` |
+| Stale gaze bundle | `tauri android build` does not rebuild it; an APK shipped the previous bundle | The script builds it first |
+| gradlew exit code | gradlew exits 0 when the task failed | The script checks the `.aab` mtime |
+| Unstripped or duplicate `.so` | APK doubled in size | Strip into `jniLibs`, size check |
+| Install permission | A listing asking for `REQUEST_INSTALL_PACKAGES` is refused | `src/play/AndroidManifest.xml` removes it; the script greps the bundle for it |
+| Implied permissions | A dependency AAR added `READ_PHONE_STATE`, which needs a declaration form | Removed in the play manifest; checked in the bundle |
+| Self-updater | Play forbids apps updating themselves | `BuildConfig.UPDATER=false`; rules still travel as JSON only |
+| Never ran minified | The 2026-09-05 play `.aab` was built but never installed | Internal testing track before anything else |
+| Brand look | Juno removed under Apple 5.2.2; Play impersonation rules | #22, #23, #24 in this file |
+
+**Two things that will bite if not planned for:**
+- **The Play app cannot update the sideloaded one.** Same package name,
+  different signing key: Android refuses. Anyone moving from the APK to
+  Play (ZV included) uninstalls first and loses their settings. Testers
+  should be people who never installed the APK.
+- **One versionCode per upload.** Play refuses a code it has seen. The
+  Play build reuses the newest sideload code, so a second Play upload
+  needs a `release.bat` run first.
 
 ## Play Console answers (ready to paste)
 
