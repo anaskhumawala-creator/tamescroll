@@ -128,8 +128,53 @@ static USER_TERMS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 /// loads must read the CURRENT prefs, not ones baked at window creation.
 static SHOWN_STATE: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
+/// The platform SHOWN_STATE was set for. Android has one webview, and
+/// a link followed out of one platform lands on another with the first
+/// one's prefs still held; surface ids are mostly disjoint, but `ads` is
+/// shared, so "ads shown on YouTube" must not leak onto Reddit.
+static SHOWN_PLATFORM: Mutex<&'static str> = Mutex::new("");
+
 fn set_shown_state(shown: Vec<String>) {
     *SHOWN_STATE.lock().unwrap() = shown;
+}
+
+fn set_shown_platform(id: &'static str) {
+    *SHOWN_PLATFORM.lock().unwrap() = id;
+}
+
+/// THE ADS SWITCH (decided 2026-10-22, docs/legal-position.md; #23).
+/// Ads used to be always-on hidden with no setting. Store review reads an
+/// app that blocks a platform's ads with no user choice as interfering
+/// with that platform, so each platform's Bring back list now carries an
+/// `ads` entry, Hidden by default. Shown turns off, for that platform
+/// only: network blocking, the vendor cosmetic lists, the ad scriptlets,
+/// and our own `ads` and `promoted` surfaces. Feeds, Shorts and nags
+/// stay hidden either way.
+pub(crate) const ADS_SURFACE: &str = "ads";
+
+fn ads_shown(shown: &[String]) -> bool {
+    shown.iter().any(|id| id == ADS_SURFACE)
+}
+
+/// Does the page making a request belong to the platform whose prefs
+/// show ads? Pure, so it can be tested without the process-wide state.
+fn ads_let_through(page_url: &str, shown_platform: &str, shown: &[String]) -> bool {
+    ads_shown(shown)
+        && url_host(page_url)
+            .and_then(|h| platform_for_host(&h))
+            .is_some_and(|p| p.id == shown_platform)
+}
+
+/// The shown prefs that apply to `platform_id`: the held list, minus the
+/// shared `ads` id when the list was set for a different platform.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))] // android page loads
+fn shown_for(platform_id: &str) -> Vec<String> {
+    let shown = shown_state();
+    if *SHOWN_PLATFORM.lock().unwrap() == platform_id {
+        shown
+    } else {
+        shown.into_iter().filter(|id| id != ADS_SURFACE).collect()
+    }
 }
 
 #[cfg_attr(not(target_os = "android"), allow(dead_code))] // android page loads
@@ -202,12 +247,19 @@ fn platform_for_host(host: &str) -> Option<&'static Platform> {
 #[cfg_attr(not(target_os = "android"), allow(dead_code))] // android page loads
 fn page_load_rules_script(url: &str) -> Option<String> {
     let platform = platform_for_host(platform_root(url))?;
-    let resources = engine().url_cosmetic_resources(url);
+    let shown = shown_for(platform.id);
+    // Ads shown: the ad scriptlets go too, or the player still strips
+    // them out of the response the user asked to see them in.
+    let scriptlets = if ads_shown(&shown) {
+        String::new()
+    } else {
+        engine().url_cosmetic_resources(url).injected_script
+    };
     let script = injection_script(
         // Blur is deliberately NOT part of this payload: the gaze
         // page-load script owns the Stage A sheet and the Stage B boot.
-        &page_css(url, platform.id, false, &shown_state()),
-        &resources.injected_script,
+        &page_css(url, platform.id, false, &shown),
+        &scriptlets,
         true,
     );
     Some(format!(
@@ -475,7 +527,12 @@ fn surfaces_css(platform_id: &str, shown: &[String]) -> String {
 
     let mut css = String::new();
     for surface in surfaces {
-        let is_shown = !surface.always_on && shown.iter().any(|id| id == surface.id);
+        let is_shown = if surface.always_on {
+            // Ads and promos follow the ads switch; nags never come back.
+            matches!(surface.id, "ads" | "promoted") && ads_shown(shown)
+        } else {
+            shown.iter().any(|id| id == surface.id)
+        };
         if is_shown {
             continue;
         }
@@ -561,7 +618,7 @@ fn chrome_css() -> &'static str {
 }
 
 fn page_css(url: &str, platform_id: &str, blur: bool, shown: &[String]) -> String {
-    let mut css = cosmetic_css(url);
+    let mut css = if ads_shown(shown) { String::new() } else { cosmetic_css(url) };
     css.push_str(chrome_css());
     css.push_str(consent_css());
     css.push_str(&surfaces_css(platform_id, shown));
@@ -709,6 +766,13 @@ pub(crate) fn blocks_request(url: &str, source_url: &str, resource_type: &str) -
         return false;
     }
     REQ_SEEN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    // The ads switch (ADS_SURFACE): the page making the request belongs to
+    // a platform whose ads the user turned back on. A top-level load has
+    // no source yet, so the request's own host stands in for it.
+    let page = if source_url.is_empty() { url } else { source_url };
+    if ads_let_through(page, *SHOWN_PLATFORM.lock().unwrap(), &SHOWN_STATE.lock().unwrap()) {
+        return false;
+    }
     // An unparseable URL is not something we can reason about, and this
     // runs inside every page load: degrade to "allow" rather than panic.
     let Ok(req) = adblock::request::Request::new(url, source_url, resource_type, "GET") else {
@@ -1180,8 +1244,8 @@ fn cosmetic_css(url: &str) -> String {
 }
 
 /// Surface info the settings pane renders from, not a hardcoded copy of
-/// `rules/*.txt`'s ids and labels. Always-on surfaces (ads) are excluded —
-/// there is nothing to toggle, per VISION.md.
+/// `rules/*.txt`'s ids and labels. Always-on surfaces (nags, and the
+/// ad surfaces the `ads` switch governs) are excluded.
 #[derive(Serialize, Clone)]
 pub struct SurfaceInfo {
     id: String,
@@ -1203,6 +1267,14 @@ fn surfaces(id: String) -> Vec<SurfaceInfo> {
                     label: s.label.to_string(),
                     default_shown: s.default_shown,
                 })
+                // The ads switch (ADS_SURFACE), on every platform, last:
+                // it governs network blocking too, so it exists even where
+                // the rules file has no `ads` surface of its own.
+                .chain(std::iter::once(SurfaceInfo {
+                    id: ADS_SURFACE.to_string(),
+                    label: "Ads".to_string(),
+                    default_shown: false,
+                }))
                 .collect()
         })
         .unwrap_or_default()
@@ -1786,6 +1858,100 @@ fn injection_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+/// THE SEARCH-OR-TYPE BOX (decided 2026-10-22, #22). What the launcher's
+/// box turns into a page: an address when the input reads as one, a web
+/// search otherwise. Only http(s) ever comes out of here -- `javascript:`,
+/// `file:`, `intent:` and friends are searched for as text, never opened.
+/// Searches go to DuckDuckGo with safe search held at strict (`kp=1`):
+/// no account, no tracking, and the strictest filter it offers, which is
+/// the direction this app always leans.
+pub(crate) fn resolve_address(input: &str) -> Option<tauri::Url> {
+    let text = input.trim();
+    if text.is_empty() {
+        return None;
+    }
+    let lower = text.to_ascii_lowercase();
+    let address = if lower.starts_with("https://") || lower.starts_with("http://") {
+        text.parse::<tauri::Url>().ok()
+    } else if !text.contains(char::is_whitespace) && !text.contains(':') || text.contains(":/") {
+        // "example.com/path". A bare word ("cats") has no dot in its host
+        // and a scheme-like prefix ("intent://x") makes a dotless host,
+        // so both fall through to a search below.
+        format!("https://{text}").parse::<tauri::Url>().ok()
+    } else {
+        None
+    };
+    if let Some(u) = address.filter(|u| {
+        matches!(u.scheme(), "https" | "http")
+            && u.host_str().is_some_and(|h| h.contains('.') || h == "localhost")
+    }) {
+        return Some(u);
+    }
+    let mut search = tauri::Url::parse("https://duckduckgo.com/").ok()?;
+    search.query_pairs_mut().append_pair("q", text).append_pair("kp", "1");
+    Some(search)
+}
+
+/// Opens what the search-or-type box resolved to, in the same webview a
+/// tile uses. The gaze prefs ride along exactly as they do for a tile, so
+/// a platform reached by address gets the same treatment it would from
+/// its tile; any other site gets network ad blocking.
+#[cfg_attr(target_os = "android", allow(unreachable_code, unused_variables))]
+#[tauri::command]
+async fn open_address(
+    app: tauri::AppHandle,
+    input: String,
+    mode: String,
+    strength: u32,
+    gender: String,
+) -> Result<(), String> {
+    let url = resolve_address(&input).ok_or_else(|| "nothing to open".to_string())?;
+    set_gaze_state(&mode);
+    set_blur_px(strength);
+    set_user_gender_state(&gender);
+
+    #[cfg(target_os = "android")]
+    {
+        let main = app
+            .get_webview_window("main")
+            .ok_or_else(|| "no main webview".to_string())?;
+        return main.navigate(url).map_err(|e| e.to_string());
+    }
+
+    // Desktop: one browsing window, reused, with the same per-navigation
+    // rules and network blocking as a platform window.
+    if let Some(existing) = app.get_webview_window("browse") {
+        existing.navigate(url).map_err(|e| e.to_string())?;
+        let _ = existing.set_focus();
+        return Ok(());
+    }
+    let home_app = app.clone();
+    let built = WebviewWindowBuilder::new(&app, "browse", WebviewUrl::External(url))
+        .title("tamescroll")
+        .inner_size(1200.0, 860.0)
+        .on_navigation(move |url| {
+            if url.host_str() == Some("tauri.localhost") {
+                if let Some(main) = home_app.get_webview_window("main") {
+                    let _ = main.set_focus();
+                }
+                return false;
+            }
+            true
+        })
+        .on_page_load(|webview, payload| {
+            if let Some(js) = page_load_rules_script(payload.url().as_str()) {
+                let _ = webview.eval(&js);
+            }
+            if let Some(js) = page_load_gaze_script(payload.url().as_str(), gaze_state()) {
+                let _ = webview.eval(&js);
+            }
+        })
+        .build()
+        .map_err(|e| e.to_string())?;
+    install_request_blocker(&built);
+    Ok(())
+}
+
 // Android: everything after the navigate-and-return block is
 // desktop-only builder code the compiler sees as unreachable there.
 #[cfg_attr(target_os = "android", allow(unreachable_code, unused_variables))]
@@ -1826,6 +1992,7 @@ async fn open_platform(
     set_blur_px(strength);
     set_user_gender_state(&gender);
     set_shown_state(shown.clone());
+    set_shown_platform(platform.id);
 
     let url: tauri::Url = match requested {
         Some(u) => u,
@@ -1896,10 +2063,14 @@ async fn open_platform(
     }
 
     let mode = gaze_mode(&mode);
-    let resources = engine().url_cosmetic_resources(platform.url);
+    let scriptlets = if ads_shown(&shown) {
+        String::new()
+    } else {
+        engine().url_cosmetic_resources(platform.url).injected_script
+    };
     let script = injection_script(
         &page_css(platform.url, platform.id, mode == "blur", &shown),
-        &resources.injected_script,
+        &scriptlets,
         false,
     );
 
@@ -2005,6 +2176,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             platforms,
             open_platform,
+            open_address,
             rules_summary,
             surfaces,
             set_gaze_mode,
@@ -2022,6 +2194,33 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #22: the box opens addresses as addresses, searches everything
+    /// else, and never hands the webview a scheme other than http(s).
+    #[test]
+    fn search_or_type_box_resolves_addresses_and_searches() {
+        let r = |s: &str| resolve_address(s).map(|u| u.to_string());
+        assert_eq!(r("example.com").as_deref(), Some("https://example.com/"));
+        assert_eq!(r("  bbc.co.uk/news ").as_deref(), Some("https://bbc.co.uk/news"));
+        assert_eq!(r("http://example.com/a").as_deref(), Some("http://example.com/a"));
+        assert_eq!(r("https://m.youtube.com/watch?v=x").as_deref(), Some("https://m.youtube.com/watch?v=x"));
+        assert_eq!(r(""), None);
+        assert_eq!(r("   "), None);
+        for text in [
+            "cats",
+            "how to bake bread",
+            "javascript:alert(1)",
+            "file:///etc/passwd",
+            "intent://scan#Intent;end",
+            "data:text/html,hi",
+        ] {
+            let u = resolve_address(text).expect("a search");
+            assert_eq!(u.host_str(), Some("duckduckgo.com"), "{text} must be searched, not opened");
+            let q: Vec<(String, String)> = u.query_pairs().into_owned().collect();
+            assert!(q.contains(&("q".into(), text.into())), "{text}: query carried as typed");
+            assert!(q.contains(&("kp".into(), "1".into())), "{text}: strict safe search");
+        }
+    }
 
     /// 1107: a link may pick the PAGE, never the PLATFORM. Red-proved by
     /// adding "example.com" to the youtube arm and watching the last
@@ -2171,6 +2370,62 @@ mod tests {
         let a = s.find("__TS_TAKE_PERF_TOKEN").expect("perf stash in the android init script");
         let b = s.find("__TS_NATIVE_PORT_SEEN").expect("native stash");
         assert!(a < b, "the perf stash precedes the native stash");
+    }
+
+    /// The ads switch (#23): Shown lets the platform's own page through
+    /// and nothing else -- not another platform's page, and not this
+    /// platform while the switch says Hidden.
+    #[test]
+    fn ads_switch_lets_through_only_the_platform_it_was_set_for() {
+        let watch = "https://m.youtube.com/watch?v=E4lnTIJaz-g";
+        let ads = vec![ADS_SURFACE.to_string()];
+        assert!(ads_let_through(watch, "youtube", &ads));
+        assert!(ads_let_through("https://www.youtube.com/", "youtube", &ads));
+        assert!(!ads_let_through(watch, "youtube", &[]), "Hidden must keep blocking");
+        assert!(!ads_let_through(watch, "reddit", &ads), "another platform's switch");
+        assert!(!ads_let_through("https://www.reddit.com/", "youtube", &ads));
+        assert!(!ads_let_through("https://example.com/", "youtube", &ads));
+    }
+
+    /// Shown drops the vendor cosmetics and our own ad and promo
+    /// surfaces, and keeps every other surface and the nags hidden.
+    #[test]
+    fn ads_switch_shows_ad_surfaces_and_keeps_the_rest_hidden() {
+        let url = "https://m.youtube.com/";
+        let ads = vec![ADS_SURFACE.to_string()];
+        let rule = |id: &str| {
+            rules::platform_surfaces("youtube")
+                .and_then(|ss| ss.iter().find(|s| s.id == id))
+                .and_then(|s| s.rules.first())
+                .map(|(_, sel)| format!("{sel} {{ display: none !important; }}"))
+                .unwrap_or_else(|| panic!("youtube has no {id} surface"))
+        };
+        let hidden = page_css(url, "youtube", false, &[]);
+        let shown = page_css(url, "youtube", false, &ads);
+        for id in ["ads", "promoted"] {
+            assert!(hidden.contains(&rule(id)), "{id} hidden by default");
+            assert!(!shown.contains(&rule(id)), "{id} shown with the switch");
+        }
+        for id in ["shorts", "mobile_nags"] {
+            assert!(shown.contains(&rule(id)), "{id} must stay hidden with ads shown");
+        }
+        assert!(
+            shown.len() + 1000 < hidden.len(),
+            "vendor cosmetics must go with the switch ({} vs {} bytes)",
+            shown.len(),
+            hidden.len()
+        );
+    }
+
+    /// Every platform offers the switch, Hidden by default, even one
+    /// whose rules file has no ads surface of its own.
+    #[test]
+    fn every_platform_offers_the_ads_switch_hidden_by_default() {
+        for p in PLATFORMS.iter().filter(|p| rules::platform_surfaces(p.id).is_some()) {
+            let list = surfaces(p.id.to_string());
+            let ads = list.iter().find(|s| s.id == ADS_SURFACE);
+            assert!(ads.is_some_and(|s| !s.default_shown), "{}: no Hidden ads switch", p.id);
+        }
     }
 
     #[test]
@@ -2580,22 +2835,24 @@ mod tests {
         }
     }
 
-    /// VISION.md: ad-hiding is never user-toggleable. Even if the
-    /// frontend somehow sent "ads" in `shown` (it never offers the
-    /// option — see the `surfaces` command), the always_on surface must
-    /// stay hidden.
+    /// Nags stay hidden whatever `shown` says: they are always-on and
+    /// have no switch. (Ads used to be pinned the same way; since #23
+    /// they follow the per-platform ads switch -- see
+    /// ads_switch_shows_ad_surfaces_and_keeps_the_rest_hidden.)
     #[test]
-    fn always_on_ads_surface_cannot_be_shown() {
+    fn always_on_nag_surface_cannot_be_shown() {
+        let nag = rules::platform_surfaces("youtube")
+            .and_then(|ss| ss.iter().find(|s| s.id == "mobile_nags"))
+            .and_then(|s| s.rules.first())
+            .map(|(_, sel)| format!("{sel} {{ display: none !important; }}"))
+            .expect("youtube has a mobile_nags surface");
         let css = page_css(
             "https://www.youtube.com/",
             "youtube",
             false,
-            &["ads".to_string()],
+            &["mobile_nags".to_string(), ADS_SURFACE.to_string()],
         );
-        assert!(
-            css.contains("ytd-ad-slot-renderer"),
-            "the always-on ads surface must stay hidden even when 'shown' asks for it"
-        );
+        assert!(css.contains(&nag), "nags must stay hidden even when 'shown' asks for them");
     }
 
     /// Android gaze delivery (plugin on_page_load): the page-load script

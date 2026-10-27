@@ -21,23 +21,30 @@ a script later.
 These are the decisions of 2026-10-22. Each one answers a review rule,
 so the store build should not go up without them.
 
-- [ ] A "search or type a site" box above the tiles, visible by
+- [x] A "search or type a site" box above the tiles, visible by
   default, #22 (Play Webviews policy, Apple 4.2 and 5.2.2: we are a browser,
   not a wrapper for someone else's site).
-- [ ] A per-site "Block ads" switch, on by default, #23 (Play Device and
-  Network Abuse: the user, not the app, decides to block ads).
-- [ ] No platform logo or brand colour anywhere in the store build,
-  #24 (Play Impersonation, Apple 5.2.1). The in-app tiles already use muted
-  letter glyphs. What is left are the home-screen shortcut icons in
-  `res/drawable-nodpi/shortcut_*.png`: YouTube's is a red play button
-  and Reddit's and TikTok's use those brands' orange and pink. They
-  become the same muted letter glyphs as the tiles.
-- [ ] A release signing config for the `play` build type that reads the
+- [x] A per-site ads switch, #23 (Play Device and Network Abuse: the
+  user, not the app, decides to block ads). Settings → Bring back →
+  (platform) → Ads, Hidden by default. Shown turns off network blocking,
+  the vendor cosmetic lists, the ad scriptlets and our ad and promo
+  surfaces for that platform only.
+- [x] No platform logo or brand colour in the store build, #24 (Play
+  Impersonation, Apple 5.2.1). The in-app tiles already use muted letter
+  glyphs. The `play` build type overrides the home-screen shortcut icons
+  (`src/play/res/drawable-nodpi/shortcut_*.png`) with plain cream letters
+  on our ink; the sideloaded build keeps the red play tile ZV chose for
+  it on 2026-09-10.
+- [x] A release signing config for the `play` build type that reads the
   upload key from outside the repo (`keystore.properties`, gitignored).
 
 ## Owner only
 
-- [ ] **Play Console account.** A personal account costs a one-time
+- [ ] **Play Console account: a NEW one, just for tamescroll** (ZV,
+  2026-10-27). The existing console belongs to Hijri First, and a strike
+  on tamescroll must not reach its apps. Fresh Gmail (doubles as the
+  public contact email), sign up as "Yourself", developer name
+  tamescroll. A personal account costs a one-time
   US$25 and needs ID verification. If it was created after 13 Nov 2023,
   Google requires a **closed test with at least 12 testers for 14 days
   in a row** before production access. Start recruiting testers early:
@@ -45,6 +52,10 @@ so the store build should not go up without them.
 - [ ] **Upload key.** Make it once and keep two backups off this
   machine; losing it means a key-reset request to Google:
   `keytool -genkeypair -v -keystore tamescroll-upload.jks -alias upload -keyalg RSA -keysize 4096 -validity 10000`
+  Keep the .jks outside the repo, then create
+  `app/src-tauri/gen/android/keystore.properties` (gitignored) with four
+  lines: `storeFile=` (full path to the .jks), `storePassword=`,
+  `keyAlias=upload`, `keyPassword=`. The `play` build signs with it.
   Opt in to Play App Signing (Google holds the app signing key).
 - [ ] **Privacy policy URL.** Play needs a public URL. Either redeploy
   tamescroll.com (#15) or turn on GitHub Pages for `web/`.
@@ -106,7 +117,8 @@ forms are needed.
 > autoplay) and blurs images on the device. It does not use any site's
 > API, does not download or save media, and does not modify any other
 > app. Ad blocking is on by default and can be turned off per site in
-> that site's settings. No account is needed to review the app. To see
+> Settings → Bring back → (the site) → Ads. No account is needed to
+> review the app. To see
 > the image blur, open any site from the tiles and scroll a page of
 > thumbnails.
 
