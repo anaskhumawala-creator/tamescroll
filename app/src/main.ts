@@ -164,6 +164,8 @@ const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
 if (IOS) {
   blurToggle.closest<HTMLElement>(".card")!.hidden = true;
   document.querySelector<HTMLElement>('.nav-item[data-pane="blur"]')!.hidden = true;
+  // Onboarding lines that promise blur or link handling iPhone lacks.
+  document.querySelectorAll<HTMLElement>('[data-ios="hide"]').forEach((el) => (el.hidden = true));
 }
 
 renderBlurToggle();
@@ -1058,6 +1060,9 @@ function runOnboarding(platforms: Platform[], done: () => void) {
   const count = document.querySelector<HTMLElement>("#ob-count")!;
   const back = document.querySelector<HTMLButtonElement>("#ob-back")!;
   let current = 1;
+  // iPhone skips the gender and blur questions (3, 4): there is no blur
+  // there yet, so asking would promise something the app does not do.
+  const active = IOS ? [1, 2, 5] : [1, 2, 3, 4, 5];
 
   function goto(step: number) {
     current = step;
@@ -1065,11 +1070,12 @@ function runOnboarding(platforms: Platform[], done: () => void) {
       el.hidden = Number(el.dataset.step) !== step;
     });
     // Step 1 is the welcome, not a question; the counter starts after it.
-    count.textContent = step > 1 ? `${step - 1} of ${steps.length - 1}` : "";
-    back.hidden = step <= 1;
+    const at = active.indexOf(step);
+    count.textContent = at > 0 ? `${at} of ${active.length - 1}` : "";
+    back.hidden = at <= 0;
   }
 
-  back.addEventListener("click", () => goto(Math.max(1, current - 1)));
+  back.addEventListener("click", () => goto(active[Math.max(0, active.indexOf(current) - 1)]));
   document.querySelector<HTMLButtonElement>("#ob-start")!.addEventListener("click", () => goto(2));
 
   // Step 2: type-to-match platform entry.
@@ -1124,7 +1130,7 @@ function runOnboarding(platforms: Platform[], done: () => void) {
     }
   });
   paintChips();
-  cont.addEventListener("click", () => goto(3));
+  cont.addEventListener("click", () => (IOS ? finish("off") : goto(3)));
 
   // Step 3: the gender question (compulsory stop, skippable answer).
   document.querySelectorAll<HTMLButtonElement>(".ob-card[data-gender]").forEach((btn) => {
@@ -1140,41 +1146,43 @@ function runOnboarding(platforms: Platform[], done: () => void) {
 
   // Step 4: blur mode.
   document.querySelectorAll<HTMLButtonElement>("#ob-blur-cards .ob-card").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      obMode = btn.dataset.mode as GazeMode;
-      // Step 5 summary reflects the actual picks.
-      const names = [...chosen]
-        .map((id) => platforms.find((p) => p.id === id)?.name)
-        .filter(Boolean);
-      const summary = document.querySelector<HTMLElement>("#ob-summary")!;
-      summary.textContent = names.length
-        ? `${names.join(" and ")} ${names.length === 1 ? "is" : "are"} set up. Everything starts hidden — bring back what you want in Settings.`
-        : "No platforms yet — add one from the home screen when you need it. Everything starts hidden.";
-      const glyphs = document.querySelector<HTMLElement>("#ob-glyphs")!;
-      glyphs.textContent = "";
-      [...chosen].forEach((id) => {
-        const p = platforms.find((x) => x.id === id);
-        if (p) glyphs.append(glyphFor(p));
-      });
-      // COMMIT HERE, not on the last button: the link flow's self-test
-      // reloads this page (a link arrival navigates the webview), and
-      // an uncommitted onboarding would start over.
-      writeChosen([...chosen]);
-      setGender(obGender);
-      setMode(obMode);
-      const linksBtn = document.querySelector<HTMLButtonElement>("#ob-links")!;
-      const linksNote = document.querySelector<HTMLElement>("#ob-links-note")!;
-      const offerLinks = linksApplicable();
-      linksBtn.hidden = !offerLinks;
-      linksNote.hidden = !offerLinks;
-      let pin: { supported?: boolean; pinned?: boolean } = {};
-      try { pin = JSON.parse(linksBridge?.pinState?.("youtube") ?? "{}"); } catch { /* the OS would not say */ }
-      const pinBtn = document.querySelector<HTMLButtonElement>("#ob-pin")!;
-      pinBtn.hidden = !(offerLinks && pin.supported === true && pin.pinned !== true);
-      document.querySelector<HTMLElement>("#ob-pin-note")!.hidden = true;
-      goto(5);
-    });
+    btn.addEventListener("click", () => finish(btn.dataset.mode as GazeMode));
   });
+
+  function finish(mode: GazeMode) {
+    obMode = mode;
+    // Step 5 summary reflects the actual picks.
+    const names = [...chosen]
+      .map((id) => platforms.find((p) => p.id === id)?.name)
+      .filter(Boolean);
+    const summary = document.querySelector<HTMLElement>("#ob-summary")!;
+    summary.textContent = names.length
+      ? `${names.join(" and ")} ${names.length === 1 ? "is" : "are"} set up. Everything starts hidden — bring back what you want in Settings.`
+      : "No platforms yet — add one from the home screen when you need it. Everything starts hidden.";
+    const glyphs = document.querySelector<HTMLElement>("#ob-glyphs")!;
+    glyphs.textContent = "";
+    [...chosen].forEach((id) => {
+      const p = platforms.find((x) => x.id === id);
+      if (p) glyphs.append(glyphFor(p));
+    });
+    // COMMIT HERE, not on the last button: the link flow's self-test
+    // reloads this page (a link arrival navigates the webview), and
+    // an uncommitted onboarding would start over.
+    writeChosen([...chosen]);
+    setGender(obGender);
+    setMode(obMode);
+    const linksBtn = document.querySelector<HTMLButtonElement>("#ob-links")!;
+    const linksNote = document.querySelector<HTMLElement>("#ob-links-note")!;
+    const offerLinks = linksApplicable();
+    linksBtn.hidden = !offerLinks;
+    linksNote.hidden = !offerLinks;
+    let pin: { supported?: boolean; pinned?: boolean } = {};
+    try { pin = JSON.parse(linksBridge?.pinState?.("youtube") ?? "{}"); } catch { /* the OS would not say */ }
+    const pinBtn = document.querySelector<HTMLButtonElement>("#ob-pin")!;
+    pinBtn.hidden = !(offerLinks && pin.supported === true && pin.pinned !== true);
+    document.querySelector<HTMLElement>("#ob-pin-note")!.hidden = true;
+    goto(5);
+  }
 
   // Step 5: the handover (Android + YouTube chosen), or straight in.
   document.querySelector<HTMLButtonElement>("#ob-links")!.addEventListener("click", () => {
