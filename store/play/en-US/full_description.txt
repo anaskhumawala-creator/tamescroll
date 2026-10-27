@@ -21,5 +21,5 @@ PRIVATE BY DESIGN
 
 tamescroll is an independent project. It is not affiliated with, endorsed by or sponsored by any of the sites it opens. You sign in to each site on that site's own page, and that site's terms apply to your account.
 
-Privacy policy: https://tamescroll.github.io/tamescroll/privacy.html
+Privacy policy: https://tamescroll.com/privacy.html
 Source code: https://github.com/tamescroll/tamescroll
