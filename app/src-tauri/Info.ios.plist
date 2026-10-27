@@ -3,6 +3,10 @@
 <!-- Merged into the generated iOS Info.plist by `tauri ios init/build` (#16). -->
 <plist version="1.0">
 <dict>
+	<!-- Only standard HTTPS, so TestFlight and the App Store do not stop
+	     each build to ask about encryption export rules. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<!-- tamescroll://open/<platform>[?url=<link>]: how links, the
 	     Shortcuts app and the quick actions below reach the launcher
 	     (launcher_query_for_open in lib.rs). -->
