@@ -64,9 +64,8 @@ const BLUR_KEY = "tamescroll.blur";
 
 const CAPTIONS: Record<GazeMode, string> = {
   off: "",
-  blur: "Blurs pictures on the pages you browse. What you open plays normally.",
-  smart:
-    "Smart blurs faces by your onboarding choice. Blur runs on this device — nothing you view leaves it.",
+  blur: "Blurs every picture and preview on the pages you browse.",
+  smart: "Blurs faces in pictures and previews, by your choice below.",
 };
 
 function migrate(raw: string | null): GazeMode {
@@ -125,12 +124,9 @@ function renderBlurToggle() {
     btn.classList.toggle("active", active);
     btn.setAttribute("aria-checked", String(active));
   });
-  // Video blur on a phone is beta and starts off (his 2026-10-22 ruling,
-  // gaze player-switch.mjs); the caption is where he learns the switch is.
-  blurCaption.textContent =
-    mode === "smart" && /Android/i.test(navigator.userAgent)
-      ? `${CAPTIONS[mode]} Video blur is in beta: videos start unblurred, and the Blur switch on the player turns it on.`
-      : CAPTIONS[mode];
+  // The watch player is not blurred (his 2026-10-27 ruling, gaze
+  // PLAYER_VIDEO_BLUR); the pane's own line says so.
+  blurCaption.textContent = CAPTIONS[mode];
   const px = getStrength();
   strengthRow.hidden = mode === "off";
   strengthToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
@@ -511,7 +507,7 @@ async function renderBringBack(readyPlatforms: Platform[]) {
   if (!readyPlatforms.length) {
     const hint = document.createElement("p");
     hint.className = "section-hint";
-    hint.textContent = "Add a platform first — its surfaces show up here.";
+    hint.textContent = "Add a site on the home screen first — its settings show up here.";
     bringBack.append(hint);
     return;
   }
@@ -522,6 +518,7 @@ async function renderBringBack(readyPlatforms: Platform[]) {
 
       const details = document.createElement("details");
       details.className = "platform-settings";
+      details.dataset.platform = platform.id;
       const summary = document.createElement("summary");
       summary.textContent = platform.name;
       details.append(summary);
@@ -747,10 +744,10 @@ function renderTiles(platforms: Platform[], chosen: string[]) {
   dot.textContent = "+";
   const name = document.createElement("span");
   name.className = "name";
-  name.textContent = "Add a platform";
+  name.textContent = "Add a site";
   const note = document.createElement("span");
   note.className = "note";
-  note.textContent = "Only ones you already use";
+  note.textContent = "Type its name";
   add.append(dot, name, note);
   add.addEventListener("click", () => {
     add.replaceWith(addMatchBox(platforms));
@@ -763,7 +760,7 @@ function addMatchBox(platforms: Platform[]): HTMLElement {
   box.className = "add-match";
   const input = document.createElement("input");
   input.type = "text";
-  input.placeholder = "Type a platform name...";
+  input.placeholder = "Type a site's name...";
   input.autocomplete = "off";
   const result = document.createElement("div");
   box.append(input, result);
@@ -783,7 +780,7 @@ function addMatchBox(platforms: Platform[]): HTMLElement {
     } else if (q.trim().length >= 3) {
       const none = document.createElement("p");
       none.className = "match-none";
-      none.textContent = "We don't support that.";
+      none.textContent = "We don't clean that one yet. The search box above opens any site.";
       result.append(none);
     }
   });
@@ -804,7 +801,7 @@ function renderManage(platforms: Platform[]) {
   const details = document.createElement("details");
   details.className = "platform-settings";
   const summary = document.createElement("summary");
-  summary.textContent = "Your platforms";
+  summary.textContent = "Remove a site";
   details.append(summary);
 
   platforms
@@ -1012,7 +1009,7 @@ document.querySelector<HTMLButtonElement>("#links-card-btn")!.addEventListener("
 
 // ---------- settings view ----------
 
-const PANES = ["bringback", "filters", "blur", "protection", "about"] as const;
+const PANES = ["bringback", "blur", "filters", "about"] as const;
 
 function showPane(name: (typeof PANES)[number]) {
   PANES.forEach((p) => {
@@ -1210,13 +1207,62 @@ async function invokeStartup<T>(cmd: string): Promise<T> {
 }
 
 let allPlatforms: Platform[] = [];
+// The last Sites render, so a caller can wait for it instead of starting
+// a second one that would interleave its rows with this one's.
+let bringBackReady: Promise<void> = Promise.resolve();
 
 function refreshAll() {
   const chosen = readChosen() ?? [];
   renderTiles(allPlatforms, chosen);
   renderManage(allPlatforms);
   renderLinksCard();
-  void renderBringBack(allPlatforms.filter((p) => p.ready && chosen.includes(p.id)));
+  bringBackReady = renderBringBack(allPlatforms.filter((p) => p.ready && chosen.includes(p.id)));
+}
+
+// THE TOP BAR INSIDE A SITE (his 2026-10-27, #33). MainActivity draws it
+// natively above every site and sends its taps here: ?search=<page> opens
+// home with the box holding that page's address, selected, the way a
+// browser's address bar works; ?settings=<page> opens Settings -> Sites
+// at that page's site.
+function barRequest(): { kind: "search" | "settings"; page: string } | null {
+  const params = new URLSearchParams(location.search);
+  for (const kind of ["search", "settings"] as const) {
+    const page = params.get(kind);
+    if (page !== null) return { kind, page };
+  }
+  return null;
+}
+
+function platformForPage(page: string): Platform | undefined {
+  const bare = (host: string) => host.toLowerCase().replace(/^(www|m|mobile)\./, "");
+  let host = "";
+  try {
+    host = bare(new URL(page).hostname);
+  } catch {
+    return undefined;
+  }
+  return allPlatforms.find((p) => {
+    try {
+      const own = bare(new URL(p.url).hostname);
+      return host === own || host.endsWith(`.${own}`);
+    } catch {
+      return false;
+    }
+  });
+}
+
+async function openSiteSettings(page: string) {
+  showView("settings");
+  showPane("bringback");
+  await bringBackReady;
+  const platform = platformForPage(page);
+  const details = platform
+    ? bringBack.querySelector<HTMLDetailsElement>(`details[data-platform="${platform.id}"]`)
+    : null;
+  if (details) {
+    details.open = true;
+    details.scrollIntoView({ block: "start" });
+  }
 }
 
 // Home-screen shortcut or link launch (Android). Cold start: MainActivity
@@ -1277,6 +1323,7 @@ async function start() {
   // is one, the page stays on the dark handoff line until the platform
   // document replaces it.
   const pending = pendingRequest();
+  const bar = pending ? null : barRequest();
 
   // Only the plain launch paints early: a link or shortcut keeps its
   // handoff line, and a first run goes to onboarding, which needs the
@@ -1314,6 +1361,16 @@ async function start() {
     } else {
       showView("launcher");
       refreshAll();
+      if (bar) {
+        history.replaceState(null, "", location.pathname);
+        if (bar.kind === "search") {
+          openLinkInput.value = bar.page;
+          openLinkInput.focus();
+          openLinkInput.select();
+        } else {
+          void openSiteSettings(bar.page);
+        }
+      }
     }
 
     // THE RULE COUNT MUST NOT GATE THE APP (1107). rules_summary calls

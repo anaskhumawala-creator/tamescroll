@@ -14,6 +14,14 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Process
 import android.view.Display
+import android.view.Gravity
+import android.text.TextUtils
+import android.graphics.drawable.GradientDrawable
+import android.util.TypedValue
+import android.widget.FrameLayout
+import android.widget.ImageButton
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
@@ -70,6 +78,8 @@ class MainActivity : TauriActivity() {
     private const val PROBE_URL = "https://youtu.be/jNQXAC9IVRw?ts_probe=1"
     private const val LINKS_PREFS = "tamescroll.links"
     private const val LINKS_PROBED = "probed"
+    // Height of the top bar above every site (installTopBar).
+    private const val TOP_BAR_DP = 52
   }
 
   // Platform requested by a home-screen shortcut before the webview
@@ -838,6 +848,94 @@ class MainActivity : TauriActivity() {
     }
   }
 
+  // THE TOP BAR (his 2026-10-27, #33: "make it look more like a
+  // browser"). Above every site, never on the launcher: home, the page's
+  // address (tap it to search or type a new one, on the launcher's own
+  // box) and a shield that opens this site's settings. Native, OUTSIDE
+  // the WebView: the page only sees a shorter viewport, the way it would
+  // under Chrome's toolbar, so nothing the gaze page measures moves
+  // inside it. Video fullscreen sits on the decor view and covers it.
+  private var topBar: View? = null
+  private var topBarAddress: TextView? = null
+  private var topBarHost: View? = null
+  private var topBarUrl = ""
+
+  private fun installTopBar() {
+    val content = findViewById<FrameLayout>(android.R.id.content) ?: return
+    // The child of content that holds the WebView (the WebView itself
+    // when wry sets it as the content view): the bar pushes it down.
+    var host: View = webView
+    while (host.parent != null && host.parent !== content) {
+      host = host.parent as? View ?: return
+    }
+    if (host.parent !== content) return
+    val dp = resources.displayMetrics.density
+    val px = { v: Int -> (v * dp).toInt() }
+    val ripple = TypedValue().also {
+      theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, it, true)
+    }.resourceId
+    fun icon(res: Int, label: String, onTap: () -> Unit) = ImageButton(this).apply {
+      setImageResource(res)
+      contentDescription = label
+      setBackgroundResource(ripple)
+      layoutParams = LinearLayout.LayoutParams(px(44), px(44))
+      setOnClickListener { onTap() }
+    }
+    val bar = LinearLayout(this).apply {
+      orientation = LinearLayout.HORIZONTAL
+      gravity = Gravity.CENTER_VERTICAL
+      setBackgroundColor(0xFF141414.toInt())
+      setPadding(px(4), 0, px(4), 0)
+      visibility = View.GONE
+    }
+    val address = TextView(this).apply {
+      setTextColor(0xFFE7E5E1.toInt())
+      setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+      maxLines = 1
+      ellipsize = TextUtils.TruncateAt.END
+      gravity = Gravity.CENTER_VERTICAL
+      setPadding(px(14), 0, px(14), 0)
+      background = GradientDrawable().apply {
+        cornerRadius = px(18).toFloat()
+        setColor(0xFF242320.toInt())
+      }
+      contentDescription = "Search or type a site"
+      layoutParams = LinearLayout.LayoutParams(0, px(36), 1f).apply {
+        marginStart = px(4)
+        marginEnd = px(4)
+      }
+      setOnClickListener { webView.loadUrl("http://tauri.localhost/?search=" + Uri.encode(topBarUrl)) }
+    }
+    bar.addView(icon(R.drawable.ic_bar_home, "Home") { webView.loadUrl(launcherUrl(null)) })
+    bar.addView(address)
+    bar.addView(icon(R.drawable.ic_bar_shield, "This site's settings") {
+      webView.loadUrl("http://tauri.localhost/?settings=" + Uri.encode(topBarUrl))
+    })
+    content.addView(bar, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(TOP_BAR_DP), Gravity.TOP))
+    topBar = bar
+    topBarAddress = address
+    topBarHost = host
+    updateTopBar(webView.url)
+  }
+
+  /** Shows the bar on a web page and hides it on the launcher. UI thread. */
+  private fun updateTopBar(url: String?) {
+    val bar = topBar ?: return
+    val host = topBarHost ?: return
+    val u = url ?: ""
+    val onSite = (u.startsWith("https://") || u.startsWith("http://")) && !u.contains("tauri.localhost")
+    if (onSite) {
+      topBarUrl = u
+      topBarAddress?.text = (Uri.parse(u).host ?: u).removePrefix("www.").removePrefix("m.")
+    }
+    val want = if (onSite) View.VISIBLE else View.GONE
+    if (bar.visibility == want) return
+    bar.visibility = want
+    val lp = host.layoutParams as? ViewGroup.MarginLayoutParams ?: return
+    lp.topMargin = if (onSite) (TOP_BAR_DP * resources.displayMetrics.density).toInt() else 0
+    host.layoutParams = lp
+  }
+
   /// Same shape as installFullscreenClient: wry's RustWebViewClient is
   /// final and attached from Rust after onWebViewCreate returns, so this
   /// runs via webView.post and WRAPS it. Every method wry overrides is
@@ -907,6 +1005,7 @@ class MainActivity : TauriActivity() {
 
       override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
         pageUrlForBlocking = url
+        updateTopBar(url)
         // The port is PULLED by the document-start stash (TsNativePort.
         // requestPort), never pushed from here: a WebMessage posted at
         // onPageStarted can be delivered before the document's start
@@ -927,6 +1026,7 @@ class MainActivity : TauriActivity() {
       // document, and the document keeps its port.)
       override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
         pageUrlForBlocking = url
+        updateTopBar(url)
         wry.doUpdateVisitedHistory(view, url, isReload)
       }
 
@@ -1448,6 +1548,7 @@ class MainActivity : TauriActivity() {
     }
     webView.post { installFullscreenClient() }
     webView.post { installBlockingClient() }
+    webView.post { installTopBar() }
 
     // tamescroll: on Android everything runs in this one WebView, so the
     // system Back key must always land on our launcher before it is

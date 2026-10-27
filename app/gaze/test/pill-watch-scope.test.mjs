@@ -54,3 +54,12 @@ test('the panel hands its gear element back', () => {
   const ret = tune.slice(tune.lastIndexOf('return {'));
   assert.ok(/\bgear: gear\b/.test(ret), 'installTuneUi must expose the gear it owns');
 });
+
+test('with no switch on the player, the pill is never shown and the gear is never built', () => {
+  // His ruling 2026-10-27 (PLAYER_VIDEO_BLUR): the pill element stays
+  // because its watcher turns a preview's blur off on a watch page, but
+  // setChrome must hide it whatever the page is.
+  const set = block.slice(block.indexOf('var setChrome'), block.indexOf('setChrome(feedPreview())'));
+  assert.ok(set.includes('hide = hide || !playerSwitchShown()'), 'the pill would show with no blur behind it');
+  assert.ok(src.includes('if (playerSwitchShown()) tuneUi = installTuneUi('), 'the gear would ride a player with no switch');
+});
