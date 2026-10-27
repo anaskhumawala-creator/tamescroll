@@ -5,88 +5,237 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>tamescroll — tools we like</title>
 <meta name="description" content="Other free tools that share tamescroll's aim: a quieter phone, and platforms without the machinery.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --paper: #faf9f5; --paper-2: #f2f0ea; --paper-line: #e4e1d8;
     --paper-ink: #1d1c19; --paper-muted: #6b675e; --paper-faint: #98948a;
+    --gold: #c9a45e; --gold-deep: #a8874c;
     --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-display: "Spectral", Georgia, serif;
+    --ease: cubic-bezier(.22,.9,.24,1);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
   body {
     background: var(--paper); color: var(--paper-ink);
     font-family: var(--font-ui); font-size: 16px; line-height: 1.6;
     -webkit-font-smoothing: antialiased;
   }
-  main { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; }
+  main { max-width: 780px; margin: 0 auto; padding: 40px 20px 80px; }
   a { color: inherit; }
   .back { font-size: 14px; color: var(--paper-muted); text-decoration: none; }
-  h1 { font-family: var(--font-display); font-weight: 500; font-size: clamp(32px, 5vw, 44px); margin: 18px 0 6px; }
-  .date { color: var(--paper-faint); font-size: 14px; margin-bottom: 28px; }
-  h2 { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--paper-faint); font-weight: 600; margin: 40px 0 12px; }
-  p { color: var(--paper-muted); }
-  p + p { margin-top: 10px; }
-  b { color: var(--paper-ink); font-weight: 600; }
-  .tool { border: 1px solid var(--paper-line); border-radius: 12px; padding: 18px 20px; background: #fff; }
-  .tool + .tool { margin-top: 12px; }
-  .tool h3 { font-size: 17px; margin-bottom: 4px; }
-  .tool h3 a { text-decoration: none; }
-  .tool h3 a:hover { text-decoration: underline; }
-  .tool .meta { font-size: 13px; color: var(--paper-faint); margin-bottom: 8px; }
-  .tool p { font-size: 15px; }
-  footer { border-top: 1px solid var(--paper-line); margin-top: 48px; padding-top: 18px; font-size: 13.5px; color: var(--paper-faint); }
+  .back:hover { color: var(--paper-ink); }
+  h1 { font-family: var(--font-display); font-weight: 500; font-size: clamp(34px, 6vw, 48px); line-height: 1.1; margin: 22px 0 12px; letter-spacing: -.01em; }
+  .lead { color: var(--paper-muted); font-size: 17px; max-width: 620px; }
+  .promise { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 16px; font-size: 13.5px; color: var(--paper-muted); }
+  .promise span::before { content: "✓"; color: var(--gold-deep); font-weight: 700; margin-right: 6px; }
+
+  /* "What do you want?" picker */
+  .picker { margin: 34px 0 8px; }
+  .picker .q { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--paper-faint); font-weight: 600; margin-bottom: 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font: inherit; font-size: 14px; font-weight: 500; color: var(--paper-ink);
+    background: #fff; border: 1px solid var(--paper-line); border-radius: 999px;
+    padding: 7px 14px; cursor: pointer; transition: border-color .2s var(--ease), background .2s var(--ease);
+  }
+  .chip:hover { border-color: var(--paper-faint); }
+  .chip[aria-pressed="true"] { background: var(--paper-ink); border-color: var(--paper-ink); color: var(--paper); }
+
+  .device { margin: 18px 0 0; font-size: 13.5px; color: var(--paper-muted); min-height: 1.6em; }
+  .device b { color: var(--paper-ink); font-weight: 600; }
+
+  /* tool cards */
+  .list { display: grid; gap: 14px; margin-top: 18px; }
+  .tool {
+    background: #fff; border: 1px solid var(--paper-line); border-radius: 16px;
+    padding: 20px; display: grid; grid-template-columns: 52px 1fr; gap: 4px 16px;
+    scroll-margin-top: 20px;
+  }
+  .tool[hidden] { display: none; }
+  .mono {
+    grid-row: span 3; width: 52px; height: 52px; border-radius: 13px;
+    display: grid; place-items: center; font-family: var(--font-display);
+    font-size: 24px; font-weight: 600; color: var(--paper);
+  }
+  .goal { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold-deep); font-weight: 600; }
+  .tool h2 { font-size: 19px; line-height: 1.3; font-weight: 600; }
+  .tool p { color: var(--paper-muted); font-size: 15px; margin-top: 4px; }
+  .facts { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .facts span { font-size: 12px; color: var(--paper-muted); background: var(--paper-2); border-radius: 6px; padding: 2px 8px; }
+  .get { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--paper-line); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+    font-size: 14px; font-weight: 500; padding: 8px 14px; border-radius: 10px;
+    border: 1px solid var(--paper-line); background: var(--paper); color: var(--paper-ink);
+    transition: border-color .2s var(--ease), transform .2s var(--ease);
+  }
+  .btn:hover { border-color: var(--paper-ink); }
+  .btn:active { transform: translateY(1px); }
+  .btn::after { content: "↗"; font-size: 12px; color: var(--paper-faint); }
+  .btn.mine { background: var(--paper-ink); border-color: var(--paper-ink); color: var(--paper); }
+  .btn small { font-size: 12px; opacity: .7; font-weight: 400; }
+
+  .note { margin-top: 26px; padding: 16px 18px; border-radius: 12px; background: var(--paper-2); font-size: 14px; color: var(--paper-muted); }
+  .note b { color: var(--paper-ink); }
+  footer { border-top: 1px solid var(--paper-line); margin-top: 40px; padding-top: 18px; font-size: 13.5px; color: var(--paper-faint); }
+
+  @media (max-width: 520px) {
+    .tool { grid-template-columns: 44px 1fr; padding: 18px 16px; }
+    .mono { width: 44px; height: 44px; font-size: 20px; border-radius: 11px; }
+    .facts { grid-column: 1 / -1; }
+    .btn { flex: 1 1 calc(50% - 8px); justify-content: center; }
+  }
 </style>
 </head>
 <body>
 <main>
   <a class="back" href="index.html">← tamescroll</a>
   <h1>Tools we like</h1>
-  <div class="date">Checked 27 October 2026</div>
+  <p class="lead">tamescroll is one app for your phone. Other people are working toward the same thing, a calmer screen and platforms that stop pulling at you. Some of them do a part of it better than we do, so here they are.</p>
+  <div class="promise"><span>All free to start</span><span>No affiliate links</span><span>Checked 27 October 2026</span></div>
 
-  <p>tamescroll is one app for your phone. Other people are working toward the same thing, a calmer screen and platforms that stop pulling at you, and some of them do a part of it better than we do. These are the ones we use or admire. None of them pays us, and we don't earn anything when you install them.</p>
+  <div class="picker">
+    <div class="q">What do you want?</div>
+    <div class="chips" role="group" aria-label="Filter tools">
+      <button class="chip" data-f="all" aria-pressed="true">Show all</button>
+      <button class="chip" data-f="home" aria-pressed="false">A calmer home screen</button>
+      <button class="chip" data-f="youtube" aria-pressed="false">A cleaner YouTube</button>
+      <button class="chip" data-f="x" aria-pressed="false">A cleaner X</button>
+      <button class="chip" data-f="blur" aria-pressed="false">Blur images</button>
+      <button class="chip" data-f="ads" aria-pressed="false">Block ads</button>
+    </div>
+  </div>
+  <div class="device" id="device" aria-live="polite"></div>
 
-  <h2>On your phone</h2>
+  <div class="list">
 
-  <div class="tool">
-    <h3><a href="https://github.com/tanujnotes/olauncher">Olauncher</a></h3>
-    <div class="meta">Android · free · open source (GPL-3.0) · Google Play and F-Droid</div>
-    <p>A home screen of plain text: no icons, no badges, nothing asking to be tapped. It pairs well with tamescroll, which can put its own icon on your home screen so the cleaned platforms are the ones you reach first.</p>
+    <article class="tool" id="olauncher" data-tags="home">
+      <div class="mono" style="background:#3b3a36">O</div>
+      <div class="goal">A calmer home screen</div>
+      <h2>Olauncher</h2>
+      <p>Your phone's home screen as a short list of words: no icons, no badges, nothing asking to be tapped. tamescroll can add its own icon there, so the cleaned platforms are the first thing you reach.</p>
+      <div class="facts"><span>Android</span><span>Free</span><span>Open source</span></div>
+      <div class="get">
+        <a class="btn" data-on="android android-firefox android-edge" href="https://play.google.com/store/apps/details?id=app.olauncher">Google Play</a>
+        <a class="btn" data-on="android android-firefox android-edge" href="https://f-droid.org/packages/app.olauncher">F-Droid</a>
+      </div>
+    </article>
+
+    <article class="tool" id="unhook" data-tags="youtube">
+      <div class="mono" style="background:#b4574a">U</div>
+      <div class="goal">A cleaner YouTube on a computer</div>
+      <h2>Unhook</h2>
+      <p>Hides YouTube's recommendations, Shorts, comments and more, each with its own switch. The closest thing to tamescroll's YouTube tile on a computer.</p>
+      <div class="facts"><span>Chrome</span><span>Firefox</span><span>Edge</span><span>Free</span></div>
+      <div class="get">
+        <a class="btn" data-on="chrome" href="https://chrome.google.com/webstore/detail/unhook-remove-youtube-rec/khncfooichmfjbepaaaebmommgaepoid">Chrome</a>
+        <a class="btn" data-on="firefox" href="https://addons.mozilla.org/firefox/addon/youtube-recommended-videos/">Firefox</a>
+        <a class="btn" data-on="edge" href="https://microsoftedge.microsoft.com/addons/detail/unhook-remove-youtube-r/hebpjnnclppdnfghdnmhgdljmjpfhggk">Edge</a>
+      </div>
+    </article>
+
+    <article class="tool" id="shorts-block" data-tags="youtube">
+      <div class="mono" style="background:#9a6a55">S</div>
+      <div class="goal">No YouTube Shorts</div>
+      <h2>YouTube Shorts Block</h2>
+      <p>Does one thing: takes Shorts off YouTube's home, search and watch pages, or plays a Short as an ordinary video if you'd rather.</p>
+      <div class="facts"><span>Firefox</span><span>Free</span><span>Open source</span></div>
+      <div class="get">
+        <a class="btn" data-on="firefox" href="https://addons.mozilla.org/firefox/addon/shorts-block/">Firefox</a>
+      </div>
+    </article>
+
+    <article class="tool" id="control-panel-for-twitter" data-tags="x">
+      <div class="mono" style="background:#2d2c29">C</div>
+      <div class="goal">A cleaner X</div>
+      <h2>Control Panel for Twitter</h2>
+      <p>Keeps X on your Following timeline and hides the For You feed, trends and much of the clutter. It also works in Firefox and Edge on Android, and in Safari on iPhone.</p>
+      <div class="facts"><span>Chrome</span><span>Firefox</span><span>Edge</span><span>Safari</span><span>Open source</span></div>
+      <div class="get">
+        <a class="btn" data-on="chrome" href="https://chrome.google.com/webstore/detail/control-panel-for-twitter/kpmjjdhbcfebfjgdnpjagcndoelnidfj">Chrome</a>
+        <a class="btn" data-on="firefox android-firefox" href="https://addons.mozilla.org/firefox/addon/control-panel-for-twitter/">Firefox</a>
+        <a class="btn" data-on="edge android-edge" href="https://microsoftedge.microsoft.com/addons/detail/control-panel-for-twitter/foccddlibbeccjiobcnakipdpkjiijjp">Edge</a>
+        <a class="btn" data-on="safari-mac" href="https://apps.apple.com/app/id1668516167?platform=mac">Safari on Mac</a>
+        <a class="btn" data-on="ios" href="https://apps.apple.com/app/id1668516167?platform=iphone">Safari on iPhone</a>
+      </div>
+    </article>
+
+    <article class="tool" id="haramblur" data-tags="blur">
+      <div class="mono" style="background:#5f6f5a">H</div>
+      <div class="goal">Blur images and video</div>
+      <h2>HaramBlur</h2>
+      <p>Blurs images and video on the page you're viewing, on your own device. It works on any website, not only the platforms tamescroll opens.</p>
+      <div class="facts"><span>Chrome</span><span>Firefox</span><span>Safari</span><span>Android</span><span>iPhone</span><span>Open source</span></div>
+      <div class="get">
+        <a class="btn" data-on="chrome edge opera" href="https://haramblur.com/chrome">Chrome <small>and Edge, Brave</small></a>
+        <a class="btn" data-on="firefox android-firefox" href="https://haramblur.com/firefox">Firefox</a>
+        <a class="btn" data-on="safari-mac" href="https://haramblur.com/safari-mac">Safari on Mac</a>
+        <a class="btn" data-on="android android-edge" href="https://play.google.com/store/apps/details?id=com.haramblur">Google Play</a>
+        <a class="btn" data-on="ios" href="https://apps.apple.com/app/haramblur/id6741595731">App Store</a>
+      </div>
+    </article>
+
+    <article class="tool" id="adguard" data-tags="ads">
+      <div class="mono" style="background:#4f7a68">A</div>
+      <div class="goal">Block ads everywhere else</div>
+      <h2>AdGuard</h2>
+      <p>A thorough ad and tracker blocker for every site you visit in your browser. The extension is free and needs no account.</p>
+      <div class="facts"><span>Chrome</span><span>Firefox</span><span>Edge</span><span>Opera</span><span>Free</span></div>
+      <div class="get">
+        <a class="btn" data-on="chrome" href="https://adguard.com/en/download-extension/chrome.html">Chrome</a>
+        <a class="btn" data-on="firefox" href="https://adguard.com/en/download-extension/firefox.html">Firefox</a>
+        <a class="btn" data-on="edge" href="https://adguard.com/en/download-extension/edge.html">Edge</a>
+        <a class="btn" data-on="opera" href="https://adguard.com/en/download-extension/opera.html">Opera</a>
+      </div>
+    </article>
+
   </div>
 
-  <h2>In your browser</h2>
-  <p>tamescroll doesn't run on desktop yet. Until it does, these extensions cover a lot of the same ground.</p>
+  <div class="note"><b>On a phone?</b> Chrome and Safari on phones can't run most browser extensions. On Android, Firefox can, and that's how Control Panel for Twitter and HaramBlur get there. For YouTube, Reddit, X and Instagram on your phone, that's what <a href="index.html">tamescroll</a> is for.</div>
 
-  <div class="tool" style="margin-top:14px">
-    <h3><a href="https://unhook.app">Unhook</a></h3>
-    <div class="meta">YouTube · Chrome, Firefox, Edge · free</div>
-    <p>Hides YouTube's recommendations, Shorts, comments and end screens, each with its own switch. The closest thing to tamescroll's YouTube tile on a computer.</p>
-  </div>
-
-  <div class="tool">
-    <h3><a href="https://soitis.dev/control-panel-for-twitter">Control Panel for Twitter</a></h3>
-    <div class="meta">X · Chrome, Firefox, Edge, Safari · open source (MIT)</div>
-    <p>Keeps X on your Following timeline, and hides the For You feed, trends and much of the clutter. It also runs in Firefox on Android.</p>
-  </div>
-
-  <div class="tool">
-    <h3><a href="https://addons.mozilla.org/firefox/addon/shorts-block/">YouTube Shorts Block</a></h3>
-    <div class="meta">YouTube · Firefox · free · open source (MIT)</div>
-    <p>Does one thing: takes Shorts off YouTube's home, search and watch pages, or plays a Short as an ordinary video if you'd rather.</p>
-  </div>
-
-  <div class="tool">
-    <h3><a href="https://haramblur.com">HaramBlur</a></h3>
-    <div class="meta">Images and video · Chrome, Firefox, Safari, plus Android and iPhone apps · open source (AGPL-3.0)</div>
-    <p>Blurs images and video on the page you are viewing, on your own device. It works on any website, not only the platforms tamescroll opens.</p>
-  </div>
-
-  <div class="tool">
-    <h3><a href="https://adguard.com/en/adguard-browser-extension/overview.html">AdGuard</a></h3>
-    <div class="meta">Ads and trackers · Chrome, Firefox, Edge, Opera · free extension</div>
-    <p>A thorough ad and tracker blocker for every site you visit. The browser extension is free and needs no account.</p>
-  </div>
-
-  <footer>tamescroll is not affiliated with any of these projects, and they have not endorsed tamescroll. Know a tool that belongs here? <a href="https://github.com/tamescroll/tamescroll/issues/new">Tell us</a>.</footer>
+  <footer>tamescroll is not affiliated with any of these projects, and they have not endorsed tamescroll. Each name belongs to its owner. Know a tool that belongs here? <a href="https://github.com/tamescroll/tamescroll/issues/new">Tell us</a>.</footer>
 </main>
+<script>
+  // Filter by goal.
+  var chips = document.querySelectorAll(".chip");
+  var tools = document.querySelectorAll(".tool");
+  chips.forEach(function (c) {
+    c.addEventListener("click", function () {
+      var f = c.getAttribute("data-f");
+      chips.forEach(function (o) { o.setAttribute("aria-pressed", o === c ? "true" : "false"); });
+      tools.forEach(function (t) {
+        t.hidden = f !== "all" && t.getAttribute("data-tags").split(" ").indexOf(f) < 0;
+      });
+    });
+  });
+
+  // Darken the install buttons that fit this device. Nothing is stored or sent.
+  var ua = navigator.userAgent, here = null, label = null;
+  var touchMac = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+  if (/iPhone|iPad|iPod/.test(ua) || touchMac) { here = "ios"; label = "an iPhone or iPad"; }
+  else if (/Android/.test(ua)) {
+    if (/Firefox/.test(ua)) { here = "android-firefox"; label = "Firefox on Android"; }
+    else if (/EdgA\//.test(ua)) { here = "android-edge"; label = "Edge on Android"; }
+    else { here = "android"; label = "Android"; }
+  }
+  else if (/Edg\//.test(ua)) { here = "edge"; label = "Edge"; }
+  else if (/OPR\//.test(ua)) { here = "opera"; label = "Opera"; }
+  else if (/Firefox\//.test(ua)) { here = "firefox"; label = "Firefox"; }
+  else if (/Chrome\//.test(ua)) { here = "chrome"; label = "Chrome"; }
+  else if (/Safari\//.test(ua) && /Macintosh/.test(ua)) { here = "safari-mac"; label = "Safari on a Mac"; }
+  if (here) {
+    var n = 0;
+    document.querySelectorAll(".btn").forEach(function (b) {
+      if (b.getAttribute("data-on").split(" ").indexOf(here) >= 0) { b.classList.add("mine"); n++; }
+    });
+    document.getElementById("device").innerHTML = n
+      ? "You're on <b>" + label + "</b>. The dark buttons install on this device."
+      : "You're on <b>" + label + "</b>. These install on a computer, so open this page there.";
+  }
+</script>
 </body>
 </html>
