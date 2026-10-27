@@ -1872,6 +1872,10 @@ fn injection_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 /// user wanders to; those still get the page-load eval.
 #[cfg(target_os = "ios")]
 fn set_ios_page_script(app: &tauri::AppHandle, url: &str) {
+    // Network blocking follows the Ads switch of the platform being
+    // opened; any other site is blocked as usual.
+    let ads = platform_for_host(platform_root(url)).is_some_and(|p| ads_shown(&shown_for(p.id)));
+    let _ = tauri_plugin_ts_webkit::set_blocking(app, !ads);
     let Some(rules) = page_load_rules_script(url) else {
         let _ = tauri_plugin_ts_webkit::set_page_script(app, String::new());
         return;
@@ -1883,6 +1887,39 @@ fn set_ios_page_script(app: &tauri::AppHandle, url: &str) {
          if (h !== r && !h.endsWith('.' + r)) return; {rules} }})();"
     );
     let _ = tauri_plugin_ts_webkit::set_page_script(app, guarded);
+}
+
+/// iOS network blocking (#16): WKWebView cannot intercept requests, so
+/// the engine's network lists go to WebKit as a content-blocker list
+/// (rules::content_blocker_json). The list is keyed by a hash of the
+/// list texts, so WebKit compiles it once per rules version and every
+/// later start is a lookup. Off the main thread: the conversion parses
+/// every list, and WebKit's first compile takes seconds.
+#[cfg(target_os = "ios")]
+fn prepare_ios_blocker(app: tauri::AppHandle) {
+    use sha2::{Digest, Sha256};
+    std::thread::spawn(move || {
+        // Give the OTA restore a moment to load cached list updates, so
+        // the first list compiled is the current one.
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        let (json, count) = rules::content_blocker_json();
+        if count == 0 || count >= rules::CONTENT_BLOCKER_LIMIT {
+            eprintln!("content blocker skipped: {count} rules");
+            return;
+        }
+        let id = format!("ts-{:x}", Sha256::digest(json.as_bytes()));
+        let Ok(dir) = app.path().app_cache_dir() else { return };
+        let path = dir.join("content-blocker.json");
+        if std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(&path, &json)).is_err() {
+            return;
+        }
+        let result = tauri_plugin_ts_webkit::prepare_blocker(
+            &app,
+            id,
+            path.to_string_lossy().into_owned(),
+        );
+        eprintln!("content blocker ({count} rules): {result:?}");
+    });
 }
 
 /// CI only (debug builds on iOS): `simctl launch <app> --ts-open=youtube`
@@ -2230,6 +2267,8 @@ pub fn run() {
             if let Some(dir) = cache_dir {
                 std::thread::spawn(move || ota::init(dir));
             }
+            #[cfg(target_os = "ios")]
+            prepare_ios_blocker(app.handle().clone());
             #[cfg(all(target_os = "ios", debug_assertions))]
             ios_ci_open(app.handle().clone());
             Ok(())

@@ -80,3 +80,54 @@ pub fn set_page_script<R: Runtime, M: tauri::Manager<R>>(
     #[allow(unreachable_code)]
     Ok(())
 }
+
+/// Hands WebKit the network block list (a JSON file at `path`) under
+/// `id`. WebKit compiles it once and keeps the compiled form, so a later
+/// start with the same id only looks it up. Lists stored under any other
+/// id are deleted. Blocks until WebKit has the list or has refused it.
+#[allow(unused_variables)]
+pub fn prepare_blocker<R: Runtime, M: tauri::Manager<R>>(
+    manager: &M,
+    id: String,
+    path: String,
+) -> Result<(), String> {
+    #[cfg(target_os = "ios")]
+    {
+        #[derive(serde::Serialize)]
+        struct Args {
+            id: String,
+            path: String,
+        }
+        let handle = manager
+            .try_state::<Handle<R>>()
+            .ok_or_else(|| "ts-webkit not initialised".to_string())?;
+        return handle
+            .0
+            .run_mobile_plugin::<()>("prepareBlocker", Args { id, path })
+            .map_err(|e| e.to_string());
+    }
+    #[allow(unreachable_code)]
+    Ok(())
+}
+
+/// Turns network blocking on or off for the pages that follow: the
+/// per-platform Ads switch (#23) set to Shown means no blocking at all.
+#[allow(unused_variables)]
+pub fn set_blocking<R: Runtime, M: tauri::Manager<R>>(manager: &M, on: bool) -> Result<(), String> {
+    #[cfg(target_os = "ios")]
+    {
+        #[derive(serde::Serialize)]
+        struct Args {
+            on: bool,
+        }
+        let handle = manager
+            .try_state::<Handle<R>>()
+            .ok_or_else(|| "ts-webkit not initialised".to_string())?;
+        return handle
+            .0
+            .run_mobile_plugin::<()>("setBlocking", Args { on })
+            .map_err(|e| e.to_string());
+    }
+    #[allow(unreachable_code)]
+    Ok(())
+}
