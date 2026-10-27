@@ -165,6 +165,9 @@ jobs:
           # A release build: the debug one stops right after launch on
           # Appetize, before any of our code runs (2026-10-27 log), most
           # likely waiting for the CLI's dev log server that only CI has.
+          # The debug build's output in gen/apple/build would block Tauri's
+          # rename of the new app ("Directory not empty").
+          rm -rf src-tauri/gen/apple/build
           touch "$RUNNER_TEMP/release-marker"
           pnpm tauri ios build --target aarch64-sim --ci
           APP=$(find src-tauri/gen/apple ~/Library/Developer/Xcode/DerivedData -name '*.app' -type d -path '*elease*' -newer "$RUNNER_TEMP/release-marker" 2>/dev/null | grep -v '/PlugIns/' | head -1)
