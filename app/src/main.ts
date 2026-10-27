@@ -1326,23 +1326,11 @@ async function start() {
       refreshAll();
     }
 
-    // THE RULE COUNT MUST NOT GATE THE APP (1107). rules_summary calls
-    // engine() per platform, and engine() BUILDS the 152k-rule adblock
-    // engine synchronously if it is not warm yet -- measured on his
-    // phone: a cold youtu.be link sat on this launcher for 20 seconds
-    // (page start :13, open_platform :33, "adblock engine warmed in
-    // 25.3s" at :33). Every line below this one -- the shortcut, the
-    // link -- waited on a caption. So the count is requested and the
-    // caption fills in when it arrives; nothing waits for it.
+    // No rule count on Home (his 2026-10-27: "I'd prefer to not show the
+    // rules to the people"). The count used to be requested here; the
+    // engine still warms on its own thread at startup (run()).
     restingStatus = "";
     status.textContent = "";
-    void invoke<Record<string, number>>("rules_summary")
-      .then((counts) => {
-        const active = Object.values(counts).reduce((sum, n) => sum + n, 0);
-        restingStatus = `${active} rules active`;
-        if (!status.textContent) status.textContent = restingStatus;
-      })
-      .catch(() => { /* the caption is decoration; the app is not */ });
 
     if (pending) {
       history.replaceState(null, "", location.pathname);
