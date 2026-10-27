@@ -126,9 +126,12 @@ jobs:
       # it can be opened without signing in to download an artifact.
       - name: Publish the proof to the ci/ios-proof branch
         if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        working-directory: ios-proof
+        working-directory: .
         run: |
-          for f in *.png; do sips -Z 700 "$f" >/dev/null; done
+          # A build that fails early leaves no proof folder at all.
+          [ -d ios-proof ] || { echo "no proof to publish"; exit 0; }
+          cd ios-proof
+          for f in *.png; do [ -e "$f" ] && sips -Z 700 "$f" >/dev/null; done
           echo "${{ github.event.pull_request.head.sha }}" > SHA
           git init -q -b ci/ios-proof
           git -c user.name=ci -c user.email=ci@localhost add -A
