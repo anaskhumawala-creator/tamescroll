@@ -134,6 +134,23 @@ jobs:
             /usr/libexec/PlistBuddy -c 'Print UIApplicationShortcutItems' "$APP/Info.plist" || true
           } | tee ../ios-proof/info-plist.txt
 
+          # Appetize offers iOS 17, 18 and 26; its sessions opened to a
+          # blank page (2026-10-27) while iOS 26 here draws fine. Launch on
+          # an iOS 18 simulator as well, to see the same thing here.
+          OLD=$(xcrun simctl list devices available | sed -n '/-- iOS 18/,/-- iOS/p' | grep -m1 -E 'iPhone 1[5-6]' | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')
+          if [ -n "$OLD" ]; then
+            xcrun simctl shutdown "$DEVICE" || true
+            xcrun simctl boot "$OLD"
+            xcrun simctl bootstatus "$OLD" -b
+            xcrun simctl install "$OLD" "$APP"
+            xcrun simctl launch "$OLD" "$BUNDLE"
+            sleep 25
+            xcrun simctl io "$OLD" screenshot ../ios-proof/launcher-ios18.png
+            xcrun simctl spawn "$OLD" log show --last 1m --style compact --predicate 'process == "tamescroll"' 2>/dev/null | tail -60 > ../ios-proof/ios18-log.txt || true
+          else
+            echo "no iOS 18 simulator on this runner"
+          fi
+
       # The owner has no iPhone or Mac, so the simulator build is also put
       # on Appetize.io, which runs it in a browser (his OK, 2026-10-27).
       # Needs the repository secret APPETIZE_API_TOKEN; APPETIZE_PUBLIC_KEY
@@ -147,23 +164,7 @@ jobs:
           [ -n "$APPETIZE_API_TOKEN" ] || { echo "no APPETIZE_API_TOKEN secret, skipping"; exit 0; }
           APP=$(find src-tauri/gen/apple -name '*.app' -type d -path '*sim*' | head -1)
           [ -n "$APP" ] || APP=$(find src-tauri/gen/apple -name '*.app' -type d | head -1)
-          # Appetize runs Intel simulators: an arm64-only build starts to a
-          # blank white screen there (2026-10-27). Build the x86_64 slice
-          # too and join the two into one universal app.
-          rm -rf "$RUNNER_TEMP/u" && mkdir -p "$RUNNER_TEMP/u"
-          cp -R "$APP" "$RUNNER_TEMP/u/"
-          U="$RUNNER_TEMP/u/$(basename "$APP")"
-          EXE=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$U/Info.plist")
-          touch "$RUNNER_TEMP/u/marker"
-          rustup target add x86_64-apple-ios
-          pnpm tauri ios build --debug --target x86_64 --ci
-          X86=$(find src-tauri/gen/apple ~/Library/Developer/Xcode/DerivedData -name "$(basename "$APP")" -type d -newer "$RUNNER_TEMP/u/marker" 2>/dev/null | head -1)
-          [ -n "$X86" ] || { echo "no x86_64 app found"; exit 1; }
-          lipo -create "$U/$EXE" "$X86/$EXE" -output "$U/$EXE.universal"
-          mv "$U/$EXE.universal" "$U/$EXE"
-          lipo -info "$U/$EXE"
-          codesign --force --sign - --timestamp=none "$U"
-          (cd "$RUNNER_TEMP/u" && ditto -c -k --keepParent "$(basename "$U")" "$RUNNER_TEMP/app.zip")
+          (cd "$(dirname "$APP")" && ditto -c -k --keepParent "$(basename "$APP")" "$RUNNER_TEMP/app.zip")
           # Update the app already there for this bundle id, so the link
           # stays the same build after build.
           KEY="$APPETIZE_PUBLIC_KEY"
