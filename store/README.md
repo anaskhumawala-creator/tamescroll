@@ -62,11 +62,9 @@ so the store build should not go up without them.
   `C:/Users/you/keys/tamescroll-upload.jks`), `storePassword=`,
   `keyAlias=upload`, `keyPassword=`. The `play` build signs with it.
   Opt in to Play App Signing (Google holds the app signing key).
-- [ ] **Privacy policy URL.** Play needs a public URL. Turn on GitHub
-  Pages once (repo Settings → Pages → Source: **GitHub Actions**); the
-  `Site` workflow then publishes `web/` and the URL is
-  `https://tamescroll.github.io/tamescroll/privacy.html`.
-  tamescroll.com (#15) can replace it later.
+- [x] **Privacy policy URL**: `https://tamescroll.com/privacy.html`. The
+  `Site` workflow publishes `web/` to GitHub Pages (repo Settings → Pages:
+  Source **GitHub Actions**, custom domain tamescroll.com).
 - [x] **Contact email**: tamescroll@proton.me (2026-10-27), for the
   listing (Play shows it publicly), the privacy page and the terms.
 - [ ] **Screenshots**: 2 to 8 phone screenshots, taken on the store
