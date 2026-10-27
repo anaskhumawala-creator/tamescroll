@@ -67,9 +67,8 @@ so the store build should not go up without them.
   `Site` workflow then publishes `web/` and the URL is
   `https://anaskhumawala-creator.github.io/tamescroll/privacy.html`.
   tamescroll.com (#15) can replace it later.
-- [ ] **Contact email** for the listing (Play shows it publicly) and for
-  the website's contact line. A dedicated address is better than a
-  personal one.
+- [x] **Contact email**: tamescroll@proton.me (2026-10-27), for the
+  listing (Play shows it publicly), the privacy page and the terms.
 - [ ] **Screenshots**: 2 to 8 phone screenshots, taken on the store
   build. Suggested set: the home tiles with the search box; a cleaned
   YouTube home; a watch page without the related column; the blur on a
