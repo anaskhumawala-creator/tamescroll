@@ -167,7 +167,7 @@ fn ads_let_through(page_url: &str, shown_platform: &str, shown: &[String]) -> bo
 
 /// The shown prefs that apply to `platform_id`: the held list, minus the
 /// shared `ads` id when the list was set for a different platform.
-#[cfg_attr(not(target_os = "android"), allow(dead_code))] // android page loads
+#[cfg_attr(not(mobile), allow(dead_code))] // android page loads
 fn shown_for(platform_id: &str) -> Vec<String> {
     let shown = shown_state();
     if *SHOWN_PLATFORM.lock().unwrap() == platform_id {
@@ -177,7 +177,7 @@ fn shown_for(platform_id: &str) -> Vec<String> {
     }
 }
 
-#[cfg_attr(not(target_os = "android"), allow(dead_code))] // android page loads
+#[cfg_attr(not(mobile), allow(dead_code))] // android page loads
 fn shown_state() -> Vec<String> {
     SHOWN_STATE.lock().unwrap().clone()
 }
@@ -213,7 +213,7 @@ fn blur_vars_css(px: u32) -> String {
 /// with mobile/www prefixes (m.youtube.com after the UA redirect —
 /// the lesson behind dropping per-window host filters), so match on
 /// the platform's root domain.
-#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+#[cfg_attr(not(mobile), allow(dead_code))]
 fn platform_for_host(host: &str) -> Option<&'static Platform> {
     // Same suffix semantics as universal_injection_script's JS matcher
     // (root or ".root" suffix) — the two matchers diverging meant
@@ -244,7 +244,7 @@ fn platform_for_host(host: &str) -> Option<&'static Platform> {
 /// only — owner-reported 2026-08-20 as "ad blocking does not work at
 /// all" on the phone). Guarded so Started + Finished double-eval is a
 /// no-op: scriptlets are not all idempotent.
-#[cfg_attr(not(target_os = "android"), allow(dead_code))] // android page loads
+#[cfg_attr(not(mobile), allow(dead_code))] // android page loads
 fn page_load_rules_script(url: &str) -> Option<String> {
     let platform = platform_for_host(platform_root(url))?;
     let shown = shown_for(platform.id);
@@ -1568,7 +1568,7 @@ fn injection_script(css: &str, scriptlets: &str, scoped: bool) -> String {
 
 /// Root domain a platform's rules key on: the platform URL's host minus
 /// a leading `www.` — `youtube.com`, `reddit.com`, `x.com`.
-#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+#[cfg_attr(not(mobile), allow(dead_code))]
 fn platform_root(url: &str) -> &str {
     let host = url
         .split("://")
@@ -1591,7 +1591,7 @@ fn platform_root(url: &str) -> &str {
 /// gaze — Android settings/mode plumbing is a follow-up, as are the
 /// vendor cosmetic lists and scriptlets, which need the warmed engine
 /// and can't block app startup).
-#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+#[cfg_attr(not(mobile), allow(dead_code))]
 fn universal_injection_script() -> String {
     let mut branches = String::new();
     for p in PLATFORMS {
@@ -1821,7 +1821,7 @@ fn perf_token_stash_script() -> &'static str {
 /// Everything Android runs at document start, in order: the worker
 /// prestart, the AV1 capability wrappers, the perf-token stash, the
 /// native-port stash, the universal rules script.
-#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+#[cfg_attr(not(mobile), allow(dead_code))]
 fn android_init_script(mode: &str) -> String {
     worker_prestart_script(mode)
         + no_av1_script()
@@ -1834,7 +1834,7 @@ fn android_init_script(mode: &str) -> String {
 /// Android-only: on desktop each platform window gets its own richer
 /// script (vendor cosmetics, scriptlets, mode and shown prefs) and this
 /// would only double up.
-#[cfg(target_os = "android")]
+#[cfg(mobile)]
 fn injection_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("ts-inject")
         .js_init_script(android_init_script(gaze_state()))
@@ -1851,11 +1851,64 @@ fn injection_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             if let Some(js) = page_load_rules_script(payload.url().as_str()) {
                 let _ = webview.eval(&js);
             }
+            // iOS: no gaze yet. The Stage B bundle loads from the
+            // synthetic url, which WKWebView cannot serve (plan-engine-v3
+            // 6.3), and a bundle that never boots leaves blur-first on
+            // for good. The blur is the last phase of the iPhone port.
+            #[cfg(not(target_os = "ios"))]
             if let Some(js) = page_load_gaze_script(payload.url().as_str(), gaze_state()) {
                 let _ = webview.eval(&js);
             }
         })
         .build()
+}
+
+/// iOS: hands WebKit the full rules for the page about to open, as a
+/// document-start user script. Android evals the same payload from
+/// onPageStarted, where the new document already exists; WebKit's
+/// equivalent event fires before it does, so the eval would land in the
+/// page being left and the scriptlets would arrive after the player has
+/// read its ad payload. The host guard keeps it off every other site the
+/// user wanders to; those still get the page-load eval.
+#[cfg(target_os = "ios")]
+fn set_ios_page_script(app: &tauri::AppHandle, url: &str) {
+    let Some(rules) = page_load_rules_script(url) else {
+        let _ = tauri_plugin_ts_webkit::set_page_script(app, String::new());
+        return;
+    };
+    let root = platform_for_host(platform_root(url)).map_or("", |p| platform_root(p.url));
+    let root = serde_json::to_string(root).unwrap_or_else(|_| "\"\"".into());
+    let guarded = format!(
+        "(function () {{ var r = {root}, h = location.hostname; \
+         if (h !== r && !h.endsWith('.' + r)) return; {rules} }})();"
+    );
+    let _ = tauri_plugin_ts_webkit::set_page_script(app, guarded);
+}
+
+/// CI only (debug builds on iOS): `simctl launch <app> --ts-open=youtube`
+/// opens that platform the way a tile tap does, so the simulator job can
+/// screenshot a cleaned page without driving taps. Release builds never
+/// read their arguments.
+#[cfg(all(target_os = "ios", debug_assertions))]
+fn ios_ci_open(app: tauri::AppHandle) {
+    let Some(id) = std::env::args().find_map(|a| a.strip_prefix("--ts-open=").map(String::from))
+    else {
+        return;
+    };
+    std::thread::spawn(move || {
+        // Let the launcher finish loading first, as a person would.
+        std::thread::sleep(std::time::Duration::from_secs(4));
+        let Some(platform) = PLATFORMS.iter().find(|p| p.id == id) else {
+            eprintln!("ts-open: unknown platform {id}");
+            return;
+        };
+        set_shown_platform(platform.id);
+        set_ios_page_script(&app, platform.url);
+        let (Some(main), Ok(url)) = (app.get_webview_window("main"), platform.url.parse()) else {
+            return;
+        };
+        let _ = main.navigate(url);
+    });
 }
 
 /// THE SEARCH-OR-TYPE BOX (decided 2026-10-22, #22). What the launcher's
@@ -1896,7 +1949,7 @@ pub(crate) fn resolve_address(input: &str) -> Option<tauri::Url> {
 /// tile uses. The gaze prefs ride along exactly as they do for a tile, so
 /// a platform reached by address gets the same treatment it would from
 /// its tile; any other site gets network ad blocking.
-#[cfg_attr(target_os = "android", allow(unreachable_code, unused_variables))]
+#[cfg_attr(mobile, allow(unreachable_code, unused_variables))]
 #[tauri::command]
 async fn open_address(
     app: tauri::AppHandle,
@@ -1910,11 +1963,13 @@ async fn open_address(
     set_blur_px(strength);
     set_user_gender_state(&gender);
 
-    #[cfg(target_os = "android")]
+    #[cfg(mobile)]
     {
         let main = app
             .get_webview_window("main")
             .ok_or_else(|| "no main webview".to_string())?;
+        #[cfg(target_os = "ios")]
+        set_ios_page_script(&app, url.as_str());
         return main.navigate(url).map_err(|e| e.to_string());
     }
 
@@ -1954,7 +2009,7 @@ async fn open_address(
 
 // Android: everything after the navigate-and-return block is
 // desktop-only builder code the compiler sees as unreachable there.
-#[cfg_attr(target_os = "android", allow(unreachable_code, unused_variables))]
+#[cfg_attr(mobile, allow(unreachable_code, unused_variables))]
 #[tauri::command]
 async fn open_platform(
     app: tauri::AppHandle,
@@ -2009,11 +2064,13 @@ async fn open_platform(
     // logcat-probe7.log: JS "open ok" with no visible effect). Navigate
     // the main webview in place instead; cosmetic injection rides the
     // ts-inject plugin script, which fires on every page load.
-    #[cfg(target_os = "android")]
+    #[cfg(mobile)]
     {
         let main = app
             .get_webview_window("main")
             .ok_or_else(|| "no main webview".to_string())?;
+        #[cfg(target_os = "ios")]
+        set_ios_page_script(&app, url.as_str());
         let nav = main.navigate(url);
         #[cfg(debug_assertions)]
         eprintln!("open_platform navigate main -> {nav:?}");
@@ -2022,7 +2079,7 @@ async fn open_platform(
 
     // Desktop: re-opening a platform whose window is still open just
     // focuses it — a second Builder::build on a taken label would error.
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(mobile))]
     if let Some(existing) = app.get_webview_window(platform.id) {
         // A webview that closed ITSELF leaves the label taken with
         // nothing behind it: a sign-in popup or any page calling
@@ -2155,8 +2212,10 @@ pub fn run() {
 
     // Android: the single-WebView model means per-window injection never
     // fires — the plugin script is the only reliable delivery there.
-    #[cfg(target_os = "android")]
+    #[cfg(mobile)]
     let builder = builder.plugin(injection_plugin());
+    // iOS: the WKWebView hooks Android gets from MainActivity.
+    let builder = builder.plugin(tauri_plugin_ts_webkit::init());
 
     builder
         .setup(|app| {
@@ -2171,6 +2230,8 @@ pub fn run() {
             if let Some(dir) = cache_dir {
                 std::thread::spawn(move || ota::init(dir));
             }
+            #[cfg(all(target_os = "ios", debug_assertions))]
+            ios_ci_open(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

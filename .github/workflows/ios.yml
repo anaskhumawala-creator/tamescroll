@@ -81,6 +81,27 @@ jobs:
           # the home screen in the screenshot and nothing else to say so.
           xcrun simctl spawn "$DEVICE" launchctl list | grep -i "$BUNDLE"
 
+          # A platform, opened the way a tile tap opens it (debug-only
+          # --ts-open argument, see ios_ci_open in lib.rs).
+          xcrun simctl terminate "$DEVICE" "$BUNDLE"
+          xcrun simctl launch "$DEVICE" "$BUNDLE" --ts-open=youtube
+          sleep 35
+          xcrun simctl io "$DEVICE" screenshot ../ios-proof/youtube.png
+          xcrun simctl spawn "$DEVICE" launchctl list | grep -i "$BUNDLE"
+
+      - name: Print the screenshots into the log
+        if: always()
+        working-directory: ios-proof
+        # Small copies, base64 in the log, so the run can be checked by
+        # reading the log alone (artifacts need a signed-in download).
+        run: |
+          for f in *.png; do
+            sips -Z 520 "$f" --out "small-$f" >/dev/null
+            echo "SHOT-BEGIN $f"
+            base64 -i "small-$f" | fold -w 4000 | sed 's/^/SHOT /'
+            echo "SHOT-END $f"
+          done
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
