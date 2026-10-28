@@ -124,6 +124,7 @@ import { playerBlurWanted, isPhoneUa, playerSwitchShown } from './player-switch.
 import { attachDelay } from './delay-presenter.mjs';
 import { attachDelayGl, PRESENTER_GL } from './gl-presenter.mjs';
 import * as perf from './perf.mjs';
+import { needsGenderWait } from './gender-wait.mjs';
 import * as codecProbe from './codec-probe.mjs';
 import { makeTimeline, resetTimeline, pushSnapshot, pushCut, boxesAt, latestSnapshot } from './track-timeline.mjs';
 
@@ -643,6 +644,24 @@ if (
   // worker-client.mjs and synthetic_resource in lib.rs. `null` means we
   // never got one and everything below runs exactly as it did before.
   var gazeWorker = null;
+  // Images whose faces are waiting for the worker's gender model.
+  var genderHeld = [];
+  function holdForGender(img, res) {
+    if (!needsGenderWait(res)) return false;
+    if (genderHeld.indexOf(img) === -1) genderHeld.push(img);
+    // The model can land while this image was in flight; its 'loaded'
+    // has then already been handled, so judge it again now.
+    if (gazeWorker && gazeWorker.genderLoaded()) releaseGenderHeld();
+    return true;
+  }
+  function releaseGenderHeld() {
+    var held = genderHeld;
+    genderHeld = [];
+    for (var i = 0; i < held.length; i++) {
+      if (imageQueue.indexOf(held[i]) === -1) imageQueue.push(held[i]);
+    }
+    if (held.length) drainImages();
+  }
   function workerAlive() {
     return !!gazeWorker && gazeWorker.ready();
   }
@@ -1271,6 +1290,13 @@ if (
         })
         .then(function (res) {
           if (failed) return;
+          // Faces but no gender model yet: nothing is applied or cached,
+          // so the image stays covered exactly as it is now, and it is
+          // judged again once 'loaded:gender' arrives.
+          if (holdForGender(img, res)) {
+            noteImgDiag({ t: Math.round(performance.now()), where: 'worker', why: 'gender-wait' });
+            return { mainMs: mainMs };
+          }
           var faces = res.boxes || [];
           var reads = res.reads || [];
           var flagBoxes = [];
@@ -5989,6 +6015,7 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
           } catch (e) {
             /* a probe marker must never break the boot */
           }
+          if (ev.type === 'loaded' && ev.model === 'gender') releaseGenderHeld();
           if (ev.type === 'dead') {
             // Whatever it was, the images still have to be judged: fall
             // all the way back to the in-page pipeline, loading the
@@ -5996,6 +6023,7 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
             // worker was alive its load was deliberately skipped.
             ensureFaceModels();
             loadInPageNsfw();
+            releaseGenderHeld();
             if (imageQueue.length) drainImages();
             return;
           }
