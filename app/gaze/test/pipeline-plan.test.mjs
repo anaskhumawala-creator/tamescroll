@@ -1,4 +1,4 @@
-// NSFW-flagged media is REMOVED from view in blur and smart. Off runs
+// NSFW-flagged media is REMOVED from view in smart only. Off runs
 // nothing (his 2026-10-28, ending the 2026-08-19 compulsory tier).
 // Blur-first still holds where the static sheet doesn't already cover
 // (INSTANT rule).
@@ -26,14 +26,10 @@ test('off runs nothing: no pre-blur flash, no models', () => {
   assert.equal(p.textFilter, false);
 });
 
-test('blur-all only adds NSFW removal on top of the static sheet', () => {
+test('blur-all runs no model: the static sheet is the whole job', () => {
   const p = planForMode('blur');
-  assert.equal(p.boot, true);
-  assert.equal(p.preBlur, false, 'Stage A sheet already blankets everything');
-  assert.equal(p.faceGender, false);
-  assert.equal(p.textFilter, false, 'a text hit adds nothing under blanket blur');
-  assert.equal(p.nsfw, true);
-  assert.equal(p.revealClears, false, 'never clear — the static sheet owns blur');
+  assert.equal(p.boot, false);
+  assert.equal(p.nsfw, false, 'his call: blur is enough, no NSFW check on top');
 });
 
 test('unknown mode never boots', () => {

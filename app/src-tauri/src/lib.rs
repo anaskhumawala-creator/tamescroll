@@ -440,14 +440,12 @@ fn models_script() -> &'static str {
 /// The models a mode actually runs, for the inline delivery: every one of
 /// them is compiled with the page on every load (measured on the old
 /// Redmi 2026-10-28: 24MB, ~300ms of main-thread compile per eval, and
-/// two to four evals per YouTube open). Off runs no model, Every picture
-/// only the NSFW check (pipeline-plan.mjs); smart needs them all.
+/// two to four evals per YouTube open). Off and Every picture run no
+/// model (pipeline-plan.mjs); smart needs them all.
 fn models_script_for(mode: &str) -> &'static str {
-    static NSFW_JS: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
     match gaze_mode(mode) {
-        "off" => "",
-        "blur" => NSFW_JS.get_or_init(|| build_models_script(&["nsfw"])),
-        _ => models_script(),
+        "smart" => models_script(),
+        _ => "",
     }
 }
 
@@ -2947,7 +2945,7 @@ mod tests {
         assert!(!js.contains("ts-gaze-blur"), "off must not ship the Stage A sheet");
 
         // Blur mode injects the guarded style AND the Stage B boot (the
-        // bundle only runs NSFW removal in blur mode); the mobile host
+        // bundle runs no model in blur mode); the mobile host
         // maps to the same platform as the desktop one.
         for url in ["https://www.youtube.com/", "https://m.youtube.com/"] {
             let js = page_load_gaze_script(url, "blur").expect("blur script for youtube");
@@ -3397,8 +3395,8 @@ mod tests {
         assert!(js.contains("__TS_GAZE_PREWORKER"));
     }
 
-    /// INLINE MODELS FOLLOW THE MODE: off compiles none of the 24MB, and
-    /// Every picture carries only the NSFW model it runs.
+    /// INLINE MODELS FOLLOW THE MODE: only women/men run a model, so off
+    /// and Every picture compile none of the 24MB.
     #[test]
     fn inline_models_are_only_the_ones_the_mode_runs() {
         // The inlined map alone: the bundle's own code mentions these names.
@@ -3410,15 +3408,12 @@ mod tests {
         let off = gaze_script("off", "mode-unproven.example");
         assert_eq!(inlined(&off), "", "off must not inline any model");
         let blur = gaze_script("blur", "mode-unproven.example");
-        assert!(inlined(&blur).contains("nsfw:["), "blur runs the NSFW check");
-        for name in ["face:[", "gender:[", "person:["] {
-            assert!(!inlined(&blur).contains(name), "blur must not inline {name}");
-        }
+        assert_eq!(inlined(&blur), "", "Every picture runs no model");
         let smart = gaze_script("smart", "mode-unproven.example");
         for name in ["face:[", "nsfw:[", "gender:[", "person:["] {
             assert!(inlined(&smart).contains(name), "smart needs {name}");
         }
-        assert!(off.len() < blur.len() && blur.len() < smart.len());
+        assert!(blur.len() < smart.len());
     }
 
     /// A HOST HAS TO EARN THE MODEL-FREE BUNDLE.
