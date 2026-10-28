@@ -119,11 +119,6 @@ var META = {
     desc: 'Ask the phone to hold a speed it can sustain instead of boosting and then throttling.',
     bool: true,
   },
-  YT_RESTRICTED_BROWSE: {
-    group: 'advanced', label: 'Restricted Mode while browsing',
-    desc: 'Turns on YouTube\'s own Restricted Mode on home and search, and off on the video you open, so comments still show.',
-    bool: true,
-  },
   REFRESH_CAP_HZ: {
     group: 'speed', label: 'Screen refresh cap',
     desc: 'Cap the display refresh rate. A 90 Hz screen at 60 composes a third fewer frames.',

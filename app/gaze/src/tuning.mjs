@@ -38,7 +38,6 @@ import * as perf from './perf.mjs';
 import * as glPresenter from './gl-presenter.mjs';
 import * as codecProbe from './codec-probe.mjs';
 import * as imageBudget from './image-budget.mjs';
-import * as restrictedMode from './restricted-mode.mjs';
 
 export var TUNED = null;      // what actually took effect, for the report
 export var TUNE_REFUSED = 0;  // keys refused outright
@@ -391,9 +390,6 @@ var SPEC = {
   // fastest panel any phone he owns ships; a value above the panel's
   // rate is refused by the bridge, not clamped here.
   REFRESH_CAP_HZ: [0, 120, function (v) { perf.setRefreshCapHz(v); }],
-  // YouTube Restricted Mode on while browsing, off on the video he chose
-  // (restricted-mode.mjs). A switch: 0 is the revert if YouTube objects.
-  YT_RESTRICTED_BROWSE: [0, 1, function (v) { restrictedMode.setRestrictedBrowse(v); }],
   // Thermal-aware verdict duty (perf.mjs): 1 = double the duty while
   // the phone reports throttling headroom >= THERMAL_HOT. Never below
   // the tuned VERDICT_DUTY, so it can only widen the coast, never
@@ -489,7 +485,6 @@ var GETTERS = {
   RENDER_EVERY: function () { return videoRegion.RENDER_EVERY; },
   SUSTAINED_PERF: function () { return perf.SUSTAINED_PERF; },
   REFRESH_CAP_HZ: function () { return perf.REFRESH_CAP_HZ; },
-  YT_RESTRICTED_BROWSE: function () { return restrictedMode.YT_RESTRICTED_BROWSE; },
   THERMAL_DUTY: function () { return perf.THERMAL_DUTY; },
   NATIVE_CPU_MASK: function () { return nativeClient.NATIVE_CPU_MASK; },
   NO_AV1: function () { return perf.NO_AV1; },

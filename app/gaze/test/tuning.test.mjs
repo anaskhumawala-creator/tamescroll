@@ -25,7 +25,6 @@ import * as glPresenter from '../src/gl-presenter.mjs';
 import * as videoRegion from '../src/video-region.mjs';
 import * as codecProbe from '../src/codec-probe.mjs';
 import * as imageBudget from '../src/image-budget.mjs';
-import * as restrictedMode from '../src/restricted-mode.mjs';
 
 // Every test restores the shipped values, because these modules hold
 // module-global state and a leaked dial would silently rebase every
@@ -59,7 +58,6 @@ const SHIPPED = {
   RENDER_EVERY: videoRegion.RENDER_EVERY,
   SUSTAINED_PERF: perf.SUSTAINED_PERF,
   REFRESH_CAP_HZ: perf.REFRESH_CAP_HZ,
-  YT_RESTRICTED_BROWSE: restrictedMode.YT_RESTRICTED_BROWSE,
   THERMAL_DUTY: perf.THERMAL_DUTY,
   NATIVE_CPU_MASK: nativeClient.NATIVE_CPU_MASK,
   NO_AV1: perf.NO_AV1,

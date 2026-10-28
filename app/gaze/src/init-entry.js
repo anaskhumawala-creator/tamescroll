@@ -109,7 +109,6 @@ import * as videoRegion from './video-region.mjs';
 import { createTextMatcher } from './text-signals.mjs';
 import { buildReport, reportViolations, platformOf, pageKind, imgDiagRead } from './diag-report.mjs';
 import { watchUrlForShorts, watchUrlForShortsHref } from './shorts-redirect.mjs';
-import * as restrictedMode from './restricted-mode.mjs';
 import { planForMode, rotateBudget } from './pipeline-plan.mjs';
 import { createWorkerClient } from './worker-client.mjs';
 import { startWorker } from './worker-entry.js';
@@ -167,33 +166,10 @@ if (
       location.replace(w);
       return true;
     };
-    // Restricted Mode by page kind (restricted-mode.mjs). Held until the
-    // OTA dials have landed, so a 0 pushed as the revert is obeyed from
-    // the first write rather than after one.
-    var restrictedReady = false;
-    var syncRestricted = function (kind) {
-      if (!restrictedReady || tsPagePlatform !== 'youtube') return;
-      if (!restrictedMode.YT_RESTRICTED_BROWSE) return;
-      var want = restrictedMode.wantRestricted(kind);
-      var m = /(?:^|;\s*)PREF=([^;]*)/.exec(document.cookie);
-      var pref = m ? m[1] : '';
-      if (restrictedMode.prefRestricted(pref) === want) return;
-      document.cookie = 'PREF=' + restrictedMode.prefWithRestricted(pref, want) +
-        '; domain=.youtube.com; path=/; max-age=63072000; secure; samesite=lax';
-    };
     if (tsPagePlatform === 'youtube') {
       document.addEventListener('click', function (ev) {
         var a = ev.target && ev.target.closest ? ev.target.closest('a[href]') : null;
         if (!a) return;
-        // The tap, not the url change: YouTube asks for the watch page
-        // (and its comments) before the address moves, so the cookie has
-        // to flip before the request leaves.
-        try {
-          var to = new URL(a.getAttribute('href'), location.origin);
-          if (/(^|\.)youtube\.com$/.test(to.hostname)) {
-            syncRestricted(pageKind(tsPagePlatform, to.pathname));
-          }
-        } catch (e) { /* a bad href just waits for the tick */ }
         var w = watchUrlForShortsHref(a.getAttribute('href'), location.origin);
         if (!w) return;
         ev.preventDefault();
@@ -204,7 +180,6 @@ if (
     var syncTsPage = function () {
       if (shortsToWatch()) return;
       var k = pageKind(tsPagePlatform, location.pathname);
-      syncRestricted(k);
       if (k === tsPageLast) return;
       tsPageLast = k;
       document.documentElement.setAttribute('data-ts-page', k);
@@ -244,10 +219,6 @@ if (
     perf.provideToken(perfTok);
     setOverrideToken(perfTok);
     applyTuningFromWindow(window);
-    if (typeof syncTsPage === 'function') {
-      restrictedReady = true;
-      syncTsPage();
-    }
     // THREE WRITERS, ONE WHITELIST, IN A FIXED ORDER.
     //
     //   1. the OTA push        every phone, decided here
