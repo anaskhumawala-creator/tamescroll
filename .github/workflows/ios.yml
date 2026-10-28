@@ -151,15 +151,6 @@ jobs:
             echo "no iOS 18 simulator on this runner"
           fi
 
-      # One-off: find the hook for YouTube's iPhone-only "Open App" pill.
-      - name: Probe YouTube's Open App pill
-        continue-on-error: true
-        working-directory: .
-        run: |
-          mkdir -p /tmp/probe ios-proof && cd /tmp/probe
-          npm init -y >/dev/null && npm i -s playwright@1.48.2 >/dev/null && npx playwright install webkit >/dev/null
-          NODE_PATH=/tmp/probe/node_modules node "$GITHUB_WORKSPACE/spikes/ios/probe_open_app.cjs" | tee "$GITHUB_WORKSPACE/ios-proof/open-app.json"
-
       # The owner has no iPhone or Mac, so the simulator build is also put
       # on Appetize.io, which runs it in a browser (his OK, 2026-10-27).
       # Needs the repository secret APPETIZE_API_TOKEN; APPETIZE_PUBLIC_KEY
