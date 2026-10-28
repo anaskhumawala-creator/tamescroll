@@ -81,6 +81,7 @@ class MainActivity : TauriActivity() {
     private const val LINKS_PROBED = "probed"
     // Height of the top bar above every site (installTopBar).
     private const val TOP_BAR_DP = 52
+    private const val TOP_STRIP_DP = 24
     private const val STATS_PREFS = "tamescroll.stats"
   }
 
@@ -863,6 +864,7 @@ class MainActivity : TauriActivity() {
   // under Chrome's toolbar, so nothing the gaze page measures moves
   // inside it. Video fullscreen sits on the decor view and covers it.
   private var topBar: View? = null
+  private var topStrip: TextView? = null
   private var topBarAddress: TextView? = null
   private var topBarHost: View? = null
   private var topBarUrl = ""
@@ -916,8 +918,23 @@ class MainActivity : TauriActivity() {
     bar.addView(icon(R.drawable.ic_bar_home, "Home") { webView.loadUrl(launcherUrl(null)) })
     bar.addView(address)
     bar.addView(icon(R.drawable.ic_bar_shield, "What was tamed on this page") { showShieldSheet() })
+    // The folded bar: a slim strip with the site's name, under the full
+    // bar so the bar covers it when out. Tapping it brings the bar back.
+    val strip = TextView(this).apply {
+      setTextColor(0xFFA8A49D.toInt())
+      setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+      maxLines = 1
+      ellipsize = TextUtils.TruncateAt.END
+      gravity = Gravity.CENTER
+      setBackgroundColor(0xFF141414.toInt())
+      contentDescription = "Show the address bar"
+      visibility = View.GONE
+      setOnClickListener { foldBar(true) }
+    }
+    content.addView(strip, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(TOP_STRIP_DP), Gravity.TOP))
     content.addView(bar, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(TOP_BAR_DP), Gravity.TOP))
     topBar = bar
+    topStrip = strip
     topBarAddress = address
     topBarHost = host
     updateTopBar(webView.url)
@@ -1032,8 +1049,11 @@ class MainActivity : TauriActivity() {
   }
 
   // THE BAR FOLDS AWAY (his 2026-10-28: "like Safari"). Dragging the
-  // page up folds it, dragging down brings it back, and a YouTube watch
-  // page opens with it folded so the video sits at the top. Driven by the
+  // page up folds it to a slim strip with the site's name, and a YouTube
+  // watch page opens folded so the video sits near the top. Only a tap on
+  // the strip (or a new page) brings it back: it used to return on any
+  // drag down, and he found it popping in and out while reading
+  // annoying (2026-10-28, on the 1124 test build). Driven by the
   // finger, not by WebView scroll events: m.youtube scrolls inside the
   // page, where onScrollChanged never fires. The touch is only watched,
   // never consumed. Folding shrinks the WebView's top margin with the
@@ -1049,10 +1069,16 @@ class MainActivity : TauriActivity() {
     val bar = topBar ?: return
     val host = topBarHost ?: return
     barFraction = f
-    val h = TOP_BAR_DP * resources.displayMetrics.density
+    val density = resources.displayMetrics.density
+    val h = TOP_BAR_DP * density
+    val strip = TOP_STRIP_DP * density
     bar.translationY = -(1f - f) * h
+    topStrip?.let {
+      it.alpha = 1f - f
+      it.visibility = if (bar.visibility == View.VISIBLE && f < 1f) View.VISIBLE else View.GONE
+    }
     val lp = host.layoutParams as? ViewGroup.MarginLayoutParams ?: return
-    val margin = (f * h).toInt()
+    val margin = (strip + f * (h - strip)).toInt()
     if (lp.topMargin == margin) return
     lp.topMargin = margin
     host.layoutParams = lp
@@ -1093,11 +1119,7 @@ class MainActivity : TauriActivity() {
         if ((dy > 0) != (dragTravel > 0)) dragTravel = 0f
         dragTravel += dy
         val threshold = 24 * resources.displayMetrics.density
-        if (dragTravel < -threshold) {
-          foldBar(false)
-        } else if (dragTravel > threshold) {
-          foldBar(true)
-        }
+        if (dragTravel < -threshold) foldBar(false)
       }
     }
   }
@@ -1117,15 +1139,21 @@ class MainActivity : TauriActivity() {
       if (bar.visibility == View.GONE) return
       barAnimator?.cancel()
       barAnimator = null
-      applyBarFraction(0f)
-      bar.translationY = 0f
       bar.visibility = View.GONE
+      applyBarFraction(0f)
+      // Off a site the page gets the whole screen back, strip included.
+      (topBarHost?.layoutParams as? ViewGroup.MarginLayoutParams)?.let {
+        it.topMargin = 0
+        topBarHost?.layoutParams = it
+      }
+      bar.translationY = 0f
       barPageKey = ""
       return
     }
     topBarUrl = u
     val uri = Uri.parse(u)
     topBarAddress?.text = (uri.host ?: u).removePrefix("www.").removePrefix("m.")
+    topStrip?.text = topBarAddress?.text
     if (bar.visibility != View.VISIBLE) {
       bar.visibility = View.VISIBLE
       applyBarFraction(1f)
