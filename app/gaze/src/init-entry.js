@@ -1656,6 +1656,14 @@ if (
                   return function () {
                     return (first ? Promise.resolve() : yieldToBrowser()).then(function () {
                       var at = performance.now();
+                      // A batch can outlive the still moment that let it
+                      // start: in a mode that never reveals, an image
+                      // whose turn comes mid-scroll goes back in the
+                      // queue instead of reading back on the fling.
+                      if (!plan.revealClears && scrolling(at)) {
+                        imageQueue.unshift(img);
+                        return null;
+                      }
                       return Promise.resolve(detectImage(img)).then(function (r) {
                         // CHARGE THE MAIN THREAD FOR MAIN-THREAD TIME
                         // ONLY.
