@@ -3,299 +3,333 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tamescroll — a calmer way to browse</title>
-<meta name="description" content="tamescroll is a free, open-source web browser for Android. It opens any site and quietly tames the busy ones: endless feeds fold away, and pictures can be blurred on your phone. No account, no tracking.">
-<meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#141414" media="(prefers-color-scheme: dark)">
+<title>tamescroll — the same platforms, none of the machinery</title>
+<meta name="description" content="tamescroll opens the platforms you already use as cleaned versions of themselves — no ads, no Shorts, no algorithmic feeds. Free, open source, desktop + mobile.">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij48cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxNCIgZmlsbD0iIzE0MTQxNCI+PC9yZWN0PjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDkgMTIpIHNjYWxlKDEpIj48cGF0aCBkPSJNMjIgMjBhMyAzIDAgMCAwLTYgMGE2IDYgMCAwIDAgMTIgMGE5IDkgMCAwIDAtMTggMGExMiAxMiAwIDAgMCAxMiAxMmwxOCAwIiBmaWxsPSJub25lIiBzdHJva2U9IiNlN2U1ZTEiIHN0cm9rZS13aWR0aD0iNC42IiBzdHJva2UtbGluZWNhcD0icm91bmQiPjwvcGF0aD48L2c+PC9zdmc+">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  /* The site wears the app's two looks: Paper by default, Night for the
-     app pictures and for visitors whose phone is set to dark. Gold only
-     on the mark, the same rule as the app. */
+  /* Design source: owner's Claude Design canvas, board 1F (2026-08-19).
+     Palette from the shared daftar tokens; licence corrected GPL→MPL-2.0. */
   :root {
-    --bg: #f7f5f0; --bg-2: #efece5; --card: #ffffff; --line: #e2ddd3;
-    --ink: #1d1c19; --muted: #5b5750; --faint: #8a857b;
-    --gold: #a8801f; --green: #4f8a66;
-    --night: #141414; --night-ink: #e7e5e1; --night-muted: #a8a49d;
-    --shadow: 0 1px 2px rgba(40,32,20,.06), 0 12px 32px -18px rgba(40,32,20,.28);
-    --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --paper: #faf9f5; --paper-2: #f2f0ea; --paper-line: #e4e1d8;
+    --paper-ink: #1d1c19; --paper-muted: #6b675e; --paper-faint: #98948a;
+    --bg: #141414; --surface: #1f1f1f; --ink: #e7e5e1;
+    --muted: #a3a09a; --faint: #757169; --line: #343434;
+    --hairline: rgba(255,255,255,.07); --elev: rgba(255,255,255,.035);
+    --gold: #c9a45e; --gold-deep: #a8874c;
+    --tint-yt: #d29a8a; --tint-rd: #cf9a6c; --tint-x: #e7e5e1; --tint-ig: #c5a3c9;
+    --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-display: "Spectral", Georgia, serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, monospace;
     --ease: cubic-bezier(.22,.9,.24,1);
-    color-scheme: light;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #141414; --bg-2: #1a1a19; --card: #1c1c1b; --line: #2e2d2a;
-      --ink: #ebe8e2; --muted: #a8a49d; --faint: #7a766e;
-      --gold: #c9a45e; --green: #86a893;
-      --shadow: 0 12px 32px -18px rgba(0,0,0,.6);
-      color-scheme: dark;
-    }
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
   body {
-    background: var(--bg); color: var(--ink);
-    font-family: var(--font-ui); font-size: 16px; line-height: 1.6;
+    background: var(--paper); color: var(--paper-ink);
+    font-family: var(--font-ui); font-size: 16px; line-height: 1.55;
     -webkit-font-smoothing: antialiased;
   }
   a { color: inherit; }
-  img { display: block; max-width: 100%; height: auto; }
   .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
 
   /* ---- nav ---- */
   header {
-    position: sticky; top: 0; z-index: 5;
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
-    backdrop-filter: saturate(1.2) blur(10px); -webkit-backdrop-filter: saturate(1.2) blur(10px);
-    border-bottom: 1px solid transparent;
+    display: flex; align-items: center; justify-content: space-between;
+    max-width: 1080px; margin: 0 auto; padding: 22px 24px;
   }
-  header .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
-  .brand { display: flex; align-items: center; text-decoration: none; color: var(--ink); }
-  .brand svg { height: 32px; width: auto; }
-  .brand .mark { stroke: var(--gold); }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .brand svg { height: 26px; width: auto; }
   nav.top { display: flex; gap: 26px; align-items: center; font-size: 14.5px; }
-  nav.top a { text-decoration: none; color: var(--muted); }
-  nav.top a:hover { color: var(--ink); }
-  nav.top a.cta { color: var(--bg); background: var(--ink); padding: 8px 16px; border-radius: 10px; font-weight: 600; }
-
-  /* ---- type ---- */
-  h1, h2 { font-family: var(--font-display); font-weight: 500; letter-spacing: -0.01em; text-wrap: balance; }
-  h1 { font-size: clamp(40px, 7vw, 70px); line-height: 1.06; }
-  h2 { font-size: clamp(28px, 4vw, 40px); line-height: 1.15; }
-  h3 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
-  .kicker { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
-  .lead { font-size: 18px; color: var(--muted); max-width: 58ch; }
-
-  /* ---- buttons ---- */
-  .row { display: flex; gap: 12px; flex-wrap: wrap; }
-  .btn {
-    display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 600; font-size: 15px;
-    padding: 13px 22px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--ink);
-    transition: transform .15s var(--ease), box-shadow .15s var(--ease);
+  nav.top a { text-decoration: none; color: var(--paper-muted); }
+  nav.top a:hover { color: var(--paper-ink); }
+  nav.top a.cta {
+    color: var(--paper); background: var(--paper-ink);
+    padding: 8px 16px; border-radius: 10px; font-weight: 600;
   }
-  .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
-  .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-  .btn svg { width: 18px; height: 18px; }
-  .note { font-size: 13.5px; color: var(--faint); }
 
   /* ---- hero ---- */
-  .hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; padding: 56px 0 24px; }
-  .hero h1 { margin: 16px 0 20px; }
-  .hero .row { margin: 28px 0 14px; }
-  .facts { display: flex; gap: 8px 18px; flex-wrap: wrap; margin-top: 22px; font-size: 14px; color: var(--muted); }
-  .facts span { display: inline-flex; align-items: center; gap: 8px; }
-  .facts i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
-
-  /* ---- phones ---- */
-  .phones { position: relative; display: flex; justify-content: center; min-height: 520px; }
-  .phone {
-    width: 250px; border-radius: 34px; padding: 8px; background: #0b0b0b;
-    box-shadow: 0 30px 60px -30px rgba(20,16,10,.55), 0 0 0 1px rgba(0,0,0,.08);
+  .hero { text-align: center; padding: 72px 24px 24px; }
+  .kicker {
+    font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--paper-faint); font-weight: 600;
   }
-  .phone img { border-radius: 27px; width: 100%; aspect-ratio: 393 / 780; object-fit: cover; object-position: top; }
-  .phones .back { position: absolute; transform: translate(-46%, 34px) rotate(-5deg); opacity: .98; }
-  .phones .front { position: relative; transform: translate(26%, 0) rotate(3deg); }
-
-  /* ---- sections ---- */
-  section { padding: 80px 0 0; }
-  .sec-head { display: grid; gap: 12px; margin-bottom: 32px; max-width: 680px; }
-  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 24px; box-shadow: var(--shadow); }
-  .card p { color: var(--muted); font-size: 15px; }
-  .card .ic { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--bg-2); margin-bottom: 14px; color: var(--ink); }
-  .card .ic svg { width: 20px; height: 20px; }
-
-  /* ---- show ---- */
-  .show { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; align-items: start; }
-  .show figure { display: grid; gap: 14px; justify-items: center; }
-  .show .phone { width: 100%; max-width: 250px; }
-  .show figcaption { text-align: center; max-width: 30ch; }
-  .show figcaption b { display: block; font-size: 16px; }
-  .show figcaption span { color: var(--muted); font-size: 14.5px; }
-
-  /* ---- looks ---- */
-  .looks { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
-  .looks .pair { display: flex; gap: 18px; justify-content: center; }
-  .looks .pair .phone { width: 210px; }
-  .ticks { list-style: none; display: grid; gap: 12px; margin-top: 22px; }
-  .ticks li { padding-left: 28px; position: relative; color: var(--muted); }
-  .ticks li b { color: var(--ink); font-weight: 600; }
-  .ticks li::before {
-    content: ""; position: absolute; left: 0; top: 6px; width: 16px; height: 16px; border-radius: 50%;
-    background: var(--green) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 12px no-repeat;
+  h1 {
+    font-family: var(--font-display); font-weight: 500;
+    font-size: clamp(42px, 7.4vw, 76px); line-height: 1.08;
+    margin: 18px auto 22px; max-width: 18ch;
   }
+  .hero p.lead {
+    max-width: 62ch; margin: 0 auto 30px; font-size: 17.5px; color: var(--paper-muted);
+  }
+  .dl-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-block; text-decoration: none; font-weight: 600; font-size: 15px;
+    padding: 12px 22px; border-radius: 12px; border: 1px solid var(--paper-line);
+    background: #fff; transition: transform .15s var(--ease), box-shadow .15s var(--ease);
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px -10px rgba(29,28,25,.35); }
+  .btn.primary { background: var(--paper-ink); color: var(--paper); border-color: var(--paper-ink); }
+  .hero .sub { margin-top: 16px; font-size: 13.5px; color: var(--paper-faint); }
+  .hero .sub a { color: var(--paper-muted); }
 
-  /* ---- promises ---- */
-  .promises { background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 36px; box-shadow: var(--shadow); }
-  .promises ul { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 18px 36px; margin-top: 24px; }
-  .promises li { color: var(--muted); font-size: 15px; padding-left: 16px; border-left: 2px solid var(--line); }
-  .promises li b { display: block; color: var(--ink); font-weight: 600; }
-  .fine { font-size: 13.5px; color: var(--faint); margin-top: 24px; max-width: 80ch; }
-  .fine a { color: var(--muted); }
+  /* ---- removed strip ---- */
+  .removed {
+    display: flex; gap: 10px 22px; align-items: baseline; justify-content: center;
+    flex-wrap: wrap; padding: 40px 24px 8px; max-width: 1080px; margin: 0 auto;
+  }
+  .removed .label {
+    font-size: 11.5px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--paper-faint); font-weight: 600; margin-right: 6px;
+  }
+  .removed s { color: var(--paper-muted); text-decoration-color: var(--gold-deep); font-size: 15.5px; }
+
+  /* ---- app mock ---- */
+  .mockwrap { max-width: 900px; margin: 40px auto 0; padding: 0 24px; }
+  .mock {
+    background: var(--bg); color: var(--ink); border-radius: 18px 18px 0 0;
+    border: 1px solid #2a2a2a; border-bottom: 0;
+    box-shadow: 0 30px 80px -40px rgba(29,28,25,.55);
+    padding: 0 0 34px; overflow: hidden;
+  }
+  .mock .chrome {
+    display: grid; grid-template-columns: 60px 1fr 60px; align-items: center;
+    padding: 12px 16px; border-bottom: 1px solid var(--hairline);
+  }
+  .mock .dots { display: flex; gap: 6px; }
+  .mock .dots i { width: 9px; height: 9px; border-radius: 50%; background: #2e2e2e; }
+  .mock .title { text-align: center; font-size: 12px; color: var(--faint); }
+  .mock .inner { text-align: center; padding: 44px 32px 6px; }
+  .mock .word { display: inline-flex; align-items: center; }
+  .mock .word svg { height: 32px; width: auto; }
+  .mock .tag { color: var(--muted); font-size: 14px; margin-top: 8px; }
+  .mock .tiles {
+    display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;
+    margin: 34px auto 30px;
+  }
+  .tile {
+    width: 128px; padding: 18px 10px 16px; border-radius: 14px;
+    background: var(--elev); border: 1px solid var(--hairline); text-align: center;
+  }
+  .tile .glyph {
+    width: 46px; height: 46px; margin: 0 auto 10px; border-radius: 11px;
+    background: linear-gradient(150deg, #242424, #131313); border: 1px solid var(--hairline);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-size: 21px;
+  }
+  .tile .name { font-size: 13.5px; font-weight: 600; }
+  .tile .note { font-size: 11px; color: var(--faint); margin-top: 4px; line-height: 1.35; }
+  .tile.add { border-style: dashed; color: var(--faint); }
+  .tile.add .glyph { background: none; border-style: dashed; font-family: var(--font-ui); }
+  .mock .blurrow {
+    display: flex; gap: 14px; align-items: center; justify-content: center;
+    font-size: 12px; color: var(--faint);
+  }
+  .mock .blurrow .seg {
+    display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden;
+  }
+  .mock .blurrow .seg b {
+    padding: 5px 12px; font-weight: 500; color: var(--muted); font-size: 12px;
+  }
+  .mock .blurrow .seg b.on { background: var(--ink); color: var(--bg); font-weight: 600; }
+
+  /* ---- how it works ---- */
+  section.how { max-width: 1080px; margin: 72px auto 0; padding: 0 24px; }
+  .sec-label {
+    font-size: 11.5px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--paper-faint); font-weight: 600; margin-bottom: 26px;
+  }
+  .how .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+  .how .num { font-family: var(--font-mono); color: var(--gold-deep); font-size: 14px; }
+  .how h3 { font-size: 19px; margin: 8px 0 10px; }
+  .how p { color: var(--paper-muted); font-size: 15px; }
+
+  /* ---- feature cards ---- */
+  section.features { max-width: 1080px; margin: 64px auto 0; padding: 0 24px; }
+  .features .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .card {
+    background: #fff; border: 1px solid var(--paper-line); border-radius: 16px;
+    padding: 26px 24px;
+  }
+  .card h3 { font-size: 17.5px; margin-bottom: 10px; }
+  .card p { color: var(--paper-muted); font-size: 14.5px; }
+
+  /* ---- how it works with the platforms ---- */
+  section.terms { max-width: 760px; margin: 72px auto 0; padding: 0 24px; }
+  .terms h2 {
+    font-family: var(--font-display); font-weight: 500; font-size: clamp(26px, 3.6vw, 34px);
+    margin-bottom: 14px;
+  }
+  .terms > p { color: var(--paper-muted); font-size: 15.5px; margin-bottom: 18px; }
+  .terms ul { list-style: none; display: grid; gap: 12px; }
+  .terms li { color: var(--paper-muted); font-size: 15px; padding-left: 16px; border-left: 2px solid var(--paper-line); }
+  .terms li b { color: var(--paper-ink); font-weight: 600; }
+  .terms .small { font-size: 13.5px; color: var(--paper-faint); margin-top: 20px; }
+
+  /* ---- quote ---- */
+  .quote {
+    text-align: center; font-family: var(--font-display); font-style: italic;
+    font-size: clamp(22px, 3vw, 28px); color: var(--paper-muted);
+    padding: 84px 24px 10px; max-width: 700px; margin: 0 auto;
+  }
 
   /* ---- download ---- */
-  .download { text-align: center; padding: 96px 0 96px; }
-  .download h2 { margin-bottom: 10px; }
-  .download .lead { margin: 0 auto 28px; }
-  .download .row { justify-content: center; }
-  .download .note { margin-top: 14px; }
+  section.download { text-align: center; padding: 64px 24px 90px; }
+  section.download h2 {
+    font-family: var(--font-display); font-weight: 500; font-size: clamp(30px, 4.6vw, 44px);
+    margin-bottom: 12px;
+  }
+  section.download .plat { color: var(--paper-muted); margin-bottom: 26px; font-size: 15.5px; }
 
   /* ---- footer ---- */
-  footer { border-top: 1px solid var(--line); padding: 26px 0; font-size: 13.5px; color: var(--faint); }
-  footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-  footer a { color: var(--muted); text-decoration: none; }
-  footer a:hover { color: var(--ink); }
-
-  @media (max-width: 860px) {
-    nav.top a:not(.cta) { display: none; }
-    .hero { grid-template-columns: 1fr; padding-top: 32px; }
-    .phones { min-height: 440px; }
-    .phone { width: 210px; }
-    .grid3, .show, .looks, .promises ul { grid-template-columns: 1fr; }
-    .show .phone { max-width: 230px; }
-    .looks .pair .phone { width: 46%; }
-    .promises { padding: 24px; }
+  footer {
+    border-top: 1px solid var(--paper-line);
+    padding: 26px 24px; font-size: 13.5px; color: var(--paper-faint);
   }
-  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } html { scroll-behavior: auto; } }
+  footer .row {
+    max-width: 1080px; margin: 0 auto;
+    display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  }
+  footer a { color: var(--paper-muted); text-decoration: none; }
+  footer a:hover { color: var(--paper-ink); }
+
+  @media (max-width: 760px) {
+    nav.top a:not(.cta) { display: none; }
+    .how .grid, .features .grid { grid-template-columns: 1fr; }
+    .hero { padding-top: 48px; }
+    .mock .tiles { gap: 10px; }
+    .tile { width: 104px; }
+  }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="wrap">
-    <a class="brand" href="#top" aria-label="tamescroll home">
-      <svg viewBox="0 0 560 140" aria-hidden="true"><g transform="translate(40 42) scale(1.28)"><path class="mark" d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke-width="3.6" stroke-linecap="round"/></g><text x="146" y="88" font-family="Spectral, Georgia, 'Times New Roman', serif" font-size="58" font-weight="600" letter-spacing="-0.6" fill="currentColor">tamescroll</text></svg>
-    </a>
-    <nav class="top">
-      <a href="#what">What it does</a>
-      <a href="#yours">Make it yours</a>
-      <a href="#promises">Privacy</a>
-      <a class="cta" href="#download">Download</a>
-    </nav>
-  </div>
+  <a class="brand" href="#top" aria-label="tamescroll home">
+    <svg viewBox="0 0 560 140" role="img" aria-hidden="true"><g transform="translate(40 42) scale(1.28)"><path d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke="#1d1c19" stroke-width="3.6" stroke-linecap="round"/></g><text x="146" y="88" font-family="Spectral, Georgia, 'Times New Roman', serif" font-size="58" font-weight="600" letter-spacing="-0.6" fill="#1d1c19">tamescroll</text></svg>
+  </a>
+  <nav class="top">
+    <a href="#how">How it works</a>
+    <a href="#features">Features</a>
+    <a href="https://github.com/tamescroll/tamescroll">Source</a>
+    <a class="cta" href="#download">Download</a>
+  </nav>
 </header>
 
-<main class="wrap">
+<main>
   <div class="hero">
-    <div>
-      <span class="kicker">A browser for Android · free and open source</span>
-      <h1>A calmer way to browse.</h1>
-      <p class="lead">tamescroll opens any site and quietly tames the busy ones. Endless feeds fold away, and pictures can be blurred right on your phone. You get to what you came for, and the rest stays quiet.</p>
-      <div class="row">
-        <a class="btn primary" href="#download">Download for Android</a>
-        <a class="btn" href="#what">See how it works</a>
-      </div>
-      <div class="facts">
-        <span><i></i>No account</span>
-        <span><i></i>No tracking</span>
-        <span><i></i>Runs on your phone</span>
-      </div>
+    <div class="kicker">Free · open source · Android now, desktop next</div>
+    <h1>The same platforms.<br>None of the machinery.</h1>
+    <p class="lead">tamescroll opens the platforms you already use as cleaned versions of themselves — ads blocked, no Shorts, no algorithmic feeds, and thumbnails blurred to protect your gaze. You type which ones; it never suggests one.</p>
+    <div class="dl-row">
+      <a class="btn primary" href="#download">Download for Android</a>
     </div>
-    <div class="phones" aria-hidden="true">
-      <div class="phone back"><img src="img/paper-home.webp" alt="" width="393" height="780" loading="eager"></div>
-      <div class="phone front"><img src="img/night-home.webp" alt="" width="393" height="780" loading="eager"></div>
+    <p class="sub">A YouTube link from WhatsApp opens here, cleaned, not in the YouTube app · no account, no analytics</p>
+  </div>
+
+  <div class="removed" aria-label="Removed everywhere">
+    <span class="label">Removed everywhere</span>
+    <s>Ads</s><s>Shorts</s><s>Reels</s><s>For You</s><s>Trending</s><s>Autoplay</s><s>Popular</s><s>Sign-in nags</s>
+  </div>
+
+  <div class="mockwrap" aria-hidden="true">
+    <div class="mock">
+      <div class="chrome">
+        <div class="dots"><i></i><i></i><i></i></div>
+        <div class="title">tamescroll</div>
+        <div></div>
+      </div>
+      <div class="inner">
+        <div class="word">
+          <svg viewBox="0 0 560 140" role="img" aria-hidden="true"><g transform="translate(40 42) scale(1.28)"><path d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke="#e7e5e1" stroke-width="3.6" stroke-linecap="round"/></g><text x="146" y="88" font-family="Spectral, Georgia, 'Times New Roman', serif" font-size="58" font-weight="600" letter-spacing="-0.6" fill="#e7e5e1">tamescroll</text></svg>
+        </div>
+        <div class="tag">Your platforms, without the machinery.</div>
+        <div class="tiles">
+          <div class="tile"><div class="glyph" style="color:var(--tint-yt)">Y</div><div class="name">YouTube</div><div class="note">No Shorts, no autoplay, no sidebar</div></div>
+          <div class="tile"><div class="glyph" style="color:var(--tint-rd)">R</div><div class="name">Reddit</div><div class="note">Your subreddits only, no Popular</div></div>
+          <div class="tile"><div class="glyph" style="color:var(--tint-x)">X</div><div class="name">X</div><div class="note">Following only, no For You</div></div>
+          <div class="tile"><div class="glyph" style="color:var(--tint-ig)">I</div><div class="name">Instagram</div><div class="note">No Reels, no Explore</div></div>
+          <div class="tile add"><div class="glyph">+</div><div class="name">Add yours</div><div class="note">Only ones you already use</div></div>
+        </div>
+        <div class="blurrow">
+          <span style="letter-spacing:.14em;text-transform:uppercase">Image blur</span>
+          <span class="seg"><b>Off</b><b>Blur all</b><b class="on">Smart</b></span>
+        </div>
+      </div>
     </div>
   </div>
 
-  <section id="what">
-    <div class="sec-head">
-      <span class="kicker">What it does</span>
-      <h2>Everything a browser does, minus the pull.</h2>
-      <p class="lead">Search, type an address, open a link from a friend. tamescroll works like the browser you know, with a gentle layer on top.</p>
-    </div>
-    <div class="grid3">
-      <div class="card">
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h6"/></svg></div>
-        <h3>Feeds fold away</h3>
-        <p>On the busy sites we tame, the endless feed, short-video shelves and "recommended for you" rows are hidden. Bring back any of them, per site, with one switch.</p>
-      </div>
-      <div class="card">
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="5" width="16" height="14" rx="3"/><circle cx="12" cy="12" r="3.2"/></svg></div>
-        <h3>Pictures, your way</h3>
-        <p>Choose what gets blurred: every picture, women, men, or nothing. It all runs on your phone, so no picture is ever sent anywhere. It isn't perfect, and we say so.</p>
-      </div>
-      <div class="card">
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg></div>
-        <h3>Private by default</h3>
-        <p>Searches go to DuckDuckGo with safe search set to strict. Trackers are blocked as you browse, and each site has its own switch for ads.</p>
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <div class="show">
-      <figure>
-        <div class="phone"><img src="img/night-demo.webp" alt="The first run shows a made-up busy page calming down: the feed folds away and pictures blur." width="393" height="780" loading="lazy"></div>
-        <figcaption><b>See it before you start</b><span>The first run calms a made-up page in front of you, so nothing is a surprise.</span></figcaption>
-      </figure>
-      <figure>
-        <div class="phone"><img src="img/night-blur.webp" alt="The question 'What should be blurred?' with four picture-based choices." width="393" height="780" loading="lazy"></div>
-        <figcaption><b>One simple question</b><span>Pick what to blur by looking at it. Change it any time in Settings.</span></figcaption>
-      </figure>
-      <figure>
-        <div class="phone"><img src="img/night-home.webp" alt="Home: a greeting, a private search box, your sites as tiles and today's count." width="393" height="780" loading="lazy"></div>
-        <figcaption><b>A home that asks why you're here</b><span>A private search box, your own sites one tap away, and nothing to scroll.</span></figcaption>
-      </figure>
-    </div>
-  </section>
-
-  <section id="yours">
-    <div class="looks">
+  <section class="how" id="how">
+    <div class="sec-label">How it works</div>
+    <div class="grid">
       <div>
-        <span class="kicker">Make it yours</span>
-        <h2 style="margin: 12px 0 14px">Night or Paper. Normal or larger text.</h2>
-        <p class="lead">Two looks, picked by tapping a picture of each. Night is dark and quiet. Paper is warm and light, with bigger type for older eyes and bright rooms.</p>
-        <ul class="ticks">
-          <li><b>Your sites, your order.</b> Add the sites you use as tiles; we never suggest one.</li>
-          <li><b>Bring back what you like.</b> Comments, subscriptions and search stay a switch away.</li>
-          <li><b>A shield on every page</b> shows what was hidden there, with a count.</li>
-        </ul>
+        <div class="num">01</div>
+        <h3>Type your platforms</h3>
+        <p>You name what you already use. tamescroll never lists or suggests one — a platform you don't type simply doesn't exist here.</p>
       </div>
-      <div class="pair" aria-hidden="true">
-        <div class="phone"><img src="img/night-home.webp" alt="" width="393" height="780" loading="lazy"></div>
-        <div class="phone"><img src="img/paper-home.webp" alt="" width="393" height="780" loading="lazy"></div>
+      <div>
+        <div class="num">02</div>
+        <h3>Everything starts hidden</h3>
+        <p>Ads, promoted posts, Shorts, Reels, For You, trending, autoplay — gone by default. Ads stay blocked unless you switch them back on for a platform.</p>
+      </div>
+      <div>
+        <div class="num">03</div>
+        <h3>Bring back what you choose</h3>
+        <p>Comments, subscriptions, search — each surface has one plain toggle, per platform. Nothing returns unless you turn it on.</p>
       </div>
     </div>
   </section>
 
-  <section id="promises">
-    <div class="promises">
-      <span class="kicker">Our promises</span>
-      <h2 style="margin-top: 12px">Responsible by design.</h2>
-      <ul>
-        <li><b>Everything happens on your phone.</b> Nothing you see is copied, saved or sent to us. We have no server, no accounts and no analytics.</li>
-        <li><b>Sites stay themselves.</b> tamescroll shows each site's own web page and changes only how it looks on your screen, like a reader mode or a content blocker. It never touches anyone's app or code.</li>
-        <li><b>Videos play as published.</b> Blur is a layer drawn over your screen. The video you choose to watch is never edited.</li>
-        <li><b>The picture filter keeps nothing.</b> It looks, decides whether to blur, and forgets. It does not identify anyone or store faces.</li>
-        <li><b>Your accounts stay yours.</b> You sign in on each site's own page, and its own terms apply as they always have.</li>
-        <li><b>Open source.</b> Free, MPL-2.0, built in the open. Nothing to buy, nothing to subscribe to.</li>
-      </ul>
-      <p class="fine">tamescroll is an independent, open-source project. It is not affiliated with or endorsed by any site it works with; their names are used only to say which sites it works with. If you represent a site and have a concern, <a href="https://github.com/tamescroll/tamescroll/issues/new">write to us</a> and we will answer. See our <a href="privacy.html">privacy policy</a> and <a href="terms.html">terms of use</a>.</p>
+  <section class="features" id="features">
+    <div class="grid">
+      <div class="card">
+        <h3>Cleaned platforms</h3>
+        <p>Each platform opens as itself, minus what it uses to hold you: recommendations, feeds, Shorts and Reels. You add only the platforms you already use — tamescroll never suggests another.</p>
+      </div>
+      <div class="card">
+        <h3>Protects your gaze</h3>
+        <p>Thumbnails and images are blurred on your phone before you see them. Video blur is in beta and starts off; turn it on from the player. Nothing you see is sent anywhere.</p>
+      </div>
+      <div class="card">
+        <h3>Free and open source</h3>
+        <p>MPL-2.0-licensed, built in the open. Read the code, file an issue, or build it yourself. There is nothing to buy and nothing to subscribe to.</p>
+      </div>
     </div>
   </section>
+
+  <section class="terms" id="platforms">
+    <div class="sec-label">How tamescroll works with the platforms</div>
+    <h2>Your view of their site, on your device</h2>
+    <p>tamescroll shows you a platform's own website, the same page your phone's browser would load, and changes how that page looks on your screen. Like a browser's reader mode or a content blocker, it hides parts of the page before you see them: Shorts, Reels, recommendation feeds, autoplay and ads.</p>
+    <ul>
+      <li><b>Every change happens on your phone.</b> Nothing is copied, saved, re-uploaded or sent to us. We have no server, no account system and no analytics.</li>
+      <li><b>We never touch the platforms' apps or their code.</b> tamescroll does not modify YouTube's or anyone else's app, does not use their APIs, and does not download videos.</li>
+      <li><b>Creators' videos play as published.</b> Blur is a layer drawn over your screen, never an edit of the video, and the video you choose to play is never altered.</li>
+      <li><b>The image filter keeps nothing.</b> It looks at what is on screen, decides whether to blur it, and forgets it. It does not identify anyone, store faces, or guess anything about a person beyond the single filter you chose.</li>
+      <li><b>You sign in with your own account,</b> on the platform's own sign-in page, and its terms apply to your account as they always have.</li>
+    </ul>
+    <p class="small">tamescroll is an independent, open-source project. It is not affiliated with or endorsed by Google, YouTube, Reddit, X, Meta or TikTok; their names are used only to say which sites tamescroll works with. If you represent a platform and have a concern, <a href="https://github.com/tamescroll/tamescroll/issues/new">write to us</a> and we will answer. See also our <a href="privacy.html">privacy policy</a> and <a href="terms.html">terms of use</a>.</p>
+  </section>
+
+  <div class="quote">The platforms stay useful. The pull is gone.</div>
 
   <section class="download" id="download">
-    <h2>Try tamescroll.</h2>
-    <p class="lead">Android today. Desktop and iPhone are being built.</p>
-    <div class="row">
-      <a class="btn primary" id="apk" href="https://github.com/tamescroll/tamescroll/releases/latest">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
-        Download for Android
-      </a>
+    <h2>Download tamescroll</h2>
+    <div class="plat">Android today, as an APK you install yourself. It updates itself from inside the app. Desktop and iPhone are being built.</div>
+    <div class="dl-row">
+      <a class="btn primary" id="apk" href="https://github.com/tamescroll/tamescroll/releases/latest">Download for Android (APK)</a>
       <a class="btn" href="https://github.com/tamescroll/tamescroll/releases/latest">All releases</a>
     </div>
-    <p class="note">Android 7 and newer. Your phone asks once to allow installs from this source.</p>
+    <p class="sub">Android 7 and newer. Your phone will ask once to allow installs from this source.</p>
   </section>
 </main>
 
 <footer>
-  <div class="wrap">
+  <div class="row">
     <div>© 2026 the tamescroll contributors · MPL-2.0</div>
-    <div><a href="https://github.com/tamescroll/tamescroll">Source</a> &nbsp;·&nbsp; <a href="https://github.com/tamescroll/tamescroll/blob/main/NOTICE">Credits</a> &nbsp;·&nbsp; <a href="tools.html">Tools we like</a> &nbsp;·&nbsp; <a href="privacy.html">Privacy</a> &nbsp;·&nbsp; <a href="terms.html">Terms</a></div>
+    <div><a href="https://github.com/tamescroll/tamescroll">GitHub</a> &nbsp;·&nbsp; <a href="https://github.com/tamescroll/tamescroll/releases/latest">Releases</a> &nbsp;·&nbsp; <a href="https://github.com/tamescroll/tamescroll/blob/main/NOTICE">Credits</a> &nbsp;·&nbsp; <a href="tools.html">Tools we like</a> &nbsp;·&nbsp; <a href="privacy.html">Privacy</a> &nbsp;·&nbsp; <a href="terms.html">Terms</a></div>
   </div>
 </footer>
 
