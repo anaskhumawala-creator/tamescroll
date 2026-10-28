@@ -48,8 +48,17 @@ class TsWebkitPlugin: Plugin {
       guard let superview = webview.superview else { return }
       superview.backgroundColor = .systemBackground
       webview.translatesAutoresizingMaskIntoConstraints = false
+      let bar = self.makeTopBar()
+      superview.addSubview(bar)
+      let underClock = webview.topAnchor.constraint(equalTo: superview.safeAreaLayoutGuide.topAnchor)
+      self.webUnderClock = underClock
+      self.webUnderBar = webview.topAnchor.constraint(equalTo: bar.bottomAnchor)
       NSLayoutConstraint.activate([
-        webview.topAnchor.constraint(equalTo: superview.safeAreaLayoutGuide.topAnchor),
+        bar.topAnchor.constraint(equalTo: superview.safeAreaLayoutGuide.topAnchor),
+        bar.leadingAnchor.constraint(equalTo: superview.leadingAnchor),
+        bar.trailingAnchor.constraint(equalTo: superview.trailingAnchor),
+        bar.heightAnchor.constraint(equalToConstant: 52),
+        underClock,
         webview.bottomAnchor.constraint(equalTo: superview.bottomAnchor),
         webview.leadingAnchor.constraint(equalTo: superview.leadingAnchor),
         webview.trailingAnchor.constraint(equalTo: superview.trailingAnchor),
@@ -60,6 +69,9 @@ class TsWebkitPlugin: Plugin {
         },
         webview.observe(\.underPageBackgroundColor, options: [.initial, .new]) { [weak self] wv, _ in
           self?.paintBand(wv)
+        },
+        webview.observe(\.url, options: [.initial, .new]) { [weak self] wv, _ in
+          self?.updateTopBar(wv)
         },
       ]
     }
@@ -73,7 +85,10 @@ class TsWebkitPlugin: Plugin {
   /// pages still see the user's light or dark mode.
   func paintBand(_ webview: WKWebView) {
     guard let superview = webview.superview, let window = webview.window else { return }
-    let color = webview.themeColor ?? webview.underPageBackgroundColor ?? .systemBackground
+    // Over a site the band sits above our dark bar, so it takes the bar's colour.
+    let color = topBar?.isHidden == false
+      ? Self.barColor
+      : webview.themeColor ?? webview.underPageBackgroundColor ?? .systemBackground
     superview.backgroundColor = color
     var white: CGFloat = 1
     var alpha: CGFloat = 1
@@ -81,6 +96,124 @@ class TsWebkitPlugin: Plugin {
     let system = window.windowScene?.screen.traitCollection.userInterfaceStyle ?? .unspecified
     webview.overrideUserInterfaceStyle = system
     window.overrideUserInterfaceStyle = white < 0.5 ? .dark : .light
+  }
+
+  // THE TOP BAR (Android's, #33: "make it look more like a browser"),
+  // drawn natively on iPhone too. Above every site, never on the launcher:
+  // home, the page's address (tap it to search or type a new one, on the
+  // launcher's own box) and a shield that opens this site's settings.
+  // Outside the web view, so the page only sees a shorter viewport.
+  static let barColor = UIColor(red: 0x14 / 255.0, green: 0x14 / 255.0, blue: 0x14 / 255.0, alpha: 1)
+  static let launcher = "tauri://localhost/"
+  var topBar: UIView?
+  var topBarAddress: UIButton?
+  var topBarUrl = ""
+  var webUnderClock: NSLayoutConstraint?
+  var webUnderBar: NSLayoutConstraint?
+
+  func makeTopBar() -> UIView {
+    let bar = UIView()
+    bar.translatesAutoresizingMaskIntoConstraints = false
+    bar.backgroundColor = Self.barColor
+    bar.overrideUserInterfaceStyle = .dark
+    bar.isHidden = true
+    let ink = UIColor(red: 0xE7 / 255.0, green: 0xE5 / 255.0, blue: 0xE1 / 255.0, alpha: 1)
+    func icon(_ symbol: String, _ label: String, _ action: Selector) -> UIButton {
+      let b = UIButton(type: .system)
+      b.setImage(UIImage(systemName: symbol), for: .normal)
+      b.tintColor = ink
+      b.accessibilityLabel = label
+      b.addTarget(self, action: action, for: .touchUpInside)
+      b.translatesAutoresizingMaskIntoConstraints = false
+      b.widthAnchor.constraint(equalToConstant: 44).isActive = true
+      b.heightAnchor.constraint(equalToConstant: 44).isActive = true
+      return b
+    }
+    let address = UIButton(type: .system)
+    address.setTitleColor(ink, for: .normal)
+    address.titleLabel?.font = .systemFont(ofSize: 15)
+    address.titleLabel?.lineBreakMode = .byTruncatingTail
+    address.contentHorizontalAlignment = .leading
+    address.contentEdgeInsets = UIEdgeInsets(top: 0, left: 14, bottom: 0, right: 14)
+    address.backgroundColor = UIColor(red: 0x24 / 255.0, green: 0x23 / 255.0, blue: 0x20 / 255.0, alpha: 1)
+    address.layer.cornerRadius = 18
+    address.accessibilityHint = "Search or type a site"
+    address.addTarget(self, action: #selector(barSearch), for: .touchUpInside)
+    address.heightAnchor.constraint(equalToConstant: 36).isActive = true
+    let row = UIStackView(arrangedSubviews: [
+      icon("house", "Home", #selector(barHome)),
+      address,
+      icon("shield", "What's hidden on this site", #selector(barShield)),
+    ])
+    row.axis = .horizontal
+    row.alignment = .center
+    row.spacing = 4
+    row.translatesAutoresizingMaskIntoConstraints = false
+    bar.addSubview(row)
+    NSLayoutConstraint.activate([
+      row.leadingAnchor.constraint(equalTo: bar.safeAreaLayoutGuide.leadingAnchor, constant: 4),
+      row.trailingAnchor.constraint(equalTo: bar.safeAreaLayoutGuide.trailingAnchor, constant: -4),
+      row.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
+    ])
+    topBar = bar
+    topBarAddress = address
+    return bar
+  }
+
+  /// Shows the bar on a web page and hides it on the launcher.
+  func updateTopBar(_ webview: WKWebView) {
+    guard let bar = topBar else { return }
+    let u = webview.url
+    let onSite = (u?.scheme == "https" || u?.scheme == "http") && u?.host != "localhost"
+    if onSite, let u = u {
+      topBarUrl = u.absoluteString
+      topBarAddress?.setTitle(Self.bareHost(u.host ?? u.absoluteString), for: .normal)
+    }
+    guard bar.isHidden == onSite else { return }
+    bar.isHidden = !onSite
+    webUnderClock?.isActive = !onSite
+    webUnderBar?.isActive = onSite
+    paintBand(webview)
+  }
+
+  static func bareHost(_ host: String) -> String {
+    var h = host
+    for prefix in ["www.", "m."] where h.hasPrefix(prefix) { h.removeFirst(prefix.count) }
+    return h
+  }
+
+  func openLauncher(_ query: String = "") {
+    guard let url = URL(string: Self.launcher + query) else { return }
+    webview?.load(URLRequest(url: url))
+  }
+
+  func pageParam() -> String {
+    topBarUrl.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+  }
+
+  @objc func barHome() { openLauncher() }
+
+  @objc func barSearch() { openLauncher("?search=" + pageParam()) }
+
+  /// The shield's sheet. iPhone's block list runs inside WebKit, which
+  /// does not say what it stopped, so unlike Android there is no count:
+  /// only the way into this site's switches.
+  @objc func barShield() {
+    guard let from = webview?.window?.rootViewController else { return }
+    var top = from
+    while let shown = top.presentedViewController { top = shown }
+    let host = Self.bareHost(URL(string: topBarUrl)?.host ?? "")
+    let sheet = UIAlertController(
+      title: host,
+      message: "On the sites we tame, feeds and distractions are hidden. You choose what stays.",
+      preferredStyle: .actionSheet)
+    sheet.addAction(UIAlertAction(title: "Change what's hidden here", style: .default) { [weak self] _ in
+      guard let self = self else { return }
+      self.openLauncher("?settings=" + self.pageParam())
+    })
+    sheet.addAction(UIAlertAction(title: "Close", style: .cancel))
+    sheet.popoverPresentationController?.sourceView = topBar
+    top.present(sheet, animated: true)
   }
 
   /// Home-screen quick actions (Info.ios.plist UIApplicationShortcutItems).
