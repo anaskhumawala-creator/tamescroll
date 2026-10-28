@@ -3155,6 +3155,23 @@ mod tests {
              the video the user is watching must never blur"
         );
 
+        // Every picture means every picture: channel pictures, Shorts
+        // lockups and channel-page art were left sharp until 2026-10-28.
+        let yt = blur_css("youtube");
+        for sel in [
+            "ytm-profile-icon img",
+            "ytm-shorts-lockup-view-model img",
+            "yt-image-banner-view-model img",
+            "yt-decorated-avatar-view-model img",
+            "ytm-compact-thumbnail img",
+        ] {
+            assert!(yt.contains(sel), "YouTube blur css must cover {sel}");
+        }
+        assert!(
+            !yt.contains("player-container"),
+            "the YouTube blur css must never target the player container"
+        );
+
         // Owner call 2026-08-19: TikTok blurs EVERYTHING — all img +
         // video site-wide (first report: /following uncovered; second:
         // profile still partial). Pin the blanket coverage and the
