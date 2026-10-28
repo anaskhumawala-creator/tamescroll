@@ -18,6 +18,11 @@ struct BlockingArgs: Decodable {
   let on: Bool
 }
 
+struct EvalArgs: Decodable {
+  let source: String
+  let path: String
+}
+
 class TsWebkitPlugin: Plugin {
   weak var webview: WKWebView?
   /// The one user script that is ours, so a replacement can drop exactly
@@ -388,6 +393,21 @@ extension TsWebkitPlugin {
       self.blockingOn = args.on
       self.applyBlocker()
       invoke.resolve()
+    }
+  }
+
+  @objc public func evalToFile(_ invoke: Invoke) throws {
+    let args = try invoke.parseArgs(EvalArgs.self)
+    DispatchQueue.main.async {
+      guard let webview = self.webview else {
+        invoke.reject("no webview yet")
+        return
+      }
+      webview.evaluateJavaScript(args.source) { result, error in
+        let text = error.map { "error: \($0)" } ?? String(describing: result ?? "nil")
+        try? text.write(toFile: args.path, atomically: true, encoding: .utf8)
+        invoke.resolve()
+      }
     }
   }
 

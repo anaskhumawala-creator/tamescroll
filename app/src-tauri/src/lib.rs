@@ -1900,10 +1900,8 @@ fn injection_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             if let Some(js) = page_load_rules_script(payload.url().as_str()) {
                 let _ = webview.eval(&js);
             }
-            // iOS: no gaze yet. The Stage B bundle loads from the
-            // synthetic url, which WKWebView cannot serve (plan-engine-v3
-            // 6.3), and a bundle that never boots leaves blur-first on
-            // for good. The blur is the last phase of the iPhone port.
+            // iOS: the gaze bundle arrives with the document-start script
+            // instead (set_ios_page_script); an eval here would boot it twice.
             #[cfg(not(target_os = "ios"))]
             if let Some(js) = page_load_gaze_script(payload.url().as_str(), gaze_state()) {
                 let _ = webview.eval(&js);
@@ -1931,9 +1929,19 @@ fn set_ios_page_script(app: &tauri::AppHandle, url: &str) {
     };
     let root = platform_for_host(platform_root(url)).map_or("", |p| platform_root(p.url));
     let root = serde_json::to_string(root).unwrap_or_else(|_| "\"\"".into());
+    // Blur rides the same script. WKWebView cannot serve the synthetic
+    // urls the Android bundle fetches its worker and models from, so here
+    // the models travel inline (gaze_script never finds the host in
+    // SYNTHETIC_HOSTS on iOS) and the worker's failed start hands the
+    // work to the in-page pipeline, as on Android's strict hosts.
+    // Blur set to Nothing means nothing at all: no bundle, no models.
+    let gaze = match gaze_state() {
+        "off" => String::new(),
+        mode => page_load_gaze_script(url, mode).unwrap_or_default(),
+    };
     let guarded = format!(
         "(function () {{ var r = {root}, h = location.hostname; \
-         if (h !== r && !h.endsWith('.' + r)) return; {rules} }})();"
+         if (h !== r && !h.endsWith('.' + r)) return; {rules}\n{gaze} }})();"
     );
     let _ = tauri_plugin_ts_webkit::set_page_script(app, guarded);
 }
@@ -2006,10 +2014,22 @@ fn ios_ci_open(app: tauri::AppHandle) {
         });
         return;
     }
-    let Some(id) = std::env::args().find_map(|a| a.strip_prefix("--ts-open=").map(String::from))
-    else {
+    let arg = |name: &str| std::env::args().find_map(|a| a.strip_prefix(name).map(String::from));
+    // `--ts-gaze=smart --ts-gender=man` sets the blur choice the launcher
+    // would, `--ts-page=<url>` opens that page of the platform instead of
+    // its home, and `--ts-probe=<seconds>` writes the gaze bundle's own
+    // report to Caches/gaze-status.txt that long after opening.
+    if let Some(mode) = arg("--ts-gaze=") {
+        set_gaze_state(&mode);
+    }
+    if let Some(g) = arg("--ts-gender=") {
+        set_user_gender_state(&g);
+    }
+    let Some(id) = arg("--ts-open=") else {
         return;
     };
+    let page = arg("--ts-page=");
+    let probe = arg("--ts-probe=").and_then(|s| s.parse::<u64>().ok());
     std::thread::spawn(move || {
         // Let the launcher finish loading first, as a person would.
         std::thread::sleep(std::time::Duration::from_secs(4));
@@ -2017,12 +2037,26 @@ fn ios_ci_open(app: tauri::AppHandle) {
             eprintln!("ts-open: unknown platform {id}");
             return;
         };
+        let target = page.as_deref().unwrap_or(platform.url);
         set_shown_platform(platform.id);
-        set_ios_page_script(&app, platform.url);
-        let (Some(main), Ok(url)) = (app.get_webview_window("main"), platform.url.parse()) else {
+        set_ios_page_script(&app, target);
+        let (Some(main), Ok(url)) = (app.get_webview_window("main"), target.parse()) else {
             return;
         };
         let _ = main.navigate(url);
+        let (Some(secs), Ok(dir)) = (probe, app.path().app_cache_dir()) else { return };
+        std::thread::sleep(std::time::Duration::from_secs(secs));
+        let js = "JSON.stringify({bundle: !!window.__TS_GAZE_BUNDLE__, mode: window.__TS_GAZE_MODE, \
+                  evalMs: window.__TS_GAZE_EVALMS, boot: window.__TS_GAZE_BOOT || null, \
+                  worker: window.__TS_GAZE_WORKER || null, \
+                  blurred: document.querySelectorAll('[class*=\"ts-gaze\"]').length, \
+                  imgs: document.images.length, \
+                  diag: typeof window.__TS_DIAG_NOW === 'function' ? window.__TS_DIAG_NOW() : null})";
+        let _ = tauri_plugin_ts_webkit::eval_to_file(
+            &app,
+            js.to_string(),
+            dir.join("gaze-status.txt").to_string_lossy().into_owned(),
+        );
     });
 }
 

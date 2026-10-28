@@ -131,3 +131,31 @@ pub fn set_blocking<R: Runtime, M: tauri::Manager<R>>(manager: &M, on: bool) -> 
     #[allow(unreachable_code)]
     Ok(())
 }
+
+/// Runs `source` in the current page and writes what it returns (or the
+/// error) to the file at `path`. For the CI job only: the simulator has
+/// no web inspector, so this is how it reads the page's own state.
+#[allow(unused_variables)]
+pub fn eval_to_file<R: Runtime, M: tauri::Manager<R>>(
+    manager: &M,
+    source: String,
+    path: String,
+) -> Result<(), String> {
+    #[cfg(target_os = "ios")]
+    {
+        #[derive(serde::Serialize)]
+        struct Args {
+            source: String,
+            path: String,
+        }
+        let handle = manager
+            .try_state::<Handle<R>>()
+            .ok_or_else(|| "ts-webkit not initialised".to_string())?;
+        return handle
+            .0
+            .run_mobile_plugin::<()>("evalToFile", Args { source, path })
+            .map_err(|e| e.to_string());
+    }
+    #[allow(unreachable_code)]
+    Ok(())
+}
