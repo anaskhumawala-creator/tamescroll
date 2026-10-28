@@ -13,8 +13,29 @@ It is not legal advice.
   WebView, the same engine DuckDuckGo and Kahf ship on in both stores.
 - A per-platform "Block ads" setting, on by default, that users can turn
   off. This replaces the earlier rule that ads never come back.
-- Our own icon and palette in store builds: no red play tile, no brand
-  colours.
+  (2026-10-27, ZV: YouTube's starts OFF, so blocking ads there is the
+  user's act; the other platforms keep it on by default. Never say "no
+  YouTube ads" in a store listing; see 2026-10-28 for the website.)
+- Our own icon and palette in every build: no red play tile, no brand
+  colours. (2026-10-28: the sideloaded build's red tile retired too.)
+
+## Decided 2026-10-28
+
+- Keep our own YouTube request rule (`rules/scriptlets.txt`) built in.
+  A side-by-side test build without it was checked on ZV's phone and the
+  alternatives (user-added lists only, a list published by someone else,
+  telling people to use Brave) were compared:
+  https://claude.ai/artifact/7JsmyLVmiPJJUztToN2GdD. Publishing the rule
+  through a third party "so nobody is responsible" was rejected; it reads
+  as intent and moves the risk onto them. If a complaint ever names it,
+  remove that one line over the air.
+- iPhone keeps YouTube ad blocking too, off by default, like Android.
+- Marketing follows Brave (brave.com/youtube-ad-blocker): our website may
+  describe a calmer YouTube with ads blocked if the user wants it. Store
+  listings stay general. Never "free YouTube Premium", "bypass" or "skip
+  YouTube's ads", never YouTube's logo or red.
+- Full research: `/mnt/project-files/research/reports/Tame Scroll legal
+  and store risk.md` (project files, not in the repo).
 - Launch under the owner's own name on personal store accounts; form a
   company later, when there is money or scale.
 - No lawyer before launch. If a platform or store complains: don't ignore

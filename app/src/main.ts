@@ -64,9 +64,8 @@ const BLUR_KEY = "tamescroll.blur";
 
 const CAPTIONS: Record<GazeMode, string> = {
   off: "",
-  blur: "Blurs pictures on the pages you browse. What you open plays normally.",
-  smart:
-    "Smart blurs faces by your onboarding choice. Blur runs on this device — nothing you view leaves it.",
+  blur: "Blurs every picture and preview on the pages you browse.",
+  smart: "Blurs faces in pictures and previews, by your choice below.",
 };
 
 function migrate(raw: string | null): GazeMode {
@@ -125,12 +124,9 @@ function renderBlurToggle() {
     btn.classList.toggle("active", active);
     btn.setAttribute("aria-checked", String(active));
   });
-  // Video blur on a phone is beta and starts off (his 2026-10-22 ruling,
-  // gaze player-switch.mjs); the caption is where he learns the switch is.
-  blurCaption.textContent =
-    mode === "smart" && /Android/i.test(navigator.userAgent)
-      ? `${CAPTIONS[mode]} Video blur is in beta: videos start unblurred, and the Blur switch on the player turns it on.`
-      : CAPTIONS[mode];
+  // The watch player is not blurred (his 2026-10-27 ruling, gaze
+  // PLAYER_VIDEO_BLUR); the pane's own line says so.
+  blurCaption.textContent = CAPTIONS[mode];
   const px = getStrength();
   strengthRow.hidden = mode === "off";
   strengthToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
@@ -240,7 +236,7 @@ refreshForm.addEventListener("submit", (e) => {
   invoke<string>("refresh_rules")
     .then((msg) => {
       refreshStatus.textContent =
-        msg === "rules up to date" ? "Already up to date." : `${msg}. Reopen a platform to apply.`;
+        msg === "rules up to date" ? "Already up to date." : `${msg}. Reopen a site to apply.`;
     })
     .catch(() => {
       refreshStatus.textContent = "Couldn't reach the update server. Current rules stay active.";
@@ -349,7 +345,7 @@ function refreshDiag() {
   }
   const lines = raw.split(/\r?\n/).filter((l) => l.trim().length > 0);
   if (!lines.length) {
-    diagSummary.textContent = "Nothing collected yet. Open a platform and come back.";
+    diagSummary.textContent = "Nothing collected yet. Open a site and come back.";
     return;
   }
   // The last report is the one that explains whatever just annoyed him,
@@ -511,7 +507,7 @@ async function renderBringBack(readyPlatforms: Platform[]) {
   if (!readyPlatforms.length) {
     const hint = document.createElement("p");
     hint.className = "section-hint";
-    hint.textContent = "Add a platform first — its surfaces show up here.";
+    hint.textContent = "Add a site on the home screen first — its settings show up here.";
     bringBack.append(hint);
     return;
   }
@@ -522,6 +518,7 @@ async function renderBringBack(readyPlatforms: Platform[]) {
 
       const details = document.createElement("details");
       details.className = "platform-settings";
+      details.dataset.platform = platform.id;
       const summary = document.createElement("summary");
       summary.textContent = platform.name;
       details.append(summary);
@@ -558,6 +555,80 @@ function writeChosen(ids: string[]) {
   localStorage.setItem(CHOSEN_KEY, JSON.stringify(ids));
 }
 
+// ANY SITE CAN BE A TILE (his 2026-10-27, #35: a calm browser, YouTube is
+// one site). The platforms we tame stay in CHOSEN_KEY; every other site
+// the user adds is a bare address here and opens like the search box.
+type Site = { host: string; name: string; url: string };
+const SITES_KEY = "tamescroll.sites";
+
+function readSites(): Site[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SITES_KEY) ?? "[]");
+    return Array.isArray(parsed)
+      ? parsed.filter((s) => s && typeof s.host === "string" && typeof s.url === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSites(sites: Site[]) {
+  localStorage.setItem(SITES_KEY, JSON.stringify(sites));
+}
+
+const bareHost = (host: string) => host.toLowerCase().replace(/^(www|m|mobile)\./, "");
+
+// "wikipedia.org", "https://www.bbc.co.uk/news" -> a site; a plain word or
+// a sentence is not one (the search box takes those).
+function siteFromInput(raw: string): Site | null {
+  const text = raw.trim();
+  if (!text || /\s/.test(text)) return null;
+  let u: URL;
+  try {
+    u = new URL(/^https?:\/\//i.test(text) ? text : `https://${text}`);
+  } catch {
+    return null;
+  }
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(u.hostname)) return null;
+  const host = bareHost(u.hostname);
+  // The name is the site's own label: en.wikipedia.org -> Wikipedia,
+  // bbc.co.uk -> BBC (a two-part ending like .co.uk is skipped).
+  const parts = host.split(".");
+  let i = parts.length - 2;
+  if (i > 0 && parts[i].length <= 3 && parts[i + 1].length === 2) i--;
+  const label = parts[i];
+  return {
+    host,
+    name: label.length <= 3 ? label.toUpperCase() : label.charAt(0).toUpperCase() + label.slice(1),
+    url: `https://${u.hostname.toLowerCase()}/`,
+  };
+}
+
+function addSite(site: Site) {
+  const sites = readSites();
+  if (!sites.some((s) => s.host === site.host)) writeSites([...sites, site]);
+}
+
+function siteTile(site: Site): HTMLButtonElement {
+  const el = document.createElement("button");
+  el.className = "tile";
+  const dot = document.createElement("span");
+  dot.className = "dot";
+  dot.textContent = site.name.charAt(0);
+  const name = document.createElement("span");
+  name.className = "name";
+  name.textContent = site.name;
+  const note = document.createElement("span");
+  note.className = "note";
+  note.textContent = site.host;
+  el.append(dot, name, note);
+  el.addEventListener("click", () => {
+    el.classList.add("opening");
+    void openAddress(site.url);
+  });
+  return el;
+}
+
 function glyphFor(platform: Platform): HTMLElement {
   const dot = document.createElement("span");
   dot.className = "dot";
@@ -577,8 +648,10 @@ function tile(platform: Platform): HTMLButtonElement {
 
   const note = document.createElement("span");
   note.className = "note";
+  // "Tamed" marks the sites we clean specially, so the care shows
+  // without making them the point of the app.
   note.textContent = platform.ready
-    ? TILE_NOTES[platform.id] ?? "Cleaned"
+    ? `Tamed · ${TILE_NOTES[platform.id] ?? "feeds hidden"}`
     : "Not ready yet";
 
   el.append(glyphFor(platform), name, note);
@@ -738,8 +811,10 @@ function renderTiles(platforms: Platform[], chosen: string[]) {
   platforms
     .filter((p) => chosen.includes(p.id))
     .forEach((platform) => tiles.append(tile(platform)));
+  readSites().forEach((site) => tiles.append(siteTile(site)));
 
-  // "Add a platform" tile: expands into the type-to-match input.
+  // "Add a site" tile: expands into a box that takes a tamed site's
+  // name or any address.
   const add = document.createElement("button");
   add.className = "tile add";
   const dot = document.createElement("span");
@@ -747,10 +822,10 @@ function renderTiles(platforms: Platform[], chosen: string[]) {
   dot.textContent = "+";
   const name = document.createElement("span");
   name.className = "name";
-  name.textContent = "Add a platform";
+  name.textContent = "Add a site";
   const note = document.createElement("span");
   note.className = "note";
-  note.textContent = "Only ones you already use";
+  note.textContent = "Its name or address";
   add.append(dot, name, note);
   add.addEventListener("click", () => {
     add.replaceWith(addMatchBox(platforms));
@@ -763,8 +838,10 @@ function addMatchBox(platforms: Platform[]): HTMLElement {
   box.className = "add-match";
   const input = document.createElement("input");
   input.type = "text";
-  input.placeholder = "Type a platform name...";
+  input.placeholder = "wikipedia.org, Reddit...";
   input.autocomplete = "off";
+  input.autocapitalize = "off";
+  input.spellcheck = false;
   const result = document.createElement("div");
   box.append(input, result);
 
@@ -772,24 +849,57 @@ function addMatchBox(platforms: Platform[]): HTMLElement {
     result.textContent = "";
     const chosen = readChosen() ?? [];
     const q = input.value;
-    const matches = matchPlatforms(platforms, q, chosen);
+    // A tamed site's own address adds that site, not a bare tile.
+    const site = siteFromInput(q);
+    const tamed = site ? platformForPage(site.url) : undefined;
+    const matches = tamed
+      ? chosen.includes(tamed.id) ? [] : [tamed]
+      : matchPlatforms(platforms, q, chosen);
     if (matches.length) {
       result.append(
-        matchRow(matches[0], q, () => {
+        matchRow(matches[0], tamed ? matches[0].name : q, () => {
           writeChosen([...chosen, matches[0].id]);
           refreshAll();
         })
       );
-    } else if (q.trim().length >= 3) {
+    } else if (site && !tamed) {
+      result.append(siteRow(site, () => {
+        addSite(site);
+        refreshAll();
+      }));
+    } else if (q.trim().length >= 3 && !site) {
       const none = document.createElement("p");
       none.className = "match-none";
-      none.textContent = "We don't support that.";
+      none.textContent = "Type the site's address, like wikipedia.org.";
       result.append(none);
     }
   });
 
   setTimeout(() => input.focus(), 0);
   return box;
+}
+
+function siteRow(site: Site, onAdd: () => void): HTMLElement {
+  const row = document.createElement("div");
+  row.className = "match-row";
+  const dot = document.createElement("span");
+  dot.className = "dot";
+  dot.textContent = site.name.charAt(0);
+  const grow = document.createElement("span");
+  grow.className = "grow";
+  grow.textContent = site.host;
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "btn-solid";
+  if (readSites().some((s) => s.host === site.host)) {
+    add.textContent = "Added";
+    add.disabled = true;
+  } else {
+    add.textContent = "Add";
+    add.addEventListener("click", onAdd);
+  }
+  row.append(dot, grow, add);
+  return row;
 }
 
 // "Manage platforms": every chosen platform as an In/Out row, inside
@@ -799,33 +909,40 @@ function renderManage(platforms: Platform[]) {
   const host = document.querySelector<HTMLElement>("#manage-platforms")!;
   host.textContent = "";
   const chosen = readChosen() ?? [];
-  if (!chosen.length) return;
+  const sites = readSites();
+  if (!chosen.length && !sites.length) return;
 
   const details = document.createElement("details");
   details.className = "platform-settings";
   const summary = document.createElement("summary");
-  summary.textContent = "Your platforms";
+  summary.textContent = "Remove a site";
   details.append(summary);
 
+  const row = (text: string, onRemove: () => void) => {
+    const el = document.createElement("div");
+    el.className = "setting-row";
+    const label = document.createElement("span");
+    label.className = "setting-label";
+    label.textContent = text;
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "link-btn";
+    remove.textContent = "Remove";
+    remove.addEventListener("click", () => {
+      onRemove();
+      refreshAll();
+    });
+    el.append(label, remove);
+    details.append(el);
+  };
   platforms
     .filter((p) => chosen.includes(p.id))
-    .forEach((platform) => {
-      const row = document.createElement("div");
-      row.className = "setting-row";
-      const label = document.createElement("span");
-      label.className = "setting-label";
-      label.textContent = platform.name;
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "link-btn";
-      remove.textContent = "Remove";
-      remove.addEventListener("click", () => {
-        writeChosen((readChosen() ?? []).filter((id) => id !== platform.id));
-        refreshAll();
-      });
-      row.append(label, remove);
-      details.append(row);
-    });
+    .forEach((platform) =>
+      row(platform.name, () => writeChosen((readChosen() ?? []).filter((id) => id !== platform.id)))
+    );
+  sites.forEach((site) =>
+    row(site.host, () => writeSites(readSites().filter((s) => s.host !== site.host)))
+  );
   host.append(details);
 }
 
@@ -999,20 +1116,21 @@ document.querySelectorAll<HTMLButtonElement>("#view-links [data-act]").forEach((
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible") return;
   if (!views.links.hidden) renderLinksView();
-  if (!views.launcher.hidden) renderLinksCard();
+  if (!views.settings.hidden) renderLinksCard();
 });
 document.querySelector<HTMLButtonElement>("#links-done")!.addEventListener("click", () => linksReturn());
 document.querySelector<HTMLButtonElement>("#links-back")!.addEventListener("click", () => linksReturn());
 document.querySelector<HTMLButtonElement>("#links-card-btn")!.addEventListener("click", () => {
   openLinksView(() => {
-    showView("launcher");
+    showView("settings");
+    showPane("bringback");
     renderLinksCard();
   });
 });
 
 // ---------- settings view ----------
 
-const PANES = ["bringback", "filters", "blur", "protection", "about"] as const;
+const PANES = ["bringback", "blur", "filters", "about"] as const;
 
 function showPane(name: (typeof PANES)[number]) {
   PANES.forEach((p) => {
@@ -1028,6 +1146,7 @@ document.querySelectorAll<HTMLButtonElement>(".nav-item").forEach((btn) => {
 });
 
 document.querySelector<HTMLButtonElement>("#open-settings")!.addEventListener("click", () => {
+  siteHere.textContent = "";
   showView("settings");
   showPane("bringback");
 });
@@ -1036,156 +1155,70 @@ document.querySelector<HTMLButtonElement>("#settings-back")!.addEventListener("c
   showView("launcher");
 });
 
-// ---------- onboarding (board 1D, 5 steps) ----------
+// ---------- onboarding (his 2026-10-27, #35: three steps) ----------
+// Welcome, how pictures look, done -- with the gender question in
+// between only when Smart is picked, because nothing else reads it. No
+// platform picker: the home screen's "Add a site" is where sites come in,
+// so the first thing the app teaches is the browser, not one platform.
+// The YouTube links and home-icon offers live in Settings -> Sites.
 
-function runOnboarding(platforms: Platform[], done: () => void) {
+function runOnboarding(done: () => void) {
   showView("onboard");
   const steps = document.querySelectorAll<HTMLElement>(".ob-step");
-  const chosen = new Set<string>();
   let obGender: UserGender = "unset";
-  let obMode: GazeMode = "smart";
 
   const count = document.querySelector<HTMLElement>("#ob-count")!;
   const back = document.querySelector<HTMLButtonElement>("#ob-back")!;
-  let current = 1;
+  const trail: string[] = [];
 
-  function goto(step: number) {
-    current = step;
+  function goto(step: string, remember = true) {
+    const current = [...steps].find((el) => !el.hidden)?.dataset.step;
+    if (remember && current) trail.push(current);
     steps.forEach((el) => {
-      el.hidden = Number(el.dataset.step) !== step;
+      el.hidden = el.dataset.step !== step;
     });
-    // Step 1 is the welcome, not a question; the counter starts after it.
-    count.textContent = step > 1 ? `${step - 1} of ${steps.length - 1}` : "";
-    back.hidden = step <= 1;
+    count.textContent = "";
+    back.hidden = step === "welcome" || step === "done";
   }
 
-  back.addEventListener("click", () => goto(Math.max(1, current - 1)));
-  document.querySelector<HTMLButtonElement>("#ob-start")!.addEventListener("click", () => goto(2));
-
-  // Step 2: type-to-match platform entry.
-  const chips = document.querySelector<HTMLElement>("#ob-chips")!;
-  const input = document.querySelector<HTMLInputElement>("#ob-input")!;
-  const match = document.querySelector<HTMLElement>("#ob-match")!;
-  const cont = document.querySelector<HTMLButtonElement>("#ob-continue")!;
-
-  const paintChips = () => {
-    chips.textContent = "";
-    chosen.forEach((id) => {
-      const p = platforms.find((x) => x.id === id);
-      if (!p) return;
-      const chip = document.createElement("span");
-      chip.className = "chip";
-      const label = document.createElement("span");
-      label.textContent = `${p.name} ✓`;
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.textContent = "×";
-      remove.setAttribute("aria-label", `Remove ${p.name}`);
-      remove.addEventListener("click", () => {
-        chosen.delete(id);
-        paintChips();
-      });
-      chip.append(label, remove);
-      chips.append(chip);
-    });
-    cont.textContent = chosen.size
-      ? `Continue with ${chosen.size} platform${chosen.size === 1 ? "" : "s"}`
-      : "Continue with none — add later";
-  };
-
-  input.addEventListener("input", () => {
-    match.textContent = "";
-    const q = input.value;
-    const matches = matchPlatforms(platforms, q, [...chosen]);
-    if (matches.length) {
-      match.append(
-        matchRow(matches[0], q, () => {
-          chosen.add(matches[0].id);
-          input.value = "";
-          match.textContent = "";
-          paintChips();
-        })
-      );
-    } else if (q.trim().length >= 3) {
-      const none = document.createElement("p");
-      none.className = "match-none";
-      none.textContent = "We don't support that.";
-      match.append(none);
-    }
+  back.addEventListener("click", () => {
+    const prev = trail.pop();
+    if (prev) goto(prev, false);
   });
-  paintChips();
-  cont.addEventListener("click", () => goto(3));
+  document.querySelector<HTMLButtonElement>("#ob-start")!.addEventListener("click", () => goto("blur"));
 
-  // Step 3: the gender question (compulsory stop, skippable answer).
+  // COMMIT ON REACHING "done", not on its button, so a reload there
+  // (an Android link arrival navigates the webview) does not start over.
+  function finish(mode: GazeMode) {
+    writeChosen(readChosen() ?? []);
+    setGender(obGender);
+    setMode(mode);
+    goto("done");
+  }
+
+  document.querySelectorAll<HTMLButtonElement>("#ob-blur-cards .ob-card").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const mode = btn.dataset.mode as GazeMode;
+      if (mode === "smart") goto("gender");
+      else finish(mode);
+    });
+  });
+
+  // Smart only: the gender question (skippable, set later in Settings).
   document.querySelectorAll<HTMLButtonElement>(".ob-card[data-gender]").forEach((btn) => {
     btn.addEventListener("click", () => {
       obGender = btn.dataset.gender as UserGender;
-      goto(4);
+      finish("smart");
     });
   });
   document.querySelector<HTMLButtonElement>("#ob-skip-gender")!.addEventListener("click", () => {
     obGender = "unset";
-    goto(4);
+    finish("smart");
   });
 
-  // Step 4: blur mode.
-  document.querySelectorAll<HTMLButtonElement>("#ob-blur-cards .ob-card").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      obMode = btn.dataset.mode as GazeMode;
-      // Step 5 summary reflects the actual picks.
-      const names = [...chosen]
-        .map((id) => platforms.find((p) => p.id === id)?.name)
-        .filter(Boolean);
-      const summary = document.querySelector<HTMLElement>("#ob-summary")!;
-      summary.textContent = names.length
-        ? `${names.join(" and ")} ${names.length === 1 ? "is" : "are"} set up. Everything starts hidden — bring back what you want in Settings.`
-        : "No platforms yet — add one from the home screen when you need it. Everything starts hidden.";
-      const glyphs = document.querySelector<HTMLElement>("#ob-glyphs")!;
-      glyphs.textContent = "";
-      [...chosen].forEach((id) => {
-        const p = platforms.find((x) => x.id === id);
-        if (p) glyphs.append(glyphFor(p));
-      });
-      // COMMIT HERE, not on the last button: the link flow's self-test
-      // reloads this page (a link arrival navigates the webview), and
-      // an uncommitted onboarding would start over.
-      writeChosen([...chosen]);
-      setGender(obGender);
-      setMode(obMode);
-      const linksBtn = document.querySelector<HTMLButtonElement>("#ob-links")!;
-      const linksNote = document.querySelector<HTMLElement>("#ob-links-note")!;
-      const offerLinks = linksApplicable();
-      linksBtn.hidden = !offerLinks;
-      linksNote.hidden = !offerLinks;
-      let pin: { supported?: boolean; pinned?: boolean } = {};
-      try { pin = JSON.parse(linksBridge?.pinState?.("youtube") ?? "{}"); } catch { /* the OS would not say */ }
-      const pinBtn = document.querySelector<HTMLButtonElement>("#ob-pin")!;
-      pinBtn.hidden = !(offerLinks && pin.supported === true && pin.pinned !== true);
-      document.querySelector<HTMLElement>("#ob-pin-note")!.hidden = true;
-      goto(5);
-    });
-  });
-
-  // Step 5: the handover (Android + YouTube chosen), or straight in.
-  document.querySelector<HTMLButtonElement>("#ob-links")!.addEventListener("click", () => {
-    openLinksView(done);
-  });
   document.querySelector<HTMLButtonElement>("#ob-open")!.addEventListener("click", () => done());
-  // The home-screen icon, offered here too (his ruling 2026-09-10: it
-  // was only under the links Set up card). Shown when the launcher can
-  // take a shortcut and does not already have it.
-  const pinBtn = document.querySelector<HTMLButtonElement>("#ob-pin")!;
-  const pinNote = document.querySelector<HTMLElement>("#ob-pin-note")!;
-  pinBtn.addEventListener("click", () => {
-    if (!linksBridge) return;
-    let r = "refused";
-    try { r = String(linksBridge.pinShortcut("youtube")); } catch { /* bridge refused */ }
-    pinNote.textContent = PIN_WORDS[r] ?? "";
-    pinNote.hidden = false;
-    if (r === "pinned" || r === "requested") pinBtn.hidden = true;
-  });
 
-  goto(1);
+  goto("welcome", false);
 }
 
 // ---------- startup ----------
@@ -1210,13 +1243,99 @@ async function invokeStartup<T>(cmd: string): Promise<T> {
 }
 
 let allPlatforms: Platform[] = [];
+// The last Sites render, so a caller can wait for it instead of starting
+// a second one that would interleave its rows with this one's.
+let bringBackReady: Promise<void> = Promise.resolve();
 
 function refreshAll() {
   const chosen = readChosen() ?? [];
   renderTiles(allPlatforms, chosen);
   renderManage(allPlatforms);
   renderLinksCard();
-  void renderBringBack(allPlatforms.filter((p) => p.ready && chosen.includes(p.id)));
+  bringBackReady = renderBringBack(allPlatforms.filter((p) => p.ready && chosen.includes(p.id)));
+}
+
+// THE TOP BAR INSIDE A SITE (his 2026-10-27, #33). MainActivity draws it
+// natively above every site and sends its taps here: ?search=<page> opens
+// home with the box holding that page's address, selected, the way a
+// browser's address bar works; ?settings=<page> opens Settings -> Sites
+// at that page's site.
+function barRequest(): { kind: "search" | "settings"; page: string } | null {
+  const params = new URLSearchParams(location.search);
+  for (const kind of ["search", "settings"] as const) {
+    const page = params.get(kind);
+    if (page !== null) return { kind, page };
+  }
+  return null;
+}
+
+function platformForPage(page: string): Platform | undefined {
+  const bare = bareHost;
+  let host = "";
+  try {
+    host = bare(new URL(page).hostname);
+  } catch {
+    return undefined;
+  }
+  return allPlatforms.find((p) => {
+    try {
+      const own = bare(new URL(p.url).hostname);
+      return host === own || host.endsWith(`.${own}`);
+    } catch {
+      return false;
+    }
+  });
+}
+
+async function openSiteSettings(page: string) {
+  showView("settings");
+  showPane("bringback");
+  await bringBackReady;
+  const platform = platformForPage(page);
+  const details = platform
+    ? bringBack.querySelector<HTMLDetailsElement>(`details[data-platform="${platform.id}"]`)
+    : null;
+  if (details) {
+    details.open = true;
+    details.scrollIntoView({ block: "start" });
+    return;
+  }
+  // A site we don't tame: say what still works there, and offer it as a tile.
+  const site = siteFromInput(page);
+  if (site && !platform) renderSiteHere(site);
+}
+
+const siteHere = document.querySelector<HTMLElement>("#site-here")!;
+
+function renderSiteHere(site: Site) {
+  siteHere.textContent = "";
+  const card = document.createElement("section");
+  card.className = "card";
+  const title = document.createElement("div");
+  title.className = "card-title";
+  title.textContent = site.host;
+  const body = document.createElement("p");
+  body.className = "card-body";
+  body.textContent = "Blur and ad blocking work here. We don't hide this site's feeds.";
+  const actions = document.createElement("div");
+  actions.className = "actions";
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "btn-ghost";
+  const paint = () => {
+    const added = readSites().some((s) => s.host === site.host);
+    add.textContent = added ? "In your sites" : "Add to your sites";
+    add.disabled = added;
+  };
+  add.addEventListener("click", () => {
+    addSite(site);
+    refreshAll();
+    paint();
+  });
+  paint();
+  actions.append(add);
+  card.append(title, body, actions);
+  siteHere.append(card);
 }
 
 // Home-screen shortcut or link launch (Android). Cold start: MainActivity
@@ -1276,7 +1395,12 @@ async function start() {
   // The pending request is read BEFORE any view is painted; when there
   // is one, the page stays on the dark handoff line until the platform
   // document replaces it.
-  const pending = pendingRequest();
+  // A link shared from another app (not a site we tame) arrives as
+  // ?open=search&url=<link> and fills the address box like the top bar.
+  const request = pendingRequest();
+  const shared = request?.id === "search" ? request : null;
+  const pending = shared ? null : request;
+  const bar = shared ? { kind: "search" as const, page: shared.url } : pending ? null : barRequest();
 
   // Only the plain launch paints early: a link or shortcut keeps its
   // handoff line, and a first run goes to onboarding, which needs the
@@ -1307,13 +1431,23 @@ async function start() {
       handoff.hidden = false;
       handoff.textContent = `Opening ${handoffTarget.name}…`;
     } else if (chosen === null) {
-      runOnboarding(allPlatforms, () => {
+      runOnboarding(() => {
         showView("launcher");
         refreshAll();
       });
     } else {
       showView("launcher");
       refreshAll();
+      if (bar) {
+        history.replaceState(null, "", location.pathname);
+        if (bar.kind === "search") {
+          openLinkInput.value = bar.page;
+          openLinkInput.focus();
+          openLinkInput.select();
+        } else {
+          void openSiteSettings(bar.page);
+        }
+      }
     }
 
     // THE RULE COUNT MUST NOT GATE THE APP (1107). rules_summary calls
@@ -1358,7 +1492,7 @@ async function start() {
     }
   } catch (error) {
     showView("launcher");
-    status.textContent = `Could not load platforms: ${String(error)}`;
+    status.textContent = `Could not load your sites: ${String(error)}`;
   }
 }
 
