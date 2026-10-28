@@ -37,6 +37,7 @@ import android.webkit.ValueCallback
 import android.webkit.WebViewClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import android.webkit.WebBackForwardList
 import android.webkit.WebResourceError
 import android.graphics.Bitmap
 import java.io.ByteArrayInputStream
@@ -1791,8 +1792,16 @@ class MainActivity : TauriActivity() {
           // spikes/logcat-probe6.log: two tauri.localhost targets, the
           // visible one attached:false). A fresh loadUrl creates one
           // live document instead.
-          webView.canGoBack() && !backEntryIsLauncher() -> webView.goBack()
-          else -> webView.loadUrl("http://tauri.localhost/")
+          else -> {
+            val list = webView.copyBackForwardList()
+            val target = backTarget(list)
+            val url = if (target >= 0) list.getItemAtIndex(target).url else null
+            if (url == null || url.contains("tauri.localhost")) {
+              webView.loadUrl("http://tauri.localhost/")
+            } else {
+              webView.goBackOrForward(target - list.currentIndex)
+            }
+          }
         }
       }
     }
@@ -1801,10 +1810,20 @@ class MainActivity : TauriActivity() {
     super.onWebViewCreate(webView)
   }
 
-  private fun backEntryIsLauncher(): Boolean {
-    val list = webView.copyBackForwardList()
-    if (list.currentIndex <= 0) return false
-    val prev = list.getItemAtIndex(list.currentIndex - 1).url ?: return false
-    return prev.contains("tauri.localhost")
+  /// The history index Back should land on, or -1 for none. It steps
+  /// past entries that would only restore as a blank page: the offline
+  /// screen keeps the failed url as its history url, so after a
+  /// successful Try again the entry behind the real page has the SAME
+  /// url, and going back to it showed an empty dark page with no bar
+  /// (1124 on the old Redmi, 2026-10-28).
+  private fun backTarget(list: WebBackForwardList): Int {
+    val current = list.currentItem?.url
+    var i = list.currentIndex - 1
+    while (i >= 0) {
+      val url = list.getItemAtIndex(i).url
+      if (url != null && url != current && !url.startsWith("about:") && !url.startsWith("data:")) break
+      i--
+    }
+    return i
   }
 }
