@@ -32,7 +32,6 @@ function showView(name: keyof typeof views) {
 const tiles = document.querySelector<HTMLElement>("#tiles")!;
 const status = document.querySelector<HTMLElement>("#status")!;
 const blurToggle = document.querySelector<HTMLElement>("#blur-toggle")!;
-const tidyToggle = document.querySelector<HTMLElement>("#tidy-toggle")!;
 const blurCaption = document.querySelector<HTMLElement>("#blur-caption")!;
 const bringBack = document.querySelector<HTMLElement>("#bring-back")!;
 const strengthRow = document.querySelector<HTMLElement>("#blur-strength-row")!;
@@ -133,35 +132,6 @@ function setChoice(c: BlurChoice) {
   setMode(c === "all" ? "blur" : c === "none" ? "off" : "smart");
 }
 
-// ---------- how much to tidy (his 2026-10-28) ----------
-// Light: feeds and Shorts gone, nothing else. Thorough: also the blur
-// choice and the extra filters. Asked about the app, never the person.
-type TidyLevel = "light" | "thorough";
-const LEVEL_KEY = "tamescroll.level";
-
-function getLevel(): TidyLevel {
-  try {
-    const saved = localStorage.getItem(LEVEL_KEY);
-    if (saved === "light" || saved === "thorough") return saved;
-  } catch {
-    /* fall through to what the blur setting implies */
-  }
-  // Installs from before this question: any blur already means Thorough.
-  try {
-    return getMode() === "off" ? "light" : "thorough";
-  } catch {
-    return "light";
-  }
-}
-
-function setLevel(level: TidyLevel) {
-  try {
-    localStorage.setItem(LEVEL_KEY, level);
-  } catch {
-    /* storage refused: Light, the default, still holds */
-  }
-}
-
 const CAPTIONS: Record<BlurChoice, string> = {
   all: "Blurs every picture and preview on the pages you browse.",
   women: "Blurs women in pictures and previews. Faces it can't place stay covered.",
@@ -172,12 +142,6 @@ const CAPTIONS: Record<BlurChoice, string> = {
 function renderBlurToggle() {
   const mode = getMode();
   const choice = getChoice();
-  const level = getLevel();
-  tidyToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
-    const active = btn.dataset.value === level;
-    btn.classList.toggle("active", active);
-    btn.setAttribute("aria-checked", String(active));
-  });
   blurToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
     const active = btn.dataset.value === choice;
     btn.classList.toggle("active", active);
@@ -198,20 +162,7 @@ function renderBlurToggle() {
 }
 
 blurToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const choice = btn.dataset.value as BlurChoice;
-    // Any blur is a Thorough thing; Light means no blur.
-    setLevel(choice === "none" ? "light" : "thorough");
-    setChoice(choice);
-  });
-});
-tidyToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const level = btn.dataset.value as TidyLevel;
-    setLevel(level);
-    if (level === "light") setChoice("none");
-    else renderBlurToggle();
-  });
+  btn.addEventListener("click", () => setChoice(btn.dataset.value as BlurChoice));
 });
 strengthToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
   btn.addEventListener("click", () => setStrength(Number(btn.dataset.value)));
@@ -1264,8 +1215,8 @@ function runOnboarding(done: () => void) {
     goto("demo");
     playDemo();
   });
-  document.querySelector<HTMLButtonElement>("#ob-skip-demo")!.addEventListener("click", () => goto("tidy"));
-  document.querySelector<HTMLButtonElement>("#ob-demo-next")!.addEventListener("click", () => goto("tidy"));
+  document.querySelector<HTMLButtonElement>("#ob-skip-demo")!.addEventListener("click", () => goto("blur"));
+  document.querySelector<HTMLButtonElement>("#ob-demo-next")!.addEventListener("click", () => goto("blur"));
   document.querySelector<HTMLButtonElement>("#ob-demo-replay")!.addEventListener("click", playDemo);
 
   // COMMIT ON REACHING "done", not on its button, so a reload there
@@ -1275,17 +1226,6 @@ function runOnboarding(done: () => void) {
     setChoice(choice);
     goto("done");
   }
-
-  // Light never sees the blur question: no blur is its whole promise.
-  function pickLevel(level: TidyLevel) {
-    setLevel(level);
-    if (level === "light") finish("none");
-    else goto("blur");
-  }
-  document.querySelectorAll<HTMLButtonElement>("#ob-tidy-cards .ob-card").forEach((btn) => {
-    btn.addEventListener("click", () => pickLevel(btn.dataset.level as TidyLevel));
-  });
-  document.querySelector<HTMLButtonElement>("#ob-tidy-skip")!.addEventListener("click", () => pickLevel("light"));
 
   document.querySelectorAll<HTMLButtonElement>("#ob-blur-cards .ob-card").forEach((btn) => {
     btn.addEventListener("click", () => finish(btn.dataset.choice as BlurChoice));
