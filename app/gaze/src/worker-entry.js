@@ -28,6 +28,20 @@ export function startWorker() {
 
   var models = { face: null, gender: null, nsfw: null, person: null };
   var loading = null;
+  // The gender model loads the first time a face needs a gender read,
+  // so a page with no faces never pays for it. Until it is ready an
+  // image with faces is answered `genderPending` and the page keeps it
+  // covered and asks again once 'loaded:gender' arrives.
+  var genderLoading = null;
+  var stageModel = null;
+  var warmModel = null;
+  function ensureGender() {
+    if (genderLoading) return genderLoading;
+    genderLoading = ensureModels().then(function () {
+      return warmModel(stageModel('gender', detector.loadGenderModel), 'gender');
+    });
+    return genderLoading;
+  }
   // Loaded ONLY when a player asks (a feed page has no video and MoveNet
   // is the most expensive model we ship). Null until then; `false` once
   // it has failed, so the page is told to keep the video path in-page
@@ -117,7 +131,6 @@ export function startWorker() {
       // posts its own 'loaded' the moment it is ready, which is what the
       // drain gates on.
       var faceP = stage('face', detector.loadModel);
-      var genderP = stage('gender', detector.loadGenderModel);
       var nsfwP = stage('nsfw', detector.loadNsfwModel);
       // Before saying ready: run each model once on a blank frame so the
       // WebGL kernels are compiled. Measured 2026-08-29 -- without this
@@ -145,7 +158,6 @@ export function startWorker() {
       }
       await Promise.all([
         warmWhen(faceP, 'face'),
-        warmWhen(genderP, 'gender'),
         warmWhen(nsfwP, 'nsfw'),
       ]);
       var warmMs = Math.round(performance.now() - warmAt);
@@ -156,6 +168,8 @@ export function startWorker() {
       // `backend` decides whether the PLAYER path may come here at all:
       // a CPU-backend worker is slower than the main thread it was meant
       // to unblock.
+      stageModel = stage;
+      warmModel = warmWhen;
       post({
         type: 'ready',
         backend: detector.backendName(),
@@ -190,8 +204,12 @@ export function startWorker() {
           : Promise.resolve(false);
       var boxes = models.face ? await detector.detectFaceBoxes(models.face, bmp, frame) : [];
       var reads = [];
+      var genderPending = false;
       if (boxes.length && models.gender) {
         reads = await detector.classifyFaceGenders(models.gender, bmp, boxes, frame, { square: true });
+      } else if (boxes.length) {
+        genderPending = true;
+        ensureGender();
       }
       var nsfw = await nsfwP;
       post({
@@ -208,6 +226,7 @@ export function startWorker() {
         // dropped; see imageRead.
         reads: reads.map(imageRead),
         nsfw: !!nsfw,
+        genderPending: genderPending,
         ms: Math.round(performance.now() - t0),
       });
     } catch (e) {
@@ -388,13 +407,19 @@ export function startWorker() {
       return;
     }
     if (msg.type === 'vgender') {
-      handleCropGender(msg);
+      ensureGender().then(function () {
+        return handleCropGender(msg);
+      });
       return;
     }
     if (msg.type === 'vgender1') {
-      ensureModels().then(function () {
+      ensureGender().then(function () {
         return handleGenderOnce(msg);
       });
+      return;
+    }
+    if (msg.type === 'gender') {
+      ensureGender();
       return;
     }
     if (msg.type === 'vrelease') {

@@ -4,8 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>tamescroll</title>
-    <!-- The first frame is dark before the stylesheet arrives. -->
-    <style>html, body { background: #141414; }</style>
+    <!-- The first frame already wears the chosen look, before the
+         stylesheet arrives: no dark flash on Paper. -->
+    <style>html, body { background: #141414; } html[data-look="paper"], html[data-look="paper"] body { background: #f7f5f0; }</style>
+    <script>
+      try {
+        var tsLook = localStorage.getItem("tamescroll.look");
+        if (tsLook === "paper") document.documentElement.dataset.look = "paper";
+        if (localStorage.getItem("tamescroll.text") === "large") document.documentElement.dataset.text = "large";
+      } catch (e) {}
+    </script>
     <script type="module" src="/src/main.ts" defer></script>
   </head>
   <body>
@@ -18,7 +26,7 @@
       <p id="handoff" class="handoff" hidden></p>
       <section id="view-launcher" hidden>
         <header class="bar">
-          <svg class="wordmark" viewBox="0 0 560 140" role="img" aria-label="tamescroll"><g transform="translate(40 42) scale(1.28)"><path d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke="#e7e5e1" stroke-width="3.6" stroke-linecap="round"/></g><text x="146" y="88" font-family="Spectral, Georgia, 'Times New Roman', serif" font-size="58" font-weight="600" letter-spacing="-0.6" fill="#e7e5e1">tamescroll</text></svg>
+          <svg class="wordmark" viewBox="0 0 560 140" role="img" aria-label="tamescroll"><g transform="translate(40 42) scale(1.28)"><path class="mark" d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke-width="3.6" stroke-linecap="round"/></g><text x="146" y="88" font-family="Spectral, Georgia, 'Times New Roman', serif" font-size="58" font-weight="600" letter-spacing="-0.6" fill="currentColor">tamescroll</text></svg>
           <button type="button" id="open-settings" class="icon-btn" aria-label="Settings">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
               <path d="M4 8h10M18 8h2M4 16h4M12 16h8" />
@@ -33,13 +41,20 @@
              so this is visible by default. A link to a platform still
              opens through that platform's tile; anything else becomes an
              address or a strict-safe-search query (Rust resolve_address). -->
+        <p class="greet" id="greet"></p>
+        <h1 class="home-q">What are you here for?</h1>
         <form class="open-link" id="open-link" autocomplete="off" role="search">
-          <input id="open-link-input" type="search" inputmode="url" enterkeyhint="go" autocapitalize="off" spellcheck="false" placeholder="Search or type a site" aria-label="Search or type a site" />
+          <input id="open-link-input" type="search" inputmode="url" enterkeyhint="go" autocapitalize="off" spellcheck="false" placeholder="Search privately or type a site" aria-label="Search privately or type a site" />
           <button type="submit" class="btn-ghost small">Go</button>
         </form>
 
-        <p class="eyebrow">Your sites</p>
+        <p class="eyebrow tiles-head">Your sites <span class="legend"><i aria-hidden="true"></i>tamed</span></p>
         <div id="tiles" class="tiles" aria-label="Your sites"></div>
+
+        <section class="today" id="today" hidden aria-label="Today">
+          <p class="today-line"><span class="today-num"></span> <span class="today-text"></span></p>
+          <p class="today-sub"></p>
+        </section>
 
         <p id="status" role="status"></p>
       </section>
@@ -122,6 +137,7 @@
             <button type="button" class="nav-item" data-pane="bringback">Sites</button>
             <button type="button" class="nav-item" data-pane="blur">Blur</button>
             <button type="button" class="nav-item" data-pane="filters">Filters</button>
+            <button type="button" class="nav-item" data-pane="look">Look</button>
             <button type="button" class="nav-item" data-pane="about">About</button>
           </nav>
 
@@ -153,7 +169,7 @@
 
             <section class="pane" id="pane-filters" hidden>
               <h2>Filters</h2>
-              <p class="pane-sub">Posts and videos whose titles match these terms stay covered, on every site.</p>
+              <p class="pane-sub">When pictures are blurred, posts and videos whose titles match these terms stay covered.</p>
               <section class="card">
                 <div class="card-title">Built-in list</div>
                 <p class="card-body">460+ terms &mdash; sexualized-content bait and its evasion spellings. Ships with the app and updates with it.</p>
@@ -171,13 +187,18 @@
             <section class="pane" id="pane-blur" hidden>
               <h2>Blur</h2>
               <p class="pane-sub">Covers pictures and video previews as you browse. The video you choose to watch plays normally. Runs on this device &mdash; nothing you view leaves it.</p>
-              <section class="card" aria-label="Image blur">
+              <section class="card" aria-label="What to blur">
                 <div class="setting-row">
-                  <span class="setting-label">Image blur</span>
-                  <div class="toggle" id="blur-toggle" role="radiogroup" aria-label="Image blur">
-                    <button type="button" class="toggle-opt" role="radio" data-value="off">Off</button>
-                    <button type="button" class="toggle-opt" role="radio" data-value="blur">Blur all</button>
-                    <button type="button" class="toggle-opt" role="radio" data-value="smart">Smart</button>
+                  <span class="setting-label">Blur</span>
+                  <!-- One question, asked the way the stores already accept
+                       it (HaramBlur, Haya Shield, Tahir Browser): what to
+                       blur, never the user's own gender. Each answer is a
+                       stored mode + gender pair; coverage is unchanged. -->
+                  <div class="toggle" id="blur-toggle" role="radiogroup" aria-label="What to blur">
+                    <button type="button" class="toggle-opt" role="radio" data-value="all">Every picture</button>
+                    <button type="button" class="toggle-opt" role="radio" data-value="women">Women</button>
+                    <button type="button" class="toggle-opt" role="radio" data-value="men">Men</button>
+                    <button type="button" class="toggle-opt" role="radio" data-value="none">Nothing</button>
                   </div>
                 </div>
                 <div class="setting-row" id="blur-strength-row" hidden>
@@ -190,16 +211,24 @@
                 </div>
                 <p class="setting-caption" id="blur-caption"></p>
               </section>
-              <section class="card">
-                <div class="setting-row" id="gender-row">
-                  <span class="setting-label">You are</span>
-                  <div class="toggle" id="gender-toggle" role="radiogroup" aria-label="Your gender">
-                    <button type="button" class="toggle-opt" role="radio" data-value="man">Male</button>
-                    <button type="button" class="toggle-opt" role="radio" data-value="woman">Female</button>
-                    <button type="button" class="toggle-opt" role="radio" data-value="unset">Not set</button>
+            </section>
+
+            <section class="pane" id="pane-look" hidden>
+              <h2>Look</h2>
+              <p class="pane-sub">How tamescroll looks. Sites keep their own colours.</p>
+              <div class="looks" role="radiogroup" aria-label="Look">
+                <button type="button" class="look" role="radio" data-look="night"><span class="mini night" aria-hidden="true"><i class="m-h"></i><i class="m-s"></i><span class="m-t"><span></span><span></span><span></span><span></span></span></span><b>Night</b><span class="look-sub">Dark and calm</span></button>
+                <button type="button" class="look" role="radio" data-look="paper"><span class="mini paper" aria-hidden="true"><i class="m-h"></i><i class="m-s"></i><span class="m-t"><span></span><span></span><span></span><span></span></span></span><b>Paper</b><span class="look-sub">Light, bigger text</span></button>
+              </div>
+              <section class="card" style="margin-top: var(--s4)">
+                <div class="setting-row">
+                  <span class="setting-label">Text size</span>
+                  <div class="toggle" id="text-toggle" role="radiogroup" aria-label="Text size">
+                    <button type="button" class="toggle-opt" role="radio" data-value="normal">Normal</button>
+                    <button type="button" class="toggle-opt" role="radio" data-value="large">Larger</button>
                   </div>
                 </div>
-                <p class="setting-caption">Smart blur clears faces of your own gender and keeps the other covered. Stored only on this device.</p>
+                <p class="setting-caption">Changes tamescroll's own screens. For sites, use your phone's font size.</p>
               </section>
             </section>
 
@@ -254,40 +283,71 @@
 
         <div class="ob-step" data-step="welcome">
           <div class="ob-center">
-            <svg class="ob-wordmark" viewBox="0 0 420 300" role="img" aria-label="tamescroll"><g transform="translate(140 74) scale(3)"><path d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke="#e7e5e1" stroke-width="3.6" stroke-linecap="round"/></g><text x="210" y="248" text-anchor="middle" font-family="Spectral, Georgia, 'Times New Roman', serif" font-size="54" font-weight="600" letter-spacing="-0.6" fill="#e7e5e1">tamescroll</text></svg>
-            <p class="lede">A calm browser. The web, without the feeds.</p>
-            <ul class="perks">
-              <li><b>Endless feeds hidden</b> on the sites that have them. You open what you came for and leave.</li>
-              <li><b>Pictures blurred, your rules.</b> Runs on this device. Nothing leaves it.</li>
-              <li><b>Ads, your call.</b> One switch per site blocks ads and sponsored posts.</li>
-              <li><b>Links open here.</b> Share a link to tamescroll from any app.</li>
-            </ul>
-            <div class="actions center"><button type="button" class="btn-solid" id="ob-start">Get started</button></div>
+            <svg class="ob-wordmark" viewBox="0 0 420 300" role="img" aria-label="tamescroll"><g transform="translate(140 74) scale(3)"><path class="mark" d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke-width="3.6" stroke-linecap="round"/></g><text x="210" y="248" text-anchor="middle" font-family="Spectral, Georgia, 'Times New Roman', serif" font-size="54" font-weight="600" letter-spacing="-0.6" fill="currentColor">tamescroll</text></svg>
+            <h1 class="display">The web, without the feeds.</h1>
+            <p class="lede">A browser for what you came for. Everything else stays quiet.</p>
+            <div class="actions center col narrow-actions">
+              <button type="button" class="btn-solid" id="ob-start">Show me</button>
+              <button type="button" class="link-btn center" id="ob-skip-demo">Skip the demo</button>
+            </div>
             <p class="setting-caption center">Free, open source, no account.</p>
+          </div>
+        </div>
+
+        <!-- The calm-down, shown rather than described (his 2026-10-27):
+             a made-up page, never a real site or its logo, so it works
+             offline and shows nobody's content. -->
+        <div class="ob-step" data-step="demo" hidden>
+          <div class="ob-center">
+            <h1 class="display">Watch a busy page calm down</h1>
+            <p class="lede">A made-up page, so you can see what happens before you open a real one.</p>
+            <div class="demo" id="ob-demo" aria-hidden="true">
+              <div class="demo-bar">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                <span>videos.example</span>
+              </div>
+              <div class="demo-feed">
+                <div class="demo-row"><span class="demo-thumb t1 blur-in"></span><span class="demo-lines"><i></i><i class="short"></i></span></div>
+                <div class="demo-fold"><div class="demo-label">Trending now</div><div class="demo-row"><span class="demo-thumb t2"></span><span class="demo-lines"><i></i><i class="short"></i></span></div></div>
+                <div class="demo-fold"><div class="demo-shorts"><span class="demo-thumb t3"></span><span class="demo-thumb t4"></span><span class="demo-thumb t1"></span><span class="demo-thumb t2"></span></div></div>
+                <div class="demo-row"><span class="demo-thumb t4 blur-in"></span><span class="demo-lines"><i></i><i class="short"></i></span></div>
+                <div class="demo-fold"><div class="demo-label">Recommended for you</div><div class="demo-row"><span class="demo-thumb t3"></span><span class="demo-lines"><i></i><i class="short"></i></span></div></div>
+              </div>
+              <div class="demo-toast"><b>Tamed.</b> Feed gone · pictures blurred · nothing fighting for your attention</div>
+            </div>
+            <p class="setting-caption center">Every site gets this. The shield in the top bar shows what's hidden there.</p>
+            <div class="actions center col narrow-actions">
+              <button type="button" class="btn-solid" id="ob-demo-next">Next</button>
+              <button type="button" class="link-btn center" id="ob-demo-replay">Watch again</button>
+            </div>
           </div>
         </div>
 
         <div class="ob-step" data-step="blur" hidden>
           <div class="ob-center">
-            <h1 class="display">How should pictures look?</h1>
+            <h1 class="display">What should be blurred?</h1>
             <div class="ob-cards col" id="ob-blur-cards">
-              <button type="button" class="ob-card wide" data-mode="smart"><b>Smart</b><span>Faces of the other gender blurred. Runs on this device.</span></button>
-              <button type="button" class="ob-card wide" data-mode="blur"><b>Blur all</b><span>Every picture and preview blurred. The video you watch plays normally.</span></button>
-              <button type="button" class="ob-card wide" data-mode="off"><b>Off</b><span>No blur. Feeds are still hidden.</span></button>
+              <button type="button" class="ob-card wide pick" data-choice="all"><span class="pv" aria-hidden="true"><span class="pv-tile bl"><svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="3"/><path d="M12 10l-5 10h10z"/></svg></span><span class="pv-tile bl"><svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="3"/><rect x="8" y="10" width="8" height="10" rx="2"/></svg></span><span class="pv-tile bl"><svg viewBox="0 0 24 24"><circle cx="17" cy="7" r="2.5"/><path d="M3 20l6-8 4 5 3-3 5 6z"/></svg></span></span><span class="pick-txt"><b>Every picture</b><span>The video you open plays normally.</span></span></button>
+              <button type="button" class="ob-card wide pick" data-choice="women"><span class="pv" aria-hidden="true"><span class="pv-tile bl"><svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="3"/><path d="M12 10l-5 10h10z"/></svg></span><span class="pv-tile"><svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="3"/><rect x="8" y="10" width="8" height="10" rx="2"/></svg></span><span class="pv-tile"><svg viewBox="0 0 24 24"><circle cx="17" cy="7" r="2.5"/><path d="M3 20l6-8 4 5 3-3 5 6z"/></svg></span></span><span class="pick-txt"><b>Women</b><span>Faces it can't place are blurred too.</span></span></button>
+              <button type="button" class="ob-card wide pick" data-choice="men"><span class="pv" aria-hidden="true"><span class="pv-tile"><svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="3"/><path d="M12 10l-5 10h10z"/></svg></span><span class="pv-tile bl"><svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="3"/><rect x="8" y="10" width="8" height="10" rx="2"/></svg></span><span class="pv-tile"><svg viewBox="0 0 24 24"><circle cx="17" cy="7" r="2.5"/><path d="M3 20l6-8 4 5 3-3 5 6z"/></svg></span></span><span class="pick-txt"><b>Men</b><span>Faces it can't place are blurred too.</span></span></button>
+              <button type="button" class="ob-card wide pick" data-choice="none"><span class="pv" aria-hidden="true"><span class="pv-tile"><svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="3"/><path d="M12 10l-5 10h10z"/></svg></span><span class="pv-tile"><svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="3"/><rect x="8" y="10" width="8" height="10" rx="2"/></svg></span><span class="pv-tile"><svg viewBox="0 0 24 24"><circle cx="17" cy="7" r="2.5"/><path d="M3 20l6-8 4 5 3-3 5 6z"/></svg></span></span><span class="pick-txt"><b>Nothing</b><span>Feeds are still hidden.</span></span></button>
             </div>
-            <p class="setting-caption center">Change it any time in Settings, under Blur.</p>
+            <p class="setting-caption center">Runs on this device and isn't perfect. No picture leaves your phone. Change it any time in Settings, under Blur.</p>
           </div>
         </div>
-
-        <div class="ob-step" data-step="gender" hidden>
+        <!-- Make it yours (his 2026-10-28): one tap, the screen changes
+             under your finger. Night is already picked. -->
+        <div class="ob-step" data-step="look" hidden>
           <div class="ob-center">
-            <h1 class="display">Are you male or female?</h1>
-            <p class="lede">Smart blur keeps faces of the other gender covered. Stored only on this device.</p>
-            <div class="ob-cards">
-              <button type="button" class="ob-card" data-gender="man">Male</button>
-              <button type="button" class="ob-card" data-gender="woman">Female</button>
+            <h1 class="display">Make it yours</h1>
+            <p class="lede">Pick a look. You can switch any time in Settings.</p>
+            <div class="looks ob-looks" role="radiogroup" aria-label="Look">
+                <button type="button" class="look" role="radio" data-look="night"><span class="mini night" aria-hidden="true"><i class="m-h"></i><i class="m-s"></i><span class="m-t"><span></span><span></span><span></span><span></span></span></span><b>Night</b><span class="look-sub">Dark and calm</span></button>
+                <button type="button" class="look" role="radio" data-look="paper"><span class="mini paper" aria-hidden="true"><i class="m-h"></i><i class="m-s"></i><span class="m-t"><span></span><span></span><span></span><span></span></span></span><b>Paper</b><span class="look-sub">Light, bigger text</span></button>
+              </div>
+            <div class="actions center col narrow-actions">
+              <button type="button" class="btn-solid" id="ob-look-next">Continue</button>
             </div>
-            <button type="button" class="link-btn" id="ob-skip-gender">Skip, decide later in Settings</button>
           </div>
         </div>
 

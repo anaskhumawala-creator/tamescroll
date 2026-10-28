@@ -36,7 +36,6 @@ const blurCaption = document.querySelector<HTMLElement>("#blur-caption")!;
 const bringBack = document.querySelector<HTMLElement>("#bring-back")!;
 const strengthRow = document.querySelector<HTMLElement>("#blur-strength-row")!;
 const strengthToggle = document.querySelector<HTMLElement>("#blur-strength")!;
-const genderToggle = document.querySelector<HTMLElement>("#gender-toggle")!;
 
 // Design tints (board 1A): muted warm letter glyphs, never platform
 // brand colors. Falls back to the Rust-side tint for new platforms.
@@ -61,12 +60,6 @@ const TILE_NOTES: Record<string, string> = {
 
 type GazeMode = "off" | "blur" | "smart";
 const BLUR_KEY = "tamescroll.blur";
-
-const CAPTIONS: Record<GazeMode, string> = {
-  off: "",
-  blur: "Blurs every picture and preview on the pages you browse.",
-  smart: "Blurs faces in pictures and previews, by your choice below.",
-};
 
 function migrate(raw: string | null): GazeMode {
   if (raw === "off" || raw === "blur" || raw === "smart") return raw;
@@ -117,16 +110,48 @@ function setGender(g: UserGender) {
   renderBlurToggle();
 }
 
+// What to blur (his 2026-10-27): the one question the user answers,
+// asked as the store-approved apps ask it. Each answer is a stored
+// mode + gender pair, so coverage is exactly what Smart gave before:
+// "women" is Smart for a man, "men" is Smart for a woman. Smart with
+// no gender (an older first-run skip, or Settings' old "Not set") has
+// no answer of its own and keeps covering every face until changed.
+type BlurChoice = "all" | "women" | "men" | "none";
+
+function getChoice(): BlurChoice | null {
+  const mode = getMode();
+  if (mode === "blur") return "all";
+  if (mode === "off") return "none";
+  const g = getGender();
+  return g === "man" ? "women" : g === "woman" ? "men" : null;
+}
+
+function setChoice(c: BlurChoice) {
+  if (c === "women") setGender("man");
+  if (c === "men") setGender("woman");
+  setMode(c === "all" ? "blur" : c === "none" ? "off" : "smart");
+}
+
+const CAPTIONS: Record<BlurChoice, string> = {
+  all: "Blurs every picture and preview on the pages you browse.",
+  women: "Blurs women in pictures and previews. Faces it can't place stay covered.",
+  men: "Blurs men in pictures and previews. Faces it can't place stay covered.",
+  none: "",
+};
+
 function renderBlurToggle() {
   const mode = getMode();
+  const choice = getChoice();
   blurToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
-    const active = btn.dataset.value === mode;
+    const active = btn.dataset.value === choice;
     btn.classList.toggle("active", active);
     btn.setAttribute("aria-checked", String(active));
   });
   // The watch player is not blurred (his 2026-10-27 ruling, gaze
   // PLAYER_VIDEO_BLUR); the pane's own line says so.
-  blurCaption.textContent = CAPTIONS[mode];
+  blurCaption.textContent = choice
+    ? CAPTIONS[choice]
+    : "Every face is blurred until you choose. Pick one above to change it.";
   const px = getStrength();
   strengthRow.hidden = mode === "off";
   strengthToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
@@ -134,22 +159,13 @@ function renderBlurToggle() {
     btn.classList.toggle("active", active);
     btn.setAttribute("aria-checked", String(active));
   });
-  const gender = getGender();
-  genderToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
-    const active = btn.dataset.value === gender;
-    btn.classList.toggle("active", active);
-    btn.setAttribute("aria-checked", String(active));
-  });
 }
 
 blurToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
-  btn.addEventListener("click", () => setMode(btn.dataset.value as GazeMode));
+  btn.addEventListener("click", () => setChoice(btn.dataset.value as BlurChoice));
 });
 strengthToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
   btn.addEventListener("click", () => setStrength(Number(btn.dataset.value)));
-});
-genderToggle.querySelectorAll<HTMLButtonElement>(".toggle-opt").forEach((btn) => {
-  btn.addEventListener("click", () => setGender(btn.dataset.value as UserGender));
 });
 
 renderBlurToggle();
@@ -622,6 +638,7 @@ function siteTile(site: Site): HTMLButtonElement {
   note.className = "note";
   note.textContent = site.host;
   el.append(dot, name, note);
+  el.setAttribute("aria-label", `${site.name}, ${site.host}`);
   el.addEventListener("click", () => {
     el.classList.add("opening");
     void openAddress(site.url);
@@ -655,6 +672,9 @@ function tile(platform: Platform): HTMLButtonElement {
     : "Not ready yet";
 
   el.append(glyphFor(platform), name, note);
+  // The note is hidden in the compact grid; the label still reads it out.
+  el.classList.toggle("is-tamed", platform.ready);
+  el.setAttribute("aria-label", `${platform.name}, ${note.textContent}`);
 
   if (platform.ready) {
     el.addEventListener("click", () => {
@@ -1128,9 +1148,68 @@ document.querySelector<HTMLButtonElement>("#links-card-btn")!.addEventListener("
   });
 });
 
+// ---------- look and text size (his 2026-10-28) ----------
+// Night (default) or Paper. index.html applies the stored values before
+// the first paint; these keep the page, the pickers and the phone's own
+// bars in step after a tap.
+
+const LOOK_KEY = "tamescroll.look";
+const TEXT_KEY = "tamescroll.text";
+type Look = "night" | "paper";
+
+function readLook(): Look {
+  return localStorage.getItem(LOOK_KEY) === "paper" ? "paper" : "night";
+}
+
+function applyLook(look: Look) {
+  localStorage.setItem(LOOK_KEY, look);
+  if (look === "paper") document.documentElement.dataset.look = "paper";
+  else delete document.documentElement.dataset.look;
+  document.querySelectorAll<HTMLButtonElement>(".look").forEach((btn) => {
+    const on = btn.dataset.look === look;
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-checked", String(on));
+  });
+  // The strips behind the clock and the nav bar are the phone's, not the
+  // page's: tell MainActivity so they match. Absent on desktop.
+  try {
+    (window as unknown as { TsLook?: { set(look: string): void } }).TsLook?.set(look);
+  } catch {
+    // An old shell without the bridge keeps its dark strips.
+  }
+}
+
+function applyText(size: "normal" | "large") {
+  localStorage.setItem(TEXT_KEY, size);
+  if (size === "large") document.documentElement.dataset.text = "large";
+  else delete document.documentElement.dataset.text;
+  document.querySelectorAll<HTMLButtonElement>("#text-toggle .toggle-opt").forEach((btn) => {
+    const on = btn.dataset.value === size;
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-checked", String(on));
+  });
+}
+
+document.querySelectorAll<HTMLButtonElement>(".look").forEach((btn) => {
+  btn.addEventListener("click", () => applyLook(btn.dataset.look as Look));
+});
+document.querySelectorAll<HTMLButtonElement>("#text-toggle .toggle-opt").forEach((btn) => {
+  btn.addEventListener("click", () => applyText(btn.dataset.value === "large" ? "large" : "normal"));
+});
+applyLook(readLook());
+applyText(localStorage.getItem(TEXT_KEY) === "large" ? "large" : "normal");
+
+// A small hello above the question, by the phone's clock.
+function renderGreeting() {
+  const h = new Date().getHours();
+  const line =
+    h < 5 ? "Up late?" : h < 12 ? "Good morning." : h < 17 ? "Good afternoon." : h < 22 ? "Good evening." : "Up late?";
+  document.querySelector<HTMLElement>("#greet")!.textContent = line;
+}
+
 // ---------- settings view ----------
 
-const PANES = ["bringback", "blur", "filters", "about"] as const;
+const PANES = ["bringback", "blur", "filters", "look", "about"] as const;
 
 function showPane(name: (typeof PANES)[number]) {
   PANES.forEach((p) => {
@@ -1156,8 +1235,8 @@ document.querySelector<HTMLButtonElement>("#settings-back")!.addEventListener("c
 });
 
 // ---------- onboarding (his 2026-10-27, #35: three steps) ----------
-// Welcome, how pictures look, done -- with the gender question in
-// between only when Smart is picked, because nothing else reads it. No
+// Welcome, the demo (skippable), what to blur, the look, done. The blur step asks what to blur (his
+// 2026-10-27), never the user's own gender: no fourth step. No
 // platform picker: the home screen's "Add a site" is where sites come in,
 // so the first thing the app teaches is the browser, not one platform.
 // The YouTube links and home-icon offers live in Settings -> Sites.
@@ -1165,7 +1244,6 @@ document.querySelector<HTMLButtonElement>("#settings-back")!.addEventListener("c
 function runOnboarding(done: () => void) {
   showView("onboard");
   const steps = document.querySelectorAll<HTMLElement>(".ob-step");
-  let obGender: UserGender = "unset";
 
   const count = document.querySelector<HTMLElement>("#ob-count")!;
   const back = document.querySelector<HTMLButtonElement>("#ob-back")!;
@@ -1185,36 +1263,33 @@ function runOnboarding(done: () => void) {
     const prev = trail.pop();
     if (prev) goto(prev, false);
   });
-  document.querySelector<HTMLButtonElement>("#ob-start")!.addEventListener("click", () => goto("blur"));
+  // The demo replays from its busy state each time it is shown.
+  const demo = document.querySelector<HTMLElement>("#ob-demo")!;
+  function playDemo() {
+    demo.classList.remove("play");
+    void demo.offsetWidth;
+    demo.classList.add("play");
+  }
+  document.querySelector<HTMLButtonElement>("#ob-start")!.addEventListener("click", () => {
+    goto("demo");
+    playDemo();
+  });
+  document.querySelector<HTMLButtonElement>("#ob-skip-demo")!.addEventListener("click", () => goto("blur"));
+  document.querySelector<HTMLButtonElement>("#ob-demo-next")!.addEventListener("click", () => goto("blur"));
+  document.querySelector<HTMLButtonElement>("#ob-demo-replay")!.addEventListener("click", playDemo);
 
   // COMMIT ON REACHING "done", not on its button, so a reload there
   // (an Android link arrival navigates the webview) does not start over.
-  function finish(mode: GazeMode) {
+  function finish(choice: BlurChoice) {
     writeChosen(readChosen() ?? []);
-    setGender(obGender);
-    setMode(mode);
-    goto("done");
+    setChoice(choice);
+    goto("look");
   }
 
   document.querySelectorAll<HTMLButtonElement>("#ob-blur-cards .ob-card").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const mode = btn.dataset.mode as GazeMode;
-      if (mode === "smart") goto("gender");
-      else finish(mode);
-    });
+    btn.addEventListener("click", () => finish(btn.dataset.choice as BlurChoice));
   });
-
-  // Smart only: the gender question (skippable, set later in Settings).
-  document.querySelectorAll<HTMLButtonElement>(".ob-card[data-gender]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      obGender = btn.dataset.gender as UserGender;
-      finish("smart");
-    });
-  });
-  document.querySelector<HTMLButtonElement>("#ob-skip-gender")!.addEventListener("click", () => {
-    obGender = "unset";
-    finish("smart");
-  });
+  document.querySelector<HTMLButtonElement>("#ob-look-next")!.addEventListener("click", () => goto("done"));
 
   document.querySelector<HTMLButtonElement>("#ob-open")!.addEventListener("click", () => done());
 
@@ -1247,9 +1322,42 @@ let allPlatforms: Platform[] = [];
 // a second one that would interleave its rows with this one's.
 let bringBackReady: Promise<void> = Promise.resolve();
 
+// THE TODAY LINE (2026-10-27 redesign): the calm made visible. The count
+// is the requests the block rules stopped today, kept by MainActivity on
+// this phone; where there is no such bridge (desktop) the card stays out.
+const today = document.querySelector<HTMLElement>("#today")!;
+
+function renderToday(chosen: string[]) {
+  const stats = (window as unknown as { TsStats?: { stoppedToday(): number } }).TsStats;
+  if (!stats) {
+    today.hidden = true;
+    return;
+  }
+  let n = 0;
+  try {
+    n = Number(stats.stoppedToday()) || 0;
+  } catch {
+    today.hidden = true;
+    return;
+  }
+  const tamed = allPlatforms.filter((p) => p.ready && chosen.includes(p.id)).length;
+  today.querySelector(".today-num")!.textContent = n.toLocaleString();
+  today.querySelector(".today-text")!.textContent =
+    n === 1 ? "ad or tracker stopped today" : "ads and trackers stopped today";
+  today.querySelector(".today-sub")!.textContent =
+    n === 0
+      ? "Open a site and watch this climb."
+      : tamed > 0
+        ? `Feeds hidden on ${tamed} of your sites.`
+        : "Add a site to tame its feeds too.";
+  today.hidden = false;
+}
+
 function refreshAll() {
   const chosen = readChosen() ?? [];
+  renderGreeting();
   renderTiles(allPlatforms, chosen);
+  renderToday(chosen);
   renderManage(allPlatforms);
   renderLinksCard();
   bringBackReady = renderBringBack(allPlatforms.filter((p) => p.ready && chosen.includes(p.id)));
@@ -1456,17 +1564,13 @@ async function start() {
     // phone: a cold youtu.be link sat on this launcher for 20 seconds
     // (page start :13, open_platform :33, "adblock engine warmed in
     // 25.3s" at :33). Every line below this one -- the shortcut, the
-    // link -- waited on a caption. So the count is requested and the
-    // caption fills in when it arrives; nothing waits for it.
+    // link -- waited on a caption. So the count is requested and nothing
+    // waits for it. The "N rules active" caption it fed is gone (his
+    // 2026-10-27: it read like a log line); the call stays because it
+    // warms the engine before the first site is opened.
     restingStatus = "";
     status.textContent = "";
-    void invoke<Record<string, number>>("rules_summary")
-      .then((counts) => {
-        const active = Object.values(counts).reduce((sum, n) => sum + n, 0);
-        restingStatus = `${active} rules active`;
-        if (!status.textContent) status.textContent = restingStatus;
-      })
-      .catch(() => { /* the caption is decoration; the app is not */ });
+    void invoke<Record<string, number>>("rules_summary").catch(() => {});
 
     if (pending) {
       history.replaceState(null, "", location.pathname);
