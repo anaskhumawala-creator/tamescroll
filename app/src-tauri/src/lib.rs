@@ -400,11 +400,21 @@ fn note_synthetic_served(url: &str) {
 }
 
 fn synthetic_reachable(host: &str) -> bool {
-    SYNTHETIC_HOSTS
-        .lock()
-        .ok()
-        .and_then(|g| g.as_ref().map(|set| set.contains(host)))
-        .unwrap_or(false)
+    host_serves_synthetic_from_start(host, cfg!(target_os = "android"))
+        || SYNTHETIC_HOSTS
+            .lock()
+            .ok()
+            .and_then(|g| g.as_ref().map(|set| set.contains(host)))
+            .unwrap_or(false)
+}
+
+/// m.youtube.com registers no service worker, so on Android our own urls
+/// reach it from the first page load and the worker can fetch the models
+/// itself. Without this, the first YouTube open after a launch inlined
+/// all four models (24MB in Women) because nothing had been served yet.
+/// If the worker's fetch ever failed, images stay covered.
+fn host_serves_synthetic_from_start(host: &str, android: bool) -> bool {
+    android && host == "m.youtube.com"
 }
 
 /// Host of a url, lowercased, without scheme, port or path.
@@ -481,10 +491,14 @@ fn build_models_script(want: &[&str]) -> &'static str {
     }
 }
 fn gaze_script(mode: &str, host: &str) -> String {
+    gaze_script_with(mode, synthetic_reachable(host))
+}
+
+fn gaze_script_with(mode: &str, models_reachable: bool) -> String {
     let mode = gaze_mode(mode);
     // The models travel with the bundle only where our own urls do not
     // work; everywhere else the worker fetches them as bytes.
-    let models = if synthetic_reachable(host) { "" } else { models_script_for(mode) };
+    let models = if models_reachable { "" } else { models_script_for(mode) };
     // Stage B's class styles blur through var(--ts-blur-strong); the
     // launcher's strength choice has to reach the page inline because
     // smart mode ships no stylesheet of its own to carry a :root rule.
@@ -1090,6 +1104,19 @@ pub(crate) fn canonical_link_url(platform: &str, u: tauri::Url) -> tauri::Url {
         }
     }
     out
+}
+
+/// Android goes straight to m.youtube.com. YouTube redirects a phone's
+/// www.youtube.com (or bare youtube.com) request to m.youtube.com anyway;
+/// going there directly saves that redirect round trip. Path and query
+/// are kept, as the redirect keeps them.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub(crate) fn mobile_youtube_url(mut u: tauri::Url) -> tauri::Url {
+    let host = u.host_str().unwrap_or("").to_ascii_lowercase();
+    if host == "youtube.com" || host == "www.youtube.com" {
+        let _ = u.set_host(Some("m.youtube.com"));
+    }
+    u
 }
 
 #[derive(Serialize, Clone)]
@@ -1945,7 +1972,7 @@ async fn open_address(
         let main = app
             .get_webview_window("main")
             .ok_or_else(|| "no main webview".to_string())?;
-        return main.navigate(url).map_err(|e| e.to_string());
+        return main.navigate(mobile_youtube_url(url)).map_err(|e| e.to_string());
     }
 
     // Desktop: one browsing window, reused, with the same per-navigation
@@ -2044,7 +2071,7 @@ async fn open_platform(
         let main = app
             .get_webview_window("main")
             .ok_or_else(|| "no main webview".to_string())?;
-        let nav = main.navigate(url);
+        let nav = main.navigate(mobile_youtube_url(url));
         #[cfg(debug_assertions)]
         eprintln!("open_platform navigate main -> {nav:?}");
         return nav.map_err(|e| e.to_string());
@@ -2268,6 +2295,39 @@ mod tests {
         // No other platform accepts links yet; the manifest claims none.
         assert!(!link_host_belongs("reddit", "www.reddit.com"));
         assert!(!link_host_belongs("nope", "youtube.com"));
+    }
+
+    /// Android opens m.youtube.com directly instead of taking YouTube's
+    /// www-to-m redirect; anything that is not a www or bare youtube.com
+    /// url passes through unchanged.
+    #[test]
+    fn android_opens_youtube_on_the_mobile_host() {
+        let u = |s: &str| tauri::Url::parse(s).unwrap();
+        for (from, to) in [
+            ("https://www.youtube.com/", "https://m.youtube.com/"),
+            ("https://youtube.com/results?search_query=x", "https://m.youtube.com/results?search_query=x"),
+            ("https://WWW.YouTube.com/watch?v=abc&t=4", "https://m.youtube.com/watch?v=abc&t=4"),
+            ("https://m.youtube.com/watch?v=x", "https://m.youtube.com/watch?v=x"),
+            ("https://music.youtube.com/", "https://music.youtube.com/"),
+            ("https://www.reddit.com/", "https://www.reddit.com/"),
+            ("https://notyoutube.com/", "https://notyoutube.com/"),
+        ] {
+            assert_eq!(mobile_youtube_url(u(from)).as_str(), to, "{from}");
+        }
+    }
+
+    /// On Android the first Women (smart) script for m.youtube.com carries
+    /// no inlined models; www.youtube.com and desktop still do.
+    #[test]
+    fn android_m_youtube_gets_no_inlined_models_from_the_first_load() {
+        fn inlined(js: &str) -> bool {
+            js.contains("globalThis.__TS_GAZE_MODELS={")
+        }
+        let android_m = host_serves_synthetic_from_start("m.youtube.com", true);
+        assert!(!inlined(&gaze_script_with("smart", android_m)));
+        assert!(!host_serves_synthetic_from_start("www.youtube.com", true));
+        assert!(!host_serves_synthetic_from_start("m.youtube.com", false));
+        assert!(inlined(&gaze_script_with("smart", false)), "unproven hosts still inline");
     }
 
     /// 1107: a youtu.be short link becomes the mobile watch page BEFORE
