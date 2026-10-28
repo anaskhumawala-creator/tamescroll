@@ -434,7 +434,25 @@ fn url_host(url: &str) -> Option<String> {
 /// load of such a host.
 fn models_script() -> &'static str {
     static MODELS_JS: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
-    MODELS_JS.get_or_init(|| {
+    MODELS_JS.get_or_init(|| build_models_script(&["face", "nsfw", "gender", "person"]))
+}
+
+/// The models a mode actually runs, for the inline delivery: every one of
+/// them is compiled with the page on every load (measured on the old
+/// Redmi 2026-10-28: 24MB, ~300ms of main-thread compile per eval, and
+/// two to four evals per YouTube open). Off runs no model, Every picture
+/// only the NSFW check (pipeline-plan.mjs); smart needs them all.
+fn models_script_for(mode: &str) -> &'static str {
+    static NSFW_JS: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
+    match gaze_mode(mode) {
+        "off" => "",
+        "blur" => NSFW_JS.get_or_init(|| build_models_script(&["nsfw"])),
+        _ => models_script(),
+    }
+}
+
+fn build_models_script(want: &[&str]) -> &'static str {
+    {
         use base64::Engine as _;
         let b64 = base64::engine::general_purpose::STANDARD;
         // globalThis, not window: a worker importScripts this too.
@@ -445,6 +463,9 @@ fn models_script() -> &'static str {
             ("gender", "faceres.json", "faceres.bin"),
             ("person", "person.json", "person.bin"),
         ] {
+            if !want.contains(&name) {
+                continue;
+            }
             // Both halves come from model_asset, so there is one list of
             // model files and the two deliveries cannot drift.
             let (Some(j), Some(b)) = (model_asset(json), model_asset(bin)) else {
@@ -459,13 +480,13 @@ fn models_script() -> &'static str {
         }
         js.push_str("};");
         Box::leak(js.into_boxed_str())
-    })
+    }
 }
 fn gaze_script(mode: &str, host: &str) -> String {
     let mode = gaze_mode(mode);
     // The models travel with the bundle only where our own urls do not
     // work; everywhere else the worker fetches them as bytes.
-    let models = if synthetic_reachable(host) { "" } else { models_script() };
+    let models = if synthetic_reachable(host) { "" } else { models_script_for(mode) };
     // Stage B's class styles blur through var(--ts-blur-strong); the
     // launcher's strength choice has to reach the page inline because
     // smart mode ships no stylesheet of its own to carry a :root rule.
@@ -3374,6 +3395,30 @@ mod tests {
         // Same url the client adopts from, and the model-free artifact.
         assert!(js.contains("/__tamescroll/gaze-page.js"));
         assert!(js.contains("__TS_GAZE_PREWORKER"));
+    }
+
+    /// INLINE MODELS FOLLOW THE MODE: off compiles none of the 24MB, and
+    /// Every picture carries only the NSFW model it runs.
+    #[test]
+    fn inline_models_are_only_the_ones_the_mode_runs() {
+        // The inlined map alone: the bundle's own code mentions these names.
+        fn inlined(js: &str) -> &str {
+            let Some(start) = js.find("globalThis.__TS_GAZE_MODELS={") else { return "" };
+            let rest = &js[start..];
+            &rest[..rest.find("};").map_or(rest.len(), |e| e + 2)]
+        }
+        let off = gaze_script("off", "mode-unproven.example");
+        assert_eq!(inlined(&off), "", "off must not inline any model");
+        let blur = gaze_script("blur", "mode-unproven.example");
+        assert!(inlined(&blur).contains("nsfw:["), "blur runs the NSFW check");
+        for name in ["face:[", "gender:[", "person:["] {
+            assert!(!inlined(&blur).contains(name), "blur must not inline {name}");
+        }
+        let smart = gaze_script("smart", "mode-unproven.example");
+        for name in ["face:[", "nsfw:[", "gender:[", "person:["] {
+            assert!(inlined(&smart).contains(name), "smart needs {name}");
+        }
+        assert!(off.len() < blur.len() && blur.len() < smart.len());
     }
 
     /// A HOST HAS TO EARN THE MODEL-FREE BUNDLE.
