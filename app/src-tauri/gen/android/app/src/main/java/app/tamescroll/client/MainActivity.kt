@@ -83,6 +83,9 @@ class MainActivity : TauriActivity() {
     private const val TOP_BAR_DP = 52
     private const val TOP_STRIP_DP = 24
     private const val STATS_PREFS = "tamescroll.stats"
+    private const val LOOK_PREFS = "tamescroll.look"
+    private const val NIGHT_BG = 0xFF141414.toInt()
+    private const val PAPER_BG = 0xFFF7F5F0.toInt()
   }
 
   // Platform requested by a home-screen shortcut before the webview
@@ -172,7 +175,8 @@ class MainActivity : TauriActivity() {
     // phone's status bar — the template's edge-to-edge ships no inset
     // handling. Pad the content view by the system bars and paint the
     // exposed strips launcher-dark so every page sits below the clock.
-    window.decorView.setBackgroundColor(0xFF141414.toInt())
+    paperLook = getSharedPreferences(LOOK_PREFS, MODE_PRIVATE).getBoolean("paper", false)
+    window.decorView.setBackgroundColor(if (paperLook) PAPER_BG else NIGHT_BG)
     val content = findViewById<ViewGroup>(android.R.id.content)
     ViewCompat.setOnApplyWindowInsetsListener(content) { v, insets ->
       // ime() included: with edge-to-edge enforced (targetSdk 35+) the
@@ -241,6 +245,39 @@ class MainActivity : TauriActivity() {
       // url for a link. main.ts splits on the newline.
       return if (p == null) "" else if (u == null) p else p + "\n" + u
     }
+  }
+
+  // THE LOOK (his 2026-10-28): Night or Paper on the launcher. The strips
+  // behind the clock and the nav bar belong to the window, not the page,
+  // so the launcher tells us which look it wears and we paint them to
+  // match. Sites keep the dark strips and the dark top bar either way.
+  // Visible to every page like any interface; it only takes one of two
+  // words and only acts while the launcher is showing.
+  @Volatile
+  private var paperLook = false
+
+  inner class LookBridge {
+    @JavascriptInterface
+    fun set(look: String?) {
+      val paper = look == "paper"
+      runOnUiThread {
+        val here = if (this@MainActivity::webView.isInitialized) webView.url ?: "" else ""
+        if (!here.startsWith("http://tauri.localhost/")) return@runOnUiThread
+        paperLook = paper
+        getSharedPreferences(LOOK_PREFS, MODE_PRIVATE).edit().putBoolean("paper", paper).apply()
+        applyStrips(here)
+      }
+    }
+  }
+
+  private fun applyStrips(url: String) {
+    val light = paperLook && url.startsWith("http://tauri.localhost/")
+    val bg = if (light) PAPER_BG else NIGHT_BG
+    window.decorView.setBackgroundColor(bg)
+    if (this::webView.isInitialized) webView.setBackgroundColor(bg)
+    val controller = WindowInsetsControllerCompat(window, window.decorView)
+    controller.isAppearanceLightStatusBars = light
+    controller.isAppearanceLightNavigationBars = light
   }
 
   // THE ONE SCREEN THE APP HAS TO WALK THE USER TO (1107). Without
@@ -1244,6 +1281,7 @@ class MainActivity : TauriActivity() {
       override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
         pageUrlForBlocking = url
         updateTopBar(url)
+        applyStrips(url)
         // The port is PULLED by the document-start stash (TsNativePort.
         // requestPort), never pushed from here: a WebMessage posted at
         // onPageStarted can be delivered before the document's start
@@ -1746,7 +1784,9 @@ class MainActivity : TauriActivity() {
     // A WebView paints WHITE until its first document draws, which on a
     // cold start is the frame between the dark window and the launcher.
     // Launcher --bg instead; every platform page paints its own body.
-    webView.setBackgroundColor(0xFF141414.toInt())
+    paperLook = getSharedPreferences(LOOK_PREFS, MODE_PRIVATE).getBoolean("paper", false)
+    webView.setBackgroundColor(if (paperLook) PAPER_BG else NIGHT_BG)
+    webView.addJavascriptInterface(LookBridge(), "TsLook")
     webView.addJavascriptInterface(ShortcutBridge(), "TsShortcuts")
     webView.addJavascriptInterface(LinksBridge(), "TsLinks")
     // Updater bridge: only ever reachable from the launcher's About
