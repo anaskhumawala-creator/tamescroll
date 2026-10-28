@@ -1,1 +1,1 @@
-A calm browser: no short-video shelves, no endless feeds, thumbnails blurred.
+A calm browser: no endless feeds, no autoplay, thumbnails blurred.

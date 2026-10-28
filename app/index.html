@@ -33,45 +33,18 @@
              so this is visible by default. A link to a platform still
              opens through that platform's tile; anything else becomes an
              address or a strict-safe-search query (Rust resolve_address). -->
+        <h1 class="home-q">What are you here for?</h1>
         <form class="open-link" id="open-link" autocomplete="off" role="search">
-          <input id="open-link-input" type="search" inputmode="url" enterkeyhint="go" autocapitalize="off" spellcheck="false" placeholder="Search or type a site" aria-label="Search or type a site" />
+          <input id="open-link-input" type="search" inputmode="url" enterkeyhint="go" autocapitalize="off" spellcheck="false" placeholder="Search privately or type a site" aria-label="Search privately or type a site" />
           <button type="submit" class="btn-ghost small">Go</button>
         </form>
 
-        <p class="eyebrow">Your platforms</p>
-        <div id="tiles" class="tiles" aria-label="Your platforms"></div>
+        <p class="eyebrow tiles-head">Your sites <span class="legend"><i aria-hidden="true"></i>tamed</span></p>
+        <div id="tiles" class="tiles" aria-label="Your sites"></div>
 
-        <!-- Link ownership (1108). Android + YouTube chosen only; main.ts
-             hides it otherwise. -->
-        <section class="card links-card" id="links-card" hidden aria-label="YouTube links">
-          <div class="links-card-row">
-            <span class="tick" id="links-card-tick" aria-hidden="true"></span>
-            <div class="grow">
-              <div class="card-title" id="links-card-title">YouTube links</div>
-              <p class="card-body" id="links-card-body"></p>
-            </div>
-            <button type="button" class="btn-ghost small" id="links-card-btn">Set up</button>
-          </div>
-        </section>
-
-        <section class="card" aria-label="Image blur">
-          <div class="setting-row">
-            <span class="setting-label">Image blur</span>
-            <div class="toggle" id="blur-toggle" role="radiogroup" aria-label="Image blur">
-              <button type="button" class="toggle-opt" role="radio" data-value="off">Off</button>
-              <button type="button" class="toggle-opt" role="radio" data-value="blur">Blur all</button>
-              <button type="button" class="toggle-opt" role="radio" data-value="smart">Smart</button>
-            </div>
-          </div>
-          <div class="setting-row" id="blur-strength-row" hidden>
-            <span class="setting-label">Strength</span>
-            <div class="toggle" id="blur-strength" role="radiogroup" aria-label="Blur strength">
-              <button type="button" class="toggle-opt swatched" role="radio" data-value="8"><span class="swatch s8" aria-hidden="true"></span>Light</button>
-              <button type="button" class="toggle-opt swatched" role="radio" data-value="16"><span class="swatch s16" aria-hidden="true"></span>Medium</button>
-              <button type="button" class="toggle-opt swatched" role="radio" data-value="28"><span class="swatch s28" aria-hidden="true"></span>Strong</button>
-            </div>
-          </div>
-          <p class="setting-caption" id="blur-caption"></p>
+        <section class="today" id="today" hidden aria-label="Today">
+          <p class="today-line"><span class="today-num"></span> <span class="today-text"></span></p>
+          <p class="today-sub"></p>
         </section>
 
         <p id="status" role="status"></p>
@@ -152,29 +125,41 @@
         </header>
         <div class="settings-body">
           <nav class="settings-nav" aria-label="Settings sections">
-            <button type="button" class="nav-item" data-pane="bringback">Bring back</button>
-            <button type="button" class="nav-item" data-pane="filters">Filters</button>
+            <button type="button" class="nav-item" data-pane="bringback">Sites</button>
             <button type="button" class="nav-item" data-pane="blur">Blur</button>
-            <button type="button" class="nav-item" data-pane="protection">Levels</button>
+            <button type="button" class="nav-item" data-pane="filters">Filters</button>
             <button type="button" class="nav-item" data-pane="about">About</button>
           </nav>
 
           <div class="panes">
             <section class="pane" id="pane-bringback" hidden>
-              <h2>Bring back</h2>
-              <p class="pane-sub">Everything starts hidden. Bring back only what you choose.</p>
+              <h2>Sites</h2>
+              <p class="pane-sub">What each site shows. Endless feeds start hidden on the sites we tame; bring back only what you choose. Each site has its own Ads switch.</p>
+              <div id="site-here"></div>
               <div id="bring-back"></div>
+              <!-- Link ownership (1108). Android + YouTube chosen only; main.ts
+                   hides it otherwise. In Settings, not on home (#35). -->
+              <section class="card links-card" id="links-card" hidden aria-label="YouTube links">
+                <div class="links-card-row">
+                  <span class="tick" id="links-card-tick" aria-hidden="true"></span>
+                  <div class="grow">
+                    <div class="card-title" id="links-card-title">YouTube links</div>
+                    <p class="card-body" id="links-card-body"></p>
+                  </div>
+                  <button type="button" class="btn-ghost small" id="links-card-btn">Set up</button>
+                </div>
+              </section>
               <section class="card" aria-label="Always hidden">
                 <div class="eyebrow in-card">Always hidden</div>
                 <div class="always-row">Sign-in and app-install nags <span class="pill">Always</span></div>
-                <p class="setting-caption">These never come back. Ads and promoted posts are hidden too; each platform above has its own Ads switch.</p>
+                <p class="setting-caption">These never come back. Ads and promoted posts follow each site's own Ads switch above.</p>
               </section>
               <div id="manage-platforms"></div>
             </section>
 
             <section class="pane" id="pane-filters" hidden>
               <h2>Filters</h2>
-              <p class="pane-sub">Posts and videos whose titles match these terms stay covered, on every platform.</p>
+              <p class="pane-sub">Posts and videos whose titles match these terms stay covered, on every site.</p>
               <section class="card">
                 <div class="card-title">Built-in list</div>
                 <p class="card-body">460+ terms &mdash; sexualized-content bait and its evasion spellings. Ships with the app and updates with it.</p>
@@ -191,39 +176,42 @@
 
             <section class="pane" id="pane-blur" hidden>
               <h2>Blur</h2>
-              <p class="pane-sub">Runs on this device &mdash; nothing you view leaves it.</p>
-              <section class="card">
-                <div class="setting-row" id="gender-row">
-                  <span class="setting-label">You are</span>
-                  <div class="toggle" id="gender-toggle" role="radiogroup" aria-label="Your gender">
-                    <button type="button" class="toggle-opt" role="radio" data-value="man">Male</button>
-                    <button type="button" class="toggle-opt" role="radio" data-value="woman">Female</button>
-                    <button type="button" class="toggle-opt" role="radio" data-value="unset">Not set</button>
+              <p class="pane-sub">Covers pictures and video previews as you browse. The video you choose to watch plays normally. Runs on this device &mdash; nothing you view leaves it.</p>
+              <section class="card" aria-label="What to blur">
+                <div class="setting-row">
+                  <span class="setting-label">Blur</span>
+                  <!-- One question, asked the way the stores already accept
+                       it (HaramBlur, Haya Shield, Tahir Browser): what to
+                       blur, never the user's own gender. Each answer is a
+                       stored mode + gender pair; coverage is unchanged. -->
+                  <div class="toggle" id="blur-toggle" role="radiogroup" aria-label="What to blur">
+                    <button type="button" class="toggle-opt" role="radio" data-value="all">Every picture</button>
+                    <button type="button" class="toggle-opt" role="radio" data-value="women">Women</button>
+                    <button type="button" class="toggle-opt" role="radio" data-value="men">Men</button>
+                    <button type="button" class="toggle-opt" role="radio" data-value="none">Nothing</button>
                   </div>
                 </div>
-                <p class="setting-caption">Smart blur clears faces of your own gender and keeps the other covered. Stored only on this device.</p>
+                <div class="setting-row" id="blur-strength-row" hidden>
+                  <span class="setting-label">Strength</span>
+                  <div class="toggle" id="blur-strength" role="radiogroup" aria-label="Blur strength">
+                    <button type="button" class="toggle-opt swatched" role="radio" data-value="8"><span class="swatch s8" aria-hidden="true"></span>Light</button>
+                    <button type="button" class="toggle-opt swatched" role="radio" data-value="16"><span class="swatch s16" aria-hidden="true"></span>Medium</button>
+                    <button type="button" class="toggle-opt swatched" role="radio" data-value="28"><span class="swatch s28" aria-hidden="true"></span>Strong</button>
+                  </div>
+                </div>
+                <p class="setting-caption" id="blur-caption"></p>
               </section>
-            </section>
-
-            <section class="pane" id="pane-protection" hidden>
-              <h2>Levels</h2>
-              <p class="pane-sub">One choice that sets how much of each platform comes back. Not wired up yet.</p>
-              <div class="levels">
-                <div class="card level-card"><span class="pill gold">Undecided</span><div class="card-title">Level one</div><p class="card-body">The lightest level.</p></div>
-                <div class="card level-card"><span class="pill gold">Undecided</span><div class="card-title">Level two</div><p class="card-body">The middle level, likely the default.</p></div>
-                <div class="card level-card"><span class="pill gold">Undecided</span><div class="card-title">Level three</div><p class="card-body">The strictest level.</p></div>
-              </div>
             </section>
 
             <section class="pane" id="pane-about" hidden>
               <h2>About</h2>
-              <p class="pane-sub">tamescroll opens the platforms you already use as cleaned versions of themselves.</p>
+              <p class="pane-sub">tamescroll is a calm browser: it opens any site, and tames the busy ones.</p>
               <section class="card">
                 <p class="card-body">Free and open source, MPL-2.0. No account, no telemetry, no server in the middle. Image blur and keyword filters run on your device.</p>
               </section>
               <section class="card">
                 <div class="card-title">Filter rules</div>
-                <p class="card-body">Blocking rules refresh themselves in the background &mdash; no reinstall when a platform changes its layout.</p>
+                <p class="card-body">Blocking rules refresh themselves in the background &mdash; no reinstall when a site changes its layout.</p>
                 <form id="rules-refresh-form" class="actions">
                   <button type="submit" class="btn-ghost" id="rules-refresh">Check for updates</button>
                 </form>
@@ -264,73 +252,71 @@
           <span class="ob-count" id="ob-count" aria-live="polite"></span>
         </header>
 
-        <div class="ob-step" data-step="1">
+        <div class="ob-step" data-step="welcome">
           <div class="ob-center">
-            <svg class="ob-wordmark" viewBox="0 0 420 300" role="img" aria-label="tamescroll"><g transform="translate(140 74) scale(3)"><path d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke="#e7e5e1" stroke-width="3.6" stroke-linecap="round"/></g><text x="210" y="248" text-anchor="middle" font-family="Spectral, Georgia, 'Times New Roman', serif" font-size="54" font-weight="600" letter-spacing="-0.6" fill="#e7e5e1">tamescroll</text></svg>
-            <p class="lede">The platforms you already use, without the machinery.</p>
-            <ul class="perks">
-              <li><b>No ads.</b> Video ads and sponsored posts never load.</li>
-              <li><b>No Shorts, no endless feed.</b> You open what you came for and leave.</li>
-              <li data-ios="hide"><b>Pictures blurred, your rules.</b> Runs on this device. Nothing leaves it.</li>
-              <li data-ios="hide"><b>Links open here.</b> A YouTube link from WhatsApp opens cleaned, not in the YouTube app.</li>
-            </ul>
-            <div class="actions center"><button type="button" class="btn-solid" id="ob-start">Get started</button></div>
+            <svg class="ob-wordmark" viewBox="0 0 420 300" role="img" aria-label="tamescroll"><g transform="translate(140 74) scale(3)"><path d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke="#c9a45e" stroke-width="3.6" stroke-linecap="round"/></g><text x="210" y="248" text-anchor="middle" font-family="Spectral, Georgia, 'Times New Roman', serif" font-size="54" font-weight="600" letter-spacing="-0.6" fill="#e7e5e1">tamescroll</text></svg>
+            <h1 class="display">The web, without the feeds.</h1>
+            <p class="lede">A browser for what you came for. Everything else stays quiet.</p>
+            <div class="actions center col narrow-actions">
+              <button type="button" class="btn-solid" id="ob-start">Show me</button>
+              <button type="button" class="link-btn center" id="ob-skip-demo">Skip the demo</button>
+            </div>
             <p class="setting-caption center">Free, open source, no account.</p>
           </div>
         </div>
 
-        <div class="ob-step" data-step="2" hidden>
+        <!-- The calm-down, shown rather than described (his 2026-10-27):
+             a made-up page, never a real site or its logo, so it works
+             offline and shows nobody's content. -->
+        <div class="ob-step" data-step="demo" hidden>
           <div class="ob-center">
-            <h1 class="display">Which platforms do you use?</h1>
-            <p class="lede">Type a name. We match only what you type &mdash; tamescroll never suggests one.</p>
-            <div id="ob-chips" class="chips center"></div>
-            <input id="ob-input" type="text" class="ob-input" placeholder="YouTube, Reddit, X..." autocomplete="off" />
-            <div id="ob-match"></div>
-            <div class="actions center"><button type="button" class="btn-solid" id="ob-continue">Continue</button></div>
-          </div>
-        </div>
-
-        <div class="ob-step" data-step="3" hidden>
-          <div class="ob-center">
-            <h1 class="display">Are you male or female?</h1>
-            <p class="lede">Smart blur keeps faces of the other gender covered. Stored only on this device.</p>
-            <div class="ob-cards">
-              <button type="button" class="ob-card" data-gender="man">Male</button>
-              <button type="button" class="ob-card" data-gender="woman">Female</button>
+            <h1 class="display">Watch a busy page calm down</h1>
+            <p class="lede">A made-up page, so you can see what happens before you open a real one.</p>
+            <div class="demo" id="ob-demo" aria-hidden="true">
+              <div class="demo-bar">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                <span>videos.example</span>
+              </div>
+              <div class="demo-feed">
+                <div class="demo-row"><span class="demo-thumb t1 blur-in"></span><span class="demo-lines"><i></i><i class="short"></i></span></div>
+                <div class="demo-fold"><div class="demo-label">Trending now</div><div class="demo-row"><span class="demo-thumb t2"></span><span class="demo-lines"><i></i><i class="short"></i></span></div></div>
+                <div class="demo-fold"><div class="demo-shorts"><span class="demo-thumb t3"></span><span class="demo-thumb t4"></span><span class="demo-thumb t1"></span><span class="demo-thumb t2"></span></div></div>
+                <div class="demo-row"><span class="demo-thumb t4 blur-in"></span><span class="demo-lines"><i></i><i class="short"></i></span></div>
+                <div class="demo-fold"><div class="demo-label">Recommended for you</div><div class="demo-row"><span class="demo-thumb t3"></span><span class="demo-lines"><i></i><i class="short"></i></span></div></div>
+              </div>
+              <div class="demo-toast"><b>Tamed.</b> Feed gone · pictures blurred · nothing fighting for your attention</div>
             </div>
-            <button type="button" class="link-btn" id="ob-skip-gender">Skip, decide later in Settings</button>
+            <p class="setting-caption center">Every site gets this. The shield in the top bar shows what's hidden there.</p>
+            <div class="actions center col narrow-actions">
+              <button type="button" class="btn-solid" id="ob-demo-next">Next</button>
+              <button type="button" class="link-btn center" id="ob-demo-replay">Watch again</button>
+            </div>
           </div>
         </div>
 
-        <div class="ob-step" data-step="4" hidden>
+        <div class="ob-step" data-step="blur" hidden>
           <div class="ob-center">
-            <h1 class="display">How should pictures look?</h1>
+            <h1 class="display">What should be blurred?</h1>
             <div class="ob-cards col" id="ob-blur-cards">
-              <button type="button" class="ob-card wide" data-mode="smart"><b>Smart</b><span>Faces of the other gender blurred. Runs on this device.</span></button>
-              <button type="button" class="ob-card wide" data-mode="blur"><b>Blur all</b><span>Every picture blurred. What you open plays normally.</span></button>
-              <button type="button" class="ob-card wide" data-mode="off"><b>Off</b><span>No blur. Feeds are still cleaned.</span></button>
+              <button type="button" class="ob-card wide" data-choice="all"><b>Every picture</b><span>All pictures and previews. The video you open plays normally.</span></button>
+              <button type="button" class="ob-card wide" data-choice="women"><b>Women only</b><span>Women in pictures are covered. Faces it can't place stay covered too.</span></button>
+              <button type="button" class="ob-card wide" data-choice="men"><b>Men only</b><span>Men in pictures are covered. Faces it can't place stay covered too.</span></button>
+              <button type="button" class="ob-card wide" data-choice="none"><b>Nothing</b><span>No blur. Feeds are still hidden.</span></button>
             </div>
-            <p class="setting-caption center">Change it any time from the home screen.</p>
+            <p class="setting-caption center">Runs on this device and isn't perfect. No picture leaves your phone. Change it any time in Settings, under Blur.</p>
           </div>
         </div>
-
-        <div class="ob-step" data-step="5" hidden>
+        <div class="ob-step" data-step="done" hidden>
           <div class="ob-center">
             <h1 class="display">That's it.</h1>
-            <p class="lede" id="ob-summary"></p>
-            <div id="ob-glyphs" class="ob-glyphs"></div>
             <ul class="perks left">
-              <li><b>Tap a tile</b> to open a platform, cleaned.</li>
-              <li data-ios="hide"><b>Share a link to tamescroll</b> from any app to open it here.</li>
-              <li><b>Settings</b> brings back a surface you miss. Everything starts hidden.</li>
+              <li><b>Search or type any site</b> in the box at the top of home.</li>
+              <li><b>Add the sites you use</b> as tiles, so they're one tap away.</li>
+              <li><b>The bar at the top</b> of every site takes you home, searches, or opens that site's settings.</li>
             </ul>
             <div class="actions center col">
-              <button type="button" class="btn-solid" id="ob-links" hidden>Make tamescroll your YouTube</button>
-              <button type="button" class="btn-ghost" id="ob-pin" hidden>Put YouTube on your home screen</button>
-              <button type="button" class="btn-ghost" id="ob-open">Open tamescroll</button>
+              <button type="button" class="btn-solid" id="ob-open">Start browsing</button>
             </div>
-            <p class="setting-caption center" id="ob-pin-note" hidden></p>
-            <p class="setting-caption center" id="ob-links-note" hidden>Links from WhatsApp and mail open here instead of the YouTube app. Takes a minute.</p>
           </div>
         </div>
       </section>
