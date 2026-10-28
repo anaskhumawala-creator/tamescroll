@@ -299,10 +299,10 @@ fn page_load_gaze_script(url: &str, mode: &str) -> Option<String> {
     if blur_css(platform.id).is_empty() {
         return None;
     }
-    // The compulsory NSFW-removal tier (handoff decision #1) means the
-    // Stage B bundle boots in EVERY mode — pipeline-plan.mjs inside the
-    // bundle decides what actually runs. Only blur-all adds the Stage A
-    // sheet on top.
+    // The Stage B bundle boots in EVERY mode (it also carries the page
+    // kind and the Shorts redirect); pipeline-plan.mjs inside the
+    // bundle decides what actually runs, and in off that is nothing.
+    // Only blur-all adds the Stage A sheet on top.
     if mode != "blur" {
         return Some(gaze_script(mode, &url_host(url).unwrap_or_default()));
     }
@@ -2918,10 +2918,11 @@ mod tests {
             assert!(page_load_gaze_script(host, "smart").is_some(), "{host} smart");
         }
 
-        // Off still boots Stage B for the compulsory NSFW-removal tier
-        // (handoff decision #1) — mode "off" baked in, no Stage A sheet.
+        // Off still loads the bundle (page kind and the Shorts redirect
+        // live there) with mode "off" baked in, which runs no models
+        // (pipeline-plan.mjs), and ships no Stage A sheet.
         let js = page_load_gaze_script("https://m.youtube.com/", "off").expect("off script");
-        assert!(js.contains("__TS_GAZE_MODE = \"off\""), "off must boot the compulsory tier");
+        assert!(js.contains("__TS_GAZE_MODE = \"off\""), "off must bake mode off");
         assert!(!js.contains("ts-gaze-blur"), "off must not ship the Stage A sheet");
 
         // Blur mode injects the guarded style AND the Stage B boot (the

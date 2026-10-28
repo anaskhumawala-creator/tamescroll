@@ -1,6 +1,9 @@
-// What the gaze pipeline runs in each launcher mode. The compulsory
-// tier (handoff decision #1) makes the pipeline boot in EVERY mode so
-// NSFW media can be removed outright; everything else stays mode-gated.
+// What the gaze pipeline runs in each launcher mode. Off runs nothing:
+// the compulsory tier (handoff decision #1) that booted it there was
+// dropped on his word 2026-10-28 ("if anyways we arent doing blur then
+// no point of keeping it on"). With blur off every thumbnail flashed
+// blurred while the NSFW model loaded and checked it, and "Nothing"
+// promised no blur. NSFW removal stays in blur and smart.
 // Pure data so the policy is unit-testable away from the DOM.
 
 /**
@@ -15,18 +18,6 @@ export function planForMode(mode) {
       preBlur: true,
       textFilter: true,
       faceGender: true,
-      nsfw: true,
-      revealClears: true,
-    };
-  }
-  if (mode === 'off') {
-    // Off = no gender blur, but the compulsory tier still runs:
-    // blur-first while the NSFW check decides reveal vs remove.
-    return {
-      boot: true,
-      preBlur: true,
-      textFilter: true,
-      faceGender: false,
       nsfw: true,
       revealClears: true,
     };
