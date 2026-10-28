@@ -334,7 +334,12 @@
   // manifest the app itself reads; the releases page is the fallback.
   fetch("https://raw.githubusercontent.com/tamescroll/tamescroll/main/updates/app-manifest.json")
     .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (m) { if (m && m.apkUrl) document.getElementById("apk").href = m.apkUrl; })
+    .then(function (m) {
+      // Older releases were published under a personal account; GitHub
+      // serves the same files from the organisation's path.
+      if (m && m.apkUrl) document.getElementById("apk").href = m.apkUrl.replace(
+        /^https:\/\/github\.com\/[^/]+\/tamescroll\//, "https://github.com/tamescroll/tamescroll/");
+    })
     .catch(function () {});
 </script>
 </body>
