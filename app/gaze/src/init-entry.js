@@ -120,7 +120,7 @@ import { applyOverrides, overrideBlock, setToken as setOverrideToken } from './t
 import * as autoTest from './auto-test.mjs';
 import { installTuneUi } from './tune-overlay.mjs';
 import * as delayCore from './delay-core.mjs';
-import { playerBlurWanted, isPhoneUa } from './player-switch.mjs';
+import { playerBlurWanted, isPhoneUa, playerSwitchShown } from './player-switch.mjs';
 import { attachDelay } from './delay-presenter.mjs';
 import { attachDelayGl, PRESENTER_GL } from './gl-presenter.mjs';
 import * as perf from './perf.mjs';
@@ -5414,7 +5414,9 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
       // Nothing here can fail the player: a panel that cannot be built
       // is a panel that is not there.
       try {
-        tuneUi = installTuneUi({
+        // His ruling 2026-10-27 (PLAYER_VIDEO_BLUR): with no switch on the
+        // player, the gear beside it goes too.
+        if (playerSwitchShown()) tuneUi = installTuneUi({
           doc: document,
           host: pillHost,
           win: window,
@@ -5470,6 +5472,10 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
       // on it for the pill to undo.
       var chromeHidden = false;
       var setChrome = function (hide) {
+        // No switch on the player (PLAYER_VIDEO_BLUR 0): the pill still
+        // exists, because the watcher below is what turns a feed preview's
+        // blur off when the page becomes a watch page, but it is never shown.
+        hide = hide || !playerSwitchShown();
         if (hide === chromeHidden) return;
         chromeHidden = hide;
         pill.style.display = hide ? 'none' : 'flex';

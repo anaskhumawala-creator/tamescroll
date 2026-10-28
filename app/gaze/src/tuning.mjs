@@ -362,6 +362,10 @@ var SPEC = {
   // with video blur OFF (the pill turns it on). 0 restores blur-first on
   // phones. Read at each new video; desktop ignores it (player-switch.mjs).
   PLAYER_BLUR_START_OFF: [0, 1, function (v) { playerSwitch.setPlayerBlurStartOff(v); }],
+  // EXPOSURE, his ruling 2026-10-27: the watch player is not blurred at
+  // all and its switch is not drawn; thumbnails and feed previews are
+  // unchanged. 1 brings the switch back (player-switch.mjs).
+  PLAYER_VIDEO_BLUR: [0, 1, function (v) { playerSwitch.setPlayerVideoBlur(v); }],
   // NATIVE INFERENCE (plan 2026-09-02-native-inference). 1 = the player
   // runs its models through the TFLite engine Kotlin hands the page a
   // port for (Redmi: 255ms a verdict against 922 on WebGL); 0 = that port
@@ -488,6 +492,7 @@ var GETTERS = {
   CODEC_PROBE: function () { return codecProbe.CODEC_PROBE; },
   DELAY_LATE_ATTACH: function () { return delayCore.DELAY_LATE_ATTACH; },
   PLAYER_BLUR_START_OFF: function () { return playerSwitch.PLAYER_BLUR_START_OFF; },
+  PLAYER_VIDEO_BLUR: function () { return playerSwitch.PLAYER_VIDEO_BLUR; },
   IMG_BUDGET_SPEND: function () { return imageBudget.IMG_BUDGET_SPEND; },
   IMG_BUDGET_SCROLL: function () { return imageBudget.IMG_BUDGET_SCROLL; },
   IMG_BUDGET_IDLE: function () { return imageBudget.IMG_BUDGET_IDLE; },

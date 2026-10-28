@@ -18,6 +18,21 @@ export function setPlayerBlurStartOff(v) {
   PLAYER_BLUR_START_OFF = v;
 }
 
+// His ruling 2026-10-27: "remove blur feature toggle from videos for now,
+// we only do thumbnail blurring at the moment". 0 = the watch player is
+// never blurred and neither its switch nor the gear beside it is drawn;
+// thumbnails and feed previews are untouched. 1 = the switch is back and
+// PLAYER_BLUR_START_OFF decides how each video starts. Exposure dial.
+export var PLAYER_VIDEO_BLUR = 0; // OTA [0, 1]; his ruling 2026-10-27, ships 0
+export function setPlayerVideoBlur(v) {
+  PLAYER_VIDEO_BLUR = v;
+}
+
+/** Is the watch player's blur switch (and the gear beside it) drawn? */
+export function playerSwitchShown() {
+  return PLAYER_VIDEO_BLUR > 0;
+}
+
 /** Is this user agent a phone build (the Android app's WebView)? */
 export function isPhoneUa(ua) {
   return /Android/i.test(String(ua || ''));
@@ -35,6 +50,7 @@ export function isPhoneUa(ua) {
  */
 export function playerBlurWanted(watchId, choice, phone) {
   if (watchId === null || watchId === undefined) return true;
+  if (!playerSwitchShown()) return false;
   if (choice && choice.id === watchId) return !!choice.on;
   return !(phone && PLAYER_BLUR_START_OFF > 0);
 }

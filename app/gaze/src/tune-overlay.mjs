@@ -78,6 +78,11 @@ var META = {
     desc: 'On a phone, each video starts with blur off and the switch on the player turns it on. Off: every video starts blurred.',
     bool: true,
   },
+  PLAYER_VIDEO_BLUR: {
+    group: 'blur', label: 'Blur the video you watch',
+    desc: 'On: the player can blur, with its switch. Off: only thumbnails and previews are blurred, and the switch is hidden.',
+    bool: true,
+  },
   DELAY_LATE_ATTACH: {
     group: 'speed', label: 'Start blurred, delay later',
     desc: 'A video starts fully blurred and the delay line only begins after the first check. Smoother starts on slow phones.',
