@@ -50,6 +50,8 @@ class TsWebkitPlugin: Plugin {
       webview.translatesAutoresizingMaskIntoConstraints = false
       let bar = self.makeTopBar()
       superview.addSubview(bar)
+      let barHeight = bar.heightAnchor.constraint(equalToConstant: Self.barFull)
+      self.barHeight = barHeight
       let underClock = webview.topAnchor.constraint(equalTo: superview.safeAreaLayoutGuide.topAnchor)
       self.webUnderClock = underClock
       self.webUnderBar = webview.topAnchor.constraint(equalTo: bar.bottomAnchor)
@@ -57,7 +59,7 @@ class TsWebkitPlugin: Plugin {
         bar.topAnchor.constraint(equalTo: superview.safeAreaLayoutGuide.topAnchor),
         bar.leadingAnchor.constraint(equalTo: superview.leadingAnchor),
         bar.trailingAnchor.constraint(equalTo: superview.trailingAnchor),
-        bar.heightAnchor.constraint(equalToConstant: 52),
+        barHeight,
         underClock,
         webview.bottomAnchor.constraint(equalTo: superview.bottomAnchor),
         webview.leadingAnchor.constraint(equalTo: superview.leadingAnchor),
@@ -73,6 +75,9 @@ class TsWebkitPlugin: Plugin {
         webview.observe(\.url, options: [.initial, .new]) { [weak self] wv, _ in
           self?.updateTopBar(wv)
         },
+        webview.scrollView.observe(\.contentOffset, options: [.new]) { [weak self] sv, _ in
+          self?.followScroll(sv)
+        },
       ]
     }
   }
@@ -85,8 +90,9 @@ class TsWebkitPlugin: Plugin {
   /// pages still see the user's light or dark mode.
   func paintBand(_ webview: WKWebView) {
     guard let superview = webview.superview, let window = webview.window else { return }
-    // Over a site the band sits above our dark bar, so it takes the bar's colour.
-    let color = topBar?.isHidden == false
+    // Over a site the band sits above our dark bar, so it takes the bar's
+    // colour; with the bar folded away it takes the page's again.
+    let color = topBar?.isHidden == false && (barHeight?.constant ?? 0) > 0
       ? Self.barColor
       : webview.themeColor ?? webview.underPageBackgroundColor ?? .systemBackground
     superview.backgroundColor = color
@@ -109,6 +115,13 @@ class TsWebkitPlugin: Plugin {
   var topBarAddress: UIButton?
   var topBarUrl = ""
   var webUnderClock: NSLayoutConstraint?
+  var barHeight: NSLayoutConstraint?
+  static let barFull: CGFloat = 52
+  /// Where the last scroll step started, to tell down from up.
+  var lastOffset: CGFloat = 0
+  /// The page this bar was last set up for, so a video page collapses it
+  /// once on arrival and not again on every scroll.
+  var collapsedFor = ""
   var webUnderBar: NSLayoutConstraint?
 
   func makeTopBar() -> UIView {
@@ -117,6 +130,7 @@ class TsWebkitPlugin: Plugin {
     bar.backgroundColor = Self.barColor
     bar.overrideUserInterfaceStyle = .dark
     bar.isHidden = true
+    bar.clipsToBounds = true
     let ink = UIColor(red: 0xE7 / 255.0, green: 0xE5 / 255.0, blue: 0xE1 / 255.0, alpha: 1)
     func icon(_ symbol: String, _ label: String, _ action: Selector) -> UIButton {
       let b = UIButton(type: .system)
@@ -168,12 +182,45 @@ class TsWebkitPlugin: Plugin {
     if onSite, let u = u {
       topBarUrl = u.absoluteString
       topBarAddress?.setTitle(Self.bareHost(u.host ?? u.absoluteString), for: .normal)
+      // A video page starts with the bar folded away, so the video sits
+      // right under the clock; scrolling up brings it back.
+      let video = (u.host ?? "").hasSuffix("youtube.com")
+        && (u.path.hasPrefix("/watch") || u.path.hasPrefix("/shorts"))
+      if u.absoluteString != collapsedFor {
+        collapsedFor = u.absoluteString
+        setBarShown(!video, animated: !bar.isHidden)
+      }
     }
     guard bar.isHidden == onSite else { return }
     bar.isHidden = !onSite
     webUnderClock?.isActive = !onSite
     webUnderBar?.isActive = onSite
     paintBand(webview)
+  }
+
+  /// Safari's way: the bar folds away while reading down the page and
+  /// comes back on a scroll up, or at the top of the page.
+  func followScroll(_ sv: UIScrollView) {
+    guard let bar = topBar, !bar.isHidden else { return }
+    let y = sv.contentOffset.y
+    let step = y - lastOffset
+    lastOffset = y
+    if y <= 0 {
+      setBarShown(true, animated: true)
+    } else if sv.isTracking || sv.isDecelerating {
+      if step > 6, y > Self.barFull { setBarShown(false, animated: true) }
+      if step < -6 { setBarShown(true, animated: true) }
+    }
+  }
+
+  func setBarShown(_ shown: Bool, animated: Bool) {
+    guard let h = barHeight else { return }
+    let want = shown ? Self.barFull : 0
+    if h.constant == want { return }
+    h.constant = want
+    if let wv = webview { paintBand(wv) }
+    guard animated, let parent = topBar?.superview else { return }
+    UIView.animate(withDuration: 0.2) { parent.layoutIfNeeded() }
   }
 
   static func bareHost(_ host: String) -> String {
