@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tamescroll — the same platforms, none of the machinery</title>
-<meta name="description" content="tamescroll opens the platforms you already use as cleaned versions of themselves — no ads, no Shorts, no algorithmic feeds. Free, open source, desktop + mobile.">
+<title>tamescroll — a calm browser: the web, without the feeds</title>
+<meta name="description" content="tamescroll is a calm web browser for your phone: feeds and autoplay hidden, pictures blurred by your rules, ad blocking you switch per site. Free, open source, nothing leaves your device.">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij48cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxNCIgZmlsbD0iIzE0MTQxNCI+PC9yZWN0PjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDkgMTIpIHNjYWxlKDEpIj48cGF0aCBkPSJNMjIgMjBhMyAzIDAgMCAwLTYgMGE2IDYgMCAwIDAgMTIgMGE5IDkgMCAwIDAtMTggMGExMiAxMiAwIDAgMCAxMiAxMmwxOCAwIiBmaWxsPSJub25lIiBzdHJva2U9IiNlN2U1ZTEiIHN0cm9rZS13aWR0aD0iNC42IiBzdHJva2UtbGluZWNhcD0icm91bmQiPjwvcGF0aD48L2c+PC9zdmc+">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +19,6 @@
     --muted: #a3a09a; --faint: #757169; --line: #343434;
     --hairline: rgba(255,255,255,.07); --elev: rgba(255,255,255,.035);
     --gold: #c9a45e; --gold-deep: #a8874c;
-    --tint-yt: #d29a8a; --tint-rd: #cf9a6c; --tint-x: #e7e5e1; --tint-ig: #c5a3c9;
     --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-display: "Spectral", Georgia, serif;
     --font-mono: "IBM Plex Mono", ui-monospace, monospace;
@@ -72,7 +71,7 @@
   }
   .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px -10px rgba(29,28,25,.35); }
   .btn.primary { background: var(--paper-ink); color: var(--paper); border-color: var(--paper-ink); }
-  .hero .sub { margin-top: 16px; font-size: 13.5px; color: var(--paper-faint); }
+  .hero .sub, .download .sub { margin-top: 16px; font-size: 13.5px; color: var(--paper-faint); }
   .hero .sub a { color: var(--paper-muted); }
 
   /* ---- removed strip ---- */
@@ -107,7 +106,7 @@
   .mock .tag { color: var(--muted); font-size: 14px; margin-top: 8px; }
   .mock .tiles {
     display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;
-    margin: 34px auto 30px;
+    margin: 14px auto 6px;
   }
   .tile {
     width: 128px; padding: 18px 10px 16px; border-radius: 14px;
@@ -117,23 +116,22 @@
     width: 46px; height: 46px; margin: 0 auto 10px; border-radius: 11px;
     background: linear-gradient(150deg, #242424, #131313); border: 1px solid var(--hairline);
     display: flex; align-items: center; justify-content: center;
-    font-family: var(--font-display); font-size: 21px;
+    font-family: var(--font-display); font-size: 21px; color: var(--muted);
   }
   .tile .name { font-size: 13.5px; font-weight: 600; }
-  .tile .note { font-size: 11px; color: var(--faint); margin-top: 4px; line-height: 1.35; }
+  .tile .note { font-size: 11px; color: var(--gold); margin-top: 4px; line-height: 1.35; }
   .tile.add { border-style: dashed; color: var(--faint); }
+  .tile.add .note { color: var(--faint); }
   .tile.add .glyph { background: none; border-style: dashed; font-family: var(--font-ui); }
-  .mock .blurrow {
-    display: flex; gap: 14px; align-items: center; justify-content: center;
-    font-size: 12px; color: var(--faint);
+  .mock .search {
+    max-width: 440px; margin: 28px auto 0; padding: 12px 16px; border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--line);
+    text-align: left; font-size: 14px; color: var(--faint);
   }
-  .mock .blurrow .seg {
-    display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden;
+  .mock .search .mag { margin-right: 10px; color: var(--muted); }
+  .mock .sites-label {
+    margin-top: 30px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--faint);
   }
-  .mock .blurrow .seg b {
-    padding: 5px 12px; font-weight: 500; color: var(--muted); font-size: 12px;
-  }
-  .mock .blurrow .seg b.on { background: var(--ink); color: var(--bg); font-weight: 600; }
 
   /* ---- how it works ---- */
   section.how { max-width: 1080px; margin: 72px auto 0; padding: 0 24px; }
@@ -156,7 +154,7 @@
   .card h3 { font-size: 17.5px; margin-bottom: 10px; }
   .card p { color: var(--paper-muted); font-size: 14.5px; }
 
-  /* ---- how it works with the platforms ---- */
+  /* ---- how it works with websites ---- */
   section.terms { max-width: 760px; margin: 72px auto 0; padding: 0 24px; }
   .terms h2 {
     font-family: var(--font-display); font-weight: 500; font-size: clamp(26px, 3.6vw, 34px);
@@ -220,18 +218,18 @@
 
 <main>
   <div class="hero">
-    <div class="kicker">Free · open source · Android now, desktop next</div>
-    <h1>The same platforms.<br>None of the machinery.</h1>
-    <p class="lead">tamescroll opens the platforms you already use as cleaned versions of themselves — ads blocked, no Shorts, no algorithmic feeds, and thumbnails blurred to protect your gaze. You type which ones; it never suggests one.</p>
+    <div class="kicker">A calm browser · free · open source · Android</div>
+    <h1>The web,<br>without the feeds.</h1>
+    <p class="lead">tamescroll is a web browser for your phone that leaves out the parts built to keep you scrolling. Search, or type any address. Feeds, short-video shelves and autoplay stay hidden on the sites that have them, pictures are blurred by rules you set, and ad blocking is a switch you control for each site.</p>
     <div class="dl-row">
       <a class="btn primary" href="#download">Download for Android</a>
     </div>
-    <p class="sub">A YouTube link from WhatsApp opens here, cleaned, not in the YouTube app · no account, no analytics</p>
+    <p class="sub">No account, no analytics, nothing about you leaves your phone</p>
   </div>
 
-  <div class="removed" aria-label="Removed everywhere">
-    <span class="label">Removed everywhere</span>
-    <s>Ads</s><s>Shorts</s><s>Reels</s><s>For You</s><s>Trending</s><s>Autoplay</s><s>Popular</s><s>Sign-in nags</s>
+  <div class="removed" aria-label="Left out">
+    <span class="label">Left out</span>
+    <s>Endless feeds</s><s>Short-video shelves</s><s>Recommended for you</s><s>Trending</s><s>Autoplay</s><s>Sign-in nags</s>
   </div>
 
   <div class="mockwrap" aria-hidden="true">
@@ -245,17 +243,14 @@
         <div class="word">
           <svg viewBox="0 0 560 140" role="img" aria-hidden="true"><g transform="translate(40 42) scale(1.28)"><path d="M22 20a3 3 0 0 0-6 0a6 6 0 0 0 12 0a9 9 0 0 0-18 0a12 12 0 0 0 12 12l18 0" fill="none" stroke="#e7e5e1" stroke-width="3.6" stroke-linecap="round"/></g><text x="146" y="88" font-family="Spectral, Georgia, 'Times New Roman', serif" font-size="58" font-weight="600" letter-spacing="-0.6" fill="#e7e5e1">tamescroll</text></svg>
         </div>
-        <div class="tag">Your platforms, without the machinery.</div>
+        <div class="search"><span class="mag">⌕</span>Search, or type an address</div>
+        <div class="sites-label">Your sites</div>
         <div class="tiles">
-          <div class="tile"><div class="glyph" style="color:var(--tint-yt)">Y</div><div class="name">YouTube</div><div class="note">No Shorts, no autoplay, no sidebar</div></div>
-          <div class="tile"><div class="glyph" style="color:var(--tint-rd)">R</div><div class="name">Reddit</div><div class="note">Your subreddits only, no Popular</div></div>
-          <div class="tile"><div class="glyph" style="color:var(--tint-x)">X</div><div class="name">X</div><div class="note">Following only, no For You</div></div>
-          <div class="tile"><div class="glyph" style="color:var(--tint-ig)">I</div><div class="name">Instagram</div><div class="note">No Reels, no Explore</div></div>
-          <div class="tile add"><div class="glyph">+</div><div class="name">Add yours</div><div class="note">Only ones you already use</div></div>
-        </div>
-        <div class="blurrow">
-          <span style="letter-spacing:.14em;text-transform:uppercase">Image blur</span>
-          <span class="seg"><b>Off</b><b>Blur all</b><b class="on">Smart</b></span>
+          <div class="tile"><div class="glyph">W</div><div class="name">wikipedia.org</div></div>
+          <div class="tile"><div class="glyph">Y</div><div class="name">youtube.com</div><div class="note">Tamed</div></div>
+          <div class="tile"><div class="glyph">N</div><div class="name">Your news site</div></div>
+          <div class="tile"><div class="glyph">R</div><div class="name">reddit.com</div><div class="note">Tamed</div></div>
+          <div class="tile add"><div class="glyph">+</div><div class="name">Add a site</div><div class="note">Any address</div></div>
         </div>
       </div>
     </div>
@@ -266,18 +261,18 @@
     <div class="grid">
       <div>
         <div class="num">01</div>
-        <h3>Type your platforms</h3>
-        <p>You name what you already use. tamescroll never lists or suggests one — a platform you don't type simply doesn't exist here.</p>
+        <h3>Go anywhere</h3>
+        <p>Search the web or type any address, and keep the sites you use as tiles on the home screen. tamescroll never suggests a site to you.</p>
       </div>
       <div>
         <div class="num">02</div>
-        <h3>Everything starts hidden</h3>
-        <p>Ads, promoted posts, Shorts, Reels, For You, trending, autoplay — gone by default. Ads stay blocked unless you switch them back on for a platform.</p>
+        <h3>The pull stays out</h3>
+        <p>On the sites we tame, feeds, short-video shelves, recommendations and autoplay are hidden before you see them. Nothing comes back unless you switch it on.</p>
       </div>
       <div>
         <div class="num">03</div>
-        <h3>Bring back what you choose</h3>
-        <p>Comments, subscriptions, search — each surface has one plain toggle, per platform. Nothing returns unless you turn it on.</p>
+        <h3>Every site, your rules</h3>
+        <p>A plain bar sits on top of every page: home, the address, and a shield. The shield opens that site's settings: blur on or off, ads on or off, and the show-or-hide switches for a tamed site.</p>
       </div>
     </div>
   </section>
@@ -285,35 +280,36 @@
   <section class="features" id="features">
     <div class="grid">
       <div class="card">
-        <h3>Cleaned platforms</h3>
-        <p>Each platform opens as itself, minus what it uses to hold you: recommendations, feeds, Shorts and Reels. You add only the platforms you already use — tamescroll never suggests another.</p>
+        <h3>A browser first</h3>
+        <p>Any website opens in tamescroll, the same page your phone's browser would load. Share a link to tamescroll from any app and it lands in the address box, ready to open here instead of in a feed.</p>
       </div>
       <div class="card">
-        <h3>Protects your gaze</h3>
-        <p>Thumbnails and images are blurred on your phone before you see them. Video blur is in beta and starts off; turn it on from the player. Nothing you see is sent anywhere.</p>
+        <h3>Pictures, your rules</h3>
+        <p>Pictures and thumbnails can be blurred on your phone before you see them: all of them, a smart selection, or none. Blur inside playing videos is switched off for now while we make it better. Nothing you see is sent anywhere.</p>
       </div>
       <div class="card">
         <h3>Free and open source</h3>
-        <p>MPL-2.0-licensed, built in the open. Read the code, file an issue, or build it yourself. There is nothing to buy and nothing to subscribe to.</p>
+        <p>MPL-2.0-licensed and built in the open. Read the code, file an issue, or build it yourself. There is nothing to buy, nothing to subscribe to, and no account.</p>
       </div>
     </div>
   </section>
 
-  <section class="terms" id="platforms">
-    <div class="sec-label">How tamescroll works with the platforms</div>
-    <h2>Your view of their site, on your device</h2>
-    <p>tamescroll shows you a platform's own website, the same page your phone's browser would load, and changes how that page looks on your screen. Like a browser's reader mode or a content blocker, it hides parts of the page before you see them: Shorts, Reels, recommendation feeds, autoplay and ads.</p>
+  <section class="terms" id="sites">
+    <div class="sec-label">How tamescroll works with websites</div>
+    <h2>Their site, shown calmly, on your device</h2>
+    <p>tamescroll is a browser. It loads each site's own public web page and changes how that page looks on your screen. Like a browser's reader mode or a content blocker, it hides parts of the page before you see them.</p>
+    <p>Most sites need nothing more than the picture blur and, if you want it, ad blocking. A few sites are built around feeds, so we keep a set of rules for each of them that hides those parts too. Today those are YouTube, Reddit, X, Instagram, Facebook and TikTok, and they carry a small "Tamed" mark on your home screen. They are sites tamescroll works with, not the point of it.</p>
     <ul>
       <li><b>Every change happens on your phone.</b> Nothing is copied, saved, re-uploaded or sent to us. We have no server, no account system and no analytics.</li>
-      <li><b>We never touch the platforms' apps or their code.</b> tamescroll does not modify YouTube's or anyone else's app, does not use their APIs, and does not download videos.</li>
-      <li><b>Creators' videos play as published.</b> Blur is a layer drawn over your screen, never an edit of the video, and the video you choose to play is never altered.</li>
-      <li><b>The image filter keeps nothing.</b> It looks at what is on screen, decides whether to blur it, and forgets it. It does not identify anyone, store faces, or guess anything about a person beyond the single filter you chose.</li>
-      <li><b>You sign in with your own account,</b> on the platform's own sign-in page, and its terms apply to your account as they always have.</li>
+      <li><b>We never touch anyone's app or code.</b> tamescroll does not modify any other app, does not use any site's API, and does not download videos.</li>
+      <li><b>Creators' work is shown as published.</b> Blur is a layer drawn over your screen, never an edit of the picture or video underneath.</li>
+      <li><b>The picture filter keeps nothing.</b> It looks at what is on screen, decides whether to blur it, and forgets it. It does not identify anyone, store faces, or guess anything about a person beyond the single filter you chose.</li>
+      <li><b>You sign in with your own account,</b> on the site's own sign-in page, and its terms apply to your account as they always have.</li>
     </ul>
-    <p class="small">tamescroll is an independent, open-source project. It is not affiliated with or endorsed by Google, YouTube, Reddit, X, Meta or TikTok; their names are used only to say which sites tamescroll works with. If you represent a platform and have a concern, <a href="https://github.com/tamescroll/tamescroll/issues/new">write to us</a> and we will answer. See also our <a href="privacy.html">privacy policy</a> and <a href="terms.html">terms of use</a>.</p>
+    <p class="small">tamescroll is an independent, open-source project. It is not affiliated with or endorsed by Google, YouTube, Reddit, X, Meta or TikTok; their names are used only to say which sites tamescroll works with. If you represent a website and have a concern, write to <a href="mailto:tamescroll@proton.me">tamescroll@proton.me</a> or <a href="https://github.com/tamescroll/tamescroll/issues/new">open an issue</a> and we will answer. See also our <a href="privacy.html">privacy policy</a> and <a href="terms.html">terms of use</a>.</p>
   </section>
 
-  <div class="quote">The platforms stay useful. The pull is gone.</div>
+  <div class="quote">The web stays useful. The pull is gone.</div>
 
   <section class="download" id="download">
     <h2>Download tamescroll</h2>
