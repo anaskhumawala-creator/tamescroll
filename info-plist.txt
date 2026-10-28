@@ -1,0 +1,27 @@
+--- Info.plist URL types and quick actions
+Array {
+    Dict {
+        CFBundleURLName = app.tamescroll.client
+        CFBundleURLSchemes = Array {
+            tamescroll
+        }
+    }
+}
+Array {
+    Dict {
+        UIApplicationShortcutItemType = open.youtube
+        UIApplicationShortcutItemTitle = YouTube
+    }
+    Dict {
+        UIApplicationShortcutItemType = open.reddit
+        UIApplicationShortcutItemTitle = Reddit
+    }
+    Dict {
+        UIApplicationShortcutItemType = open.x
+        UIApplicationShortcutItemTitle = X
+    }
+}
+--- UIDeviceFamily (1 iPhone, 2 iPad)
+Array {
+    1
+}
