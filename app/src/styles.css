@@ -328,6 +328,14 @@ b { font-weight: 600; }
 .ob-card.wide { text-align: left; display: block; }
 .ob-card.wide b { display: block; margin-bottom: 2px; }
 .ob-card.wide span { color: var(--muted); font-weight: 400; font-size: var(--t-md); }
+/* The blur question, shown (his 2026-10-28: "I need a visual thing"):
+   three little pictures per answer, blurred exactly where it blurs. */
+.ob-card.pick { display: flex; align-items: center; gap: var(--s3); }
+.ob-card.pick .pick-txt { min-width: 0; }
+.pv { display: flex; gap: 4px; flex: none; }
+.pv .pv-tile { width: 36px; height: 46px; border-radius: 6px; background: var(--line); display: grid; place-items: center; overflow: hidden; }
+.pv svg { width: 30px; height: 30px; fill: var(--muted); }
+.pv .pv-tile.bl svg { filter: blur(4px); }
 .ob-glyphs { display: flex; gap: var(--s2); justify-content: center; margin: var(--s2) 0 var(--s3); }
 .ob-glyphs .dot {
   width: 44px; height: 44px; border-radius: var(--r-sm);
