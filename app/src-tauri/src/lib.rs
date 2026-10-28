@@ -2019,12 +2019,8 @@ fn ios_ci_open(app: tauri::AppHandle) {
     // would, `--ts-page=<url>` opens that page of the platform instead of
     // its home, and `--ts-probe=<seconds>` writes the gaze bundle's own
     // report to Caches/gaze-status.txt that long after opening.
-    if let Some(mode) = arg("--ts-gaze=") {
-        set_gaze_state(&mode);
-    }
-    if let Some(g) = arg("--ts-gender=") {
-        set_user_gender_state(&g);
-    }
+    let gaze = arg("--ts-gaze=");
+    let gender = arg("--ts-gender=");
     let Some(id) = arg("--ts-open=") else {
         return;
     };
@@ -2037,6 +2033,14 @@ fn ios_ci_open(app: tauri::AppHandle) {
             eprintln!("ts-open: unknown platform {id}");
             return;
         };
+        // Set only now: the launcher sends its own blur choice when it
+        // starts, which would undo a choice made before it loaded.
+        if let Some(mode) = &gaze {
+            set_gaze_state(mode);
+        }
+        if let Some(g) = &gender {
+            set_user_gender_state(g);
+        }
         let target = page.as_deref().unwrap_or(platform.url);
         set_shown_platform(platform.id);
         set_ios_page_script(&app, target);
