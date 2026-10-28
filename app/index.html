@@ -179,6 +179,13 @@
               <p class="pane-sub">Covers pictures and video previews as you browse. The video you choose to watch plays normally. Runs on this device &mdash; nothing you view leaves it.</p>
               <section class="card" aria-label="What to blur">
                 <div class="setting-row">
+                  <span class="setting-label">Tidying</span>
+                  <div class="toggle" id="tidy-toggle" role="radiogroup" aria-label="How much to tidy">
+                    <button type="button" class="toggle-opt" role="radio" data-value="light">Light</button>
+                    <button type="button" class="toggle-opt" role="radio" data-value="thorough">Thorough</button>
+                  </div>
+                </div>
+                <div class="setting-row">
                   <span class="setting-label">Blur</span>
                   <!-- One question, asked the way the stores already accept
                        it (HaramBlur, Haya Shield, Tahir Browser): what to
@@ -291,6 +298,26 @@
               <button type="button" class="btn-solid" id="ob-demo-next">Next</button>
               <button type="button" class="link-btn center" id="ob-demo-replay">Watch again</button>
             </div>
+          </div>
+        </div>
+
+        <!-- How much to tidy (his 2026-10-28): a question about the app,
+             never about the person. Light skips the blur question. -->
+        <div class="ob-step" data-step="tidy" hidden>
+          <div class="ob-center">
+            <h1 class="display">How much should we tidy?</h1>
+            <div class="ob-cards" id="ob-tidy-cards">
+              <button type="button" class="ob-card tidy" data-level="light">
+                <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M9 14h22M9 20h14M9 26h18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+                <b>Light</b><span>Feeds and Shorts gone. Everything else as normal.</span>
+              </button>
+              <button type="button" class="ob-card tidy" data-level="thorough">
+                <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 7l11 4.5v7.5c0 7-4.7 12.2-11 15-6.3-2.8-11-8-11-15v-7.5z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/></svg>
+                <b>Thorough</b><span>Also covers pictures and filters what turns up.</span>
+              </button>
+            </div>
+            <button type="button" class="link-btn center" id="ob-tidy-skip">Skip, use Light</button>
+            <p class="setting-caption center">You can switch any time in Settings.</p>
           </div>
         </div>
 
