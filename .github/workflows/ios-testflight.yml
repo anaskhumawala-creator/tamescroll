@@ -106,6 +106,17 @@ jobs:
           done
           ls "$SET"
 
+      # iPhone only for now: an iPad listing needs its own screenshots and
+      # the launcher has no iPad layout. tauri ios init asks for both.
+      - name: iPhone only
+        run: |
+          cd src-tauri/gen/apple
+          grep -rl "TARGETED_DEVICE_FAMILY" --include=project.yml --include=project.pbxproj . | while read -r f; do
+            sed -i '' -E 's/TARGETED_DEVICE_FAMILY( *[:=] *)"?1,2"?/TARGETED_DEVICE_FAMILY\1"1"/' "$f"
+          done
+          grep -rh "TARGETED_DEVICE_FAMILY" --include=project.yml --include=project.pbxproj . | sort | uniq -c
+          ! grep -rq 'TARGETED_DEVICE_FAMILY.*1,2' --include=project.yml --include=project.pbxproj .
+
       # The build number must rise with every upload; the run number does.
       - name: Build the signed app
         run: >
