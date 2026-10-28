@@ -633,7 +633,7 @@ class MainActivity : TauriActivity() {
   }
 
   override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-    if (fullscreenView != null) scaleDetector.onTouchEvent(ev)
+    if (fullscreenView != null) scaleDetector.onTouchEvent(ev) else foldBarOnDrag(ev)
     return super.dispatchTouchEvent(ev)
   }
 
@@ -1030,22 +1030,112 @@ class MainActivity : TauriActivity() {
     sheet.show()
   }
 
+  // THE BAR FOLDS AWAY (his 2026-10-28: "like Safari"). Dragging the
+  // page up folds it, dragging down brings it back, and a YouTube watch
+  // page opens with it folded so the video sits at the top. Driven by the
+  // finger, not by WebView scroll events: m.youtube scrolls inside the
+  // page, where onScrollChanged never fires. The touch is only watched,
+  // never consumed. Folding shrinks the WebView's top margin with the
+  // bar, the way Chrome's toolbar gives its height back to the page.
+  private var barFraction = 1f
+  private var barAnimator: android.animation.ValueAnimator? = null
+  private var barPageKey = ""
+  private var dragLastX = 0f
+  private var dragLastY = 0f
+  private var dragTravel = 0f
+
+  private fun applyBarFraction(f: Float) {
+    val bar = topBar ?: return
+    val host = topBarHost ?: return
+    barFraction = f
+    val h = TOP_BAR_DP * resources.displayMetrics.density
+    bar.translationY = -(1f - f) * h
+    val lp = host.layoutParams as? ViewGroup.MarginLayoutParams ?: return
+    val margin = (f * h).toInt()
+    if (lp.topMargin == margin) return
+    lp.topMargin = margin
+    host.layoutParams = lp
+  }
+
+  private fun foldBar(show: Boolean) {
+    if (topBar?.visibility != View.VISIBLE) return
+    val target = if (show) 1f else 0f
+    if (barFraction == target && barAnimator == null) return
+    barAnimator?.cancel()
+    barAnimator = android.animation.ValueAnimator.ofFloat(barFraction, target).apply {
+      duration = 180
+      addUpdateListener { applyBarFraction(it.animatedValue as Float) }
+      addListener(object : android.animation.AnimatorListenerAdapter() {
+        override fun onAnimationEnd(animation: android.animation.Animator) {
+          if (barAnimator === animation) barAnimator = null
+        }
+      })
+      start()
+    }
+  }
+
+  private fun foldBarOnDrag(ev: MotionEvent) {
+    if (topBar?.visibility != View.VISIBLE) return
+    when (ev.actionMasked) {
+      MotionEvent.ACTION_DOWN -> {
+        dragLastX = ev.rawX
+        dragLastY = ev.rawY
+        dragTravel = 0f
+      }
+      MotionEvent.ACTION_MOVE -> {
+        val dx = ev.rawX - dragLastX
+        val dy = ev.rawY - dragLastY
+        dragLastX = ev.rawX
+        dragLastY = ev.rawY
+        // Sideways swipes (carousels, the seek bar) never move the bar.
+        if (Math.abs(dy) <= Math.abs(dx)) return
+        if ((dy > 0) != (dragTravel > 0)) dragTravel = 0f
+        dragTravel += dy
+        val threshold = 24 * resources.displayMetrics.density
+        if (dragTravel < -threshold) {
+          foldBar(false)
+        } else if (dragTravel > threshold) {
+          foldBar(true)
+        }
+      }
+    }
+  }
+
+  private fun isWatchPage(u: Uri): Boolean {
+    val host = u.host ?: return false
+    return (host == "youtube.com" || host.endsWith(".youtube.com")) &&
+      (u.path ?: "").startsWith("/watch")
+  }
+
   /** Shows the bar on a web page and hides it on the launcher. UI thread. */
   private fun updateTopBar(url: String?) {
     val bar = topBar ?: return
-    val host = topBarHost ?: return
     val u = url ?: ""
     val onSite = (u.startsWith("https://") || u.startsWith("http://")) && !u.contains("tauri.localhost")
-    if (onSite) {
-      topBarUrl = u
-      topBarAddress?.text = (Uri.parse(u).host ?: u).removePrefix("www.").removePrefix("m.")
+    if (!onSite) {
+      if (bar.visibility == View.GONE) return
+      barAnimator?.cancel()
+      barAnimator = null
+      applyBarFraction(0f)
+      bar.translationY = 0f
+      bar.visibility = View.GONE
+      barPageKey = ""
+      return
     }
-    val want = if (onSite) View.VISIBLE else View.GONE
-    if (bar.visibility == want) return
-    bar.visibility = want
-    val lp = host.layoutParams as? ViewGroup.MarginLayoutParams ?: return
-    lp.topMargin = if (onSite) (TOP_BAR_DP * resources.displayMetrics.density).toInt() else 0
-    host.layoutParams = lp
+    topBarUrl = u
+    val uri = Uri.parse(u)
+    topBarAddress?.text = (uri.host ?: u).removePrefix("www.").removePrefix("m.")
+    if (bar.visibility != View.VISIBLE) {
+      bar.visibility = View.VISIBLE
+      applyBarFraction(1f)
+    }
+    // Each new page decides once (an SPA reports the same url several
+    // times): a watch page opens folded, anything else with the bar out.
+    // After that the finger decides.
+    val key = u.substringBefore('#')
+    if (key == barPageKey) return
+    barPageKey = key
+    foldBar(!isWatchPage(uri))
   }
 
   /// Same shape as installFullscreenClient: wry's RustWebViewClient is
