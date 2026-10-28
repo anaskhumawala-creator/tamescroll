@@ -90,9 +90,9 @@ class TsWebkitPlugin: Plugin {
   /// pages still see the user's light or dark mode.
   func paintBand(_ webview: WKWebView) {
     guard let superview = webview.superview, let window = webview.window else { return }
-    // Over a site the band sits above our dark bar, so it takes the bar's
-    // colour; with the bar folded away it takes the page's again.
-    let color = topBar?.isHidden == false && (barHeight?.constant ?? 0) > 0
+    // Over a site the band sits above our dark bar (or its folded strip),
+    // so it takes the bar's colour.
+    let color = topBar?.isHidden == false
       ? Self.barColor
       : webview.themeColor ?? webview.underPageBackgroundColor ?? .systemBackground
     superview.backgroundColor = color
@@ -117,8 +117,11 @@ class TsWebkitPlugin: Plugin {
   var webUnderClock: NSLayoutConstraint?
   var barHeight: NSLayoutConstraint?
   static let barFull: CGFloat = 52
-  /// Where the last scroll step started, to tell down from up.
-  var lastOffset: CGFloat = 0
+  static let barStrip: CGFloat = 24
+  /// Where the current drag started; nil while no finger is down.
+  var dragStart: CGFloat?
+  var barRow: UIView?
+  var barStrip: UILabel?
   /// The page this bar was last set up for, so a video page collapses it
   /// once on arrival and not again on every scroll.
   var collapsedFor = ""
@@ -167,9 +170,30 @@ class TsWebkitPlugin: Plugin {
     NSLayoutConstraint.activate([
       row.leadingAnchor.constraint(equalTo: bar.safeAreaLayoutGuide.leadingAnchor, constant: 4),
       row.trailingAnchor.constraint(equalTo: bar.safeAreaLayoutGuide.trailingAnchor, constant: -4),
-      row.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
+      row.centerYAnchor.constraint(equalTo: bar.topAnchor, constant: Self.barFull / 2),
+    ])
+    // The folded bar: a strip with only the site's name. A tap on it
+    // brings the whole bar back.
+    let strip = UILabel()
+    strip.font = .systemFont(ofSize: 12)
+    strip.textColor = UIColor(red: 0xA8 / 255.0, green: 0xA4 / 255.0, blue: 0x9D / 255.0, alpha: 1)
+    strip.textAlignment = .center
+    strip.alpha = 0
+    strip.isUserInteractionEnabled = true
+    strip.accessibilityTraits = .button
+    strip.accessibilityHint = "Shows the top bar"
+    strip.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(barUnfold)))
+    strip.translatesAutoresizingMaskIntoConstraints = false
+    bar.addSubview(strip)
+    NSLayoutConstraint.activate([
+      strip.leadingAnchor.constraint(equalTo: bar.leadingAnchor),
+      strip.trailingAnchor.constraint(equalTo: bar.trailingAnchor),
+      strip.topAnchor.constraint(equalTo: bar.topAnchor),
+      strip.heightAnchor.constraint(equalToConstant: Self.barStrip),
     ])
     topBar = bar
+    barRow = row
+    barStrip = strip
     topBarAddress = address
     return bar
   }
@@ -182,10 +206,10 @@ class TsWebkitPlugin: Plugin {
     if onSite, let u = u {
       topBarUrl = u.absoluteString
       topBarAddress?.setTitle(Self.bareHost(u.host ?? u.absoluteString), for: .normal)
-      // A video page starts with the bar folded away, so the video sits
-      // right under the clock; scrolling up brings it back.
-      let video = (u.host ?? "").hasSuffix("youtube.com")
-        && (u.path.hasPrefix("/watch") || u.path.hasPrefix("/shorts"))
+      barStrip?.text = Self.bareHost(u.host ?? u.absoluteString)
+      // Each new page opens with the whole bar, except a video page,
+      // which opens folded to the strip so the video sits near the top.
+      let video = (u.host ?? "").hasSuffix("youtube.com") && u.path.hasPrefix("/watch")
       if u.absoluteString != collapsedFor {
         collapsedFor = u.absoluteString
         setBarShown(!video, animated: !bar.isHidden)
@@ -198,29 +222,42 @@ class TsWebkitPlugin: Plugin {
     paintBand(webview)
   }
 
-  /// Safari's way: the bar folds away while reading down the page and
-  /// comes back on a scroll up, or at the top of the page.
+  /// Dragging the page up folds the bar into the strip. Dragging down
+  /// does not bring it back (ZV found the bar popping in and out
+  /// annoying, 2026-10-28): only a tap on the strip or a new page does.
   func followScroll(_ sv: UIScrollView) {
     guard let bar = topBar, !bar.isHidden else { return }
-    let y = sv.contentOffset.y
-    let step = y - lastOffset
-    lastOffset = y
-    if y <= 0 {
-      setBarShown(true, animated: true)
-    } else if sv.isTracking || sv.isDecelerating {
-      if step > 6, y > Self.barFull { setBarShown(false, animated: true) }
-      if step < -6 { setBarShown(true, animated: true) }
+    guard sv.isTracking else {
+      dragStart = nil
+      return
     }
+    let y = sv.contentOffset.y
+    guard let start = dragStart else {
+      dragStart = y
+      return
+    }
+    if y - start > 24 { setBarShown(false, animated: true) }
   }
+
+  @objc func barUnfold() { setBarShown(true, animated: true) }
 
   func setBarShown(_ shown: Bool, animated: Bool) {
     guard let h = barHeight else { return }
-    let want = shown ? Self.barFull : 0
+    let want = shown ? Self.barFull : Self.barStrip
     if h.constant == want { return }
     h.constant = want
-    if let wv = webview { paintBand(wv) }
-    guard animated, let parent = topBar?.superview else { return }
-    UIView.animate(withDuration: 0.2) { parent.layoutIfNeeded() }
+    let swap = {
+      self.barRow?.alpha = shown ? 1 : 0
+      self.barStrip?.alpha = shown ? 0 : 1
+    }
+    guard animated, let parent = topBar?.superview else {
+      swap()
+      return
+    }
+    UIView.animate(withDuration: 0.2) {
+      swap()
+      parent.layoutIfNeeded()
+    }
   }
 
   static func bareHost(_ host: String) -> String {
