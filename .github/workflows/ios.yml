@@ -274,7 +274,13 @@ jobs:
           git init -q -b ci/ios-proof
           git -c user.name=ci -c user.email=ci@localhost add -A
           git -c user.name=ci -c user.email=ci@localhost commit -qm "iOS proof for ${{ github.event.pull_request.head.sha }}"
-          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci/ios-proof
+          # GitHub has answered this push with a 408 once (2026-10-28), so
+          # try a few times before giving up on the proof.
+          for i in 1 2 3 4; do
+            git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci/ios-proof && exit 0
+            sleep $((i * 5))
+          done
+          exit 1
 
       - uses: actions/upload-artifact@v4
         if: always()
