@@ -7,11 +7,9 @@
 // flags), and YouTube reads the cookie on every request, so the page
 // flips that bit by page kind. Pure, so it is testable without a DOM.
 
-// 0 ships: his same-day ruling that YouTube must stay usable for the
-// user who only wants it calmer, so Restricted Mode belongs to the
-// "step away" user and is off until that choice reaches the page. 0
-// leaves the cookie untouched.
-export var YT_RESTRICTED_BROWSE = 0;
+// 1 ships. 0 over OTA stops the page touching the cookie at all, the
+// revert if YouTube ever objects to the flip.
+export var YT_RESTRICTED_BROWSE = 1;
 export function setRestrictedBrowse(v) { YT_RESTRICTED_BROWSE = v; }
 
 var BIT = 0x8000000;
