@@ -132,7 +132,30 @@ jobs:
             echo "--- Info.plist URL types and quick actions"
             /usr/libexec/PlistBuddy -c 'Print CFBundleURLTypes' "$APP/Info.plist" || true
             /usr/libexec/PlistBuddy -c 'Print UIApplicationShortcutItems' "$APP/Info.plist" || true
+            echo "--- UIDeviceFamily (1 iPhone, 2 iPad)"
+            /usr/libexec/PlistBuddy -c 'Print UIDeviceFamily' "$APP/Info.plist" || true
           } | tee ../ios-proof/info-plist.txt
+
+          # App Store screenshot: a site with the top bar, on the 6.9-inch
+          # iPhone Apple requires (1320 x 2868), clock at 9:41. Kept full
+          # size in appstore/, which the resize below does not touch.
+          BIG=$(xcrun simctl list devices available | grep -m1 -E 'iPhone 1[6-7] Pro Max' | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')
+          if [ -n "$BIG" ]; then
+            xcrun simctl shutdown "$DEVICE" || true
+            xcrun simctl boot "$BIG"
+            xcrun simctl bootstatus "$BIG" -b
+            xcrun simctl ui "$BIG" appearance dark || true
+            xcrun simctl status_bar "$BIG" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+            xcrun simctl install "$BIG" "$APP"
+            xcrun simctl launch "$BIG" "$BUNDLE" --ts-open=youtube
+            sleep 35
+            mkdir -p ../ios-proof/appstore
+            xcrun simctl io "$BIG" screenshot ../ios-proof/appstore/4-youtube.png
+            xcrun simctl shutdown "$BIG" || true
+            xcrun simctl boot "$DEVICE" || true
+          else
+            echo "no 6.9-inch iPhone simulator on this runner"
+          fi
 
           # Appetize offers iOS 17, 18 and 26; its sessions opened to a
           # blank page (2026-10-27) while iOS 26 here draws fine. Launch on
