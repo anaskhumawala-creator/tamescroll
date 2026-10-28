@@ -219,20 +219,20 @@
   .tg.on::after { transform: translateX(14px); background: var(--bg); }
 
   /* ---- pictures ---- */
-  section.pics-sec { max-width: 1080px; margin: 112px auto 0; padding: 0 24px; display: grid; grid-template-columns: .9fr 1.1fr; gap: 64px; align-items: center; }
-  .pics-sec h2 { font-family: var(--font-display); font-weight: 500; font-size: clamp(30px, 4vw, 44px); line-height: 1.1; margin-bottom: 14px; }
-  .pics-sec p { color: var(--paper-muted); font-size: 16.5px; max-width: 40ch; }
-  .pics-sec .small { font-size: 13.5px; color: var(--paper-faint); margin-top: 16px; }
-  .pcard { background: #fff; border: 1px solid var(--paper-line); border-radius: 18px; padding: 16px; box-shadow: 0 34px 70px -44px rgba(29,28,25,.5); }
-  .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border-radius: 12px; background: var(--paper-2); margin-bottom: 14px; }
-  .modes button { font: 600 13.5px var(--font-ui); border: 0; background: transparent; color: var(--paper-muted); padding: 8px 4px; border-radius: 9px; cursor: pointer; transition: background .3s, color .3s; }
+  section.pics-sec { max-width: 1080px; margin: 96px auto 0; padding: 0 24px; display: grid; grid-template-columns: 1fr 400px; gap: 56px; align-items: center; }
+  .pics-sec h2 { font-family: var(--font-display); font-weight: 500; font-size: clamp(26px, 3.2vw, 34px); line-height: 1.15; margin-bottom: 10px; }
+  .pics-sec p { color: var(--paper-muted); font-size: 15.5px; max-width: 46ch; }
+  .pics-sec .small { font-size: 13px; color: var(--paper-faint); margin-top: 10px; }
+  .pcard { background: #fff; border: 1px solid var(--paper-line); border-radius: 16px; padding: 12px; }
+  .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 3px; border-radius: 10px; background: var(--paper-2); margin-bottom: 10px; }
+  .modes button { font: 600 13px var(--font-ui); border: 0; background: transparent; color: var(--paper-muted); padding: 6px 4px; border-radius: 8px; cursor: pointer; transition: background .3s, color .3s; }
   .modes button[aria-pressed="true"] { background: var(--paper-ink); color: var(--paper); }
-  .pics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .pic { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; }
+  .pics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .pic { position: relative; aspect-ratio: 1; border-radius: 9px; overflow: hidden; }
   .pic .art { position: absolute; inset: 0; display: grid; place-items: center; transition: filter .6s var(--ease), transform .6s var(--ease); }
   .pic svg { width: 54%; height: 54%; fill: rgba(255,255,255,.88); }
-  .pic.blur .art { filter: blur(12px); transform: scale(1.08); }
-  .pics-sec .pics-note { font-size: 13px; color: var(--paper-faint); margin-top: 12px; text-align: center; max-width: none; }
+  .pic.blur .art { filter: blur(8px); transform: scale(1.08); }
+  .pics-sec .pics-note { font-size: 12.5px; color: var(--paper-faint); margin-top: 8px; text-align: center; max-width: none; }
 
   /* ---- feature cards ---- */
   section.features { max-width: 1080px; margin: 64px auto 0; padding: 0 24px; }
@@ -306,7 +306,7 @@
   @media (max-width: 760px) {
     nav.top a:not(.cta) { display: none; }
     .how .grid, .features .grid, section.pics-sec, section.download { grid-template-columns: 1fr; }
-    section.pics-sec { gap: 32px; margin-top: 88px; }
+    section.pics-sec { gap: 22px; margin-top: 80px; }
     section.download { text-align: center; }
     .download .dl-row { justify-content: center; }
     section.download .plat { margin: 0 auto 26px; }
@@ -453,9 +453,7 @@
         <div class="pic t1" data-kind="person"><div class="art"><svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="3"/><path d="M12 10l-5 10h10z"/></svg></div></div>
         <div class="pic t2" data-kind="place"><div class="art"><svg viewBox="0 0 24 24"><circle cx="17" cy="7" r="2.5"/><path d="M3 20l6-8 4 5 3-3 5 6z"/></svg></div></div>
         <div class="pic t3" data-kind="other"><div class="art"><svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="3"/><rect x="8" y="10" width="8" height="10" rx="2"/></svg></div></div>
-        <div class="pic t4" data-kind="place"><div class="art"><svg viewBox="0 0 24 24"><path d="M4 18h16M6 18V9l6-4 6 4v9"/><rect x="10" y="12" width="4" height="6" fill="rgba(0,0,0,.25)"/></svg></div></div>
         <div class="pic t5" data-kind="person"><div class="art"><svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="3"/><path d="M12 10l-5 10h10z"/></svg></div></div>
-        <div class="pic t2" data-kind="place"><div class="art"><svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><path d="M3 20c3-6 6-8 9-8s6 2 9 8z"/></svg></div></div>
       </div>
       <p class="pics-note" id="pics-note">All pictures blurred</p>
     </div>
@@ -567,7 +565,7 @@
   window.addEventListener("scroll", onScroll, { passive: true });
   onScroll();
 
-  // Each phone turns a little toward the pointer and the glare slides
+  // The hero phone turns a little toward the pointer and the glare slides
   // across the glass with it.
   function tilt(area, phone, ry) {
     if (still || !window.matchMedia("(pointer: fine)").matches) return;
@@ -575,16 +573,15 @@
       var r = phone.getBoundingClientRect();
       var dx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / 450));
       var dy = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / 450));
-      phone.style.setProperty("--ry", (ry + dx * 14) + "deg");
-      phone.style.setProperty("--rx", (9 - dy * 7) + "deg");
-      phone.style.setProperty("--gx", (-8 + dx * 22) + "%");
+      phone.style.setProperty("--ry", (ry + dx * 4) + "deg");
+      phone.style.setProperty("--rx", (9 - dy * 2) + "deg");
+      phone.style.setProperty("--gx", (-8 + dx * 10) + "%");
     });
     area.addEventListener("pointerleave", function () {
       phone.style.removeProperty("--ry"); phone.style.removeProperty("--rx"); phone.style.removeProperty("--gx");
     });
   }
   tilt(document.querySelector(".stage"), document.getElementById("phone"), -16);
-  tilt(document.getElementById("download"), document.getElementById("phone2"), 18);
 
   // Runs a step on repeat while el is on screen.
   function onScreen(el, fn, ms) {
