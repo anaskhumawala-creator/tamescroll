@@ -1547,16 +1547,6 @@ if (
       //     instead of one burst, so the worst task is one image rather
       //     than four.
       var nowMs = performance.now();
-      // EVERY PICTURE WAITS FOR THE SCROLL TO STOP. Its sheet already
-      // covers every image and nothing here ever reveals one, so judging
-      // mid-scroll buys nothing a person can see, and each NSFW read is
-      // one unsplittable GPU task in the middle of the fling (old Redmi
-      // 2026-10-28: 43% janky frames, p99 125ms, in this mode only).
-      if (!plan.revealClears && scrolling(nowMs)) {
-        release();
-        if (imageQueue.length) setTimeout(drainImages, SCROLL_QUIET_MS);
-        return;
-      }
       if (overBudget(nowMs, imageBudgetFrac(nowMs))) {
         release();
         if (imageQueue.length) setTimeout(drainImages, SCROLL_QUIET_MS);
