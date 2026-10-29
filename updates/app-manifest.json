@@ -1,7 +1,7 @@
 {
-  "versionCode": 1136,
-  "versionName": "0.1.136",
-  "apkUrl": "https://github.com/tamescroll/tamescroll/releases/download/app-v0.1.136/tamescroll-1136.apk",
-  "sha256": "f5e8b9da1260646e4853849570fa1a873be7bf0c1e5ade77cb2dcbff2580d1c2",
-  "notes": "A calm browser: open any site as a tile. Shorter first run. Night or Paper look, and larger text."
+  "versionCode": 1137,
+  "versionName": "0.1.137",
+  "apkUrl": "https://github.com/tamescroll/tamescroll/releases/download/app-v0.1.137/tamescroll-1137.apk",
+  "sha256": "21dae21ad6bfe90761ce749ad4b36740e0750603fee3759b26060233a53142df",
+  "notes": "Women mode: thumbnails on the first screen are judged much sooner."
 }
