@@ -19,6 +19,8 @@
 // the two would drift.
 import * as detector from './detector.js';
 import { imageRead } from './face-decode.mjs';
+import { flaggedFaceIndices } from './gender-verdict.mjs';
+import { workerMaySkipNsfw } from './gender-wait.mjs';
 
 // Exported, not self-starting: this file is bundled INTO the page
 // bundle, which is also what gets served as the worker script. One
@@ -196,12 +198,18 @@ export function startWorker() {
       // the same 13ms on a 48px source as on a thumbnail, and what it
       // would be judging is a face-sized crop of a person's head. The
       // face pass is the whole question there.
-      var nsfwP =
-        models.nsfw && !msg.noNsfw
-          ? detector.isNsfw(models.nsfw, bmp, frame).catch(function () {
-              return false;
-            })
-          : Promise.resolve(false);
+      var wantNsfw = !!models.nsfw && !msg.noNsfw;
+      function runNsfw() {
+        return detector.isNsfw(models.nsfw, bmp, frame).catch(function () {
+          return false;
+        });
+      }
+      // skipNsfwFor (the declared gender): the page lets the classifier
+      // wait for the faces, and be skipped when a face already keeps the
+      // image covered (gender-wait.mjs). Without it, both start together
+      // exactly as before.
+      var skipFor = typeof msg.skipNsfwFor === 'string' ? msg.skipNsfwFor : null;
+      var nsfwP = wantNsfw && skipFor === null ? runNsfw() : null;
       var boxes = models.face ? await detector.detectFaceBoxes(models.face, bmp, frame) : [];
       var reads = [];
       var genderPending = false;
@@ -211,7 +219,13 @@ export function startWorker() {
         genderPending = true;
         ensureGender();
       }
-      var nsfw = await nsfwP;
+      var posted = reads.map(imageRead);
+      var nsfwSkipped = false;
+      if (wantNsfw && !nsfwP) {
+        if (workerMaySkipNsfw(skipFor, boxes, posted, genderPending, flaggedFaceIndices)) nsfwSkipped = true;
+        else nsfwP = runNsfw();
+      }
+      var nsfw = nsfwP ? await nsfwP : false;
       post({
         type: 'verdict',
         id: msg.id,
@@ -224,8 +238,9 @@ export function startWorker() {
         // never fired and never logged. Finding 52 priced it at 48 junk
         // marks over 370 thumbnails. The 1024-float descriptor is still
         // dropped; see imageRead.
-        reads: reads.map(imageRead),
+        reads: posted,
         nsfw: !!nsfw,
+        nsfwSkipped: nsfwSkipped,
         genderPending: genderPending,
         ms: Math.round(performance.now() - t0),
       });

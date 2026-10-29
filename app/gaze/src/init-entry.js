@@ -124,7 +124,7 @@ import { playerBlurWanted, isPhoneUa, playerSwitchShown } from './player-switch.
 import { attachDelay } from './delay-presenter.mjs';
 import { attachDelayGl, PRESENTER_GL } from './gl-presenter.mjs';
 import * as perf from './perf.mjs';
-import { needsGenderWait } from './gender-wait.mjs';
+import { needsGenderWait, wantsGenderPreload, mustRejudgeWithNsfw } from './gender-wait.mjs';
 import * as codecProbe from './codec-probe.mjs';
 import { makeTimeline, resetTimeline, pushSnapshot, pushCut, boxesAt, latestSnapshot } from './track-timeline.mjs';
 
@@ -646,6 +646,9 @@ if (
   var gazeWorker = null;
   // Images whose faces are waiting for the worker's gender model.
   var genderHeld = [];
+  // Images whose last answer skipped NSFW where the page's own bars clear
+  // every face: they are asked again with the classifier.
+  var nsfwRequired = new WeakSet();
   function holdForGender(img, res) {
     if (!needsGenderWait(res)) return false;
     if (genderHeld.indexOf(img) === -1) genderHeld.push(img);
@@ -661,6 +664,18 @@ if (
       if (imageQueue.indexOf(held[i]) === -1) imageQueue.push(held[i]);
     }
     if (held.length) drainImages();
+  }
+  // Women or Men mode on YouTube: ask for the gender model as soon as the
+  // worker is up, not when the first face is found (gender-wait.mjs).
+  // The hold above still covers any face judged before it lands.
+  function preloadGender() {
+    try {
+      if (!gazeWorker || !gazeWorker.ready()) return;
+      if (!wantsGenderPreload(window.__TS_GAZE_MODE, userGender, platformOf(location.hostname))) return;
+      gazeWorker.askGender();
+    } catch (e) {
+      /* the first face still asks for it */
+    }
   }
   function workerAlive() {
     return !!gazeWorker && gazeWorker.ready();
@@ -1286,6 +1301,7 @@ if (
           mainMs += performance.now() - tPrep0;
           return gazeWorker.classifyImage(bmp, {
             noNsfw: !!(faceOnlyImgs && faceOnlyImgs.has(img)),
+            skipNsfwFor: nsfwRequired.has(img) ? null : userGender,
           });
         })
         .then(function (res) {
@@ -1309,6 +1325,16 @@ if (
               var idx = flaggedFaceIndices(userGender, reads);
               for (var i = 0; i < idx.length; i++) flagBoxes.push(faces[idx[i]]);
             }
+          }
+          // The worker skipped NSFW on a face it read as covered, and the
+          // bars here disagree: nothing is applied, and it is judged again
+          // with the classifier.
+          if (mustRejudgeWithNsfw(res, flagBoxes)) {
+            nsfwRequired.add(img);
+            if (imageQueue.indexOf(img) === -1) imageQueue.push(img);
+            noteImgDiag({ t: Math.round(performance.now()), where: 'worker', why: 'nsfw-rejudge' });
+            drainImages();
+            return { mainMs: mainMs };
           }
           var result = {
             face: flagBoxes.length > 0,
@@ -1336,6 +1362,8 @@ if (
             // all on his phone, and `faces` minus `flagged` cannot say
             // it -- a same-gender clear subtracts there too.
             nr: countRefusedByNullGuard(reads),
+            // 1 when the worker skipped NSFW because a face keeps it covered.
+            ns: res.nsfwSkipped ? 1 : 0,
             reads: reads.map(function (r, ri) {
               return imgDiagRead(r, res.boxes && res.boxes[ri], img.naturalWidth);
             }),
@@ -6016,6 +6044,7 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
             /* a probe marker must never break the boot */
           }
           if (ev.type === 'loaded' && ev.model === 'gender') releaseGenderHeld();
+          if (ev.type === 'up') setTimeout(preloadGender, 0);
           if (ev.type === 'dead') {
             // Whatever it was, the images still have to be judged: fall
             // all the way back to the in-page pipeline, loading the
@@ -6039,6 +6068,8 @@ lf.delayHeldLate = lf.delayHeldLate || 0;
           }
         },
       });
+      // A prestarted worker can already be up by now.
+      setTimeout(preloadGender, 0);
     } catch (e) {
       gazeWorker = null;
     }
